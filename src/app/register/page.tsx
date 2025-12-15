@@ -31,6 +31,25 @@ export default function RegisterPage() {
     available: null,
     message: '',
   })
+  
+  // Email verification code state
+  const [verificationState, setVerificationState] = useState<{
+    codeSent: boolean
+    codeVerified: boolean
+    sending: boolean
+    verifying: boolean
+    code: string
+    error: string
+  }>({
+    codeSent: false,
+    codeVerified: false,
+    sending: false,
+    verifying: false,
+    code: '',
+    error: '',
+  })
+  const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [generatedCode, setGeneratedCode] = useState('')
 
   // Debounced email check
   const checkEmail = useCallback(async (email: string) => {
@@ -77,19 +96,112 @@ export default function RegisterPage() {
   }, [formData.email, checkEmail])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }))
+    
+    // Reset verification if email changes
+    if (name === 'email') {
+      setVerificationState(prev => ({
+        ...prev,
+        codeSent: false,
+        codeVerified: false,
+        code: '',
+        error: '',
+      }))
+    }
+  }
+
+  // Send verification code
+  const sendVerificationCode = async () => {
+    if (!emailStatus.valid || !emailStatus.available) {
+      return
+    }
+
+    setVerificationState(prev => ({ ...prev, sending: true, error: '' }))
+
+    try {
+      const res = await fetch('/api/auth/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email }),
+      })
+      const data = await res.json()
+
+      if (res.ok) {
+        setVerificationState(prev => ({
+          ...prev,
+          codeSent: true,
+          sending: false,
+        }))
+        setShowVerifyModal(true)
+        if (data.code) {
+          // Dev mode: show code
+          setGeneratedCode(data.code)
+        }
+      } else {
+        setVerificationState(prev => ({
+          ...prev,
+          sending: false,
+          error: data.error || 'Failed to send code',
+        }))
+      }
+    } catch {
+      setVerificationState(prev => ({
+        ...prev,
+        sending: false,
+        error: 'Failed to send verification code',
+      }))
+    }
+  }
+
+  // Verify the code
+  const verifyCode = async () => {
+    setVerificationState(prev => ({ ...prev, verifying: true, error: '' }))
+
+    try {
+      const res = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: formData.email,
+          code: verificationState.code,
+        }),
+      })
+      const data = await res.json()
+
+      if (res.ok && data.verified) {
+        setVerificationState(prev => ({
+          ...prev,
+          codeVerified: true,
+          verifying: false,
+        }))
+        setShowVerifyModal(false)
+      } else {
+        setVerificationState(prev => ({
+          ...prev,
+          verifying: false,
+          error: data.error || 'Invalid verification code',
+        }))
+      }
+    } catch {
+      setVerificationState(prev => ({
+        ...prev,
+        verifying: false,
+        error: 'Failed to verify code',
+      }))
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    // Check email availability
-    if (!emailStatus.valid || !emailStatus.available) {
-      setError('Please enter a valid and available email address')
+    // Check email verification
+    if (!verificationState.codeVerified) {
+      setError('Please verify your email address first')
       return
     }
 
@@ -242,47 +354,89 @@ export default function RegisterPage() {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Email *
               </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="your@email.com"
-                  required
-                  className={`pr-10 ${
-                    emailStatus.valid === false || emailStatus.available === false
-                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
-                      : emailStatus.valid && emailStatus.available
-                      ? 'border-green-500 focus:border-green-500 focus:ring-green-500/20'
-                      : ''
-                  }`}
-                />
-                {/* Status icon */}
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  {emailStatus.checking ? (
-                    <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : emailStatus.valid && emailStatus.available ? (
-                    <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="your@email.com"
+                    required
+                    disabled={verificationState.codeVerified}
+                    className={`pr-10 ${
+                      verificationState.codeVerified
+                        ? 'border-green-500 bg-green-500/10'
+                        : emailStatus.valid === false || emailStatus.available === false
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
+                        : emailStatus.valid && emailStatus.available
+                        ? 'border-tank-accent focus:border-tank-accent focus:ring-tank-accent/20'
+                        : ''
+                    }`}
+                  />
+                  {/* Status icon */}
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {emailStatus.checking ? (
+                      <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : verificationState.codeVerified ? (
+                      <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    ) : emailStatus.valid && emailStatus.available ? (
+                      <svg className="h-5 w-5 text-tank-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (emailStatus.valid === false || emailStatus.available === false) ? (
+                      <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    ) : null}
+                  </div>
+                </div>
+                {/* Verify Email Button */}
+                {verificationState.codeVerified ? (
+                  <div className="flex items-center px-4 py-2 bg-green-500/20 text-green-400 rounded-xl text-sm font-medium whitespace-nowrap">
+                    <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                  ) : (emailStatus.valid === false || emailStatus.available === false) ? (
-                    <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  ) : null}
-                </div>
+                    Email Verified
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={sendVerificationCode}
+                    disabled={!emailStatus.valid || !emailStatus.available || verificationState.sending || emailStatus.checking}
+                    className="px-4 py-2 bg-tank-accent text-tank-black rounded-xl text-sm font-medium hover:bg-tank-accent/90 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
+                  >
+                    {verificationState.sending ? (
+                      <span className="flex items-center">
+                        <svg className="animate-spin h-4 w-4 mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Sending...
+                      </span>
+                    ) : verificationState.codeSent ? (
+                      'Resend Code'
+                    ) : (
+                      'Verify Email'
+                    )}
+                  </button>
+                )}
               </div>
               {/* Status message */}
-              {emailStatus.message && (
+              {emailStatus.message && !verificationState.codeVerified && (
                 <p className={`text-xs mt-1 ${
-                  emailStatus.valid && emailStatus.available ? 'text-green-400' : 'text-red-400'
+                  emailStatus.valid && emailStatus.available ? 'text-tank-accent' : 'text-red-400'
                 }`}>
                   {emailStatus.message}
                 </p>
+              )}
+              {verificationState.error && (
+                <p className="text-xs mt-1 text-red-400">{verificationState.error}</p>
               )}
             </div>
 
@@ -358,6 +512,96 @@ export default function RegisterPage() {
           </Link>
         </p>
       </div>
+
+      {/* Verification Code Modal */}
+      {showVerifyModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-tank-dark border border-tank-gray rounded-2xl p-6 w-full max-w-md">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-tank-accent/20 flex items-center justify-center">
+                <svg className="w-8 h-8 text-tank-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Verify Your Email</h3>
+              <p className="text-gray-400 text-sm">
+                We've sent a 6-digit verification code to<br />
+                <strong className="text-white">{formData.email}</strong>
+              </p>
+            </div>
+
+            {/* Dev mode: show code */}
+            {generatedCode && (
+              <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                <p className="text-yellow-400 text-xs font-semibold mb-1">🔧 Dev Mode - Your code:</p>
+                <p className="text-2xl font-mono font-bold text-center text-yellow-400">{generatedCode}</p>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Enter Verification Code
+              </label>
+              <input
+                type="text"
+                value={verificationState.code}
+                onChange={(e) => setVerificationState(prev => ({ 
+                  ...prev, 
+                  code: e.target.value.replace(/\D/g, '').slice(0, 6),
+                  error: '',
+                }))}
+                placeholder="000000"
+                maxLength={6}
+                className="text-center text-2xl font-mono tracking-widest"
+              />
+            </div>
+
+            {verificationState.error && (
+              <p className="text-red-400 text-sm text-center mb-4">{verificationState.error}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowVerifyModal(false)}
+                className="flex-1 px-4 py-3 bg-tank-gray text-white rounded-xl font-medium hover:bg-tank-gray/80 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={verifyCode}
+                disabled={verificationState.code.length !== 6 || verificationState.verifying}
+                className="flex-1 px-4 py-3 bg-tank-accent text-tank-black rounded-xl font-medium hover:bg-tank-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {verificationState.verifying ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Verifying...
+                  </span>
+                ) : (
+                  'Verify'
+                )}
+              </button>
+            </div>
+
+            <p className="text-center text-gray-500 text-xs mt-4">
+              Didn't receive the code?{' '}
+              <button
+                type="button"
+                onClick={sendVerificationCode}
+                disabled={verificationState.sending}
+                className="text-tank-accent hover:underline"
+              >
+                Resend
+              </button>
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
