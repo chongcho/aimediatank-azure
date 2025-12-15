@@ -93,6 +93,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       message: 'User created successfully!',
+      userId: user.id,
       user: {
         id: user.id,
         email: user.email,

@@ -1,7 +1,7 @@
 'use client'
 
 // Registration page with email verification
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -19,6 +19,10 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [verificationUrl, setVerificationUrl] = useState('')
+  
+  // Avatar state (preview only - actual upload after login in profile edit)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   // Email verification state
   const [emailStatus, setEmailStatus] = useState<{
@@ -113,6 +117,26 @@ export default function RegisterPage() {
         error: '',
       }))
     }
+  }
+
+  // Avatar handlers (preview only - upload handled in profile edit after login)
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file')
+      return
+    }
+
+    // Show preview
+    const previewUrl = URL.createObjectURL(file)
+    setAvatarPreview(previewUrl)
   }
 
   // Send verification code
@@ -237,6 +261,7 @@ export default function RegisterPage() {
         setError(data.error || 'Registration failed')
       } else {
         // Redirect to login on success
+        // Note: Avatar can be set after login in profile edit
         router.push('/login?registered=true')
       }
     } catch (err) {
@@ -324,17 +349,58 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Display Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="John Doe"
-              />
+            {/* Avatar and Nickname Section */}
+            <div className="flex items-center gap-6 pb-2">
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-tank-light">
+                    {avatarPreview ? (
+                      <img 
+                        src={avatarPreview} 
+                        alt="Avatar" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-3xl font-bold">
+                        {formData.name?.[0]?.toUpperCase() || formData.username?.[0]?.toUpperCase() || '?'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                />
+                
+                <button
+                  type="button"
+                  onClick={handleAvatarClick}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-tank-gray hover:bg-tank-light border border-tank-light rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Edit Avatar
+                </button>
+              </div>
+              
+              {/* Nickname input */}
+              <div className="flex-1 space-y-2">
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Your Nickname"
+                  className="text-xl font-bold bg-tank-gray border border-tank-light rounded-xl px-4 py-3 w-full"
+                />
+                <p className="text-sm text-gray-400">Nickname</p>
+              </div>
             </div>
 
             <div>
