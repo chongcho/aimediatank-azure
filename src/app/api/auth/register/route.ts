@@ -10,7 +10,7 @@ function generateVerificationToken() {
 
 export async function POST(request: Request) {
   try {
-    const { email, username, password, name, ageRange, role } = await request.json()
+    const { email, username, password, name, legalName, phone, location, ageRange, bio } = await request.json()
 
     // Validation
     if (!email || !username || !password) {
@@ -70,6 +70,11 @@ export async function POST(request: Request) {
         username,
         password: hashedPassword,
         name: name || username,
+        legalName: legalName || null,
+        phone: phone || null,
+        location: location || null,
+        ageRange: ageRange || null,
+        bio: bio || null,
         role: userRole,
       } as any,
     })

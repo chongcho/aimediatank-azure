@@ -13,7 +13,11 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     name: '',
+    legalName: '',
+    phone: '',
+    location: '',
     ageRange: '',
+    bio: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -251,7 +255,11 @@ export default function RegisterPage() {
           username: formData.username,
           password: formData.password,
           name: formData.name,
+          legalName: formData.legalName,
+          phone: formData.phone,
+          location: formData.location,
           ageRange: formData.ageRange,
+          bio: formData.bio,
         }),
       })
 
@@ -350,7 +358,7 @@ export default function RegisterPage() {
             )}
 
             {/* Avatar and Nickname Section */}
-            <div className="flex items-center gap-6 pb-2">
+            <div className="flex items-center justify-center gap-6">
               <div className="flex flex-col items-center gap-3">
                 <div className="relative">
                   <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-tank-light">
@@ -390,31 +398,49 @@ export default function RegisterPage() {
               </div>
               
               {/* Nickname input */}
-              <div className="flex-1 space-y-2">
+              <div className="text-left space-y-2">
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="Your Nickname"
-                  className="text-xl font-bold bg-tank-gray border border-tank-light rounded-xl px-4 py-3 w-full"
+                  className="text-2xl font-bold bg-transparent border-b-2 border-transparent hover:border-tank-light focus:border-tank-accent transition-colors outline-none w-full"
                 />
                 <p className="text-sm text-gray-400">Nickname</p>
               </div>
             </div>
 
+            {/* User Name (Legal Name) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Username *
+                User Name (Legal Name)
+              </label>
+              <input
+                type="text"
+                name="legalName"
+                value={formData.legalName}
+                onChange={handleChange}
+                placeholder="Your full legal name"
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500 mt-1">Your legal name for account records</p>
+            </div>
+
+            {/* User ID */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                User ID *
               </label>
               <input
                 type="text"
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
-                placeholder="johndoe"
+                placeholder="username"
                 required
               />
+              <p className="text-xs text-gray-500 mt-1">Used for login and your profile URL</p>
             </div>
 
             <div>
@@ -486,34 +512,37 @@ export default function RegisterPage() {
               )}
             </div>
 
+            {/* Phone */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Password *
+                Phone Number
               </label>
               <input
-                type="password"
-                name="password"
-                value={formData.password}
+                type="tel"
+                name="phone"
+                value={formData.phone}
                 onChange={handleChange}
-                placeholder="••••••••"
-                required
+                placeholder="+1 (555) 000-0000"
+                className="w-full"
               />
             </div>
 
+            {/* Location */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Confirm Password *
+                Location
               </label>
               <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
+                type="text"
+                name="location"
+                value={formData.location}
                 onChange={handleChange}
-                placeholder="••••••••"
-                required
+                placeholder="City, Country"
+                className="w-full"
               />
             </div>
 
+            {/* Age Range */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Age Range *
@@ -532,6 +561,57 @@ export default function RegisterPage() {
               <p className="text-xs text-gray-500 mt-1">
                 Required for content filtering
               </p>
+            </div>
+
+            {/* Bio */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Bio
+              </label>
+              <textarea
+                name="bio"
+                value={formData.bio}
+                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                placeholder="Tell others about yourself..."
+                rows={3}
+                className="w-full resize-none"
+              />
+            </div>
+
+            {/* Password Section */}
+            <div className="border-t border-tank-light pt-6">
+              <h3 className="text-lg font-semibold mb-4">Set Password</h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Password *
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Confirm Password *
+                  </label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+              </div>
             </div>
 
             <button
