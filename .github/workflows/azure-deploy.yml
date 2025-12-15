@@ -39,10 +39,10 @@ jobs:
 
       - name: Copy standalone files
         run: |
-          mkdir -p deploy
-          cp -r .next/standalone/* ./deploy/
+          mkdir -p deploy/.next
+          cp -r .next/standalone/. ./deploy/
           cp -r .next/static ./deploy/.next/static
-          cp -r public ./deploy/public
+          cp -r public ./deploy/public || true
           echo "Build completed at $(date)" > ./deploy/BUILD_INFO.txt
 
       - name: Deploy to Azure Web App
