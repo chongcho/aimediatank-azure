@@ -23,9 +23,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: Clean build cache
-        run: rm -rf .next node_modules/.cache
-
       - name: Install dependencies
         run: npm ci
 
