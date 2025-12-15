@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -18,6 +18,63 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [verificationUrl, setVerificationUrl] = useState('')
+  
+  // Email verification state
+  const [emailStatus, setEmailStatus] = useState<{
+    checking: boolean
+    valid: boolean | null
+    available: boolean | null
+    message: string
+  }>({
+    checking: false,
+    valid: null,
+    available: null,
+    message: '',
+  })
+
+  // Debounced email check
+  const checkEmail = useCallback(async (email: string) => {
+    if (!email || email.length < 5) {
+      setEmailStatus({ checking: false, valid: null, available: null, message: '' })
+      return
+    }
+
+    setEmailStatus(prev => ({ ...prev, checking: true }))
+
+    try {
+      const res = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+
+      setEmailStatus({
+        checking: false,
+        valid: data.valid,
+        available: data.available,
+        message: data.error || data.message || '',
+      })
+    } catch {
+      setEmailStatus({
+        checking: false,
+        valid: null,
+        available: null,
+        message: 'Failed to verify email',
+      })
+    }
+  }, [])
+
+  // Debounce email verification
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.email) {
+        checkEmail(formData.email)
+      }
+    }, 500) // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer)
+  }, [formData.email, checkEmail])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData((prev) => ({
@@ -29,6 +86,12 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    // Check email availability
+    if (!emailStatus.valid || !emailStatus.available) {
+      setError('Please enter a valid and available email address')
+      return
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match')
@@ -179,14 +242,48 @@ export default function RegisterPage() {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Email *
               </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="your@email.com"
-                required
-              />
+              <div className="relative">
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="your@email.com"
+                  required
+                  className={`pr-10 ${
+                    emailStatus.valid === false || emailStatus.available === false
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
+                      : emailStatus.valid && emailStatus.available
+                      ? 'border-green-500 focus:border-green-500 focus:ring-green-500/20'
+                      : ''
+                  }`}
+                />
+                {/* Status icon */}
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {emailStatus.checking ? (
+                    <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : emailStatus.valid && emailStatus.available ? (
+                    <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (emailStatus.valid === false || emailStatus.available === false) ? (
+                    <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : null}
+                </div>
+              </div>
+              {/* Status message */}
+              {emailStatus.message && (
+                <p className={`text-xs mt-1 ${
+                  emailStatus.valid && emailStatus.available ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {emailStatus.message}
+                </p>
+              )}
             </div>
 
             <div>
