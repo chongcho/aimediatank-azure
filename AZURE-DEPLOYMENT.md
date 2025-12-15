@@ -260,3 +260,5 @@ aimediatank-azure/
 | Restart | `az webapp restart --name aimediatank-azure --resource-group aimediatank-rg` |
 | Scale | `az appservice plan update --name aimediatank-plan --sku P1V2` |
 
+
+

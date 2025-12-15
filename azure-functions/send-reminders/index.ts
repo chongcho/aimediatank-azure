@@ -22,3 +22,5 @@ const reminderTimer: AzureFunction = async function (context: Context, reminderT
 
 export default reminderTimer
 
+
+

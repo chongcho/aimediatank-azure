@@ -29,3 +29,5 @@ CRON_SECRET="your-cron-secret"
 # Optional: Google AdSense
 NEXT_PUBLIC_ADSENSE_CLIENT_ID="ca-pub-xxx"
 
+
+
