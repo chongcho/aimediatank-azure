@@ -29,6 +29,9 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Clean previous build
+        run: rm -rf .next deploy
+
       - name: Build application
         run: npm run build
         env:
@@ -36,9 +39,11 @@ jobs:
 
       - name: Copy standalone files
         run: |
-          cp -r .next/standalone ./deploy
+          mkdir -p deploy
+          cp -r .next/standalone/* ./deploy/
           cp -r .next/static ./deploy/.next/static
           cp -r public ./deploy/public
+          echo "Build completed at $(date)" > ./deploy/BUILD_INFO.txt
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
