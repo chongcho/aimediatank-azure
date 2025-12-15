@@ -1,0 +1,12 @@
+{
+  "bindings": [
+    {
+      "name": "reminderTimer",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 0 9 * * *"
+    }
+  ],
+  "scriptFile": "../dist/send-reminders/index.js"
+}
+

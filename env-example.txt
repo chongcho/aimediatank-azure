@@ -1,0 +1,31 @@
+# Azure Deployment Environment Variables
+# Rename this file to .env and fill in your values
+
+# Database (Azure PostgreSQL Flexible Server)
+DATABASE_URL="postgresql://USERNAME:PASSWORD@SERVER.postgres.database.azure.com:5432/DATABASE?sslmode=require"
+
+# NextAuth
+NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
+NEXTAUTH_URL="https://your-app.azurewebsites.net"
+
+# Azure Blob Storage
+AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=xxx;AccountKey=xxx;EndpointSuffix=core.windows.net"
+AZURE_STORAGE_CONTAINER_NAME="media"
+
+# Stripe
+STRIPE_SECRET_KEY="sk_live_xxx"
+STRIPE_PUBLISHABLE_KEY="pk_live_xxx"
+STRIPE_WEBHOOK_SECRET="whsec_xxx"
+
+# Email (SMTP)
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
+SMTP_USER="your-email@gmail.com"
+SMTP_PASS="your-app-password"
+
+# Optional: Cron Secret (for securing cron endpoints)
+CRON_SECRET="your-cron-secret"
+
+# Optional: Google AdSense
+NEXT_PUBLIC_ADSENSE_CLIENT_ID="ca-pub-xxx"
+

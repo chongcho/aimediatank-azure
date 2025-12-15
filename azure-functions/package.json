@@ -1,0 +1,19 @@
+{
+  "name": "aimediatank-azure-functions",
+  "version": "1.0.0",
+  "description": "Azure Functions for AiMediaTank cron jobs",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "start": "func start",
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.x",
+    "typescript": "^5.0.0"
+  }
+}
+

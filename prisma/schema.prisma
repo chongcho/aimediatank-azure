@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  username      String    @unique
+  password      String
+  name          String?   // Nickname (display name)
+  legalName     String?   // Legal/full name
+  avatar        String?
+  bio           String?
+  phone         String?
+  location      String?
+  ageRange      String?   // "UNDER_18" or "18_PLUS"
+  role          String    @default("VIEWER")
+  membershipType String   @default("VIEWER")  // "VIEWER", "BASIC", "PREMIUM"
+  membershipExpiresAt DateTime?
+  stripeCustomerId String?
+  stripeSubscriptionId String?
+  emailVerified Boolean   @default(false)
+  verificationToken String?
+  verificationExpires DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  media         Media[]
+  comments      Comment[]
+  ratings       Rating[]
+  sentMessages  Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  reports       Report[]
+  purchases     Purchase[] @relation("Purchases")
+  savedMedia    SavedMedia[]
+  notifications Notification[]
+  chatMessages  ChatMessage[]
+}
+
+model Media {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?
+  type          String
+  url           String
+  thumbnailUrl  String?
+  aiTool        String?
+  aiPrompt      String?
+  price         Float?    // null = free, otherwise price in USD
+  views         Int       @default(0)
+  isPublic      Boolean   @default(true)
+  isApproved    Boolean   @default(true)
+  isSold        Boolean   @default(false)  // true after purchased & downloaded
+  soldAt        DateTime?                  // when item was sold/downloaded
+  deleteAfter   DateTime?                  // scheduled deletion date (10 days after download)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments      Comment[]
+  ratings       Rating[]
+  reports       Report[]
+  purchases     Purchase[]
+  savedBy       SavedMedia[]
+
+  @@index([userId])
+  @@index([type])
+  @@index([views])
+  @@index([createdAt])
+  @@index([isSold])
+  @@index([deleteAfter])
+}
+
+model Comment {
+  id            String    @id @default(uuid())
+  content       String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaId       String
+  media         Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@index([mediaId])
+  @@index([userId])
+}
+
+model Rating {
+  id            String    @id @default(uuid())
+  score         Int
+  review        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaId       String
+  media         Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mediaId])
+  @@index([mediaId])
+}
+
+model Message {
+  id            String    @id @default(uuid())
+  content       String
+  isRead        Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  senderId      String
+  sender        User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId    String
+  receiver      User      @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model Report {
+  id            String    @id @default(uuid())
+  reason        String
+  status        String    @default("PENDING")
+  adminNote     String?
+  createdAt     DateTime  @default(now())
+  resolvedAt    DateTime?
+
+  // Relations
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaId       String
+  media         Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([mediaId])
+}
+
+model Purchase {
+  id                String    @id @default(uuid())
+  amount            Float
+  currency          String    @default("usd")
+  status            String    @default("pending") // pending, completed, failed, refunded
+  stripePaymentId   String?   @unique
+  stripeSessionId   String?   @unique
+  createdAt         DateTime  @default(now())
+  completedAt       DateTime?
+
+  // Relations
+  buyerId           String
+  buyer             User      @relation("Purchases", fields: [buyerId], references: [id], onDelete: Cascade)
+  mediaId           String
+  media             Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  sellerId          String
+
+  @@index([buyerId])
+  @@index([mediaId])
+  @@index([sellerId])
+  @@index([status])
+}
+
+model SavedMedia {
+  id            String    @id @default(uuid())
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaId       String
+  media         Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mediaId])
+  @@index([userId])
+  @@index([mediaId])
+}
+
+model Notification {
+  id            String    @id @default(uuid())
+  type          String    // "purchase", "download_reminder", "message", "system"
+  title         String
+  message       String
+  link          String?   // Optional link to navigate to
+  read          Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model ChatMessage {
+  id            String    @id @default(uuid())
+  content       String
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId])
+}
