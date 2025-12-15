@@ -1,15 +1,8 @@
 import { NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
+import { generateCode, storeCode } from '@/lib/verificationCodes'
 
 export const dynamic = 'force-dynamic'
-
-// Store verification codes temporarily (in production, use Redis or database)
-const verificationCodes = new Map<string, { code: string; expires: number }>()
-
-// Generate a 6-digit code
-function generateCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString()
-}
 
 // Send verification code to email
 export async function POST(request: Request) {
@@ -32,12 +25,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // Generate 6-digit code
+    // Generate and store 6-digit code
     const code = generateCode()
-    const expires = Date.now() + 10 * 60 * 1000 // 10 minutes
-
-    // Store the code
-    verificationCodes.set(email.toLowerCase(), { code, expires })
+    storeCode(email, code, 10) // 10 minutes expiry
 
     // Send email with code
     const emailHtml = `
@@ -102,6 +92,3 @@ export async function POST(request: Request) {
     )
   }
 }
-
-// Export for use in verify-code route
-export { verificationCodes }
