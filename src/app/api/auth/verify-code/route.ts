@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server'
+import { getStoredCode, deleteCode, markEmailVerified } from '@/lib/verificationStore'
 
 export const dynamic = 'force-dynamic'
-
-// In-memory store for verification codes (shared with send-code)
-// In production, use Redis or database
-const verificationCodes = new Map<string, { code: string; expires: number }>()
-
-// Also store verified emails temporarily
-const verifiedEmails = new Map<string, number>()
 
 export async function POST(request: Request) {
   try {
@@ -20,13 +14,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const emailLower = email.toLowerCase()
-    
-    // Get stored code from send-code endpoint's map
-    // Since we can't share state between serverless functions,
-    // we'll use a simple verification that stores codes in a global
-    const { verificationCodes: sendCodeMap } = await import('../send-code/route')
-    const stored = sendCodeMap.get(emailLower)
+    // Get stored code
+    const stored = getStoredCode(email)
 
     if (!stored) {
       return NextResponse.json({
@@ -36,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     if (Date.now() > stored.expires) {
-      sendCodeMap.delete(emailLower)
+      deleteCode(email)
       return NextResponse.json({
         verified: false,
         error: 'Verification code has expired. Please request a new code.',
@@ -51,8 +40,8 @@ export async function POST(request: Request) {
     }
 
     // Code is valid - remove it and mark email as verified
-    sendCodeMap.delete(emailLower)
-    verifiedEmails.set(emailLower, Date.now() + 30 * 60 * 1000) // Valid for 30 minutes
+    deleteCode(email)
+    markEmailVerified(email, 30) // Valid for 30 minutes for registration
 
     return NextResponse.json({
       verified: true,
@@ -66,17 +55,3 @@ export async function POST(request: Request) {
     )
   }
 }
-
-// Check if email is verified (can be used by register endpoint)
-export function isEmailVerified(email: string): boolean {
-  const expires = verifiedEmails.get(email.toLowerCase())
-  if (!expires) return false
-  if (Date.now() > expires) {
-    verifiedEmails.delete(email.toLowerCase())
-    return false
-  }
-  return true
-}
-
-export { verifiedEmails }
-
