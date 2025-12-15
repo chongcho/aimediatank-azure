@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
-import { getStoredCode, deleteCode, markEmailVerified } from '@/lib/verificationStore'
 
 export const dynamic = 'force-dynamic'
 
+// Import the verification codes map from send-code
+// Note: In production, use Redis or database for persistence across instances
+import { verificationCodes } from '../send-code/route'
+
+// Verify the code
 export async function POST(request: Request) {
   try {
     const { email, code } = await request.json()
@@ -14,34 +18,35 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get stored code
-    const stored = getStoredCode(email)
+    const normalizedEmail = email.toLowerCase()
+    const storedData = verificationCodes.get(normalizedEmail)
 
-    if (!stored) {
-      return NextResponse.json({
-        verified: false,
-        error: 'No verification code found. Please request a new code.',
-      })
+    if (!storedData) {
+      return NextResponse.json(
+        { verified: false, error: 'No verification code found. Please request a new code.' },
+        { status: 400 }
+      )
     }
 
-    if (Date.now() > stored.expires) {
-      deleteCode(email)
-      return NextResponse.json({
-        verified: false,
-        error: 'Verification code has expired. Please request a new code.',
-      })
+    // Check if code expired
+    if (Date.now() > storedData.expires) {
+      verificationCodes.delete(normalizedEmail)
+      return NextResponse.json(
+        { verified: false, error: 'Verification code has expired. Please request a new code.' },
+        { status: 400 }
+      )
     }
 
-    if (stored.code !== code) {
-      return NextResponse.json({
-        verified: false,
-        error: 'Invalid verification code. Please try again.',
-      })
+    // Check if code matches
+    if (storedData.code !== code) {
+      return NextResponse.json(
+        { verified: false, error: 'Invalid verification code. Please try again.' },
+        { status: 400 }
+      )
     }
 
-    // Code is valid - remove it and mark email as verified
-    deleteCode(email)
-    markEmailVerified(email, 30) // Valid for 30 minutes for registration
+    // Code is valid - remove it from storage
+    verificationCodes.delete(normalizedEmail)
 
     return NextResponse.json({
       verified: true,
@@ -50,7 +55,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error verifying code:', error)
     return NextResponse.json(
-      { error: 'Failed to verify code' },
+      { verified: false, error: 'Failed to verify code' },
       { status: 500 }
     )
   }
