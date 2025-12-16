@@ -6,6 +6,22 @@ import { useRouter } from 'next/navigation'
 
 const plans = [
   {
+    id: 'viewer',
+    name: 'Viewer Plan',
+    price: 0,
+    yearlyPrice: 0,
+    period: 'month',
+    description: 'Suit for occasional creators',
+    uploadCost: 'No upload',
+    uploadCostColor: 'text-red-400',
+    features: [
+      'View contents',
+      'Buy contents',
+    ],
+    buttonText: 'Buy Plan',
+    isFree: true,
+  },
+  {
     id: 'basic',
     name: 'Basic Plan',
     price: 2,
@@ -214,26 +230,38 @@ export default function PricingPage() {
       )}
 
       {/* Pricing Cards */}
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid md:grid-cols-4 gap-6">
         {plans.map((plan) => (
           <div
             key={plan.id}
             className="relative bg-tank-gray rounded-2xl border border-tank-light hover:border-tank-accent/50 transition-all"
           >
-            <div className="p-8 text-center">
-              <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+            <div className="p-6 text-center">
+              <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
               <p className="text-gray-400 text-sm italic mb-6">{plan.description}</p>
 
               {/* Pricing */}
               <div className="mb-2">
-                <span className="text-4xl font-bold">${plan.price}</span>
-                <span className="text-gray-400">/month</span>
+                {plan.isFree ? (
+                  <span className="text-4xl font-bold">Free</span>
+                ) : (
+                  <>
+                    <span className="text-4xl font-bold">${plan.price}</span>
+                    <span className="text-gray-400">/month</span>
+                  </>
+                )}
               </div>
-              <p className="text-gray-500 text-sm mb-4">or ${plan.yearlyPrice}/year</p>
+              {!plan.isFree && (
+                <p className="text-gray-500 text-sm mb-4">or ${plan.yearlyPrice}/year</p>
+              )}
+              {plan.isFree && <p className="text-gray-500 text-sm mb-4">&nbsp;</p>}
 
               {/* Upload cost highlight */}
               <div className="mb-6 py-3 border-t border-b border-tank-light">
-                <span className={`text-lg font-semibold ${plan.id === 'premium' ? 'text-tank-accent' : 'text-white'}`}>
+                <span className={`text-lg font-semibold ${
+                  plan.id === 'premium' ? 'text-tank-accent' : 
+                  plan.id === 'viewer' ? 'text-red-400' : 'text-white'
+                }`}>
                   {plan.uploadCost}
                 </span>
               </div>
@@ -247,10 +275,12 @@ export default function PricingPage() {
               {/* Button */}
               <button
                 onClick={() => handleSubscribe(plan.id)}
-                disabled={loading !== null || isCurrentPlan(plan.id)}
+                disabled={loading !== null || isCurrentPlan(plan.id) || plan.isFree}
                 className={`w-full py-3 rounded-xl font-semibold transition-all ${
                   isCurrentPlan(plan.id)
                     ? 'bg-gradient-to-r from-tank-accent/20 to-emerald-500/20 text-tank-accent border-2 border-tank-accent cursor-not-allowed'
+                    : plan.isFree
+                    ? 'bg-tank-gray border-2 border-tank-light text-gray-400 cursor-default'
                     : 'bg-tank-gray border-2 border-tank-light text-white hover:bg-tank-light hover:border-tank-accent/50'
                 }`}
               >
@@ -279,10 +309,11 @@ export default function PricingPage() {
       <div className="mt-16">
         <h2 className="text-2xl font-bold text-center mb-8">Plan Comparison</h2>
         <div className="overflow-x-auto">
-          <table className="w-full max-w-3xl mx-auto">
+          <table className="w-full max-w-4xl mx-auto">
             <thead>
               <tr className="border-b border-tank-light">
                 <th className="text-left py-4 px-4 font-semibold">Feature</th>
+                <th className="text-center py-4 px-4 font-semibold">Viewer</th>
                 <th className="text-center py-4 px-4 font-semibold">Basic</th>
                 <th className="text-center py-4 px-4 font-semibold">Advanced</th>
                 <th className="text-center py-4 px-4 font-semibold text-tank-accent">Premium</th>
@@ -291,18 +322,21 @@ export default function PricingPage() {
             <tbody>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">Monthly Price</td>
+                <td className="py-4 px-4 text-center">Free</td>
                 <td className="py-4 px-4 text-center">$2/month</td>
                 <td className="py-4 px-4 text-center">$5/month</td>
                 <td className="py-4 px-4 text-center">$8/month</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">Yearly Price</td>
+                <td className="py-4 px-4 text-center">Free</td>
                 <td className="py-4 px-4 text-center">$20/year</td>
                 <td className="py-4 px-4 text-center">$50/year</td>
                 <td className="py-4 px-4 text-center">$80/year</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">Upload Cost</td>
+                <td className="py-4 px-4 text-center text-red-400">No upload</td>
                 <td className="py-4 px-4 text-center">$1 per upload</td>
                 <td className="py-4 px-4 text-center">$0.5 per upload</td>
                 <td className="py-4 px-4 text-center text-tank-accent">Free</td>
@@ -312,15 +346,18 @@ export default function PricingPage() {
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
+                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">Buy Contents</td>
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
+                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">Sell Contents</td>
+                <td className="py-4 px-4 text-center text-gray-500">✗</td>
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
