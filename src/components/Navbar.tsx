@@ -189,18 +189,16 @@ export default function Navbar() {
               <div className="w-8 h-8 rounded-full bg-tank-light animate-pulse" />
             ) : session ? (
               <>
-                {/* Upload Button */}
-                {isSubscriber && (
-                  <Link
-                    href="/upload"
-                    className="hidden sm:flex items-center gap-2 px-4 py-2 bg-tank-accent text-tank-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Upload
-                  </Link>
-                )}
+                {/* Upload Button - redirects to Membership page */}
+                <Link
+                  href="/pricing"
+                  className="hidden sm:flex items-center gap-2 px-4 py-2 bg-tank-accent text-tank-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Upload
+                </Link>
 
                 {/* Alerts Button */}
                 <div className="relative" ref={alertsRef}>
@@ -423,9 +421,7 @@ export default function Navbar() {
               <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
               <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
               <MobileNavLink href="/?type=MUSIC" onClick={() => setIsMenuOpen(false)}>Music</MobileNavLink>
-              {isSubscriber && (
-                <MobileNavLink href="/upload" onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
-              )}
+              <MobileNavLink href="/pricing" onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
             </div>
           </div>
         )}
