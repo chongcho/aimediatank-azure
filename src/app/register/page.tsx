@@ -404,10 +404,10 @@ export default function RegisterPage() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="Your Nickname"
-                  className="text-2xl font-bold bg-transparent border-b-2 border-transparent hover:border-tank-light focus:border-tank-accent transition-colors outline-none w-full"
+                  placeholder="Type here ..."
+                  className="text-base bg-transparent border-b-2 border-transparent hover:border-tank-light focus:border-tank-accent transition-colors outline-none w-full"
                 />
-                <p className="text-sm text-gray-400">Nickname</p>
+                <p className="text-sm text-gray-400">Nickname (Display Name)</p>
               </div>
             </div>
 
