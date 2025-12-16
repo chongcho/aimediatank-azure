@@ -29,8 +29,8 @@ export default function Navbar() {
   const isSubscriber = session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'
   const isAdmin = session?.user?.role === 'ADMIN'
   
-  // Display name - prefer fetched data over session data
-  const displayName = userData?.name || session?.user?.name || userData?.username || session?.user?.username || 'User'
+  // Display name - show User ID (username) in navbar
+  const displayName = userData?.username || session?.user?.username || 'User'
 
   // Close dropdowns when clicking outside
   useEffect(() => {

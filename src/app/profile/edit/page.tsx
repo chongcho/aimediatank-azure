@@ -509,8 +509,8 @@ export default function EditProfilePage() {
             </div>
           )}
 
-          {/* Avatar Upload with Editable Name */}
-          <div className="flex items-center justify-center gap-6">
+          {/* Avatar Upload with Bio */}
+          <div className="flex items-start justify-center gap-6">
             <div className="flex flex-col items-center gap-3">
               <div className="relative">
                 <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-tank-light">
@@ -522,7 +522,7 @@ export default function EditProfilePage() {
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-3xl font-bold">
-                      {formData.name?.[0]?.toUpperCase() || formData.username?.[0]?.toUpperCase() || '?'}
+                      {formData.username?.[0]?.toUpperCase() || '?'}
                     </div>
                   )}
                   
@@ -558,18 +558,16 @@ export default function EditProfilePage() {
               </button>
             </div>
             
-            {/* Editable Name section */}
-            <div className="text-left space-y-2">
-              <div>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Your Name"
-                  className="text-2xl font-bold bg-transparent border-b-2 border-transparent hover:border-tank-light focus:border-tank-accent transition-colors outline-none w-full"
-                />
-              </div>
-              <p className="text-sm text-gray-400">Nickname</p>
+            {/* Bio section */}
+            <div className="flex-1 text-left space-y-2">
+              <p className="text-sm text-gray-400">Bio</p>
+              <textarea
+                value={formData.bio}
+                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                placeholder="Tell others about yourself..."
+                rows={3}
+                className="w-full resize-none text-sm bg-tank-gray border border-tank-light rounded-lg p-2"
+              />
             </div>
           </div>
 
@@ -807,20 +805,6 @@ export default function EditProfilePage() {
               <option value="18_PLUS">18 and over</option>
             </select>
             <p className="text-xs text-gray-500 mt-1">Required for content filtering</p>
-          </div>
-
-          {/* Bio */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Bio
-            </label>
-            <textarea
-              value={formData.bio}
-              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-              placeholder="Tell others about yourself..."
-              rows={3}
-              className="w-full resize-none"
-            />
           </div>
 
           {/* Password Section */}

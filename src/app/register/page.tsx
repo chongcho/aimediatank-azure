@@ -420,8 +420,8 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* Avatar and Nickname Section */}
-            <div className="flex items-center justify-center gap-6">
+            {/* Avatar and Bio Section */}
+            <div className="flex items-start justify-center gap-6">
               <div className="flex flex-col items-center gap-3">
                 <div className="relative">
                   <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-tank-light">
@@ -433,7 +433,7 @@ export default function RegisterPage() {
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-3xl font-bold">
-                        {formData.name?.[0]?.toUpperCase() || formData.username?.[0]?.toUpperCase() || '?'}
+                        {formData.username?.[0]?.toUpperCase() || '?'}
                       </div>
                     )}
                   </div>
@@ -460,17 +460,17 @@ export default function RegisterPage() {
                 </button>
               </div>
               
-              {/* Nickname input */}
-              <div className="text-left space-y-2">
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Type here ..."
-                  className="text-base bg-transparent border-b-2 border-transparent hover:border-tank-light focus:border-tank-accent transition-colors outline-none w-full"
+              {/* Bio input */}
+              <div className="flex-1 text-left space-y-2">
+                <p className="text-sm text-gray-400">Bio</p>
+                <textarea
+                  name="bio"
+                  value={formData.bio}
+                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                  placeholder="Tell others about yourself..."
+                  rows={3}
+                  className="w-full resize-none text-sm bg-tank-gray border border-tank-light rounded-lg p-2"
                 />
-                <p className="text-sm text-gray-400">Nickname (Display Name)</p>
               </div>
             </div>
 
@@ -714,21 +714,6 @@ export default function RegisterPage() {
               <p className="text-xs text-gray-500 mt-1">
                 Required for content filtering
               </p>
-            </div>
-
-            {/* Bio */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Bio
-              </label>
-              <textarea
-                name="bio"
-                value={formData.bio}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                placeholder="Tell others about yourself..."
-                rows={3}
-                className="w-full resize-none"
-              />
             </div>
 
             {/* Password Section */}
