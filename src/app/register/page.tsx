@@ -733,7 +733,15 @@ export default function RegisterPage() {
                     placeholder="••••••••"
                     required
                     minLength={6}
+                    className={`w-full ${
+                      formData.password.length > 0 && formData.password.length < 6
+                        ? 'border-yellow-500 focus:border-yellow-500'
+                        : ''
+                    }`}
                   />
+                  {formData.password.length > 0 && formData.password.length < 6 && (
+                    <p className="text-xs text-yellow-400 mt-1">Password must be at least 6 characters</p>
+                  )}
                 </div>
 
                 <div>
@@ -747,7 +755,35 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     placeholder="••••••••"
                     required
+                    className={`w-full ${
+                      formData.confirmPassword.length > 0
+                        ? formData.password === formData.confirmPassword
+                          ? 'border-green-500 focus:border-green-500'
+                          : 'border-red-500 focus:border-red-500'
+                        : ''
+                    }`}
                   />
+                  {formData.confirmPassword.length > 0 && (
+                    <p className={`text-xs mt-1 flex items-center gap-1 ${
+                      formData.password === formData.confirmPassword ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      {formData.password === formData.confirmPassword ? (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Passwords match
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Passwords do not match
+                        </>
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
