@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
@@ -42,9 +42,23 @@ export default function EditProfilePage() {
     avatar: null,
   })
   const [originalEmail, setOriginalEmail] = useState('')
+  const [originalUsername, setOriginalUsername] = useState('')
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Username verification state
+  const [usernameStatus, setUsernameStatus] = useState<{
+    checking: boolean
+    valid: boolean | null
+    available: boolean | null
+    message: string
+  }>({
+    checking: false,
+    valid: null,
+    available: null,
+    message: '',
+  })
   
   // Email verification state
   const [emailVerificationState, setEmailVerificationState] = useState<{
@@ -94,6 +108,7 @@ export default function EditProfilePage() {
           avatar: data.user.avatar || null,
         })
         setOriginalEmail(data.user.email || '')
+        setOriginalUsername(data.user.username || '')
         if (data.user.avatar) {
           setAvatarPreview(data.user.avatar)
         }
@@ -108,6 +123,61 @@ export default function EditProfilePage() {
   
   // Check if email changed
   const emailChanged = formData.email !== originalEmail && formData.email.length > 0
+  
+  // Check if username changed
+  const usernameChanged = formData.username !== originalUsername && formData.username.length > 0
+
+  // Debounced username check
+  const checkUsername = useCallback(async (username: string) => {
+    // If username is same as original, it's valid
+    if (username === originalUsername) {
+      setUsernameStatus({ checking: false, valid: true, available: true, message: '' })
+      return
+    }
+    
+    if (!username || username.length < 3) {
+      setUsernameStatus({ checking: false, valid: null, available: null, message: '' })
+      return
+    }
+
+    setUsernameStatus(prev => ({ ...prev, checking: true }))
+
+    try {
+      const res = await fetch('/api/auth/check-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, currentUserId: session?.user?.id }),
+      })
+      const data = await res.json()
+
+      setUsernameStatus({
+        checking: false,
+        valid: data.valid,
+        available: data.available,
+        message: data.error || data.message || '',
+      })
+    } catch {
+      setUsernameStatus({
+        checking: false,
+        valid: null,
+        available: null,
+        message: 'Failed to check username',
+      })
+    }
+  }, [originalUsername, session?.user?.id])
+
+  // Debounce username verification
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.username && usernameChanged) {
+        checkUsername(formData.username)
+      } else if (!usernameChanged) {
+        setUsernameStatus({ checking: false, valid: true, available: true, message: '' })
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [formData.username, usernameChanged, checkUsername])
   
   // Send verification code
   const sendVerificationCode = async () => {
@@ -334,6 +404,12 @@ export default function EditProfilePage() {
     setError('')
     setSuccess('')
 
+    // Check if username changed and is available
+    if (usernameChanged && (!usernameStatus.valid || !usernameStatus.available)) {
+      setError('Please choose an available User ID')
+      return
+    }
+
     // Check if email changed and needs verification
     if (emailChanged && !emailVerificationState.codeVerified) {
       setError('Please verify your new email address before saving')
@@ -517,15 +593,56 @@ export default function EditProfilePage() {
             <label className="block text-sm font-medium text-gray-300 mb-2">
               User ID *
             </label>
-            <input
-              type="text"
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              placeholder="username"
-              className="w-full"
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">Used for login and your profile URL</p>
+            <div className="relative">
+              <input
+                type="text"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="username"
+                required
+                className={`w-full ${
+                  usernameChanged && (usernameStatus.valid === false || usernameStatus.available === false)
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
+                    : usernameChanged && usernameStatus.valid && usernameStatus.available
+                    ? 'border-green-500 focus:border-green-500 focus:ring-green-500/20'
+                    : ''
+                }`}
+              />
+              {/* Status indicator */}
+              {usernameStatus.checking && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              )}
+              {!usernameStatus.checking && usernameChanged && usernameStatus.valid && usernameStatus.available && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+              {!usernameStatus.checking && usernameChanged && (usernameStatus.valid === false || usernameStatus.available === false) && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            {/* Status message */}
+            {usernameChanged && usernameStatus.message && (
+              <p className={`text-xs mt-1 ${
+                usernameStatus.valid && usernameStatus.available ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {usernameStatus.message}
+              </p>
+            )}
+            {(!usernameChanged || !usernameStatus.message) && (
+              <p className="text-xs text-gray-500 mt-1">Used for login and your profile URL</p>
+            )}
           </div>
 
           {/* Email with inline verification */}

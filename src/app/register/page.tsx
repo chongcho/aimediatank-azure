@@ -41,6 +41,19 @@ export default function RegisterPage() {
     message: '',
   })
   
+  // Username verification state
+  const [usernameStatus, setUsernameStatus] = useState<{
+    checking: boolean
+    valid: boolean | null
+    available: boolean | null
+    message: string
+  }>({
+    checking: false,
+    valid: null,
+    available: null,
+    message: '',
+  })
+  
   // Email verification code state
   const [verificationState, setVerificationState] = useState<{
     codeSent: boolean
@@ -93,6 +106,39 @@ export default function RegisterPage() {
     }
   }, [])
 
+  // Debounced username check
+  const checkUsername = useCallback(async (username: string) => {
+    if (!username || username.length < 3) {
+      setUsernameStatus({ checking: false, valid: null, available: null, message: '' })
+      return
+    }
+
+    setUsernameStatus(prev => ({ ...prev, checking: true }))
+
+    try {
+      const res = await fetch('/api/auth/check-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      })
+      const data = await res.json()
+
+      setUsernameStatus({
+        checking: false,
+        valid: data.valid,
+        available: data.available,
+        message: data.error || data.message || '',
+      })
+    } catch {
+      setUsernameStatus({
+        checking: false,
+        valid: null,
+        available: null,
+        message: 'Failed to check username',
+      })
+    }
+  }, [])
+
   // Debounce email verification
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -103,6 +149,17 @@ export default function RegisterPage() {
 
     return () => clearTimeout(timer)
   }, [formData.email, checkEmail])
+
+  // Debounce username verification
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.username) {
+        checkUsername(formData.username)
+      }
+    }, 500) // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer)
+  }, [formData.username, checkUsername])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -227,6 +284,12 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    // Check username availability
+    if (!usernameStatus.valid || !usernameStatus.available) {
+      setError('Please choose an available User ID')
+      return
+    }
 
     // Check email verification
     if (!verificationState.codeVerified) {
@@ -432,15 +495,57 @@ export default function RegisterPage() {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 User ID *
               </label>
-              <input
-                type="text"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                placeholder="username"
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">Used for login and your profile URL</p>
+              <div className="relative">
+                <input
+                  type="text"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  placeholder="username"
+                  required
+                  className={`w-full ${
+                    usernameStatus.valid === false || usernameStatus.available === false
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
+                      : usernameStatus.valid && usernameStatus.available
+                      ? 'border-green-500 focus:border-green-500 focus:ring-green-500/20'
+                      : ''
+                  }`}
+                />
+                {/* Status indicator */}
+                {usernameStatus.checking && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                )}
+                {!usernameStatus.checking && usernameStatus.valid && usernameStatus.available && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+                {!usernameStatus.checking && (usernameStatus.valid === false || usernameStatus.available === false) && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+              {/* Status message */}
+              {usernameStatus.message && (
+                <p className={`text-xs mt-1 ${
+                  usernameStatus.valid && usernameStatus.available ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {usernameStatus.message}
+                </p>
+              )}
+              {!usernameStatus.message && (
+                <p className="text-xs text-gray-500 mt-1">Used for login and your profile URL</p>
+              )}
             </div>
 
             <div>
