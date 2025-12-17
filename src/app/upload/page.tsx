@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { compressMedia } from '@/lib/mediaCompression'
 
 interface UploadQuota {
@@ -21,6 +21,7 @@ interface UploadQuota {
 export default function UploadPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -39,6 +40,19 @@ export default function UploadPage() {
   const [uploadStatus, setUploadStatus] = useState('')
   const [uploadQuota, setUploadQuota] = useState<UploadQuota | null>(null)
   const [quotaLoading, setQuotaLoading] = useState(true)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentLoading, setPaymentLoading] = useState(false)
+  const [uploadPaid, setUploadPaid] = useState(false)
+
+  // Check for payment success on mount
+  useEffect(() => {
+    const payment = searchParams.get('payment')
+    if (payment === 'success') {
+      setUploadPaid(true)
+      // Clean up URL
+      router.replace('/upload', { scroll: false })
+    }
+  }, [searchParams, router])
 
   // Fetch upload quota on mount
   useEffect(() => {
@@ -59,6 +73,28 @@ export default function UploadPage() {
       console.error('Error fetching upload quota:', err)
     } finally {
       setQuotaLoading(false)
+    }
+  }
+
+  // Handle payment for upload
+  const handlePayForUpload = async () => {
+    setPaymentLoading(true)
+    try {
+      const res = await fetch('/api/stripe/upload-payment', {
+        method: 'POST',
+      })
+      const data = await res.json()
+      
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        setError(data.error || 'Failed to create payment session')
+      }
+    } catch (err) {
+      console.error('Payment error:', err)
+      setError('Failed to start payment process')
+    } finally {
+      setPaymentLoading(false)
     }
   }
 
@@ -217,6 +253,12 @@ export default function UploadPage() {
 
     if (!formData.title.trim()) {
       setError('Please enter a title')
+      return
+    }
+
+    // Check if payment is required (free uploads exhausted for paid plans)
+    if (uploadQuota?.statusType === 'paid' && !uploadPaid) {
+      setShowPaymentModal(true)
       return
     }
 
@@ -603,10 +645,80 @@ export default function UploadPage() {
             disabled={loading || !file || !!(uploadQuota && !uploadQuota.canUpload)}
             className="btn-primary w-full"
           >
-            {loading ? 'Uploading...' : (uploadQuota?.nextUploadCost && uploadQuota.nextUploadCost > 0) ? `Upload ($${uploadQuota.nextUploadCost.toFixed(2)})` : 'Upload Media'}
+            {loading ? 'Uploading...' : uploadQuota?.statusType === 'paid' && !uploadPaid ? `Pay & Upload ($${uploadQuota.costPerUpload.toFixed(2)})` : 'Upload Media'}
           </button>
         </form>
       </div>
+      )}
+
+      {/* Payment Required Modal */}
+      {showPaymentModal && uploadQuota && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-tank-dark border border-tank-light rounded-2xl max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="text-5xl mb-4">💳</div>
+              <h3 className="text-xl font-bold mb-2">Payment Required</h3>
+              <p className="text-gray-400 mb-6">
+                You have used all your free uploads. This upload will cost{' '}
+                <span className="text-tank-accent font-bold">${uploadQuota.costPerUpload.toFixed(2)}</span>.
+              </p>
+
+              <div className="bg-tank-gray rounded-xl p-4 mb-6">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Upload Fee</span>
+                  <span className="font-bold">${uploadQuota.costPerUpload.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={handlePayForUpload}
+                  disabled={paymentLoading}
+                  className="w-full py-3 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all flex items-center justify-center gap-2"
+                >
+                  {paymentLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                      Pay ${uploadQuota.costPerUpload.toFixed(2)} & Upload
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => router.push('/pricing')}
+                  className="w-full py-3 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all"
+                >
+                  Upgrade to Premium (Unlimited Free Uploads)
+                </button>
+
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  className="w-full py-3 text-gray-400 hover:text-white transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Paid Success Banner */}
+      {uploadPaid && (
+        <div className="fixed bottom-4 right-4 bg-tank-accent text-black px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-pulse">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="font-semibold">Payment successful! You can now upload.</span>
+          <button onClick={() => setUploadPaid(false)} className="ml-2 hover:opacity-70">✕</button>
+        </div>
       )}
     </div>
   )
