@@ -348,7 +348,9 @@ export async function POST(request: Request) {
     const userName = user.name || user.username || 'User'
     
     // Check if this upload just exhausted free uploads
-    const justExhaustedFreeUploads = newFreeUploadsUsed === config.freeUploads && 
+    // Only true if: this was a free upload AND it just hit the limit (not a paid credit upload)
+    const justExhaustedFreeUploads = isFreeUpload && 
+                                      newFreeUploadsUsed === config.freeUploads && 
                                       user.membershipType !== 'PREMIUM'
 
     if (justExhaustedFreeUploads) {
