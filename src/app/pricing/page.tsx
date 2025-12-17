@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 const plans = [
   {
@@ -84,9 +84,10 @@ const getPlanByMembership = (membership: string) => {
   return plans.find(p => p.id === planId) || plans[0]
 }
 
-export default function PricingPage() {
-  const { data: session } = useSession()
+function PricingPageContent() {
+  const { data: session, update: updateSession } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState<string | null>(null)
   const [currentMembership, setCurrentMembership] = useState('VIEWER')
   const [cancelLoading, setCancelLoading] = useState(false)
@@ -94,6 +95,37 @@ export default function PricingPage() {
   const [manageLoading, setManageLoading] = useState<string | null>(null)
   const [showBillingModal, setShowBillingModal] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null)
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+  const [purchasedPlanName, setPurchasedPlanName] = useState('')
+
+  // Check for success parameter on mount
+  useEffect(() => {
+    const success = searchParams.get('success')
+    const planId = searchParams.get('plan')
+    
+    if (success === 'true' && planId) {
+      const plan = plans.find(p => p.id === planId)
+      if (plan) {
+        setPurchasedPlanName(plan.name)
+        setShowSuccessMessage(true)
+        
+        // Refresh session to get updated role
+        updateSession()
+        
+        // Refresh membership after a short delay to allow webhook to process
+        setTimeout(() => {
+          fetchMembership()
+        }, 2000)
+        
+        // Auto-hide success message after 10 seconds
+        setTimeout(() => {
+          setShowSuccessMessage(false)
+          // Clean up URL
+          router.replace('/pricing', { scroll: false })
+        }, 10000)
+      }
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (session?.user) {
@@ -218,6 +250,33 @@ export default function PricingPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
+      {/* Success Message Banner */}
+      {showSuccessMessage && (
+        <div className="relative mb-8 p-6 bg-gradient-to-r from-tank-accent/20 to-emerald-500/20 border border-tank-accent rounded-xl">
+          <div className="flex items-center justify-center gap-4">
+            <div className="text-4xl">🎉</div>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-tank-accent mb-1">
+                Welcome to {purchasedPlanName}!
+              </h2>
+              <p className="text-gray-300">
+                Your subscription is now active. Enjoy your new benefits!
+              </p>
+            </div>
+            <div className="text-4xl">🎉</div>
+          </div>
+          <button
+            onClick={() => {
+              setShowSuccessMessage(false)
+              router.replace('/pricing', { scroll: false })
+            }}
+            className="absolute top-3 right-3 text-gray-400 hover:text-white text-xl"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
         <p className="text-gray-400 text-lg max-w-2xl mx-auto">
@@ -590,5 +649,20 @@ export default function PricingPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-6xl mx-auto px-4 py-12 text-center">
+        <div className="animate-pulse">
+          <div className="h-10 bg-tank-light rounded w-64 mx-auto mb-4"></div>
+          <div className="h-4 bg-tank-light rounded w-96 mx-auto"></div>
+        </div>
+      </div>
+    }>
+      <PricingPageContent />
+    </Suspense>
   )
 }
