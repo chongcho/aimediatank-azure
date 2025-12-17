@@ -119,8 +119,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ url: checkoutSession.url })
   } catch (error: any) {
     console.error('Error creating membership checkout:', error)
+    
+    // Return more detailed error for debugging
+    const errorMessage = error?.message || 'Unknown error'
+    const errorType = error?.type || 'unknown'
+    const errorCode = error?.code || 'unknown'
+    
     return NextResponse.json(
-      { error: 'Failed to create checkout session', details: error.message },
+      { 
+        error: 'Failed to create checkout session', 
+        details: errorMessage,
+        type: errorType,
+        code: errorCode
+      },
       { status: 500 }
     )
   }

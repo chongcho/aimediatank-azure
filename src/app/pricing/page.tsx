@@ -133,7 +133,12 @@ export default function PricingPage() {
       if (data.url) {
         window.location.href = data.url
       } else {
-        alert(data.error || 'Failed to start checkout')
+        // Show detailed error for debugging
+        const errorMsg = data.details 
+          ? `${data.error}: ${data.details}` 
+          : data.error || 'Failed to start checkout'
+        alert(errorMsg)
+        console.error('Checkout error:', data)
       }
     } catch (error) {
       console.error('Error:', error)
