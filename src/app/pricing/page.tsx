@@ -321,7 +321,7 @@ function PricingPageContent() {
                     <span className="text-sm text-tank-accent bg-tank-gray px-3 py-1 rounded-full">
                       ✨ Unlimited Free Uploads
                     </span>
-                  ) : uploadStatus.freeUploadsRemaining > 0 ? (
+                  ) : typeof uploadStatus.freeUploadsRemaining === 'number' && uploadStatus.freeUploadsRemaining > 0 ? (
                     <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
                       🎁 {uploadStatus.freeUploadsRemaining} Free Upload{uploadStatus.freeUploadsRemaining !== 1 ? 's' : ''} Left
                     </span>
