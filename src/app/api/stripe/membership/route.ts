@@ -47,13 +47,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Please sign in' }, { status: 401 })
     }
 
-    const { planId } = await request.json()
+    const { planId, billingPeriod = 'month' } = await request.json()
 
     if (!planId || !PLAN_PRICES[planId]) {
       return NextResponse.json({ error: 'Invalid plan selected' }, { status: 400 })
     }
 
+    if (billingPeriod !== 'month' && billingPeriod !== 'year') {
+      return NextResponse.json({ error: 'Invalid billing period' }, { status: 400 })
+    }
+
     const plan = PLAN_PRICES[planId]
+    const amount = billingPeriod === 'year' ? plan.yearlyAmount : plan.amount
+    const interval = billingPeriod === 'year' ? 'year' : 'month'
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { email: true, stripeCustomerId: true },
@@ -80,6 +86,7 @@ export async function POST(request: Request) {
     }
 
     // Create checkout session for subscription with dynamic pricing
+    const billingLabel = billingPeriod === 'year' ? 'Yearly' : 'Monthly'
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
@@ -90,11 +97,11 @@ export async function POST(request: Request) {
             currency: 'usd',
             product_data: {
               name: plan.name,
-              description: `AI Media Tank ${plan.name} - Monthly Subscription`,
+              description: `AI Media Tank ${plan.name} - ${billingLabel} Subscription`,
             },
-            unit_amount: plan.amount,
+            unit_amount: amount,
             recurring: {
-              interval: 'month',
+              interval: interval as 'month' | 'year',
             },
           },
           quantity: 1,
@@ -106,12 +113,14 @@ export async function POST(request: Request) {
         metadata: {
           userId: session.user.id,
           planId,
+          billingPeriod,
           type: 'membership',
         },
       },
       metadata: {
         userId: session.user.id,
         planId,
+        billingPeriod,
         type: 'membership',
       },
     })

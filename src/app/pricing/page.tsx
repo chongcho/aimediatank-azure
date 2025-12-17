@@ -92,6 +92,8 @@ export default function PricingPage() {
   const [cancelLoading, setCancelLoading] = useState(false)
   const [showManageModal, setShowManageModal] = useState(false)
   const [manageLoading, setManageLoading] = useState<string | null>(null)
+  const [showBillingModal, setShowBillingModal] = useState(false)
+  const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null)
 
   useEffect(() => {
     if (session?.user) {
@@ -111,21 +113,30 @@ export default function PricingPage() {
     }
   }
 
-  const handleSubscribe = async (planId: string) => {
+  const handleBuyPlanClick = (plan: typeof plans[0]) => {
     if (!session) {
       router.push('/login')
       return
     }
 
-    if (planId === 'viewer') return
+    if (plan.id === 'viewer') return
 
-    setLoading(planId)
+    // Show billing period selection modal
+    setSelectedPlan(plan)
+    setShowBillingModal(true)
+  }
+
+  const handleSubscribe = async (billingPeriod: 'month' | 'year') => {
+    if (!selectedPlan) return
+
+    setShowBillingModal(false)
+    setLoading(selectedPlan.id)
 
     try {
       const res = await fetch('/api/stripe/membership', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId }),
+        body: JSON.stringify({ planId: selectedPlan.id, billingPeriod }),
       })
 
       const data = await res.json()
@@ -145,6 +156,7 @@ export default function PricingPage() {
       alert('Failed to start checkout')
     } finally {
       setLoading(null)
+      setSelectedPlan(null)
     }
   }
 
@@ -296,7 +308,7 @@ export default function PricingPage() {
 
               {/* Button */}
               <button
-                onClick={() => handleSubscribe(plan.id)}
+                onClick={() => handleBuyPlanClick(plan)}
                 disabled={loading !== null || isCurrentPlan(plan.id) || plan.isFree}
                 className={`w-full py-3 rounded-xl font-semibold transition-all ${
                   isCurrentPlan(plan.id)
@@ -426,6 +438,76 @@ export default function PricingPage() {
           </div>
         </div>
       </div>
+
+      {/* Billing Period Selection Modal */}
+      {showBillingModal && selectedPlan && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-tank-dark border border-tank-light rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold">Choose Billing Period</h3>
+              <button
+                onClick={() => {
+                  setShowBillingModal(false)
+                  setSelectedPlan(null)
+                }}
+                className="p-2 hover:bg-tank-light rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-gray-400 mb-6 text-center">
+              You selected: <span className="text-tank-accent font-bold">{selectedPlan.name}</span>
+            </p>
+
+            <div className="space-y-4">
+              {/* Monthly Option */}
+              <button
+                onClick={() => handleSubscribe('month')}
+                className="w-full p-4 bg-tank-gray border-2 border-tank-light rounded-xl hover:border-tank-accent/50 transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-left">
+                    <p className="font-semibold text-lg group-hover:text-tank-accent transition-colors">Monthly</p>
+                    <p className="text-gray-400 text-sm">Billed every month</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">${selectedPlan.price}</p>
+                    <p className="text-gray-400 text-sm">/month</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Yearly Option */}
+              <button
+                onClick={() => handleSubscribe('year')}
+                className="w-full p-4 bg-tank-gray border-2 border-tank-accent/50 rounded-xl hover:border-tank-accent transition-all group relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 bg-tank-accent text-black text-xs font-bold px-2 py-1 rounded-bl-lg">
+                  Save ${(selectedPlan.price * 12 - selectedPlan.yearlyPrice).toFixed(0)}
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="text-left">
+                    <p className="font-semibold text-lg text-tank-accent">Yearly</p>
+                    <p className="text-gray-400 text-sm">Billed annually</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">${selectedPlan.yearlyPrice}</p>
+                    <p className="text-gray-400 text-sm">/year</p>
+                    <p className="text-tank-accent text-xs">(${(selectedPlan.yearlyPrice / 12).toFixed(2)}/mo)</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 mt-4 text-center">
+              You can cancel anytime. Your subscription will continue until the end of the billing period.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Manage Subscription Modal */}
       {showManageModal && (
