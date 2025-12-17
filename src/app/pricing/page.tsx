@@ -463,14 +463,17 @@ export default function PricingPage() {
             </p>
 
             <div className="space-y-4">
-              {/* Monthly Option */}
+              {/* Monthly Option - Default/Recommended */}
               <button
                 onClick={() => handleSubscribe('month')}
-                className="w-full p-4 bg-tank-gray border-2 border-tank-light rounded-xl hover:border-tank-accent/50 transition-all group"
+                className="w-full p-4 bg-tank-gray border-2 border-tank-accent rounded-xl hover:bg-tank-light transition-all group relative overflow-hidden"
               >
+                <div className="absolute top-0 right-0 bg-tank-accent text-black text-xs font-bold px-2 py-1 rounded-bl-lg">
+                  Recommended
+                </div>
                 <div className="flex items-center justify-between">
                   <div className="text-left">
-                    <p className="font-semibold text-lg group-hover:text-tank-accent transition-colors">Monthly</p>
+                    <p className="font-semibold text-lg text-tank-accent">Monthly</p>
                     <p className="text-gray-400 text-sm">Billed every month</p>
                   </div>
                   <div className="text-right">
@@ -483,20 +486,20 @@ export default function PricingPage() {
               {/* Yearly Option */}
               <button
                 onClick={() => handleSubscribe('year')}
-                className="w-full p-4 bg-tank-gray border-2 border-tank-accent/50 rounded-xl hover:border-tank-accent transition-all group relative overflow-hidden"
+                className="w-full p-4 bg-tank-gray border-2 border-tank-light rounded-xl hover:border-tank-accent/50 transition-all group relative overflow-hidden"
               >
-                <div className="absolute top-0 right-0 bg-tank-accent text-black text-xs font-bold px-2 py-1 rounded-bl-lg">
+                <div className="absolute top-0 right-0 bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded-bl-lg">
                   Save ${(selectedPlan.price * 12 - selectedPlan.yearlyPrice).toFixed(0)}
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="text-left">
-                    <p className="font-semibold text-lg text-tank-accent">Yearly</p>
+                    <p className="font-semibold text-lg group-hover:text-tank-accent transition-colors">Yearly</p>
                     <p className="text-gray-400 text-sm">Billed annually</p>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold">${selectedPlan.yearlyPrice}</p>
                     <p className="text-gray-400 text-sm">/year</p>
-                    <p className="text-tank-accent text-xs">(${(selectedPlan.yearlyPrice / 12).toFixed(2)}/mo)</p>
+                    <p className="text-yellow-400 text-xs">(${(selectedPlan.yearlyPrice / 12).toFixed(2)}/mo)</p>
                   </div>
                 </div>
               </button>
