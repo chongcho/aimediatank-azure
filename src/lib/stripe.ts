@@ -13,7 +13,7 @@ export function getStripe(): Stripe {
       throw new Error('STRIPE_SECRET_KEY is not configured')
     }
     stripeInstance = new Stripe(key, {
-      apiVersion: '2023-10-16',
+      apiVersion: '2024-04-10',
       typescript: true,
     })
   }
@@ -23,7 +23,7 @@ export function getStripe(): Stripe {
 // Legacy export for backwards compatibility
 export const stripe = stripeSecretKey 
   ? new Stripe(stripeSecretKey, {
-      apiVersion: '2023-10-16',
+      apiVersion: '2024-04-10',
       typescript: true,
     })
   : null
