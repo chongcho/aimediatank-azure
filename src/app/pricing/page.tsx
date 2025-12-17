@@ -84,6 +84,14 @@ const getPlanByMembership = (membership: string) => {
   return plans.find(p => p.id === planId) || plans[0]
 }
 
+interface UploadStatus {
+  freeUploadsUsed: number
+  freeUploadsRemaining: number | string
+  costPerUpload: number
+  statusMessage: string
+  statusType: 'free' | 'paid' | 'blocked'
+}
+
 function PricingPageContent() {
   const { data: session, update: updateSession } = useSession()
   const router = useRouter()
@@ -97,6 +105,7 @@ function PricingPageContent() {
   const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [purchasedPlanName, setPurchasedPlanName] = useState('')
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null)
 
   // Check for success parameter on mount
   useEffect(() => {
@@ -139,6 +148,19 @@ function PricingPageContent() {
       const data = await res.json()
       if (data.user?.membershipType) {
         setCurrentMembership(data.user.membershipType)
+      }
+      
+      // Also fetch upload status
+      const uploadRes = await fetch('/api/upload/status')
+      if (uploadRes.ok) {
+        const uploadData = await uploadRes.json()
+        setUploadStatus({
+          freeUploadsUsed: uploadData.freeUploadsUsed,
+          freeUploadsRemaining: uploadData.freeUploadsRemaining,
+          costPerUpload: uploadData.costPerUpload,
+          statusMessage: uploadData.statusMessage,
+          statusType: uploadData.statusType,
+        })
       }
     } catch (error) {
       console.error('Error fetching membership:', error)
@@ -293,9 +315,27 @@ function PricingPageContent() {
               <p className="text-tank-accent">
                 Your current plan: <span className="font-bold">{currentMembership}</span>
               </p>
-              <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
-                {getPlanByMembership(currentMembership).uploadCostShort}
-              </span>
+              {uploadStatus ? (
+                <div className="flex items-center gap-2">
+                  {uploadStatus.freeUploadsRemaining === 'Unlimited' ? (
+                    <span className="text-sm text-tank-accent bg-tank-gray px-3 py-1 rounded-full">
+                      ✨ Unlimited Free Uploads
+                    </span>
+                  ) : uploadStatus.freeUploadsRemaining > 0 ? (
+                    <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
+                      🎁 {uploadStatus.freeUploadsRemaining} Free Upload{uploadStatus.freeUploadsRemaining !== 1 ? 's' : ''} Left
+                    </span>
+                  ) : (
+                    <span className="text-sm text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full">
+                      💳 ${uploadStatus.costPerUpload.toFixed(2)}/upload
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
+                  {getPlanByMembership(currentMembership).uploadCostShort}
+                </span>
+              )}
             </div>
             {hasPaidSubscription && (
               <button
