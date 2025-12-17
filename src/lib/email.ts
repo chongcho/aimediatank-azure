@@ -173,6 +173,152 @@ export function generateVerificationEmail(
 `
 }
 
+// Generate membership purchase confirmation email
+export function generateMembershipPurchaseEmail(
+  userName: string,
+  planName: string,
+  price: string,
+  billingPeriod: string,
+  uploadCondition: string
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #0f8; margin: 0; font-size: 24px;">🎉 Membership Activated!</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Dear ${userName},</p>
+  
+  <p style="font-size: 16px;">Thank you for subscribing to AI Media Tank! Your membership is now active.</p>
+  
+  <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8;">
+    <h3 style="margin: 0 0 15px 0; color: #1a1a2e;">Membership Summary</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Plan:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${planName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Price:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${price}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Billing:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${billingPeriod}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Upload Benefits:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #0f8;">${uploadCondition}</td>
+      </tr>
+    </table>
+  </div>
+  
+  <h3 style="color: #1a1a2e; margin-top: 30px;">What's Included:</h3>
+  <ul style="background: #f8f9fa; padding: 20px 20px 20px 40px; border-radius: 8px;">
+    <li style="margin-bottom: 8px;">✓ View all contents</li>
+    <li style="margin-bottom: 8px;">✓ Buy contents from creators</li>
+    <li style="margin-bottom: 8px;">✓ Sell your own contents</li>
+    <li style="margin-bottom: 8px;">✓ ${uploadCondition}</li>
+  </ul>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="https://www.aimediatank.com/upload" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+      Start Uploading
+    </a>
+  </div>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+  
+  <p style="font-size: 12px; color: #999; margin-top: 30px;">
+    You can manage your subscription anytime from the Membership page.
+  </p>
+</body>
+</html>
+`
+}
+
+// Generate free uploads exhausted notification email
+export function generateUploadLimitEmail(
+  userName: string,
+  planName: string,
+  totalUploads: number,
+  freeUploads: number,
+  uploadCost: string
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #ffa500; margin: 0; font-size: 24px;">📊 Upload Summary</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Dear ${userName},</p>
+  
+  <p style="font-size: 16px;">You've used all your free uploads for this month. Here's your upload summary:</p>
+  
+  <div style="background: #fff8e6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffa500;">
+    <h3 style="margin: 0 0 15px 0; color: #1a1a2e;">Upload Summary</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Current Plan:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${planName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Free Uploads Used:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${freeUploads} / ${freeUploads}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Total Uploads:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${totalUploads}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Cost per Upload:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #ffa500;">${uploadCost}</td>
+      </tr>
+    </table>
+  </div>
+  
+  <p style="font-size: 16px;">Future uploads will be charged at <strong>${uploadCost}</strong> per upload.</p>
+  
+  <div style="background: #f0fff0; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8;">
+    <p style="margin: 0; font-size: 14px;">
+      💡 <strong>Tip:</strong> Upgrade to Premium Plan for unlimited free uploads!
+    </p>
+  </div>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="https://www.aimediatank.com/pricing" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+      Upgrade Plan
+    </a>
+  </div>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+</body>
+</html>
+`
+}
+
 // Generate download reminder email (can be used by a cron job)
 export function generateDownloadReminderEmail(
   buyerName: string,

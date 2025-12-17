@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import Stripe from 'stripe'
-import { sendEmail, generatePurchaseEmail } from '@/lib/email'
+import { sendEmail, generatePurchaseEmail, generateMembershipPurchaseEmail } from '@/lib/email'
+
+// Plan upload conditions for emails
+const PLAN_CONDITIONS: Record<string, { name: string; uploadCondition: string }> = {
+  viewer: { name: 'Viewer Plan', uploadCondition: 'Five Free Uploads' },
+  basic: { name: 'Basic Plan', uploadCondition: 'Five Free Uploads, then $1 per upload' },
+  advanced: { name: 'Advanced Plan', uploadCondition: 'Five Free Uploads, then $0.5 per upload' },
+  premium: { name: 'Premium Plan', uploadCondition: 'Unlimited Free Uploads' },
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -116,6 +124,118 @@ export async function POST(request: Request) {
       })
       break
     }
+    
+    // Handle membership subscription events
+    case 'customer.subscription.created':
+    case 'customer.subscription.updated': {
+      const subscription = event.data.object as Stripe.Subscription
+      const customerId = subscription.customer as string
+      
+      // Find user by Stripe customer ID
+      const user = await prisma.user.findFirst({
+        where: { stripeCustomerId: customerId },
+      })
+      
+      if (user) {
+        // Get plan from subscription metadata or line items
+        const metadata = subscription.metadata
+        const planId = metadata?.planId || 'basic'
+        const planConfig = PLAN_CONDITIONS[planId] || PLAN_CONDITIONS.basic
+        
+        // Determine membership type based on plan
+        const membershipType = planId.toUpperCase()
+        
+        // Calculate expiration date
+        const periodEnd = new Date(subscription.current_period_end * 1000)
+        
+        // Update user membership
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            membershipType,
+            membershipExpiresAt: periodEnd,
+            stripeSubscriptionId: subscription.id,
+            role: 'SUBSCRIBER',
+            // Reset free uploads when subscription changes
+            freeUploadsUsed: 0,
+            freeUploadsResetAt: periodEnd,
+          },
+        })
+        
+        // Send membership confirmation email (only for new subscriptions)
+        if (event.type === 'customer.subscription.created') {
+          const priceAmount = subscription.items.data[0]?.price?.unit_amount || 0
+          const price = `$${(priceAmount / 100).toFixed(2)}/month`
+          
+          const emailHtml = generateMembershipPurchaseEmail(
+            user.name || user.username,
+            planConfig.name,
+            price,
+            'Monthly',
+            planConfig.uploadCondition
+          )
+          
+          await sendEmail({
+            to: user.email,
+            subject: `🎉 Welcome to ${planConfig.name}! | AI Media Tank`,
+            html: emailHtml
+          })
+          
+          console.log(`Sent membership confirmation email to ${user.email} for ${planConfig.name}`)
+          
+          // Create in-app notification
+          await prisma.notification.create({
+            data: {
+              userId: user.id,
+              type: 'system',
+              title: 'Membership Activated! 🎉',
+              message: `Welcome to ${planConfig.name}! You now have ${planConfig.uploadCondition}.`,
+              link: '/pricing',
+            }
+          })
+        }
+        
+        console.log(`Updated user ${user.id} to ${membershipType} membership`)
+      }
+      break
+    }
+    
+    case 'customer.subscription.deleted': {
+      const subscription = event.data.object as Stripe.Subscription
+      const customerId = subscription.customer as string
+      
+      // Find user and downgrade to VIEWER
+      const user = await prisma.user.findFirst({
+        where: { stripeCustomerId: customerId },
+      })
+      
+      if (user) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            membershipType: 'VIEWER',
+            membershipExpiresAt: null,
+            stripeSubscriptionId: null,
+            role: 'VIEWER',
+          },
+        })
+        
+        console.log(`Downgraded user ${user.id} to VIEWER membership`)
+        
+        // Create in-app notification
+        await prisma.notification.create({
+          data: {
+            userId: user.id,
+            type: 'system',
+            title: 'Subscription Cancelled',
+            message: 'Your membership has been cancelled. You are now on the Viewer Plan with 5 free uploads.',
+            link: '/pricing',
+          }
+        })
+      }
+      break
+    }
+    
     default:
       console.log(`Unhandled event type: ${event.type}`)
   }

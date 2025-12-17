@@ -24,6 +24,8 @@ model User {
   membershipExpiresAt DateTime?
   stripeCustomerId String?
   stripeSubscriptionId String?
+  freeUploadsUsed Int      @default(0)      // Track free uploads used this period
+  freeUploadsResetAt DateTime?              // When to reset free upload count
   emailVerified Boolean   @default(false)
   verificationToken String?
   verificationExpires DateTime?

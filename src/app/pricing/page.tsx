@@ -12,11 +12,13 @@ const plans = [
     yearlyPrice: 0,
     period: 'month',
     description: 'Suit for occasional creators',
-    uploadCost: 'No upload',
-    uploadCostColor: 'text-red-400',
+    uploadCost: 'Five Free Uploads',
+    uploadCostShort: '5 Free Uploads',
     features: [
       'View contents',
       'Buy contents',
+      'Sell contents',
+      '5 free uploads',
     ],
     buttonText: 'Buy Plan',
     isFree: true,
@@ -28,12 +30,14 @@ const plans = [
     yearlyPrice: 20,
     period: 'month',
     description: 'Suit for occasional creators',
-    uploadCost: '$1 per upload',
+    uploadCost: '$1 per Upload after Five Free Uploads',
+    uploadCostShort: '5 Free + $1/upload',
     features: [
       'View contents',
       'Buy contents',
       'Sell contents',
-      '$1 per upload fee',
+      '5 free uploads',
+      '$1 per upload after',
     ],
     buttonText: 'Buy Plan',
   },
@@ -44,12 +48,14 @@ const plans = [
     yearlyPrice: 50,
     period: 'month',
     description: 'Suit for moderate creators',
-    uploadCost: '$0.5 per upload',
+    uploadCost: '$0.5 per Upload after Five Free Uploads',
+    uploadCostShort: '5 Free + $0.5/upload',
     features: [
       'View contents',
       'Buy contents',
       'Sell contents',
-      '$0.5 per upload fee',
+      '5 free uploads',
+      '$0.5 per upload after',
     ],
     buttonText: 'Buy Plan',
   },
@@ -60,7 +66,8 @@ const plans = [
     yearlyPrice: 80,
     period: 'month',
     description: 'Suit for scale creators',
-    uploadCost: 'Free upload',
+    uploadCost: 'Unlimited Free Uploads',
+    uploadCostShort: 'Unlimited Free',
     features: [
       'View contents',
       'Buy contents',
@@ -70,6 +77,12 @@ const plans = [
     buttonText: 'Buy Plan',
   },
 ]
+
+// Helper to get plan details by membership type
+const getPlanByMembership = (membership: string) => {
+  const planId = membership.toLowerCase()
+  return plans.find(p => p.id === planId) || plans[0]
+}
 
 export default function PricingPage() {
   const { data: session } = useSession()
@@ -200,9 +213,14 @@ export default function PricingPage() {
       {session && (
         <div className="mb-8 p-4 bg-tank-accent/10 border border-tank-accent/30 rounded-xl">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-tank-accent">
-              Your current plan: <span className="font-bold">{currentMembership}</span>
-            </p>
+            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+              <p className="text-tank-accent">
+                Your current plan: <span className="font-bold">{currentMembership}</span>
+              </p>
+              <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
+                {getPlanByMembership(currentMembership).uploadCostShort}
+              </span>
+            </div>
             {hasPaidSubscription && (
               <button
                 onClick={handleManageSubscription}
@@ -258,9 +276,8 @@ export default function PricingPage() {
 
               {/* Upload cost highlight */}
               <div className="mb-6 py-3 border-t border-b border-tank-light">
-                <span className={`text-lg font-semibold ${
-                  plan.id === 'premium' ? 'text-tank-accent' : 
-                  plan.id === 'viewer' ? 'text-red-400' : 'text-white'
+                <span className={`text-sm font-semibold ${
+                  plan.id === 'premium' || plan.id === 'viewer' ? 'text-tank-accent' : 'text-white'
                 }`}>
                   {plan.uploadCost}
                 </span>
@@ -335,8 +352,15 @@ export default function PricingPage() {
                 <td className="py-4 px-4 text-center">$80/year</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-4 px-4 text-gray-300">Upload Cost</td>
-                <td className="py-4 px-4 text-center text-red-400">No upload</td>
+                <td className="py-4 px-4 text-gray-300">Free Uploads</td>
+                <td className="py-4 px-4 text-center">5 uploads</td>
+                <td className="py-4 px-4 text-center">5 uploads</td>
+                <td className="py-4 px-4 text-center">5 uploads</td>
+                <td className="py-4 px-4 text-center text-tank-accent">Unlimited</td>
+              </tr>
+              <tr className="border-b border-tank-light/50">
+                <td className="py-4 px-4 text-gray-300">After Free Uploads</td>
+                <td className="py-4 px-4 text-center text-gray-500">—</td>
                 <td className="py-4 px-4 text-center">$1 per upload</td>
                 <td className="py-4 px-4 text-center">$0.5 per upload</td>
                 <td className="py-4 px-4 text-center text-tank-accent">Free</td>
@@ -357,7 +381,7 @@ export default function PricingPage() {
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">Sell Contents</td>
-                <td className="py-4 px-4 text-center text-gray-500">✗</td>
+                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
                 <td className="py-4 px-4 text-center text-tank-accent">✓</td>
