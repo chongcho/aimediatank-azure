@@ -21,13 +21,16 @@ export default function Navbar() {
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null } | null>(null)
+  const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
 
   const profileRef = useRef<HTMLDivElement>(null)
   const alertsRef = useRef<HTMLDivElement>(null)
 
-  const isSubscriber = session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'
-  const isAdmin = session?.user?.role === 'ADMIN'
+  // Check subscriber status from fetched data (more reliable than session)
+  const isSubscriber = userData?.role === 'SUBSCRIBER' || userData?.role === 'ADMIN' || 
+                       userData?.membershipType === 'BASIC' || userData?.membershipType === 'ADVANCED' || userData?.membershipType === 'PREMIUM' ||
+                       session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'
+  const isAdmin = userData?.role === 'ADMIN' || session?.user?.role === 'ADMIN'
   
   // Display name - show User ID (username) in navbar
   const displayName = userData?.username || session?.user?.username || 'User'
@@ -83,6 +86,8 @@ export default function Navbar() {
           name: data.user?.name || null,
           username: data.user?.username || null,
           avatar: data.user?.avatar || null,
+          membershipType: data.user?.membershipType || null,
+          role: data.user?.role || null,
         })
       }
     } catch (error) {
@@ -189,9 +194,9 @@ export default function Navbar() {
               <div className="w-8 h-8 rounded-full bg-tank-light animate-pulse" />
             ) : session ? (
               <>
-                {/* Upload Button - redirects to Membership page */}
+                {/* Upload Button - redirects based on subscription status */}
                 <Link
-                  href="/pricing"
+                  href={isSubscriber ? "/upload" : "/pricing"}
                   className="hidden sm:flex items-center gap-2 px-4 py-2 bg-tank-accent text-tank-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -421,7 +426,7 @@ export default function Navbar() {
               <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
               <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
               <MobileNavLink href="/?type=MUSIC" onClick={() => setIsMenuOpen(false)}>Music</MobileNavLink>
-              <MobileNavLink href="/pricing" onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
+              <MobileNavLink href={isSubscriber ? "/upload" : "/pricing"} onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
             </div>
           </div>
         )}
