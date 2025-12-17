@@ -2,16 +2,201 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { sendEmail, generateUploadLimitEmail } from '@/lib/email'
+import { sendEmail } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
-// Upload cost per plan (after free uploads)
-const UPLOAD_COSTS: Record<string, { freeUploads: number; costAfter: string }> = {
-  VIEWER: { freeUploads: 5, costAfter: 'No more uploads allowed' },
-  BASIC: { freeUploads: 5, costAfter: '$1.00 per upload' },
-  ADVANCED: { freeUploads: 5, costAfter: '$0.50 per upload' },
-  PREMIUM: { freeUploads: Infinity, costAfter: 'Free' },
+// Upload limits and costs per plan
+const UPLOAD_CONFIG: Record<string, { 
+  freeUploads: number; 
+  costPerUpload: number; 
+  canUploadAfterFree: boolean;
+}> = {
+  VIEWER: { freeUploads: 5, costPerUpload: 0, canUploadAfterFree: false },
+  BASIC: { freeUploads: 5, costPerUpload: 1.00, canUploadAfterFree: true },
+  ADVANCED: { freeUploads: 5, costPerUpload: 0.50, canUploadAfterFree: true },
+  PREMIUM: { freeUploads: Infinity, costPerUpload: 0, canUploadAfterFree: true },
+}
+
+// Generate upload confirmation email
+function generateUploadConfirmationEmail(
+  userName: string,
+  mediaTitle: string,
+  uploadNumber: number,
+  freeUploadsRemaining: number | string,
+  isFreeUpload: boolean,
+  uploadCost: number,
+  planName: string
+): string {
+  const remainingText = freeUploadsRemaining === 'Unlimited' 
+    ? 'Unlimited' 
+    : `${freeUploadsRemaining} remaining`
+
+  const costSection = isFreeUpload 
+    ? `<p style="color: #0f8; font-weight: bold;">✅ This was a FREE upload!</p>`
+    : `<p style="color: #ffa500; font-weight: bold;">💳 Upload cost: $${uploadCost.toFixed(2)}</p>`
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #0f8; margin: 0; font-size: 24px;">🎬 Upload Successful!</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Hi ${userName},</p>
+  
+  <p style="font-size: 16px;">Your content "<strong>${mediaTitle}</strong>" has been uploaded successfully!</p>
+  
+  <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8;">
+    <h3 style="margin: 0 0 15px 0; color: #1a1a2e;">Upload Summary</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Plan:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${planName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Upload #:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${uploadNumber}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Free Uploads:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${remainingText}</td>
+      </tr>
+    </table>
+    ${costSection}
+  </div>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="https://aimediatank.com" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+      View Your Content
+    </a>
+  </div>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+</body>
+</html>
+  `
+}
+
+// Generate free uploads exhausted email
+function generateFreeUploadsExhaustedEmail(
+  userName: string,
+  planName: string,
+  costPerUpload: number
+): string {
+  const nextStepSection = costPerUpload > 0
+    ? `<p style="font-size: 16px;">Future uploads will cost <strong>$${costPerUpload.toFixed(2)} per upload</strong>.</p>
+       <p style="font-size: 16px;">Consider upgrading to <strong>Premium Plan</strong> for unlimited free uploads!</p>`
+    : `<p style="font-size: 16px;">You've reached the upload limit for your plan. <strong>Upgrade now</strong> to continue uploading!</p>`
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #ffa500; margin: 0; font-size: 24px;">⚠️ Free Uploads Exhausted</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Hi ${userName},</p>
+  
+  <p style="font-size: 16px;">You've used all <strong>5 free uploads</strong> included with your <strong>${planName}</strong>.</p>
+  
+  <div style="background: #fff8e6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffa500;">
+    ${nextStepSection}
+  </div>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="https://aimediatank.com/pricing" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+      View Plans
+    </a>
+  </div>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+</body>
+</html>
+  `
+}
+
+// Generate paid upload email
+function generatePaidUploadEmail(
+  userName: string,
+  mediaTitle: string,
+  uploadCost: number,
+  totalPaidUploads: number,
+  totalCost: number
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #ffa500; margin: 0; font-size: 24px;">💳 Paid Upload Processed</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Hi ${userName},</p>
+  
+  <p style="font-size: 16px;">Your paid upload "<strong>${mediaTitle}</strong>" has been processed.</p>
+  
+  <div style="background: #fff8e6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffa500;">
+    <h3 style="margin: 0 0 15px 0; color: #1a1a2e;">Upload Charge</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 8px 0; color: #666;">This Upload:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">$${uploadCost.toFixed(2)}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Paid Uploads This Period:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${totalPaidUploads}</td>
+      </tr>
+      <tr style="border-top: 1px solid #ddd;">
+        <td style="padding: 8px 0; color: #666; font-weight: bold;">Total Charges:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #ffa500;">$${totalCost.toFixed(2)}</td>
+      </tr>
+    </table>
+  </div>
+
+  <p style="font-size: 14px; color: #666;">
+    💡 <strong>Tip:</strong> Upgrade to Premium for unlimited free uploads and save on upload costs!
+  </p>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="https://aimediatank.com/pricing" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+      Upgrade to Premium
+    </a>
+  </div>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+</body>
+</html>
+  `
 }
 
 // Complete the upload by creating the database record
@@ -44,14 +229,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const planConfig = UPLOAD_COSTS[user.membershipType] || UPLOAD_COSTS.VIEWER
-    const freeUploadsRemaining = planConfig.freeUploads - (user.freeUploadsUsed || 0)
-    const isFreeUpload = freeUploadsRemaining > 0
+    const config = UPLOAD_CONFIG[user.membershipType] || UPLOAD_CONFIG.VIEWER
+    const freeUploadsUsed = user.freeUploadsUsed || 0
+    const freeUploadsRemaining = user.membershipType === 'PREMIUM' 
+      ? Infinity 
+      : Math.max(0, config.freeUploads - freeUploadsUsed)
+    
+    const isFreeUpload = freeUploadsRemaining > 0 || user.membershipType === 'PREMIUM'
+    const canUpload = isFreeUpload || config.canUploadAfterFree
 
-    // Check if user has exhausted free uploads (for VIEWER plan only)
-    if (user.membershipType === 'VIEWER' && freeUploadsRemaining <= 0) {
+    // Check if user can upload
+    if (!canUpload) {
       return NextResponse.json(
-        { error: 'You have used all 5 free uploads. Upgrade your plan to upload more.' },
+        { 
+          error: 'You have used all 5 free uploads. Upgrade your plan to upload more.',
+          upgradeRequired: true 
+        },
         { status: 403 }
       )
     }
@@ -81,6 +274,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid media type' }, { status: 400 })
     }
 
+    // Calculate upload cost for this upload
+    const uploadCost = isFreeUpload ? 0 : config.costPerUpload
+
     // Create media record
     const media = await prisma.media.create({
       data: {
@@ -93,7 +289,7 @@ export async function POST(request: Request) {
         aiPrompt: aiPrompt || null,
         price: price ? parseFloat(price) : null,
         isPublic,
-        isApproved: true, // Auto-approve for now
+        isApproved: true,
         userId: session.user.id,
       },
       include: {
@@ -108,64 +304,137 @@ export async function POST(request: Request) {
       },
     })
 
-    // Increment free uploads used (for non-Premium plans)
-    if (user.membershipType !== 'PREMIUM') {
-      const newFreeUploadsUsed = (user.freeUploadsUsed || 0) + 1
+    // Update free uploads used (for non-Premium plans)
+    let newFreeUploadsUsed = freeUploadsUsed
+    let newFreeUploadsRemaining: number | string = freeUploadsRemaining
+
+    if (user.membershipType !== 'PREMIUM' && isFreeUpload) {
+      newFreeUploadsUsed = freeUploadsUsed + 1
+      newFreeUploadsRemaining = Math.max(0, config.freeUploads - newFreeUploadsUsed)
       
       await prisma.user.update({
         where: { id: user.id },
         data: { freeUploadsUsed: newFreeUploadsUsed },
       })
-
-      // Check if this was the last free upload - send notification
-      if (newFreeUploadsUsed >= planConfig.freeUploads && user.membershipType !== 'VIEWER') {
-        const totalUploads = (user._count?.media || 0) + 1
-
-        // Send email notification
-        const emailHtml = generateUploadLimitEmail(
-          user.name || user.username,
-          user.membershipType + ' Plan',
-          totalUploads,
-          planConfig.freeUploads,
-          planConfig.costAfter
-        )
-
-        await sendEmail({
-          to: user.email,
-          subject: '📊 Free Uploads Exhausted - Upload Summary | AI Media Tank',
-          html: emailHtml
-        })
-
-        // Create in-app notification
-        await prisma.notification.create({
-          data: {
-            userId: user.id,
-            type: 'system',
-            title: 'Free Uploads Used',
-            message: `You've used all ${planConfig.freeUploads} free uploads. Future uploads will cost ${planConfig.costAfter}.`,
-            link: '/pricing',
-          }
-        })
-
-        console.log(`Sent free uploads exhausted notification to ${user.email}`)
-      }
     }
 
-    // Calculate upload info for response
-    const uploadsUsed = user.membershipType !== 'PREMIUM' 
-      ? (user.freeUploadsUsed || 0) + 1 
-      : 0
+    const totalUploads = (user._count?.media || 0) + 1
+    const paidUploadsCount = Math.max(0, totalUploads - config.freeUploads)
+    const totalPaidCost = paidUploadsCount * config.costPerUpload
+    const planName = `${user.membershipType.charAt(0) + user.membershipType.slice(1).toLowerCase()} Plan`
+
+    // Determine which notification to send
+    const userName = user.name || user.username || 'User'
+    
+    // Check if this upload just exhausted free uploads
+    const justExhaustedFreeUploads = newFreeUploadsUsed === config.freeUploads && 
+                                      user.membershipType !== 'PREMIUM'
+
+    if (justExhaustedFreeUploads) {
+      // Send free uploads exhausted email
+      const exhaustedEmailHtml = generateFreeUploadsExhaustedEmail(
+        userName,
+        planName,
+        config.costPerUpload
+      )
+
+      await sendEmail({
+        to: user.email,
+        subject: '⚠️ Free Uploads Exhausted | AI Media Tank',
+        html: exhaustedEmailHtml
+      })
+
+      // Create in-app notification
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'system',
+          title: '⚠️ Free Uploads Exhausted',
+          message: config.canUploadAfterFree 
+            ? `You've used all 5 free uploads. Future uploads will cost $${config.costPerUpload.toFixed(2)} each.`
+            : 'You've used all 5 free uploads. Upgrade your plan to continue uploading.',
+          link: '/pricing',
+        }
+      })
+    } else if (!isFreeUpload && uploadCost > 0) {
+      // This is a paid upload - send paid upload notification
+      const paidEmailHtml = generatePaidUploadEmail(
+        userName,
+        title,
+        uploadCost,
+        paidUploadsCount,
+        totalPaidCost
+      )
+
+      await sendEmail({
+        to: user.email,
+        subject: '💳 Paid Upload Processed | AI Media Tank',
+        html: paidEmailHtml
+      })
+
+      // Create in-app notification for paid upload
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'system',
+          title: '💳 Paid Upload',
+          message: `Upload charged: $${uploadCost.toFixed(2)}. Total this period: $${totalPaidCost.toFixed(2)}`,
+          link: '/pricing',
+        }
+      })
+    } else {
+      // Regular free upload - send confirmation
+      const freeRemaining = user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
+      
+      const confirmationEmailHtml = generateUploadConfirmationEmail(
+        userName,
+        title,
+        totalUploads,
+        freeRemaining,
+        true,
+        0,
+        planName
+      )
+
+      await sendEmail({
+        to: user.email,
+        subject: '🎬 Upload Successful! | AI Media Tank',
+        html: confirmationEmailHtml
+      })
+
+      // Create in-app notification
+      const notificationMessage = user.membershipType === 'PREMIUM'
+        ? `"${title}" uploaded successfully! Unlimited uploads available.`
+        : `"${title}" uploaded! ${newFreeUploadsRemaining} free upload${newFreeUploadsRemaining !== 1 ? 's' : ''} remaining.`
+
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'system',
+          title: '🎬 Upload Successful',
+          message: notificationMessage,
+        }
+      })
+    }
+
+    // Calculate response info
     const uploadsRemaining = user.membershipType === 'PREMIUM' 
       ? 'Unlimited' 
-      : Math.max(0, planConfig.freeUploads - uploadsUsed)
+      : newFreeUploadsRemaining
 
     return NextResponse.json({ 
       media,
       uploadInfo: {
         isFreeUpload,
-        freeUploadsUsed: uploadsUsed,
+        uploadCost,
+        freeUploadsUsed: newFreeUploadsUsed,
         freeUploadsRemaining: uploadsRemaining,
-        costAfterFree: planConfig.costAfter,
+        totalUploads,
+        paidUploadsCount,
+        totalPaidCost,
+        message: isFreeUpload 
+          ? `✅ Free upload! ${uploadsRemaining} remaining.`
+          : `💳 Upload cost: $${uploadCost.toFixed(2)}`
       }
     })
   } catch (error) {
@@ -176,4 +445,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

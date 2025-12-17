@@ -1,9 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressMedia } from '@/lib/mediaCompression'
+
+interface UploadQuota {
+  membershipType: string
+  freeUploads: number | string
+  freeUploadsUsed: number
+  freeUploadsRemaining: number | string
+  costPerUpload: number
+  nextUploadCost: number
+  canUpload: boolean
+  statusMessage: string
+  statusType: 'free' | 'paid' | 'blocked'
+  planDescription: string
+}
 
 export default function UploadPage() {
   const { data: session, status } = useSession()
@@ -24,6 +37,30 @@ export default function UploadPage() {
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState('')
+  const [uploadQuota, setUploadQuota] = useState<UploadQuota | null>(null)
+  const [quotaLoading, setQuotaLoading] = useState(true)
+
+  // Fetch upload quota on mount
+  useEffect(() => {
+    if (session?.user) {
+      fetchUploadQuota()
+    }
+  }, [session])
+
+  const fetchUploadQuota = async () => {
+    try {
+      setQuotaLoading(true)
+      const res = await fetch('/api/upload/status')
+      if (res.ok) {
+        const data = await res.json()
+        setUploadQuota(data)
+      }
+    } catch (err) {
+      console.error('Error fetching upload quota:', err)
+    } finally {
+      setQuotaLoading(false)
+    }
+  }
 
   // Redirect if not subscriber
   if (status === 'loading') {
@@ -263,6 +300,83 @@ export default function UploadPage() {
         </p>
       </div>
 
+      {/* Upload Quota Status Banner */}
+      {!quotaLoading && uploadQuota && (
+        <div className={`mb-6 p-4 rounded-xl border ${
+          uploadQuota.statusType === 'free' 
+            ? 'bg-tank-accent/10 border-tank-accent/30' 
+            : uploadQuota.statusType === 'paid'
+            ? 'bg-yellow-500/10 border-yellow-500/30'
+            : 'bg-red-500/10 border-red-500/30'
+        }`}>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">
+                {uploadQuota.statusType === 'free' ? '🎁' : uploadQuota.statusType === 'paid' ? '💳' : '⚠️'}
+              </span>
+              <div>
+                <p className={`font-semibold ${
+                  uploadQuota.statusType === 'free' 
+                    ? 'text-tank-accent' 
+                    : uploadQuota.statusType === 'paid'
+                    ? 'text-yellow-400'
+                    : 'text-red-400'
+                }`}>
+                  {uploadQuota.statusMessage}
+                </p>
+                <p className="text-sm text-gray-400">
+                  {uploadQuota.membershipType} Plan • {uploadQuota.planDescription}
+                </p>
+              </div>
+            </div>
+            {uploadQuota.freeUploadsRemaining !== 'Unlimited' && (
+              <div className="flex items-center gap-2">
+                <div className="text-center px-4 py-2 bg-tank-dark rounded-lg">
+                  <p className="text-2xl font-bold text-white">{uploadQuota.freeUploadsUsed}</p>
+                  <p className="text-xs text-gray-400">Used</p>
+                </div>
+                <div className="text-gray-500">/</div>
+                <div className="text-center px-4 py-2 bg-tank-dark rounded-lg">
+                  <p className="text-2xl font-bold text-tank-accent">{uploadQuota.freeUploads}</p>
+                  <p className="text-xs text-gray-400">Free</p>
+                </div>
+              </div>
+            )}
+          </div>
+          {uploadQuota.statusType === 'blocked' && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => router.push('/pricing')}
+                className="px-6 py-2 bg-tank-accent text-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
+              >
+                Upgrade Plan to Continue Uploading
+              </button>
+            </div>
+          )}
+          {uploadQuota.statusType === 'paid' && (
+            <p className="mt-2 text-sm text-yellow-400/80 text-center">
+              💡 Upgrade to Premium for unlimited free uploads!
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Block form if user can't upload */}
+      {!quotaLoading && uploadQuota && !uploadQuota.canUpload ? (
+        <div className="card text-center py-12">
+          <div className="text-6xl mb-4">🔒</div>
+          <h2 className="text-xl font-bold mb-2">Upload Limit Reached</h2>
+          <p className="text-gray-400 mb-6">
+            You've used all your free uploads. Upgrade your plan to continue uploading.
+          </p>
+          <button
+            onClick={() => router.push('/pricing')}
+            className="btn-primary"
+          >
+            View Plans
+          </button>
+        </div>
+      ) : (
       <div className="card">
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
@@ -486,13 +600,14 @@ export default function UploadPage() {
 
           <button
             type="submit"
-            disabled={loading || !file}
+            disabled={loading || !file || (uploadQuota && !uploadQuota.canUpload)}
             className="btn-primary w-full"
           >
-            {loading ? 'Uploading...' : 'Upload Media'}
+            {loading ? 'Uploading...' : uploadQuota?.nextUploadCost ? `Upload ($${uploadQuota.nextUploadCost.toFixed(2)})` : 'Upload Media'}
           </button>
         </form>
       </div>
+      )}
     </div>
   )
 }
