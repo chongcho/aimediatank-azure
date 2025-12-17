@@ -600,10 +600,10 @@ export default function UploadPage() {
 
           <button
             type="submit"
-            disabled={loading || !file || (uploadQuota && !uploadQuota.canUpload)}
+            disabled={loading || !file || !!(uploadQuota && !uploadQuota.canUpload)}
             className="btn-primary w-full"
           >
-            {loading ? 'Uploading...' : uploadQuota?.nextUploadCost ? `Upload ($${uploadQuota.nextUploadCost.toFixed(2)})` : 'Upload Media'}
+            {loading ? 'Uploading...' : (uploadQuota?.nextUploadCost && uploadQuota.nextUploadCost > 0) ? `Upload ($${uploadQuota.nextUploadCost.toFixed(2)})` : 'Upload Media'}
           </button>
         </form>
       </div>

@@ -351,8 +351,8 @@ export async function POST(request: Request) {
           type: 'system',
           title: '⚠️ Free Uploads Exhausted',
           message: config.canUploadAfterFree 
-            ? `You've used all 5 free uploads. Future uploads will cost $${config.costPerUpload.toFixed(2)} each.`
-            : 'You've used all 5 free uploads. Upgrade your plan to continue uploading.',
+            ? `You have used all 5 free uploads. Future uploads will cost $${config.costPerUpload.toFixed(2)} each.`
+            : `You have used all 5 free uploads. Upgrade your plan to continue uploading.`,
           link: '/pricing',
         }
       })
