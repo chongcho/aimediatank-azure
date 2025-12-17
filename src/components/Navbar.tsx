@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef } from 'react'
+import LiveChatSupport from './LiveChatSupport'
 
 interface Notification {
   id: string
@@ -19,12 +20,15 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
+  const [isServiceOpen, setIsServiceOpen] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
 
   const profileRef = useRef<HTMLDivElement>(null)
   const alertsRef = useRef<HTMLDivElement>(null)
+  const serviceRef = useRef<HTMLDivElement>(null)
 
   // Check subscriber status from fetched data (more reliable than session)
   const isSubscriber = userData?.role === 'SUBSCRIBER' || userData?.role === 'ADMIN' || 
@@ -43,6 +47,9 @@ export default function Navbar() {
       }
       if (alertsRef.current && !alertsRef.current.contains(event.target as Node)) {
         setIsAlertsOpen(false)
+      }
+      if (serviceRef.current && !serviceRef.current.contains(event.target as Node)) {
+        setIsServiceOpen(false)
       }
     }
 
@@ -297,6 +304,68 @@ export default function Navbar() {
                   <span className="text-sm font-medium">My Contents</span>
                 </Link>
 
+                {/* User Service Dropdown */}
+                <div className="relative" ref={serviceRef}>
+                  <button
+                    onClick={() => {
+                      setIsServiceOpen(!isServiceOpen)
+                      setIsProfileOpen(false)
+                      setIsAlertsOpen(false)
+                    }}
+                    className="hidden sm:flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-tank-light rounded-lg transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span className="text-sm font-medium">Support</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {isServiceOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-tank-dark border border-tank-light rounded-xl shadow-xl py-2">
+                      <div className="px-4 py-2 border-b border-tank-light">
+                        <p className="font-semibold text-tank-accent">User Service</p>
+                        <p className="text-xs text-gray-500">We're here to help!</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsServiceOpen(false)
+                          setIsChatOpen(true)
+                        }}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-tank-light transition-colors w-full text-left"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                          <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="font-medium text-white">Live Chat Support</p>
+                          <p className="text-xs text-gray-500">Chat with AiMediaTank</p>
+                        </div>
+                        <span className="ml-auto w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                      </button>
+                      <a
+                        href="mailto:support@aimediatank.com"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-tank-light transition-colors"
+                        onClick={() => setIsServiceOpen(false)}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                          <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="font-medium text-white">Email Support</p>
+                          <p className="text-xs text-gray-500">support@aimediatank.com</p>
+                        </div>
+                      </a>
+                    </div>
+                  )}
+                </div>
+
                 {/* User ID Dropdown */}
                 <div className="relative" ref={profileRef}>
                   <button
@@ -427,10 +496,45 @@ export default function Navbar() {
               <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
               <MobileNavLink href="/?type=MUSIC" onClick={() => setIsMenuOpen(false)}>Music</MobileNavLink>
               <MobileNavLink href={isSubscriber ? "/upload" : "/pricing"} onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
+              {session && (
+                <>
+                  <div className="border-t border-tank-light my-2"></div>
+                  <button
+                    onClick={() => {
+                      setIsMenuOpen(false)
+                      setIsChatOpen(true)
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all"
+                  >
+                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Live Chat Support
+                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                  </button>
+                  <a
+                    href="mailto:support@aimediatank.com"
+                    className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Email Support
+                  </a>
+                </>
+              )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Live Chat Modal */}
+      <LiveChatSupport
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        userName={userData?.name || session?.user?.name || displayName || 'there'}
+      />
     </nav>
   )
 }
