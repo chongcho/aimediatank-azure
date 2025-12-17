@@ -79,24 +79,14 @@ export async function POST(request: Request) {
       })
     }
 
-    // Create checkout session for subscription
+    // Create checkout session for subscription using existing Stripe price
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [
         {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: plan.name,
-              description: `AI Media Tank ${plan.name} Membership`,
-            },
-            unit_amount: plan.amount,
-            recurring: {
-              interval: 'month',
-            },
-          },
+          price: plan.priceId,
           quantity: 1,
         },
       ],
