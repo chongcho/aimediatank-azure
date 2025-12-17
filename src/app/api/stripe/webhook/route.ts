@@ -39,7 +39,84 @@ export async function POST(request: Request) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
       
-      // Get all purchases for this session with media and buyer details
+      console.log(`Checkout session completed: mode=${session.mode}, metadata=`, session.metadata)
+      
+      // Handle subscription checkout (membership purchase)
+      if (session.mode === 'subscription' && session.metadata?.type === 'membership') {
+        const userId = session.metadata.userId
+        const planId = session.metadata.planId || 'basic'
+        const billingPeriod = session.metadata.billingPeriod || 'month'
+        const customerId = session.customer as string
+        const subscriptionId = session.subscription as string
+        
+        console.log(`Processing membership checkout: userId=${userId}, planId=${planId}, customerId=${customerId}`)
+        
+        if (userId) {
+          const planConfig = PLAN_CONDITIONS[planId] || PLAN_CONDITIONS.basic
+          const membershipType = planId.toUpperCase()
+          
+          // Calculate expiration (1 month or 1 year from now)
+          const periodEnd = new Date()
+          if (billingPeriod === 'year') {
+            periodEnd.setFullYear(periodEnd.getFullYear() + 1)
+          } else {
+            periodEnd.setMonth(periodEnd.getMonth() + 1)
+          }
+          
+          // Update user membership
+          const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: {
+              membershipType,
+              membershipExpiresAt: periodEnd,
+              stripeCustomerId: customerId,
+              stripeSubscriptionId: subscriptionId,
+              role: 'SUBSCRIBER',
+              freeUploadsUsed: 0,
+              freeUploadsResetAt: periodEnd,
+            },
+          })
+          
+          console.log(`Updated user ${userId} to ${membershipType} membership, expires: ${periodEnd}`)
+          
+          // Send membership confirmation email
+          const priceAmount = planId === 'basic' ? 2 : planId === 'advanced' ? 5 : 8
+          const price = billingPeriod === 'year' 
+            ? `$${priceAmount * 10}/year` 
+            : `$${priceAmount}/month`
+          
+          const emailHtml = generateMembershipPurchaseEmail(
+            updatedUser.name || updatedUser.username,
+            planConfig.name,
+            price,
+            billingPeriod === 'year' ? 'Yearly' : 'Monthly',
+            planConfig.uploadCondition
+          )
+          
+          await sendEmail({
+            to: updatedUser.email,
+            subject: `🎉 Welcome to ${planConfig.name}! | AI Media Tank`,
+            html: emailHtml
+          })
+          
+          console.log(`Sent membership confirmation email to ${updatedUser.email}`)
+          
+          // Create in-app notification
+          await prisma.notification.create({
+            data: {
+              userId: userId,
+              type: 'system',
+              title: 'Membership Activated! 🎉',
+              message: `Welcome to ${planConfig.name}! You now have ${planConfig.uploadCondition}.`,
+              link: '/pricing',
+            }
+          })
+        }
+        
+        break
+      }
+      
+      // Handle media purchase checkout (existing logic)
       const purchases = await prisma.purchase.findMany({
         where: { stripeSessionId: session.id },
         include: {
