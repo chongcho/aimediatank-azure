@@ -10,6 +10,7 @@ interface UploadQuota {
   freeUploads: number | string
   freeUploadsUsed: number
   freeUploadsRemaining: number | string
+  paidUploadCredits: number
   costPerUpload: number
   nextUploadCost: number
   canUpload: boolean
@@ -257,7 +258,9 @@ function UploadPageContent() {
     }
 
     // Check if payment is required (free uploads exhausted for paid plans)
-    if (uploadQuota?.statusType === 'paid' && !uploadPaid) {
+    // If user has paid credits, they can upload without showing payment modal
+    const hasPaidCredits = (uploadQuota?.paidUploadCredits || 0) > 0
+    if (uploadQuota?.statusType === 'paid' && !uploadPaid && !hasPaidCredits) {
       setShowPaymentModal(true)
       return
     }
@@ -645,7 +648,12 @@ function UploadPageContent() {
             disabled={loading || !file || !!(uploadQuota && !uploadQuota.canUpload)}
             className="btn-primary w-full"
           >
-            {loading ? 'Uploading...' : uploadQuota?.statusType === 'paid' && !uploadPaid ? `Pay & Upload ($${uploadQuota.costPerUpload.toFixed(2)})` : 'Upload Media'}
+            {loading ? 'Uploading...' : 
+              uploadQuota?.statusType === 'paid' && !uploadPaid && !(uploadQuota?.paidUploadCredits > 0) 
+                ? `Pay & Upload ($${uploadQuota.costPerUpload.toFixed(2)})` 
+                : uploadQuota?.paidUploadCredits > 0 
+                  ? `Upload (Using Paid Credit)` 
+                  : 'Upload Media'}
           </button>
         </form>
       </div>

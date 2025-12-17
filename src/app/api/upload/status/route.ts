@@ -52,6 +52,7 @@ export async function GET() {
         membershipType: true,
         freeUploadsUsed: true,
         freeUploadsResetAt: true,
+        paidUploadCredits: true,
         _count: {
           select: { media: true }
         }
@@ -64,13 +65,15 @@ export async function GET() {
 
     const config = UPLOAD_CONFIG[user.membershipType] || UPLOAD_CONFIG.VIEWER
     const freeUploadsUsed = user.freeUploadsUsed || 0
+    const paidUploadCredits = user.paidUploadCredits || 0
     const freeUploadsRemaining = user.membershipType === 'PREMIUM' 
       ? Infinity 
       : Math.max(0, config.freeUploads - freeUploadsUsed)
     
     const isWithinFreeLimit = freeUploadsRemaining > 0 || user.membershipType === 'PREMIUM'
-    const canUpload = isWithinFreeLimit || config.canUploadAfterFree
-    const nextUploadCost = isWithinFreeLimit ? 0 : config.costPerUpload
+    const hasPaidCredits = paidUploadCredits > 0
+    const canUpload = isWithinFreeLimit || hasPaidCredits || config.canUploadAfterFree
+    const nextUploadCost = isWithinFreeLimit || hasPaidCredits ? 0 : config.costPerUpload
     
     // Determine upload status message
     let statusMessage = ''
@@ -82,6 +85,9 @@ export async function GET() {
     } else if (freeUploadsRemaining > 0) {
       statusMessage = `🎁 ${freeUploadsRemaining} free upload${freeUploadsRemaining !== 1 ? 's' : ''} remaining`
       statusType = 'free'
+    } else if (hasPaidCredits) {
+      statusMessage = `✅ ${paidUploadCredits} paid upload credit${paidUploadCredits !== 1 ? 's' : ''} available`
+      statusType = 'free' // Treat paid credits as "free" since payment is already done
     } else if (config.canUploadAfterFree) {
       statusMessage = `💳 Each upload costs $${config.costPerUpload.toFixed(2)}`
       statusType = 'paid'
@@ -96,6 +102,7 @@ export async function GET() {
       freeUploads: config.freeUploads === Infinity ? 'Unlimited' : config.freeUploads,
       freeUploadsUsed,
       freeUploadsRemaining: freeUploadsRemaining === Infinity ? 'Unlimited' : freeUploadsRemaining,
+      paidUploadCredits,
       costPerUpload: config.costPerUpload,
       nextUploadCost,
       canUpload,

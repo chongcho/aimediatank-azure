@@ -116,6 +116,44 @@ export async function POST(request: Request) {
         break
       }
       
+      // Handle upload fee payment
+      if (session.mode === 'payment' && session.metadata?.type === 'upload_fee') {
+        const userId = session.metadata.userId
+        
+        if (userId) {
+          // Add paid upload credit to user
+          await prisma.user.update({
+            where: { id: userId },
+            data: {
+              paidUploadCredits: { increment: 1 }
+            },
+          })
+          
+          console.log(`Added 1 paid upload credit to user ${userId}`)
+          
+          // Get user for notification
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { email: true, name: true, username: true }
+          })
+          
+          if (user) {
+            // Create in-app notification
+            await prisma.notification.create({
+              data: {
+                userId: userId,
+                type: 'system',
+                title: '💳 Upload Payment Received',
+                message: 'Your upload payment has been processed. You can now complete your upload!',
+                link: '/upload',
+              }
+            })
+          }
+        }
+        
+        break
+      }
+      
       // Handle media purchase checkout (existing logic)
       const purchases = await prisma.purchase.findMany({
         where: { stripeSessionId: session.id },

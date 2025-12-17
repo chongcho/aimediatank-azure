@@ -219,6 +219,7 @@ export async function POST(request: Request) {
         membershipType: true,
         freeUploadsUsed: true,
         freeUploadsResetAt: true,
+        paidUploadCredits: true,
         _count: {
           select: { media: true }
         }
@@ -231,12 +232,14 @@ export async function POST(request: Request) {
 
     const config = UPLOAD_CONFIG[user.membershipType] || UPLOAD_CONFIG.VIEWER
     const freeUploadsUsed = user.freeUploadsUsed || 0
+    const paidUploadCredits = user.paidUploadCredits || 0
     const freeUploadsRemaining = user.membershipType === 'PREMIUM' 
       ? Infinity 
       : Math.max(0, config.freeUploads - freeUploadsUsed)
     
     const isFreeUpload = freeUploadsRemaining > 0 || user.membershipType === 'PREMIUM'
-    const canUpload = isFreeUpload || config.canUploadAfterFree
+    const hasPaidCredit = paidUploadCredits > 0
+    const canUpload = isFreeUpload || hasPaidCredit || config.canUploadAfterFree
 
     // Check if user can upload
     if (!canUpload) {
@@ -248,6 +251,9 @@ export async function POST(request: Request) {
         { status: 403 }
       )
     }
+    
+    // Determine if this is a paid upload using credits
+    const isPaidWithCredit = !isFreeUpload && hasPaidCredit
 
     const body = await request.json()
     const {
@@ -275,7 +281,8 @@ export async function POST(request: Request) {
     }
 
     // Calculate upload cost for this upload
-    const uploadCost = isFreeUpload ? 0 : config.costPerUpload
+    // If user has paid credits, use them (cost is already paid)
+    const uploadCost = isFreeUpload || isPaidWithCredit ? 0 : config.costPerUpload
 
     // Create media record
     const media = await prisma.media.create({
@@ -304,18 +311,32 @@ export async function POST(request: Request) {
       },
     })
 
-    // Update free uploads used (for non-Premium plans)
+    // Update free uploads used (for non-Premium plans) or consume paid credit
     let newFreeUploadsUsed = freeUploadsUsed
     let newFreeUploadsRemaining: number | string = freeUploadsRemaining
+    let newPaidUploadCredits = paidUploadCredits
 
-    if (user.membershipType !== 'PREMIUM' && isFreeUpload) {
-      newFreeUploadsUsed = freeUploadsUsed + 1
-      newFreeUploadsRemaining = Math.max(0, config.freeUploads - newFreeUploadsUsed)
-      
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { freeUploadsUsed: newFreeUploadsUsed },
-      })
+    if (user.membershipType !== 'PREMIUM') {
+      if (isFreeUpload) {
+        // Use a free upload
+        newFreeUploadsUsed = freeUploadsUsed + 1
+        newFreeUploadsRemaining = Math.max(0, config.freeUploads - newFreeUploadsUsed)
+        
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { freeUploadsUsed: newFreeUploadsUsed },
+        })
+      } else if (isPaidWithCredit) {
+        // Consume a paid upload credit
+        newPaidUploadCredits = paidUploadCredits - 1
+        
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { paidUploadCredits: newPaidUploadCredits },
+        })
+        
+        console.log(`User ${user.id} used paid upload credit. Remaining: ${newPaidUploadCredits}`)
+      }
     }
 
     const totalUploads = (user._count?.media || 0) + 1
@@ -354,6 +375,34 @@ export async function POST(request: Request) {
             ? `You have used all 5 free uploads. Future uploads will cost $${config.costPerUpload.toFixed(2)} each.`
             : `You have used all 5 free uploads. Upgrade your plan to continue uploading.`,
           link: '/pricing',
+        }
+      })
+    } else if (isPaidWithCredit) {
+      // This upload used a paid credit - send confirmation
+      const creditUploadEmailHtml = generateUploadConfirmationEmail(
+        userName,
+        title,
+        totalUploads,
+        newPaidUploadCredits > 0 ? `${newPaidUploadCredits} paid credit(s) remaining` : 'No credits remaining',
+        false,
+        config.costPerUpload,
+        planName
+      )
+
+      await sendEmail({
+        to: user.email,
+        subject: '✅ Paid Upload Complete | AI Media Tank',
+        html: creditUploadEmailHtml
+      })
+
+      // Create in-app notification for paid credit upload
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'system',
+          title: '✅ Paid Upload Complete',
+          message: `"${title}" uploaded using paid credit. ${newPaidUploadCredits} credit(s) remaining.`,
+          link: `/media/${media.id}`,
         }
       })
     } else if (!isFreeUpload && uploadCost > 0) {

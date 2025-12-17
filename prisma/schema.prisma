@@ -26,6 +26,7 @@ model User {
   stripeSubscriptionId String?
   freeUploadsUsed Int      @default(0)      // Track free uploads used this period
   freeUploadsResetAt DateTime?              // When to reset free upload count
+  paidUploadCredits Int     @default(0)      // Paid upload credits from Stripe payments
   emailVerified Boolean   @default(false)
   verificationToken String?
   verificationExpires DateTime?
