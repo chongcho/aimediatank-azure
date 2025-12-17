@@ -649,9 +649,9 @@ function UploadPageContent() {
             className="btn-primary w-full"
           >
             {loading ? 'Uploading...' : 
-              uploadQuota?.statusType === 'paid' && !uploadPaid && !(uploadQuota?.paidUploadCredits > 0) 
+              uploadQuota?.statusType === 'paid' && !uploadPaid && !((uploadQuota?.paidUploadCredits ?? 0) > 0) 
                 ? `Pay & Upload ($${uploadQuota.costPerUpload.toFixed(2)})` 
-                : uploadQuota?.paidUploadCredits > 0 
+                : (uploadQuota?.paidUploadCredits ?? 0) > 0 
                   ? `Upload (Using Paid Credit)` 
                   : 'Upload Media'}
           </button>
