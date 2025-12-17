@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { compressMedia } from '@/lib/mediaCompression'
@@ -18,7 +18,7 @@ interface UploadQuota {
   planDescription: string
 }
 
-export default function UploadPage() {
+function UploadPageContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -721,5 +721,20 @@ export default function UploadPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-3xl mx-auto px-4 py-12 text-center">
+        <div className="animate-pulse">
+          <div className="h-10 bg-tank-light rounded w-64 mx-auto mb-4"></div>
+          <div className="h-4 bg-tank-light rounded w-96 mx-auto"></div>
+        </div>
+      </div>
+    }>
+      <UploadPageContent />
+    </Suspense>
   )
 }
