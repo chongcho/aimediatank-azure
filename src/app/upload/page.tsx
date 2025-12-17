@@ -44,16 +44,29 @@ function UploadPageContent() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [uploadPaid, setUploadPaid] = useState(false)
+  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false)
 
   // Check for payment success on mount
   useEffect(() => {
     const payment = searchParams.get('payment')
     if (payment === 'success') {
       setUploadPaid(true)
+      // Refresh upload quota to show new credits
+      fetchUploadQuota()
       // Clean up URL
       router.replace('/upload', { scroll: false })
     }
   }, [searchParams, router])
+  
+  // Show payment success message
+  useEffect(() => {
+    if (uploadPaid) {
+      setShowPaymentSuccess(true)
+      // Auto-hide after 10 seconds
+      const timer = setTimeout(() => setShowPaymentSuccess(false), 10000)
+      return () => clearTimeout(timer)
+    }
+  }, [uploadPaid])
 
   // Fetch upload quota on mount
   useEffect(() => {
@@ -344,6 +357,27 @@ function UploadPageContent() {
           Share your AI-generated videos, images, or music with the community
         </p>
       </div>
+
+      {/* Payment Success Banner */}
+      {showPaymentSuccess && (
+        <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="text-3xl">🎉</div>
+            <div>
+              <p className="font-bold text-green-400 text-lg">Payment Successful!</p>
+              <p className="text-gray-300">
+                Your upload credit has been added. Please select your file below and complete the upload.
+              </p>
+            </div>
+            <button 
+              onClick={() => setShowPaymentSuccess(false)}
+              className="ml-auto text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Upload Quota Status Banner */}
       {!quotaLoading && uploadQuota && (
