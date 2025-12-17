@@ -46,27 +46,23 @@ function UploadPageContent() {
   const [uploadPaid, setUploadPaid] = useState(false)
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false)
 
-  // Check for payment success on mount
+  // Check for payment success on mount - redirect to home since upload is complete
   useEffect(() => {
     const payment = searchParams.get('payment')
-    if (payment === 'success') {
-      setUploadPaid(true)
-      // Refresh upload quota to show new credits
-      fetchUploadQuota()
-      // Clean up URL
-      router.replace('/upload', { scroll: false })
+    const pendingId = searchParams.get('pending')
+    
+    if (payment === 'success' && pendingId) {
+      // Upload was completed by webhook, redirect to home to see it
+      setShowPaymentSuccess(true)
+      // Auto-redirect to home after 3 seconds
+      const timer = setTimeout(() => {
+        router.push('/')
+      }, 3000)
+      return () => clearTimeout(timer)
+    } else if (payment === 'cancelled') {
+      setError('Payment was cancelled. Your file was uploaded but not published.')
     }
   }, [searchParams, router])
-  
-  // Show payment success message
-  useEffect(() => {
-    if (uploadPaid) {
-      setShowPaymentSuccess(true)
-      // Auto-hide after 10 seconds
-      const timer = setTimeout(() => setShowPaymentSuccess(false), 10000)
-      return () => clearTimeout(timer)
-    }
-  }, [uploadPaid])
 
   // Fetch upload quota on mount
   useEffect(() => {
@@ -90,25 +86,74 @@ function UploadPageContent() {
     }
   }
 
-  // Handle payment for upload
+  // Handle payment for upload - uploads file first, then redirects to Stripe
   const handlePayForUpload = async () => {
+    if (!file) {
+      setError('Please select a file to upload')
+      setShowPaymentModal(false)
+      return
+    }
+
     setPaymentLoading(true)
+    setError('')
+    
     try {
+      // Step 1: Compress the file
+      setUploadStatus('Compressing file...')
+      const compressedFile = await compressMedia(
+        file,
+        formData.type as 'IMAGE' | 'VIDEO' | 'MUSIC',
+        (progress) => {
+          setUploadStatus(`Compressing... ${progress}%`)
+        }
+      )
+      
+      // Step 2: Upload to Azure Blob Storage
+      setUploadStatus('Uploading to cloud storage...')
+      const fileUrl = await uploadToAzure(compressedFile, formData.type)
+      
+      // Upload thumbnail if provided
+      let thumbnailUrl = null
+      if (thumbnail) {
+        setUploadStatus('Uploading thumbnail...')
+        const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE')
+        thumbnailUrl = await uploadToAzure(compressedThumbnail, 'IMAGE')
+      }
+      
+      // Step 3: Create pending upload and get Stripe payment URL
+      setUploadStatus('Preparing payment...')
       const res = await fetch('/api/stripe/upload-payment', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          type: formData.type,
+          url: fileUrl,
+          thumbnailUrl,
+          aiTool: formData.aiTool,
+          aiPrompt: formData.aiPrompt,
+          price: formData.price || null,
+          isPublic: formData.isPublic,
+        }),
       })
+      
       const data = await res.json()
       
       if (data.url) {
+        // Redirect to Stripe checkout
         window.location.href = data.url
       } else {
         setError(data.error || 'Failed to create payment session')
+        setShowPaymentModal(false)
       }
     } catch (err) {
       console.error('Payment error:', err)
       setError('Failed to start payment process')
+      setShowPaymentModal(false)
     } finally {
       setPaymentLoading(false)
+      setUploadStatus('')
     }
   }
 
@@ -358,24 +403,23 @@ function UploadPageContent() {
         </p>
       </div>
 
-      {/* Payment Success Banner */}
+      {/* Payment Success Banner - Upload Complete */}
       {showPaymentSuccess && (
-        <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
-          <div className="flex items-center gap-3">
-            <div className="text-3xl">🎉</div>
-            <div>
-              <p className="font-bold text-green-400 text-lg">Payment Successful!</p>
-              <p className="text-gray-300">
-                Your upload credit has been added. Please select your file below and complete the upload.
-              </p>
-            </div>
-            <button 
-              onClick={() => setShowPaymentSuccess(false)}
-              className="ml-auto text-gray-400 hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
+        <div className="mb-6 p-6 bg-green-500/10 border border-green-500/30 rounded-xl text-center">
+          <div className="text-5xl mb-4">🎉</div>
+          <h2 className="font-bold text-green-400 text-2xl mb-2">Upload Complete!</h2>
+          <p className="text-gray-300 mb-4">
+            Your payment was successful and your media has been published!
+          </p>
+          <p className="text-gray-400 text-sm">
+            Redirecting to home page in 3 seconds...
+          </p>
+          <button 
+            onClick={() => router.push('/')}
+            className="mt-4 px-6 py-2 bg-tank-accent text-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
+          >
+            View Now →
+          </button>
         </div>
       )}
 

@@ -116,33 +116,61 @@ export async function POST(request: Request) {
         break
       }
       
-      // Handle upload fee payment
+      // Handle upload fee payment - automatically create media from pending upload
       if (session.mode === 'payment' && session.metadata?.type === 'upload_fee') {
         const userId = session.metadata.userId
+        const pendingUploadId = session.metadata.pendingUploadId
+        const mediaTitle = session.metadata.mediaTitle || 'Untitled'
         
-        console.log(`Processing upload_fee payment for userId: ${userId}`)
+        console.log(`Processing upload_fee payment for userId: ${userId}, pendingUploadId: ${pendingUploadId}`)
         
-        if (userId) {
-          // Add paid upload credit to user
-          const updatedUser = await prisma.user.update({
-            where: { id: userId },
-            data: {
-              paidUploadCredits: { increment: 1 }
-            },
-            select: { 
-              email: true, 
-              name: true, 
-              username: true,
-              paidUploadCredits: true,
-              membershipType: true
-            }
+        if (userId && pendingUploadId) {
+          // Find the pending upload
+          const pendingUpload = await prisma.pendingUpload.findUnique({
+            where: { id: pendingUploadId },
           })
           
-          console.log(`Added 1 paid upload credit to user ${userId}. Total credits: ${updatedUser.paidUploadCredits}`)
+          if (!pendingUpload) {
+            console.error(`Pending upload ${pendingUploadId} not found`)
+            break
+          }
           
-          // Send email notification
-          const userName = updatedUser.name || updatedUser.username || 'User'
-          const emailHtml = `
+          // Create the actual media record
+          const media = await prisma.media.create({
+            data: {
+              title: pendingUpload.title,
+              description: pendingUpload.description || '',
+              type: pendingUpload.type as 'VIDEO' | 'IMAGE' | 'MUSIC',
+              url: pendingUpload.url,
+              thumbnailUrl: pendingUpload.thumbnailUrl,
+              aiTool: pendingUpload.aiTool,
+              aiPrompt: pendingUpload.aiPrompt,
+              price: pendingUpload.price,
+              isPublic: pendingUpload.isPublic,
+              isApproved: true,
+              userId: pendingUpload.userId,
+            },
+          })
+          
+          console.log(`Created media ${media.id} from pending upload ${pendingUploadId}`)
+          
+          // Delete the pending upload
+          await prisma.pendingUpload.delete({
+            where: { id: pendingUploadId },
+          })
+          
+          // Get user for email
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { email: true, name: true, username: true, membershipType: true }
+          })
+          
+          if (user) {
+            const userName = user.name || user.username || 'User'
+            const uploadCost = user.membershipType === 'ADVANCED' ? 0.50 : 1.00
+            
+            // Send success email
+            const emailHtml = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -151,27 +179,26 @@ export async function POST(request: Request) {
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
-    <h1 style="color: #0f8; margin: 0; font-size: 24px;">💳 Upload Payment Received!</h1>
+    <h1 style="color: #0f8; margin: 0; font-size: 24px;">🎉 Upload Complete!</h1>
   </div>
   
   <p style="font-size: 16px;">Hi ${userName},</p>
   
-  <p style="font-size: 16px;">Your upload payment of <strong>$1.00</strong> has been successfully processed!</p>
+  <p style="font-size: 16px;">Your paid upload has been successfully processed and is now live!</p>
   
   <div style="background: #f0fff0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8;">
-    <p style="margin: 0 0 10px 0; font-weight: bold; color: #0f8;">Payment Summary:</p>
+    <p style="margin: 0 0 10px 0; font-weight: bold; color: #0f8;">Upload Summary:</p>
     <ul style="list-style: none; padding: 0; margin: 0;">
-      <li style="margin-bottom: 8px;"><strong>Amount:</strong> $1.00</li>
-      <li style="margin-bottom: 8px;"><strong>Upload Credits:</strong> ${updatedUser.paidUploadCredits} available</li>
-      <li style="margin-bottom: 8px;"><strong>Plan:</strong> ${updatedUser.membershipType}</li>
+      <li style="margin-bottom: 8px;"><strong>Title:</strong> ${pendingUpload.title}</li>
+      <li style="margin-bottom: 8px;"><strong>Type:</strong> ${pendingUpload.type}</li>
+      <li style="margin-bottom: 8px;"><strong>Upload Fee:</strong> $${uploadCost.toFixed(2)}</li>
+      <li style="margin-bottom: 8px;"><strong>Status:</strong> ✅ Published</li>
     </ul>
   </div>
   
-  <p style="font-size: 16px;">You can now complete your upload on AI Media Tank!</p>
-  
   <div style="text-align: center; margin: 30px 0;">
-    <a href="https://aimediatank.com/upload" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-      Complete Your Upload
+    <a href="https://aimediatank.com/media/${media.id}" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+      View Your Upload
     </a>
   </div>
   
@@ -183,26 +210,27 @@ export async function POST(request: Request) {
   </p>
 </body>
 </html>
-          `
-          
-          await sendEmail({
-            to: updatedUser.email,
-            subject: '💳 Upload Payment Received | AI Media Tank',
-            html: emailHtml
-          })
-          
-          console.log(`Sent upload payment email to ${updatedUser.email}`)
-          
-          // Create in-app notification
-          await prisma.notification.create({
-            data: {
-              userId: userId,
-              type: 'system',
-              title: '💳 Upload Payment Received',
-              message: `Your $1.00 upload payment is complete! You have ${updatedUser.paidUploadCredits} upload credit(s) available.`,
-              link: '/upload',
-            }
-          })
+            `
+            
+            await sendEmail({
+              to: user.email,
+              subject: `🎉 Upload Complete: "${pendingUpload.title}" | AI Media Tank`,
+              html: emailHtml
+            })
+            
+            console.log(`Sent upload complete email to ${user.email}`)
+            
+            // Create in-app notification
+            await prisma.notification.create({
+              data: {
+                userId: userId,
+                type: 'system',
+                title: '🎉 Upload Complete!',
+                message: `Your paid upload "${pendingUpload.title}" is now live!`,
+                link: `/media/${media.id}`,
+              }
+            })
+          }
         }
         
         break

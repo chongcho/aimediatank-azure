@@ -44,6 +44,7 @@ model User {
   savedMedia    SavedMedia[]
   notifications Notification[]
   chatMessages  ChatMessage[]
+  pendingUploads PendingUpload[]
 }
 
 model Media {
@@ -216,4 +217,29 @@ model ChatMessage {
 
   @@index([createdAt])
   @@index([userId])
+}
+
+// Pending uploads waiting for payment confirmation
+model PendingUpload {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?
+  type          String    // VIDEO, IMAGE, MUSIC
+  url           String    // Already uploaded to Azure Blob Storage
+  thumbnailUrl  String?
+  aiTool        String?
+  aiPrompt      String?
+  price         Float?
+  isPublic      Boolean   @default(true)
+  stripeSessionId String? @unique
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime  // Auto-delete if not completed within 1 hour
+
+  // Relations
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([stripeSessionId])
+  @@index([expiresAt])
 }

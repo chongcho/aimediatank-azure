@@ -6,10 +6,10 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
-// Upload costs per plan
+// Upload costs per plan (in cents)
 const UPLOAD_COSTS: Record<string, number> = {
-  BASIC: 100, // $1.00 in cents
-  ADVANCED: 50, // $0.50 in cents
+  BASIC: 100, // $1.00
+  ADVANCED: 50, // $0.50
 }
 
 export async function POST(request: Request) {
@@ -26,6 +26,28 @@ export async function POST(request: Request) {
 
     if (!session?.user) {
       return NextResponse.json({ error: 'Please sign in' }, { status: 401 })
+    }
+
+    // Get upload data from request body
+    const body = await request.json()
+    const {
+      title,
+      description,
+      type,
+      url,
+      thumbnailUrl,
+      aiTool,
+      aiPrompt,
+      price,
+      isPublic = true,
+    } = body
+
+    // Validate required fields
+    if (!title || !type || !url) {
+      return NextResponse.json(
+        { error: 'Missing required upload data (title, type, url)' },
+        { status: 400 }
+      )
     }
 
     const user = await prisma.user.findUnique({
@@ -64,6 +86,27 @@ export async function POST(request: Request) {
       })
     }
 
+    // Create pending upload record (expires in 1 hour)
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
+    
+    const pendingUpload = await prisma.pendingUpload.create({
+      data: {
+        title,
+        description: description || '',
+        type,
+        url,
+        thumbnailUrl: thumbnailUrl || null,
+        aiTool: aiTool || null,
+        aiPrompt: aiPrompt || null,
+        price: price ? parseFloat(price) : null,
+        isPublic,
+        userId: session.user.id,
+        expiresAt,
+      },
+    })
+
+    console.log(`Created pending upload ${pendingUpload.id} for user ${session.user.id}`)
+
     // Create checkout session for single upload payment
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -74,20 +117,28 @@ export async function POST(request: Request) {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: 'Upload Fee',
-              description: `Single upload fee for ${user.membershipType} Plan`,
+              name: `Upload: ${title}`,
+              description: `Upload fee for "${title}" - ${user.membershipType} Plan`,
             },
             unit_amount: uploadCost,
           },
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXTAUTH_URL || 'https://aimediatank.com'}/upload?payment=success`,
+      success_url: `${process.env.NEXTAUTH_URL || 'https://aimediatank.com'}/upload?payment=success&pending=${pendingUpload.id}`,
       cancel_url: `${process.env.NEXTAUTH_URL || 'https://aimediatank.com'}/upload?payment=cancelled`,
       metadata: {
         userId: session.user.id,
         type: 'upload_fee',
+        pendingUploadId: pendingUpload.id,
+        mediaTitle: title,
       },
+    })
+
+    // Update pending upload with Stripe session ID
+    await prisma.pendingUpload.update({
+      where: { id: pendingUpload.id },
+      data: { stripeSessionId: checkoutSession.id },
     })
 
     return NextResponse.json({ url: checkoutSession.url })
@@ -99,4 +150,3 @@ export async function POST(request: Request) {
     )
   }
 }
-
