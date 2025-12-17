@@ -79,19 +79,36 @@ export async function POST(request: Request) {
       })
     }
 
-    // Create checkout session for subscription using existing Stripe price
+    // Create checkout session for subscription with dynamic pricing
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [
         {
-          price: plan.priceId,
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: plan.name,
+              description: `AI Media Tank ${plan.name} - Monthly Subscription`,
+            },
+            unit_amount: plan.amount,
+            recurring: {
+              interval: 'month',
+            },
+          },
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXTAUTH_URL}/pricing?success=true&plan=${planId}`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/pricing?canceled=true`,
+      success_url: `${process.env.NEXTAUTH_URL || 'https://aimediatank.com'}/pricing?success=true&plan=${planId}`,
+      cancel_url: `${process.env.NEXTAUTH_URL || 'https://aimediatank.com'}/pricing?canceled=true`,
+      subscription_data: {
+        metadata: {
+          userId: session.user.id,
+          planId,
+          type: 'membership',
+        },
+      },
       metadata: {
         userId: session.user.id,
         planId,
