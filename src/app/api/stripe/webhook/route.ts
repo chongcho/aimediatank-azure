@@ -120,35 +120,89 @@ export async function POST(request: Request) {
       if (session.mode === 'payment' && session.metadata?.type === 'upload_fee') {
         const userId = session.metadata.userId
         
+        console.log(`Processing upload_fee payment for userId: ${userId}`)
+        
         if (userId) {
           // Add paid upload credit to user
-          await prisma.user.update({
+          const updatedUser = await prisma.user.update({
             where: { id: userId },
             data: {
               paidUploadCredits: { increment: 1 }
             },
+            select: { 
+              email: true, 
+              name: true, 
+              username: true,
+              paidUploadCredits: true,
+              membershipType: true
+            }
           })
           
-          console.log(`Added 1 paid upload credit to user ${userId}`)
+          console.log(`Added 1 paid upload credit to user ${userId}. Total credits: ${updatedUser.paidUploadCredits}`)
           
-          // Get user for notification
-          const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { email: true, name: true, username: true }
+          // Send email notification
+          const userName = updatedUser.name || updatedUser.username || 'User'
+          const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #0f8; margin: 0; font-size: 24px;">💳 Upload Payment Received!</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Hi ${userName},</p>
+  
+  <p style="font-size: 16px;">Your upload payment of <strong>$1.00</strong> has been successfully processed!</p>
+  
+  <div style="background: #f0fff0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8;">
+    <p style="margin: 0 0 10px 0; font-weight: bold; color: #0f8;">Payment Summary:</p>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+      <li style="margin-bottom: 8px;"><strong>Amount:</strong> $1.00</li>
+      <li style="margin-bottom: 8px;"><strong>Upload Credits:</strong> ${updatedUser.paidUploadCredits} available</li>
+      <li style="margin-bottom: 8px;"><strong>Plan:</strong> ${updatedUser.membershipType}</li>
+    </ul>
+  </div>
+  
+  <p style="font-size: 16px;">You can now complete your upload on AI Media Tank!</p>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="https://aimediatank.com/upload" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+      Complete Your Upload
+    </a>
+  </div>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+</body>
+</html>
+          `
+          
+          await sendEmail({
+            to: updatedUser.email,
+            subject: '💳 Upload Payment Received | AI Media Tank',
+            html: emailHtml
           })
           
-          if (user) {
-            // Create in-app notification
-            await prisma.notification.create({
-              data: {
-                userId: userId,
-                type: 'system',
-                title: '💳 Upload Payment Received',
-                message: 'Your upload payment has been processed. You can now complete your upload!',
-                link: '/upload',
-              }
-            })
-          }
+          console.log(`Sent upload payment email to ${updatedUser.email}`)
+          
+          // Create in-app notification
+          await prisma.notification.create({
+            data: {
+              userId: userId,
+              type: 'system',
+              title: '💳 Upload Payment Received',
+              message: `Your $1.00 upload payment is complete! You have ${updatedUser.paidUploadCredits} upload credit(s) available.`,
+              link: '/upload',
+            }
+          })
         }
         
         break
