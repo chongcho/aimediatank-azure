@@ -24,6 +24,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Please sign in to make a purchase' }, { status: 401 })
     }
 
+    // Get current user data (in case username was changed)
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { username: true, email: true }
+    })
+
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
     const { mediaIds } = await request.json()
 
     if (!mediaIds || !Array.isArray(mediaIds) || mediaIds.length === 0) {
@@ -103,7 +113,7 @@ export async function POST(request: Request) {
         itemCount: itemsToPurchase.length.toString(),
       },
       success_url: `${process.env.NEXTAUTH_URL}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/profile/${session.user.username}`,
+      cancel_url: `${process.env.NEXTAUTH_URL}/profile/${currentUser.username}`,
     })
 
     // Create pending purchase records for each item
