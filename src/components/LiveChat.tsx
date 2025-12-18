@@ -176,7 +176,7 @@ export default function LiveChat() {
                         href={`/profile/${message.user.username}`}
                         className={`font-semibold hover:underline flex-shrink-0 ${getRoleColor(message.user.role)}`}
                       >
-                        {message.user.name || message.user.username}
+                        {message.user.username}
                       </Link>
                       <span className="text-gray-600">:</span>
                       <span className="text-gray-300 break-words">
