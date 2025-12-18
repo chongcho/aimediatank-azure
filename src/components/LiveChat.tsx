@@ -114,14 +114,14 @@ export default function LiveChat() {
         {/* Left: Live Feed Label */}
         <button
           type="button"
-          className="w-12 bg-tank-accent/70 flex flex-col items-center justify-center cursor-pointer flex-shrink-0 px-1 border-0"
+          className="w-10 bg-tank-accent/70 flex flex-col items-center justify-center cursor-pointer flex-shrink-0 px-0.5 border-0"
           onClick={() => setIsMinimized(!isMinimized)}
           aria-label={isMinimized ? "Expand live feed" : "Minimize live feed"}
           title={isMinimized ? "Expand live feed" : "Minimize live feed"}
         >
-          <span className="font-bold text-tank-black text-[10px]">Live</span>
-          <span className="font-bold text-tank-black text-[10px]">Feed</span>
-          <svg className={`w-3 h-3 text-tank-black mt-0.5 transition-transform ${isMinimized ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <span className="font-bold text-tank-black text-[16px] leading-tight">Live</span>
+          <span className="font-bold text-tank-black text-[16px] leading-tight">Feed</span>
+          <svg className={`w-3 h-3 text-tank-black transition-transform ${isMinimized ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>

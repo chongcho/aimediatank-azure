@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, Suspense, useRef, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 import LiveChat from '@/components/LiveChat'
 import AdSense from '@/components/AdSense'
@@ -29,6 +30,13 @@ interface Media {
   }
 }
 
+interface SearchSuggestion {
+  id: string
+  title: string
+  type: string
+  thumbnailUrl: string | null
+}
+
 function HomeContent() {
   const searchParams = useSearchParams()
   const [media, setMedia] = useState<Media[]>([])
@@ -38,6 +46,11 @@ function HomeContent() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const searchRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const typeParam = searchParams.get('type')
@@ -51,6 +64,64 @@ function HomeContent() {
   useEffect(() => {
     fetchMedia()
   }, [sort, type, page])
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Fetch suggestions as user types
+  const fetchSuggestions = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setSuggestions([])
+      return
+    }
+    
+    setLoadingSuggestions(true)
+    try {
+      const res = await fetch(`/api/media?search=${encodeURIComponent(query)}&limit=6`)
+      const data = await res.json()
+      setSuggestions(data.media?.map((m: Media) => ({
+        id: m.id,
+        title: m.title,
+        type: m.type,
+        thumbnailUrl: m.thumbnailUrl
+      })) || [])
+    } catch (error) {
+      console.error('Error fetching suggestions:', error)
+    } finally {
+      setLoadingSuggestions(false)
+    }
+  }, [])
+
+  // Handle search input change with debounce
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setShowSuggestions(true)
+    
+    // Debounce the suggestion fetch
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+    debounceRef.current = setTimeout(() => {
+      fetchSuggestions(value)
+    }, 300)
+  }
+
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion: SearchSuggestion) => {
+    setSearch(suggestion.title)
+    setShowSuggestions(false)
+    setPage(1)
+    // Navigate to the media page
+    window.location.href = `/media/${suggestion.id}`
+  }
 
   const fetchMedia = async () => {
     setLoading(true)
@@ -95,23 +166,82 @@ function HomeContent() {
         </div>
 
         {/* Middle: Search Bar */}
-        <form onSubmit={handleSearch} className="relative flex-1 ml-24">
-          <input
-            type="text"
-            id="search-media"
-            name="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search AI media..."
-            className="w-full pl-4 pr-24 py-2.5 bg-tank-gray border border-tank-light rounded-lg focus:border-tank-accent"
-          />
-          <button
-            type="submit"
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-tank-accent text-tank-black font-semibold rounded-md text-sm"
-          >
-            Search
-          </button>
-        </form>
+        <div ref={searchRef} className="relative flex-1 ml-24">
+          <form onSubmit={handleSearch}>
+            <input
+              type="text"
+              id="search-media"
+              name="search"
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onFocus={() => search.length >= 2 && setShowSuggestions(true)}
+              placeholder="Search AI media..."
+              className="w-full pl-4 pr-24 py-2.5 bg-tank-gray border border-tank-light rounded-lg focus:border-tank-accent"
+              autoComplete="off"
+            />
+            <button
+              type="submit"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-tank-accent text-tank-black font-semibold rounded-md text-sm"
+            >
+              Search
+            </button>
+          </form>
+          
+          {/* Search Suggestions Dropdown */}
+          {showSuggestions && (search.length >= 2) && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-tank-dark border border-tank-light rounded-lg shadow-xl overflow-hidden z-50">
+              {loadingSuggestions ? (
+                <div className="px-4 py-3 text-gray-400 text-sm flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-gray-500 border-t-tank-accent rounded-full animate-spin" />
+                  Searching...
+                </div>
+              ) : suggestions.length > 0 ? (
+                <div className="max-h-80 overflow-y-auto">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.id}
+                      type="button"
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      className="w-full px-4 py-2 flex items-center gap-3 hover:bg-tank-light transition-colors text-left"
+                    >
+                      {/* Thumbnail */}
+                      <div className="w-12 h-8 bg-tank-gray rounded overflow-hidden flex-shrink-0">
+                        {suggestion.thumbnailUrl ? (
+                          <img 
+                            src={suggestion.thumbnailUrl} 
+                            alt="" 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-500">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      {/* Title & Type */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm truncate">{suggestion.title}</p>
+                        <span className={`text-xs ${
+                          suggestion.type === 'VIDEO' ? 'text-red-400' :
+                          suggestion.type === 'IMAGE' ? 'text-blue-400' :
+                          'text-purple-400'
+                        }`}>
+                          {suggestion.type}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-4 py-3 text-gray-500 text-sm">
+                  No results found for &quot;{search}&quot;
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Right: Sort Options */}
         <div className="flex items-center gap-2 flex-shrink-0">

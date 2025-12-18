@@ -335,8 +335,7 @@ export default function Navbar() {
                   {isProfileOpen && (
                     <div className="absolute right-0 mt-2 w-56 bg-tank-dark border border-tank-light rounded-xl shadow-xl py-2">
                       <div className="px-4 py-2 border-b border-tank-light">
-                        <p className="font-semibold">{userData?.name || session.user?.name || 'User'}</p>
-                        <p className="text-sm text-gray-500">@{userData?.username || session.user?.username}</p>
+                        <p className="font-semibold">{userData?.username || session.user?.username || 'User'}</p>
                         <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded-full ${
                           isAdmin ? 'bg-red-500/20 text-red-400' :
                           isSubscriber ? 'bg-tank-accent/20 text-tank-accent' :
