@@ -107,6 +107,29 @@ export default function LiveChat() {
     }
   }
 
+  // Parse message content and highlight @mentions
+  const renderMessageContent = (content: string) => {
+    // Regex to match @username (alphanumeric and underscores)
+    const mentionRegex = /(@\w+)/g
+    const parts = content.split(mentionRegex)
+    
+    return parts.map((part, index) => {
+      if (part.startsWith('@')) {
+        const username = part.slice(1) // Remove @ symbol
+        return (
+          <Link
+            key={index}
+            href={`/profile/${username}`}
+            className="text-yellow-400 font-semibold hover:underline hover:text-yellow-300"
+          >
+            {part}
+          </Link>
+        )
+      }
+      return <span key={index}>{part}</span>
+    })
+  }
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -186,7 +209,7 @@ export default function LiveChat() {
                       </Link>
                       <span className="text-gray-600">:</span>
                       <span className="text-gray-300 break-words">
-                        {message.content}
+                        {renderMessageContent(message.content)}
                       </span>
                     </div>
                   ))}
