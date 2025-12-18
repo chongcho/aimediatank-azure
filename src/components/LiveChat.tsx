@@ -42,7 +42,34 @@ export default function LiveChat() {
   const [mentionStartIndex, setMentionStartIndex] = useState(-1)
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0)
 
+  // Emoji picker state
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const emojiPickerRef = useRef<HTMLDivElement>(null)
+
+  // Popular emojis organized by category
+  const emojis = {
+    faces: ['😀', '😂', '🤣', '😊', '😍', '🥰', '😘', '😎', '🤔', '😏', '😢', '😭', '😤', '🤯', '🥳'],
+    gestures: ['👍', '👎', '👏', '🙌', '🤝', '✌️', '🤞', '👋', '🙏', '💪', '👊', '✊', '🤟', '🖐️', '👆'],
+    hearts: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '💕', '💖', '💗', '💝', '💘', '💞', '💓', '💔'],
+    animals: ['🐶', '🐱', '🐭', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🦄'],
+    nature: ['🌸', '🌺', '🌻', '🌹', '🌷', '🌱', '🌲', '🌴', '🍀', '🍁', '🌈', '⭐', '🌙', '☀️', '🔥'],
+    food: ['🍕', '🍔', '🍟', '🌭', '🍿', '🍩', '🍪', '🎂', '🍰', '🍫', '🍬', '🍭', '☕', '🍺', '🥂'],
+    activities: ['⚽', '🏀', '🏈', '⚾', '🎾', '🎮', '🎯', '🎲', '🎭', '🎨', '🎬', '🎤', '🎧', '🎸', '🎹'],
+    objects: ['💡', '📱', '💻', '⌨️', '🖥️', '📷', '🎥', '📺', '🔔', '📢', '💰', '💎', '🎁', '🏆', '🎖️'],
+  }
+
   const isSubscriber = session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Fetch messages on mount and poll for updates
   useEffect(() => {
@@ -144,6 +171,27 @@ export default function LiveChat() {
       textareaRef.current?.focus()
       const newCursorPos = before.length + username.length + 2 // @ + username + space
       textareaRef.current?.setSelectionRange(newCursorPos, newCursorPos)
+    }, 0)
+  }
+
+  // Insert emoji into message at cursor position
+  const insertEmoji = (emoji: string) => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    
+    const cursorPos = textarea.selectionStart || newMessage.length
+    const before = newMessage.slice(0, cursorPos)
+    const after = newMessage.slice(cursorPos)
+    const newText = `${before}${emoji}${after}`
+    
+    setNewMessage(newText)
+    setShowEmojiPicker(false)
+    
+    // Focus back on textarea and set cursor after emoji
+    setTimeout(() => {
+      textarea.focus()
+      const newCursorPos = cursorPos + emoji.length
+      textarea.setSelectionRange(newCursorPos, newCursorPos)
     }, 0)
   }
 
@@ -262,14 +310,14 @@ export default function LiveChat() {
             <div className="w-1/4 border-r border-tank-light/50 flex items-stretch p-2 relative">
               {session ? (
                 isSubscriber ? (
-                  <div className="relative w-full h-full">
+                  <div className="relative w-full h-full flex flex-col">
                     <textarea
                       ref={textareaRef}
                       id="chat-message"
                       name="chat-message"
                       value={newMessage}
                       onChange={handleMessageChange}
-                      placeholder="Type a message... (use @ to mention)"
+                      placeholder="Type a message..."
                       maxLength={500}
                       onKeyDown={(e) => {
                         // Handle mention dropdown navigation
@@ -299,6 +347,12 @@ export default function LiveChat() {
                             return
                           }
                         }
+                        // Close emoji picker on Escape
+                        if (e.key === 'Escape' && showEmojiPicker) {
+                          e.preventDefault()
+                          setShowEmojiPicker(false)
+                          return
+                        }
                         // Normal Enter to send
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault()
@@ -307,11 +361,47 @@ export default function LiveChat() {
                           }
                         }
                       }}
-                      className="w-full h-full bg-tank-gray/50 border border-tank-light/50 rounded-none focus:outline-none focus:border-tank-accent text-gray-300 placeholder-gray-400 text-xs resize-none p-2"
+                      className="w-full flex-1 bg-tank-gray/50 border border-tank-light/50 rounded-none focus:outline-none focus:border-tank-accent text-gray-300 placeholder-gray-400 text-xs resize-none p-2 pb-6"
                       aria-label="Chat message"
                     />
+                    {/* Emoji Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      className="absolute bottom-1 right-1 p-0.5 text-gray-400 hover:text-yellow-400 transition-colors"
+                      title="Add emoji"
+                    >
+                      😀
+                    </button>
+                    {/* Emoji Picker */}
+                    {showEmojiPicker && (
+                      <div 
+                        ref={emojiPickerRef}
+                        className="absolute top-0 left-0 w-full bg-tank-dark border border-tank-accent rounded shadow-lg z-[70] max-h-28 overflow-y-auto"
+                      >
+                        <div className="p-1">
+                          {Object.entries(emojis).map(([category, emojiList]) => (
+                            <div key={category} className="mb-1">
+                              <div className="text-[9px] text-gray-500 uppercase px-1">{category}</div>
+                              <div className="flex flex-wrap">
+                                {emojiList.map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => insertEmoji(emoji)}
+                                    className="p-0.5 hover:bg-tank-accent/30 rounded text-sm"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {/* Mention Autocomplete Dropdown - positioned inside to avoid overflow clipping */}
-                    {showMentionDropdown && mentionUsers.length > 0 && (
+                    {showMentionDropdown && mentionUsers.length > 0 && !showEmojiPicker && (
                       <div className="absolute top-0 left-0 w-full bg-tank-dark border border-tank-accent rounded shadow-lg z-[60] max-h-28 overflow-y-auto">
                         {mentionUsers.map((user, index) => (
                           <button
