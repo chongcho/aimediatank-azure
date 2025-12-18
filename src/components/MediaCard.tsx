@@ -239,8 +239,8 @@ export default function MediaCard({ media }: MediaCardProps) {
         {/* Content */}
         <div className="p-4">
           {/* Title with Type Badge */}
-          <div className="flex items-start gap-2 mb-2">
-            <h3 className="font-semibold text-white group-hover:text-tank-accent transition-colors line-clamp-2 flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="font-semibold text-white group-hover:text-tank-accent transition-colors truncate flex-1" title={media.title}>
               {media.title}
             </h3>
             <div className={`px-2 py-1 rounded-md ${typeStyle.bg} text-white text-xs font-bold flex items-center gap-1 shrink-0`}>
