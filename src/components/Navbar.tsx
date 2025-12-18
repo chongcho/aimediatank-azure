@@ -292,7 +292,7 @@ export default function Navbar() {
 
                 {/* My Contents Button */}
                 <Link
-                  href={`/profile/${session.user?.username}`}
+                  href={`/profile/${userData?.username || session.user?.username}`}
                   className="hidden sm:flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-tank-light rounded-lg transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

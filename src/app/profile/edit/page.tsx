@@ -21,7 +21,7 @@ interface ProfileData {
 }
 
 export default function EditProfilePage() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update: updateSession } = useSession()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -464,6 +464,16 @@ export default function EditProfilePage() {
           password: '',
           confirmPassword: '',
         }))
+        
+        // Update session with new username
+        await updateSession({
+          ...session,
+          user: {
+            ...session?.user,
+            username: data.user.username,
+            name: data.user.name,
+          }
+        })
         
         // Trigger navbar refresh
         window.dispatchEvent(new Event('profileUpdated'))
