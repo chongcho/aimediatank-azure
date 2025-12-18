@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 
@@ -17,6 +17,13 @@ interface ChatMessage {
   }
 }
 
+interface MentionUser {
+  id: string
+  username: string
+  name: string | null
+  role: string
+}
+
 export default function LiveChat() {
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -26,6 +33,14 @@ export default function LiveChat() {
   const [isMinimized, setIsMinimized] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Mention autocomplete state
+  const [mentionQuery, setMentionQuery] = useState('')
+  const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([])
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false)
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1)
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0)
 
   const isSubscriber = session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'
 
@@ -40,6 +55,77 @@ export default function LiveChat() {
 
     return () => clearInterval(interval)
   }, [])
+
+  // Search users for @mention autocomplete
+  const searchMentionUsers = useCallback(async (query: string) => {
+    if (query.length === 0) {
+      // Show recent chat participants when @ is typed with no query
+      const uniqueUsers = messages.reduce((acc: MentionUser[], msg) => {
+        if (!acc.find(u => u.id === msg.user.id)) {
+          acc.push({ id: msg.user.id, username: msg.user.username, name: msg.user.name, role: msg.user.role })
+        }
+        return acc
+      }, []).slice(0, 5)
+      setMentionUsers(uniqueUsers)
+      return
+    }
+    
+    try {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}&limit=5`)
+      if (res.ok) {
+        const data = await res.json()
+        setMentionUsers(data.users || [])
+      }
+    } catch (error) {
+      console.error('Error searching users:', error)
+    }
+  }, [messages])
+
+  // Handle message input changes and detect @mentions
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value
+    const cursorPos = e.target.selectionStart || 0
+    setNewMessage(value)
+
+    // Find if we're typing a mention
+    const textBeforeCursor = value.slice(0, cursorPos)
+    const mentionMatch = textBeforeCursor.match(/@(\w*)$/)
+
+    if (mentionMatch) {
+      const query = mentionMatch[1]
+      const startIndex = cursorPos - query.length - 1 // -1 for @
+      setMentionQuery(query)
+      setMentionStartIndex(startIndex)
+      setShowMentionDropdown(true)
+      setSelectedMentionIndex(0)
+      searchMentionUsers(query)
+    } else {
+      setShowMentionDropdown(false)
+      setMentionQuery('')
+      setMentionStartIndex(-1)
+    }
+  }
+
+  // Insert selected mention into message
+  const insertMention = (username: string) => {
+    if (mentionStartIndex === -1) return
+    
+    const before = newMessage.slice(0, mentionStartIndex)
+    const after = newMessage.slice(mentionStartIndex + mentionQuery.length + 1) // +1 for @
+    const newText = `${before}@${username} ${after}`
+    
+    setNewMessage(newText)
+    setShowMentionDropdown(false)
+    setMentionQuery('')
+    setMentionStartIndex(-1)
+    
+    // Focus back on textarea
+    setTimeout(() => {
+      textareaRef.current?.focus()
+      const newCursorPos = before.length + username.length + 2 // @ + username + space
+      textareaRef.current?.setSelectionRange(newCursorPos, newCursorPos)
+    }, 0)
+  }
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -153,27 +239,80 @@ export default function LiveChat() {
         {!isMinimized && (
           <>
             {/* Middle: Input Area */}
-            <div className="w-1/4 border-r border-tank-light/50 flex items-stretch p-2">
+            <div className="w-1/4 border-r border-tank-light/50 flex items-stretch p-2 relative">
               {session ? (
                 isSubscriber ? (
-                  <textarea
-                    id="chat-message"
-                    name="chat-message"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type a message..."
-                    maxLength={500}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        if (newMessage.trim() && !sending) {
-                          handleSend(e as any)
+                  <div className="relative w-full h-full">
+                    <textarea
+                      ref={textareaRef}
+                      id="chat-message"
+                      name="chat-message"
+                      value={newMessage}
+                      onChange={handleMessageChange}
+                      placeholder="Type a message... (use @ to mention)"
+                      maxLength={500}
+                      onKeyDown={(e) => {
+                        // Handle mention dropdown navigation
+                        if (showMentionDropdown && mentionUsers.length > 0) {
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault()
+                            setSelectedMentionIndex(prev => 
+                              prev < mentionUsers.length - 1 ? prev + 1 : 0
+                            )
+                            return
+                          }
+                          if (e.key === 'ArrowUp') {
+                            e.preventDefault()
+                            setSelectedMentionIndex(prev => 
+                              prev > 0 ? prev - 1 : mentionUsers.length - 1
+                            )
+                            return
+                          }
+                          if (e.key === 'Enter' || e.key === 'Tab') {
+                            e.preventDefault()
+                            insertMention(mentionUsers[selectedMentionIndex].username)
+                            return
+                          }
+                          if (e.key === 'Escape') {
+                            e.preventDefault()
+                            setShowMentionDropdown(false)
+                            return
+                          }
                         }
-                      }
-                    }}
-                    className="w-full h-full bg-tank-gray/50 border border-tank-light/50 rounded-none focus:outline-none focus:border-tank-accent text-gray-300 placeholder-gray-400 text-xs resize-none p-2"
-                    aria-label="Chat message"
-                  />
+                        // Normal Enter to send
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          if (newMessage.trim() && !sending) {
+                            handleSend(e as any)
+                          }
+                        }
+                      }}
+                      className="w-full h-full bg-tank-gray/50 border border-tank-light/50 rounded-none focus:outline-none focus:border-tank-accent text-gray-300 placeholder-gray-400 text-xs resize-none p-2"
+                      aria-label="Chat message"
+                    />
+                    {/* Mention Autocomplete Dropdown */}
+                    {showMentionDropdown && mentionUsers.length > 0 && (
+                      <div className="absolute bottom-full left-0 w-full mb-1 bg-tank-dark border border-tank-accent/50 rounded shadow-lg z-50 max-h-32 overflow-y-auto">
+                        {mentionUsers.map((user, index) => (
+                          <button
+                            key={user.id}
+                            type="button"
+                            onClick={() => insertMention(user.username)}
+                            className={`w-full px-2 py-1.5 text-left text-xs flex items-center gap-2 hover:bg-tank-accent/20 ${
+                              index === selectedMentionIndex ? 'bg-tank-accent/30' : ''
+                            }`}
+                          >
+                            <span className={`font-semibold ${getRoleColor(user.role)}`}>
+                              @{user.username}
+                            </span>
+                            {user.name && (
+                              <span className="text-gray-500 truncate">({user.name})</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="text-gray-500 text-xs flex items-center">
                     <Link href="/pricing" className="text-tank-accent hover:underline">Subscribe</Link>&nbsp;to chat
