@@ -56,30 +56,50 @@ export default function LiveChat() {
     return () => clearInterval(interval)
   }, [])
 
+  // Get unique users from chat messages for local filtering
+  const getChatUsers = useCallback((): MentionUser[] => {
+    return messages.reduce((acc: MentionUser[], msg) => {
+      if (!acc.find(u => u.id === msg.user.id)) {
+        acc.push({ id: msg.user.id, username: msg.user.username, name: msg.user.name, role: msg.user.role })
+      }
+      return acc
+    }, [])
+  }, [messages])
+
   // Search users for @mention autocomplete
   const searchMentionUsers = useCallback(async (query: string) => {
+    const chatUsers = getChatUsers()
+    
     if (query.length === 0) {
       // Show recent chat participants when @ is typed with no query
-      const uniqueUsers = messages.reduce((acc: MentionUser[], msg) => {
-        if (!acc.find(u => u.id === msg.user.id)) {
-          acc.push({ id: msg.user.id, username: msg.user.username, name: msg.user.name, role: msg.user.role })
-        }
-        return acc
-      }, []).slice(0, 5)
-      setMentionUsers(uniqueUsers)
+      setMentionUsers(chatUsers.slice(0, 5))
       return
     }
     
+    // First, filter local chat users for immediate results
+    const localMatches = chatUsers.filter(u => 
+      u.username.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 5)
+    
+    // Show local matches immediately
+    if (localMatches.length > 0) {
+      setMentionUsers(localMatches)
+    }
+    
+    // Then try API for more results
     try {
       const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}&limit=5`)
       if (res.ok) {
         const data = await res.json()
-        setMentionUsers(data.users || [])
+        if (data.users && data.users.length > 0) {
+          setMentionUsers(data.users)
+        }
       }
     } catch (error) {
+      // API failed, keep local matches if any
       console.error('Error searching users:', error)
     }
-  }, [messages])
+  }, [getChatUsers])
 
   // Handle message input changes and detect @mentions
   const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
