@@ -21,6 +21,8 @@ body {
   font-family: var(--font-outfit);
   background: #0a0a0b;
   color: #ffffff;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 ::selection {

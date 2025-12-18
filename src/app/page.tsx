@@ -113,11 +113,13 @@ function HomeContent() {
 
         {/* Right: Sort Options */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
+          <label htmlFor="sort-select" className="text-sm text-gray-500 whitespace-nowrap">Sort by:</label>
           <select
+            id="sort-select"
             value={sort}
             onChange={(e) => setSort(e.target.value)}
             className="bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-sm min-w-[130px]"
+            aria-label="Sort media by"
           >
             <option value="popular">Most Popular</option>
             <option value="recent">Most Recent</option>
