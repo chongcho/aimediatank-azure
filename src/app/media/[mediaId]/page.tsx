@@ -266,7 +266,9 @@ export default function MediaPage() {
       })
 
       if (res.ok) {
-        router.push('/')
+        // Redirect back to user's profile (My Contents) instead of home
+        const username = session?.user?.username || media.user.username
+        router.push(`/profile/${username}`)
       } else {
         const data = await res.json()
         alert(data.error || 'Failed to delete media')
