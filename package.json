@@ -2,6 +2,14 @@
   "name": "aimediatank-azure",
   "version": "0.1.0",
   "private": true,
+  "browserslist": [
+    ">0.3%",
+    "last 2 versions",
+    "not dead",
+    "not op_mini all",
+    "Safari >= 9",
+    "iOS >= 9"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
