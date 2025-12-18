@@ -129,7 +129,7 @@ function HomeContent() {
       {/* Ad Banner */}
       <div className="mb-6">
         <AdSense
-          adSlot="auto"
+          adSlot="3654516348"
           adFormat="horizontal"
           className="w-full"
           style={{ minHeight: '90px' }}
@@ -167,7 +167,7 @@ function HomeContent() {
                 {(index + 1) % 8 === 0 && index < media.length - 1 && (
                   <div key={`ad-${index}`} className="col-span-full">
                     <AdSense
-                      adSlot="auto"
+                      adSlot="3654516348"
                       adFormat="fluid"
                       className="w-full my-4"
                       style={{ minHeight: '120px' }}
@@ -181,7 +181,7 @@ function HomeContent() {
           {/* Bottom Ad before Pagination */}
           <div className="mt-8">
             <AdSense
-              adSlot="auto"
+              adSlot="3654516348"
               adFormat="horizontal"
               className="w-full"
               style={{ minHeight: '90px' }}

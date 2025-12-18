@@ -514,7 +514,7 @@ export default function ProfilePage() {
           {/* Ad Banner */}
           <div className="mb-6">
             <AdSense
-              adSlot="auto"
+              adSlot="4351045569"
               adFormat="horizontal"
               className="w-full"
               style={{ minHeight: '90px' }}

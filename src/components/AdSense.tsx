@@ -51,7 +51,7 @@ export default function AdSense({
 export function BannerAd({ className = '' }: { className?: string }) {
   return (
     <AdSense
-      adSlot="YOUR_BANNER_AD_SLOT"
+      adSlot="2914497354"
       adFormat="horizontal"
       className={`w-full ${className}`}
       style={{ minHeight: '90px' }}
@@ -63,7 +63,7 @@ export function BannerAd({ className = '' }: { className?: string }) {
 export function InFeedAd({ className = '' }: { className?: string }) {
   return (
     <AdSense
-      adSlot="YOUR_INFEED_AD_SLOT"
+      adSlot="3654516348"
       adFormat="fluid"
       className={className}
       style={{ minHeight: '250px' }}
@@ -75,7 +75,7 @@ export function InFeedAd({ className = '' }: { className?: string }) {
 export function SidebarAd({ className = '' }: { className?: string }) {
   return (
     <AdSense
-      adSlot="YOUR_SIDEBAR_AD_SLOT"
+      adSlot="4351045569"
       adFormat="rectangle"
       className={className}
       style={{ minHeight: '250px', width: '300px' }}
@@ -87,7 +87,7 @@ export function SidebarAd({ className = '' }: { className?: string }) {
 export function AutoAd({ className = '' }: { className?: string }) {
   return (
     <AdSense
-      adSlot="YOUR_AUTO_AD_SLOT"
+      adSlot="3654516348"
       adFormat="auto"
       fullWidthResponsive={true}
       className={className}
