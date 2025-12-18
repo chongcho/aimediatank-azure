@@ -310,9 +310,9 @@ export default function LiveChat() {
                       className="w-full h-full bg-tank-gray/50 border border-tank-light/50 rounded-none focus:outline-none focus:border-tank-accent text-gray-300 placeholder-gray-400 text-xs resize-none p-2"
                       aria-label="Chat message"
                     />
-                    {/* Mention Autocomplete Dropdown */}
+                    {/* Mention Autocomplete Dropdown - positioned inside to avoid overflow clipping */}
                     {showMentionDropdown && mentionUsers.length > 0 && (
-                      <div className="absolute bottom-full left-0 w-full mb-1 bg-tank-dark border border-tank-accent/50 rounded shadow-lg z-50 max-h-32 overflow-y-auto">
+                      <div className="absolute top-0 left-0 w-full bg-tank-dark border border-tank-accent rounded shadow-lg z-[60] max-h-28 overflow-y-auto">
                         {mentionUsers.map((user, index) => (
                           <button
                             key={user.id}
