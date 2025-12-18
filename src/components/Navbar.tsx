@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef } from 'react'
-import LiveChatSupport from './LiveChatSupport'
+// import LiveChatSupport from './LiveChatSupport' // Disabled for now
 
 interface Notification {
   id: string
@@ -20,7 +20,7 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
-  const [isChatOpen, setIsChatOpen] = useState(false)
+  // const [isChatOpen, setIsChatOpen] = useState(false) // Disabled for now
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
@@ -361,18 +361,16 @@ export default function Navbar() {
                         </svg>
                         Membership
                       </Link>
-                      <button
-                        onClick={() => {
-                          setIsProfileOpen(false)
-                          setIsChatOpen(true)
-                        }}
-                        className="flex items-center gap-3 px-4 py-2 hover:bg-tank-light transition-colors w-full text-left"
+                      <a
+                        href="mailto:support@aimediatank.com"
+                        className="flex items-center gap-3 px-4 py-2 hover:bg-tank-light transition-colors"
+                        onClick={() => setIsProfileOpen(false)}
                       >
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                         Support
-                      </button>
+                      </a>
                       {isAdmin && (
                         <Link
                           href="/admin"
@@ -444,18 +442,16 @@ export default function Navbar() {
               {session && (
                 <>
                   <div className="border-t border-tank-light my-2"></div>
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false)
-                      setIsChatOpen(true)
-                    }}
+                  <a
+                    href="mailto:support@aimediatank.com"
                     className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all"
+                    onClick={() => setIsMenuOpen(false)}
                   >
                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                     Support
-                  </button>
+                  </a>
                 </>
               )}
             </div>
@@ -463,12 +459,13 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* Live Chat Modal */}
+      {/* Live Chat Modal - Disabled for now
       <LiveChatSupport
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         userName={userData?.name || session?.user?.name || displayName || 'there'}
       />
+      */}
     </nav>
   )
 }
