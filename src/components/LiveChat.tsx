@@ -134,6 +134,8 @@ export default function LiveChat() {
               {session ? (
                 isSubscriber ? (
                   <textarea
+                    id="chat-message"
+                    name="chat-message"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type a message..."
@@ -147,6 +149,7 @@ export default function LiveChat() {
                       }
                     }}
                     className="w-full h-full bg-tank-gray/50 border border-tank-light/50 rounded-none focus:outline-none focus:border-tank-accent text-gray-300 placeholder-gray-400 text-xs resize-none p-2"
+                    aria-label="Chat message"
                   />
                 ) : (
                   <div className="text-gray-500 text-xs flex items-center">

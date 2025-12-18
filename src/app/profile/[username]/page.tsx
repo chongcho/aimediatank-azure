@@ -653,9 +653,11 @@ export default function ProfilePage() {
               {/* Action Bar */}
               <div className="flex flex-wrap items-center gap-3 mb-6 p-4 bg-tank-gray rounded-xl">
                 {/* Select All Checkbox */}
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label htmlFor="select-all-saved" className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
+                    id="select-all-saved"
+                    name="select-all-saved"
                     checked={selectedSaved.size === savedMedia.length && savedMedia.length > 0}
                     onChange={toggleSelectAllSaved}
                     className="w-5 h-5 rounded border-tank-light bg-tank-dark text-tank-accent focus:ring-tank-accent cursor-pointer"
@@ -719,9 +721,12 @@ export default function ProfilePage() {
                     <div className="absolute top-3 right-3 z-20">
                       <input
                         type="checkbox"
+                        id={`saved-item-${item.media.id}`}
+                        name={`saved-item-${item.media.id}`}
                         checked={selectedSaved.has(item.media.id)}
                         onChange={() => toggleSavedSelection(item.media.id)}
                         className="w-5 h-5 rounded border-2 border-white/50 bg-tank-dark/80 text-tank-accent focus:ring-tank-accent cursor-pointer"
+                        aria-label={`Select ${item.media.title}`}
                       />
                     </div>
 

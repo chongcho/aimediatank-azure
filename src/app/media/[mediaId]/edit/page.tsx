@@ -201,11 +201,13 @@ export default function EditMediaPage() {
 
         {/* Title */}
         <div>
-          <label className="block text-sm font-medium mb-2">
+          <label htmlFor="edit-title" className="block text-sm font-medium mb-2">
             Title <span className="text-red-400">*</span>
           </label>
           <input
             type="text"
+            id="edit-title"
+            name="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Enter a title for your media"
@@ -216,8 +218,10 @@ export default function EditMediaPage() {
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium mb-2">Description</label>
+          <label htmlFor="edit-description" className="block text-sm font-medium mb-2">Description</label>
           <textarea
+            id="edit-description"
+            name="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Describe your creation..."
@@ -228,9 +232,11 @@ export default function EditMediaPage() {
 
         {/* AI Tool */}
         <div>
-          <label className="block text-sm font-medium mb-2">AI Tool Used</label>
+          <label htmlFor="edit-ai-tool" className="block text-sm font-medium mb-2">AI Tool Used</label>
           <input
             type="text"
+            id="edit-ai-tool"
+            name="aiTool"
             value={aiTool}
             onChange={(e) => setAiTool(e.target.value)}
             placeholder="e.g., Midjourney, DALL-E, Sora, Suno"
@@ -240,8 +246,10 @@ export default function EditMediaPage() {
 
         {/* AI Prompt */}
         <div>
-          <label className="block text-sm font-medium mb-2">AI Prompt</label>
+          <label htmlFor="edit-ai-prompt" className="block text-sm font-medium mb-2">AI Prompt</label>
           <textarea
+            id="edit-ai-prompt"
+            name="aiPrompt"
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
             placeholder="Share the prompt you used to generate this..."

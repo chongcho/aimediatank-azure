@@ -98,6 +98,8 @@ function HomeContent() {
         <form onSubmit={handleSearch} className="relative flex-1 ml-24">
           <input
             type="text"
+            id="search-media"
+            name="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search AI media..."

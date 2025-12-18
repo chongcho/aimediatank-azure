@@ -628,11 +628,13 @@ function UploadPageContent() {
 
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="upload-title" className="block text-sm font-medium text-gray-300 mb-2">
               Title *
             </label>
             <input
               type="text"
+              id="upload-title"
+              name="title"
               value={formData.title}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, title: e.target.value }))
@@ -644,10 +646,12 @@ function UploadPageContent() {
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="upload-description" className="block text-sm font-medium text-gray-300 mb-2">
               Description
             </label>
             <textarea
+              id="upload-description"
+              name="description"
               value={formData.description}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, description: e.target.value }))
@@ -660,11 +664,13 @@ function UploadPageContent() {
 
           {/* Price */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="upload-price" className="block text-sm font-medium text-gray-300 mb-2">
               Price (USD) - Leave empty for free
             </label>
             <input
               type="number"
+              id="upload-price"
+              name="price"
               step="0.01"
               min="0"
               value={formData.price}
@@ -677,11 +683,13 @@ function UploadPageContent() {
 
           {/* AI Tool */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="upload-ai-tool" className="block text-sm font-medium text-gray-300 mb-2">
               AI Tool Used
             </label>
             <input
               type="text"
+              id="upload-ai-tool"
+              name="aiTool"
               value={formData.aiTool}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, aiTool: e.target.value }))
