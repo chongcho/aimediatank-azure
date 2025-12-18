@@ -18,19 +18,12 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // Apply to all routes including API
         source: '/:path*',
         headers: [
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
-          },
-          {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self'",
           },
           {
             key: 'Referrer-Policy',
@@ -40,11 +33,15 @@ const nextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=()',
           },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
+          },
         ],
       },
       {
-        // Cache static assets
-        source: '/static/:path*',
+        // Cache static assets longer
+        source: '/_next/static/:path*',
         headers: [
           {
             key: 'Cache-Control',
@@ -54,7 +51,7 @@ const nextConfig = {
       },
       {
         // Cache images
-        source: '/:path*.{jpg,jpeg,png,gif,webp,svg,ico}',
+        source: '/:path*.(jpg|jpeg|png|gif|webp|svg|ico)',
         headers: [
           {
             key: 'Cache-Control',
