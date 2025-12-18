@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef } from 'react'
+import EmailSupportModal from './EmailSupportModal'
 // import LiveChatSupport from './LiveChatSupport' // Disabled for now
 
 interface Notification {
@@ -20,6 +21,7 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
+  const [isEmailSupportOpen, setIsEmailSupportOpen] = useState(false)
   // const [isChatOpen, setIsChatOpen] = useState(false) // Disabled for now
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -361,16 +363,18 @@ export default function Navbar() {
                         </svg>
                         Membership
                       </Link>
-                      <a
-                        href="mailto:support@aimediatank.com"
-                        className="flex items-center gap-3 px-4 py-2 hover:bg-tank-light transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
+                      <button
+                        onClick={() => {
+                          setIsProfileOpen(false)
+                          setIsEmailSupportOpen(true)
+                        }}
+                        className="flex items-center gap-3 px-4 py-2 hover:bg-tank-light transition-colors w-full text-left"
                       >
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                         Support
-                      </a>
+                      </button>
                       {isAdmin && (
                         <Link
                           href="/admin"
@@ -442,22 +446,31 @@ export default function Navbar() {
               {session && (
                 <>
                   <div className="border-t border-tank-light my-2"></div>
-                  <a
-                    href="mailto:support@aimediatank.com"
-                    className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all"
-                    onClick={() => setIsMenuOpen(false)}
+                  <button
+                    onClick={() => {
+                      setIsMenuOpen(false)
+                      setIsEmailSupportOpen(true)
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all w-full text-left"
                   >
                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                     Support
-                  </a>
+                  </button>
                 </>
               )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Email Support Modal */}
+      <EmailSupportModal
+        isOpen={isEmailSupportOpen}
+        onClose={() => setIsEmailSupportOpen(false)}
+        userName={userData?.name || session?.user?.name || displayName || 'there'}
+      />
 
       {/* Live Chat Modal - Disabled for now
       <LiveChatSupport
