@@ -163,10 +163,10 @@ export default function LiveChat() {
               )}
             </div>
 
-            {/* Right: Messages Display */}
+            {/* Right: Messages Display - Scrollable */}
             <div
               ref={chatContainerRef}
-              className="flex-1 overflow-y-auto p-2"
+              className="flex-1 overflow-y-auto px-2 py-[1px]"
             >
               {loading ? (
                 <div className="flex items-center justify-center h-full">
@@ -176,7 +176,7 @@ export default function LiveChat() {
                 <div className="text-gray-600 text-xs h-full flex items-center">No messages yet</div>
               ) : (
                 <div className="space-y-0.5">
-                  {messages.slice(-5).map((message) => (
+                  {messages.map((message) => (
                     <div key={message.id} className="flex items-baseline gap-1 text-xs">
                       <Link
                         href={`/profile/${message.user.username}`}
