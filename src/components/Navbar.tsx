@@ -182,7 +182,7 @@ export default function Navbar() {
               alt="AiMediaTank" 
               className="h-12 w-auto"
             />
-            <div className="hidden sm:flex flex-col text-[16px] font-bold leading-tight">
+            <div className="hidden sm:flex flex-col text-[14px] font-bold leading-none">
               <span><span className="text-red-500">A</span><span className="text-white">i</span></span>
               <span><span className="text-green-500">M</span><span className="text-white">edia</span></span>
               <span><span className="text-blue-500">T</span><span className="text-white">ank</span></span>
