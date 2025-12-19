@@ -362,9 +362,7 @@ export default function ProfilePage() {
               {profile.name || profile.username}
             </h1>
             
-            {profile.bio && (
-              <p className="text-gray-300 mb-4 max-w-2xl">{profile.bio}</p>
-            )}
+            <p className="text-xl text-gray-300 mb-4">My Contents Summary</p>
 
             {/* Stats */}
             <div className="flex flex-wrap justify-center md:justify-start gap-6 text-center">
