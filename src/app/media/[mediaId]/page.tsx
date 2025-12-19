@@ -342,7 +342,9 @@ export default function MediaPage() {
             )}
 
             {/* Reaction Buttons */}
-            <div className="flex justify-center gap-8 mt-4 pt-4 border-t border-tank-light">
+            <div className="flex items-center gap-6 mt-4 pt-4 border-t border-tank-light">
+              <span className="text-sm text-gray-400">Click one you feel</span>
+              <div className="flex gap-8">
               <button
                 onClick={() => handleReaction('happy')}
                 className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${userReaction === 'happy' ? 'scale-110' : ''}`}
@@ -364,6 +366,7 @@ export default function MediaPage() {
                 <span className={`text-4xl ${userReaction === 'sad' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😞</span>
                 <span className={`text-sm font-medium ${userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.sad}</span>
               </button>
+              </div>
             </div>
           </div>
 
