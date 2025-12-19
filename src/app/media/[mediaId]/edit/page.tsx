@@ -35,6 +35,7 @@ export default function EditMediaPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [aiTool, setAiTool] = useState('')
+  const [hashtags, setHashtags] = useState('')
   const [price, setPrice] = useState('')
   const [isPublic, setIsPublic] = useState(true)
 
@@ -65,7 +66,17 @@ export default function EditMediaPage() {
       }
 
       setMedia(data)
-      setTitle(data.title)
+      // Extract hashtags from title
+      const hashtagMatch = data.title.match(/(#\w+\s*)+$/)
+      if (hashtagMatch) {
+        const extractedHashtags = hashtagMatch[0].trim()
+        const cleanTitle = data.title.replace(extractedHashtags, '').trim()
+        setTitle(cleanTitle)
+        setHashtags(extractedHashtags)
+      } else {
+        setTitle(data.title)
+        setHashtags('')
+      }
       setDescription(data.description || '')
       setAiTool(data.aiTool || '')
       setPrice(data.price ? data.price.toString() : '')
@@ -89,11 +100,16 @@ export default function EditMediaPage() {
     setError('')
 
     try {
+      // Combine title and hashtags
+      const fullTitle = hashtags.trim() 
+        ? `${title.trim()} ${hashtags.trim()}`
+        : title.trim()
+      
       const res = await fetch(`/api/media/${mediaId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: title.trim(),
+          title: fullTitle,
           description: description.trim() || null,
           aiTool: aiTool.trim() || null,
           price: price ? parseFloat(price) : null,
@@ -234,6 +250,23 @@ export default function EditMediaPage() {
             placeholder="e.g., Midjourney, DALL-E, Sora, Suno"
             className="w-full"
           />
+        </div>
+
+        {/* Hashtags */}
+        <div>
+          <label htmlFor="edit-hashtags" className="block text-sm font-medium mb-2">#Hashtags</label>
+          <input
+            type="text"
+            id="edit-hashtags"
+            name="hashtags"
+            value={hashtags}
+            onChange={(e) => setHashtags(e.target.value)}
+            placeholder="#AI #art #music #video (separate with spaces)"
+            className="w-full"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Add hashtags to help others find your content. Start each with # and separate with spaces.
+          </p>
         </div>
 
         {/* Price */}
