@@ -59,7 +59,6 @@ export default function MediaPage() {
   const router = useRouter()
   const [media, setMedia] = useState<MediaDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [reactions, setReactions] = useState({ happy: 0, neutral: 0, sad: 0 })
   const [userReaction, setUserReaction] = useState<'happy' | 'neutral' | 'sad' | null>(null)
@@ -67,8 +66,6 @@ export default function MediaPage() {
   const [message, setMessage] = useState('')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
-  const [editingCommentContent, setEditingCommentContent] = useState('')
   const [isSaved, setIsSaved] = useState(false)
   const [savingMedia, setSavingMedia] = useState(false)
   const [buyingMedia, setBuyingMedia] = useState(false)
@@ -196,29 +193,6 @@ export default function MediaPage() {
     }
   }
 
-  const handleComment = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!comment.trim() || !session) return
-
-    setSubmitting(true)
-    try {
-      const res = await fetch(`/api/media/${mediaId}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: comment }),
-      })
-
-      if (res.ok) {
-        setComment('')
-        fetchMedia()
-      }
-    } catch (error) {
-      console.error('Error posting comment:', error)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const handleSendMessage = async () => {
     if (!message.trim() || !session || !media) return
 
@@ -277,63 +251,6 @@ export default function MediaPage() {
       setDeleting(false)
       setShowDeleteModal(false)
     }
-  }
-
-  const handleEditComment = async (commentId: string) => {
-    if (!editingCommentContent.trim()) return
-
-    setSubmitting(true)
-    try {
-      const res = await fetch(`/api/media/${mediaId}/comments`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ commentId, content: editingCommentContent }),
-      })
-
-      if (res.ok) {
-        setEditingCommentId(null)
-        setEditingCommentContent('')
-        fetchMedia()
-      } else {
-        const data = await res.json()
-        alert(data.error || 'Failed to update comment')
-      }
-    } catch (error) {
-      console.error('Error updating comment:', error)
-      alert('Failed to update comment')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleDeleteComment = async (commentId: string) => {
-    if (!confirm('Are you sure you want to delete this comment?')) return
-
-    try {
-      const res = await fetch(`/api/media/${mediaId}/comments?commentId=${commentId}`, {
-        method: 'DELETE',
-      })
-
-      if (res.ok) {
-        fetchMedia()
-      } else {
-        const data = await res.json()
-        alert(data.error || 'Failed to delete comment')
-      }
-    } catch (error) {
-      console.error('Error deleting comment:', error)
-      alert('Failed to delete comment')
-    }
-  }
-
-  const startEditingComment = (commentId: string, content: string) => {
-    setEditingCommentId(commentId)
-    setEditingCommentContent(content)
-  }
-
-  const cancelEditingComment = () => {
-    setEditingCommentId(null)
-    setEditingCommentContent('')
   }
 
   if (loading) {
@@ -486,119 +403,6 @@ export default function MediaPage() {
             </div>
           </div>
 
-          {/* Comments */}
-          <div className="card">
-            <h3 className="font-semibold mb-4">
-              Comments ({media._count.comments})
-            </h3>
-
-            {session ? (
-              <form onSubmit={handleComment} className="mb-6">
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Add a comment..."
-                  rows={3}
-                  className="mb-3 resize-none"
-                />
-                <button
-                  type="submit"
-                  disabled={!comment.trim() || submitting}
-                  className="btn-primary"
-                >
-                  {submitting ? 'Posting...' : 'Post Comment'}
-                </button>
-              </form>
-            ) : (
-              <p className="text-gray-400 mb-6">
-                <Link href="/login" className="text-tank-accent hover:underline">
-                  Sign in
-                </Link>{' '}
-                to comment
-              </p>
-            )}
-
-            <div className="space-y-4">
-              {media.comments.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No comments yet</p>
-              ) : (
-                media.comments.map((c) => (
-                  <div key={c.id} className="flex gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tank-accent to-purple-500 flex-shrink-0 flex items-center justify-center text-sm font-bold">
-                      {c.user.name?.[0]?.toUpperCase() || c.user.username[0].toUpperCase()}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/profile/${c.user.username}`}
-                            className="font-medium hover:text-tank-accent"
-                          >
-                            {c.user.name || c.user.username}
-                          </Link>
-                          <span className="text-sm text-gray-500">
-                            {formatDate(c.createdAt)}
-                          </span>
-                        </div>
-                        {/* Edit/Delete buttons for comment owner */}
-                        {session?.user?.id === c.user.id && (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => startEditingComment(c.id, c.content)}
-                              className="p-1.5 text-gray-400 hover:text-tank-accent hover:bg-tank-light rounded transition-colors"
-                              title="Edit comment"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteComment(c.id)}
-                              className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-                              title="Delete comment"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      {/* Editing mode */}
-                      {editingCommentId === c.id ? (
-                        <div className="space-y-2">
-                          <textarea
-                            value={editingCommentContent}
-                            onChange={(e) => setEditingCommentContent(e.target.value)}
-                            className="w-full resize-none text-sm"
-                            rows={2}
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleEditComment(c.id)}
-                              disabled={!editingCommentContent.trim() || submitting}
-                              className="px-3 py-1 text-sm bg-tank-accent text-tank-black font-semibold rounded-lg hover:bg-tank-accent/90 disabled:opacity-50 transition-colors"
-                            >
-                              {submitting ? 'Saving...' : 'Save'}
-                            </button>
-                            <button
-                              onClick={cancelEditingComment}
-                              className="px-3 py-1 text-sm bg-tank-gray hover:bg-tank-light rounded-lg transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-gray-300">{c.content}</p>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Sidebar */}
