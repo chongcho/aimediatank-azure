@@ -204,7 +204,7 @@ function HomeContent() {
         </div>
 
         {/* Middle: Search Bar */}
-        <div ref={searchRef} className="relative flex-1 ml-24">
+        <div ref={searchRef} className="relative flex-1 ml-0">
           <form onSubmit={handleSearch}>
             <input
               type="text"
