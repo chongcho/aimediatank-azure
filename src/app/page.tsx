@@ -199,7 +199,7 @@ function HomeContent() {
             <span className="text-gradient pr-2">AI-Generated</span>
           </h1>
           <p className="text-gray-400 text-sm">
-            Join and explore our community of AI creators and enthusiasts
+            Community for AI creators and enthusiasts
           </p>
         </div>
 
@@ -428,7 +428,7 @@ export default function Home() {
               <span className="text-gradient pr-2">AI-Generated</span>
             </h1>
             <p className="text-gray-400 text-sm">
-              Join and explore our community of AI creators and enthusiasts
+              Community for AI creators and enthusiasts
             </p>
           </div>
         </div>
