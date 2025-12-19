@@ -411,16 +411,16 @@ export default function Navbar() {
                 </div>
               </>
             ) : (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
                 <Link
                   href="/login"
-                  className="px-2 py-1 text-sm text-gray-300 hover:text-white transition-colors"
+                  className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
                 >
                   Sign In
                 </Link>
                 <Link
                   href="/register"
-                  className="px-3 py-1 text-sm bg-tank-accent text-tank-black font-semibold rounded-md hover:bg-tank-accent/90 transition-all"
+                  className="px-4 py-2 bg-tank-accent text-tank-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
                 >
                   Sign Up
                 </Link>
