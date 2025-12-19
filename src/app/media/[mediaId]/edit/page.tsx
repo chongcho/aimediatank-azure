@@ -142,7 +142,7 @@ export default function EditMediaPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center gap-4 mb-4">
         <Link
           href={`/media/${mediaId}`}
           className="w-10 h-10 rounded-full bg-tank-gray hover:bg-tank-light flex items-center justify-center transition-colors"
@@ -151,16 +151,14 @@ export default function EditMediaPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold">Edit Media</h1>
-          <p className="text-gray-400">Update your content details</p>
-        </div>
+        <h1 className="text-2xl font-bold">Edit Media</h1>
+        <span className="text-gray-400">— Update your content details</span>
       </div>
 
       {/* Preview */}
-      <div className="card mb-6">
-        <div className="flex items-start gap-4">
-          <div className="w-32 h-20 rounded-lg overflow-hidden bg-tank-dark flex-shrink-0">
+      <div className="card mb-3 py-3">
+        <div className="flex items-center gap-4">
+          <div className="w-24 h-16 rounded-lg overflow-hidden bg-tank-dark flex-shrink-0">
             {media.type === 'IMAGE' ? (
               <img src={media.url} alt={media.title} className="w-full h-full object-cover" />
             ) : media.thumbnailUrl ? (
@@ -169,22 +167,19 @@ export default function EditMediaPage() {
               <video src={media.url} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                 </svg>
               </div>
             )}
           </div>
-          <div className="flex-1">
-            <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded mb-2 ${
-              media.type === 'VIDEO' ? 'bg-red-500/20 text-red-400' :
-              media.type === 'IMAGE' ? 'bg-blue-500/20 text-blue-400' :
-              'bg-purple-500/20 text-purple-400'
-            }`}>
-              {media.type}
-            </span>
-            <p className="text-sm text-gray-400 truncate">{media.url}</p>
-          </div>
+          <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded ${
+            media.type === 'VIDEO' ? 'bg-red-500/20 text-red-400' :
+            media.type === 'IMAGE' ? 'bg-blue-500/20 text-blue-400' :
+            'bg-purple-500/20 text-purple-400'
+          }`}>
+            {media.type}
+          </span>
         </div>
       </div>
 
