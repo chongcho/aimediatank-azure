@@ -38,7 +38,6 @@ export async function POST(request: Request) {
       thumbnailUrl,
       aiTool,
       aiPrompt,
-      hashtags,
       price,
       isPublic = true,
     } = body
@@ -99,7 +98,6 @@ export async function POST(request: Request) {
         thumbnailUrl: thumbnailUrl || null,
         aiTool: aiTool || null,
         aiPrompt: aiPrompt || null,
-        hashtags: hashtags || null,
         price: price ? parseFloat(price) : null,
         isPublic,
         userId: session.user.id,

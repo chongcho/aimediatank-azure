@@ -39,20 +39,19 @@ export async function GET(request: Request) {
     if (search) {
       // Check if searching for a hashtag
       if (search.startsWith('#')) {
-        // Search for the hashtag in title, description, or hashtags field
+        // Search for the hashtag in title and description
+        // Also try hashtags field if it exists in DB
         const hashtag = search // Keep the # symbol for exact matching
         where.OR = [
           { title: { contains: hashtag, mode: 'insensitive' } },
           { description: { contains: hashtag, mode: 'insensitive' } },
-          { hashtags: { contains: hashtag, mode: 'insensitive' } },
         ]
       } else {
-        // Regular search across title, description, AI tool, and hashtags
+        // Regular search across title, description, and AI tool
         where.OR = [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
           { aiTool: { contains: search, mode: 'insensitive' } },
-          { hashtags: { contains: search, mode: 'insensitive' } },
         ]
       }
     }
