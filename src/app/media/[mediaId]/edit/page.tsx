@@ -156,7 +156,7 @@ export default function EditMediaPage() {
       </div>
 
       {/* Preview */}
-      <div className="card mb-3 py-3">
+      <div className="card mb-3 !py-2">
         <div className="flex items-center gap-4">
           <div className="w-24 h-16 rounded-lg overflow-hidden bg-tank-dark flex-shrink-0">
             {media.type === 'IMAGE' ? (
