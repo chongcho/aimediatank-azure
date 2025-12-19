@@ -54,16 +54,23 @@ function HomeContent() {
 
   useEffect(() => {
     const typeParam = searchParams.get('type')
+    const searchParam = searchParams.get('search')
+    
     if (typeParam) {
       setType(typeParam)
     } else {
       setType(null)
     }
+    
+    // Handle search param from URL (for hashtag links)
+    if (searchParam) {
+      setSearch(searchParam)
+    }
   }, [searchParams])
 
   useEffect(() => {
     fetchMedia()
-  }, [sort, type, page])
+  }, [sort, type, page, search])
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -259,6 +266,28 @@ function HomeContent() {
           </select>
         </div>
       </div>
+
+      {/* Hashtag Search Badge */}
+      {search && search.startsWith('#') && (
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-gray-400">Showing results for:</span>
+          <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-sm font-semibold flex items-center gap-2">
+            {search}
+            <button
+              onClick={() => {
+                setSearch('')
+                window.history.pushState({}, '', '/')
+              }}
+              className="hover:text-white"
+              title="Clear search"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Ad Banner */}
       <div className="mb-6">

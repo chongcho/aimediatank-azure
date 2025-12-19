@@ -37,11 +37,22 @@ export async function GET(request: Request) {
     }
 
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { aiTool: { contains: search, mode: 'insensitive' } },
-      ]
+      // Check if searching for a hashtag
+      if (search.startsWith('#')) {
+        // Search for the hashtag in title or description
+        const hashtag = search // Keep the # symbol for exact matching
+        where.OR = [
+          { title: { contains: hashtag, mode: 'insensitive' } },
+          { description: { contains: hashtag, mode: 'insensitive' } },
+        ]
+      } else {
+        // Regular search across title, description, and AI tool
+        where.OR = [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          { aiTool: { contains: search, mode: 'insensitive' } },
+        ]
+      }
     }
 
     // Build orderBy

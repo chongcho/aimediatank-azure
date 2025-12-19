@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 
 interface MediaCardProps {
@@ -32,9 +33,35 @@ interface MediaCardProps {
 }
 
 export default function MediaCard({ media }: MediaCardProps) {
+  const router = useRouter()
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false)
   const [thumbnailError, setThumbnailError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
+
+  // Render title with clickable hashtags
+  const renderTitle = (title: string) => {
+    const hashtagRegex = /(#\w+)/g
+    const parts = title.split(hashtagRegex)
+    
+    return parts.map((part, index) => {
+      if (part.startsWith('#')) {
+        return (
+          <span
+            key={index}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              router.push(`/?search=${encodeURIComponent(part)}`)
+            }}
+            className="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer"
+          >
+            {part}
+          </span>
+        )
+      }
+      return <span key={index}>{part}</span>
+    })
+  }
 
   const getTypeIcon = () => {
     switch (media.type) {
@@ -241,7 +268,7 @@ export default function MediaCard({ media }: MediaCardProps) {
           {/* Title with Type Badge */}
           <div className="flex items-center gap-2 mb-2">
             <h3 className="font-semibold text-white group-hover:text-tank-accent transition-colors truncate flex-1" title={media.title}>
-              {media.title}
+              {renderTitle(media.title)}
             </h3>
             <div className={`px-2 py-1 rounded-md ${typeStyle.bg} text-white text-xs font-bold flex items-center gap-1 shrink-0`}>
               {getTypeIcon()}
