@@ -145,6 +145,7 @@ export async function POST(request: Request) {
               thumbnailUrl: pendingUpload.thumbnailUrl,
               aiTool: pendingUpload.aiTool,
               aiPrompt: pendingUpload.aiPrompt,
+              hashtags: pendingUpload.hashtags,
               price: pendingUpload.price,
               isPublic: pendingUpload.isPublic,
               isApproved: true,

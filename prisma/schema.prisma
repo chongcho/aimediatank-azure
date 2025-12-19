@@ -56,6 +56,7 @@ model Media {
   thumbnailUrl  String?
   aiTool        String?
   aiPrompt      String?
+  hashtags      String?   // Comma-separated hashtags e.g., "#art,#AI,#music"
   price         Float?    // null = free, otherwise price in USD
   views         Int       @default(0)
   isPublic      Boolean   @default(true)
@@ -229,6 +230,7 @@ model PendingUpload {
   thumbnailUrl  String?
   aiTool        String?
   aiPrompt      String?
+  hashtags      String?   // Comma-separated hashtags
   price         Float?
   isPublic      Boolean   @default(true)
   stripeSessionId String? @unique

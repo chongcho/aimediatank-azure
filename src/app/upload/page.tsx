@@ -29,6 +29,7 @@ function UploadPageContent() {
     type: 'IMAGE',
     aiTool: '',
     aiPrompt: '',
+    hashtags: '',
     price: '',
     isPublic: true,
   })
@@ -133,6 +134,7 @@ function UploadPageContent() {
           thumbnailUrl,
           aiTool: formData.aiTool,
           aiPrompt: formData.aiPrompt,
+          hashtags: formData.hashtags || null,
           price: formData.price || null,
           isPublic: formData.isPublic,
         }),
@@ -371,6 +373,7 @@ function UploadPageContent() {
           thumbnailUrl,
           aiTool: formData.aiTool,
           aiPrompt: formData.aiPrompt,
+          hashtags: formData.hashtags || null,
           price: formData.price || null,
           isPublic: formData.isPublic,
         }),
@@ -712,6 +715,27 @@ function UploadPageContent() {
               rows={3}
               className="resize-none"
             />
+          </div>
+
+          {/* Hashtags */}
+          <div>
+            <label htmlFor="upload-hashtags" className="block text-sm font-medium text-gray-300 mb-2">
+              #Hashtags
+            </label>
+            <input
+              type="text"
+              id="upload-hashtags"
+              name="hashtags"
+              value={formData.hashtags}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, hashtags: e.target.value }))
+              }
+              placeholder="#AI #art #music #video (separate with spaces)"
+              className="w-full"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Add hashtags to help others find your content. Start each with # and separate with spaces.
+            </p>
           </div>
 
           {/* Upload Progress */}
