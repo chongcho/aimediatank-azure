@@ -61,6 +61,8 @@ export default function MediaPage() {
   const [loading, setLoading] = useState(true)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [reactions, setReactions] = useState({ happy: 0, neutral: 0, sad: 0 })
+  const [userReaction, setUserReaction] = useState<'happy' | 'neutral' | 'sad' | null>(null)
   const [showMessageModal, setShowMessageModal] = useState(false)
   const [message, setMessage] = useState('')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -77,6 +79,7 @@ export default function MediaPage() {
 
   useEffect(() => {
     fetchMedia()
+    fetchReactions()
     if (session) {
       fetchSavedStatus()
     }
@@ -89,6 +92,40 @@ export default function MediaPage() {
       setIsSaved(data.saved)
     } catch (error) {
       console.error('Error fetching saved status:', error)
+    }
+  }
+
+  const fetchReactions = async () => {
+    try {
+      const res = await fetch(`/api/media/${mediaId}/reactions`)
+      const data = await res.json()
+      if (res.ok) {
+        setReactions(data.counts)
+        setUserReaction(data.userReaction)
+      }
+    } catch (error) {
+      console.error('Error fetching reactions:', error)
+    }
+  }
+
+  const handleReaction = async (type: 'happy' | 'neutral' | 'sad') => {
+    if (!session) {
+      router.push('/login')
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/media/${mediaId}/reactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      })
+      
+      if (res.ok) {
+        fetchReactions()
+      }
+    } catch (error) {
+      console.error('Error setting reaction:', error)
     }
   }
 
@@ -422,6 +459,31 @@ export default function MediaPage() {
                 <span className="ml-2 text-tank-accent">{media.aiTool}</span>
               </div>
             )}
+
+            {/* Reaction Buttons */}
+            <div className="flex justify-center gap-8 mt-4 pt-4 border-t border-tank-light">
+              <button
+                onClick={() => handleReaction('happy')}
+                className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${userReaction === 'happy' ? 'scale-110' : ''}`}
+              >
+                <span className={`text-4xl ${userReaction === 'happy' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😄</span>
+                <span className={`text-sm font-medium ${userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.happy}</span>
+              </button>
+              <button
+                onClick={() => handleReaction('neutral')}
+                className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${userReaction === 'neutral' ? 'scale-110' : ''}`}
+              >
+                <span className={`text-4xl ${userReaction === 'neutral' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😐</span>
+                <span className={`text-sm font-medium ${userReaction === 'neutral' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.neutral}</span>
+              </button>
+              <button
+                onClick={() => handleReaction('sad')}
+                className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${userReaction === 'sad' ? 'scale-110' : ''}`}
+              >
+                <span className={`text-4xl ${userReaction === 'sad' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😞</span>
+                <span className={`text-sm font-medium ${userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.sad}</span>
+              </button>
+            </div>
           </div>
 
           {/* Comments */}
