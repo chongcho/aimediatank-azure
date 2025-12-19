@@ -422,29 +422,6 @@ export default function MediaPage() {
             </p>
           </div>
 
-          {/* Reviews */}
-          {media.ratings.length > 0 && (
-            <div className="card">
-              <h3 className="font-semibold mb-4">Reviews</h3>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {media.ratings
-                  .filter((r) => r.review)
-                  .map((r, i) => (
-                    <div key={i} className="border-b border-tank-light pb-4 last:border-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-yellow-500">
-                          {'⭐'.repeat(r.score)}
-                        </span>
-                        <span className="text-sm text-gray-400">
-                          by {r.user.name || r.user.username}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-300">{r.review}</p>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
