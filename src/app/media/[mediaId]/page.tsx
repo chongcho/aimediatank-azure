@@ -62,8 +62,6 @@ export default function MediaPage() {
   const [submitting, setSubmitting] = useState(false)
   const [reactions, setReactions] = useState({ happy: 0, neutral: 0, sad: 0 })
   const [userReaction, setUserReaction] = useState<'happy' | 'neutral' | 'sad' | null>(null)
-  const [showMessageModal, setShowMessageModal] = useState(false)
-  const [message, setMessage] = useState('')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
@@ -190,32 +188,6 @@ export default function MediaPage() {
       console.error('Error fetching media:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleSendMessage = async () => {
-    if (!message.trim() || !session || !media) return
-
-    setSubmitting(true)
-    try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          receiverId: media.user.id,
-          content: message,
-        }),
-      })
-
-      if (res.ok) {
-        setMessage('')
-        setShowMessageModal(false)
-        alert('Message sent!')
-      }
-    } catch (error) {
-      console.error('Error sending message:', error)
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -454,14 +426,6 @@ export default function MediaPage() {
             {media.user.bio && (
               <p className="text-sm text-gray-400 mb-4">{media.user.bio}</p>
             )}
-            {session && session.user.id !== media.user.id && (
-              <button
-                onClick={() => setShowMessageModal(true)}
-                className="btn-secondary w-full"
-              >
-                Send Message
-              </button>
-            )}
           </div>
 
           {/* Reviews */}
@@ -489,39 +453,6 @@ export default function MediaPage() {
           )}
         </div>
       </div>
-
-      {/* Message Modal */}
-      {showMessageModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="card max-w-md w-full">
-            <h3 className="text-xl font-semibold mb-4">
-              Message @{media.user.username}
-            </h3>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Write your message..."
-              rows={4}
-              className="mb-4 resize-none"
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowMessageModal(false)}
-                className="btn-secondary flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSendMessage}
-                disabled={!message.trim() || submitting}
-                className="btn-primary flex-1"
-              >
-                {submitting ? 'Sending...' : 'Send'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
