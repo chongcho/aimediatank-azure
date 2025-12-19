@@ -29,6 +29,8 @@ export default function Navbar() {
 
   const profileRef = useRef<HTMLDivElement>(null)
   const alertsRef = useRef<HTMLDivElement>(null)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
 
   // Check subscriber status from fetched data (more reliable than session)
   const isSubscriber = userData?.role === 'SUBSCRIBER' || userData?.role === 'ADMIN' || 
@@ -47,6 +49,11 @@ export default function Navbar() {
       }
       if (alertsRef.current && !alertsRef.current.contains(event.target as Node)) {
         setIsAlertsOpen(false)
+      }
+      // Close mobile menu when clicking outside
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node) &&
+          mobileMenuButtonRef.current && !mobileMenuButtonRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false)
       }
     }
 
@@ -421,6 +428,7 @@ export default function Navbar() {
 
             {/* Mobile Menu Button */}
             <button
+              ref={mobileMenuButtonRef}
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="md:hidden p-2 text-gray-400 hover:text-white"
               aria-label={isMenuOpen ? "Close menu" : "Open menu"}
@@ -439,7 +447,7 @@ export default function Navbar() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-tank-light">
+          <div ref={mobileMenuRef} className="md:hidden py-4 border-t border-tank-light">
             <div className="flex flex-col gap-2">
               <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>Home</MobileNavLink>
               <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
