@@ -318,10 +318,11 @@ export default function Navbar() {
                       setIsProfileOpen(!isProfileOpen)
                       setIsAlertsOpen(false)
                     }}
-                    className="flex items-center gap-2 px-2 py-1 bg-tank-gray border border-tank-light rounded-lg hover:bg-tank-light transition-colors"
+                    className="flex items-center p-1 rounded-full hover:ring-2 hover:ring-tank-accent transition-all"
+                    title={displayName}
                   >
-                    {/* Avatar */}
-                    <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-sm font-bold shrink-0">
+                    {/* Avatar Only */}
+                    <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-sm font-bold">
                       {userData?.avatar ? (
                         <img 
                           src={`${userData.avatar}${userData.avatar.includes('?') ? '&' : '?'}t=${Date.now()}`}
@@ -332,12 +333,6 @@ export default function Navbar() {
                         displayName[0]?.toUpperCase() || '?'
                       )}
                     </div>
-                    <span className="text-sm font-medium text-gray-300 max-w-[100px] truncate">
-                      {displayName}
-                    </span>
-                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
                   </button>
 
                   {isProfileOpen && (
