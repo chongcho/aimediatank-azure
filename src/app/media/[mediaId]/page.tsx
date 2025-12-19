@@ -404,16 +404,8 @@ export default function MediaPage() {
             {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
           </button>
 
-          {/* AI Info */}
-          {media.aiTool && (
-            <div className="bg-tank-dark rounded-xl p-4">
-              <span className="text-sm text-gray-500">AI Tool:</span>
-              <span className="ml-2 text-tank-accent">{media.aiTool}</span>
-            </div>
-          )}
-
-          {/* Creator Info */}
-          <div className="card">
+          {/* Creator & AI Info */}
+          <div className="card space-y-2">
             <p className="text-gray-400">
               Created by{' '}
               <Link
@@ -423,6 +415,12 @@ export default function MediaPage() {
                 {media.user.name || media.user.username}
               </Link>
             </p>
+            {media.aiTool && (
+              <p className="text-gray-400">
+                <span className="text-gray-500">AI Tool:</span>
+                <span className="ml-2 text-tank-accent">{media.aiTool}</span>
+              </p>
+            )}
           </div>
 
         </div>
