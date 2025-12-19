@@ -409,23 +409,17 @@ export default function MediaPage() {
             {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
           </button>
 
-          {/* Creator Card */}
+          {/* Creator Info */}
           <div className="card">
-            <h3 className="font-semibold mb-4">Creator</h3>
-            <Link
-              href={`/profile/${media.user.username}`}
-              className="flex items-center gap-3 mb-4 hover:opacity-80 transition-opacity"
-            >
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-lg font-bold">
-                {media.user.name?.[0]?.toUpperCase() || media.user.username[0].toUpperCase()}
-              </div>
-              <div>
-                <div className="font-semibold">{media.user.name || media.user.username}</div>
-              </div>
-            </Link>
-            {media.user.bio && (
-              <p className="text-sm text-gray-400 mb-4">{media.user.bio}</p>
-            )}
+            <p className="text-gray-400">
+              Created by{' '}
+              <Link
+                href={`/profile/${media.user.username}`}
+                className="text-tank-accent hover:underline font-medium"
+              >
+                {media.user.name || media.user.username}
+              </Link>
+            </p>
           </div>
 
           {/* Reviews */}
