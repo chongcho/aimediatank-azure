@@ -426,6 +426,34 @@ export default function MediaPage() {
               <p className="text-gray-300 mb-4">{media.description}</p>
             )}
 
+            {/* Buy Now Button - Only show for paid content that user doesn't own */}
+            {media.price && media.price > 0 && !isOwner && (
+              <button
+                onClick={handleBuyNow}
+                disabled={buyingMedia}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 mb-4 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/25"
+              >
+                {buyingMedia ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                )}
+                {buyingMedia ? 'Processing...' : `Buy Now - $${media.price.toFixed(2)}`}
+              </button>
+            )}
+
+            {/* Price Display for Owner */}
+            {media.price && media.price > 0 && isOwner && (
+              <div className="w-full flex items-center justify-center gap-2 px-4 py-3 mb-4 rounded-xl font-semibold bg-tank-gray border border-tank-light text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Your Price: ${media.price.toFixed(2)}
+              </div>
+            )}
+
             {/* AI Info */}
             {media.aiTool && (
               <div className="bg-tank-dark rounded-xl p-4">
@@ -618,34 +646,6 @@ export default function MediaPage() {
             )}
             {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
           </button>
-
-          {/* Buy Now Button - Only show for paid content that user doesn't own */}
-          {media.price && media.price > 0 && !isOwner && (
-            <button
-              onClick={handleBuyNow}
-              disabled={buyingMedia}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/25"
-            >
-              {buyingMedia ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              )}
-              {buyingMedia ? 'Processing...' : `Buy Now - $${media.price.toFixed(2)}`}
-            </button>
-          )}
-
-          {/* Price Display for Owner */}
-          {media.price && media.price > 0 && isOwner && (
-            <div className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold bg-tank-gray border border-tank-light text-gray-400">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Your Price: ${media.price.toFixed(2)}
-            </div>
-          )}
 
           {/* Creator Card */}
           <div className="card">
