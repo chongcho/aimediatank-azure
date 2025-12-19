@@ -35,7 +35,6 @@ export default function EditMediaPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [aiTool, setAiTool] = useState('')
-  const [aiPrompt, setAiPrompt] = useState('')
   const [price, setPrice] = useState('')
   const [isPublic, setIsPublic] = useState(true)
 
@@ -69,7 +68,6 @@ export default function EditMediaPage() {
       setTitle(data.title)
       setDescription(data.description || '')
       setAiTool(data.aiTool || '')
-      setAiPrompt(data.aiPrompt || '')
       setPrice(data.price ? data.price.toString() : '')
       setIsPublic(data.isPublic)
     } catch (error) {
@@ -98,7 +96,6 @@ export default function EditMediaPage() {
           title: title.trim(),
           description: description.trim() || null,
           aiTool: aiTool.trim() || null,
-          aiPrompt: aiPrompt.trim() || null,
           price: price ? parseFloat(price) : null,
           isPublic,
         }),
@@ -242,23 +239,6 @@ export default function EditMediaPage() {
             placeholder="e.g., Midjourney, DALL-E, Sora, Suno"
             className="w-full"
           />
-        </div>
-
-        {/* AI Prompt */}
-        <div>
-          <label htmlFor="edit-ai-prompt" className="block text-sm font-medium mb-2">AI Prompt</label>
-          <textarea
-            id="edit-ai-prompt"
-            name="aiPrompt"
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            placeholder="Share the prompt you used to generate this..."
-            rows={3}
-            className="w-full resize-none"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Sharing your prompt helps others learn from your creations
-          </p>
         </div>
 
         {/* Price */}

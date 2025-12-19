@@ -428,22 +428,10 @@ export default function MediaPage() {
             )}
 
             {/* AI Info */}
-            {(media.aiTool || media.aiPrompt) && (
-              <div className="bg-tank-dark rounded-xl p-4 space-y-2">
-                {media.aiTool && (
-                  <div>
-                    <span className="text-sm text-gray-500">AI Tool:</span>
-                    <span className="ml-2 text-tank-accent">{media.aiTool}</span>
-                  </div>
-                )}
-                {media.aiPrompt && (
-                  <div>
-                    <span className="text-sm text-gray-500">Prompt:</span>
-                    <p className="text-gray-300 mt-1 text-sm bg-tank-gray p-3 rounded-lg">
-                      {media.aiPrompt}
-                    </p>
-                  </div>
-                )}
+            {media.aiTool && (
+              <div className="bg-tank-dark rounded-xl p-4">
+                <span className="text-sm text-gray-500">AI Tool:</span>
+                <span className="ml-2 text-tank-accent">{media.aiTool}</span>
               </div>
             )}
           </div>

@@ -28,7 +28,6 @@ function UploadPageContent() {
     description: '',
     type: 'IMAGE',
     aiTool: '',
-    aiPrompt: '',
     hashtags: '',
     price: '',
     isPublic: true,
@@ -133,7 +132,6 @@ function UploadPageContent() {
           url: fileUrl,
           thumbnailUrl,
           aiTool: formData.aiTool,
-          aiPrompt: formData.aiPrompt,
           price: formData.price || null,
           isPublic: formData.isPublic,
         }),
@@ -371,7 +369,6 @@ function UploadPageContent() {
           url: fileUrl,
           thumbnailUrl,
           aiTool: formData.aiTool,
-          aiPrompt: formData.aiPrompt,
           price: formData.price || null,
           isPublic: formData.isPublic,
         }),
@@ -696,22 +693,6 @@ function UploadPageContent() {
                 setFormData((prev) => ({ ...prev, aiTool: e.target.value }))
               }
               placeholder="e.g., Midjourney, DALL-E, Suno, Runway..."
-            />
-          </div>
-
-          {/* AI Prompt */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              AI Prompt
-            </label>
-            <textarea
-              value={formData.aiPrompt}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, aiPrompt: e.target.value }))
-              }
-              placeholder="Share the prompt you used to generate this..."
-              rows={3}
-              className="resize-none"
             />
           </div>
 
