@@ -5,7 +5,6 @@ import { useSession } from 'next-auth/react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
-import AdSense from '@/components/AdSense'
 
 interface UserProfile {
   id: string
@@ -509,16 +508,6 @@ export default function ProfilePage() {
             >
               Music ({stats.music})
             </button>
-          </div>
-
-          {/* Ad Banner */}
-          <div className="mb-6">
-            <AdSense
-              adSlot="4351045569"
-              adFormat="horizontal"
-              className="w-full"
-              style={{ minHeight: '90px' }}
-            />
           </div>
 
           {/* Media Grid */}

@@ -5,7 +5,6 @@ import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaPlayer from '@/components/MediaPlayer'
-import AdSense from '@/components/AdSense'
 
 interface MediaDetail {
   id: string
@@ -472,16 +471,6 @@ export default function MediaPage() {
               </button>
             </div>
           )}
-
-          {/* Ad before Comments */}
-          <div className="my-6">
-            <AdSense
-              adSlot="4351045569"
-              adFormat="horizontal"
-              className="w-full"
-              style={{ minHeight: '90px' }}
-            />
-          </div>
 
           {/* Comments */}
           <div className="card">

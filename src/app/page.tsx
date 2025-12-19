@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 import LiveChat from '@/components/LiveChat'
-import AdSense from '@/components/AdSense'
 
 interface Media {
   id: string
@@ -359,16 +358,6 @@ function HomeContent() {
         </div>
       )}
 
-      {/* Ad Banner */}
-      <div className="mb-6">
-        <AdSense
-          adSlot="3654516348"
-          adFormat="horizontal"
-          className="w-full"
-          style={{ minHeight: '90px' }}
-        />
-      </div>
-
       {/* Media Grid */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
@@ -393,32 +382,9 @@ function HomeContent() {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {media.map((item, index) => (
-              <>
-                <MediaCard key={item.id} media={item} />
-                {/* In-feed ad after every 8 items */}
-                {(index + 1) % 8 === 0 && index < media.length - 1 && (
-                  <div key={`ad-${index}`} className="col-span-full">
-                    <AdSense
-                      adSlot="3654516348"
-                      adFormat="fluid"
-                      className="w-full my-4"
-                      style={{ minHeight: '120px' }}
-                    />
-                  </div>
-                )}
-              </>
+            {media.map((item) => (
+              <MediaCard key={item.id} media={item} />
             ))}
-          </div>
-
-          {/* Bottom Ad before Pagination */}
-          <div className="mt-8">
-            <AdSense
-              adSlot="3654516348"
-              adFormat="horizontal"
-              className="w-full"
-              style={{ minHeight: '90px' }}
-            />
           </div>
 
           {/* Pagination */}
