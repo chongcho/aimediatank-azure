@@ -675,7 +675,7 @@ function UploadPageContent() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, price: e.target.value }))
               }
-              placeholder="e.g., 9.99 (leave empty for free content)"
+              placeholder="e.g., 1.99 (leave empty for free content)"
             />
           </div>
 
