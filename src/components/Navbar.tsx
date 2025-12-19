@@ -304,17 +304,6 @@ export default function Navbar() {
                   )}
                 </div>
 
-                {/* My Contents Button */}
-                <Link
-                  href={`/profile/${userData?.username || session.user?.username}`}
-                  className="hidden sm:flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-tank-light rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                  <span className="text-sm font-medium">My Contents</span>
-                </Link>
-
                 {/* User ID Dropdown */}
                 <div className="relative" ref={profileRef}>
                   <button
@@ -360,6 +349,16 @@ export default function Navbar() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                         Profile
+                      </Link>
+                      <Link
+                        href={`/profile/${userData?.username || session.user?.username}`}
+                        className="flex items-center gap-3 px-4 py-2 hover:bg-tank-light transition-colors"
+                        onClick={() => setIsProfileOpen(false)}
+                      >
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        My Contents
                       </Link>
                       <Link
                         href="/pricing"
