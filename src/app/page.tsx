@@ -37,6 +37,13 @@ interface SearchSuggestion {
   thumbnailUrl: string | null
 }
 
+interface UserSuggestion {
+  id: string
+  username: string
+  name: string | null
+  role: string
+}
+
 function HomeContent() {
   const searchParams = useSearchParams()
   const [media, setMedia] = useState<Media[]>([])
@@ -47,6 +54,7 @@ function HomeContent() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
+  const [userSuggestions, setUserSuggestions] = useState<UserSuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
@@ -87,19 +95,36 @@ function HomeContent() {
   const fetchSuggestions = useCallback(async (query: string) => {
     if (query.length < 2) {
       setSuggestions([])
+      setUserSuggestions([])
       return
     }
     
     setLoadingSuggestions(true)
     try {
-      const res = await fetch(`/api/media?search=${encodeURIComponent(query)}&limit=6`)
-      const data = await res.json()
-      setSuggestions(data.media?.map((m: Media) => ({
-        id: m.id,
-        title: m.title,
-        type: m.type,
-        thumbnailUrl: m.thumbnailUrl
-      })) || [])
+      // Check if searching for @username
+      if (query.startsWith('@')) {
+        const username = query.slice(1) // Remove @ symbol
+        if (username.length > 0) {
+          const res = await fetch(`/api/users/search?q=${encodeURIComponent(username)}&limit=6`)
+          const data = await res.json()
+          setUserSuggestions(data.users || [])
+          setSuggestions([])
+        } else {
+          setUserSuggestions([])
+          setSuggestions([])
+        }
+      } else {
+        // Regular media search
+        const res = await fetch(`/api/media?search=${encodeURIComponent(query)}&limit=6`)
+        const data = await res.json()
+        setSuggestions(data.media?.map((m: Media) => ({
+          id: m.id,
+          title: m.title,
+          type: m.type,
+          thumbnailUrl: m.thumbnailUrl
+        })) || [])
+        setUserSuggestions([])
+      }
     } catch (error) {
       console.error('Error fetching suggestions:', error)
     } finally {
@@ -139,7 +164,14 @@ function HomeContent() {
         limit: '20',
       })
       if (type) params.set('type', type)
-      if (search) params.set('search', search)
+      
+      // Handle @username search - filter by user
+      if (search && search.startsWith('@')) {
+        const username = search.slice(1)
+        if (username) params.set('user', username)
+      } else if (search) {
+        params.set('search', search)
+      }
 
       const res = await fetch(`/api/media?${params}`)
       const data = await res.json()
@@ -182,7 +214,7 @@ function HomeContent() {
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
               onFocus={() => search.length >= 2 && setShowSuggestions(true)}
-              placeholder="Search AI media..."
+              placeholder="Search media or @username..."
               className="w-full pl-4 pr-24 py-2.5 bg-tank-gray border border-tank-light rounded-lg focus:border-tank-accent"
               autoComplete="off"
             />
@@ -201,6 +233,40 @@ function HomeContent() {
                 <div className="px-4 py-3 text-gray-400 text-sm flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-gray-500 border-t-tank-accent rounded-full animate-spin" />
                   Searching...
+                </div>
+              ) : userSuggestions.length > 0 ? (
+                /* User Suggestions for @username search */
+                <div className="max-h-80 overflow-y-auto">
+                  <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-tank-light">Users</div>
+                  {userSuggestions.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => {
+                        setSearch(`@${user.username}`)
+                        setShowSuggestions(false)
+                        window.location.href = `/profile/${user.username}`
+                      }}
+                      className="w-full px-4 py-2 flex items-center gap-3 hover:bg-tank-light transition-colors text-left"
+                    >
+                      {/* User Avatar */}
+                      <div className="w-8 h-8 bg-tank-accent rounded-full flex items-center justify-center text-tank-black font-bold text-sm flex-shrink-0">
+                        {user.username.charAt(0).toUpperCase()}
+                      </div>
+                      {/* Username & Name */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${
+                          user.role === 'ADMIN' ? 'text-red-400' :
+                          user.role === 'SUBSCRIBER' ? 'text-tank-accent' :
+                          'text-white'
+                        }`}>@{user.username}</p>
+                        {user.name && (
+                          <span className="text-xs text-gray-500">{user.name}</span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-500">View profile →</span>
+                    </button>
+                  ))}
                 </div>
               ) : suggestions.length > 0 ? (
                 <div className="max-h-80 overflow-y-auto">
@@ -267,11 +333,15 @@ function HomeContent() {
         </div>
       </div>
 
-      {/* Hashtag Search Badge */}
-      {search && search.startsWith('#') && (
+      {/* Search Badge for Hashtag or @username */}
+      {search && (search.startsWith('#') || search.startsWith('@')) && (
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-gray-400">Showing results for:</span>
-          <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-sm font-semibold flex items-center gap-2">
+          <span className="text-gray-400">
+            {search.startsWith('@') ? 'Showing content from:' : 'Showing results for:'}
+          </span>
+          <span className={`px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2 ${
+            search.startsWith('@') ? 'bg-yellow-500/20 text-yellow-400' : 'bg-cyan-500/20 text-cyan-400'
+          }`}>
             {search}
             <button
               onClick={() => {
