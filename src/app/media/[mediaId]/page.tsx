@@ -341,14 +341,6 @@ export default function MediaPage() {
               </div>
             )}
 
-            {/* AI Info */}
-            {media.aiTool && (
-              <div className="bg-tank-dark rounded-xl p-4">
-                <span className="text-sm text-gray-500">AI Tool:</span>
-                <span className="ml-2 text-tank-accent">{media.aiTool}</span>
-              </div>
-            )}
-
             {/* Reaction Buttons */}
             <div className="flex justify-center gap-8 mt-4 pt-4 border-t border-tank-light">
               <button
@@ -408,6 +400,14 @@ export default function MediaPage() {
             )}
             {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
           </button>
+
+          {/* AI Info */}
+          {media.aiTool && (
+            <div className="bg-tank-dark rounded-xl p-4">
+              <span className="text-sm text-gray-500">AI Tool:</span>
+              <span className="ml-2 text-tank-accent">{media.aiTool}</span>
+            </div>
+          )}
 
           {/* Creator Info */}
           <div className="card">
