@@ -263,7 +263,7 @@ export default function MediaPage() {
           {/* Info */}
           <div className="card">
             <div className="flex items-start justify-between gap-4 mb-2">
-              <h1 className="text-2xl font-bold">{media.title}</h1>
+              <h1 className="text-2xl font-bold">{media.title.replace(/#\w+/g, '').trim()}</h1>
               
               {/* Creator Actions */}
               {canManage && (

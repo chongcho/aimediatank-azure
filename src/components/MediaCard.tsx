@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 
 interface MediaCardProps {
@@ -33,34 +32,13 @@ interface MediaCardProps {
 }
 
 export default function MediaCard({ media }: MediaCardProps) {
-  const router = useRouter()
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false)
   const [thumbnailError, setThumbnailError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
-  // Render title with clickable hashtags
+  // Remove hashtags from title for display (hashtags are only used for search)
   const renderTitle = (title: string) => {
-    const hashtagRegex = /(#\w+)/g
-    const parts = title.split(hashtagRegex)
-    
-    return parts.map((part, index) => {
-      if (part.startsWith('#')) {
-        return (
-          <span
-            key={index}
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              router.push(`/?search=${encodeURIComponent(part)}`)
-            }}
-            className="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer"
-          >
-            {part}
-          </span>
-        )
-      }
-      return <span key={index}>{part}</span>
-    })
+    return title.replace(/#\w+/g, '').trim()
   }
 
   const getTypeIcon = () => {
