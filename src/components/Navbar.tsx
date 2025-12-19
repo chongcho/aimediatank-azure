@@ -507,10 +507,16 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 }
 
 function MobileNavLink({ href, onClick, children }: { href: string; onClick: () => void; children: React.ReactNode }) {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    onClick()
+    window.location.href = href
+  }
+  
   return (
     <Link
       href={href}
-      onClick={onClick}
+      onClick={handleClick}
       className="px-4 py-3 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all"
     >
       {children}
