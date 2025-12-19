@@ -60,9 +60,6 @@ export default function MediaPage() {
   const [media, setMedia] = useState<MediaDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [comment, setComment] = useState('')
-  const [rating, setRating] = useState(0)
-  const [review, setReview] = useState('')
-  const [userRating, setUserRating] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showMessageModal, setShowMessageModal] = useState(false)
   const [message, setMessage] = useState('')
@@ -81,7 +78,6 @@ export default function MediaPage() {
   useEffect(() => {
     fetchMedia()
     if (session) {
-      fetchUserRating()
       fetchSavedStatus()
     }
   }, [mediaId, session])
@@ -163,19 +159,6 @@ export default function MediaPage() {
     }
   }
 
-  const fetchUserRating = async () => {
-    try {
-      const res = await fetch(`/api/media/${mediaId}/rating`)
-      const data = await res.json()
-      if (data.rating) {
-        setUserRating(data.rating.score)
-        setRating(data.rating.score)
-      }
-    } catch (error) {
-      console.error('Error fetching user rating:', error)
-    }
-  }
-
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!comment.trim() || !session) return
@@ -194,28 +177,6 @@ export default function MediaPage() {
       }
     } catch (error) {
       console.error('Error posting comment:', error)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleRating = async () => {
-    if (!rating || !session) return
-
-    setSubmitting(true)
-    try {
-      const res = await fetch(`/api/media/${mediaId}/rating`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score: rating, review }),
-      })
-
-      if (res.ok) {
-        setUserRating(rating)
-        fetchMedia()
-      }
-    } catch (error) {
-      console.error('Error rating media:', error)
     } finally {
       setSubmitting(false)
     }
@@ -462,43 +423,6 @@ export default function MediaPage() {
               </div>
             )}
           </div>
-
-          {/* Rating Section */}
-          {session && session.user.id !== media.user.id && (
-            <div className="card">
-              <h3 className="font-semibold mb-4">Rate this {media.type.toLowerCase()}</h3>
-              <div className="flex items-center gap-2 mb-4">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => setRating(star)}
-                    className="text-2xl transition-transform hover:scale-110"
-                  >
-                    {star <= rating ? '⭐' : '☆'}
-                  </button>
-                ))}
-                {userRating && (
-                  <span className="text-sm text-gray-400 ml-2">
-                    (You rated: {userRating})
-                  </span>
-                )}
-              </div>
-              <textarea
-                value={review}
-                onChange={(e) => setReview(e.target.value)}
-                placeholder="Write a review (optional)..."
-                rows={2}
-                className="mb-4 resize-none"
-              />
-              <button
-                onClick={handleRating}
-                disabled={!rating || submitting}
-                className="btn-primary"
-              >
-                {submitting ? 'Submitting...' : userRating ? 'Update Rating' : 'Submit Rating'}
-              </button>
-            </div>
-          )}
 
           {/* Comments */}
           <div className="card">
