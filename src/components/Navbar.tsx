@@ -176,12 +176,20 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center" onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}>
+          <Link href="/" className="flex items-center gap-2" onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}>
             <img 
               src="/logo.png" 
               alt="AiMediaTank" 
               className="h-10 w-auto"
             />
+            <span className="text-xl font-bold tracking-tight hidden sm:block">
+              <span className="text-red-500">A</span>
+              <span className="text-white">i</span>
+              <span className="text-green-500">M</span>
+              <span className="text-white">edia</span>
+              <span className="text-blue-500">T</span>
+              <span className="text-white">ank</span>
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
