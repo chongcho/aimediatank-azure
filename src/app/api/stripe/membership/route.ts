@@ -79,9 +79,19 @@ export async function POST(request: Request) {
       })
       customerId = customer.id
 
+      // Update user with Stripe customer ID and policy agreement
       await prisma.user.update({
         where: { id: session.user.id },
-        data: { stripeCustomerId: customerId },
+        data: { 
+          stripeCustomerId: customerId,
+          policyAgreedAt: new Date(),
+        },
+      })
+    } else {
+      // Update policy agreement date for existing customers
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { policyAgreedAt: new Date() },
       })
     }
 

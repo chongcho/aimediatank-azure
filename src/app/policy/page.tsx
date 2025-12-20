@@ -1,10 +1,39 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 
 export default function PolicyPage() {
+  const { data: session } = useSession()
   const [activeSection, setActiveSection] = useState('terms')
+  const [policyStatus, setPolicyStatus] = useState<{ agreed: boolean; agreedAt: string | null }>({ agreed: false, agreedAt: null })
+
+  useEffect(() => {
+    if (session) {
+      fetchPolicyStatus()
+    }
+  }, [session])
+
+  const fetchPolicyStatus = async () => {
+    try {
+      const res = await fetch('/api/user/policy-status')
+      const data = await res.json()
+      setPolicyStatus(data)
+    } catch (error) {
+      console.error('Error fetching policy status:', error)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
 
   const sections = [
     { id: 'terms', title: '1. Terms of Service' },
@@ -34,6 +63,21 @@ export default function PolicyPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Policy Agreement Status */}
+      {session && policyStatus.agreed && (
+        <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex items-center gap-3">
+          <svg className="w-6 h-6 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="text-green-400 font-medium">Policy Agreement Confirmed</p>
+            <p className="text-sm text-gray-400">
+              You agreed to the Terms of Service and Privacy Policy on {formatDate(policyStatus.agreedAt!)}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>

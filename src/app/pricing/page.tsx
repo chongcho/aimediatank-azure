@@ -104,6 +104,7 @@ function PricingPageContent() {
   const [showBillingModal, setShowBillingModal] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+  const [policyAgreed, setPolicyAgreed] = useState(false)
   const [purchasedPlanName, setPurchasedPlanName] = useState('')
   const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null)
 
@@ -548,6 +549,7 @@ function PricingPageContent() {
                 onClick={() => {
                   setShowBillingModal(false)
                   setSelectedPlan(null)
+                  setPolicyAgreed(false)
                 }}
                 className="p-2 hover:bg-tank-light rounded-lg transition-colors"
               >
@@ -561,18 +563,43 @@ function PricingPageContent() {
               You selected: <span className="text-tank-accent font-bold">{selectedPlan.name}</span>
             </p>
 
+            {/* Policy Agreement Checkbox */}
+            <div className="mb-6 p-4 bg-tank-gray rounded-xl border border-tank-light">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={policyAgreed}
+                  onChange={(e) => setPolicyAgreed(e.target.checked)}
+                  className="mt-1 w-5 h-5 rounded border-tank-light bg-tank-dark text-tank-accent focus:ring-tank-accent focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="text-sm text-gray-300">
+                  I have read and agree to the{' '}
+                  <a href="/policy" target="_blank" className="text-tank-accent hover:underline">
+                    Terms of Service and Privacy Policy
+                  </a>
+                </span>
+              </label>
+            </div>
+
             <div className="space-y-4">
               {/* Monthly Option - Default/Recommended */}
               <button
                 onClick={() => handleSubscribe('month')}
-                className="w-full p-4 bg-tank-gray border-2 border-tank-accent rounded-xl hover:bg-tank-light transition-all group relative overflow-hidden"
+                disabled={!policyAgreed}
+                className={`w-full p-4 bg-tank-gray border-2 rounded-xl transition-all group relative overflow-hidden ${
+                  policyAgreed 
+                    ? 'border-tank-accent hover:bg-tank-light cursor-pointer' 
+                    : 'border-tank-light opacity-50 cursor-not-allowed'
+                }`}
               >
-                <div className="absolute top-0 right-0 bg-tank-accent text-black text-xs font-bold px-2 py-1 rounded-bl-lg">
+                <div className={`absolute top-0 right-0 text-black text-xs font-bold px-2 py-1 rounded-bl-lg ${
+                  policyAgreed ? 'bg-tank-accent' : 'bg-gray-500'
+                }`}>
                   Recommended
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="text-left">
-                    <p className="font-semibold text-lg text-tank-accent">Monthly</p>
+                    <p className={`font-semibold text-lg ${policyAgreed ? 'text-tank-accent' : 'text-gray-500'}`}>Monthly</p>
                     <p className="text-gray-400 text-sm">Billed every month</p>
                   </div>
                   <div className="text-right">
@@ -585,14 +612,21 @@ function PricingPageContent() {
               {/* Yearly Option */}
               <button
                 onClick={() => handleSubscribe('year')}
-                className="w-full p-4 bg-tank-gray border-2 border-tank-light rounded-xl hover:border-tank-accent/50 transition-all group relative overflow-hidden"
+                disabled={!policyAgreed}
+                className={`w-full p-4 bg-tank-gray border-2 rounded-xl transition-all group relative overflow-hidden ${
+                  policyAgreed 
+                    ? 'border-tank-light hover:border-tank-accent/50 cursor-pointer' 
+                    : 'border-tank-light opacity-50 cursor-not-allowed'
+                }`}
               >
-                <div className="absolute top-0 right-0 bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded-bl-lg">
+                <div className={`absolute top-0 right-0 text-black text-xs font-bold px-2 py-1 rounded-bl-lg ${
+                  policyAgreed ? 'bg-yellow-500' : 'bg-gray-500'
+                }`}>
                   Save ${(selectedPlan.price * 12 - selectedPlan.yearlyPrice).toFixed(0)}
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="text-left">
-                    <p className="font-semibold text-lg group-hover:text-tank-accent transition-colors">Yearly</p>
+                    <p className={`font-semibold text-lg transition-colors ${policyAgreed ? 'group-hover:text-tank-accent' : 'text-gray-500'}`}>Yearly</p>
                     <p className="text-gray-400 text-sm">Billed annually</p>
                   </div>
                   <div className="text-right">
@@ -603,6 +637,12 @@ function PricingPageContent() {
                 </div>
               </button>
             </div>
+
+            {!policyAgreed && (
+              <p className="text-xs text-yellow-500 mt-4 text-center">
+                Please agree to the Terms of Service and Privacy Policy to continue.
+              </p>
+            )}
 
             <p className="text-xs text-gray-500 mt-4 text-center">
               You can cancel anytime. Your subscription will continue until the end of the billing period.
