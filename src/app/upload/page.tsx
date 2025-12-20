@@ -289,6 +289,7 @@ function UploadPageContent() {
       headers: {
         'x-ms-blob-type': 'BlockBlob',
         'Content-Type': fileToUpload.type,
+        'x-ms-blob-cache-control': 'public, max-age=31536000', // Cache for 1 year
       },
       body: fileToUpload,
     })

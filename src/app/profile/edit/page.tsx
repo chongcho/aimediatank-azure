@@ -325,6 +325,7 @@ export default function EditProfilePage() {
         headers: {
           'x-ms-blob-type': 'BlockBlob',
           'Content-Type': 'image/jpeg',
+          'x-ms-blob-cache-control': 'public, max-age=31536000', // Cache for 1 year
         },
         body: compressedFile,
       })
