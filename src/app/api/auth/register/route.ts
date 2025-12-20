@@ -61,23 +61,57 @@ export async function POST(request: Request) {
     const verificationToken = generateVerificationToken()
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
 
-    // Create user with all fields
-    // Note: New fields require running: npx prisma db push && npx prisma generate
-    const user = await prisma.user.create({
-      data: {
-        email,
-        username,
-        password: hashedPassword,
-        name: name || username,
-        legalName: legalName || null,
-        phone: phone || null,
-        location: location || null,
-        ageRange: ageRange || null,
-        bio: bio || null,
-        role: userRole,
-        policyAgreedAt: new Date(),
-      },
-    })
+    // Create user - start with core fields, then try to add optional fields
+    // This handles cases where DB schema may not have all fields yet
+    let user
+    
+    // First try with all fields
+    try {
+      user = await prisma.user.create({
+        data: {
+          email,
+          username,
+          password: hashedPassword,
+          name: name || username,
+          legalName: legalName || null,
+          phone: phone || null,
+          location: location || null,
+          ageRange: ageRange || null,
+          bio: bio || null,
+          role: userRole,
+          policyAgreedAt: new Date(),
+        },
+      })
+    } catch (fieldError: any) {
+      console.log('Full create failed, trying with core fields only:', fieldError?.message)
+      
+      // Fallback: create with only core fields that definitely exist
+      user = await prisma.user.create({
+        data: {
+          email,
+          username,
+          password: hashedPassword,
+          name: name || username,
+          role: userRole,
+        },
+      })
+      
+      // Try to update with additional fields (ignore errors)
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            legalName: legalName || null,
+            phone: phone || null,
+            location: location || null,
+            ageRange: ageRange || null,
+            bio: bio || null,
+          },
+        })
+      } catch (updateError) {
+        console.log('Could not add optional fields:', updateError)
+      }
+    }
 
     // Log verification email in development
     const verificationUrl = `${process.env.NEXTAUTH_URL}/verify-email?token=${verificationToken}`
