@@ -111,7 +111,7 @@ input[type="tel"],
 input[type="number"],
 textarea,
 select {
-  @apply w-full px-4 py-3 bg-tank-dark border border-tank-light rounded-xl 
+  @apply w-full px-2 py-1.5 bg-tank-dark border border-tank-light rounded-xl 
          text-white placeholder-gray-500
          focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent/50
          transition-all duration-200;
@@ -119,7 +119,7 @@ select {
 
 /* Button styles */
 .btn {
-  @apply px-6 py-3 font-semibold rounded-xl transition-all duration-200
+  @apply px-3 py-1.5 font-semibold rounded-xl transition-all duration-200
          disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
@@ -140,7 +140,7 @@ select {
 
 /* Card styles */
 .card {
-  @apply bg-tank-gray rounded-2xl border border-tank-light p-6;
+  @apply bg-tank-gray rounded-2xl border border-tank-light p-3;
 }
 
 /* Badge styles */
