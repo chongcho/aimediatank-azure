@@ -76,6 +76,7 @@ export async function POST(request: Request) {
         ageRange: ageRange || null,
         bio: bio || null,
         role: userRole,
+        policyAgreedAt: new Date(), // User agreed to policy during registration
       } as any,
     })
 
