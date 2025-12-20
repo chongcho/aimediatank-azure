@@ -294,7 +294,7 @@ function HomeContent() {
                       </div>
                       {/* Title & Type */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm truncate">{suggestion.title}</p>
+                        <p className="text-white text-sm truncate">{suggestion.title.replace(/#\w+/g, '').trim()}</p>
                         <span className={`text-xs ${
                           suggestion.type === 'VIDEO' ? 'text-red-400' :
                           suggestion.type === 'IMAGE' ? 'text-blue-400' :
