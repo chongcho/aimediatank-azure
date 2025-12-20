@@ -446,6 +446,8 @@ export default function RegisterPage() {
                   accept="image/*"
                   onChange={handleAvatarChange}
                   className="hidden"
+                  aria-label="Upload avatar image"
+                  title="Upload avatar image"
                 />
                 
                 <button
@@ -643,6 +645,8 @@ export default function RegisterPage() {
                 value={formData.location}
                 onChange={handleChange}
                 className="w-full"
+                aria-label="Select your country"
+                title="Select your country"
               >
                 <option value="">Select country</option>
                 <option value="United States">United States</option>
@@ -707,6 +711,8 @@ export default function RegisterPage() {
                 onChange={handleChange}
                 className="w-full"
                 required
+                aria-label="Select your age range"
+                title="Select your age range"
               >
                 <option value="">Select your age range</option>
                 <option value="UNDER_18">Under 18</option>
