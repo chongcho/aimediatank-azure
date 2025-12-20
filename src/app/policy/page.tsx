@@ -139,17 +139,34 @@ export default function PolicyPage() {
 
               <h3 className="text-lg font-semibold mt-6 mb-3">1.2 Eligibility</h3>
               <ul className="list-disc list-inside text-gray-300 space-y-2 mb-4">
-                <li>You must be at least 18 years old to use this Platform.</li>
-                <li>You must have the legal capacity to enter into a binding agreement.</li>
+                <li>This Platform is available to users of all ages.</li>
+                <li>Users under 18 years old have filtered access to age-appropriate content only.</li>
+                <li>Users under 18 must have parental or guardian consent to use this Platform.</li>
+                <li>You must have the legal capacity to enter into a binding agreement (or have parental consent if under 18).</li>
                 <li>You must not be prohibited from using the Platform under applicable laws.</li>
               </ul>
 
-              <h3 className="text-lg font-semibold mt-6 mb-3">1.3 Description of Service</h3>
+              <h3 className="text-lg font-semibold mt-6 mb-3">1.3 Age-Based Access</h3>
+              <p className="text-gray-300 mb-2"><strong>Users 18 and older:</strong></p>
+              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+                <li>Full access to all content on the Platform</li>
+                <li>Ability to upload, purchase, and sell content</li>
+                <li>Access to all Platform features</li>
+              </ul>
+              <p className="text-gray-300 mb-2"><strong>Users under 18:</strong></p>
+              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+                <li>Filtered access to age-appropriate content only</li>
+                <li>Content marked as mature or adult-only is restricted</li>
+                <li>Parental controls may be applied</li>
+                <li>Some features may be limited based on age verification</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold mt-6 mb-3">1.4 Description of Service</h3>
               <p className="text-gray-300 mb-4">
                 AiMediaTank is a community platform for sharing, discovering, and purchasing AI-generated media content including Videos, Images, and Music.
               </p>
 
-              <h3 className="text-lg font-semibold mt-6 mb-3">1.4 Modifications to Terms</h3>
+              <h3 className="text-lg font-semibold mt-6 mb-3">1.5 Modifications to Terms</h3>
               <p className="text-gray-300 mb-4">
                 We reserve the right to modify these terms at any time. Users will be notified of significant changes via email or platform notification. Continued use of the Platform after changes constitutes acceptance of the new terms.
               </p>

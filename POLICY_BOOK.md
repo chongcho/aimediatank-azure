@@ -28,18 +28,33 @@ By accessing or using AiMediaTank ("the Platform," "we," "us," or "our"), you ag
 
 ### 1.2 Eligibility
 
-- You must be at least 18 years old to use this Platform.
-- You must have the legal capacity to enter into a binding agreement.
+- This Platform is available to users of all ages.
+- Users under 18 years old have filtered access to age-appropriate content only.
+- Users under 18 must have parental or guardian consent to use this Platform.
+- You must have the legal capacity to enter into a binding agreement (or have parental consent if under 18).
 - You must not be prohibited from using the Platform under applicable laws.
 
-### 1.3 Description of Service
+### 1.3 Age-Based Access
+
+**Users 18 and older:**
+- Full access to all content on the Platform
+- Ability to upload, purchase, and sell content
+- Access to all Platform features
+
+**Users under 18:**
+- Filtered access to age-appropriate content only
+- Content marked as mature or adult-only is restricted
+- Parental controls may be applied
+- Some features may be limited based on age verification
+
+### 1.4 Description of Service
 
 AiMediaTank is a community platform for sharing, discovering, and purchasing AI-generated media content including:
 - Videos
 - Images
 - Music
 
-### 1.4 Modifications to Terms
+### 1.5 Modifications to Terms
 
 We reserve the right to modify these terms at any time. Users will be notified of significant changes via email or platform notification. Continued use of the Platform after changes constitutes acceptance of the new terms.
 
@@ -136,6 +151,9 @@ The following content is strictly prohibited:
 
 - Content intended for mature audiences must be appropriately labeled
 - Users must verify their age to access age-restricted content
+- Users under 18 will have automatic content filtering enabled
+- Creators must properly tag content that is not suitable for all ages
+- Parental controls are available for accounts used by minors
 
 ---
 
