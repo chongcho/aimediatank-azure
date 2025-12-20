@@ -61,50 +61,23 @@ export async function POST(request: Request) {
     const verificationToken = generateVerificationToken()
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
 
-    // Create user
-    // Note: New fields (ageRange, emailVerified, etc.) require running: 
-    // npx prisma db push && npx prisma generate
-    let user
-    
-    // Try to create user with policyAgreedAt field
-    try {
-      user = await prisma.user.create({
-        data: {
-          email,
-          username,
-          password: hashedPassword,
-          name: name || username,
-          legalName: legalName || null,
-          phone: phone || null,
-          location: location || null,
-          ageRange: ageRange || null,
-          bio: bio || null,
-          role: userRole,
-          policyAgreedAt: new Date(),
-        } as any,
-      })
-    } catch (createError: any) {
-      // If policyAgreedAt field doesn't exist, try without it
-      if (createError?.message?.includes('Unknown argument') || createError?.message?.includes('policyAgreedAt')) {
-        console.log('policyAgreedAt field not in database, creating without it...')
-        user = await prisma.user.create({
-          data: {
-            email,
-            username,
-            password: hashedPassword,
-            name: name || username,
-            legalName: legalName || null,
-            phone: phone || null,
-            location: location || null,
-            ageRange: ageRange || null,
-            bio: bio || null,
-            role: userRole,
-          } as any,
-        })
-      } else {
-        throw createError
-      }
-    }
+    // Create user with all fields
+    // Note: New fields require running: npx prisma db push && npx prisma generate
+    const user = await prisma.user.create({
+      data: {
+        email,
+        username,
+        password: hashedPassword,
+        name: name || username,
+        legalName: legalName || null,
+        phone: phone || null,
+        location: location || null,
+        ageRange: ageRange || null,
+        bio: bio || null,
+        role: userRole,
+        policyAgreedAt: new Date(),
+      },
+    })
 
     // Log verification email in development
     const verificationUrl = `${process.env.NEXTAUTH_URL}/verify-email?token=${verificationToken}`
@@ -154,10 +127,13 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check for unknown field error (policyAgreedAt may not exist in DB yet)
-    if (error?.message?.includes('Unknown argument') || error?.message?.includes('policyAgreedAt')) {
-      console.log('policyAgreedAt field not in database, retrying without it...')
-      // The field might not exist in DB yet - this is handled by the retry logic
+    // Check for unknown field/column errors
+    if (error?.message?.includes('Unknown argument') || error?.message?.includes('Unknown field')) {
+      console.error('Schema mismatch - database may need migration:', error.message)
+      return NextResponse.json(
+        { error: 'Server configuration error. Please contact support.' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json(

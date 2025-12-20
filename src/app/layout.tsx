@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   description: 'Discover and share stunning AI-generated videos, images, and music. Join our community of AI creators and enthusiasts.',
   keywords: 'AI media, AI art, AI music, AI video, AI generated content, media sharing',
   authors: [{ name: 'AI Media Tank' }],
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
   openGraph: {
     title: 'AI Media Tank | AI-Generated Media Sharing Platform',
     description: 'Discover and share stunning AI-generated videos, images, and music.',
