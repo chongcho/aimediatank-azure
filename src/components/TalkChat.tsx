@@ -109,32 +109,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   return (
     <div style={{
       position: 'fixed',
-      top: 0,
+      bottom: 0,
       left: 0,
       right: 0,
-      bottom: 0,
       zIndex: 99999,
+      pointerEvents: 'none',
     }}>
-      {/* Backdrop */}
-      <div 
-        onClick={onClose}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: '50%',
-          background: 'rgba(0, 0, 0, 0.5)',
-        }}
-      />
-      
       {/* Chat container - bottom half */}
       <div style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: '50%',
+        pointerEvents: 'auto',
+        height: '50vh',
         display: 'flex',
         flexDirection: 'column',
         borderTopLeftRadius: '16px',
