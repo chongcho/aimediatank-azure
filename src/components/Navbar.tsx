@@ -3,8 +3,11 @@
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import EmailSupportModal from './EmailSupportModal'
-// import LiveChatSupport from './LiveChatSupport' // Disabled for now
+
+// Dynamic import TalkChat to prevent SSR issues
+const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
 
 interface Notification {
   id: string
@@ -22,7 +25,7 @@ export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
   const [isEmailSupportOpen, setIsEmailSupportOpen] = useState(false)
-  // const [isChatOpen, setIsChatOpen] = useState(false) // Disabled for now
+  const [isTalkChatOpen, setIsTalkChatOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
@@ -206,6 +209,21 @@ export default function Navbar() {
 
           {/* Right Side */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Chat Button - Always visible for all users */}
+            <button
+              onClick={() => setIsTalkChatOpen(true)}
+              className="p-1.5 hover:bg-tank-light rounded-lg transition-colors"
+              aria-label="Open Chat"
+              title="Open Chat"
+            >
+              <svg width="28" height="28" viewBox="0 0 100 60" fill="none">
+                <path d="M50 58C25 58 8 45 4 35C1 27 6 15 20 8C34 1 50 5 50 5C50 5 66 1 80 8C94 15 99 27 96 35C92 45 75 58 50 58Z" fill="#E91E63"/>
+                <path d="M22 26C22 26 35 36 50 36C65 36 78 26 78 26C78 26 68 44 50 44C32 44 22 26 22 26Z" fill="#1a1a1a"/>
+                <path d="M36 26C36 23 41 19 50 19C59 19 64 23 64 26C64 29 59 21 50 21C41 21 36 29 36 26Z" fill="white"/>
+                <path d="M40 39C40 37 44 34 50 34C56 34 60 37 60 39C60 41 56 37 50 37C44 37 40 41 40 39Z" fill="white"/>
+              </svg>
+            </button>
+
             {status === 'loading' ? (
               <div className="w-8 h-8 rounded-full bg-tank-light animate-pulse" />
             ) : session ? (
@@ -493,13 +511,11 @@ export default function Navbar() {
         userName={userData?.name || session?.user?.name || displayName || 'there'}
       />
 
-      {/* Live Chat Modal - Disabled for now
-      <LiveChatSupport
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        userName={userData?.name || session?.user?.name || displayName || 'there'}
+      {/* Talk Chat */}
+      <TalkChat
+        isOpen={isTalkChatOpen}
+        onClose={() => setIsTalkChatOpen(false)}
       />
-      */}
     </nav>
   )
 }
