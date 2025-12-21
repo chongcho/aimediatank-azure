@@ -311,7 +311,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={isSignedIn ? "Type a message..." : "Sign in to chat"}
+              placeholder={isSignedIn ? "Type a message..." : "Sign in or Sign up to chat"}
               disabled={!isSignedIn}
               style={{
                 flex: 1,
