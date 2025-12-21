@@ -216,7 +216,7 @@ export default function Navbar() {
                 {/* Chat Button - Only for signed-in users */}
                 <button
                   onClick={() => setIsTalkChatOpen(true)}
-                  className="p-1.5 hover:bg-tank-light rounded-lg transition-colors"
+                  className="p-1.5 hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
                   aria-label="Open Chat"
                   title="Open Chat"
                 >
