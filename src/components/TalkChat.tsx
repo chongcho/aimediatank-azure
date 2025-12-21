@@ -114,11 +114,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       right: 0,
       zIndex: 99999,
       pointerEvents: 'none',
+      display: 'flex',
+      justifyContent: 'center',
+      padding: '0 16px',
     }}>
       {/* Chat container - bottom half */}
       <div style={{
         pointerEvents: 'auto',
         height: '50vh',
+        width: '100%',
+        maxWidth: '1280px',
         display: 'flex',
         flexDirection: 'column',
         borderTopLeftRadius: '16px',
