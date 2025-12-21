@@ -221,89 +221,6 @@ export default function Navbar() {
                   Upload
                 </Link>
 
-                {/* Alerts Button */}
-                <div className="relative" ref={alertsRef}>
-                  <button
-                    onClick={() => {
-                      setIsAlertsOpen(!isAlertsOpen)
-                      setIsProfileOpen(false)
-                    }}
-                    className="relative p-2 text-gray-400 hover:text-white hover:bg-tank-light rounded-lg transition-colors"
-                    aria-label="Notifications"
-                    title="Notifications"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Alerts Dropdown */}
-                  {isAlertsOpen && (
-                    <div className="absolute right-0 mt-2 w-80 bg-tank-dark border border-tank-light rounded-xl shadow-xl overflow-hidden">
-                      <div className="px-4 py-3 border-b border-tank-light flex items-center justify-between">
-                        <h3 className="font-semibold">Notifications</h3>
-                        {unreadCount > 0 && (
-                          <button
-                            onClick={markAllAsRead}
-                            className="text-xs text-tank-accent hover:underline"
-                          >
-                            Mark all as read
-                          </button>
-                        )}
-                      </div>
-                      <div className="max-h-96 overflow-y-auto">
-                        {notifications.length > 0 ? (
-                          notifications.map((notification) => (
-                            <div
-                              key={notification.id}
-                              className={`px-4 py-3 hover:bg-tank-light transition-colors border-b border-tank-light/50 cursor-pointer ${
-                                !notification.read ? 'bg-tank-accent/5' : ''
-                              }`}
-                              onClick={() => {
-                                markAsRead(notification.id)
-                                if (notification.link) {
-                                  window.location.href = notification.link
-                                }
-                                setIsAlertsOpen(false)
-                              }}
-                            >
-                              <div className="flex gap-3">
-                                {getNotificationIcon(notification.type)}
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-sm font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
-                                    {notification.title}
-                                  </p>
-                                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                                    {notification.message}
-                                  </p>
-                                  <p className="text-xs text-gray-600 mt-1">
-                                    {new Date(notification.createdAt).toLocaleDateString()}
-                                  </p>
-                                </div>
-                                {!notification.read && (
-                                  <div className="w-2 h-2 bg-tank-accent rounded-full mt-2" />
-                                )}
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="px-4 py-8 text-center text-gray-500">
-                            <svg className="w-12 h-12 mx-auto mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            <p className="text-sm">No notifications yet</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
                 {/* User ID Dropdown */}
                 <div className="relative" ref={profileRef}>
                   <button
@@ -339,6 +256,90 @@ export default function Navbar() {
                         }`}>
                           {session.user?.role}
                         </span>
+                      </div>
+                      {/* Notifications */}
+                      <div className="relative" ref={alertsRef}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setIsAlertsOpen(!isAlertsOpen)
+                          }}
+                          className="flex items-center gap-3 px-4 py-2 hover:bg-tank-light transition-colors w-full text-left"
+                        >
+                          <div className="relative">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            {unreadCount > 0 && (
+                              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                              </span>
+                            )}
+                          </div>
+                          <span>Notifications</span>
+                          {unreadCount > 0 && (
+                            <span className="ml-auto text-xs text-red-400">{unreadCount} new</span>
+                          )}
+                        </button>
+                        {/* Notifications Dropdown */}
+                        {isAlertsOpen && (
+                          <div className="absolute right-0 left-0 mt-1 mx-2 bg-tank-gray border border-tank-light rounded-lg shadow-xl overflow-hidden z-50">
+                            <div className="px-3 py-2 border-b border-tank-light flex items-center justify-between bg-tank-dark">
+                              <h3 className="font-semibold text-sm">Notifications</h3>
+                              {unreadCount > 0 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    markAllAsRead()
+                                  }}
+                                  className="text-xs text-tank-accent hover:underline"
+                                >
+                                  Mark all read
+                                </button>
+                              )}
+                            </div>
+                            <div className="max-h-64 overflow-y-auto">
+                              {notifications.length > 0 ? (
+                                notifications.slice(0, 5).map((notification) => (
+                                  <div
+                                    key={notification.id}
+                                    className={`px-3 py-2 hover:bg-tank-light transition-colors border-b border-tank-light/50 cursor-pointer ${
+                                      !notification.read ? 'bg-tank-accent/5' : ''
+                                    }`}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      markAsRead(notification.id)
+                                      if (notification.link) {
+                                        window.location.href = notification.link
+                                      }
+                                      setIsAlertsOpen(false)
+                                      setIsProfileOpen(false)
+                                    }}
+                                  >
+                                    <div className="flex gap-2">
+                                      {getNotificationIcon(notification.type)}
+                                      <div className="flex-1 min-w-0">
+                                        <p className={`text-xs font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
+                                          {notification.title}
+                                        </p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">
+                                          {notification.message}
+                                        </p>
+                                      </div>
+                                      {!notification.read && (
+                                        <div className="w-1.5 h-1.5 bg-tank-accent rounded-full mt-1" />
+                                      )}
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="px-3 py-4 text-center text-gray-500">
+                                  <p className="text-xs">No notifications</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <Link
                         href="/profile/edit"
