@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import EmailSupportModal from './EmailSupportModal'
+import SignInModal from './SignInModal'
 
 // Dynamic import TalkChat to prevent SSR issues
 const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
@@ -26,6 +27,7 @@ export default function Navbar() {
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
   const [isEmailSupportOpen, setIsEmailSupportOpen] = useState(false)
   const [isTalkChatOpen, setIsTalkChatOpen] = useState(false)
+  const [isSignInOpen, setIsSignInOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
@@ -439,12 +441,12 @@ export default function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <Link
-                  href="/login"
+                <button
+                  onClick={() => setIsSignInOpen(true)}
                   className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
                 >
                   Sign In
-                </Link>
+                </button>
                 <Link
                   href="/register"
                   className="px-4 py-2 bg-tank-accent text-tank-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
@@ -515,6 +517,12 @@ export default function Navbar() {
       <TalkChat
         isOpen={isTalkChatOpen}
         onClose={() => setIsTalkChatOpen(false)}
+      />
+
+      {/* Sign In Modal */}
+      <SignInModal
+        isOpen={isSignInOpen}
+        onClose={() => setIsSignInOpen(false)}
       />
     </nav>
   )
