@@ -84,6 +84,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [mentionQuery, setMentionQuery] = useState('')
   const [mentionUsers, setMentionUsers] = useState<UserSuggestion[]>([])
   const [mentionIndex, setMentionIndex] = useState(0)
+  // Minimize state
+  const [isMinimized, setIsMinimized] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
@@ -323,7 +325,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         <div 
           onClick={(e) => e.stopPropagation()}
           style={{
-            height: '40vh',
+            height: isMinimized ? 'auto' : '40vh',
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
@@ -332,6 +334,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             overflow: 'hidden',
             boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.3)',
             background: '#f0f0f0',
+            transition: 'height 0.3s ease-in-out',
           }}>
         {/* Header */}
         <div style={{
@@ -364,9 +367,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </span>
           </div>
           
-          {/* Close button - square blue */}
+          {/* Slide down/up toggle button */}
           <button
-            onClick={onClose}
+            onClick={() => setIsMinimized(!isMinimized)}
             style={{
               width: '32px',
               height: '32px',
@@ -378,15 +381,28 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              transition: 'transform 0.3s ease',
             }}
+            title={isMinimized ? 'Expand chat' : 'Minimize chat'}
           >
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg 
+              width="16" 
+              height="16" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+              style={{
+                transform: isMinimized ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.3s ease',
+              }}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
         </div>
 
-        {/* Messages Area */}
+        {/* Messages Area - Hidden when minimized */}
+        {!isMinimized && (
         <div 
           className="chat-messages-scroll"
           style={{
@@ -516,8 +532,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           )}
           <div ref={messagesEndRef} />
         </div>
+        )}
 
-        {/* Input Area */}
+        {/* Input Area - Hidden when minimized */}
+        {!isMinimized && (
         <form onSubmit={sendMessage} style={{
           padding: '4px 12px',
           backgroundColor: '#e8e8e8',
@@ -939,6 +957,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         </form>
+        )}
         </div>
       </div>
     </div>
