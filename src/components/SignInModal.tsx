@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { signIn } from 'next-auth/react'
 import Link from 'next/link'
 
@@ -9,13 +10,11 @@ interface SignInModalProps {
   onClose: () => void
 }
 
-export default function SignInModal({ isOpen, onClose }: SignInModalProps) {
+function SignInModalContent({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  if (!isOpen) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -50,26 +49,51 @@ export default function SignInModal({ isOpen, onClose }: SignInModalProps) {
         left: 0,
         right: 0,
         bottom: 0,
-        zIndex: 100000,
+        zIndex: 999999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.7)',
+        background: 'rgba(0, 0, 0, 0.8)',
+        padding: '16px',
       }}
       onClick={onClose}
     >
       <div 
         style={{
+          position: 'relative',
           background: '#1a1a1a',
           borderRadius: '16px',
           padding: '32px',
           width: '100%',
           maxWidth: '400px',
-          margin: '16px',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            width: '32px',
+            height: '32px',
+            background: '#333',
+            border: 'none',
+            borderRadius: '50%',
+            color: '#999',
+            cursor: 'pointer',
+            fontSize: '20px',
+            lineHeight: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          ×
+        </button>
+
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
@@ -187,26 +211,25 @@ export default function SignInModal({ isOpen, onClose }: SignInModalProps) {
             Sign up
           </Link>
         </p>
-
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: '16px',
-            right: '16px',
-            background: 'none',
-            border: 'none',
-            color: '#888',
-            cursor: 'pointer',
-            fontSize: '24px',
-            lineHeight: 1,
-          }}
-        >
-          ×
-        </button>
       </div>
     </div>
   )
 }
 
+export default function SignInModal({ isOpen, onClose }: SignInModalProps) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
+
+  if (!isOpen || !mounted) {
+    return null
+  }
+
+  return createPortal(
+    <SignInModalContent onClose={onClose} />,
+    document.body
+  )
+}
