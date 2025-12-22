@@ -335,12 +335,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           }}>
         {/* Header */}
         <div style={{
-          background: '#111113',
+          background: '#e8e8e8',
           padding: '4px 12px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid #2a2a32',
+          borderBottom: '1px solid #ccc',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {/* Lip Chat Icon with yellow background */}
@@ -359,7 +359,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 <path d="M38 40C38 38 43 35 50 35C57 35 62 38 62 40C62 42 57 38 50 38C43 38 38 42 38 40Z" fill="white"/>
               </svg>
             </div>
-            <span style={{ color: 'white', fontWeight: '600', fontSize: '16px' }}>
+            <span style={{ color: '#333', fontWeight: '600', fontSize: '16px' }}>
               Open Chat
             </span>
           </div>
@@ -393,7 +393,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             flex: 1,
             overflowY: 'auto',
             padding: '4px 12px',
-            background: '#1a1a1f',
+            background: '#f5f5f5',
           }}
         >
           <style>{`
@@ -401,15 +401,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               width: 6px;
             }
             .chat-messages-scroll::-webkit-scrollbar-track {
-              background: #2a2a32;
+              background: #e0e0e0;
               border-radius: 3px;
             }
             .chat-messages-scroll::-webkit-scrollbar-thumb {
-              background: #444;
+              background: #bbb;
               border-radius: 3px;
             }
             .chat-messages-scroll::-webkit-scrollbar-thumb:hover {
-              background: #555;
+              background: #999;
             }
           `}</style>
           {messages.length === 0 ? (
@@ -469,20 +469,21 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     flexDirection: 'column',
                     alignItems: isOwn ? 'flex-end' : 'flex-start',
                   }}>
-                    <p style={{ fontSize: '10px', color: '#888', marginBottom: '2px' }}>
+                    <p style={{ fontSize: '10px', color: '#666', marginBottom: '2px' }}>
                       {msg.user.username}
                     </p>
                     <div style={{
                       padding: '1px 12px',
                       borderRadius: '6px',
-                      backgroundColor: isOwn ? '#00ff88' : '#2a2a32',
-                      color: isOwn ? '#0a0a0b' : '#e0e0e0',
+                      backgroundColor: isOwn ? '#10b981' : '#fff',
+                      color: isOwn ? '#fff' : '#333',
+                      border: isOwn ? 'none' : '1px solid #ddd',
                     }}>
                       <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                         {msg.content}
                       </p>
                     </div>
-                    <p style={{ fontSize: '9px', color: '#666', marginTop: '2px' }}>
+                    <p style={{ fontSize: '9px', color: '#888', marginTop: '2px' }}>
                       {formatTime(msg.createdAt)}
                     </p>
                   </div>
@@ -519,8 +520,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         {/* Input Area */}
         <form onSubmit={sendMessage} style={{
           padding: '4px 12px',
-          backgroundColor: '#111113',
-          borderTop: '1px solid #2a2a32',
+          backgroundColor: '#e8e8e8',
+          borderTop: '1px solid #ccc',
           position: 'relative',
         }}>
           {/* @Mention Picker */}
@@ -851,8 +852,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 height: '32px',
                 borderRadius: '6px',
                 border: 'none',
-                backgroundColor: showMediaPicker ? '#2a2a32' : '#1a1a1f',
-                color: isSignedIn ? '#00ff88' : '#444',
+                backgroundColor: showMediaPicker ? '#ddd' : '#f0f0f0',
+                color: isSignedIn ? '#10b981' : '#aaa',
                 cursor: isSignedIn ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
@@ -880,8 +881,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 height: '32px',
                 borderRadius: '6px',
                 border: 'none',
-                backgroundColor: showEmojiPicker ? '#2a2a32' : '#1a1a1f',
-                color: '#00ff88',
+                backgroundColor: showEmojiPicker ? '#ddd' : '#f0f0f0',
+                color: '#10b981',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -909,11 +910,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 flex: 1,
                 padding: '8px 12px',
                 borderRadius: '6px',
-                border: '1px solid #2a2a32',
-                backgroundColor: isSignedIn ? '#1a1a1f' : '#111113',
+                border: '1px solid #ccc',
+                backgroundColor: isSignedIn ? '#fff' : '#f0f0f0',
                 fontSize: '14px',
                 outline: 'none',
-                color: '#fff',
+                color: '#333',
               }}
             />
             <button
@@ -924,8 +925,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 height: '32px',
                 borderRadius: '6px',
                 border: 'none',
-                backgroundColor: newMessage.trim() && !loading && isSignedIn ? '#00ff88' : '#2a2a32',
-                color: newMessage.trim() && !loading && isSignedIn ? '#0a0a0b' : '#555',
+                backgroundColor: newMessage.trim() && !loading && isSignedIn ? '#10b981' : '#ddd',
+                color: newMessage.trim() && !loading && isSignedIn ? '#fff' : '#999',
                 cursor: newMessage.trim() && !loading && isSignedIn ? 'pointer' : 'default',
                 display: 'flex',
                 alignItems: 'center',
