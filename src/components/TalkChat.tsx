@@ -312,11 +312,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }}>
       {/* Wrapper to match content area alignment */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6" style={{ pointerEvents: 'none' }}>
-        {/* Chat container - 1/3 height */}
+        {/* Chat container */}
         <div 
           style={{
             pointerEvents: 'auto',
-            height: '33vh',
+            height: '40vh',
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
