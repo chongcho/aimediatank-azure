@@ -474,7 +474,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       {msg.user.username}
                     </p>
                     <div style={{
-                      padding: '4px 12px',
+                      padding: '1px 12px',
                       borderRadius: '6px',
                       backgroundColor: isOwn ? '#00ff88' : '#2a2a32',
                       color: isOwn ? '#0a0a0b' : '#e0e0e0',
