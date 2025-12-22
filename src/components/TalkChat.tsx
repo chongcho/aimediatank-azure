@@ -324,7 +324,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             borderTopRightRadius: '12px',
             overflow: 'hidden',
             boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.3)',
-            background: '#0a0a0b',
+            background: '#2a2a32',
           }}>
         {/* Header */}
         <div style={{
