@@ -47,17 +47,19 @@ function HomeContent() {
   const searchParams = useSearchParams()
   const [media, setMedia] = useState<Media[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [sort, setSort] = useState('popular')
   const [type, setType] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
   const [userSuggestions, setUserSuggestions] = useState<UserSuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const typeParam = searchParams.get('type')
@@ -75,9 +77,38 @@ function HomeContent() {
     }
   }, [searchParams])
 
+  // Reset and fetch when filters change
   useEffect(() => {
-    fetchMedia()
-  }, [sort, type, page, search])
+    setMedia([])
+    setPage(1)
+    setHasMore(true)
+    fetchMedia(1, true)
+  }, [sort, type, search])
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          setPage((prev) => prev + 1)
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [hasMore, loading, loadingMore])
+
+  // Load more when page increases
+  useEffect(() => {
+    if (page > 1) {
+      fetchMedia(page, false)
+    }
+  }, [page])
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -154,12 +185,17 @@ function HomeContent() {
     window.location.href = `/media/${suggestion.id}`
   }
 
-  const fetchMedia = async () => {
-    setLoading(true)
+  const fetchMedia = async (pageNum: number = 1, isReset: boolean = false) => {
+    if (isReset) {
+      setLoading(true)
+    } else {
+      setLoadingMore(true)
+    }
+    
     try {
       const params = new URLSearchParams({
         sort,
-        page: page.toString(),
+        page: pageNum.toString(),
         limit: '20',
       })
       if (type) params.set('type', type)
@@ -174,19 +210,31 @@ function HomeContent() {
 
       const res = await fetch(`/api/media?${params}`)
       const data = await res.json()
-      setMedia(data.media || [])
-      setTotalPages(data.pagination?.totalPages || 1)
+      const newMedia = data.media || []
+      const totalPages = data.pagination?.totalPages || 1
+      
+      if (isReset) {
+        setMedia(newMedia)
+      } else {
+        setMedia((prev) => [...prev, ...newMedia])
+      }
+      
+      // Check if there's more to load
+      setHasMore(pageNum < totalPages)
     } catch (error) {
       console.error('Error fetching media:', error)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
+    setMedia([])
     setPage(1)
-    fetchMedia()
+    setHasMore(true)
+    fetchMedia(1, true)
   }
 
   return (
@@ -387,28 +435,18 @@ function HomeContent() {
             ))}
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-12 mb-8">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-4 py-2 bg-tank-gray rounded-lg disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <span className="px-4 text-gray-400">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-4 py-2 bg-tank-gray rounded-lg disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          )}
+          {/* Infinite Scroll Trigger */}
+          <div ref={loadMoreRef} className="h-20 flex items-center justify-center mt-8">
+            {loadingMore && (
+              <div className="flex items-center gap-3 text-gray-400">
+                <div className="w-6 h-6 border-2 border-gray-600 border-t-tank-accent rounded-full animate-spin" />
+                <span>Loading more...</span>
+              </div>
+            )}
+            {!hasMore && media.length > 0 && (
+              <p className="text-gray-500 text-sm">You've reached the end 🎉</p>
+            )}
+          </div>
         </>
       )}
 
