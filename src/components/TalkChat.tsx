@@ -331,7 +331,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             borderTopRightRadius: '12px',
             overflow: 'hidden',
             boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.3)',
-            background: '#2a2a32',
+            background: 'rgba(42, 42, 50, 0.5)',
+            backdropFilter: 'blur(10px)',
           }}>
         {/* Header */}
         <div style={{
@@ -436,7 +437,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     display: 'flex',
                     alignItems: 'flex-start',
                     gap: '8px',
-                    marginBottom: '6px',
+                    marginBottom: '2px',
                     justifyContent: isOwn ? 'flex-end' : 'flex-start',
                   }}
                 >
@@ -473,7 +474,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       {msg.user.username}
                     </p>
                     <div style={{
-                      padding: '8px 12px',
+                      padding: '4px 12px',
                       borderRadius: '6px',
                       backgroundColor: isOwn ? '#00ff88' : '#2a2a32',
                       color: isOwn ? '#0a0a0b' : '#e0e0e0',
