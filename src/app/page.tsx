@@ -412,8 +412,8 @@ function HomeContent() {
         </>
       )}
 
-      {/* Live Chat */}
-      <LiveChat />
+      {/* Live Feed - Disabled */}
+      {/* <LiveChat /> */}
     </div>
   )
 }
