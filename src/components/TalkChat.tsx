@@ -363,14 +363,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   return (
     <div 
-      onClick={() => setIsMinimized(true)}
+      onClick={() => !isMinimized && setIsMinimized(true)}
       style={{
         position: 'fixed',
-        top: 0,
+        top: isMinimized ? 'auto' : 0,
         bottom: 0,
         left: 0,
         right: 0,
         zIndex: 99999,
+        pointerEvents: isMinimized ? 'none' : 'auto',
       }}>
       {/* Wrapper to match content area alignment */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6" style={{ 
@@ -393,6 +394,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.3)',
             background: '#f0f0f0',
             transition: 'height 0.3s ease-in-out',
+            pointerEvents: 'auto',
           }}>
         {/* Header */}
         <div style={{
