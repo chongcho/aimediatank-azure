@@ -114,24 +114,23 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       right: 0,
       zIndex: 99999,
       pointerEvents: 'none',
-      display: 'flex',
-      justifyContent: 'center',
-      padding: '0 16px',
     }}>
-      {/* Chat container - 1/3 height */}
-      <div style={{
-        pointerEvents: 'auto',
-        height: '33vh',
-        width: '100%',
-        maxWidth: '1280px',
-        display: 'flex',
-        flexDirection: 'column',
-        borderTopLeftRadius: '16px',
-        borderTopRightRadius: '16px',
-        overflow: 'hidden',
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.3)',
-        background: '#2a2a2a',
-      }}>
+      {/* Wrapper to match content area alignment */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6" style={{ pointerEvents: 'none' }}>
+        {/* Chat container - 1/3 height */}
+        <div 
+          style={{
+            pointerEvents: 'auto',
+            height: '33vh',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            borderTopLeftRadius: '16px',
+            borderTopRightRadius: '16px',
+            overflow: 'hidden',
+            boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.3)',
+            background: '#2a2a2a',
+          }}>
         {/* Header */}
         <div style={{
           background: '#333',
@@ -363,6 +362,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   )
