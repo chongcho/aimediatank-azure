@@ -302,21 +302,28 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      zIndex: 99999,
-      pointerEvents: 'none',
-    }}>
+    <div 
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 99999,
+      }}>
       {/* Wrapper to match content area alignment */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6" style={{ pointerEvents: 'none' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6" style={{ 
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+      }}>
         {/* Chat container */}
         <div 
+          onClick={(e) => e.stopPropagation()}
           style={{
-            pointerEvents: 'auto',
-            height: '35vh',
+            height: '40vh',
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
@@ -845,7 +852,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 borderRadius: '6px',
                 border: 'none',
                 backgroundColor: showMediaPicker ? '#2a2a32' : '#1a1a1f',
-                color: isSignedIn ? '#888' : '#444',
+                color: isSignedIn ? '#00ff88' : '#444',
                 cursor: isSignedIn ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
@@ -874,7 +881,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 borderRadius: '6px',
                 border: 'none',
                 backgroundColor: showEmojiPicker ? '#2a2a32' : '#1a1a1f',
-                color: '#888',
+                color: '#00ff88',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
