@@ -118,10 +118,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       justifyContent: 'center',
       padding: '0 16px',
     }}>
-      {/* Chat container - bottom half */}
+      {/* Chat container - 1/3 height */}
       <div style={{
         pointerEvents: 'auto',
-        height: '50vh',
+        height: '33vh',
         width: '100%',
         maxWidth: '1280px',
         display: 'flex',
@@ -135,34 +135,43 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div style={{
           background: '#333',
-          padding: '12px 16px',
+          padding: '10px 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: '1px solid #444',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Lip Chat Icon */}
-            <svg width="28" height="28" viewBox="0 0 100 60" fill="none">
-              <path d="M50 60C22 60 5 45 2 35C0 28 5 15 20 8C35 1 50 5 50 5C50 5 65 1 80 8C95 15 100 28 98 35C95 45 78 60 50 60Z" fill="#E91E63"/>
-              <path d="M20 25C20 25 35 35 50 35C65 35 80 25 80 25C80 25 70 45 50 45C30 45 20 25 20 25Z" fill="#1a1a1a"/>
-              <path d="M35 25C35 22 40 18 50 18C60 18 65 22 65 25C65 28 60 20 50 20C40 20 35 28 35 25Z" fill="white"/>
-              <path d="M38 40C38 38 43 35 50 35C57 35 62 38 62 40C62 42 57 38 50 38C43 38 38 42 38 40Z" fill="white"/>
-            </svg>
+            {/* Lip Chat Icon with yellow background */}
+            <div style={{
+              background: '#facc15',
+              borderRadius: '6px',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <svg width="24" height="24" viewBox="0 0 100 60" fill="none">
+                <path d="M50 60C22 60 5 45 2 35C0 28 5 15 20 8C35 1 50 5 50 5C50 5 65 1 80 8C95 15 100 28 98 35C95 45 78 60 50 60Z" fill="#E91E63"/>
+                <path d="M20 25C20 25 35 35 50 35C65 35 80 25 80 25C80 25 70 45 50 45C30 45 20 25 20 25Z" fill="#1a1a1a"/>
+                <path d="M35 25C35 22 40 18 50 18C60 18 65 22 65 25C65 28 60 20 50 20C40 20 35 28 35 25Z" fill="white"/>
+                <path d="M38 40C38 38 43 35 50 35C57 35 62 38 62 40C62 42 57 38 50 38C43 38 38 42 38 40Z" fill="white"/>
+              </svg>
+            </div>
             <span style={{ color: 'white', fontWeight: '600', fontSize: '16px' }}>
               Open Chat
             </span>
           </div>
           
-          {/* Close button */}
+          {/* Close button - square blue */}
           <button
             onClick={onClose}
             style={{
               width: '32px',
               height: '32px',
-              borderRadius: '50%',
+              borderRadius: '4px',
               border: 'none',
-              background: '#444',
+              background: '#2563eb',
               color: 'white',
               cursor: 'pointer',
               display: 'flex',
