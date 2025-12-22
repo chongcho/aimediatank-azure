@@ -797,9 +797,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            background: '#e0e0e0',
+                            background: media.mediaType === 'VIDEO' 
+                              ? 'linear-gradient(135deg, #ef4444, #f97316)' 
+                              : 'linear-gradient(135deg, #3b82f6, #06b6d4)',
                           }}>
-                            <svg width="24" height="24" fill="none" stroke="#999" viewBox="0 0 24 24">
+                            <svg width="32" height="32" fill="none" stroke="white" viewBox="0 0 24 24">
                               {media.mediaType === 'VIDEO' ? (
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               ) : (
