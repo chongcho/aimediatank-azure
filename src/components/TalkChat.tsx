@@ -62,6 +62,13 @@ const EMOJI_LIST = [
   '☀️', '🌙', '⭐', '🌈', '☁️', '⛈️', '❄️', '💧', '🔥', '✨',
 ]
 
+interface UserSuggestion {
+  id: string
+  username: string
+  name: string | null
+  avatar: string | null
+}
+
 function TalkChatContent({ onClose }: { onClose: () => void }) {
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -72,14 +79,20 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const [userMedia, setUserMedia] = useState<MediaItem[]>([])
   const [loadingMedia, setLoadingMedia] = useState(false)
+  // @mention states
+  const [showMentionPicker, setShowMentionPicker] = useState(false)
+  const [mentionQuery, setMentionQuery] = useState('')
+  const [mentionUsers, setMentionUsers] = useState<UserSuggestion[]>([])
+  const [mentionIndex, setMentionIndex] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const mediaPickerRef = useRef<HTMLDivElement>(null)
+  const mentionPickerRef = useRef<HTMLDivElement>(null)
 
   const isSignedIn = !!session?.user
 
-  // Close emoji picker when clicking outside
+  // Close pickers when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
@@ -88,12 +101,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       if (mediaPickerRef.current && !mediaPickerRef.current.contains(event.target as Node)) {
         setShowMediaPicker(false)
       }
+      if (mentionPickerRef.current && !mentionPickerRef.current.contains(event.target as Node)) {
+        setShowMentionPicker(false)
+      }
     }
-    if (showEmojiPicker || showMediaPicker) {
+    if (showEmojiPicker || showMediaPicker || showMentionPicker) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showEmojiPicker, showMediaPicker])
+  }, [showEmojiPicker, showMediaPicker, showMentionPicker])
 
   const insertEmoji = (emoji: string) => {
     setNewMessage(prev => prev + emoji)
@@ -126,14 +142,89 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
     setShowMediaPicker(!showMediaPicker)
     setShowEmojiPicker(false)
+    setShowMentionPicker(false)
   }
 
-  // Insert media link into message
+  // Insert media link into message (with title as hyperlink text)
   const insertMediaLink = (media: MediaItem) => {
     const mediaUrl = `${window.location.origin}/media/${media.id}`
-    setNewMessage(prev => prev + (prev ? ' ' : '') + mediaUrl)
+    // Insert as [title](url) markdown format or just title with URL
+    setNewMessage(prev => prev + (prev ? ' ' : '') + `📎${media.title} ${mediaUrl}`)
     setShowMediaPicker(false)
     inputRef.current?.focus()
+  }
+
+  // Search users for @mention
+  const searchMentionUsers = async (query: string) => {
+    if (!query) {
+      setMentionUsers([])
+      return
+    }
+    try {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}&limit=5`)
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data.users)) {
+          setMentionUsers(data.users)
+          setMentionIndex(0)
+        }
+      }
+    } catch (error) {
+      console.error('Error searching users:', error)
+    }
+  }
+
+  // Handle input change with @mention detection
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setNewMessage(value)
+
+    // Detect @mention
+    const cursorPos = e.target.selectionStart || value.length
+    const textBeforeCursor = value.slice(0, cursorPos)
+    const mentionMatch = textBeforeCursor.match(/@(\w*)$/)
+
+    if (mentionMatch) {
+      const query = mentionMatch[1]
+      setMentionQuery(query)
+      setShowMentionPicker(true)
+      setShowEmojiPicker(false)
+      setShowMediaPicker(false)
+      searchMentionUsers(query)
+    } else {
+      setShowMentionPicker(false)
+      setMentionQuery('')
+    }
+  }
+
+  // Insert @mention
+  const insertMention = (user: UserSuggestion) => {
+    const cursorPos = inputRef.current?.selectionStart || newMessage.length
+    const textBeforeCursor = newMessage.slice(0, cursorPos)
+    const textAfterCursor = newMessage.slice(cursorPos)
+    const newTextBefore = textBeforeCursor.replace(/@\w*$/, `@${user.username} `)
+    setNewMessage(newTextBefore + textAfterCursor)
+    setShowMentionPicker(false)
+    setMentionQuery('')
+    inputRef.current?.focus()
+  }
+
+  // Handle keyboard navigation in mention picker
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showMentionPicker && mentionUsers.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setMentionIndex(prev => (prev + 1) % mentionUsers.length)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setMentionIndex(prev => (prev - 1 + mentionUsers.length) % mentionUsers.length)
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        insertMention(mentionUsers[mentionIndex])
+      } else if (e.key === 'Escape') {
+        setShowMentionPicker(false)
+      }
+    }
   }
 
   // Only fetch when component is mounted and initialized
@@ -337,17 +428,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    gap: '10px',
-                    marginBottom: '14px',
+                    gap: '8px',
+                    marginBottom: '6px',
                     justifyContent: isOwn ? 'flex-end' : 'flex-start',
                   }}
                 >
                   {/* Avatar - left side for others */}
                   {!isOwn && (
                     <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '6px',
                       overflow: 'hidden',
                       background: '#6b7280',
                       flexShrink: 0,
@@ -358,7 +449,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       {msg.user.avatar ? (
                         <img src={msg.user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
+                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '13px' }}>
                           {msg.user.username?.[0]?.toUpperCase() || '?'}
                         </span>
                       )}
@@ -371,21 +462,21 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     flexDirection: 'column',
                     alignItems: isOwn ? 'flex-end' : 'flex-start',
                   }}>
-                    <p style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>
+                    <p style={{ fontSize: '10px', color: '#666', marginBottom: '2px' }}>
                       {msg.user.username}
                     </p>
                     <div style={{
-                      padding: '10px 14px',
-                      borderRadius: '16px',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
                       backgroundColor: isOwn ? '#0d9488' : 'white',
                       color: isOwn ? 'white' : '#1a1a1a',
                       boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
                     }}>
-                      <p style={{ margin: 0, fontSize: '14px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                         {msg.content}
                       </p>
                     </div>
-                    <p style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
+                    <p style={{ fontSize: '9px', color: '#999', marginTop: '2px' }}>
                       {formatTime(msg.createdAt)}
                     </p>
                   </div>
@@ -393,9 +484,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   {/* Avatar - right side for own */}
                   {isOwn && (
                     <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '6px',
                       overflow: 'hidden',
                       background: '#0d9488',
                       flexShrink: 0,
@@ -406,7 +497,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       {msg.user.avatar ? (
                         <img src={msg.user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
+                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '13px' }}>
                           {msg.user.username?.[0]?.toUpperCase() || '?'}
                         </span>
                       )}
@@ -421,40 +512,112 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
         {/* Input Area */}
         <form onSubmit={sendMessage} style={{
-          padding: '12px 16px',
+          padding: '6px 12px',
           backgroundColor: 'white',
           borderTop: '1px solid #ddd',
           position: 'relative',
         }}>
-          {/* Media Picker */}
-          {showMediaPicker && (
+          {/* @Mention Picker */}
+          {showMentionPicker && mentionUsers.length > 0 && (
             <div 
-              ref={mediaPickerRef}
+              ref={mentionPickerRef}
               style={{
                 position: 'absolute',
-                bottom: '70px',
-                left: '16px',
-                width: '350px',
-                maxHeight: '300px',
+                bottom: '54px',
+                left: '12px',
+                width: '220px',
                 background: 'white',
-                borderRadius: '12px',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+                borderRadius: '8px',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
                 border: '1px solid #ddd',
                 overflow: 'hidden',
                 zIndex: 10,
               }}
             >
               <div style={{
-                padding: '10px 12px',
+                padding: '6px 10px',
                 borderBottom: '1px solid #eee',
-                fontSize: '13px',
+                fontSize: '11px',
+                fontWeight: '600',
+                color: '#666',
+              }}>
+                Users
+              </div>
+              {mentionUsers.map((user, index) => (
+                <button
+                  key={user.id}
+                  type="button"
+                  onClick={() => insertMention(user)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    border: 'none',
+                    background: index === mentionIndex ? '#f0f0f0' : 'white',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={() => setMentionIndex(index)}
+                >
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '4px',
+                    overflow: 'hidden',
+                    background: '#6b7280',
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    {user.avatar ? (
+                      <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ color: 'white', fontWeight: 'bold', fontSize: '12px' }}>
+                        {user.username?.[0]?.toUpperCase() || '?'}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '500', color: '#333' }}>@{user.username}</div>
+                    {user.name && <div style={{ fontSize: '11px', color: '#888' }}>{user.name}</div>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Media Picker */}
+          {showMediaPicker && (
+            <div 
+              ref={mediaPickerRef}
+              style={{
+                position: 'absolute',
+                bottom: '52px',
+                left: '12px',
+                width: '320px',
+                maxHeight: '280px',
+                background: 'white',
+                borderRadius: '8px',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
+                border: '1px solid #ddd',
+                overflow: 'hidden',
+                zIndex: 10,
+              }}
+            >
+              <div style={{
+                padding: '6px 10px',
+                borderBottom: '1px solid #eee',
+                fontSize: '11px',
                 fontWeight: '600',
                 color: '#333',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
+                gap: '6px',
               }}>
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 My Media
@@ -462,9 +625,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <div 
                 className="media-picker-scroll"
                 style={{
-                  maxHeight: '240px',
+                  maxHeight: '220px',
                   overflowY: 'auto',
-                  padding: '8px',
+                  padding: '6px',
                 }}
               >
                 <style>{`
@@ -511,8 +674,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 ) : (
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '8px',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: '6px',
                   }}>
                     {userMedia.map((media) => (
                       <button
@@ -522,7 +685,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                         style={{
                           border: 'none',
                           background: '#f5f5f5',
-                          borderRadius: '8px',
+                          borderRadius: '6px',
                           overflow: 'hidden',
                           cursor: 'pointer',
                           aspectRatio: '1',
@@ -530,8 +693,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           transition: 'transform 0.15s, box-shadow 0.15s',
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'scale(1.05)'
-                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'
+                          e.currentTarget.style.transform = 'scale(1.03)'
+                          e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)'
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.transform = 'scale(1)'
@@ -592,22 +755,22 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               ref={emojiPickerRef}
               style={{
                 position: 'absolute',
-                bottom: '70px',
-                left: '66px',
-                width: '320px',
-                maxHeight: '250px',
+                bottom: '52px',
+                left: '54px',
+                width: '300px',
+                maxHeight: '220px',
                 background: 'white',
-                borderRadius: '12px',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+                borderRadius: '8px',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
                 border: '1px solid #ddd',
                 overflow: 'hidden',
                 zIndex: 10,
               }}
             >
               <div style={{
-                padding: '8px',
+                padding: '6px 10px',
                 borderBottom: '1px solid #eee',
-                fontSize: '12px',
+                fontSize: '11px',
                 fontWeight: '600',
                 color: '#666',
               }}>
@@ -618,9 +781,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(8, 1fr)',
-                  gap: '2px',
-                  padding: '8px',
-                  maxHeight: '200px',
+                  gap: '1px',
+                  padding: '6px',
+                  maxHeight: '170px',
                   overflowY: 'auto',
                 }}
               >
@@ -649,13 +812,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       setShowEmojiPicker(false)
                     }}
                     style={{
-                      width: '36px',
-                      height: '36px',
+                      width: '32px',
+                      height: '32px',
                       border: 'none',
                       background: 'transparent',
-                      borderRadius: '6px',
+                      borderRadius: '4px',
                       cursor: 'pointer',
-                      fontSize: '22px',
+                      fontSize: '18px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -671,16 +834,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {/* Media Attach Button */}
             <button
               type="button"
               onClick={toggleMediaPicker}
               disabled={!isSignedIn}
               style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                borderRadius: '6px',
                 border: 'none',
                 backgroundColor: showMediaPicker ? '#e0e0e0' : '#f5f5f5',
                 color: isSignedIn ? '#666' : '#bbb',
@@ -692,7 +855,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               }}
               title="Attach Media"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
@@ -704,11 +867,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               onClick={() => {
                 setShowEmojiPicker(!showEmojiPicker)
                 setShowMediaPicker(false)
+                setShowMentionPicker(false)
               }}
               style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                borderRadius: '6px',
                 border: 'none',
                 backgroundColor: showEmojiPicker ? '#e0e0e0' : '#f5f5f5',
                 color: '#666',
@@ -720,7 +884,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               }}
               title="Emoji"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <circle cx="12" cy="12" r="10" strokeWidth="2"/>
                 <path d="M8 14s1.5 2 4 2 4-2 4-2" strokeWidth="2" strokeLinecap="round"/>
                 <circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none"/>
@@ -731,13 +895,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               ref={inputRef}
               type="text"
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={isSignedIn ? "Type a message..." : "Sign in or Sign up to chat"}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder={isSignedIn ? "Type @ to mention..." : "Sign in or Sign up to chat"}
               disabled={!isSignedIn}
               style={{
                 flex: 1,
-                padding: '12px 16px',
-                borderRadius: '24px',
+                padding: '10px 14px',
+                borderRadius: '6px',
                 border: '1px solid #ddd',
                 backgroundColor: isSignedIn ? '#f5f5f5' : '#eee',
                 fontSize: '14px',
@@ -749,9 +914,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               type="submit"
               disabled={!newMessage.trim() || loading || !isSignedIn}
               style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                borderRadius: '6px',
                 border: 'none',
                 backgroundColor: newMessage.trim() && !loading && isSignedIn ? '#0d9488' : '#ccc',
                 color: 'white',
@@ -761,7 +926,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 justifyContent: 'center',
               }}
             >
-              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
               </svg>
             </button>
