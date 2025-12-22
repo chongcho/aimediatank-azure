@@ -316,7 +316,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         <div 
           style={{
             pointerEvents: 'auto',
-            height: '40vh',
+            height: '35vh',
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
