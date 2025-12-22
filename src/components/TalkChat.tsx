@@ -147,13 +147,75 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setShowMentionPicker(false)
   }
 
-  // Insert media link into message (with title as hyperlink text)
+  // Insert media link into message (markdown format for clickable link)
   const insertMediaLink = (media: MediaItem) => {
     const mediaUrl = `${window.location.origin}/media/${media.id}`
-    // Insert as [title](url) markdown format or just title with URL
-    setNewMessage(prev => prev + (prev ? ' ' : '') + `📎${media.title} ${mediaUrl}`)
+    // Insert as [title](url) markdown format
+    setNewMessage(prev => prev + (prev ? ' ' : '') + `[📎${media.title}](${mediaUrl})`)
     setShowMediaPicker(false)
     inputRef.current?.focus()
+  }
+
+  // Render message content with clickable links
+  const renderMessageContent = (content: string) => {
+    // Match markdown links [text](url) and plain URLs
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)|(https?:\/\/[^\s]+)/g
+    const parts: React.ReactNode[] = []
+    let lastIndex = 0
+    let match
+
+    while ((match = linkRegex.exec(content)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(content.slice(lastIndex, match.index))
+      }
+
+      if (match[1] && match[2]) {
+        // Markdown link [text](url)
+        parts.push(
+          <a
+            key={match.index}
+            href={match[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: 'inherit',
+              textDecoration: 'underline',
+              fontWeight: '500',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {match[1]}
+          </a>
+        )
+      } else if (match[3]) {
+        // Plain URL
+        parts.push(
+          <a
+            key={match.index}
+            href={match[3]}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: 'inherit',
+              textDecoration: 'underline',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {match[3]}
+          </a>
+        )
+      }
+
+      lastIndex = match.index + match[0].length
+    }
+
+    // Add remaining text
+    if (lastIndex < content.length) {
+      parts.push(content.slice(lastIndex))
+    }
+
+    return parts.length > 0 ? parts : content
   }
 
   // Search users for @mention
@@ -496,7 +558,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       border: isOwn ? 'none' : '1px solid #ddd',
                     }}>
                       <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                        {msg.content}
+                        {renderMessageContent(msg.content)}
                       </p>
                     </div>
                     <p style={{ fontSize: '9px', color: '#888', marginTop: '2px' }}>
