@@ -367,7 +367,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   return (
     <div 
-      onClick={onClose}
+      onClick={() => setIsMinimized(true)}
       style={{
         position: 'fixed',
         top: 0,
