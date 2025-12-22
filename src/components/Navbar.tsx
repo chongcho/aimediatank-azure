@@ -248,11 +248,11 @@ export default function Navbar() {
                       setIsProfileOpen(!isProfileOpen)
                       setIsAlertsOpen(false)
                     }}
-                    className="flex items-center p-1 rounded-full hover:ring-2 hover:ring-tank-accent transition-all"
+                    className="flex items-center p-1 rounded-lg hover:ring-2 hover:ring-tank-accent transition-all"
                     title={displayName}
                   >
                     {/* Avatar Only */}
-                    <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-sm font-bold">
+                    <div className="w-9 h-9 rounded-lg overflow-hidden bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-sm font-bold">
                       {userData?.avatar ? (
                         <img 
                           src={`${userData.avatar}${userData.avatar.includes('?') ? '&' : '?'}t=${Date.now()}`}
