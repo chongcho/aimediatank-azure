@@ -176,8 +176,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           <a
             key={match.index}
             href={match[2]}
-            target="_blank"
-            rel="noopener noreferrer"
             style={{
               color: 'inherit',
               textDecoration: 'underline',
@@ -194,8 +192,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           <a
             key={match.index}
             href={match[3]}
-            target="_blank"
-            rel="noopener noreferrer"
             style={{
               color: 'inherit',
               textDecoration: 'underline',
