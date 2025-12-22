@@ -186,12 +186,31 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Messages Area */}
-        <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '16px',
-          background: '#e8e8e8',
-        }}>
+        <div 
+          className="chat-messages-scroll"
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '16px',
+            background: '#e8e8e8',
+          }}
+        >
+          <style>{`
+            .chat-messages-scroll::-webkit-scrollbar {
+              width: 8px;
+            }
+            .chat-messages-scroll::-webkit-scrollbar-track {
+              background: #e0e0e0;
+              border-radius: 4px;
+            }
+            .chat-messages-scroll::-webkit-scrollbar-thumb {
+              background: #b0b0b0;
+              border-radius: 4px;
+            }
+            .chat-messages-scroll::-webkit-scrollbar-thumb:hover {
+              background: #909090;
+            }
+          `}</style>
           {messages.length === 0 ? (
             <div style={{ 
               display: 'flex', 
