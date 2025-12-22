@@ -38,12 +38,26 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   if (type === 'VIDEO') {
     return (
       <div className="relative w-full rounded-2xl overflow-hidden bg-tank-black">
+        {/* Gradient placeholder shown behind video when no thumbnail */}
+        {!thumbnailUrl && (
+          <div 
+            className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center pointer-events-none"
+            style={{ zIndex: 0 }}
+          >
+            <div className="text-white/30">
+              <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </div>
+          </div>
+        )}
         <video
           ref={videoRef}
           src={url}
           poster={thumbnailUrl || undefined}
           controls
-          className="w-full max-h-[80vh]"
+          className="w-full max-h-[80vh] relative"
+          style={{ zIndex: 1 }}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
         />
