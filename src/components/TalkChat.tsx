@@ -322,6 +322,31 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           borderTop: '1px solid #ddd',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Emoji Button */}
+            <button
+              type="button"
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                border: 'none',
+                backgroundColor: '#f5f5f5',
+                color: '#666',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+              title="Emoji"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10" strokeWidth="2"/>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2" strokeWidth="2" strokeLinecap="round"/>
+                <circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none"/>
+                <circle cx="15" cy="9" r="1.5" fill="currentColor" stroke="none"/>
+              </svg>
+            </button>
             <input
               ref={inputRef}
               type="text"
