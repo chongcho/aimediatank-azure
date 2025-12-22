@@ -21,16 +21,70 @@ interface TalkChatProps {
   onClose: () => void
 }
 
+// Common emojis organized by category
+const EMOJI_LIST = [
+  // Smileys
+  '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😊',
+  '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😋', '😛', '😜',
+  '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐',
+  '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪',
+  '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🥵', '🥶', '🥴',
+  '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '😕', '😟', '🙁',
+  '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥',
+  '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱',
+  // Gestures
+  '👍', '👎', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙',
+  '👈', '👉', '👆', '👇', '☝️', '👋', '🤚', '🖐️', '✋', '🖖',
+  '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💪', '🦾', '🦿',
+  // Hearts & Symbols
+  '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔',
+  '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️',
+  '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐',
+  // Objects & Activities
+  '🎉', '🎊', '🎈', '🎁', '🏆', '🥇', '🥈', '🥉', '⚽', '🏀',
+  '🎮', '🎲', '🎯', '🎭', '🎨', '🎬', '🎤', '🎧', '🎵', '🎶',
+  '💻', '📱', '📷', '📹', '💡', '🔦', '📚', '📖', '✏️', '📝',
+  // Food & Drink
+  '🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍒', '🍑',
+  '🍕', '🍔', '🍟', '🌭', '🍿', '🧁', '🍩', '🍪', '🎂', '🍰',
+  '☕', '🍵', '🧃', '🥤', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸',
+  // Nature & Animals
+  '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+  '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆',
+  '🌸', '💐', '🌹', '🌺', '🌻', '🌼', '🌷', '🌱', '🌲', '🌳',
+  '☀️', '🌙', '⭐', '🌈', '☁️', '⛈️', '❄️', '💧', '🔥', '✨',
+]
+
 function TalkChatContent({ onClose }: { onClose: () => void }) {
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const emojiPickerRef = useRef<HTMLDivElement>(null)
 
   const isSignedIn = !!session?.user
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false)
+      }
+    }
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showEmojiPicker])
+
+  const insertEmoji = (emoji: string) => {
+    setNewMessage(prev => prev + emoji)
+    inputRef.current?.focus()
+  }
 
   // Only fetch when component is mounted and initialized
   const fetchMessages = useCallback(async () => {
@@ -320,17 +374,104 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           padding: '12px 16px',
           backgroundColor: 'white',
           borderTop: '1px solid #ddd',
+          position: 'relative',
         }}>
+          {/* Emoji Picker */}
+          {showEmojiPicker && (
+            <div 
+              ref={emojiPickerRef}
+              style={{
+                position: 'absolute',
+                bottom: '70px',
+                left: '16px',
+                width: '320px',
+                maxHeight: '250px',
+                background: 'white',
+                borderRadius: '12px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+                border: '1px solid #ddd',
+                overflow: 'hidden',
+                zIndex: 10,
+              }}
+            >
+              <div style={{
+                padding: '8px',
+                borderBottom: '1px solid #eee',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: '#666',
+              }}>
+                Emojis
+              </div>
+              <div 
+                className="emoji-picker-scroll"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(8, 1fr)',
+                  gap: '2px',
+                  padding: '8px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                }}
+              >
+                <style>{`
+                  .emoji-picker-scroll::-webkit-scrollbar {
+                    width: 6px;
+                  }
+                  .emoji-picker-scroll::-webkit-scrollbar-track {
+                    background: #f0f0f0;
+                    border-radius: 3px;
+                  }
+                  .emoji-picker-scroll::-webkit-scrollbar-thumb {
+                    background: #ccc;
+                    border-radius: 3px;
+                  }
+                  .emoji-picker-scroll::-webkit-scrollbar-thumb:hover {
+                    background: #aaa;
+                  }
+                `}</style>
+                {EMOJI_LIST.map((emoji, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => {
+                      insertEmoji(emoji)
+                      setShowEmojiPicker(false)
+                    }}
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      border: 'none',
+                      background: 'transparent',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '22px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f0f0f0'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {/* Emoji Button */}
             <button
               type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               style={{
                 width: '40px',
                 height: '40px',
                 borderRadius: '50%',
                 border: 'none',
-                backgroundColor: '#f5f5f5',
+                backgroundColor: showEmojiPicker ? '#e0e0e0' : '#f5f5f5',
                 color: '#666',
                 cursor: 'pointer',
                 display: 'flex',
