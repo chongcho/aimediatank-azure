@@ -16,6 +16,13 @@ interface ChatMessage {
   }
 }
 
+interface MediaItem {
+  id: string
+  title: string
+  thumbnailUrl: string | null
+  mediaType: string
+}
+
 interface TalkChatProps {
   isOpen: boolean
   onClose: () => void
@@ -62,9 +69,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showMediaPicker, setShowMediaPicker] = useState(false)
+  const [userMedia, setUserMedia] = useState<MediaItem[]>([])
+  const [loadingMedia, setLoadingMedia] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
+  const mediaPickerRef = useRef<HTMLDivElement>(null)
 
   const isSignedIn = !!session?.user
 
@@ -74,15 +85,54 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
         setShowEmojiPicker(false)
       }
+      if (mediaPickerRef.current && !mediaPickerRef.current.contains(event.target as Node)) {
+        setShowMediaPicker(false)
+      }
     }
-    if (showEmojiPicker) {
+    if (showEmojiPicker || showMediaPicker) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showEmojiPicker])
+  }, [showEmojiPicker, showMediaPicker])
 
   const insertEmoji = (emoji: string) => {
     setNewMessage(prev => prev + emoji)
+    inputRef.current?.focus()
+  }
+
+  // Fetch user's media
+  const fetchUserMedia = async () => {
+    if (!session?.user?.id) return
+    setLoadingMedia(true)
+    try {
+      const res = await fetch(`/api/media?userId=${session.user.id}&limit=20`)
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data.media)) {
+          setUserMedia(data.media)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user media:', error)
+    } finally {
+      setLoadingMedia(false)
+    }
+  }
+
+  // Handle media picker toggle
+  const toggleMediaPicker = () => {
+    if (!showMediaPicker) {
+      fetchUserMedia()
+    }
+    setShowMediaPicker(!showMediaPicker)
+    setShowEmojiPicker(false)
+  }
+
+  // Insert media link into message
+  const insertMediaLink = (media: MediaItem) => {
+    const mediaUrl = `${window.location.origin}/media/${media.id}`
+    setNewMessage(prev => prev + (prev ? ' ' : '') + mediaUrl)
+    setShowMediaPicker(false)
     inputRef.current?.focus()
   }
 
@@ -376,6 +426,166 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           borderTop: '1px solid #ddd',
           position: 'relative',
         }}>
+          {/* Media Picker */}
+          {showMediaPicker && (
+            <div 
+              ref={mediaPickerRef}
+              style={{
+                position: 'absolute',
+                bottom: '70px',
+                left: '16px',
+                width: '350px',
+                maxHeight: '300px',
+                background: 'white',
+                borderRadius: '12px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+                border: '1px solid #ddd',
+                overflow: 'hidden',
+                zIndex: 10,
+              }}
+            >
+              <div style={{
+                padding: '10px 12px',
+                borderBottom: '1px solid #eee',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: '#333',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                My Media
+              </div>
+              <div 
+                className="media-picker-scroll"
+                style={{
+                  maxHeight: '240px',
+                  overflowY: 'auto',
+                  padding: '8px',
+                }}
+              >
+                <style>{`
+                  .media-picker-scroll::-webkit-scrollbar {
+                    width: 6px;
+                  }
+                  .media-picker-scroll::-webkit-scrollbar-track {
+                    background: #f0f0f0;
+                    border-radius: 3px;
+                  }
+                  .media-picker-scroll::-webkit-scrollbar-thumb {
+                    background: #ccc;
+                    border-radius: 3px;
+                  }
+                  .media-picker-scroll::-webkit-scrollbar-thumb:hover {
+                    background: #aaa;
+                  }
+                `}</style>
+                {loadingMedia ? (
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    padding: '30px',
+                    color: '#999',
+                  }}>
+                    Loading...
+                  </div>
+                ) : userMedia.length === 0 ? (
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    padding: '30px',
+                    color: '#999',
+                    fontSize: '13px',
+                  }}>
+                    <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ marginBottom: '8px', opacity: 0.5 }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    No media uploaded yet
+                  </div>
+                ) : (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '8px',
+                  }}>
+                    {userMedia.map((media) => (
+                      <button
+                        key={media.id}
+                        type="button"
+                        onClick={() => insertMediaLink(media)}
+                        style={{
+                          border: 'none',
+                          background: '#f5f5f5',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          aspectRatio: '1',
+                          position: 'relative',
+                          transition: 'transform 0.15s, box-shadow 0.15s',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'scale(1.05)'
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'scale(1)'
+                          e.currentTarget.style.boxShadow = 'none'
+                        }}
+                      >
+                        {media.thumbnailUrl ? (
+                          <img 
+                            src={media.thumbnailUrl} 
+                            alt={media.title}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: '#e0e0e0',
+                          }}>
+                            <svg width="24" height="24" fill="none" stroke="#999" viewBox="0 0 24 24">
+                              {media.mediaType === 'VIDEO' ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              )}
+                            </svg>
+                          </div>
+                        )}
+                        <div style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          padding: '4px',
+                          background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+                          color: 'white',
+                          fontSize: '10px',
+                          textAlign: 'center',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {media.title}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Emoji Picker */}
           {showEmojiPicker && (
             <div 
@@ -383,7 +593,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               style={{
                 position: 'absolute',
                 bottom: '70px',
-                left: '16px',
+                left: '66px',
                 width: '320px',
                 maxHeight: '250px',
                 background: 'white',
@@ -461,11 +671,40 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Media Attach Button */}
+            <button
+              type="button"
+              onClick={toggleMediaPicker}
+              disabled={!isSignedIn}
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                border: 'none',
+                backgroundColor: showMediaPicker ? '#e0e0e0' : '#f5f5f5',
+                color: isSignedIn ? '#666' : '#bbb',
+                cursor: isSignedIn ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+              title="Attach Media"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+
             {/* Emoji Button */}
             <button
               type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              onClick={() => {
+                setShowEmojiPicker(!showEmojiPicker)
+                setShowMediaPicker(false)
+              }}
               style={{
                 width: '40px',
                 height: '40px',
