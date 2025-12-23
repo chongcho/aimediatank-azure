@@ -30,6 +30,7 @@ export default function Navbar() {
   const [isSignInOpen, setIsSignInOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [chatInviteCount, setChatInviteCount] = useState(0)
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
 
   const profileRef = useRef<HTMLDivElement>(null)
@@ -93,6 +94,15 @@ export default function Navbar() {
     }
   }, [session])
 
+  // Fetch chat invites count
+  useEffect(() => {
+    if (session?.user) {
+      fetchChatInvites()
+      const interval = setInterval(fetchChatInvites, 10000) // Check every 10 seconds
+      return () => clearInterval(interval)
+    }
+  }, [session])
+
   const fetchUserData = async () => {
     try {
       const res = await fetch('/api/user/profile')
@@ -121,6 +131,18 @@ export default function Navbar() {
       }
     } catch (error) {
       console.error('Error fetching notifications:', error)
+    }
+  }
+
+  const fetchChatInvites = async () => {
+    try {
+      const res = await fetch('/api/chat/invites')
+      if (res.ok) {
+        const data = await res.json()
+        setChatInviteCount(data.invites?.length || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching chat invites:', error)
     }
   }
 
@@ -212,19 +234,27 @@ export default function Navbar() {
           {/* Right Side */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Chat Button - Always visible for all users */}
-            <button
-              onClick={() => setIsTalkChatOpen(true)}
-              className="w-9 h-9 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
-              aria-label="Open Chat"
-              title="Open Chat"
-            >
-              <svg width="22" height="22" viewBox="0 0 100 60" fill="none">
-                <path d="M50 58C25 58 8 45 4 35C1 27 6 15 20 8C34 1 50 5 50 5C50 5 66 1 80 8C94 15 99 27 96 35C92 45 75 58 50 58Z" fill="#E91E63"/>
-                <path d="M22 26C22 26 35 36 50 36C65 36 78 26 78 26C78 26 68 44 50 44C32 44 22 26 22 26Z" fill="#1a1a1a"/>
-                <path d="M36 26C36 23 41 19 50 19C59 19 64 23 64 26C64 29 59 21 50 21C41 21 36 29 36 26Z" fill="white"/>
-                <path d="M40 39C40 37 44 34 50 34C56 34 60 37 60 39C60 41 56 37 50 37C44 37 40 41 40 39Z" fill="white"/>
-              </svg>
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setIsTalkChatOpen(true)}
+                className="w-9 h-9 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
+                aria-label="Open Chat"
+                title="Open Chat"
+              >
+                <svg width="22" height="22" viewBox="0 0 100 60" fill="none">
+                  <path d="M50 58C25 58 8 45 4 35C1 27 6 15 20 8C34 1 50 5 50 5C50 5 66 1 80 8C94 15 99 27 96 35C92 45 75 58 50 58Z" fill="#E91E63"/>
+                  <path d="M22 26C22 26 35 36 50 36C65 36 78 26 78 26C78 26 68 44 50 44C32 44 22 26 22 26Z" fill="#1a1a1a"/>
+                  <path d="M36 26C36 23 41 19 50 19C59 19 64 23 64 26C64 29 59 21 50 21C41 21 36 29 36 26Z" fill="white"/>
+                  <path d="M40 39C40 37 44 34 50 34C56 34 60 37 60 39C60 41 56 37 50 37C44 37 40 41 40 39Z" fill="white"/>
+                </svg>
+              </button>
+              {/* Chat invite notification badge */}
+              {chatInviteCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {chatInviteCount > 9 ? '9+' : chatInviteCount}
+                </span>
+              )}
+            </div>
 
             {status === 'loading' ? (
               <div className="w-8 h-8 rounded-full bg-tank-light animate-pulse" />
