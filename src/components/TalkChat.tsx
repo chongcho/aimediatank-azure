@@ -532,13 +532,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
     setLoading(true)
     try {
-      const body: { content: string; isPrivate?: boolean; recipientId?: string } = {
+      const body: { content: string; isPrivate: boolean; recipientId?: string } = {
         content: newMessage.trim(),
+        isPrivate: chatMode === 'private',
       }
       
-      // Include isPrivate and recipientId for private chat
+      // Include recipientId for private chat
       if (chatMode === 'private' && privateRecipient) {
-        body.isPrivate = true
         body.recipientId = privateRecipient.id
       }
       
@@ -547,24 +547,30 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      if (res.ok) {
-        setNewMessage('')
-        fetchMessages()
-        
-        // Clear notification from this recipient if replying in private chat
-        if (chatMode === 'private' && privateRecipient) {
-          const hasInvite = chatInvites.some(invite => invite.sender.id === privateRecipient.id)
-          if (hasInvite) {
-            try {
-              await fetch('/api/chat/invites', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ senderId: privateRecipient.id }),
-              })
-              fetchChatInvites()
-            } catch (err) {
-              console.error('Error clearing invite:', err)
-            }
+      
+      if (!res.ok) {
+        const errorData = await res.json()
+        console.error('Failed to send message:', errorData)
+        alert(errorData.error || 'Failed to send message')
+        return
+      }
+      
+      setNewMessage('')
+      fetchMessages()
+      
+      // Clear notification from this recipient if replying in private chat
+      if (chatMode === 'private' && privateRecipient) {
+        const hasInvite = chatInvites.some(invite => invite.sender.id === privateRecipient.id)
+        if (hasInvite) {
+          try {
+            await fetch('/api/chat/invites', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ senderId: privateRecipient.id }),
+            })
+            fetchChatInvites()
+          } catch (err) {
+            console.error('Error clearing invite:', err)
           }
         }
       }
