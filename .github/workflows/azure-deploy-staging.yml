@@ -30,7 +30,7 @@ jobs:
         run: npx prisma generate
 
       - name: Push database schema changes
-        run: npx prisma db push --skip-generate
+        run: npx prisma db push --skip-generate --accept-data-loss
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
