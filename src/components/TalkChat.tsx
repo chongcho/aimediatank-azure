@@ -818,17 +818,34 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               borderBottom: '1px solid #eee',
               background: '#f9fafb',
             }}>
-              <div style={{ fontSize: '13px', fontWeight: '600', color: '#333', marginBottom: '8px' }}>
-                🔒 Select user for private chat
+              <div style={{ fontSize: '13px', fontWeight: '600', color: '#333', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>🔒 New Private Chat to ...</span>
+                <button
+                  onClick={() => setShowUserPicker(false)}
+                  style={{
+                    background: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 8px',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Close
+                </button>
               </div>
               <input
                 type="text"
                 value={userSearchQuery}
                 onChange={(e) => {
-                  setUserSearchQuery(e.target.value)
-                  searchUsersForPrivateChat(e.target.value)
+                  const value = e.target.value
+                  setUserSearchQuery(value)
+                  // Remove @ if present and search
+                  const searchTerm = value.startsWith('@') ? value.slice(1) : value
+                  searchUsersForPrivateChat(searchTerm)
                 }}
-                placeholder="Search by username..."
+                placeholder="@username..."
                 autoFocus
                 style={{
                   width: '100%',
@@ -848,11 +865,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
                   Searching...
                 </div>
-              ) : searchedUsers.length === 0 ? (
+              ) : searchedUsers.length === 0 && userSearchQuery ? (
                 <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
-                  {userSearchQuery ? 'No users found' : 'Type to search users'}
+                  No users found
                 </div>
-              ) : (
+              ) : searchedUsers.length > 0 ? (
                 searchedUsers.map((user) => (
                   <button
                     key={user.id}
@@ -897,7 +914,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     </div>
                   </button>
                 ))
-              )}
+              ) : null}
             </div>
           </div>
         )}
