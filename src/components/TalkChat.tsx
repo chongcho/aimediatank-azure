@@ -819,59 +819,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 </div>
               )}
             </div>
-            
-            {/* Show selected private recipient - clickable to change */}
-            {chatMode === 'private' && privateRecipient && (
-              <button
-                onClick={() => setShowUserPicker(true)}
-                title="Click to change chat recipient"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 8px',
-                  background: '#f3e8ff',
-                  borderRadius: '6px',
-                  marginLeft: '4px',
-                  border: '1px solid #e9d5ff',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#ede9fe'
-                  e.currentTarget.style.borderColor = '#c4b5fd'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#f3e8ff'
-                  e.currentTarget.style.borderColor = '#e9d5ff'
-                }}
-              >
-                <div style={{
-                  width: '20px',
-                  height: '20px',
-                  borderRadius: '4px',
-                  overflow: 'hidden',
-                  background: '#8b5cf6',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  {privateRecipient.avatar ? (
-                    <img src={privateRecipient.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <span style={{ color: 'white', fontWeight: 'bold', fontSize: '10px' }}>
-                      {privateRecipient.username?.[0]?.toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                <span style={{ fontSize: '12px', color: '#6b21a8', fontWeight: '500' }}>
-                  @{privateRecipient.username}
-                </span>
-                <svg width="10" height="10" fill="none" stroke="#8b5cf6" viewBox="0 0 24 24" style={{ marginLeft: '2px' }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-            )}
           </div>
           
           {/* Slide down/up toggle button */}
