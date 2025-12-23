@@ -550,6 +550,23 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       if (res.ok) {
         setNewMessage('')
         fetchMessages()
+        
+        // Clear notification from this recipient if replying in private chat
+        if (chatMode === 'private' && privateRecipient) {
+          const hasInvite = chatInvites.some(invite => invite.sender.id === privateRecipient.id)
+          if (hasInvite) {
+            try {
+              await fetch('/api/chat/invites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ senderId: privateRecipient.id }),
+              })
+              fetchChatInvites()
+            } catch (err) {
+              console.error('Error clearing invite:', err)
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error)
