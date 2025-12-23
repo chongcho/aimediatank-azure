@@ -139,6 +139,35 @@ export async function POST(request: Request) {
       },
     })
 
+    // Create notification for private message recipient
+    if (isPrivate && recipientId) {
+      const senderName = session.user.username || session.user.name || 'Someone'
+      
+      // Check if there's already an unread notification from this sender
+      const existingNotification = await prisma.notification.findFirst({
+        where: {
+          userId: recipientId,
+          type: 'private_chat',
+          link: session.user.id,
+          read: false,
+        },
+      })
+      
+      // Only create notification if one doesn't already exist
+      if (!existingNotification) {
+        await prisma.notification.create({
+          data: {
+            userId: recipientId,
+            type: 'private_chat',
+            title: 'New Private Chat',
+            message: `${senderName} wants to chat with you privately`,
+            link: session.user.id, // Store sender's ID to open chat with them
+            read: false,
+          },
+        })
+      }
+    }
+
     return NextResponse.json({ message })
   } catch (error) {
     console.error('Error sending chat message:', error)

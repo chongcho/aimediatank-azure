@@ -95,6 +95,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [searchedUsers, setSearchedUsers] = useState<UserSuggestion[]>([])
   const [searchingUsers, setSearchingUsers] = useState(false)
+  // Private chat invites
+  const [chatInvites, setChatInvites] = useState<Array<{
+    notificationId: string
+    sender: UserSuggestion
+    message: string
+    createdAt: string
+  }>>([])
+  const [showInvites, setShowInvites] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -165,6 +173,43 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setMessages([])
   }
 
+  // Fetch private chat invites
+  const fetchChatInvites = useCallback(async () => {
+    if (!session?.user?.id) return
+    try {
+      const res = await fetch('/api/chat/invites')
+      if (res.ok) {
+        const data = await res.json()
+        setChatInvites(data.invites || [])
+      }
+    } catch (error) {
+      console.error('Error fetching chat invites:', error)
+    }
+  }, [session?.user?.id])
+
+  // Accept chat invite and start private chat
+  const acceptChatInvite = async (sender: UserSuggestion) => {
+    // Mark notification as read
+    try {
+      await fetch('/api/chat/invites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderId: sender.id }),
+      })
+    } catch (error) {
+      console.error('Error marking invite as read:', error)
+    }
+    
+    // Start private chat with sender
+    setPrivateRecipient(sender)
+    setChatMode('private')
+    setShowInvites(false)
+    setShowUserPicker(false)
+    
+    // Refresh invites
+    fetchChatInvites()
+  }
+
   // Switch to private chat
   const switchToPrivateChat = () => {
     if (!isSignedIn) {
@@ -173,6 +218,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
     setChatMode('private')
     setShowUserPicker(true)
+    setShowInvites(false)
   }
 
   const insertEmoji = (emoji: string) => {
@@ -386,6 +432,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return () => clearInterval(interval)
   }, [isInitialized, fetchMessages])
 
+  // Fetch chat invites periodically
+  useEffect(() => {
+    if (!isInitialized || !session?.user?.id) return
+    fetchChatInvites()
+    const interval = setInterval(fetchChatInvites, 10000) // Check every 10 seconds
+    return () => clearInterval(interval)
+  }, [isInitialized, session?.user?.id, fetchChatInvites])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -527,29 +581,56 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               Open Chat
             </button>
             
-            {/* Private Chat Button */}
-            <button
-              onClick={switchToPrivateChat}
-              style={{
-                padding: '4px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
-                color: chatMode === 'private' ? 'white' : '#666',
-                fontWeight: '600',
-                fontSize: '14px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
-              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              Private Chat
-            </button>
+            {/* Private Chat Button with invite badge */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={switchToPrivateChat}
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
+                  color: chatMode === 'private' ? 'white' : '#666',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Private Chat
+              </button>
+              {/* Invite notification badge */}
+              {chatInvites.length > 0 && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); setShowInvites(!showInvites); setChatMode('private'); }}
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-6px',
+                    background: '#ef4444',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    animation: 'pulse 2s infinite',
+                  }}
+                >
+                  {chatInvites.length}
+                </span>
+              )}
+            </div>
             
             {/* Show selected private recipient */}
             {chatMode === 'private' && privateRecipient && (
@@ -637,6 +718,83 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </svg>
           </button>
         </div>
+
+        {/* Chat Invites Notification Panel */}
+        {chatInvites.length > 0 && chatMode === 'private' && !privateRecipient && (
+          <div style={{
+            background: '#fef3c7',
+            padding: '10px 12px',
+            borderBottom: '1px solid #fbbf24',
+          }}>
+            <div style={{ fontSize: '13px', fontWeight: '600', color: '#92400e', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+              </svg>
+              {chatInvites.length} pending chat invite{chatInvites.length > 1 ? 's' : ''}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {chatInvites.map((invite) => (
+                <button
+                  key={invite.notificationId}
+                  onClick={() => acceptChatInvite(invite.sender)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    border: '1px solid #fbbf24',
+                    borderRadius: '6px',
+                    background: 'white',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    textAlign: 'left',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#fef9c3'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                >
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '4px',
+                    overflow: 'hidden',
+                    background: '#8b5cf6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: '14px',
+                  }}>
+                    {invite.sender.avatar ? (
+                      <img src={invite.sender.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      invite.sender.username?.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', fontSize: '13px', color: '#333' }}>
+                      @{invite.sender.username}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#666' }}>
+                      wants to chat with you
+                    </div>
+                  </div>
+                  <span style={{
+                    background: '#10b981',
+                    color: 'white',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                  }}>
+                    Accept
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         
         {/* User Picker for Private Chat */}
         {showUserPicker && chatMode === 'private' && (
