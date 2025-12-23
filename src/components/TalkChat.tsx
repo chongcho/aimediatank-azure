@@ -263,7 +263,23 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
 
   // Select a chat record to continue conversation
-  const selectChatRecord = (user: UserSuggestion) => {
+  const selectChatRecord = async (user: UserSuggestion) => {
+    // Check if this user has a pending invite and clear it
+    const hasInvite = chatInvites.some(invite => invite.sender.id === user.id)
+    if (hasInvite) {
+      try {
+        await fetch('/api/chat/invites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ senderId: user.id }),
+        })
+        // Refresh invites
+        fetchChatInvites()
+      } catch (error) {
+        console.error('Error clearing invite:', error)
+      }
+    }
+    
     setPrivateRecipient(user)
     setChatMode('private')
     setShowChatRecords(false)
@@ -762,58 +778,98 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                         No chat records yet
                       </div>
                     ) : (
-                      chatRecords.map((record, index) => (
-                        <button
-                          key={record.user.id || index}
-                          onClick={() => selectChatRecord(record.user)}
-                          style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            border: 'none',
-                            background: 'white',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            textAlign: 'left',
-                            transition: 'background 0.15s',
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#ecfdf5'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                        >
-                          <div style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '6px',
-                            overflow: 'hidden',
-                            background: '#10b981',
-                            flexShrink: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}>
-                            {record.user.avatar ? (
-                              <img src={record.user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
-                                {record.user.username?.[0]?.toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>@{record.user.username}</div>
-                            <div style={{ 
-                              fontSize: '12px', 
-                              color: '#888', 
-                              whiteSpace: 'nowrap', 
-                              overflow: 'hidden', 
-                              textOverflow: 'ellipsis' 
+                      chatRecords.map((record, index) => {
+                        const hasNotification = chatInvites.some(invite => invite.sender.id === record.user.id)
+                        return (
+                          <button
+                            key={record.user.id || index}
+                            onClick={() => selectChatRecord(record.user)}
+                            style={{
+                              width: '100%',
+                              padding: '10px 12px',
+                              border: 'none',
+                              background: hasNotification ? '#fef2f2' : 'white',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              textAlign: 'left',
+                              transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = hasNotification ? '#fee2e2' : '#ecfdf5'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = hasNotification ? '#fef2f2' : 'white'}
+                          >
+                            <div style={{
+                              position: 'relative',
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '6px',
+                              overflow: 'visible',
+                              background: '#10b981',
+                              flexShrink: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
                             }}>
-                              {record.lastMessage}
+                              <div style={{
+                                width: '100%',
+                                height: '100%',
+                                borderRadius: '6px',
+                                overflow: 'hidden',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}>
+                                {record.user.avatar ? (
+                                  <img src={record.user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                  <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
+                                    {record.user.username?.[0]?.toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              {hasNotification && (
+                                <span style={{
+                                  position: 'absolute',
+                                  top: '-4px',
+                                  right: '-4px',
+                                  width: '12px',
+                                  height: '12px',
+                                  background: '#ef4444',
+                                  borderRadius: '50%',
+                                  border: '2px solid white',
+                                }}></span>
+                              )}
                             </div>
-                          </div>
-                        </button>
-                      ))
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '14px', fontWeight: '500', color: '#333', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                @{record.user.username}
+                                {hasNotification && (
+                                  <span style={{
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    fontSize: '10px',
+                                    fontWeight: 'bold',
+                                    padding: '1px 5px',
+                                    borderRadius: '8px',
+                                  }}>
+                                    NEW
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ 
+                                fontSize: '12px', 
+                                color: '#888', 
+                                whiteSpace: 'nowrap', 
+                                overflow: 'hidden', 
+                                textOverflow: 'ellipsis' 
+                              }}>
+                                {record.lastMessage}
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })
                     )}
                   </div>
                 </div>
