@@ -29,14 +29,22 @@ export async function GET(request: Request) {
         return NextResponse.json({ messages: [] })
       }
       
-      where.isPrivate = true
-      where.OR = [
-        { userId: session.user.id, recipientId: recipientId },
-        { userId: recipientId, recipientId: session.user.id },
+      // Use AND to properly combine isPrivate with OR conditions
+      where.AND = [
+        { isPrivate: true },
+        {
+          OR: [
+            { userId: session.user.id, recipientId: recipientId },
+            { userId: recipientId, recipientId: session.user.id },
+          ]
+        }
       ]
     } else {
       // Open chat: only public messages (isPrivate = false or null)
-      where.isPrivate = false
+      where.OR = [
+        { isPrivate: false },
+        { isPrivate: null }
+      ]
     }
 
     const messages = await prisma.chatMessage.findMany({
