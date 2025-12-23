@@ -86,11 +86,22 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [mentionIndex, setMentionIndex] = useState(0)
   // Minimize state
   const [isMinimized, setIsMinimized] = useState(false)
+  // Chat mode: 'open' or 'private'
+  const [chatMode, setChatMode] = useState<'open' | 'private'>('open')
+  // Private chat recipient
+  const [privateRecipient, setPrivateRecipient] = useState<UserSuggestion | null>(null)
+  // Show user picker for private chat
+  const [showUserPicker, setShowUserPicker] = useState(false)
+  const [userSearchQuery, setUserSearchQuery] = useState('')
+  const [searchedUsers, setSearchedUsers] = useState<UserSuggestion[]>([])
+  const [searchingUsers, setSearchingUsers] = useState(false)
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const mediaPickerRef = useRef<HTMLDivElement>(null)
   const mentionPickerRef = useRef<HTMLDivElement>(null)
+  const userPickerRef = useRef<HTMLDivElement>(null)
 
   const isSignedIn = !!session?.user
 
@@ -106,12 +117,63 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       if (mentionPickerRef.current && !mentionPickerRef.current.contains(event.target as Node)) {
         setShowMentionPicker(false)
       }
+      if (userPickerRef.current && !userPickerRef.current.contains(event.target as Node)) {
+        setShowUserPicker(false)
+      }
     }
-    if (showEmojiPicker || showMediaPicker || showMentionPicker) {
+    if (showEmojiPicker || showMediaPicker || showMentionPicker || showUserPicker) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showEmojiPicker, showMediaPicker, showMentionPicker])
+  }, [showEmojiPicker, showMediaPicker, showMentionPicker, showUserPicker])
+
+  // Search users for private chat
+  const searchUsersForPrivateChat = async (query: string) => {
+    if (!query.trim()) {
+      setSearchedUsers([])
+      return
+    }
+    setSearchingUsers(true)
+    try {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}&limit=10`)
+      if (res.ok) {
+        const data = await res.json()
+        // Filter out current user
+        const filtered = (data.users || []).filter((u: UserSuggestion) => u.id !== session?.user?.id)
+        setSearchedUsers(filtered)
+      }
+    } catch (error) {
+      console.error('Error searching users:', error)
+    } finally {
+      setSearchingUsers(false)
+    }
+  }
+
+  // Handle private chat user selection
+  const selectPrivateRecipient = (user: UserSuggestion) => {
+    setPrivateRecipient(user)
+    setShowUserPicker(false)
+    setUserSearchQuery('')
+    setSearchedUsers([])
+    setMessages([]) // Clear messages when switching
+  }
+
+  // Switch to open chat
+  const switchToOpenChat = () => {
+    setChatMode('open')
+    setPrivateRecipient(null)
+    setMessages([])
+  }
+
+  // Switch to private chat
+  const switchToPrivateChat = () => {
+    if (!isSignedIn) {
+      alert('Please sign in to use private chat')
+      return
+    }
+    setChatMode('private')
+    setShowUserPicker(true)
+  }
 
   const insertEmoji = (emoji: string) => {
     setNewMessage(prev => prev + emoji)
@@ -290,8 +352,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Only fetch when component is mounted and initialized
   const fetchMessages = useCallback(async () => {
     if (!isInitialized) return
+    
     try {
-      const res = await fetch('/api/chat')
+      let url = '/api/chat'
+      
+      // For private chat, include participantIds
+      if (chatMode === 'private' && privateRecipient && session?.user?.id) {
+        const participantIds = [session.user.id, privateRecipient.id].sort().join(',')
+        url = `/api/chat?participantIds=${participantIds}`
+      }
+      
+      const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
         if (Array.isArray(data.messages)) {
@@ -301,7 +372,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     } catch (error) {
       console.error('Error fetching messages:', error)
     }
-  }, [isInitialized])
+  }, [isInitialized, chatMode, privateRecipient, session?.user?.id])
 
   // Initialize after mount
   useEffect(() => {
@@ -335,12 +406,27 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       return
     }
 
+    // For private chat, require a recipient
+    if (chatMode === 'private' && !privateRecipient) {
+      alert('Please select a user to chat with')
+      return
+    }
+
     setLoading(true)
     try {
+      const body: { content: string; participantIds?: string[] } = {
+        content: newMessage.trim(),
+      }
+      
+      // Include participantIds for private chat
+      if (chatMode === 'private' && privateRecipient) {
+        body.participantIds = [privateRecipient.id]
+      }
+      
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newMessage.trim() }),
+        body: JSON.stringify(body),
       })
       if (res.ok) {
         setNewMessage('')
@@ -405,7 +491,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           justifyContent: 'space-between',
           borderBottom: '1px solid #ccc',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {/* Lip Chat Icon with yellow background */}
             <div style={{
               background: '#facc15',
@@ -422,9 +508,100 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 <path d="M38 40C38 38 43 35 50 35C57 35 62 38 62 40C62 42 57 38 50 38C43 38 38 42 38 40Z" fill="white"/>
               </svg>
             </div>
-            <span style={{ color: '#333', fontWeight: '600', fontSize: '16px' }}>
+            
+            {/* Open Chat Button */}
+            <button
+              onClick={switchToOpenChat}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                background: chatMode === 'open' ? '#10b981' : 'transparent',
+                color: chatMode === 'open' ? 'white' : '#666',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
               Open Chat
-            </span>
+            </button>
+            
+            {/* Private Chat Button */}
+            <button
+              onClick={switchToPrivateChat}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
+                color: chatMode === 'private' ? 'white' : '#666',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Private Chat
+            </button>
+            
+            {/* Show selected private recipient */}
+            {chatMode === 'private' && privateRecipient && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 8px',
+                background: '#f3e8ff',
+                borderRadius: '6px',
+                marginLeft: '4px',
+              }}>
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '4px',
+                  overflow: 'hidden',
+                  background: '#8b5cf6',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  {privateRecipient.avatar ? (
+                    <img src={privateRecipient.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ color: 'white', fontWeight: 'bold', fontSize: '10px' }}>
+                      {privateRecipient.username?.[0]?.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: '12px', color: '#6b21a8', fontWeight: '500' }}>
+                  @{privateRecipient.username}
+                </span>
+                <button
+                  onClick={() => setShowUserPicker(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#8b5cf6',
+                    cursor: 'pointer',
+                    padding: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  title="Change user"
+                >
+                  <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
           
           {/* Slide down/up toggle button */}
@@ -460,6 +637,112 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </svg>
           </button>
         </div>
+        
+        {/* User Picker for Private Chat */}
+        {showUserPicker && chatMode === 'private' && (
+          <div
+            ref={userPickerRef}
+            style={{
+              position: 'absolute',
+              top: '50px',
+              left: '150px',
+              width: '280px',
+              background: 'white',
+              borderRadius: '8px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #ddd',
+              zIndex: 100,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{
+              padding: '10px 12px',
+              borderBottom: '1px solid #eee',
+              background: '#f9fafb',
+            }}>
+              <div style={{ fontSize: '13px', fontWeight: '600', color: '#333', marginBottom: '8px' }}>
+                🔒 Select user for private chat
+              </div>
+              <input
+                type="text"
+                value={userSearchQuery}
+                onChange={(e) => {
+                  setUserSearchQuery(e.target.value)
+                  searchUsersForPrivateChat(e.target.value)
+                }}
+                placeholder="Search by username..."
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #ddd',
+                  fontSize: '13px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+            <div style={{
+              maxHeight: '200px',
+              overflowY: 'auto',
+            }}>
+              {searchingUsers ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                  Searching...
+                </div>
+              ) : searchedUsers.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                  {userSearchQuery ? 'No users found' : 'Type to search users'}
+                </div>
+              ) : (
+                searchedUsers.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => selectPrivateRecipient(user)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: 'none',
+                      background: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      textAlign: 'left',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3e8ff'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                  >
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '6px',
+                      overflow: 'hidden',
+                      background: '#8b5cf6',
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      {user.avatar ? (
+                        <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
+                          {user.username?.[0]?.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>@{user.username}</div>
+                      {user.name && <div style={{ fontSize: '12px', color: '#888' }}>{user.name}</div>}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Messages Area - Hidden when minimized */}
         {!isMinimized && (
@@ -488,7 +771,22 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               background: #999;
             }
           `}</style>
-          {messages.length === 0 ? (
+          {chatMode === 'private' && !privateRecipient ? (
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              height: '100%',
+              color: '#8b5cf6',
+            }}>
+              <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ marginBottom: '12px', opacity: 0.5 }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <p style={{ fontSize: '14px', fontWeight: '500' }}>Select a user to start private chat</p>
+              <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>Messages will be visible only to you and them</p>
+            </div>
+          ) : messages.length === 0 ? (
             <div style={{ 
               display: 'flex', 
               flexDirection: 'column', 
@@ -500,7 +798,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ marginBottom: '12px', opacity: 0.3 }}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              <p style={{ fontSize: '14px' }}>No messages yet. Start the conversation!</p>
+              <p style={{ fontSize: '14px' }}>
+                {chatMode === 'private' 
+                  ? `Start a private conversation with @${privateRecipient?.username}` 
+                  : 'No messages yet. Start the conversation!'}
+              </p>
             </div>
           ) : (
             messages.map((msg) => {
@@ -984,8 +1286,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               value={newMessage}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={isSignedIn ? "Type @ to mention..." : "Sign in or Sign up to chat"}
-              disabled={!isSignedIn}
+              placeholder={
+                !isSignedIn 
+                  ? "Sign in or Sign up to chat" 
+                  : chatMode === 'private' && !privateRecipient
+                    ? "Select a user first..."
+                    : chatMode === 'private'
+                      ? `Message @${privateRecipient?.username}...`
+                      : "Type @ to mention..."
+              }
+              disabled={!isSignedIn || (chatMode === 'private' && !privateRecipient)}
               style={{
                 flex: 1,
                 padding: '8px 12px',
