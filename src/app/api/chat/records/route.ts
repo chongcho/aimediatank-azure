@@ -35,22 +35,38 @@ export async function GET() {
             avatar: true,
           },
         },
-        recipient: {
-          select: {
-            id: true,
-            username: true,
-            name: true,
-            avatar: true,
-          },
-        },
       },
     })
+
+    // Collect all unique recipient IDs to fetch their user data
+    const recipientIds = new Set<string>()
+    for (const msg of privateMessages) {
+      if (msg.recipientId && msg.recipientId !== userId) {
+        recipientIds.add(msg.recipientId)
+      }
+    }
+
+    // Fetch recipient user data
+    const recipientUsers = await prisma.user.findMany({
+      where: {
+        id: { in: Array.from(recipientIds) },
+      },
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        avatar: true,
+      },
+    })
+
+    // Create a map for quick lookup
+    const recipientMap = new Map(recipientUsers.map(u => [u.id, u]))
 
     // Group by conversation partner and get the latest message
     const conversationMap = new Map<string, {
       user: {
         id: string
-        username: string | null
+        username: string
         name: string | null
         avatar: string | null
       }
@@ -60,7 +76,15 @@ export async function GET() {
 
     for (const msg of privateMessages) {
       // Determine the other user in the conversation
-      const otherUser = msg.userId === userId ? msg.recipient : msg.user
+      let otherUser: { id: string; username: string; name: string | null; avatar: string | null } | null = null
+      
+      if (msg.userId === userId && msg.recipientId) {
+        // Current user is sender, get recipient
+        otherUser = recipientMap.get(msg.recipientId) || null
+      } else if (msg.userId !== userId) {
+        // Current user is recipient, get sender
+        otherUser = msg.user
+      }
       
       if (!otherUser || !otherUser.id) continue
 
