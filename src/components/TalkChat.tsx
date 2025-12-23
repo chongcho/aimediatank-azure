@@ -103,6 +103,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     createdAt: string
   }>>([])
   const [showInvites, setShowInvites] = useState(false)
+  // Chat records state
+  const [showChatRecords, setShowChatRecords] = useState(false)
+  const [chatRecords, setChatRecords] = useState<Array<{
+    user: UserSuggestion
+    lastMessage: string
+    lastMessageAt: string
+  }>>([])
+  const [loadingChatRecords, setLoadingChatRecords] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -110,6 +118,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const mediaPickerRef = useRef<HTMLDivElement>(null)
   const mentionPickerRef = useRef<HTMLDivElement>(null)
   const userPickerRef = useRef<HTMLDivElement>(null)
+  const chatRecordsRef = useRef<HTMLDivElement>(null)
 
   const isSignedIn = !!session?.user
 
@@ -128,12 +137,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       if (userPickerRef.current && !userPickerRef.current.contains(event.target as Node)) {
         setShowUserPicker(false)
       }
+      if (chatRecordsRef.current && !chatRecordsRef.current.contains(event.target as Node)) {
+        setShowChatRecords(false)
+      }
     }
-    if (showEmojiPicker || showMediaPicker || showMentionPicker || showUserPicker) {
+    if (showEmojiPicker || showMediaPicker || showMentionPicker || showUserPicker || showChatRecords) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showEmojiPicker, showMediaPicker, showMentionPicker, showUserPicker])
+  }, [showEmojiPicker, showMediaPicker, showMentionPicker, showUserPicker, showChatRecords])
 
   // Search users for private chat
   const searchUsersForPrivateChat = async (query: string) => {
@@ -219,6 +231,43 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setChatMode('private')
     setShowUserPicker(true)
     setShowInvites(false)
+  }
+
+  // Fetch chat records (previous private chat conversations)
+  const fetchChatRecords = useCallback(async () => {
+    if (!session?.user?.id) return
+    setLoadingChatRecords(true)
+    try {
+      const res = await fetch('/api/chat/records')
+      if (res.ok) {
+        const data = await res.json()
+        setChatRecords(data.records || [])
+      }
+    } catch (error) {
+      console.error('Error fetching chat records:', error)
+    } finally {
+      setLoadingChatRecords(false)
+    }
+  }, [session?.user?.id])
+
+  // Toggle chat records dropdown
+  const toggleChatRecords = () => {
+    if (!isSignedIn) {
+      alert('Please sign in to view chat records')
+      return
+    }
+    if (!showChatRecords) {
+      fetchChatRecords()
+    }
+    setShowChatRecords(!showChatRecords)
+  }
+
+  // Select a chat record to continue conversation
+  const selectChatRecord = (user: UserSuggestion) => {
+    setPrivateRecipient(user)
+    setChatMode('private')
+    setShowChatRecords(false)
+    setMessages([]) // Clear messages, will be fetched
   }
 
   const insertEmoji = (emoji: string) => {
@@ -629,6 +678,145 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 >
                   {chatInvites.length}
                 </span>
+              )}
+            </div>
+
+            {/* Chat Record Button */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={toggleChatRecords}
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: showChatRecords ? '#10b981' : 'transparent',
+                  color: showChatRecords ? 'white' : '#666',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                Chat Record
+              </button>
+
+              {/* Chat Records Dropdown */}
+              {showChatRecords && (
+                <div
+                  ref={chatRecordsRef}
+                  style={{
+                    position: 'absolute',
+                    top: '36px',
+                    left: '0',
+                    width: '280px',
+                    background: 'white',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                    border: '1px solid #ddd',
+                    zIndex: 100,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div style={{
+                    padding: '10px 12px',
+                    borderBottom: '1px solid #eee',
+                    background: '#f0fdf4',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#333' }}>
+                      📋 Chat Records
+                    </span>
+                    <button
+                      onClick={() => setShowChatRecords(false)}
+                      style={{
+                        background: '#6b7280',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '2px 8px',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div style={{
+                    maxHeight: '250px',
+                    overflowY: 'auto',
+                  }}>
+                    {loadingChatRecords ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                        Loading...
+                      </div>
+                    ) : chatRecords.length === 0 ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                        No chat records yet
+                      </div>
+                    ) : (
+                      chatRecords.map((record, index) => (
+                        <button
+                          key={record.user.id || index}
+                          onClick={() => selectChatRecord(record.user)}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            border: 'none',
+                            background: 'white',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            textAlign: 'left',
+                            transition: 'background 0.15s',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#ecfdf5'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                        >
+                          <div style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            background: '#10b981',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            {record.user.avatar ? (
+                              <img src={record.user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
+                                {record.user.username?.[0]?.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>@{record.user.username}</div>
+                            <div style={{ 
+                              fontSize: '12px', 
+                              color: '#888', 
+                              whiteSpace: 'nowrap', 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis' 
+                            }}>
+                              {record.lastMessage}
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
               )}
             </div>
             
