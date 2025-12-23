@@ -517,7 +517,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newMessage.trim() || loading) return
+    console.log('sendMessage called, message:', newMessage, 'loading:', loading)
+    
+    if (!newMessage.trim() || loading) {
+      console.log('Message empty or loading, returning')
+      return
+    }
 
     if (!session?.user) {
       alert('Please sign in to send messages')
@@ -542,11 +547,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         body.recipientId = privateRecipient.id
       }
       
+      console.log('Sending message:', body)
+      
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
+      
+      console.log('Response status:', res.status)
       
       if (!res.ok) {
         const errorData = await res.json()
@@ -554,6 +563,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         alert(errorData.error || 'Failed to send message')
         return
       }
+      
+      const result = await res.json()
+      console.log('Message sent successfully:', result)
       
       setNewMessage('')
       fetchMessages()
@@ -1288,12 +1300,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
         {/* Input Area - Hidden when minimized */}
         {!isMinimized && (
-        <form onSubmit={sendMessage} style={{
-          padding: '4px 12px',
-          backgroundColor: '#e8e8e8',
-          borderTop: '1px solid #ccc',
-          position: 'relative',
-        }}>
+        <form 
+          onSubmit={sendMessage} 
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            padding: '4px 12px',
+            backgroundColor: '#e8e8e8',
+            borderTop: '1px solid #ccc',
+            position: 'relative',
+          }}
+        >
           {/* @Mention Picker */}
           {showMentionPicker && mentionUsers.length > 0 && (
             <div 
@@ -1700,6 +1716,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             <button
               type="submit"
               disabled={!newMessage.trim() || loading || !isSignedIn}
+              onClick={(e) => {
+                console.log('Send button clicked')
+                // Form submit will handle it, but log for debugging
+              }}
               style={{
                 width: '32px',
                 height: '32px',
