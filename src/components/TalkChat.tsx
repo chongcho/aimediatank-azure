@@ -632,17 +632,32 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               )}
             </div>
             
-            {/* Show selected private recipient */}
+            {/* Show selected private recipient - clickable to change */}
             {chatMode === 'private' && privateRecipient && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '4px 8px',
-                background: '#f3e8ff',
-                borderRadius: '6px',
-                marginLeft: '4px',
-              }}>
+              <button
+                onClick={() => setShowUserPicker(true)}
+                title="Click to change chat recipient"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 8px',
+                  background: '#f3e8ff',
+                  borderRadius: '6px',
+                  marginLeft: '4px',
+                  border: '1px solid #e9d5ff',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#ede9fe'
+                  e.currentTarget.style.borderColor = '#c4b5fd'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#f3e8ff'
+                  e.currentTarget.style.borderColor = '#e9d5ff'
+                }}
+              >
                 <div style={{
                   width: '20px',
                   height: '20px',
@@ -664,24 +679,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 <span style={{ fontSize: '12px', color: '#6b21a8', fontWeight: '500' }}>
                   @{privateRecipient.username}
                 </span>
-                <button
-                  onClick={() => setShowUserPicker(true)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#8b5cf6',
-                    cursor: 'pointer',
-                    padding: '2px',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                  title="Change user"
-                >
-                  <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
-              </div>
+                <svg width="10" height="10" fill="none" stroke="#8b5cf6" viewBox="0 0 24 24" style={{ marginLeft: '2px' }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             )}
           </div>
           
