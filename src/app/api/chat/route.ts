@@ -40,11 +40,8 @@ export async function GET(request: Request) {
         }
       ]
     } else {
-      // Open chat: only public messages (isPrivate = false or null)
-      where.OR = [
-        { isPrivate: false },
-        { isPrivate: null }
-      ]
+      // Open chat: only public messages (isPrivate = false)
+      where.isPrivate = false
     }
 
     const messages = await prisma.chatMessage.findMany({
