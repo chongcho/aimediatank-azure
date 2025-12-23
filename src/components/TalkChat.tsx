@@ -354,12 +354,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     if (!isInitialized) return
     
     try {
-      let url = '/api/chat'
+      let url = '/api/chat?mode=open'
       
-      // For private chat, include participantIds
+      // For private chat, include mode and recipientId
       if (chatMode === 'private' && privateRecipient && session?.user?.id) {
-        const participantIds = [session.user.id, privateRecipient.id].sort().join(',')
-        url = `/api/chat?participantIds=${participantIds}`
+        url = `/api/chat?mode=private&recipientId=${privateRecipient.id}`
       }
       
       const res = await fetch(url)
@@ -414,13 +413,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
     setLoading(true)
     try {
-      const body: { content: string; participantIds?: string[] } = {
+      const body: { content: string; isPrivate?: boolean; recipientId?: string } = {
         content: newMessage.trim(),
       }
       
-      // Include participantIds for private chat
+      // Include isPrivate and recipientId for private chat
       if (chatMode === 'private' && privateRecipient) {
-        body.participantIds = [privateRecipient.id]
+        body.isPrivate = true
+        body.recipientId = privateRecipient.id
       }
       
       const res = await fetch('/api/chat', {

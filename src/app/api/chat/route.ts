@@ -8,15 +8,35 @@ export const dynamic = 'force-dynamic'
 // GET - Fetch recent chat messages
 export async function GET(request: Request) {
   try {
+    const session = await getServerSession(authOptions)
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '50')
     const after = searchParams.get('after') // Get messages after this timestamp
+    const mode = searchParams.get('mode') || 'open' // 'open' or 'private'
+    const recipientId = searchParams.get('recipientId') // For private chat
 
-    const where: any = {}
+    let where: any = {}
+    
     if (after) {
       where.createdAt = {
         gt: new Date(after),
       }
+    }
+
+    if (mode === 'private') {
+      // Private chat: only messages between current user and recipient
+      if (!session?.user?.id || !recipientId) {
+        return NextResponse.json({ messages: [] })
+      }
+      
+      where.isPrivate = true
+      where.OR = [
+        { userId: session.user.id, recipientId: recipientId },
+        { userId: recipientId, recipientId: session.user.id },
+      ]
+    } else {
+      // Open chat: only public messages (isPrivate = false or null)
+      where.isPrivate = false
     }
 
     const messages = await prisma.chatMessage.findMany({
@@ -66,7 +86,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { content } = await request.json()
+    const { content, isPrivate, recipientId } = await request.json()
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       return NextResponse.json(
@@ -83,10 +103,20 @@ export async function POST(request: Request) {
       )
     }
 
+    // Validate private message has recipient
+    if (isPrivate && !recipientId) {
+      return NextResponse.json(
+        { error: 'Recipient is required for private messages' },
+        { status: 400 }
+      )
+    }
+
     const message = await prisma.chatMessage.create({
       data: {
         content: content.trim(),
         userId: session.user.id,
+        isPrivate: isPrivate || false,
+        recipientId: isPrivate ? recipientId : null,
       },
       include: {
         user: {

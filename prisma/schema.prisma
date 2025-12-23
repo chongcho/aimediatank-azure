@@ -210,6 +210,8 @@ model Notification {
 model ChatMessage {
   id            String    @id @default(uuid())
   content       String
+  isPrivate     Boolean   @default(false)  // true for private 1-to-1 messages
+  recipientId   String?   // For private messages: the recipient user ID
   createdAt     DateTime  @default(now())
 
   // Relations
@@ -218,6 +220,8 @@ model ChatMessage {
 
   @@index([createdAt])
   @@index([userId])
+  @@index([isPrivate])
+  @@index([recipientId])
 }
 
 // Pending uploads waiting for payment confirmation

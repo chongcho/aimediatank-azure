@@ -31,6 +31,11 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Push database schema changes
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Clean previous build
         run: rm -rf .next deploy
 
