@@ -87,12 +87,12 @@ export async function POST(request: Request) {
       
       // Fallback: create with only core fields that definitely exist
       user = await prisma.user.create({
-        data: {
-          email,
-          username,
-          password: hashedPassword,
-          name: name || username,
-          role: userRole,
+      data: {
+        email,
+        username,
+        password: hashedPassword,
+        name: name || username,
+        role: userRole,
         },
       })
       
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
             ageRange: ageRange || null,
             bio: bio || null,
           },
-        })
+    })
       } catch (updateError) {
         console.log('Could not add optional fields:', updateError)
       }

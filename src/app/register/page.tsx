@@ -499,13 +499,13 @@ export default function RegisterPage() {
                 User ID *
               </label>
               <div className="relative">
-                <input
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
+              <input
+                type="text"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
                   placeholder="username"
-                  required
+                required
                   className={`w-full ${
                     usernameStatus.valid === false || usernameStatus.available === false
                       ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
@@ -557,13 +557,13 @@ export default function RegisterPage() {
               </label>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    placeholder="your@email.com"
-                    required
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="your@email.com"
+                required
                     disabled={verificationState.codeVerified}
                     className={`w-full ${
                       verificationState.codeVerified

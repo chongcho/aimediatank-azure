@@ -311,15 +311,15 @@ export default function LiveChat() {
               {session ? (
                 isSubscriber ? (
                   <div className="relative w-full h-full flex flex-col">
-                    <textarea
+                  <textarea
                       ref={textareaRef}
                       id="chat-message"
                       name="chat-message"
-                      value={newMessage}
+                    value={newMessage}
                       onChange={handleMessageChange}
-                      placeholder="Type a message..."
-                      maxLength={500}
-                      onKeyDown={(e) => {
+                    placeholder="Type a message..."
+                    maxLength={500}
+                    onKeyDown={(e) => {
                         // Handle mention dropdown navigation
                         if (showMentionDropdown && mentionUsers.length > 0) {
                           if (e.key === 'ArrowDown') {
@@ -354,16 +354,16 @@ export default function LiveChat() {
                           return
                         }
                         // Normal Enter to send
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          if (newMessage.trim() && !sending) {
-                            handleSend(e as any)
-                          }
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        if (newMessage.trim() && !sending) {
+                          handleSend(e as any)
                         }
-                      }}
+                      }
+                    }}
                       className="w-full flex-1 bg-tank-gray/50 border border-tank-light/50 rounded-none focus:outline-none focus:border-tank-accent text-gray-300 placeholder-gray-400 text-xs resize-none p-2 pb-6"
                       aria-label="Chat message"
-                    />
+                  />
                     {/* Emoji Button */}
                     <button
                       type="button"

@@ -578,7 +578,7 @@ export default function EditProfilePage() {
                 placeholder="Tell others about yourself..."
                 rows={3}
                 className="w-full resize-none text-sm bg-tank-gray border border-tank-light rounded-lg p-2"
-              />
+                />
             </div>
           </div>
 
@@ -603,12 +603,12 @@ export default function EditProfilePage() {
               User ID *
             </label>
             <div className="relative">
-              <input
-                type="text"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                placeholder="username"
-                required
+            <input
+              type="text"
+              value={formData.username}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+              placeholder="username"
+              required
                 className={`w-full ${
                   usernameChanged && (usernameStatus.valid === false || usernameStatus.available === false)
                     ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
@@ -650,7 +650,7 @@ export default function EditProfilePage() {
               </p>
             )}
             {(!usernameChanged || !usernameStatus.message) && (
-              <p className="text-xs text-gray-500 mt-1">Used for login and your profile URL</p>
+            <p className="text-xs text-gray-500 mt-1">Used for login and your profile URL</p>
             )}
           </div>
 
@@ -661,11 +661,11 @@ export default function EditProfilePage() {
             </label>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
-                <input
-                  type="email"
-                  value={formData.email}
+            <input
+              type="email"
+              value={formData.email}
                   onChange={(e) => handleEmailChange(e.target.value)}
-                  placeholder="your@email.com"
+              placeholder="your@email.com"
                   className={`w-full ${
                     emailChanged && emailVerificationState.codeVerified
                       ? 'border-green-500 bg-green-500/10'
@@ -673,8 +673,8 @@ export default function EditProfilePage() {
                       ? 'border-yellow-500 focus:border-yellow-500'
                       : ''
                   }`}
-                  required
-                />
+              required
+            />
               </div>
               {/* Show verify button only when email changed and not verified */}
               {emailChanged && !emailVerificationState.codeVerified ? (

@@ -344,21 +344,21 @@ export default function MediaPage() {
                 <span className={`text-4xl ${userReaction === 'happy' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😄</span>
                 <span className={`text-sm font-medium ${userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.happy}</span>
               </button>
-              <button
+                <button
                 onClick={() => handleReaction('neutral')}
                 className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${userReaction === 'neutral' ? 'scale-110' : ''}`}
               >
                 <span className={`text-4xl ${userReaction === 'neutral' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😐</span>
                 <span className={`text-sm font-medium ${userReaction === 'neutral' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.neutral}</span>
-              </button>
-              <button
+                            </button>
+                            <button
                 onClick={() => handleReaction('sad')}
                 className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${userReaction === 'sad' ? 'scale-110' : ''}`}
               >
                 <span className={`text-4xl ${userReaction === 'sad' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😞</span>
                 <span className={`text-sm font-medium ${userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.sad}</span>
-              </button>
-              </div>
+                            </button>
+                          </div>
             </div>
           </div>
 
@@ -400,8 +400,8 @@ export default function MediaPage() {
           <div className="card space-y-2">
             <p className="text-gray-400">
               Created by{' '}
-              <Link
-                href={`/profile/${media.user.username}`}
+            <Link
+              href={`/profile/${media.user.username}`}
                 className="text-tank-accent hover:underline font-medium"
               >
                 {media.user.name || media.user.username}

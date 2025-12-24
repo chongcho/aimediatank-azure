@@ -48,11 +48,11 @@ export async function GET(request: Request) {
         ]
       } else {
         // Regular search across title, description, and AI tool
-        where.OR = [
+      where.OR = [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
           { aiTool: { contains: search, mode: 'insensitive' } },
-        ]
+      ]
       }
     }
 

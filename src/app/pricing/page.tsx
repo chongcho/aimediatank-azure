@@ -313,9 +313,9 @@ function PricingPageContent() {
         <div className="mb-8 p-4 bg-tank-accent/10 border border-tank-accent/30 rounded-xl">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-              <p className="text-tank-accent">
-                Your current plan: <span className="font-bold">{currentMembership}</span>
-              </p>
+            <p className="text-tank-accent">
+              Your current plan: <span className="font-bold">{currentMembership}</span>
+            </p>
               {uploadStatus ? (
                 <div className="flex items-center gap-2">
                   {uploadStatus.freeUploadsRemaining === 'Unlimited' ? (
@@ -381,13 +381,13 @@ function PricingPageContent() {
                   <span className="text-4xl font-bold">Free</span>
                 ) : (
                   <>
-                    <span className="text-4xl font-bold">${plan.price}</span>
-                    <span className="text-gray-400">/month</span>
+                <span className="text-4xl font-bold">${plan.price}</span>
+                <span className="text-gray-400">/month</span>
                   </>
                 )}
               </div>
               {!plan.isFree && (
-                <p className="text-gray-500 text-sm mb-4">or ${plan.yearlyPrice}/year</p>
+              <p className="text-gray-500 text-sm mb-4">or ${plan.yearlyPrice}/year</p>
               )}
               {plan.isFree && <p className="text-gray-500 text-sm mb-4">&nbsp;</p>}
 

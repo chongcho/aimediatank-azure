@@ -74,7 +74,7 @@ export default function EditMediaPage() {
         setTitle(cleanTitle)
         setHashtags(extractedHashtags)
       } else {
-        setTitle(data.title)
+      setTitle(data.title)
         setHashtags('')
       }
       setDescription(data.description || '')
@@ -167,7 +167,7 @@ export default function EditMediaPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </Link>
-        <h1 className="text-2xl font-bold">Edit Media</h1>
+          <h1 className="text-2xl font-bold">Edit Media</h1>
         <span className="text-gray-400">— Update your content details</span>
       </div>
 
@@ -190,12 +190,12 @@ export default function EditMediaPage() {
             )}
           </div>
           <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded ${
-            media.type === 'VIDEO' ? 'bg-red-500/20 text-red-400' :
-            media.type === 'IMAGE' ? 'bg-blue-500/20 text-blue-400' :
-            'bg-purple-500/20 text-purple-400'
-          }`}>
-            {media.type}
-          </span>
+              media.type === 'VIDEO' ? 'bg-red-500/20 text-red-400' :
+              media.type === 'IMAGE' ? 'bg-blue-500/20 text-blue-400' :
+              'bg-purple-500/20 text-purple-400'
+            }`}>
+              {media.type}
+            </span>
         </div>
       </div>
 

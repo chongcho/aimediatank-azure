@@ -670,6 +670,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         {/* Chat container - always visible */}
         <div 
           className="chat-container-responsive"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
           style={{
             height: getChatHeight(),
             minHeight: getChatMinHeight(),
