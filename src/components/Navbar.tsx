@@ -507,8 +507,8 @@ export default function Navbar() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div ref={mobileMenuRef} className="md:hidden py-4 border-t border-tank-light">
-            <div className="flex flex-col gap-1">
+          <div ref={mobileMenuRef} className="md:hidden py-2 border-t border-tank-light">
+            <div className="flex flex-col gap-0.5">
               <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>Home</MobileNavLink>
               <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
               <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
