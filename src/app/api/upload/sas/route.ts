@@ -88,10 +88,9 @@ export async function POST(request: Request) {
     const sasToken = generateBlobSASQueryParameters({
       containerName,
       blobName,
-      permissions: BlobSASPermissions.parse('cw'), // create and write
+      permissions: BlobSASPermissions.parse('racwd'), // read, add, create, write, delete
       startsOn,
       expiresOn,
-      contentType,
     }, sharedKeyCredential).toString()
 
     const blobUrl = `https://${accountName}.blob.core.windows.net/${containerName}/${blobName}`
