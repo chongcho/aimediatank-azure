@@ -222,36 +222,15 @@ export default function MediaCard({ media }: MediaCardProps) {
             </div>
           )}
 
-          {/* Price Badge - only show if not sold and has price */}
-          {media.price && media.price > 0 && !media.isSold && (
-            <div className="absolute top-3 right-3 z-10">
-              <div className="px-2.5 py-1 bg-tank-accent text-tank-black text-sm font-bold rounded-lg shadow-lg">
-                ${media.price.toFixed(2)}
-              </div>
-            </div>
-          )}
-
-          {/* FREE Badge - show for free content (no price or price = 0) and not sold */}
-          {(!media.price || media.price === 0) && !media.isSold && (
-            <div className="absolute top-3 right-3 z-10">
-              <div className="px-2.5 py-1 bg-blue-500 text-white text-sm font-bold rounded-lg shadow-lg">
-                FREE
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Content */}
         <div className="p-4">
-          {/* Title with Type Badge */}
+          {/* Title */}
           <div className="flex items-center gap-2 mb-2">
             <h3 className="font-semibold text-white group-hover:text-tank-accent transition-colors truncate flex-1" title={media.title}>
               {renderTitle(media.title)}
             </h3>
-            <div className={`px-2 py-1 rounded-md ${typeStyle.bg} text-white text-xs font-bold flex items-center gap-1 shrink-0`}>
-              {getTypeIcon()}
-              <span>{media.type}</span>
-            </div>
           </div>
 
           {/* Stats */}
