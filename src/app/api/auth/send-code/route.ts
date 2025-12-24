@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
     // Generate and store 6-digit code
     const code = generateCode()
-    storeCode(email, code, 10) // 10 minutes expiry
+    await storeCode(email, code, 10) // 10 minutes expiry
 
     // Send email with code
     const emailHtml = `

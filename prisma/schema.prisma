@@ -224,6 +224,18 @@ model ChatMessage {
   @@index([recipientId])
 }
 
+// Email verification codes (persisted for serverless environments)
+model VerificationCode {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  code          String
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
 // Pending uploads waiting for payment confirmation
 model PendingUpload {
   id            String    @id @default(uuid())

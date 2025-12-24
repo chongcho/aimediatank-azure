@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const result = verifyCode(email, code)
+    const result = await verifyCode(email, code)
 
     if (!result.valid) {
       return NextResponse.json(
