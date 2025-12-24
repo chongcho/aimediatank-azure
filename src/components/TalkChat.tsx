@@ -720,6 +720,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
+              marginRight: '8px',
             }}>
               <svg className="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 100 60" fill="none">
                 <path d="M50 60C22 60 5 45 2 35C0 28 5 15 20 8C35 1 50 5 50 5C50 5 65 1 80 8C95 15 100 28 98 35C95 45 78 60 50 60Z" fill="#E91E63"/>
@@ -734,19 +735,19 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               onClick={switchToOpenChat}
               className="chat-btn-responsive"
               style={{
-                padding: '2px 6px',
+                padding: '4px 10px',
                 borderRadius: '4px',
                 border: 'none',
                 background: chatMode === 'open' ? '#10b981' : 'transparent',
                 color: chatMode === 'open' ? 'white' : '#666',
                 fontWeight: '600',
-                fontSize: '11px',
+                fontSize: '12px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 whiteSpace: 'nowrap',
               }}
             >
-              Chat
+              Open Chat
             </button>
             
             {/* Private Chat Button */}
