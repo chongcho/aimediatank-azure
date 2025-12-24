@@ -26,7 +26,7 @@ export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
   const [isEmailSupportOpen, setIsEmailSupportOpen] = useState(false)
-  const [isTalkChatOpen, setIsTalkChatOpen] = useState(false)
+  const [isTalkChatOpen, setIsTalkChatOpen] = useState(true) // Always show chat
   const [isSignInOpen, setIsSignInOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)

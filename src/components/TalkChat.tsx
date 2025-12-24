@@ -1749,7 +1749,8 @@ export default function TalkChat({ isOpen, onClose }: TalkChatProps) {
     return () => setMounted(false)
   }, [])
 
-  if (!isOpen || !mounted) {
+  // Always render the chat - don't check isOpen
+  if (!mounted) {
     return null
   }
 
