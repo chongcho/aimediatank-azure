@@ -13,7 +13,7 @@ function createTransporter() {
   // TODO: Fix Vercel env vars and remove hardcoded fallback
   const host = process.env.EMAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com'
   const port = parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || '587')
-  const user = process.env.EMAIL_USER || process.env.SMTP_USER || 'support@aimediatank.com'
+  const user = process.env.EMAIL_USER || process.env.SMTP_USER || 'james.cho@aimediatank.com'
   const pass = process.env.EMAIL_PASS || process.env.SMTP_PASS || 'ftjppnyzanybatwn'
   
   console.log('SMTP Config: Using', host, 'with user', user)
@@ -31,7 +31,7 @@ function createTransporter() {
 
 // Send email using SMTP
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
-  const emailFrom = process.env.EMAIL_FROM || process.env.SMTP_USER || 'support@aimediatank.com'
+  const emailFrom = process.env.EMAIL_FROM || process.env.SMTP_USER || 'james.cho@aimediatank.com'
   
   const transporter = createTransporter()
   
