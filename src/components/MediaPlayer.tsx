@@ -37,7 +37,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
           {/* Fullscreen button */}
           <button
             onClick={() => setIsFullscreen(true)}
-            className="absolute top-3 right-3 w-10 h-10 rounded-lg bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+            className="absolute bottom-3 right-3 w-10 h-10 rounded-lg bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
             title="View fullscreen"
           >
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
