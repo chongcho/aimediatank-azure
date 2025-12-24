@@ -681,58 +681,31 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               Open Chat
             </button>
             
-            {/* Private Chat Button with invite badge */}
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={switchToPrivateChat}
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
-                  color: chatMode === 'private' ? 'white' : '#666',
-                  fontWeight: '600',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                Private Chat
-              </button>
-              {/* Invite notification badge */}
-              {chatInvites.length > 0 && (
-                <span
-                  onClick={(e) => { e.stopPropagation(); setShowInvites(!showInvites); setChatMode('private'); }}
-                  style={{
-                    position: 'absolute',
-                    top: '-6px',
-                    right: '-6px',
-                    background: '#ef4444',
-                    color: 'white',
-                    borderRadius: '50%',
-                    width: '20px',
-                    height: '20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    animation: 'pulse 2s infinite',
-                  }}
-                >
-                  {chatInvites.length}
-                </span>
-              )}
-            </div>
+            {/* Private Chat Button */}
+            <button
+              onClick={switchToPrivateChat}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
+                color: chatMode === 'private' ? 'white' : '#666',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Private Chat
+            </button>
 
-            {/* Chat Record Button */}
+            {/* Chat Record Button with invite badge */}
             <div style={{ position: 'relative' }}>
               <button
                 onClick={toggleChatRecords}
@@ -756,6 +729,31 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 </svg>
                 Chat Record
               </button>
+              {/* Invite notification badge */}
+              {chatInvites.length > 0 && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); toggleChatRecords(); }}
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-6px',
+                    background: '#ef4444',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    animation: 'pulse 2s infinite',
+                  }}
+                >
+                  {chatInvites.length}
+                </span>
+              )}
 
               {/* Chat Records Dropdown */}
               {showChatRecords && (
