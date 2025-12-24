@@ -380,16 +380,19 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   // Render message content with clickable links
   const renderMessageContent = (content: string) => {
+    // Remove hashtags (e.g., #dog, #hashtag) from display
+    const contentWithoutHashtags = content.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim()
+    
     // Match markdown links [text](url) and plain URLs
     const linkRegex = /\[([^\]]+)\]\(([^)]+)\)|(https?:\/\/[^\s]+)/g
     const parts: React.ReactNode[] = []
     let lastIndex = 0
     let match
 
-    while ((match = linkRegex.exec(content)) !== null) {
+    while ((match = linkRegex.exec(contentWithoutHashtags)) !== null) {
       // Add text before the match
       if (match.index > lastIndex) {
-        parts.push(content.slice(lastIndex, match.index))
+        parts.push(contentWithoutHashtags.slice(lastIndex, match.index))
       }
 
       if (match[1] && match[2]) {
@@ -429,11 +432,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
 
     // Add remaining text
-    if (lastIndex < content.length) {
-      parts.push(content.slice(lastIndex))
+    if (lastIndex < contentWithoutHashtags.length) {
+      parts.push(contentWithoutHashtags.slice(lastIndex))
     }
 
-    return parts.length > 0 ? parts : content
+    return parts.length > 0 ? parts : contentWithoutHashtags
   }
 
   // Search users for @mention
