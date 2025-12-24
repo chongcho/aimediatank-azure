@@ -84,8 +84,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [mentionQuery, setMentionQuery] = useState('')
   const [mentionUsers, setMentionUsers] = useState<UserSuggestion[]>([])
   const [mentionIndex, setMentionIndex] = useState(0)
-  // Chat size state: 'max' (40vh) | 'medium' (20vh) | 'min' (hidden)
-  const [chatSize, setChatSize] = useState<'max' | 'medium' | 'min'>('max')
+  // Chat size state: 'max' (40vh) | 'medium' (30vh) | 'min' (hidden)
+  const [chatSize, setChatSize] = useState<'max' | 'medium' | 'min'>('medium')
   
   // Load chat size from localStorage on mount
   useEffect(() => {
