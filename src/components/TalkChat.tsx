@@ -710,7 +710,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               }
             }
           `}</style>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 1, minWidth: 0 }}>
             {/* Lip Chat Icon with yellow background */}
             <div className="chat-icon-responsive" style={{
               background: '#facc15',
@@ -734,7 +734,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               onClick={switchToOpenChat}
               className="chat-btn-responsive"
               style={{
-                padding: '4px 10px',
+                padding: '4px 6px',
                 borderRadius: '4px',
                 border: 'none',
                 background: chatMode === 'open' ? '#10b981' : 'transparent',
@@ -754,7 +754,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               onClick={switchToPrivateChat}
               className="chat-btn-responsive"
               style={{
-                padding: '4px 10px',
+                padding: '4px 6px',
                 borderRadius: '4px',
                 border: 'none',
                 background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
@@ -763,15 +763,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 fontSize: '12px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
                 whiteSpace: 'nowrap',
               }}
             >
-              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
               Private Chat
             </button>
 
@@ -781,7 +775,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 onClick={toggleChatRecords}
                 className="chat-btn-responsive"
                 style={{
-                  padding: '4px 10px',
+                  padding: '4px 6px',
                   borderRadius: '4px',
                   border: 'none',
                   background: showChatRecords ? '#10b981' : 'transparent',
@@ -790,15 +784,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   fontSize: '12px',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
                   whiteSpace: 'nowrap',
                 }}
               >
-                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
                 Chat Record
               </button>
               {/* Invite notification badge */}
