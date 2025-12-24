@@ -620,8 +620,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       }}>
         {/* Chat container - always visible */}
         <div 
+          className="chat-container-responsive"
           style={{
             height: isMinimized ? 'auto' : '40vh',
+            minHeight: isMinimized ? 'auto' : '250px',
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
@@ -633,16 +635,26 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             transition: 'height 0.3s ease-in-out',
             pointerEvents: 'auto', // Only chat container captures clicks
           }}>
+          <style>{`
+            @media (max-width: 640px) {
+              .chat-container-responsive {
+                height: ${isMinimized ? 'auto' : '50vh'} !important;
+                border-radius: 0 !important;
+              }
+            }
+          `}</style>
         {/* Header */}
         <div style={{
           background: '#e8e8e8',
-          padding: '4px 12px',
+          padding: '4px 8px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: '1px solid #ccc',
+          flexWrap: 'wrap',
+          gap: '4px',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
             {/* Lip Chat Icon with yellow background */}
             <div style={{
               background: '#facc15',
@@ -663,68 +675,74 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             {/* Open Chat Button */}
             <button
               onClick={switchToOpenChat}
+              className="chat-btn-responsive"
               style={{
-                padding: '4px 12px',
+                padding: '4px 10px',
                 borderRadius: '6px',
                 border: 'none',
                 background: chatMode === 'open' ? '#10b981' : 'transparent',
                 color: chatMode === 'open' ? 'white' : '#666',
                 fontWeight: '600',
-                fontSize: '14px',
+                fontSize: '13px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
               }}
             >
-              Open Chat
+              <span className="hidden sm:inline">Open </span>Chat
             </button>
             
             {/* Private Chat Button */}
             <button
               onClick={switchToPrivateChat}
+              className="chat-btn-responsive"
               style={{
-                padding: '4px 12px',
+                padding: '4px 10px',
                 borderRadius: '6px',
                 border: 'none',
                 background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
                 color: chatMode === 'private' ? 'white' : '#666',
                 fontWeight: '600',
-                fontSize: '14px',
+                fontSize: '13px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
+                whiteSpace: 'nowrap',
               }}
             >
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
-              Private Chat
+              <span className="hidden sm:inline">Private </span><span className="sm:hidden">Pvt</span><span className="hidden sm:inline">Chat</span>
             </button>
 
             {/* Chat Record Button with invite badge */}
             <div style={{ position: 'relative' }}>
               <button
                 onClick={toggleChatRecords}
+                className="chat-btn-responsive"
                 style={{
-                  padding: '4px 12px',
+                  padding: '4px 10px',
                   borderRadius: '6px',
                   border: 'none',
                   background: showChatRecords ? '#10b981' : 'transparent',
                   color: showChatRecords ? 'white' : '#666',
                   fontWeight: '600',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
-                Chat Record
+                <span className="hidden sm:inline">Chat </span>Record
               </button>
               {/* Invite notification badge */}
               {chatInvites.length > 0 && (
@@ -756,11 +774,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               {showChatRecords && (
                 <div
                   ref={chatRecordsRef}
+                  className="chat-dropdown-responsive"
                   style={{
                     position: 'absolute',
                     top: '36px',
                     left: '0',
                     width: '280px',
+                    maxWidth: 'calc(100vw - 32px)',
                     background: 'white',
                     borderRadius: '8px',
                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
@@ -1022,11 +1042,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         {showUserPicker && chatMode === 'private' && (
           <div
             ref={userPickerRef}
+            className="chat-dropdown-responsive"
             style={{
               position: 'absolute',
               top: '50px',
-              left: '150px',
+              left: '8px',
               width: '280px',
+              maxWidth: 'calc(100vw - 32px)',
               background: 'white',
               borderRadius: '8px',
               boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
