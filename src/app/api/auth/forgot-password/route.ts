@@ -17,14 +17,19 @@ export async function POST(request: Request) {
       )
     }
 
+    const normalizedEmail = email.toLowerCase()
+    
     // Check if user exists
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email: normalizedEmail },
     })
+
+    console.log('Forgot password request for:', normalizedEmail, 'User found:', !!user)
 
     if (!user) {
       // Don't reveal if email exists or not for security
       // But still return success to prevent email enumeration
+      console.log('User not found for email:', normalizedEmail)
       return NextResponse.json({
         success: true,
         message: 'If an account exists with this email, a reset code has been sent.',
@@ -33,7 +38,9 @@ export async function POST(request: Request) {
 
     // Generate and store 6-digit code
     const code = generateCode()
-    await storeCode(email, code, 15) // 15 minutes expiry for password reset
+    await storeCode(normalizedEmail, code, 15) // 15 minutes expiry for password reset
+    
+    console.log('Generated reset code for:', normalizedEmail, 'Code:', code)
 
     // Send email with code
     const emailHtml = `
@@ -80,19 +87,21 @@ export async function POST(request: Request) {
 </html>
 `
 
+    console.log('Sending password reset email to:', normalizedEmail)
+    
     const emailSent = await sendEmail({
-      to: email,
+      to: normalizedEmail,
       subject: 'Reset Your AI Media Tank Password',
       html: emailHtml,
     })
 
-    // Return success (include code in dev mode for testing)
-    const isDev = process.env.NODE_ENV === 'development'
-    
+    console.log('Email send result:', emailSent)
+
+    // Return success (always include code for now until email is working)
     return NextResponse.json({
       success: true,
       message: 'Password reset code sent',
-      ...(isDev || !emailSent ? { code } : {}), // Show code if email failed or in dev
+      code, // Always show code until email sending is confirmed working
     })
   } catch (error) {
     console.error('Error sending password reset code:', error)
