@@ -210,17 +210,6 @@ export default function MediaCard({ media }: MediaCardProps) {
             </div>
           )}
 
-          {/* SOLD Badge */}
-          {media.isSold && (
-            <div className="absolute top-3 left-3 z-10">
-              <div className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg shadow-lg flex items-center gap-1.5">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                </svg>
-                SOLD
-              </div>
-            </div>
-          )}
 
         </div>
 
