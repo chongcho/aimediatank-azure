@@ -314,7 +314,7 @@ export default function Navbar() {
                             e.stopPropagation()
                             setIsAlertsOpen(!isAlertsOpen)
                           }}
-                          className="flex items-center gap-3 px-4 py-1 hover:bg-tank-light transition-colors w-full text-left"
+                          className="flex items-center gap-3 px-4 py-0.5 hover:bg-tank-light transition-colors w-full text-left"
                         >
                           <div className="relative">
                             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -393,7 +393,7 @@ export default function Navbar() {
                       </div>
                       <Link
                         href="/profile/edit"
-                        className="flex items-center gap-3 px-4 py-1 hover:bg-tank-light transition-colors"
+                        className="flex items-center gap-3 px-4 py-0.5 hover:bg-tank-light transition-colors"
                         onClick={() => setIsProfileOpen(false)}
                       >
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -403,7 +403,7 @@ export default function Navbar() {
                       </Link>
                       <Link
                         href={`/profile/${userData?.username || session.user?.username}`}
-                        className="flex items-center gap-3 px-4 py-1 hover:bg-tank-light transition-colors"
+                        className="flex items-center gap-3 px-4 py-0.5 hover:bg-tank-light transition-colors"
                         onClick={() => setIsProfileOpen(false)}
                       >
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -413,7 +413,7 @@ export default function Navbar() {
                       </Link>
                       <Link
                         href="/pricing"
-                        className="flex items-center gap-3 px-4 py-1 hover:bg-tank-light transition-colors"
+                        className="flex items-center gap-3 px-4 py-0.5 hover:bg-tank-light transition-colors"
                         onClick={() => setIsProfileOpen(false)}
                       >
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -426,7 +426,7 @@ export default function Navbar() {
                           setIsProfileOpen(false)
                           setIsEmailSupportOpen(true)
                         }}
-                        className="flex items-center gap-3 px-4 py-1 hover:bg-tank-light transition-colors w-full text-left"
+                        className="flex items-center gap-3 px-4 py-0.5 hover:bg-tank-light transition-colors w-full text-left"
                       >
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -435,7 +435,7 @@ export default function Navbar() {
                       </button>
                       <Link
                         href="/policy"
-                        className="flex items-center gap-3 px-4 py-1 hover:bg-tank-light transition-colors"
+                        className="flex items-center gap-3 px-4 py-0.5 hover:bg-tank-light transition-colors"
                         onClick={() => setIsProfileOpen(false)}
                       >
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -446,7 +446,7 @@ export default function Navbar() {
                       {isAdmin && (
                         <Link
                           href="/admin"
-                          className="flex items-center gap-3 px-4 py-1 hover:bg-tank-light transition-colors text-red-400"
+                          className="flex items-center gap-3 px-4 py-0.5 hover:bg-tank-light transition-colors text-red-400"
                           onClick={() => setIsProfileOpen(false)}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -458,7 +458,7 @@ export default function Navbar() {
                       )}
                       <button
                         onClick={() => signOut({ callbackUrl: '/' })}
-                        className="flex items-center gap-3 px-4 py-1 hover:bg-tank-light transition-colors w-full text-left text-gray-400"
+                        className="flex items-center gap-3 px-4 py-0.5 hover:bg-tank-light transition-colors w-full text-left text-gray-400"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
