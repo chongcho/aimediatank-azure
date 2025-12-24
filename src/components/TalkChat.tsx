@@ -84,8 +84,57 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [mentionQuery, setMentionQuery] = useState('')
   const [mentionUsers, setMentionUsers] = useState<UserSuggestion[]>([])
   const [mentionIndex, setMentionIndex] = useState(0)
-  // Minimize state
-  const [isMinimized, setIsMinimized] = useState(false)
+  // Chat size state: 'max' (40vh) | 'medium' (20vh) | 'min' (hidden)
+  const [chatSize, setChatSize] = useState<'max' | 'medium' | 'min'>('max')
+  
+  // Load chat size from localStorage on mount
+  useEffect(() => {
+    const savedSize = localStorage.getItem('talkChatSize')
+    if (savedSize === 'max' || savedSize === 'medium' || savedSize === 'min') {
+      setChatSize(savedSize)
+    }
+  }, [])
+  
+  // Save chat size to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('talkChatSize', chatSize)
+  }, [chatSize])
+  
+  // Size control functions
+  const pushDown = () => {
+    if (chatSize === 'max') setChatSize('medium')
+    else if (chatSize === 'medium') setChatSize('min')
+  }
+  
+  const pushUp = () => {
+    if (chatSize === 'min') setChatSize('medium')
+    else if (chatSize === 'medium') setChatSize('max')
+  }
+  
+  // Get height based on chat size
+  const getChatHeight = () => {
+    switch (chatSize) {
+      case 'max': return '40vh'
+      case 'medium': return '20vh'
+      case 'min': return 'auto'
+    }
+  }
+  
+  const getChatMinHeight = () => {
+    switch (chatSize) {
+      case 'max': return '250px'
+      case 'medium': return '150px'
+      case 'min': return 'auto'
+    }
+  }
+  
+  const getMobileChatHeight = () => {
+    switch (chatSize) {
+      case 'max': return '50vh'
+      case 'medium': return '25vh'
+      case 'min': return 'auto'
+    }
+  }
   // Chat mode: 'open' or 'private'
   const [chatMode, setChatMode] = useState<'open' | 'private'>('open')
   // Private chat recipient
@@ -622,8 +671,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         <div 
           className="chat-container-responsive"
           style={{
-            height: isMinimized ? 'auto' : '40vh',
-            minHeight: isMinimized ? 'auto' : '250px',
+            height: getChatHeight(),
+            minHeight: getChatMinHeight(),
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
@@ -638,7 +687,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           <style>{`
             @media (max-width: 640px) {
               .chat-container-responsive {
-                height: ${isMinimized ? 'auto' : '50vh'} !important;
+                height: ${getMobileChatHeight()} !important;
                 border-radius: 0 !important;
               }
             }
@@ -927,38 +976,56 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           
-          {/* Slide down/up toggle button */}
-          <button
-            onClick={() => setIsMinimized(!isMinimized)}
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '4px',
-              border: 'none',
-              background: '#2563eb',
-              color: 'white',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'transform 0.3s ease',
-            }}
-            title={isMinimized ? 'Expand chat' : 'Minimize chat'}
-          >
-            <svg 
-              width="16" 
-              height="16" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
+          {/* Size control buttons */}
+          <div style={{ display: 'flex', gap: '2px' }}>
+            {/* Push Up button */}
+            <button
+              onClick={pushUp}
+              disabled={chatSize === 'max'}
               style={{
-                transform: isMinimized ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: 'transform 0.3s ease',
+                width: '28px',
+                height: '32px',
+                borderRadius: '4px 0 0 4px',
+                border: 'none',
+                background: chatSize === 'max' ? '#94a3b8' : '#2563eb',
+                color: 'white',
+                cursor: chatSize === 'max' ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: chatSize === 'max' ? 0.5 : 1,
               }}
+              title={chatSize === 'min' ? 'Medium size' : chatSize === 'medium' ? 'Max size' : 'Already at max'}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            
+            {/* Push Down button */}
+            <button
+              onClick={pushDown}
+              disabled={chatSize === 'min'}
+              style={{
+                width: '28px',
+                height: '32px',
+                borderRadius: '0 4px 4px 0',
+                border: 'none',
+                background: chatSize === 'min' ? '#94a3b8' : '#2563eb',
+                color: 'white',
+                cursor: chatSize === 'min' ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: chatSize === 'min' ? 0.5 : 1,
+              }}
+              title={chatSize === 'max' ? 'Medium size' : chatSize === 'medium' ? 'Minimize' : 'Already minimized'}
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Chat Invites Notification Panel */}
@@ -1164,7 +1231,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Messages Area - Hidden when minimized */}
-        {!isMinimized && (
+        {chatSize !== 'min' && (
         <div 
           className="chat-messages-scroll"
           style={{
@@ -1316,7 +1383,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Input Area - Hidden when minimized */}
-        {!isMinimized && (
+        {chatSize !== 'min' && (
         <form 
           onSubmit={sendMessage} 
           onClick={(e) => e.stopPropagation()}
