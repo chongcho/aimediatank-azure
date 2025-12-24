@@ -14,6 +14,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -25,13 +26,49 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
 
   if (type === 'IMAGE') {
     return (
-      <div className="relative w-full rounded-2xl overflow-hidden bg-tank-dark">
-        <img
-          src={url}
-          alt={title}
-          className="w-full h-auto max-h-[80vh] object-contain"
-        />
-      </div>
+      <>
+        <div className="relative w-full rounded-2xl overflow-hidden bg-tank-dark group">
+          <img
+            src={url}
+            alt={title}
+            className="w-full h-auto max-h-[80vh] object-contain cursor-pointer"
+            onClick={() => setIsFullscreen(true)}
+          />
+          {/* Fullscreen button */}
+          <button
+            onClick={() => setIsFullscreen(true)}
+            className="absolute top-3 right-3 w-10 h-10 rounded-lg bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+            title="View fullscreen"
+          >
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Fullscreen overlay */}
+        {isFullscreen && (
+          <div
+            className="fixed inset-0 z-[99999] bg-black flex items-center justify-center"
+            onClick={() => setIsFullscreen(false)}
+          >
+            <button
+              onClick={() => setIsFullscreen(false)}
+              className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors"
+            >
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <img
+              src={url}
+              alt={title}
+              className="max-w-full max-h-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+      </>
     )
   }
 
