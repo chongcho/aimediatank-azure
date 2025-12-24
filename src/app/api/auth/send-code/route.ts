@@ -7,9 +7,9 @@ export const dynamic = 'force-dynamic'
 // Send verification code to email
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json()
+    const { email: rawEmail } = await request.json()
 
-    if (!email) {
+    if (!rawEmail) {
       return NextResponse.json(
         { error: 'Email is required' },
         { status: 400 }
@@ -18,12 +18,15 @@ export async function POST(request: Request) {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(rawEmail)) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }
       )
     }
+
+    // Normalize email to lowercase
+    const email = rawEmail.toLowerCase()
 
     // Generate and store 6-digit code
     const code = generateCode()

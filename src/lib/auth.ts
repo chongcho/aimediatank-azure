@@ -22,8 +22,11 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Please enter email and password')
         }
 
+        // Normalize email to lowercase for case-insensitive login
+        const normalizedEmail = credentials.email.toLowerCase()
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: normalizedEmail },
         })
 
         if (!user) {

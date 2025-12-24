@@ -10,15 +10,18 @@ function generateVerificationToken() {
 
 export async function POST(request: Request) {
   try {
-    const { email, username, password, name, legalName, phone, location, ageRange, bio } = await request.json()
+    const { email: rawEmail, username, password, name, legalName, phone, location, ageRange, bio } = await request.json()
 
     // Validation
-    if (!email || !username || !password) {
+    if (!rawEmail || !username || !password) {
       return NextResponse.json(
         { error: 'Email, username, and password are required' },
         { status: 400 }
       )
     }
+
+    // Normalize email to lowercase for consistency
+    const email = rawEmail.toLowerCase()
 
     if (password.length < 6) {
       return NextResponse.json(
