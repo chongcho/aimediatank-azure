@@ -514,23 +514,6 @@ export default function Navbar() {
               <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
               <MobileNavLink href="/?type=MUSIC" onClick={() => setIsMenuOpen(false)}>Music</MobileNavLink>
               <MobileNavLink href={isSubscriber ? "/upload" : "/pricing"} onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
-              {session && (
-                <>
-                  <div className="border-t border-tank-light my-2"></div>
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false)
-                      setIsEmailSupportOpen(true)
-                    }}
-                    className="flex items-center gap-3 px-4 py-1.5 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all w-full text-left"
-                  >
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    Support
-                  </button>
-                </>
-              )}
             </div>
           </div>
         )}
@@ -589,7 +572,7 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
     <Link
       href={href}
       onClick={handleClick}
-      className="px-4 py-1 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all"
+      className="px-4 py-0.5 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all"
     >
       {children}
     </Link>
