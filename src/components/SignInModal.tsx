@@ -144,9 +144,18 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', color: '#ccc', fontSize: '14px', marginBottom: '8px' }}>
-              Password
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label style={{ color: '#ccc', fontSize: '14px' }}>
+                Password
+              </label>
+              <Link 
+                href="/forgot-password" 
+                onClick={onClose}
+                style={{ color: '#10b981', fontSize: '13px', textDecoration: 'none' }}
+              >
+                Forgot password?
+              </Link>
+            </div>
             <input
               type="password"
               value={password}
