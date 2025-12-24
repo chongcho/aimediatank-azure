@@ -508,7 +508,7 @@ export default function Navbar() {
         {/* Mobile Menu */}
         {isMenuOpen && (
           <div ref={mobileMenuRef} className="md:hidden py-4 border-t border-tank-light">
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
               <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>Home</MobileNavLink>
               <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
               <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
@@ -522,7 +522,7 @@ export default function Navbar() {
                       setIsMenuOpen(false)
                       setIsEmailSupportOpen(true)
                     }}
-                    className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all w-full text-left"
+                    className="flex items-center gap-3 px-4 py-1.5 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all w-full text-left"
                   >
                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -589,7 +589,7 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
     <Link
       href={href}
       onClick={handleClick}
-      className="px-4 py-3 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all"
+      className="px-4 py-1 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all"
     >
       {children}
     </Link>
