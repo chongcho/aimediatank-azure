@@ -508,7 +508,7 @@ export default function Navbar() {
         {/* Mobile Menu */}
         {isMenuOpen && (
           <div ref={mobileMenuRef} className="md:hidden py-1 border-t border-tank-light">
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-[1px] items-end">
               <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>Home</MobileNavLink>
               <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
               <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
@@ -572,7 +572,7 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
     <Link
       href={href}
       onClick={handleClick}
-      className="px-4 py-0.5 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all"
+      className="px-4 py-0.5 text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all text-right"
     >
       {children}
     </Link>
