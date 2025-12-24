@@ -221,7 +221,7 @@ export default function MediaCard({ media }: MediaCardProps) {
               {renderTitle(media.title)}
             </h3>
             {/* Media Type Badge */}
-            <div className={`px-2 py-1 rounded-md ${typeStyle.bg} text-white text-xs font-bold flex items-center gap-1 shrink-0`}>
+            <div className="px-2 py-1 text-gray-400 text-xs font-bold flex items-center gap-1 shrink-0">
               {getTypeIcon()}
               <span>{media.type}</span>
             </div>
