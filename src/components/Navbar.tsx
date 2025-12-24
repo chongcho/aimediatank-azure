@@ -296,8 +296,8 @@ export default function Navbar() {
                   </button>
 
                   {isProfileOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-tank-dark border border-tank-light rounded-xl shadow-xl py-2">
-                      <div className="px-4 py-2 border-b border-tank-light">
+                    <div className="absolute right-0 mt-2 w-56 bg-tank-dark border border-tank-light rounded-xl shadow-xl py-1">
+                      <div className="px-4 py-1 border-b border-tank-light">
                         <p className="font-semibold">{userData?.username || session.user?.username || 'User'}</p>
                         <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded-full ${
                           isAdmin ? 'bg-red-500/20 text-red-400' :
@@ -507,7 +507,7 @@ export default function Navbar() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div ref={mobileMenuRef} className="md:hidden py-2 border-t border-tank-light">
+          <div ref={mobileMenuRef} className="md:hidden py-1 border-t border-tank-light">
             <div className="flex flex-col gap-0.5">
               <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>Home</MobileNavLink>
               <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
