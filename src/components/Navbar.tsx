@@ -236,10 +236,10 @@ export default function Navbar() {
             {/* Chat Button - Always visible for all users */}
             <div className="relative">
               <button
-                onClick={() => setIsTalkChatOpen(true)}
+                onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
                 className="w-9 h-9 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
-                aria-label="Open Chat"
-                title="Open Chat"
+                aria-label="Toggle Chat"
+                title="Toggle Chat"
               >
                 <svg width="22" height="22" viewBox="0 0 100 60" fill="none">
                   <path d="M50 58C25 58 8 45 4 35C1 27 6 15 20 8C34 1 50 5 50 5C50 5 66 1 80 8C94 15 99 27 96 35C92 45 75 58 50 58Z" fill="#E91E63"/>
