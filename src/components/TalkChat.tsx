@@ -115,7 +115,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const getChatHeight = () => {
     switch (chatSize) {
       case 'max': return '40vh'
-      case 'medium': return '20vh'
+      case 'medium': return '30vh'
       case 'min': return 'auto'
     }
   }
@@ -123,7 +123,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const getChatMinHeight = () => {
     switch (chatSize) {
       case 'max': return '250px'
-      case 'medium': return '150px'
+      case 'medium': return '200px'
       case 'min': return 'auto'
     }
   }
@@ -131,7 +131,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const getMobileChatHeight = () => {
     switch (chatSize) {
       case 'max': return '50vh'
-      case 'medium': return '25vh'
+      case 'medium': return '35vh'
       case 'min': return 'auto'
     }
   }
