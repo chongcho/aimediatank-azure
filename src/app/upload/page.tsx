@@ -513,7 +513,7 @@ function UploadPageContent() {
               Media Type *
             </label>
             <div className="grid grid-cols-3 gap-3">
-              {['IMAGE', 'VIDEO', 'MUSIC'].map((type) => (
+              {['IMAGE', 'VIDEO'].map((type) => (
                 <button
                   key={type}
                   type="button"
@@ -573,7 +573,6 @@ function UploadPageContent() {
                   <p className="text-sm text-gray-500 mt-2">
                     {formData.type === 'VIDEO' && 'MP4, WebM, MOV'}
                     {formData.type === 'IMAGE' && 'JPG, PNG, GIF, WebP'}
-                    {formData.type === 'MUSIC' && 'MP3, WAV, OGG'}
                   </p>
                 </>
               )}
@@ -594,7 +593,7 @@ function UploadPageContent() {
           </div>
 
           {/* Thumbnail (for video/music) */}
-          {(formData.type === 'VIDEO' || formData.type === 'MUSIC') && (
+          {formData.type === 'VIDEO' && (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Thumbnail {thumbnail ? '✓' : '(optional)'}

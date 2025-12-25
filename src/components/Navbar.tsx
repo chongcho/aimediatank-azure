@@ -225,7 +225,7 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
-            <NavLink href="/">Home</NavLink>
+            <NavLink href="/">All</NavLink>
             <NavLink href="/?type=VIDEO">Videos</NavLink>
             <NavLink href="/?type=IMAGE">Images</NavLink>
           </div>
@@ -508,7 +508,7 @@ export default function Navbar() {
         {isMenuOpen && (
           <div ref={mobileMenuRef} className="md:hidden py-1 border-t border-tank-light">
             <div className="flex flex-col gap-[1px] items-end">
-              <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>Home</MobileNavLink>
+              <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>All</MobileNavLink>
               <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
               <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
               <MobileNavLink href={isSubscriber ? "/upload" : "/pricing"} onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
