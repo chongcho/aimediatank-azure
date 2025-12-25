@@ -663,14 +663,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         zIndex: 99999,
         pointerEvents: 'none', // Allow clicks to pass through to background
       }}>
-      {/* Wrapper to match content area alignment */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16" style={{ 
+      {/* Wrapper to center chat - 2 tile width */}
+      <div style={{ 
         position: 'relative',
         bottom: 0,
         left: 0,
         right: 0,
+        display: 'flex',
+        justifyContent: 'center',
+        padding: '0 16px',
       }}>
-        {/* Chat container - always visible */}
+        {/* Chat container - always visible, 2 tile width */}
         <div 
           className="chat-container-responsive"
           onClick={(e) => e.stopPropagation()}
@@ -680,6 +683,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             height: getChatHeight(),
             minHeight: getChatMinHeight(),
             width: '100%',
+            maxWidth: '800px',
             display: 'flex',
             flexDirection: 'column',
             borderTopLeftRadius: '12px',
