@@ -683,7 +683,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             height: getChatHeight(),
             minHeight: getChatMinHeight(),
             width: '100%',
-            maxWidth: '800px',
+            maxWidth: '1000px',
             display: 'flex',
             flexDirection: 'column',
             borderTopLeftRadius: '12px',
