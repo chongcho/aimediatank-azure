@@ -678,7 +678,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           }
           @media (max-width: 640px) {
             .chat-wrapper-responsive {
-              padding: 0 36px 0 16px;
+              padding: 0 0 0 16px;
             }
           }
         `}</style>
