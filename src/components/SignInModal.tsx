@@ -96,18 +96,12 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
-            <div style={{
-              background: '#10b981',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '14px',
-            }}>
-              AI
-            </div>
-            <span style={{ color: 'white', fontWeight: 'bold', fontSize: '20px' }}>MediaTank</span>
+          <div style={{ marginBottom: '16px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '28px' }}>
+              <span style={{ color: '#10b981' }}>Ai</span>
+              <span style={{ color: '#ef4444' }}>Media</span>
+              <span style={{ color: '#3b82f6' }}>Tank</span>
+            </span>
           </div>
           <h2 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0' }}>
             Welcome Back
