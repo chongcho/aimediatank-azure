@@ -664,7 +664,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         pointerEvents: 'none', // Allow clicks to pass through to background
       }}>
       {/* Wrapper to match content area alignment */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6" style={{ 
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16" style={{ 
         position: 'relative',
         bottom: 0,
         left: 0,
