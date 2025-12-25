@@ -97,10 +97,10 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <div style={{ marginBottom: '16px' }}>
-            <span style={{ fontWeight: 'bold', fontSize: '28px' }}>
-              <span style={{ color: '#10b981' }}>Ai</span>
-              <span style={{ color: '#ef4444' }}>Media</span>
-              <span style={{ color: '#3b82f6' }}>Tank</span>
+            <span style={{ fontWeight: 'bold', fontSize: '28px', color: 'white' }}>
+              <span style={{ color: '#10b981' }}>A</span>i
+              <span style={{ color: '#ef4444' }}>M</span>edia
+              <span style={{ color: '#3b82f6' }}>T</span>ank
             </span>
           </div>
           <h2 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0' }}>

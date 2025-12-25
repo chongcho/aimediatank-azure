@@ -114,10 +114,10 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-6">
-            <span className="font-bold text-3xl">
-              <span className="text-tank-accent">Ai</span>
-              <span className="text-red-500">Media</span>
-              <span className="text-blue-500">Tank</span>
+            <span className="font-bold text-3xl text-white">
+              <span className="text-tank-accent">A</span>i
+              <span className="text-red-500">M</span>edia
+              <span className="text-blue-500">T</span>ank
             </span>
           </Link>
           <h1 className="text-3xl font-bold mb-2">
