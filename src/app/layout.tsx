@@ -3,6 +3,7 @@ import Script from 'next/script'
 import './globals.css'
 import Providers from '@/components/Providers'
 import Navbar from '@/components/Navbar'
+import InstallPrompt from '@/components/InstallPrompt'
 
 export const metadata: Metadata = {
   title: 'AiMediaTank | AI-Generated Media Community',
@@ -79,6 +80,7 @@ export default function RootLayout({
           <main className="pt-16">
             {children}
           </main>
+          <InstallPrompt />
         </Providers>
       </body>
     </html>
