@@ -201,3 +201,20 @@ select {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Responsive media grid - YouTube-like fluid layout */
+.media-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+@media (min-width: 1536px) {
+  .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .media-grid {
+    grid-template-columns: 1fr;
+  }
+}

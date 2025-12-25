@@ -408,7 +408,7 @@ function HomeContent() {
 
       {/* Media Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div className="grid gap-5 media-grid">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
               <div className="aspect-video skeleton" />
@@ -429,7 +429,7 @@ function HomeContent() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <div className="grid gap-5 media-grid">
             {media.map((item) => (
               <MediaCard key={item.id} media={item} />
             ))}
@@ -470,7 +470,7 @@ export default function Home() {
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div className="grid gap-5 media-grid">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
               <div className="aspect-video skeleton" />
