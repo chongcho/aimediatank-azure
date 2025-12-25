@@ -41,11 +41,12 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-tank-accent to-emerald-400 rounded-xl flex items-center justify-center">
-              <span className="text-tank-black font-bold text-xl">AI</span>
-            </div>
-            <span className="font-bold text-2xl">MediaTank</span>
+          <Link href="/" className="inline-block mb-6">
+            <span className="font-bold text-3xl">
+              <span className="text-tank-accent">Ai</span>
+              <span className="text-red-500">Media</span>
+              <span className="text-blue-500">Tank</span>
+            </span>
           </Link>
           <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
           <p className="text-gray-400">Sign in to your account</p>
