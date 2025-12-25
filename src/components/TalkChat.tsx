@@ -19,6 +19,7 @@ interface ChatMessage {
 interface MediaItem {
   id: string
   title: string
+  url: string
   thumbnailUrl: string | null
   type: string
 }
@@ -1592,9 +1593,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           e.currentTarget.style.boxShadow = 'none'
                         }}
                       >
-                        {media.thumbnailUrl ? (
+                        {(media.thumbnailUrl || (media.type === 'IMAGE' && media.url)) ? (
                           <img 
-                            src={media.thumbnailUrl} 
+                            src={media.thumbnailUrl || media.url} 
                             alt={media.title}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           />
