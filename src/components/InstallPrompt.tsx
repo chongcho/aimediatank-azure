@@ -94,12 +94,12 @@ export default function InstallPrompt() {
     <div 
       style={{
         position: 'fixed',
-        bottom: '80px',
-        left: '50%',
-        transform: 'translateX(-50%)',
+        top: '50%',
+        right: '20px',
+        transform: 'translateY(-50%)',
         zIndex: 99998,
-        width: '90%',
-        maxWidth: '400px',
+        width: '320px',
+        maxWidth: '90%',
       }}
     >
       <div 
