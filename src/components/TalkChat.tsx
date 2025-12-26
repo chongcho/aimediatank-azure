@@ -1041,11 +1041,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     right: '0',
                     width: '280px',
                     maxWidth: 'calc(100vw - 32px)',
+                    maxHeight: 'calc(100vh - 150px)',
                     background: 'white',
                     borderRadius: '8px',
                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
                     border: '1px solid #ddd',
-                    zIndex: 100,
+                    zIndex: 9999,
                     overflow: 'hidden',
                     overscrollBehavior: 'contain',
                   }}
