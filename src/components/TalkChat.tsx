@@ -755,6 +755,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           onPointerDown={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           style={{
+            position: 'relative',
             height: getChatHeight(),
             minHeight: getChatMinHeight(),
             width: '100%',
@@ -1027,65 +1028,120 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   {chatInvites.length}
                 </span>
               )}
+            </div>
+          </div>
+          
+          {/* Size control buttons */}
+          <div style={{ display: 'flex', gap: '1px', flexShrink: 0 }}>
+            {/* Push Up button */}
+            <button
+              onClick={pushUp}
+              disabled={chatSize === 'max'}
+              className="w-6 h-6 sm:w-7 sm:h-8"
+              style={{
+                borderRadius: '3px 0 0 3px',
+                border: 'none',
+                background: chatSize === 'max' ? '#94a3b8' : '#2563eb',
+                color: 'white',
+                cursor: chatSize === 'max' ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: chatSize === 'max' ? 0.5 : 1,
+              }}
+              title={chatSize === 'min' ? 'Medium size' : chatSize === 'medium' ? 'Max size' : 'Already at max'}
+            >
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            
+            {/* Push Down button */}
+            <button
+              onClick={pushDown}
+              disabled={chatSize === 'min'}
+              className="w-6 h-6 sm:w-7 sm:h-8"
+              style={{
+                borderRadius: '0 3px 3px 0',
+                border: 'none',
+                background: chatSize === 'min' ? '#94a3b8' : '#2563eb',
+                color: 'white',
+                cursor: chatSize === 'min' ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: chatSize === 'min' ? 0.5 : 1,
+              }}
+              title={chatSize === 'max' ? 'Medium size' : chatSize === 'medium' ? 'Minimize' : 'Already minimized'}
+            >
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        </div>
 
-              {/* Chat Records Dropdown */}
-              {showChatRecords && (
-                <div
-                  ref={chatRecordsRef}
-                  className="chat-dropdown-responsive"
-                  onTouchMove={(e) => e.stopPropagation()}
-                  onWheel={(e) => e.stopPropagation()}
-                  style={{
-                    position: 'absolute',
-                    top: '36px',
-                    right: '0',
-                    width: '280px',
-                    maxWidth: 'calc(100vw - 32px)',
-                    maxHeight: 'calc(100vh - 150px)',
-                    background: 'white',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-                    border: '1px solid #ddd',
-                    zIndex: 9999,
-                    overflow: 'hidden',
-                    overscrollBehavior: 'contain',
-                  }}
-                >
-                  <div style={{
-                    padding: '10px 12px',
-                    borderBottom: '1px solid #eee',
-                    background: '#f0fdf4',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}>
-                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#333' }}>
-                      📋 Chat Records
-                    </span>
-                    <button
-                      onClick={() => setShowChatRecords(false)}
-                      style={{
-                        background: '#6b7280',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '2px 8px',
-                        fontSize: '11px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Close
-                    </button>
-                  </div>
-                  <div 
-                    data-scrollable
-                    onTouchMove={(e) => e.stopPropagation()}
-                    style={{
-                      maxHeight: '250px',
-                      overflowY: 'auto',
-                      overscrollBehavior: 'contain',
-                    }}
-                  >
+        {/* Chat Records Dropdown - positioned relative to chat container */}
+        {showChatRecords && (
+          <div
+            ref={chatRecordsRef}
+            className="chat-dropdown-responsive"
+            onTouchMove={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              top: '40px',
+              right: '8px',
+              bottom: '56px',
+              width: '280px',
+              maxWidth: 'calc(100vw - 32px)',
+              background: 'white',
+              borderRadius: '8px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #ddd',
+              zIndex: 9999,
+              overflow: 'hidden',
+              overscrollBehavior: 'contain',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div style={{
+              padding: '10px 12px',
+              borderBottom: '1px solid #eee',
+              background: '#f0fdf4',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: '#333' }}>
+                📋 Chat Records
+              </span>
+              <button
+                onClick={() => setShowChatRecords(false)}
+                style={{
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '2px 8px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <div 
+              data-scrollable
+              onTouchMove={(e) => e.stopPropagation()}
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                overscrollBehavior: 'contain',
+              }}
+            >
                     {loadingChatRecords ? (
                       <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
                         Loading...
@@ -1192,55 +1248,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 </div>
               )}
             </div>
-          </div>
-          
-          {/* Size control buttons */}
-          <div style={{ display: 'flex', gap: '1px', flexShrink: 0 }}>
-            {/* Push Up button */}
-            <button
-              onClick={pushUp}
-              disabled={chatSize === 'max'}
-              className="w-6 h-6 sm:w-7 sm:h-8"
-              style={{
-                borderRadius: '3px 0 0 3px',
-                border: 'none',
-                background: chatSize === 'max' ? '#94a3b8' : '#2563eb',
-                color: 'white',
-                cursor: chatSize === 'max' ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: chatSize === 'max' ? 0.5 : 1,
-              }}
-              title={chatSize === 'min' ? 'Medium size' : chatSize === 'medium' ? 'Max size' : 'Already at max'}
-            >
-              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-            </button>
-            
-            {/* Push Down button */}
-            <button
-              onClick={pushDown}
-              disabled={chatSize === 'min'}
-              className="w-6 h-6 sm:w-7 sm:h-8"
-              style={{
-                borderRadius: '0 3px 3px 0',
-                border: 'none',
-                background: chatSize === 'min' ? '#94a3b8' : '#2563eb',
-                color: 'white',
-                cursor: chatSize === 'min' ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: chatSize === 'min' ? 0.5 : 1,
-              }}
-              title={chatSize === 'max' ? 'Medium size' : chatSize === 'medium' ? 'Minimize' : 'Already minimized'}
-            >
-              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
           </div>
         </div>
 
