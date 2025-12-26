@@ -1038,7 +1038,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   style={{
                     position: 'absolute',
                     top: '36px',
-                    left: '0',
+                    right: '0',
                     width: '280px',
                     maxWidth: 'calc(100vw - 32px)',
                     background: 'white',
