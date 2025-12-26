@@ -233,6 +233,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setChatMode('open')
     setPrivateRecipient(null)
     setMessages([])
+    // Close all popups
+    setShowUserPicker(false)
+    setShowChatRecords(false)
   }
 
   // Fetch private chat invites
@@ -283,6 +286,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setChatMode('private')
     setShowUserPicker(true)
     setShowInvites(false)
+    // Close other popups
+    setShowChatRecords(false)
   }
 
   // Fetch chat records (previous private chat conversations)
@@ -312,6 +317,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       fetchChatRecords()
     }
     setShowChatRecords(!showChatRecords)
+    // Close other popups
+    setShowUserPicker(false)
   }
 
   // Select a chat record to continue conversation
