@@ -1244,12 +1244,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                         )
                       })
                     )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
-        </div>
+        )}
 
         {/* Chat Invites Notification Panel */}
         {chatInvites.length > 0 && chatMode === 'private' && !privateRecipient && (
