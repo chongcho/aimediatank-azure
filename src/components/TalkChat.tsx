@@ -772,25 +772,151 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               Open Chat
             </button>
             
-            {/* Private Chat Button */}
-            <button
-              onClick={switchToPrivateChat}
-              className="chat-btn-responsive"
-              style={{
-                padding: '4px 6px',
-                borderRadius: '4px',
-                border: 'none',
-                background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
-                color: chatMode === 'private' ? 'white' : '#666',
-                fontWeight: '600',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Private Chat
-            </button>
+            {/* Private Chat Button with User Picker */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={switchToPrivateChat}
+                className="chat-btn-responsive"
+                style={{
+                  padding: '4px 6px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
+                  color: chatMode === 'private' ? 'white' : '#666',
+                  fontWeight: '600',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Private Chat
+              </button>
+
+              {/* User Picker Dropdown for Private Chat */}
+              {showUserPicker && chatMode === 'private' && (
+                <div
+                  ref={userPickerRef}
+                  className="chat-dropdown-responsive"
+                  style={{
+                    position: 'absolute',
+                    top: '36px',
+                    left: '0',
+                    width: '280px',
+                    maxWidth: 'calc(100vw - 32px)',
+                    background: 'white',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                    border: '1px solid #ddd',
+                    zIndex: 100,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div style={{
+                    padding: '10px 12px',
+                    borderBottom: '1px solid #eee',
+                    background: '#f9fafb',
+                  }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#333', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>🔒 New Private Chat to ...</span>
+                      <button
+                        onClick={() => setShowUserPicker(false)}
+                        style={{
+                          background: '#6b7280',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '2px 8px',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={userSearchQuery}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setUserSearchQuery(value)
+                        const searchTerm = value.startsWith('@') ? value.slice(1) : value
+                        searchUsersForPrivateChat(searchTerm)
+                      }}
+                      placeholder="@username..."
+                      autoFocus
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #ddd',
+                        fontSize: '13px',
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+                  <div style={{
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                  }}>
+                    {searchingUsers ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                        Searching...
+                      </div>
+                    ) : searchedUsers.length === 0 && userSearchQuery ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                        No users found
+                      </div>
+                    ) : searchedUsers.length > 0 ? (
+                      searchedUsers.map((user) => (
+                        <button
+                          key={user.id}
+                          onClick={() => selectPrivateRecipient(user)}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            border: 'none',
+                            background: 'white',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            textAlign: 'left',
+                            transition: 'background 0.15s',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3e8ff'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                        >
+                          <div style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            background: '#8b5cf6',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            {user.avatar ? (
+                              <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
+                                {user.username?.[0]?.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>@{user.username}</div>
+                            {user.name && <div style={{ fontSize: '12px', color: '#888' }}>{user.name}</div>}
+                          </div>
+                        </button>
+                      ))
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Chat Record Button with invite badge */}
             <div style={{ position: 'relative' }}>
@@ -1122,131 +1248,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
         
-        {/* User Picker for Private Chat */}
-        {showUserPicker && chatMode === 'private' && (
-          <div
-            ref={userPickerRef}
-            className="chat-dropdown-responsive"
-            style={{
-              position: 'absolute',
-              top: '50px',
-              left: '130px',
-              width: '280px',
-              maxWidth: 'calc(100vw - 32px)',
-              background: 'white',
-              borderRadius: '8px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-              border: '1px solid #ddd',
-              zIndex: 100,
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{
-              padding: '10px 12px',
-              borderBottom: '1px solid #eee',
-              background: '#f9fafb',
-            }}>
-              <div style={{ fontSize: '13px', fontWeight: '600', color: '#333', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>🔒 New Private Chat to ...</span>
-                <button
-                  onClick={() => setShowUserPicker(false)}
-                  style={{
-                    background: '#6b7280',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '2px 8px',
-                    fontSize: '11px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-              <input
-                type="text"
-                value={userSearchQuery}
-                onChange={(e) => {
-                  const value = e.target.value
-                  setUserSearchQuery(value)
-                  // Remove @ if present and search
-                  const searchTerm = value.startsWith('@') ? value.slice(1) : value
-                  searchUsersForPrivateChat(searchTerm)
-                }}
-                placeholder="@username..."
-                autoFocus
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid #ddd',
-                  fontSize: '13px',
-                  outline: 'none',
-                }}
-              />
-            </div>
-            <div style={{
-              maxHeight: '200px',
-              overflowY: 'auto',
-            }}>
-              {searchingUsers ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
-                  Searching...
-                </div>
-              ) : searchedUsers.length === 0 && userSearchQuery ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
-                  No users found
-                </div>
-              ) : searchedUsers.length > 0 ? (
-                searchedUsers.map((user) => (
-                  <button
-                    key={user.id}
-                    onClick={() => selectPrivateRecipient(user)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: 'none',
-                      background: 'white',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      textAlign: 'left',
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3e8ff'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                  >
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                      background: '#8b5cf6',
-                      flexShrink: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      {user.avatar ? (
-                        <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
-                          {user.username?.[0]?.toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>@{user.username}</div>
-                      {user.name && <div style={{ fontSize: '12px', color: '#888' }}>{user.name}</div>}
-                    </div>
-                  </button>
-                ))
-              ) : null}
-            </div>
-          </div>
-        )}
-
         {/* Messages Area - Hidden when minimized */}
         {chatSize !== 'min' && (
         <div 
