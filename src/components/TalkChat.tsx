@@ -1357,9 +1357,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     <div style={{
                       padding: '1px 12px',
                       borderRadius: '6px',
-                      backgroundColor: isOwn ? '#10b981' : '#fff',
-                      color: isOwn ? '#fff' : '#333',
-                      border: isOwn ? 'none' : '1px solid #ddd',
+                      backgroundColor: isOwn ? '#3b82f6' : '#166534',
+                      color: '#fff',
+                      border: 'none',
                     }}>
                       <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                         {renderMessageContent(msg.content)}
@@ -1742,8 +1742,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 height: '32px',
                 borderRadius: '6px',
                 border: 'none',
-                backgroundColor: showMediaPicker ? '#ddd' : '#f0f0f0',
-                color: isSignedIn ? '#10b981' : '#aaa',
+                backgroundColor: isSignedIn ? '#3b82f6' : '#ddd',
+                color: isSignedIn ? '#fff' : '#aaa',
                 cursor: isSignedIn ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
@@ -1771,8 +1771,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 height: '32px',
                 borderRadius: '6px',
                 border: 'none',
-                backgroundColor: showEmojiPicker ? '#ddd' : '#f0f0f0',
-                color: '#10b981',
+                backgroundColor: '#3b82f6',
+                color: '#fff',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -1827,7 +1827,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 height: '32px',
                 borderRadius: '6px',
                 border: 'none',
-                backgroundColor: newMessage.trim() && !loading && isSignedIn ? '#10b981' : '#ddd',
+                backgroundColor: newMessage.trim() && !loading && isSignedIn ? '#3b82f6' : '#ddd',
                 color: newMessage.trim() && !loading && isSignedIn ? '#fff' : '#999',
                 cursor: newMessage.trim() && !loading && isSignedIn ? 'pointer' : 'default',
                 display: 'flex',
