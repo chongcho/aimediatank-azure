@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import EmailSupportModal from './EmailSupportModal'
 import SignInModal from './SignInModal'
+import { setAppBadge, clearAppBadge, calculateTotalNotifications } from '@/lib/appBadge'
 
 // Dynamic import TalkChat to prevent SSR issues
 const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
@@ -102,6 +103,23 @@ export default function Navbar() {
       return () => clearInterval(interval)
     }
   }, [session])
+
+  // Update app badge when notification counts change
+  useEffect(() => {
+    const totalCount = calculateTotalNotifications(unreadCount, chatInviteCount)
+    setAppBadge(totalCount)
+  }, [unreadCount, chatInviteCount])
+
+  // Listen for notification updates from TalkChat
+  useEffect(() => {
+    const handleNotificationUpdate = () => {
+      fetchChatInvites()
+      fetchNotifications()
+    }
+    
+    window.addEventListener('notificationUpdate', handleNotificationUpdate)
+    return () => window.removeEventListener('notificationUpdate', handleNotificationUpdate)
+  }, [])
 
   const fetchUserData = async () => {
     try {
@@ -456,7 +474,10 @@ export default function Navbar() {
                         </Link>
                       )}
                       <button
-                        onClick={() => signOut({ callbackUrl: '/' })}
+                        onClick={() => {
+                          clearAppBadge() // Clear badge on sign out
+                          signOut({ callbackUrl: '/' })
+                        }}
                         className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors w-full text-left text-gray-400"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -243,6 +243,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       if (res.ok) {
         const data = await res.json()
         setChatInvites(data.invites || [])
+        // Dispatch event to notify Navbar about notification changes
+        window.dispatchEvent(new CustomEvent('notificationUpdate'))
       }
     } catch (error) {
       console.error('Error fetching chat invites:', error)
