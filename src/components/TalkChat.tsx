@@ -197,6 +197,32 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showEmojiPicker, showMediaPicker, showMentionPicker, showUserPicker, showChatRecords])
 
+  // Prevent wheel scroll on Chat Records popup from scrolling main page
+  useEffect(() => {
+    const chatRecordsEl = chatRecordsRef.current
+    if (!chatRecordsEl || !showChatRecords) return
+
+    const handleWheel = (e: WheelEvent) => {
+      const scrollableEl = chatRecordsEl.querySelector('[data-scrollable]') as HTMLElement
+      if (scrollableEl) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollableEl
+        const atTop = scrollTop === 0 && e.deltaY < 0
+        const atBottom = scrollTop + clientHeight >= scrollHeight && e.deltaY > 0
+        
+        if (!atTop && !atBottom) {
+          // Allow scrolling within the list
+          return
+        }
+      }
+      // Prevent scroll from reaching main page
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    chatRecordsEl.addEventListener('wheel', handleWheel, { passive: false })
+    return () => chatRecordsEl.removeEventListener('wheel', handleWheel)
+  }, [showChatRecords])
+
   // Search users for private chat
   const searchUsersForPrivateChat = async (query: string) => {
     if (!query.trim()) {
@@ -979,6 +1005,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   ref={chatRecordsRef}
                   className="chat-dropdown-responsive"
                   onTouchMove={(e) => e.stopPropagation()}
+                  onWheel={(e) => e.stopPropagation()}
                   style={{
                     position: 'absolute',
                     top: '36px',
@@ -1021,17 +1048,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     </button>
                   </div>
                   <div 
+                    data-scrollable
                     onTouchMove={(e) => e.stopPropagation()}
-                    onWheel={(e) => {
-                      const target = e.currentTarget
-                      const { scrollTop, scrollHeight, clientHeight } = target
-                      const atTop = scrollTop === 0 && e.deltaY < 0
-                      const atBottom = scrollTop + clientHeight >= scrollHeight && e.deltaY > 0
-                      if (atTop || atBottom) {
-                        e.preventDefault()
-                      }
-                      e.stopPropagation()
-                    }}
                     style={{
                       maxHeight: '250px',
                       overflowY: 'auto',
