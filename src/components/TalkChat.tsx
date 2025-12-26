@@ -1130,7 +1130,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             style={{
               position: 'absolute',
               top: '50px',
-              left: '8px',
+              left: '130px',
               width: '280px',
               maxWidth: 'calc(100vw - 32px)',
               background: 'white',
