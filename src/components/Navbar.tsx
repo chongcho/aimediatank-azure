@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import EmailSupportModal from './EmailSupportModal'
 import SignInModal from './SignInModal'
-import { setAppBadge, clearAppBadge, calculateTotalNotifications } from '@/lib/appBadge'
+import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
 
 // Dynamic import TalkChat to prevent SSR issues
 const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
@@ -104,9 +104,25 @@ export default function Navbar() {
     }
   }, [session])
 
+  // Request notification permission when user is signed in (helps with badge support)
+  useEffect(() => {
+    if (session?.user) {
+      // Request permission for notifications (needed for badges in some browsers)
+      requestNotificationPermission().then((granted) => {
+        if (granted) {
+          console.log('Notification permission granted - badges should work')
+        }
+      })
+    }
+  }, [session])
+
   // Update app badge when notification counts change
   useEffect(() => {
     const totalCount = calculateTotalNotifications(unreadCount, chatInviteCount)
+    
+    // Log for debugging
+    console.log(`Updating app badge: unread=${unreadCount}, invites=${chatInviteCount}, total=${totalCount}, isPWA=${isInstalledPWA()}`)
+    
     setAppBadge(totalCount)
   }, [unreadCount, chatInviteCount])
 

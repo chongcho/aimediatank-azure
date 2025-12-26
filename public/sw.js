@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aimediatank-v1';
+const CACHE_NAME = 'aimediatank-v2';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install
@@ -98,5 +98,23 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     clients.openWindow(event.notification.data.url)
   );
+});
+
+// Handle messages from client for badge updates
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SET_BADGE') {
+    const count = event.data.count;
+    if ('setAppBadge' in self.navigator) {
+      self.navigator.setAppBadge(count).catch((error) => {
+        console.log('Service Worker: Error setting badge:', error);
+      });
+    }
+  } else if (event.data && event.data.type === 'CLEAR_BADGE') {
+    if ('clearAppBadge' in self.navigator) {
+      self.navigator.clearAppBadge().catch((error) => {
+        console.log('Service Worker: Error clearing badge:', error);
+      });
+    }
+  }
 });
 
