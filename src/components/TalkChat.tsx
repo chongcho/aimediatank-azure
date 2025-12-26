@@ -978,6 +978,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 <div
                   ref={chatRecordsRef}
                   className="chat-dropdown-responsive"
+                  onTouchMove={(e) => e.stopPropagation()}
+                  onWheel={(e) => e.stopPropagation()}
                   style={{
                     position: 'absolute',
                     top: '36px',
@@ -990,6 +992,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     border: '1px solid #ddd',
                     zIndex: 100,
                     overflow: 'hidden',
+                    overscrollBehavior: 'contain',
                   }}
                 >
                   <div style={{
@@ -1018,10 +1021,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       Close
                     </button>
                   </div>
-                  <div style={{
-                    maxHeight: '250px',
-                    overflowY: 'auto',
-                  }}>
+                  <div 
+                    onTouchMove={(e) => e.stopPropagation()}
+                    style={{
+                      maxHeight: '250px',
+                      overflowY: 'auto',
+                      overscrollBehavior: 'contain',
+                    }}
+                  >
                     {loadingChatRecords ? (
                       <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
                         Loading...
