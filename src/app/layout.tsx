@@ -76,9 +76,15 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="min-h-screen bg-tank-black grid-pattern">
+        {/* Status bar background for PWA - covers the notch/status bar area */}
+        <div 
+          className="fixed top-0 left-0 right-0 bg-tank-dark z-[60]" 
+          style={{ height: 'env(safe-area-inset-top, 0px)' }}
+          aria-hidden="true"
+        />
         <Providers>
           <Navbar />
-          <main className="pt-16" style={{ paddingTop: 'calc(4rem + env(safe-area-inset-top))' }}>
+          <main className="pt-16" style={{ paddingTop: 'calc(4rem + env(safe-area-inset-top, 0px))' }}>
             {children}
           </main>
           <InstallPrompt />

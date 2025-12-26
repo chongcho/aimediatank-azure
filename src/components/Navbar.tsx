@@ -240,7 +240,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-tank-dark/90 backdrop-blur-md border-b border-tank-light" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+    <nav className="fixed left-0 right-0 z-50 bg-tank-dark/90 backdrop-blur-md border-b border-tank-light" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
