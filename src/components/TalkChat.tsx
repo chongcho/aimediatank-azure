@@ -691,6 +691,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
           style={{
             height: getChatHeight(),
             minHeight: getChatMinHeight(),
@@ -705,6 +706,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             background: '#f0f0f0',
             transition: 'height 0.3s ease-in-out',
             pointerEvents: 'auto', // Only chat container captures clicks
+            overscrollBehavior: 'contain',
           }}>
           <style>{`
             @media (max-width: 640px) {
@@ -1252,11 +1254,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         {chatSize !== 'min' && (
         <div 
           className="chat-messages-scroll"
+          onTouchMove={(e) => e.stopPropagation()}
           style={{
             flex: 1,
             overflowY: 'auto',
             padding: '4px 12px',
             background: '#f5f5f5',
+            overscrollBehavior: 'contain',
           }}
         >
           <style>{`
