@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aimediatank-v4';
+const CACHE_NAME = 'aimediatank-v5';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install

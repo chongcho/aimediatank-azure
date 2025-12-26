@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   keywords: 'AI media, AI art, AI music, AI video, AI generated content, media sharing',
   authors: [{ name: 'AiMediaTank' }],
   manifest: '/manifest.json',
-  themeColor: '#00ff88',
+  themeColor: '#111113',
   viewport: {
     width: 'device-width',
     initialScale: 1,

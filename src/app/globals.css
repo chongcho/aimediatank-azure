@@ -52,30 +52,15 @@ body {
 @media all and (display-mode: standalone) {
   .pwa-status-bar-bg {
     display: block;
-    height: env(safe-area-inset-top, 47px); /* 47px is typical iOS notch height */
-    min-height: 47px; /* Fallback for devices where env() returns 0 */
+    height: env(safe-area-inset-top, 0px);
   }
   
   .pwa-navbar {
-    top: env(safe-area-inset-top, 47px) !important;
+    top: env(safe-area-inset-top, 0px) !important;
   }
   
   .pwa-main-content {
-    padding-top: calc(4rem + env(safe-area-inset-top, 47px)) !important;
-  }
-}
-
-/* iOS Safari standalone mode detection (older method) */
-@media all and (display-mode: fullscreen), 
-       all and (-webkit-device-pixel-ratio: 2) and (orientation: portrait),
-       all and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) {
-  @supports (-webkit-touch-callout: none) {
-    /* iOS specific */
-    .pwa-status-bar-bg {
-      display: block;
-      height: env(safe-area-inset-top, 47px);
-      min-height: 47px;
-    }
+    padding-top: calc(4rem + env(safe-area-inset-top, 0px)) !important;
   }
 }
 
