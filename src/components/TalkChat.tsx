@@ -979,7 +979,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   ref={chatRecordsRef}
                   className="chat-dropdown-responsive"
                   onTouchMove={(e) => e.stopPropagation()}
-                  onWheel={(e) => e.stopPropagation()}
                   style={{
                     position: 'absolute',
                     top: '36px',
@@ -1023,6 +1022,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   </div>
                   <div 
                     onTouchMove={(e) => e.stopPropagation()}
+                    onWheel={(e) => {
+                      const target = e.currentTarget
+                      const { scrollTop, scrollHeight, clientHeight } = target
+                      const atTop = scrollTop === 0 && e.deltaY < 0
+                      const atBottom = scrollTop + clientHeight >= scrollHeight && e.deltaY > 0
+                      if (atTop || atBottom) {
+                        e.preventDefault()
+                      }
+                      e.stopPropagation()
+                    }}
                     style={{
                       maxHeight: '250px',
                       overflowY: 'auto',
