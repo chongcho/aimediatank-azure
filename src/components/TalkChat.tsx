@@ -197,10 +197,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showEmojiPicker, showMediaPicker, showMentionPicker, showUserPicker, showChatRecords])
 
-  // Prevent wheel scroll on Chat Records popup from scrolling main page
+  // Prevent wheel/touch scroll on Chat Records popup from scrolling main page
   useEffect(() => {
     const chatRecordsEl = chatRecordsRef.current
     if (!chatRecordsEl || !showChatRecords) return
+
+    let startY = 0
 
     const handleWheel = (e: WheelEvent) => {
       const scrollableEl = chatRecordsEl.querySelector('[data-scrollable]') as HTMLElement
@@ -210,17 +212,44 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         const atBottom = scrollTop + clientHeight >= scrollHeight && e.deltaY > 0
         
         if (!atTop && !atBottom) {
-          // Allow scrolling within the list
           return
         }
       }
-      // Prevent scroll from reaching main page
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    const handleTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const scrollableEl = chatRecordsEl.querySelector('[data-scrollable]') as HTMLElement
+      const currentY = e.touches[0].clientY
+      const deltaY = startY - currentY
+      
+      if (scrollableEl) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollableEl
+        const atTop = scrollTop === 0 && deltaY < 0
+        const atBottom = scrollTop + clientHeight >= scrollHeight && deltaY > 0
+        
+        if (!atTop && !atBottom) {
+          return
+        }
+      }
       e.preventDefault()
       e.stopPropagation()
     }
 
     chatRecordsEl.addEventListener('wheel', handleWheel, { passive: false })
-    return () => chatRecordsEl.removeEventListener('wheel', handleWheel)
+    chatRecordsEl.addEventListener('touchstart', handleTouchStart, { passive: true })
+    chatRecordsEl.addEventListener('touchmove', handleTouchMove, { passive: false })
+    
+    return () => {
+      chatRecordsEl.removeEventListener('wheel', handleWheel)
+      chatRecordsEl.removeEventListener('touchstart', handleTouchStart)
+      chatRecordsEl.removeEventListener('touchmove', handleTouchMove)
+    }
   }, [showChatRecords])
 
   // Search users for private chat
