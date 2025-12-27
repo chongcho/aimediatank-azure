@@ -48,20 +48,67 @@ body {
   display: none;
 }
 
-/* Detect PWA standalone mode */
+/* PWA standalone mode - iOS Safari specific */
 @media all and (display-mode: standalone) {
+  /* Status bar background - covers the notch/status bar area */
   .pwa-status-bar-bg {
     display: block;
-    height: env(safe-area-inset-top, 0px);
+    height: env(safe-area-inset-top, 47px);
+    background-color: #111113 !important;
   }
   
+  /* Push navbar below safe area */
   .pwa-navbar {
-    top: env(safe-area-inset-top, 0px) !important;
+    top: env(safe-area-inset-top, 47px) !important;
   }
   
+  /* Main content padding accounts for navbar + safe area */
   .pwa-main-content {
-    padding-top: calc(4rem + env(safe-area-inset-top, 0px)) !important;
+    padding-top: calc(4rem + env(safe-area-inset-top, 47px)) !important;
   }
+  
+  /* Ensure html/body also respect safe area */
+  html, body {
+    padding-top: 0 !important;
+  }
+}
+
+/* iOS standalone app detection via navigator.standalone (handled by JS) */
+@supports (padding-top: env(safe-area-inset-top)) {
+  @media all and (display-mode: standalone) {
+    .pwa-status-bar-bg {
+      height: max(env(safe-area-inset-top), 47px);
+    }
+    
+    .pwa-navbar {
+      top: max(env(safe-area-inset-top), 47px) !important;
+    }
+    
+    .pwa-main-content {
+      padding-top: calc(4rem + max(env(safe-area-inset-top), 47px)) !important;
+    }
+  }
+}
+
+/* JavaScript-detected PWA standalone mode (for iOS Safari) */
+html.pwa-standalone .pwa-status-bar-bg,
+body.pwa-standalone .pwa-status-bar-bg {
+  display: block !important;
+  height: env(safe-area-inset-top, 47px) !important;
+  height: max(env(safe-area-inset-top), 47px) !important;
+  background-color: #111113 !important;
+}
+
+html.pwa-standalone .pwa-navbar,
+body.pwa-standalone .pwa-navbar {
+  top: env(safe-area-inset-top, 47px) !important;
+  top: max(env(safe-area-inset-top), 47px) !important;
+}
+
+html.pwa-standalone .pwa-main-content,
+body.pwa-standalone .pwa-main-content {
+  padding-top: calc(4rem + env(safe-area-inset-top, 47px)) !important;
+  padding-top: calc(4rem + max(env(safe-area-inset-top), 47px)) !important;
 }
 
 ::selection {
