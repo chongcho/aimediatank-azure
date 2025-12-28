@@ -238,7 +238,7 @@ function HomeContent() {
   }
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-6">
+    <div className="w-full p-0 m-0">
       {/* Hero Section with Search - Single Row */}
       <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mb-8 py-2">
         {/* Left: Title */}
@@ -459,7 +459,7 @@ function HomeContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-6">
+      <div className="w-full p-0 m-0">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mb-8 py-2">
           <div className="flex-shrink-0 overflow-visible">
             <h1 className="text-2xl md:text-3xl font-bold italic">

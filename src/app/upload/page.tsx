@@ -394,7 +394,7 @@ function UploadPageContent() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
+    <div className="max-w-3xl mx-auto p-0 m-0">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2">Upload AI Media</h1>
         <p className="text-gray-400">
@@ -824,7 +824,7 @@ function UploadPageContent() {
 export default function UploadPage() {
   return (
     <Suspense fallback={
-      <div className="max-w-3xl mx-auto px-4 py-12 text-center">
+      <div className="max-w-3xl mx-auto p-0 m-0 text-center">
         <div className="animate-pulse">
           <div className="h-10 bg-tank-light rounded w-64 mx-auto mb-4"></div>
           <div className="h-4 bg-tank-light rounded w-96 mx-auto"></div>

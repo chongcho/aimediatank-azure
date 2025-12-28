@@ -156,7 +156,7 @@ export default function EditMediaPage() {
   if (!media) return null
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-3xl mx-auto p-0 m-0">
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
         <Link

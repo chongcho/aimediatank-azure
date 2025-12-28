@@ -272,7 +272,7 @@ function PricingPageContent() {
   const hasPaidSubscription = currentMembership !== 'VIEWER'
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-12">
+    <div className="max-w-6xl mx-auto p-0 m-0">
       {/* Success Message Banner */}
       {showSuccessMessage && (
         <div className="relative mb-8 p-6 bg-gradient-to-r from-tank-accent/20 to-emerald-500/20 border border-tank-accent rounded-xl">
@@ -735,7 +735,7 @@ function PricingPageContent() {
 export default function PricingPage() {
   return (
     <Suspense fallback={
-      <div className="max-w-6xl mx-auto px-4 py-12 text-center">
+      <div className="max-w-6xl mx-auto p-0 m-0 text-center">
         <div className="animate-pulse">
           <div className="h-10 bg-tank-light rounded w-64 mx-auto mb-4"></div>
           <div className="h-4 bg-tank-light rounded w-96 mx-auto"></div>

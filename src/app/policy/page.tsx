@@ -62,7 +62,7 @@ export default function PolicyPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto p-0 m-0">
       {/* Policy Agreement Status */}
       {session && policyStatus.agreed && (
         <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex items-center gap-3">

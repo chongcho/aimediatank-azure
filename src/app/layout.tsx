@@ -75,15 +75,10 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body className="min-h-screen bg-tank-black grid-pattern">
-        {/* Status bar background for PWA - covers the notch/status bar area */}
-        <div 
-          className="fixed top-0 left-0 right-0 bg-tank-dark z-[60] pwa-status-bar-bg" 
-          aria-hidden="true"
-        />
+      <body className="min-h-screen bg-tank-black grid-pattern m-0 p-0">
         <Providers>
           <Navbar />
-          <main className="pt-16 pwa-main-content">
+          <main className="pt-16 m-0 p-0">
             {children}
           </main>
           <InstallPrompt />
