@@ -67,6 +67,19 @@ body {
   .talkchat-container {
     bottom: max(env(safe-area-inset-bottom, 0px), 48px) !important;
   }
+  
+  /* Black background fill for bottom padding area */
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: max(env(safe-area-inset-bottom, 0px), 48px);
+    background-color: #000000;
+    z-index: 99998;
+    pointer-events: none;
+  }
 }
 
 ::selection {
