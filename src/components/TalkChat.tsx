@@ -332,17 +332,21 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     fetchChatInvites()
   }
 
-  // Switch to private chat
+  // Switch to private chat - shows chat records for selection
   const switchToPrivateChat = () => {
     if (!isSignedIn) {
       alert('Please sign in to use private chat')
       return
     }
     setChatMode('private')
-    setShowUserPicker(true)
-    setShowInvites(false)
+    // Show chat records so user can select a conversation
+    if (!showChatRecords) {
+      fetchChatRecords()
+    }
+    setShowChatRecords(true)
     // Close other popups
-    setShowChatRecords(false)
+    setShowUserPicker(false)
+    setShowInvites(false)
   }
 
   // Fetch chat records (previous private chat conversations)
@@ -362,18 +366,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
   }, [session?.user?.id])
 
-  // Toggle chat records dropdown
-  const toggleChatRecords = () => {
+  // Toggle new chat picker (renamed from chat records)
+  const toggleNewChat = () => {
     if (!isSignedIn) {
-      alert('Please sign in to view chat records')
+      alert('Please sign in to start a new chat')
       return
     }
-    if (!showChatRecords) {
-      fetchChatRecords()
-    }
-    setShowChatRecords(!showChatRecords)
+    setChatMode('private')
+    setShowUserPicker(!showUserPicker)
     // Close other popups
-    setShowUserPicker(false)
+    setShowChatRecords(false)
   }
 
   // Select a chat record to continue conversation
@@ -740,11 +742,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       }}>
         <style>{`
           .chat-wrapper-responsive {
-            padding: 0 16px;
+            padding: 0;
           }
           @media (max-width: 640px) {
             .chat-wrapper-responsive {
-              padding: 0 0 0 16px;
+              padding: 0;
             }
           }
         `}</style>
@@ -838,17 +840,37 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               Open Chat
             </button>
             
-            {/* Private Chat Button with User Picker */}
+            {/* Private Chat Button - shows chat records */}
+            <button
+              onClick={switchToPrivateChat}
+              className="chat-btn-responsive"
+              style={{
+                padding: '4px 6px',
+                borderRadius: '4px',
+                border: 'none',
+                background: chatMode === 'private' && showChatRecords ? '#8b5cf6' : chatMode === 'private' ? '#8b5cf6' : 'transparent',
+                color: chatMode === 'private' ? 'white' : '#666',
+                fontWeight: '700',
+                fontSize: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Private Chat
+            </button>
+
+            {/* New Chat Button with User Picker */}
             <div style={{ position: 'relative' }}>
               <button
-                onClick={switchToPrivateChat}
+                onClick={toggleNewChat}
                 className="chat-btn-responsive"
                 style={{
                   padding: '4px 6px',
                   borderRadius: '4px',
                   border: 'none',
-                  background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
-                  color: chatMode === 'private' ? 'white' : '#666',
+                  background: showUserPicker ? '#10b981' : 'transparent',
+                  color: showUserPicker ? 'white' : '#666',
                   fontWeight: '700',
                   fontSize: '12px',
                   cursor: 'pointer',
@@ -856,18 +878,43 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                Private Chat
+                New Chat
               </button>
+              {/* Invite notification badge - on Private Chat button area */}
+              {chatInvites.length > 0 && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); switchToPrivateChat(); }}
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-6px',
+                    background: '#ef4444',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    animation: 'pulse 2s infinite',
+                  }}
+                >
+                  {chatInvites.length}
+                </span>
+              )}
 
-              {/* User Picker Dropdown for Private Chat */}
-              {showUserPicker && chatMode === 'private' && (
+              {/* User Picker Dropdown for New Chat */}
+              {showUserPicker && (
                 <div
                   ref={userPickerRef}
                   className="chat-dropdown-responsive"
                   style={{
                     position: 'absolute',
                     top: '36px',
-                    left: '0',
+                    right: '0',
                     width: '280px',
                     maxWidth: 'calc(100vw - 32px)',
                     background: 'white',
@@ -983,53 +1030,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 </div>
               )}
             </div>
-
-            {/* Chat Record Button with invite badge */}
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={toggleChatRecords}
-                className="chat-btn-responsive"
-                style={{
-                  padding: '4px 6px',
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: showChatRecords ? '#10b981' : 'transparent',
-                  color: showChatRecords ? 'white' : '#666',
-                  fontWeight: '700',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Chat Record
-              </button>
-              {/* Invite notification badge */}
-              {chatInvites.length > 0 && (
-                <span
-                  onClick={(e) => { e.stopPropagation(); toggleChatRecords(); }}
-                  style={{
-                    position: 'absolute',
-                    top: '-6px',
-                    right: '-6px',
-                    background: '#ef4444',
-                    color: 'white',
-                    borderRadius: '50%',
-                    width: '20px',
-                    height: '20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    animation: 'pulse 2s infinite',
-                  }}
-                >
-                  {chatInvites.length}
-                </span>
-              )}
-            </div>
           </div>
           
           {/* Size control buttons */}
@@ -1110,14 +1110,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             <div style={{
               padding: '10px 12px',
               borderBottom: '1px solid #eee',
-              background: '#f0fdf4',
+              background: '#f3e8ff',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               flexShrink: 0,
             }}>
               <span style={{ fontSize: '13px', fontWeight: '600', color: '#333' }}>
-                📋 Chat Records
+                🔒 Private Chat Records
               </span>
               <button
                 onClick={() => setShowChatRecords(false)}
