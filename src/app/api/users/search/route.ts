@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// Force dynamic rendering since we use request.url
+export const dynamic = 'force-dynamic'
+
 // GET /api/users/search - Search users by username for @mention autocomplete
 export async function GET(request: NextRequest) {
   try {

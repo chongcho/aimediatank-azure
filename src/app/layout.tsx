@@ -1,9 +1,18 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import './globals.css'
 import Providers from '@/components/Providers'
 import Navbar from '@/components/Navbar'
 import InstallPrompt from '@/components/InstallPrompt'
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#111113',
+}
 
 export const metadata: Metadata = {
   title: 'AiMediaTank | AI-Generated Media Community',
@@ -11,14 +20,6 @@ export const metadata: Metadata = {
   keywords: 'AI media, AI art, AI music, AI video, AI generated content, media sharing',
   authors: [{ name: 'AiMediaTank' }],
   manifest: '/manifest.json',
-  themeColor: '#111113',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-    viewportFit: 'cover',
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
