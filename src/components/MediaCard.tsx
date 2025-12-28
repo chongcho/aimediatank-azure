@@ -80,25 +80,29 @@ export default function MediaCard({ media }: MediaCardProps) {
         return {
           gradient: 'from-red-500 to-orange-500',
           bg: 'bg-red-500/90',
-          shadow: 'shadow-red-500/30'
+          shadow: 'shadow-red-500/30',
+          text: 'text-orange-400'
         }
       case 'IMAGE':
         return {
           gradient: 'from-blue-500 to-cyan-500',
           bg: 'bg-blue-500/90',
-          shadow: 'shadow-blue-500/30'
+          shadow: 'shadow-blue-500/30',
+          text: 'text-blue-400'
         }
       case 'MUSIC':
         return {
           gradient: 'from-purple-500 to-pink-500',
           bg: 'bg-purple-500/90',
-          shadow: 'shadow-purple-500/30'
+          shadow: 'shadow-purple-500/30',
+          text: 'text-purple-400'
         }
       default:
         return {
           gradient: 'from-gray-500 to-gray-600',
           bg: 'bg-gray-500/90',
-          shadow: 'shadow-gray-500/30'
+          shadow: 'shadow-gray-500/30',
+          text: 'text-gray-400'
         }
     }
   }
@@ -225,7 +229,7 @@ export default function MediaCard({ media }: MediaCardProps) {
               {renderTitle(media.title)}
             </h3>
             {/* Media Type Badge */}
-            <div className="px-2 py-1 text-gray-400 text-xs font-bold flex items-center gap-1 shrink-0">
+            <div className={`px-2 py-1 ${typeStyle.text} text-xs font-bold flex items-center gap-1 shrink-0`}>
               {getTypeIcon()}
               <span>{media.type}</span>
             </div>
