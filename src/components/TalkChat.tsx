@@ -332,20 +332,18 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     fetchChatInvites()
   }
 
-  // Switch to private chat - shows chat records for selection
+  // Switch to private chat - shows chat records in main window
   const switchToPrivateChat = () => {
     if (!isSignedIn) {
       alert('Please sign in to use private chat')
       return
     }
     setChatMode('private')
-    // Show chat records so user can select a conversation
-    if (!showChatRecords) {
-      fetchChatRecords()
-    }
-    setShowChatRecords(true)
-    // Close other popups
+    setPrivateRecipient(null) // Clear recipient to show chat records
+    fetchChatRecords() // Fetch chat records to display in main window
+    // Close all popups
     setShowUserPicker(false)
+    setShowChatRecords(false)
     setShowInvites(false)
   }
 
@@ -1082,172 +1080,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* Chat Records Dropdown - positioned relative to chat container */}
-        {showChatRecords && (
-          <div
-            ref={chatRecordsRef}
-            className="chat-dropdown-responsive"
-            onTouchMove={(e) => e.stopPropagation()}
-            onWheel={(e) => e.stopPropagation()}
-            style={{
-              position: 'absolute',
-              top: '40px',
-              right: '8px',
-              bottom: '56px',
-              width: '280px',
-              maxWidth: 'calc(100vw - 32px)',
-              background: 'white',
-              borderRadius: '8px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-              border: '1px solid #ddd',
-              zIndex: 9999,
-              overflow: 'hidden',
-              overscrollBehavior: 'contain',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <div style={{
-              padding: '10px 12px',
-              borderBottom: '1px solid #eee',
-              background: '#f3e8ff',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexShrink: 0,
-            }}>
-              <span style={{ fontSize: '13px', fontWeight: '600', color: '#333' }}>
-                🔒 Private Chat Records
-              </span>
-              <button
-                onClick={() => setShowChatRecords(false)}
-                style={{
-                  background: '#6b7280',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '2px 8px',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                }}
-              >
-                Close
-              </button>
-            </div>
-            <div 
-              data-scrollable
-              onTouchMove={(e) => e.stopPropagation()}
-              style={{
-                flex: 1,
-                overflowY: 'auto',
-                overscrollBehavior: 'contain',
-              }}
-            >
-                    {loadingChatRecords ? (
-                      <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
-                        Loading...
-                      </div>
-                    ) : chatRecords.length === 0 ? (
-                      <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
-                        No chat records yet
-                      </div>
-                    ) : (
-                      chatRecords.map((record, index) => {
-                        const hasNotification = chatInvites.some(invite => invite.sender.id === record.user.id)
-                        return (
-                          <button
-                            key={record.user.id || index}
-                            onClick={() => selectChatRecord(record.user)}
-                            style={{
-                              width: '100%',
-                              padding: '10px 12px',
-                              border: 'none',
-                              background: hasNotification ? '#fef2f2' : 'white',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '10px',
-                              textAlign: 'left',
-                              transition: 'background 0.15s',
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = hasNotification ? '#fee2e2' : '#ecfdf5'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = hasNotification ? '#fef2f2' : 'white'}
-                          >
-                            <div style={{
-                              position: 'relative',
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '6px',
-                              overflow: 'visible',
-                              background: '#10b981',
-                              flexShrink: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}>
-                              <div style={{
-                                width: '100%',
-                                height: '100%',
-                                borderRadius: '6px',
-                                overflow: 'hidden',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}>
-                                {record.user.avatar ? (
-                                  <img src={record.user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                ) : (
-                                  <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
-                                    {record.user.username?.[0]?.toUpperCase()}
-                                  </span>
-                                )}
-                              </div>
-                              {hasNotification && (
-                                <span style={{
-                                  position: 'absolute',
-                                  top: '-4px',
-                                  right: '-4px',
-                                  width: '12px',
-                                  height: '12px',
-                                  background: '#ef4444',
-                                  borderRadius: '50%',
-                                  border: '2px solid white',
-                                }}></span>
-                              )}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: '14px', fontWeight: '500', color: '#333', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                @{record.user.username}
-                                {hasNotification && (
-                                  <span style={{
-                                    background: '#ef4444',
-                                    color: 'white',
-                                    fontSize: '10px',
-                                    fontWeight: 'bold',
-                                    padding: '1px 5px',
-                                    borderRadius: '8px',
-                                  }}>
-                                    NEW
-                                  </span>
-                                )}
-                              </div>
-                              <div style={{ 
-                                fontSize: '12px', 
-                                color: '#888', 
-                                whiteSpace: 'nowrap', 
-                                overflow: 'hidden', 
-                                textOverflow: 'ellipsis' 
-                              }}>
-                                {record.lastMessage}
-                              </div>
-                            </div>
-                          </button>
-                        )
-                      })
-                    )}
-            </div>
-          </div>
-        )}
 
         {/* Chat Invites Notification Panel */}
         {chatInvites.length > 0 && chatMode === 'private' && !privateRecipient && (
@@ -1359,16 +1191,129 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             <div style={{ 
               display: 'flex', 
               flexDirection: 'column', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
               height: '100%',
-              color: '#8b5cf6',
             }}>
-              <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ marginBottom: '12px', opacity: 0.5 }}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <p style={{ fontSize: '14px', fontWeight: '500' }}>Select a user to start private chat</p>
-              <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>Messages will be visible only to you and them</p>
+              <div style={{ 
+                padding: '8px 12px', 
+                background: '#f3e8ff', 
+                borderBottom: '1px solid #e9d5ff',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: '#7c3aed' }}>🔒 Select a conversation or start New Chat</span>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {loadingChatRecords ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#999' }}>Loading...</div>
+                ) : chatRecords.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#999' }}>
+                    <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ margin: '0 auto 12px', opacity: 0.4 }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <p style={{ fontSize: '13px' }}>No private chats yet</p>
+                    <p style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>Click "New Chat" to start one</p>
+                  </div>
+                ) : (
+                  chatRecords.map((record, index) => {
+                    const hasNotification = chatInvites.some(invite => invite.sender.id === record.user.id)
+                    return (
+                      <button
+                        key={record.user.id || index}
+                        onClick={() => selectChatRecord(record.user)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          border: 'none',
+                          borderBottom: '1px solid #eee',
+                          background: hasNotification ? '#fef2f2' : 'white',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          textAlign: 'left',
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = hasNotification ? '#fee2e2' : '#f3e8ff'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = hasNotification ? '#fef2f2' : 'white'}
+                      >
+                        <div style={{
+                          position: 'relative',
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '8px',
+                          overflow: 'visible',
+                          background: '#8b5cf6',
+                          flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                          <div style={{
+                            width: '100%',
+                            height: '100%',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            {record.user.avatar ? (
+                              <img src={record.user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ color: 'white', fontWeight: 'bold', fontSize: '18px' }}>
+                                {record.user.username?.[0]?.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          {hasNotification && (
+                            <span style={{
+                              position: 'absolute',
+                              top: '-4px',
+                              right: '-4px',
+                              width: '14px',
+                              height: '14px',
+                              background: '#ef4444',
+                              borderRadius: '50%',
+                              border: '2px solid white',
+                            }}></span>
+                          )}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '15px', fontWeight: '600', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            @{record.user.username}
+                            {hasNotification && (
+                              <span style={{
+                                background: '#ef4444',
+                                color: 'white',
+                                fontSize: '10px',
+                                fontWeight: 'bold',
+                                padding: '2px 6px',
+                                borderRadius: '10px',
+                              }}>
+                                NEW
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ 
+                            fontSize: '13px', 
+                            color: '#666', 
+                            whiteSpace: 'nowrap', 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis',
+                            marginTop: '2px',
+                          }}>
+                            {record.lastMessage}
+                          </div>
+                        </div>
+                        <svg width="20" height="20" fill="none" stroke="#999" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
             </div>
           ) : messages.length === 0 ? (
             <div style={{ 
