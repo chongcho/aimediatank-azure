@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'AiMediaTank',
   },
   icons: {
@@ -49,7 +49,7 @@ export default function RootLayout({
         <meta name="google-adsense-account" content="ca-pub-2773919175450942" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="AiMediaTank" />
         <link rel="apple-touch-icon" href="/logo.png" />
         <Script
@@ -72,32 +72,18 @@ export default function RootLayout({
                 );
               });
             }
-            
-            // Detect iOS PWA standalone mode and add class to body
-            function detectPWA() {
-              var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-                                 window.navigator.standalone === true ||
-                                 document.referrer.includes('android-app://');
-              
-              if (isStandalone) {
-                document.documentElement.classList.add('pwa-standalone');
-                document.body.classList.add('pwa-standalone');
-                console.log('PWA: Running in standalone mode');
-              }
-            }
-            
-            if (document.readyState === 'loading') {
-              document.addEventListener('DOMContentLoaded', detectPWA);
-            } else {
-              detectPWA();
-            }
           `}
         </Script>
       </head>
       <body className="min-h-screen bg-tank-black grid-pattern">
+        {/* Status bar background for PWA - covers the notch/status bar area */}
+        <div 
+          className="fixed top-0 left-0 right-0 bg-tank-dark z-[60] pwa-status-bar-bg" 
+          aria-hidden="true"
+        />
         <Providers>
           <Navbar />
-          <main className="pt-16">
+          <main className="pt-16 pwa-main-content">
             {children}
           </main>
           <InstallPrompt />

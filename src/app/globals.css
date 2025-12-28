@@ -42,23 +42,26 @@ body {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
-/* PWA navbar with safe area - navbar extends to top edge with internal padding */
-.pwa-navbar-safe {
-  /* Default: no extra padding */
-  padding-top: 0;
+/* PWA status bar background - only visible in standalone mode */
+.pwa-status-bar-bg {
+  height: 0;
+  display: none;
 }
 
-/* PWA standalone mode - add padding inside navbar for safe area */
+/* Detect PWA standalone mode */
 @media all and (display-mode: standalone) {
-  .pwa-navbar-safe {
-    padding-top: env(safe-area-inset-top, 0px);
+  .pwa-status-bar-bg {
+    display: block;
+    height: env(safe-area-inset-top, 0px);
   }
-}
-
-/* JavaScript-detected PWA standalone mode (for iOS Safari) */
-html.pwa-standalone .pwa-navbar-safe,
-body.pwa-standalone .pwa-navbar-safe {
-  padding-top: env(safe-area-inset-top, 0px);
+  
+  .pwa-navbar {
+    top: env(safe-area-inset-top, 0px) !important;
+  }
+  
+  .pwa-main-content {
+    padding-top: calc(4rem + env(safe-area-inset-top, 0px)) !important;
+  }
 }
 
 ::selection {
