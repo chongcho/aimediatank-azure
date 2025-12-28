@@ -169,8 +169,56 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const mentionPickerRef = useRef<HTMLDivElement>(null)
   const userPickerRef = useRef<HTMLDivElement>(null)
   const chatRecordsRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
   const isSignedIn = !!session?.user
+
+  // Block background scroll when touching chat container
+  useEffect(() => {
+    const chatEl = chatContainerRef.current
+    if (!chatEl) return
+
+    let startY = 0
+    let startX = 0
+
+    const handleTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY
+      startX = e.touches[0].clientX
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      // Always prevent default on the chat container to block background scroll
+      // Find if we're inside a scrollable element
+      const target = e.target as HTMLElement
+      const scrollableParent = target.closest('.chat-messages-scroll, .emoji-picker-scroll, .media-picker-scroll, [data-scrollable]') as HTMLElement
+      
+      if (scrollableParent) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollableParent
+        const currentY = e.touches[0].clientY
+        const deltaY = startY - currentY
+        
+        // Allow scroll if not at boundaries
+        const atTop = scrollTop <= 0 && deltaY < 0
+        const atBottom = scrollTop + clientHeight >= scrollHeight && deltaY > 0
+        
+        if (!atTop && !atBottom) {
+          // Allow the scroll inside the element
+          return
+        }
+      }
+      
+      // Prevent background scroll
+      e.preventDefault()
+    }
+
+    chatEl.addEventListener('touchstart', handleTouchStart, { passive: true })
+    chatEl.addEventListener('touchmove', handleTouchMove, { passive: false })
+    
+    return () => {
+      chatEl.removeEventListener('touchstart', handleTouchStart)
+      chatEl.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [])
 
   // Close pickers when clicking outside
   useEffect(() => {
@@ -750,11 +798,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         `}</style>
         {/* Chat container - always visible, 2 tile width */}
         <div 
+          ref={chatContainerRef}
           className="chat-container-responsive"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
           style={{
             position: 'relative',
             height: getChatHeight(),
