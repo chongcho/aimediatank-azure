@@ -101,6 +101,10 @@ export async function GET(request: Request) {
           ? m.ratings.reduce((acc: number, r: any) => acc + r.score, 0) / m.ratings.length
           : 0
       
+      // Calculate reaction counts (happy = score 3, sad = score 1)
+      const happyCount = m.ratings.filter((r: any) => r.score === 3).length
+      const sadCount = m.ratings.filter((r: any) => r.score === 1).length
+      
       // Calculate days remaining before deletion for sold items
       let daysRemaining = null
       if (m.isSold && m.deleteAfter) {
@@ -112,6 +116,7 @@ export async function GET(request: Request) {
       return {
         ...m,
         avgRating: Math.round(avgRating * 10) / 10,
+        reactions: { happy: happyCount, sad: sadCount },
         ratings: undefined, // Remove individual ratings from response
         daysRemaining, // Days until removal (for sold items)
       }

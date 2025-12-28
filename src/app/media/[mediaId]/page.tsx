@@ -60,8 +60,8 @@ export default function MediaPage() {
   const [media, setMedia] = useState<MediaDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [reactions, setReactions] = useState({ happy: 0, neutral: 0, sad: 0 })
-  const [userReaction, setUserReaction] = useState<'happy' | 'neutral' | 'sad' | null>(null)
+  const [reactions, setReactions] = useState({ happy: 0, sad: 0 })
+  const [userReaction, setUserReaction] = useState<'happy' | 'sad' | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
@@ -103,7 +103,7 @@ export default function MediaPage() {
     }
   }
 
-  const handleReaction = async (type: 'happy' | 'neutral' | 'sad') => {
+  const handleReaction = async (type: 'happy' | 'sad') => {
     if (!session) {
       router.push('/login')
       return
@@ -337,28 +337,21 @@ export default function MediaPage() {
             <div className="flex items-center gap-6 mt-4 pt-4 border-t border-tank-light">
               <span className="text-sm text-gray-400">Click one you feel</span>
               <div className="flex gap-8">
-              <button
-                onClick={() => handleReaction('happy')}
-                className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${userReaction === 'happy' ? 'scale-110' : ''}`}
-              >
-                <span className={`text-4xl ${userReaction === 'happy' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😄</span>
-                <span className={`text-sm font-medium ${userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.happy}</span>
-              </button>
                 <button
-                onClick={() => handleReaction('neutral')}
-                className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${userReaction === 'neutral' ? 'scale-110' : ''}`}
-              >
-                <span className={`text-4xl ${userReaction === 'neutral' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😐</span>
-                <span className={`text-sm font-medium ${userReaction === 'neutral' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.neutral}</span>
-                            </button>
-                            <button
-                onClick={() => handleReaction('sad')}
-                className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${userReaction === 'sad' ? 'scale-110' : ''}`}
-              >
-                <span className={`text-4xl ${userReaction === 'sad' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😞</span>
-                <span className={`text-sm font-medium ${userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.sad}</span>
-                            </button>
-                          </div>
+                  onClick={() => handleReaction('happy')}
+                  className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${userReaction === 'happy' ? 'scale-110' : ''}`}
+                >
+                  <span className={`text-4xl ${userReaction === 'happy' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😄</span>
+                  <span className={`text-sm font-medium ${userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.happy}</span>
+                </button>
+                <button
+                  onClick={() => handleReaction('sad')}
+                  className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${userReaction === 'sad' ? 'scale-110' : ''}`}
+                >
+                  <span className={`text-4xl ${userReaction === 'sad' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''}`}>😞</span>
+                  <span className={`text-sm font-medium ${userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.sad}</span>
+                </button>
+              </div>
             </div>
           </div>
 

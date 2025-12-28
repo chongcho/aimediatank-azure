@@ -17,6 +17,10 @@ interface Media {
   views: number
   avgRating: number
   createdAt: string
+  reactions?: {
+    happy: number
+    sad: number
+  }
   user: {
     id?: string
     username: string

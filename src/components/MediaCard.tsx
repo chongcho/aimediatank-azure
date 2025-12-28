@@ -18,6 +18,10 @@ interface MediaCardProps {
     views: number
     avgRating: number
     createdAt: string
+    reactions?: {
+      happy: number
+      sad: number
+    }
     user: {
       id?: string
       username: string
@@ -238,7 +242,19 @@ export default function MediaCard({ media }: MediaCardProps) {
                 </svg>
                 {formatViews(media.views)}
               </span>
-
+              {/* Reactions */}
+              {media.reactions && (
+                <>
+                  <span className="flex items-center gap-1" title="Happy reactions">
+                    <span className="text-base">😄</span>
+                    <span>{media.reactions.happy}</span>
+                  </span>
+                  <span className="flex items-center gap-1" title="Sad reactions">
+                    <span className="text-base">😞</span>
+                    <span>{media.reactions.sad}</span>
+                  </span>
+                </>
+              )}
             </div>
 
             <span>{formatDate(media.createdAt)}</span>
