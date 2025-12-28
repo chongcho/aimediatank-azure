@@ -720,6 +720,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   return (
     <div 
+      className="talkchat-container"
       style={{
         position: 'fixed',
         bottom: 0,
