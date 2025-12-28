@@ -16,6 +16,23 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Block body scroll when modal is open
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow
+    const originalPosition = document.body.style.position
+    const originalWidth = document.body.style.width
+    
+    document.body.style.overflow = 'hidden'
+    document.body.style.position = 'fixed'
+    document.body.style.width = '100%'
+    
+    return () => {
+      document.body.style.overflow = originalOverflow
+      document.body.style.position = originalPosition
+      document.body.style.width = originalWidth
+    }
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -41,6 +58,11 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // Prevent touch events from propagating to background
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation()
+  }
+
   return (
     <div 
       style={{
@@ -49,14 +71,16 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
         left: 0,
         right: 0,
         bottom: 0,
-        zIndex: 999999,
+        zIndex: 9999999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.8)',
+        background: 'rgba(0, 0, 0, 0.9)',
         padding: '16px',
+        touchAction: 'none',
       }}
       onClick={onClose}
+      onTouchMove={handleTouchMove}
     >
       <div 
         style={{
@@ -67,8 +91,12 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
           width: '100%',
           maxWidth: '400px',
           boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6)',
+          touchAction: 'auto',
+          pointerEvents: 'auto',
         }}
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
       >
         {/* Close button */}
         <button
