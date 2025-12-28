@@ -11,16 +11,17 @@ export const metadata: Metadata = {
   keywords: 'AI media, AI art, AI music, AI video, AI generated content, media sharing',
   authors: [{ name: 'AiMediaTank' }],
   manifest: '/manifest.json',
-  themeColor: '#00ff88',
+  themeColor: '#111113',
   viewport: {
     width: 'device-width',
     initialScale: 1,
     maximumScale: 1,
     userScalable: false,
+    viewportFit: 'cover',
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'AiMediaTank',
   },
   icons: {
@@ -48,7 +49,7 @@ export default function RootLayout({
         <meta name="google-adsense-account" content="ca-pub-2773919175450942" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="AiMediaTank" />
         <link rel="apple-touch-icon" href="/logo.png" />
         <Script
@@ -75,9 +76,14 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="min-h-screen bg-tank-black grid-pattern">
+        {/* Status bar background for PWA - covers the notch/status bar area */}
+        <div 
+          className="fixed top-0 left-0 right-0 bg-tank-dark z-[60] pwa-status-bar-bg" 
+          aria-hidden="true"
+        />
         <Providers>
           <Navbar />
-          <main className="pt-16">
+          <main className="pt-16 pwa-main-content">
             {children}
           </main>
           <InstallPrompt />
