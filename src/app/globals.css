@@ -62,6 +62,11 @@ body {
   .pwa-main-content {
     padding-top: calc(4rem + env(safe-area-inset-top, 0px)) !important;
   }
+  
+  /* Add bottom padding for PWA - half inch (~48px) */
+  body {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 48px) !important;
+  }
 }
 
 ::selection {
