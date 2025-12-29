@@ -407,7 +407,7 @@ export default function RegisterPage() {
             <span className="font-bold text-3xl text-white">
               <span className="text-tank-accent">A</span>i
               <span className="text-red-500">M</span>edia
-              <span className="text-blue-500">T</span>ank
+              <span className="text-sky-400">T</span>ank
             </span>
           </Link>
           <h1 className="text-3xl font-bold mb-2">Create Account</h1>
