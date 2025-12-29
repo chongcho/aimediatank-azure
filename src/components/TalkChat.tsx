@@ -87,6 +87,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [mentionIndex, setMentionIndex] = useState(0)
   // Chat size state: 'max' (40vh) | 'medium' (30vh) | 'min' (hidden)
   const [chatSize, setChatSize] = useState<'max' | 'medium' | 'min'>('medium')
+  // Inline notification message (replaces browser alerts)
+  const [inlineNotice, setInlineNotice] = useState<string | null>(null)
   
   // Load chat size from localStorage on mount
   useEffect(() => {
@@ -100,6 +102,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     localStorage.setItem('talkChatSize', chatSize)
   }, [chatSize])
+  
+  // Auto-dismiss inline notice after 3 seconds
+  useEffect(() => {
+    if (inlineNotice) {
+      const timer = setTimeout(() => setInlineNotice(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [inlineNotice])
   
   // Size control functions
   const pushDown = () => {
@@ -540,7 +550,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Switch to private chat - shows chat records in main window
   const switchToPrivateChat = () => {
     if (!isSignedIn) {
-      alert('Please sign in to use private chat')
+      setInlineNotice('Please sign in to use Private Chat')
       return
     }
     setChatMode('private')
@@ -572,7 +582,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Toggle new chat picker (renamed from chat records)
   const toggleNewChat = () => {
     if (!isSignedIn) {
-      alert('Please sign in to start a new chat')
+      setInlineNotice('Please sign in to use New Chat')
       return
     }
     setChatMode('private')
@@ -1436,6 +1446,42 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
         
+        {/* Inline Notice - shown within chat box */}
+        {inlineNotice && (
+          <div style={{
+            padding: '10px 16px',
+            background: '#fef3c7',
+            borderBottom: '1px solid #fbbf24',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg width="18" height="18" fill="#d97706" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <span style={{ fontSize: '13px', fontWeight: '500', color: '#92400e' }}>{inlineNotice}</span>
+            </div>
+            <button
+              onClick={() => setInlineNotice(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '2px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <svg width="16" height="16" fill="#92400e" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Messages Area - Hidden when minimized */}
         {chatSize !== 'min' && (
         <div 
