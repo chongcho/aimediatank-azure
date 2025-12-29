@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useState, useRef } from 'react'
 
 interface MediaCardProps {
   media: {
@@ -36,9 +36,14 @@ interface MediaCardProps {
 }
 
 export default function MediaCard({ media }: MediaCardProps) {
+  const router = useRouter()
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false)
   const [thumbnailError, setThumbnailError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
+
+  const handleClick = () => {
+    router.push(`/media/${media.id}`)
+  }
 
   // Remove hashtags from title for display (hashtags are only used for search)
   const renderTitle = (title: string) => {
@@ -142,7 +147,7 @@ export default function MediaCard({ media }: MediaCardProps) {
   const showVideoElement = media.type === 'VIDEO' && !thumbnailSrc && !thumbnailError
 
   return (
-    <Link href={`/media/${media.id}`} className="group">
+    <div onClick={handleClick} className="group cursor-pointer">
       <div className="bg-tank-gray rounded-2xl overflow-hidden border border-tank-light hover:border-tank-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-tank-accent/10">
         {/* Thumbnail */}
         <div className="relative aspect-video bg-tank-dark overflow-hidden">
@@ -252,6 +257,6 @@ export default function MediaCard({ media }: MediaCardProps) {
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   )
 }
