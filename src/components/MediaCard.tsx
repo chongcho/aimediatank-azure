@@ -230,7 +230,7 @@ export default function MediaCard({ media }: MediaCardProps) {
         <div className="p-4">
           {/* Title and Type Badge */}
           <div className="flex items-center gap-2 mb-2">
-            <h3 className="font-semibold text-gray-400 group-hover:text-tank-accent transition-colors truncate flex-1" title={media.title}>
+            <h3 className="font-semibold text-white group-hover:text-tank-accent transition-colors truncate flex-1" title={media.title}>
               {renderTitle(media.title)}
             </h3>
             {/* Media Type Badge */}
@@ -241,7 +241,7 @@ export default function MediaCard({ media }: MediaCardProps) {
           </div>
 
           {/* Stats */}
-          <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="flex items-center justify-between text-sm text-gray-300">
             <div className="flex items-center gap-3">
               {/* Views */}
               <span className="flex items-center gap-1">

@@ -589,7 +589,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
     <Link
       href={href}
       onClick={handleClick}
-      className="px-4 py-2 text-gray-400 hover:text-white hover:bg-tank-light rounded-lg transition-all"
+      className="px-4 py-2 text-white hover:text-tank-accent hover:bg-tank-light rounded-lg transition-all"
     >
       {children}
     </Link>
@@ -607,7 +607,7 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
     <Link
       href={href}
       onClick={handleClick}
-      className="px-4 py-px text-gray-300 hover:text-white hover:bg-tank-light rounded-lg transition-all text-right"
+      className="px-4 py-px text-white hover:text-tank-accent hover:bg-tank-light rounded-lg transition-all text-right"
     >
       {children}
     </Link>
