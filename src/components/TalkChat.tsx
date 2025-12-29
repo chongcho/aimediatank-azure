@@ -2157,7 +2157,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               width: '20px',
               height: '20px',
               cursor: 'se-resize',
-              background: 'linear-gradient(135deg, transparent 50%, #888 50%)',
+              background: 'linear-gradient(135deg, transparent 50%, #2563eb 50%)',
               borderBottomRightRadius: '12px',
             }}
             title="Drag to resize"
