@@ -19,10 +19,60 @@ body {
   max-width: 100vw;
   overflow-x: hidden;
   font-family: var(--font-outfit);
-  background: #0a0a0b;
+  background: #000000;
   color: #ffffff;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+/* PWA standalone mode - add black safe area padding */
+@media all and (display-mode: standalone) {
+  html {
+    background: #000000;
+  }
+  
+  body {
+    /* Add padding for safe areas (notch at top, home indicator at bottom) */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+  
+  /* Black background for safe area at top */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 0px);
+    background: #000000;
+    z-index: 999999;
+  }
+  
+  /* Black background for safe area at bottom */
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-bottom, 0px);
+    background: #000000;
+    z-index: 999999;
+    pointer-events: none;
+  }
+  
+  /* Navbar positioning below safe area */
+  .pwa-navbar {
+    top: env(safe-area-inset-top, 0px) !important;
+  }
+  
+  /* Main content padding for navbar + safe area */
+  main.pt-16 {
+    padding-top: calc(4rem + env(safe-area-inset-top, 0px)) !important;
+  }
 }
 
 

@@ -802,7 +802,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       className="talkchat-container"
       style={{
         position: 'fixed',
-        bottom: 0,
+        bottom: 'env(safe-area-inset-bottom, 0px)',
         left: 0,
         right: 0,
         zIndex: 99999,
