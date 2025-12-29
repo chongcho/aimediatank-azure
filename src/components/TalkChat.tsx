@@ -137,9 +137,26 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
   }
   // Chat mode: 'open' or 'private'
-  const [chatMode, setChatMode] = useState<'open' | 'private'>('open')
+  const [chatMode, setChatModeState] = useState<'open' | 'private'>('open')
   // Private chat recipient
   const [privateRecipient, setPrivateRecipient] = useState<UserSuggestion | null>(null)
+  
+  // Load chat mode from localStorage on mount
+  useEffect(() => {
+    const savedMode = localStorage.getItem('talkChatMode')
+    if (savedMode === 'open' || savedMode === 'private') {
+      setChatModeState(savedMode)
+      if (savedMode === 'private') {
+        setShowChatRecords(true)
+      }
+    }
+  }, [])
+  
+  // Wrapper to save chat mode to localStorage
+  const setChatMode = (mode: 'open' | 'private') => {
+    setChatModeState(mode)
+    localStorage.setItem('talkChatMode', mode)
+  }
   // Show user picker for private chat
   const [showUserPicker, setShowUserPicker] = useState(false)
   const [userSearchQuery, setUserSearchQuery] = useState('')
@@ -924,7 +941,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   padding: '4px 6px',
                   borderRadius: '4px',
                   border: 'none',
-                  background: showUserPicker ? '#10b981' : 'transparent',
+                  background: showUserPicker ? '#f97316' : 'transparent',
                   color: showUserPicker ? 'white' : '#666',
                   fontWeight: '700',
                   fontSize: '12px',
