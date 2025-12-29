@@ -173,44 +173,26 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const isSignedIn = !!session?.user
 
-  // Block background scroll completely when chat is visible
+  // Block background scroll when touch starts inside chat and moves
   useEffect(() => {
-    // Store original body styles
-    const originalOverflow = document.body.style.overflow
-    const originalPosition = document.body.style.position
-    const originalWidth = document.body.style.width
-    const originalTop = document.body.style.top
-    const scrollY = window.scrollY
-
-    // Lock body scroll
-    document.body.style.overflow = 'hidden'
-    document.body.style.position = 'fixed'
-    document.body.style.width = '100%'
-    document.body.style.top = `-${scrollY}px`
-
-    return () => {
-      // Restore original body styles
-      document.body.style.overflow = originalOverflow
-      document.body.style.position = originalPosition
-      document.body.style.width = originalWidth
-      document.body.style.top = originalTop
-      // Restore scroll position
-      window.scrollTo(0, scrollY)
-    }
-  }, [])
-
-  // Additional touch event handling for chat container internal scrolling
-  useEffect(() => {
-    const chatEl = chatContainerRef.current
-    if (!chatEl) return
-
+    let touchStartedInChat = false
     let startY = 0
 
     const handleTouchStart = (e: TouchEvent) => {
-      startY = e.touches[0].clientY
+      const chatEl = chatContainerRef.current
+      if (!chatEl) return
+      
+      // Check if touch started inside chat container
+      touchStartedInChat = chatEl.contains(e.target as Node)
+      if (touchStartedInChat) {
+        startY = e.touches[0].clientY
+      }
     }
 
     const handleTouchMove = (e: TouchEvent) => {
+      // Only block if touch started inside chat
+      if (!touchStartedInChat) return
+      
       const target = e.target as HTMLElement
       const scrollableParent = target.closest('.chat-messages-scroll, .emoji-picker-scroll, .media-picker-scroll, [data-scrollable]') as HTMLElement
       
@@ -227,15 +209,23 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         }
       }
       
+      // Prevent background scroll
       e.preventDefault()
     }
 
-    chatEl.addEventListener('touchstart', handleTouchStart, { passive: true })
-    chatEl.addEventListener('touchmove', handleTouchMove, { passive: false })
+    const handleTouchEnd = () => {
+      touchStartedInChat = false
+    }
+
+    // Add listeners to document to catch all touch events
+    document.addEventListener('touchstart', handleTouchStart, { passive: true })
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
+    document.addEventListener('touchend', handleTouchEnd, { passive: true })
     
     return () => {
-      chatEl.removeEventListener('touchstart', handleTouchStart)
-      chatEl.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('touchstart', handleTouchStart)
+      document.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('touchend', handleTouchEnd)
     }
   }, [])
 
