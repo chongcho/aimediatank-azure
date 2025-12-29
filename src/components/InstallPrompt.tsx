@@ -223,27 +223,13 @@ export default function InstallPrompt() {
         </button>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #00ff88, #10b981)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#0a0a0b' }}>Ai</span>
-          </div>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: 'white' }}>
-              Install AiMediaTank
-            </h3>
-            <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#888' }}>
-              Get the full app experience
-            </p>
-          </div>
+        <div style={{ marginBottom: '12px' }}>
+          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: 'white' }}>
+            Install AiMediaTank
+          </h3>
+          <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#888' }}>
+            Get the full app experience
+          </p>
         </div>
 
         {/* Instructions based on device/browser */}
