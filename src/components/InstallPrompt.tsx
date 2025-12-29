@@ -7,16 +7,59 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+// Unique identifier for this PWA
+const PWA_APP_ID = 'aimediatank-pwa-v1'
+
 export default function InstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isIOS, setIsIOS] = useState(false)
   const [isAndroid, setIsAndroid] = useState(false)
-  const [browser, setBrowser] = useState('')
+  const [isAlreadyInstalled, setIsAlreadyInstalled] = useState(false)
+  const [showInstalledMessage, setShowInstalledMessage] = useState(false)
 
   useEffect(() => {
-    // Check if already installed or dismissed
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    checkInstallationStatus()
+  }, [])
+
+  const checkInstallationStatus = async () => {
+    // Method 1: Check if running in standalone mode (already opened as PWA)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                         (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+
+    if (isStandalone) {
+      console.log('PWA: App is running in standalone mode')
+      setIsAlreadyInstalled(true)
+      return
+    }
+
+    // Method 2: Check localStorage for installation record
+    const installRecord = localStorage.getItem(`${PWA_APP_ID}-installed`)
+    if (installRecord) {
+      console.log('PWA: Installation record found in localStorage')
+      setIsAlreadyInstalled(true)
+      // Show brief "already installed" message
+      setShowInstalledMessage(true)
+      setTimeout(() => setShowInstalledMessage(false), 3000)
+      return
+    }
+
+    // Method 3: Try getInstalledRelatedApps API (Chrome 80+)
+    if ('getInstalledRelatedApps' in navigator) {
+      try {
+        const relatedApps = await (navigator as Navigator & { getInstalledRelatedApps: () => Promise<Array<{ platform: string; url: string; id?: string }>> }).getInstalledRelatedApps()
+        if (relatedApps.length > 0) {
+          console.log('PWA: Found installed related apps:', relatedApps)
+          setIsAlreadyInstalled(true)
+          localStorage.setItem(`${PWA_APP_ID}-installed`, Date.now().toString())
+          return
+        }
+      } catch (err) {
+        console.log('PWA: getInstalledRelatedApps not supported or failed:', err)
+      }
+    }
+
+    // Check dismissal status
     const isDismissed = localStorage.getItem('pwa-install-dismissed')
     const dismissedTime = localStorage.getItem('pwa-install-dismissed-time')
     
@@ -29,7 +72,7 @@ export default function InstallPrompt() {
       }
     }
 
-    if (isStandalone || isDismissed) {
+    if (isDismissed) {
       return
     }
 
@@ -41,45 +84,57 @@ export default function InstallPrompt() {
     setIsIOS(isIOSDevice)
     setIsAndroid(isAndroidDevice)
 
-    // Detect browser
-    if (userAgent.includes('edg')) {
-      setBrowser('edge')
-    } else if (userAgent.includes('chrome') && !userAgent.includes('edg')) {
-      setBrowser('chrome')
-    } else if (userAgent.includes('safari') && !userAgent.includes('chrome')) {
-      setBrowser('safari')
-    } else if (userAgent.includes('firefox')) {
-      setBrowser('firefox')
-    }
-
     // Listen for beforeinstallprompt (Chrome/Edge on Android)
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault()
+      console.log('PWA: beforeinstallprompt event fired')
       setDeferredPrompt(e as BeforeInstallPromptEvent)
       setShowPrompt(true)
     }
 
+    // Listen for successful installation
+    const handleAppInstalled = () => {
+      console.log('PWA: App was installed successfully')
+      localStorage.setItem(`${PWA_APP_ID}-installed`, Date.now().toString())
+      setIsAlreadyInstalled(true)
+      setShowPrompt(false)
+      setDeferredPrompt(null)
+    }
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
+    window.addEventListener('appinstalled', handleAppInstalled)
 
     // Show prompt for iOS (no beforeinstallprompt event)
-    if (isIOSDevice) {
+    // But first check if they've already installed via localStorage
+    if (isIOSDevice && !localStorage.getItem(`${PWA_APP_ID}-installed`)) {
       setTimeout(() => setShowPrompt(true), 2000)
     }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
+      window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [])
+  }
 
   const handleInstall = async () => {
     if (deferredPrompt) {
       await deferredPrompt.prompt()
       const { outcome } = await deferredPrompt.userChoice
+      console.log('PWA: User choice:', outcome)
       if (outcome === 'accepted') {
+        localStorage.setItem(`${PWA_APP_ID}-installed`, Date.now().toString())
+        setIsAlreadyInstalled(true)
         setShowPrompt(false)
       }
       setDeferredPrompt(null)
     }
+  }
+
+  const handleIOSInstallDone = () => {
+    // User indicates they've completed iOS installation
+    localStorage.setItem(`${PWA_APP_ID}-installed`, Date.now().toString())
+    setIsAlreadyInstalled(true)
+    setShowPrompt(false)
   }
 
   const handleDismiss = () => {
@@ -88,7 +143,44 @@ export default function InstallPrompt() {
     localStorage.setItem('pwa-install-dismissed-time', Date.now().toString())
   }
 
-  if (!showPrompt) return null
+  // Show brief "already installed" notification
+  if (showInstalledMessage) {
+    return (
+      <div 
+        style={{
+          position: 'fixed',
+          bottom: '100px',
+          right: '20px',
+          zIndex: 99998,
+          background: 'linear-gradient(135deg, #065f46 0%, #047857 100%)',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          color: 'white',
+          fontSize: '14px',
+          animation: 'fadeInOut 3s ease-in-out',
+        }}
+      >
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+        <span>AiMediaTank is already installed!</span>
+        <style>{`
+          @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(20px); }
+            15% { opacity: 1; transform: translateY(0); }
+            85% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+          }
+        `}</style>
+      </div>
+    )
+  }
+
+  if (!showPrompt || isAlreadyInstalled) return null
 
   return (
     <div 
@@ -182,40 +274,59 @@ export default function InstallPrompt() {
           </button>
         ) : isIOS ? (
           // iOS instructions
-          <div style={{ fontSize: '13px', color: '#ccc', lineHeight: 1.5 }}>
-            <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ 
-                background: '#333', 
-                borderRadius: '6px', 
-                padding: '4px 8px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-              }}>1</span>
-              Tap the <strong style={{ color: '#00ff88' }}>Share</strong> button
-              <svg width="18" height="18" fill="#00ff88" viewBox="0 0 24 24">
-                <path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V10c0-1.1.9-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .9 2 2z"/>
-              </svg>
-            </p>
-            <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ 
-                background: '#333', 
-                borderRadius: '6px', 
-                padding: '4px 8px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-              }}>2</span>
-              Scroll & tap <strong style={{ color: '#00ff88' }}>"Add to Home Screen"</strong>
-            </p>
-            <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ 
-                background: '#333', 
-                borderRadius: '6px', 
-                padding: '4px 8px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-              }}>3</span>
-              Tap <strong style={{ color: '#00ff88' }}>"Add"</strong> to install
-            </p>
+          <div>
+            <div style={{ fontSize: '13px', color: '#ccc', lineHeight: 1.5 }}>
+              <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ 
+                  background: '#333', 
+                  borderRadius: '6px', 
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                }}>1</span>
+                Tap the <strong style={{ color: '#00ff88' }}>Share</strong> button
+                <svg width="18" height="18" fill="#00ff88" viewBox="0 0 24 24">
+                  <path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V10c0-1.1.9-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .9 2 2z"/>
+                </svg>
+              </p>
+              <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ 
+                  background: '#333', 
+                  borderRadius: '6px', 
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                }}>2</span>
+                Scroll & tap <strong style={{ color: '#00ff88' }}>"Add to Home Screen"</strong>
+              </p>
+              <p style={{ margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ 
+                  background: '#333', 
+                  borderRadius: '6px', 
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                }}>3</span>
+                Tap <strong style={{ color: '#00ff88' }}>"Add"</strong> to install
+              </p>
+            </div>
+            {/* Button for user to confirm they've installed */}
+            <button
+              onClick={handleIOSInstallDone}
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: 'rgba(0, 255, 136, 0.1)',
+                border: '1px solid rgba(0, 255, 136, 0.3)',
+                borderRadius: '8px',
+                color: '#00ff88',
+                fontWeight: '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              I've installed the app ✓
+            </button>
           </div>
         ) : isAndroid ? (
           // Android (non-Chrome) instructions
@@ -286,4 +397,3 @@ export default function InstallPrompt() {
     </div>
   )
 }
-

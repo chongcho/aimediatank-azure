@@ -1,6 +1,7 @@
 {
   "name": "AiMediaTank",
   "short_name": "AiMediaTank",
+  "id": "aimediatank-pwa-v1",
   "description": "AI-Generated Media Community for creators and enthusiasts",
   "start_url": "/",
   "display": "standalone",
@@ -8,6 +9,13 @@
   "theme_color": "#000000",
   "orientation": "portrait-primary",
   "scope": "/",
+  "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://aimediatank.com/manifest.json"
+    }
+  ],
   "icons": [
     {
       "src": "/logo.png",
