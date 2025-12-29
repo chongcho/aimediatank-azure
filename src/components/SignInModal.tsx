@@ -16,20 +16,14 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Block body scroll when modal is open
+  // Block body scroll when modal is open (iOS-safe method)
   useEffect(() => {
-    const originalOverflow = document.body.style.overflow
-    const originalPosition = document.body.style.position
-    const originalWidth = document.body.style.width
-    
+    const scrollY = window.scrollY
     document.body.style.overflow = 'hidden'
-    document.body.style.position = 'fixed'
-    document.body.style.width = '100%'
     
     return () => {
-      document.body.style.overflow = originalOverflow
-      document.body.style.position = originalPosition
-      document.body.style.width = originalWidth
+      document.body.style.overflow = ''
+      window.scrollTo(0, scrollY)
     }
   }, [])
 
@@ -58,11 +52,6 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
     }
   }
 
-  // Prevent touch events from propagating to background
-  const handleTouchMove = (e: React.TouchEvent) => {
-    e.stopPropagation()
-  }
-
   return (
     <div 
       style={{
@@ -77,10 +66,9 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
         justifyContent: 'center',
         background: 'rgba(0, 0, 0, 0.9)',
         padding: '16px',
-        touchAction: 'none',
+        overflowY: 'auto',
       }}
       onClick={onClose}
-      onTouchMove={handleTouchMove}
     >
       <div 
         style={{
@@ -91,12 +79,8 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
           width: '100%',
           maxWidth: '400px',
           boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6)',
-          touchAction: 'auto',
-          pointerEvents: 'auto',
         }}
         onClick={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchMove={(e) => e.stopPropagation()}
       >
         {/* Close button */}
         <button

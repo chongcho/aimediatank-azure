@@ -39,7 +39,7 @@ body {
     min-height: -webkit-fill-available;
   }
   
-  /* Black background for safe area at top */
+  /* Black background for safe area at top - low z-index so popups work */
   body::before {
     content: '';
     position: fixed;
@@ -48,10 +48,11 @@ body {
     right: 0;
     height: env(safe-area-inset-top, 0px);
     background: #000000;
-    z-index: 999999;
+    z-index: 40;
+    pointer-events: none;
   }
   
-  /* Black background for safe area at bottom */
+  /* Black background for safe area at bottom - low z-index so popups work */
   body::after {
     content: '';
     position: fixed;
@@ -60,7 +61,7 @@ body {
     right: 0;
     height: env(safe-area-inset-bottom, 0px);
     background: #000000;
-    z-index: 999999;
+    z-index: 40;
     pointer-events: none;
   }
   
@@ -72,6 +73,25 @@ body {
   /* Main content padding for navbar + safe area */
   main.pt-16 {
     padding-top: calc(4rem + env(safe-area-inset-top, 0px)) !important;
+  }
+}
+
+/* Mobile landscape mode - add padding on left and right */
+@media screen and (orientation: landscape) and (max-height: 500px) {
+  body {
+    padding-left: max(env(safe-area-inset-left, 0px), 1in);
+    padding-right: max(env(safe-area-inset-right, 0px), 1in);
+  }
+  
+  /* Adjust fixed elements for landscape */
+  .pwa-navbar {
+    left: max(env(safe-area-inset-left, 0px), 1in) !important;
+    right: max(env(safe-area-inset-right, 0px), 1in) !important;
+  }
+  
+  .talkchat-container {
+    left: max(env(safe-area-inset-left, 0px), 1in) !important;
+    right: max(env(safe-area-inset-right, 0px), 1in) !important;
   }
 }
 

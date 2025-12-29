@@ -1101,6 +1101,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     const searchTerm = value.startsWith('@') ? value.slice(1) : value
                     searchUsersForPrivateChat(searchTerm)
                   }}
+                  onTouchStart={(e) => e.stopPropagation()}
                   placeholder="type @User ID or select"
                   autoFocus
                   style={{
@@ -1108,10 +1109,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1px solid #d1d5db',
-                    fontSize: '14px',
+                    fontSize: '16px', // Prevents iOS zoom on focus
                     outline: 'none',
                     background: 'white',
                     color: '#333',
+                    WebkitAppearance: 'none', // iOS input fix
                   }}
                 />
               </div>
