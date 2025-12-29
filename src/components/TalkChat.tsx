@@ -173,22 +173,44 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const isSignedIn = !!session?.user
 
-  // Block background scroll when touching chat container
+  // Block background scroll completely when chat is visible
+  useEffect(() => {
+    // Store original body styles
+    const originalOverflow = document.body.style.overflow
+    const originalPosition = document.body.style.position
+    const originalWidth = document.body.style.width
+    const originalTop = document.body.style.top
+    const scrollY = window.scrollY
+
+    // Lock body scroll
+    document.body.style.overflow = 'hidden'
+    document.body.style.position = 'fixed'
+    document.body.style.width = '100%'
+    document.body.style.top = `-${scrollY}px`
+
+    return () => {
+      // Restore original body styles
+      document.body.style.overflow = originalOverflow
+      document.body.style.position = originalPosition
+      document.body.style.width = originalWidth
+      document.body.style.top = originalTop
+      // Restore scroll position
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
+
+  // Additional touch event handling for chat container internal scrolling
   useEffect(() => {
     const chatEl = chatContainerRef.current
     if (!chatEl) return
 
     let startY = 0
-    let startX = 0
 
     const handleTouchStart = (e: TouchEvent) => {
       startY = e.touches[0].clientY
-      startX = e.touches[0].clientX
     }
 
     const handleTouchMove = (e: TouchEvent) => {
-      // Always prevent default on the chat container to block background scroll
-      // Find if we're inside a scrollable element
       const target = e.target as HTMLElement
       const scrollableParent = target.closest('.chat-messages-scroll, .emoji-picker-scroll, .media-picker-scroll, [data-scrollable]') as HTMLElement
       
@@ -197,17 +219,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         const currentY = e.touches[0].clientY
         const deltaY = startY - currentY
         
-        // Allow scroll if not at boundaries
         const atTop = scrollTop <= 0 && deltaY < 0
         const atBottom = scrollTop + clientHeight >= scrollHeight && deltaY > 0
         
         if (!atTop && !atBottom) {
-          // Allow the scroll inside the element
-          return
+          return // Allow internal scroll
         }
       }
       
-      // Prevent background scroll
       e.preventDefault()
     }
 
