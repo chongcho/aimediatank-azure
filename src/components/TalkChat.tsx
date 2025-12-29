@@ -1660,8 +1660,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     <div style={{
                       padding: '1px 12px',
                       borderRadius: '6px',
-                      backgroundColor: isOwn ? '#1e3a8a' : '#166534',
-                      color: '#fff',
+                      backgroundColor: isOwn ? '#fef9c3' : '#e0f2fe',
+                      color: '#1a1a1a',
                       border: 'none',
                     }}>
                       <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>

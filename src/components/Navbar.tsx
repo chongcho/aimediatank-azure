@@ -270,7 +270,7 @@ export default function Navbar() {
             <div className="relative">
               <button
                 onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
-                className="px-3 py-1.5 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
+                className="h-9 px-3 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
                 aria-label="Toggle Chat"
                 title="Toggle Chat"
               >
