@@ -270,16 +270,11 @@ export default function Navbar() {
             <div className="relative">
               <button
                 onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
-                className="w-9 h-9 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
+                className="px-3 py-1.5 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
                 aria-label="Toggle Chat"
                 title="Toggle Chat"
               >
-                <svg width="22" height="22" viewBox="0 0 100 60" fill="none">
-                  <path d="M50 58C25 58 8 45 4 35C1 27 6 15 20 8C34 1 50 5 50 5C50 5 66 1 80 8C94 15 99 27 96 35C92 45 75 58 50 58Z" fill="#E91E63"/>
-                  <path d="M22 26C22 26 35 36 50 36C65 36 78 26 78 26C78 26 68 44 50 44C32 44 22 26 22 26Z" fill="#1a1a1a"/>
-                  <path d="M36 26C36 23 41 19 50 19C59 19 64 23 64 26C64 29 59 21 50 21C41 21 36 29 36 26Z" fill="white"/>
-                  <path d="M40 39C40 37 44 34 50 34C56 34 60 37 60 39C60 41 56 37 50 37C44 37 40 41 40 39Z" fill="white"/>
-                </svg>
+                <span className="text-sm font-bold text-gray-900">Chat</span>
               </button>
               {/* Chat invite notification badge */}
               {chatInviteCount > 0 && (
