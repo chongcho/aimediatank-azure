@@ -1137,10 +1137,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           {/* Size control buttons - different for desktop vs mobile */}
           <div style={{ display: 'flex', gap: '1px', flexShrink: 0 }}>
             {isDesktop ? (
-              /* Desktop: Single Hide button */
+              /* Desktop: Minimize/Restore toggle button */
               <button
-                onClick={() => setChatSize('min')}
-                className="h-6 sm:h-7 px-3"
+                onClick={() => setChatSize(chatSize === 'min' ? 'medium' : 'min')}
+                className="h-6 sm:h-7 w-7 sm:w-8"
                 style={{
                   borderRadius: '4px',
                   border: 'none',
@@ -1150,16 +1150,21 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '4px',
-                  fontSize: '12px',
-                  fontWeight: '600',
                 }}
-                title="Hide chat"
+                title={chatSize === 'min' ? 'Restore chat' : 'Minimize chat'}
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-                Hide
+                {chatSize === 'min' ? (
+                  /* Restore icon - window with arrow up */
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <rect x="4" y="8" width="12" height="10" rx="1" />
+                    <path d="M8 8V6a1 1 0 011-1h10a1 1 0 011 1v10a1 1 0 01-1 1h-2" />
+                  </svg>
+                ) : (
+                  /* Minimize icon - horizontal line (underscore style) */
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                    <path strokeLinecap="round" d="M6 19h12" />
+                  </svg>
+                )}
               </button>
             ) : (
               /* Mobile: Up/Down buttons */
