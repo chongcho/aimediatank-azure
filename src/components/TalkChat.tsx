@@ -146,9 +146,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     const savedMode = localStorage.getItem('talkChatMode')
     if (savedMode === 'open' || savedMode === 'private') {
       setChatModeState(savedMode)
-      if (savedMode === 'private') {
-        setShowChatRecords(true)
-      }
     }
   }, [])
   
@@ -695,6 +692,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     const interval = setInterval(fetchChatInvites, 10000) // Check every 10 seconds
     return () => clearInterval(interval)
   }, [isInitialized, session?.user?.id, fetchChatInvites])
+
+  // Fetch chat records when in private mode without a recipient
+  useEffect(() => {
+    if (!isInitialized || !session?.user?.id) return
+    if (chatMode === 'private' && !privateRecipient) {
+      fetchChatRecords()
+    }
+  }, [isInitialized, session?.user?.id, chatMode, privateRecipient, fetchChatRecords])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
