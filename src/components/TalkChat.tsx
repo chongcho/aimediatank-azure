@@ -187,6 +187,140 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const isSignedIn = !!session?.user
 
+  // Desktop drag and resize state
+  const [isDesktop, setIsDesktop] = useState(false)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [size, setSize] = useState({ width: 500, height: 400 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [isResizing, setIsResizing] = useState(false)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [hasCustomPosition, setHasCustomPosition] = useState(false)
+
+  // Detect desktop
+  useEffect(() => {
+    const checkDesktop = () => {
+      setIsDesktop(window.innerWidth >= 768)
+    }
+    checkDesktop()
+    window.addEventListener('resize', checkDesktop)
+    return () => window.removeEventListener('resize', checkDesktop)
+  }, [])
+
+  // Load saved position and size from localStorage
+  useEffect(() => {
+    if (isDesktop) {
+      const savedPosition = localStorage.getItem('talkChatPosition')
+      const savedSize = localStorage.getItem('talkChatCustomSize')
+      if (savedPosition) {
+        try {
+          const pos = JSON.parse(savedPosition)
+          setPosition(pos)
+          setHasCustomPosition(true)
+        } catch {}
+      }
+      if (savedSize) {
+        try {
+          const sz = JSON.parse(savedSize)
+          setSize(sz)
+        } catch {}
+      }
+    }
+  }, [isDesktop])
+
+  // Save position and size to localStorage
+  useEffect(() => {
+    if (isDesktop && hasCustomPosition) {
+      localStorage.setItem('talkChatPosition', JSON.stringify(position))
+    }
+  }, [position, isDesktop, hasCustomPosition])
+
+  useEffect(() => {
+    if (isDesktop) {
+      localStorage.setItem('talkChatCustomSize', JSON.stringify(size))
+    }
+  }, [size, isDesktop])
+
+  // Drag handlers
+  const handleDragStart = (e: React.MouseEvent) => {
+    if (!isDesktop) return
+    e.preventDefault()
+    setIsDragging(true)
+    setHasCustomPosition(true)
+    const rect = chatContainerRef.current?.getBoundingClientRect()
+    if (rect) {
+      setDragOffset({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      })
+    }
+  }
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newX = e.clientX - dragOffset.x
+      const newY = e.clientY - dragOffset.y
+      // Constrain to viewport
+      const maxX = window.innerWidth - size.width
+      const maxY = window.innerHeight - size.height
+      setPosition({
+        x: Math.max(0, Math.min(newX, maxX)),
+        y: Math.max(0, Math.min(newY, maxY))
+      })
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging, dragOffset, size])
+
+  // Resize handlers
+  const handleResizeStart = (e: React.MouseEvent) => {
+    if (!isDesktop) return
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizing(true)
+  }
+
+  useEffect(() => {
+    if (!isResizing) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = chatContainerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const newWidth = Math.max(350, Math.min(800, e.clientX - (hasCustomPosition ? position.x : rect.left) + 10))
+      const newHeight = Math.max(250, Math.min(600, e.clientY - (hasCustomPosition ? position.y : rect.top) + 10))
+      setSize({ width: newWidth, height: newHeight })
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing, position, hasCustomPosition])
+
+  // Reset position (double-click header)
+  const handleResetPosition = () => {
+    if (!isDesktop) return
+    setHasCustomPosition(false)
+    setPosition({ x: 0, y: 0 })
+    localStorage.removeItem('talkChatPosition')
+  }
+
   // Block background scroll when touch starts inside chat and moves
   useEffect(() => {
     let touchStartedInChat = false
@@ -802,11 +936,18 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       className="talkchat-container"
       style={{
         position: 'fixed',
-        bottom: 'env(safe-area-inset-bottom, 0px)',
-        left: 0,
-        right: 0,
+        ...(isDesktop && hasCustomPosition ? {
+          top: position.y,
+          left: position.x,
+          bottom: 'auto',
+          right: 'auto',
+        } : {
+          bottom: 'env(safe-area-inset-bottom, 0px)',
+          left: 0,
+          right: 0,
+        }),
         zIndex: 99999,
-        pointerEvents: 'none', // Allow clicks to pass through to background
+        pointerEvents: 'none',
       }}>
       {/* Wrapper to center chat - 2 tile width */}
       <div className="chat-wrapper-responsive" style={{ 
@@ -814,7 +955,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         bottom: 0,
         left: 0,
         right: 0,
-        display: 'flex',
+        display: isDesktop && hasCustomPosition ? 'block' : 'flex',
         justifyContent: 'center',
       }}>
         <style>{`
@@ -836,23 +977,24 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           onPointerDown={(e) => e.stopPropagation()}
           style={{
             position: 'relative',
-            height: getChatHeight(),
-            minHeight: getChatMinHeight(),
-            width: '100%',
-            maxWidth: '1000px',
+            height: isDesktop && hasCustomPosition ? size.height : getChatHeight(),
+            minHeight: isDesktop ? 'auto' : getChatMinHeight(),
+            width: isDesktop && hasCustomPosition ? size.width : '100%',
+            maxWidth: isDesktop && hasCustomPosition ? 'none' : '1000px',
             display: 'flex',
             flexDirection: 'column',
-            borderTopLeftRadius: '12px',
-            borderTopRightRadius: '12px',
+            borderRadius: isDesktop && hasCustomPosition ? '12px' : undefined,
+            borderTopLeftRadius: isDesktop && hasCustomPosition ? undefined : '12px',
+            borderTopRightRadius: isDesktop && hasCustomPosition ? undefined : '12px',
             overflow: 'hidden',
-            boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.3)',
+            boxShadow: isDesktop && hasCustomPosition ? '0 4px 30px rgba(0, 0, 0, 0.4)' : '0 -4px 20px rgba(0, 0, 0, 0.3)',
             background: '#f0f0f0',
-            transition: 'height 0.3s ease-in-out',
-            pointerEvents: 'auto', // Only chat container captures clicks
+            transition: isDragging || isResizing ? 'none' : 'height 0.3s ease-in-out',
+            pointerEvents: 'auto',
             overscrollBehavior: 'contain',
           }}>
           <style>{`
-            @media (max-width: 640px) {
+            @media (max-width: 767px) {
               .chat-container-responsive {
                 height: ${getMobileChatHeight()} !important;
                 border-radius: 0 !important;
@@ -860,18 +1002,24 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               }
             }
           `}</style>
-        {/* Header */}
-        <div className="chat-header-responsive" style={{
-          background: '#e8e8e8',
-          padding: '2px 4px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid #ccc',
-          gap: '2px',
-        }}>
+        {/* Header - draggable on desktop */}
+        <div 
+          className="chat-header-responsive" 
+          onMouseDown={isDesktop ? handleDragStart : undefined}
+          onDoubleClick={isDesktop ? handleResetPosition : undefined}
+          style={{
+            background: '#e8e8e8',
+            padding: '2px 4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #ccc',
+            gap: '2px',
+            cursor: isDesktop ? (isDragging ? 'grabbing' : 'grab') : 'default',
+            userSelect: 'none',
+          }}>
           <style>{`
-            @media (min-width: 640px) {
+            @media (min-width: 768px) {
               .chat-header-responsive {
                 padding: 4px 8px !important;
                 gap: 4px !important;
@@ -1972,6 +2120,24 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         </form>
+        )}
+
+        {/* Resize handle - desktop only */}
+        {isDesktop && hasCustomPosition && (
+          <div
+            onMouseDown={handleResizeStart}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              right: 0,
+              width: '20px',
+              height: '20px',
+              cursor: 'se-resize',
+              background: 'linear-gradient(135deg, transparent 50%, #888 50%)',
+              borderBottomRightRadius: '12px',
+            }}
+            title="Drag to resize"
+          />
         )}
         </div>
       </div>
