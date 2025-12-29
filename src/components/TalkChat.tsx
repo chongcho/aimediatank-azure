@@ -1134,53 +1134,80 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           
-          {/* Size control buttons */}
+          {/* Size control buttons - different for desktop vs mobile */}
           <div style={{ display: 'flex', gap: '1px', flexShrink: 0 }}>
-            {/* Push Up button */}
-            <button
-              onClick={pushUp}
-              disabled={chatSize === 'max'}
-              className="w-6 h-6 sm:w-7 sm:h-8"
-              style={{
-                borderRadius: '3px 0 0 3px',
-                border: 'none',
-                background: chatSize === 'max' ? '#94a3b8' : '#2563eb',
-                color: 'white',
-                cursor: chatSize === 'max' ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: chatSize === 'max' ? 0.5 : 1,
-              }}
-              title={chatSize === 'min' ? 'Medium size' : chatSize === 'medium' ? 'Max size' : 'Already at max'}
-            >
-              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-            </button>
-            
-            {/* Push Down button */}
-            <button
-              onClick={pushDown}
-              disabled={chatSize === 'min'}
-              className="w-6 h-6 sm:w-7 sm:h-8"
-              style={{
-                borderRadius: '0 3px 3px 0',
-                border: 'none',
-                background: chatSize === 'min' ? '#94a3b8' : '#2563eb',
-                color: 'white',
-                cursor: chatSize === 'min' ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: chatSize === 'min' ? 0.5 : 1,
-              }}
-              title={chatSize === 'max' ? 'Medium size' : chatSize === 'medium' ? 'Minimize' : 'Already minimized'}
-            >
-              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+            {isDesktop ? (
+              /* Desktop: Single Hide button */
+              <button
+                onClick={() => setChatSize('min')}
+                className="h-6 sm:h-7 px-3"
+                style={{
+                  borderRadius: '4px',
+                  border: 'none',
+                  background: '#2563eb',
+                  color: 'white',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                }}
+                title="Hide chat"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                Hide
+              </button>
+            ) : (
+              /* Mobile: Up/Down buttons */
+              <>
+                <button
+                  onClick={pushUp}
+                  disabled={chatSize === 'max'}
+                  className="w-6 h-6"
+                  style={{
+                    borderRadius: '3px 0 0 3px',
+                    border: 'none',
+                    background: chatSize === 'max' ? '#94a3b8' : '#2563eb',
+                    color: 'white',
+                    cursor: chatSize === 'max' ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: chatSize === 'max' ? 0.5 : 1,
+                  }}
+                  title={chatSize === 'min' ? 'Medium size' : chatSize === 'medium' ? 'Max size' : 'Already at max'}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={pushDown}
+                  disabled={chatSize === 'min'}
+                  className="w-6 h-6"
+                  style={{
+                    borderRadius: '0 3px 3px 0',
+                    border: 'none',
+                    background: chatSize === 'min' ? '#94a3b8' : '#2563eb',
+                    color: 'white',
+                    cursor: chatSize === 'min' ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: chatSize === 'min' ? 0.5 : 1,
+                  }}
+                  title={chatSize === 'max' ? 'Medium size' : chatSize === 'medium' ? 'Minimize' : 'Already minimized'}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
