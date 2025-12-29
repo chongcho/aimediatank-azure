@@ -76,22 +76,62 @@ body {
   }
 }
 
-/* Mobile landscape mode - add padding on left and right */
-@media screen and (orientation: landscape) and (max-height: 500px) {
+/* Landscape padding elements - hidden by default */
+.landscape-padding-left,
+.landscape-padding-right {
+  display: none;
+}
+
+/* Mobile/PWA landscape mode - add 1 inch (96px) black padding on left and right */
+@media screen and (orientation: landscape) and (max-height: 600px) {
+  html {
+    background: #000000 !important;
+  }
+  
   body {
-    padding-left: max(env(safe-area-inset-left, 0px), 1in);
-    padding-right: max(env(safe-area-inset-right, 0px), 1in);
+    padding-left: max(env(safe-area-inset-left, 0px), 96px);
+    padding-right: max(env(safe-area-inset-right, 0px), 96px);
+    background: #0a0a0b;
   }
   
-  /* Adjust fixed elements for landscape */
+  /* Show and style black padding area on left side */
+  .landscape-padding-left {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: max(env(safe-area-inset-left, 0px), 96px);
+    height: 100vh;
+    height: 100dvh;
+    background: #000000;
+    z-index: 9998;
+    pointer-events: none;
+  }
+  
+  /* Show and style black padding area on right side */
+  .landscape-padding-right {
+    display: block;
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: max(env(safe-area-inset-right, 0px), 96px);
+    height: 100vh;
+    height: 100dvh;
+    background: #000000;
+    z-index: 9998;
+    pointer-events: none;
+  }
+  
+  /* Adjust fixed navbar for landscape */
   .pwa-navbar {
-    left: max(env(safe-area-inset-left, 0px), 1in) !important;
-    right: max(env(safe-area-inset-right, 0px), 1in) !important;
+    left: max(env(safe-area-inset-left, 0px), 96px) !important;
+    right: max(env(safe-area-inset-right, 0px), 96px) !important;
   }
   
+  /* Adjust TalkChat for landscape */
   .talkchat-container {
-    left: max(env(safe-area-inset-left, 0px), 1in) !important;
-    right: max(env(safe-area-inset-right, 0px), 1in) !important;
+    left: max(env(safe-area-inset-left, 0px), 96px) !important;
+    right: max(env(safe-area-inset-right, 0px), 96px) !important;
   }
 }
 

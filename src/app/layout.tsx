@@ -77,6 +77,9 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="min-h-screen bg-tank-black grid-pattern m-0 p-0">
+        {/* Landscape mode black padding areas */}
+        <div className="landscape-padding-left" aria-hidden="true" />
+        <div className="landscape-padding-right" aria-hidden="true" />
         <Providers>
           <Navbar />
           <main className="pt-16 m-0 p-0">
