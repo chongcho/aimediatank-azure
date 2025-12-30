@@ -148,8 +148,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
   // Chat mode: 'open' or 'private'
   const [chatMode, setChatModeState] = useState<'open' | 'private'>('open')
-  // Private chat recipient
-  const [privateRecipient, setPrivateRecipient] = useState<UserSuggestion | null>(null)
+  // Private chat recipients (supports multiple for group chat)
+  const [selectedRecipients, setSelectedRecipients] = useState<UserSuggestion[]>([])
+  // For backward compatibility, derive single recipient for 1-on-1 chat
+  const privateRecipient = selectedRecipients.length === 1 ? selectedRecipients[0] : null
   
   // Load chat mode from localStorage on mount
   useEffect(() => {
@@ -489,19 +491,34 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
   }
 
-  // Handle private chat user selection
+  // Handle private chat user selection (supports multiple recipients for group chat)
   const selectPrivateRecipient = (user: UserSuggestion) => {
-    setPrivateRecipient(user)
-    setShowUserPicker(false)
+    // Check if user is already selected
+    if (selectedRecipients.some(r => r.id === user.id)) {
+      return // Already selected
+    }
+    setSelectedRecipients(prev => [...prev, user])
     setUserSearchQuery('')
     setSearchedUsers([])
+    // Don't close picker - allow adding more users
+  }
+  
+  // Remove a recipient from selection
+  const removeRecipient = (userId: string) => {
+    setSelectedRecipients(prev => prev.filter(r => r.id !== userId))
+  }
+  
+  // Start chat with selected recipients (close picker and start conversation)
+  const startChatWithSelected = () => {
+    if (selectedRecipients.length === 0) return
+    setShowUserPicker(false)
     setMessages([]) // Clear messages when switching
   }
 
   // Switch to open chat
   const switchToOpenChat = () => {
     setChatMode('open')
-    setPrivateRecipient(null)
+    setSelectedRecipients([])
     setMessages([])
     // Close all popups
     setShowUserPicker(false)
@@ -538,7 +555,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
     
     // Start private chat with sender
-    setPrivateRecipient(sender)
+    setSelectedRecipients([sender])
     setChatMode('private')
     setShowInvites(false)
     setShowUserPicker(false)
@@ -554,7 +571,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       return
     }
     setChatMode('private')
-    setPrivateRecipient(null) // Clear recipient to show chat records
+    setSelectedRecipients([]) // Clear recipients to show chat records
     fetchChatRecords() // Fetch chat records to display in main window
     // Close all popups
     setShowUserPicker(false)
@@ -609,7 +626,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       }
     }
     
-    setPrivateRecipient(user)
+    setSelectedRecipients([user])
     setChatMode('private')
     setShowChatRecords(false)
     setMessages([]) // Clear messages, will be fetched
@@ -799,9 +816,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     try {
       let url = '/api/chat?mode=open'
       
-      // For private chat, include mode and recipientId
-      if (chatMode === 'private' && privateRecipient && session?.user?.id) {
-        url = `/api/chat?mode=private&recipientId=${privateRecipient.id}`
+      // For private chat with single recipient, fetch messages
+      // For group chat (multiple recipients), messages are sent individually
+      if (chatMode === 'private' && selectedRecipients.length === 1 && session?.user?.id) {
+        url = `/api/chat?mode=private&recipientId=${selectedRecipients[0].id}`
+      }
+      
+      // Don't fetch messages for group chat (multiple recipients) - show empty state
+      if (chatMode === 'private' && selectedRecipients.length > 1) {
+        return
       }
       
       const res = await fetch(url)
@@ -814,7 +837,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     } catch (error) {
       console.error('Error fetching messages:', error)
     }
-  }, [isInitialized, chatMode, privateRecipient, session?.user?.id])
+  }, [isInitialized, chatMode, selectedRecipients, session?.user?.id])
 
   // Initialize after mount
   useEffect(() => {
@@ -837,13 +860,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return () => clearInterval(interval)
   }, [isInitialized, session?.user?.id, fetchChatInvites])
 
-  // Fetch chat records when in private mode without a recipient
+  // Fetch chat records when in private mode without any recipients
   useEffect(() => {
     if (!isInitialized || !session?.user?.id) return
-    if (chatMode === 'private' && !privateRecipient) {
+    if (chatMode === 'private' && selectedRecipients.length === 0) {
       fetchChatRecords()
     }
-  }, [isInitialized, session?.user?.id, chatMode, privateRecipient, fetchChatRecords])
+  }, [isInitialized, session?.user?.id, chatMode, selectedRecipients.length, fetchChatRecords])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -869,65 +892,91 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       return
     }
 
-    // For private chat, require a recipient
-    if (chatMode === 'private' && !privateRecipient) {
-      alert('Please select a user to chat with')
+    // For private chat, require at least one recipient
+    if (chatMode === 'private' && selectedRecipients.length === 0) {
+      alert('Please select at least one user to chat with')
       return
     }
 
     setLoading(true)
     try {
-      const body: { content: string; isPrivate: boolean; recipientId?: string } = {
-        content: newMessage.trim(),
-        isPrivate: chatMode === 'private',
+      const messageContent = newMessage.trim()
+      
+      if (chatMode === 'private' && selectedRecipients.length > 0) {
+        // Send message to each recipient (supports group chat)
+        const sendPromises = selectedRecipients.map(async (recipient) => {
+          const body = {
+            content: messageContent,
+            isPrivate: true,
+            recipientId: recipient.id,
+          }
+          
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          
+          if (!res.ok) {
+            const errorData = await res.json()
+            throw new Error(errorData.error || 'Failed to send message')
+          }
+          
+          return res.json()
+        })
+        
+        await Promise.all(sendPromises)
+        console.log(`Message sent to ${selectedRecipients.length} recipient(s)`)
+        
+        // Clear invites from recipients if any
+        for (const recipient of selectedRecipients) {
+          const hasInvite = chatInvites.some(invite => invite.sender.id === recipient.id)
+          if (hasInvite) {
+            try {
+              await fetch('/api/chat/invites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ senderId: recipient.id }),
+              })
+            } catch (err) {
+              console.error('Error clearing invite:', err)
+            }
+          }
+        }
+        fetchChatInvites()
+      } else {
+        // Open chat - single message
+        const body = {
+          content: messageContent,
+          isPrivate: false,
+        }
+        
+        console.log('Sending message:', body)
+        
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        
+        console.log('Response status:', res.status)
+        
+        if (!res.ok) {
+          const errorData = await res.json()
+          console.error('Failed to send message:', errorData)
+          alert(errorData.error || 'Failed to send message')
+          return
+        }
+        
+        const result = await res.json()
+        console.log('Message sent successfully:', result)
       }
-      
-      // Include recipientId for private chat
-      if (chatMode === 'private' && privateRecipient) {
-        body.recipientId = privateRecipient.id
-      }
-      
-      console.log('Sending message:', body)
-      
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      
-      console.log('Response status:', res.status)
-      
-      if (!res.ok) {
-        const errorData = await res.json()
-        console.error('Failed to send message:', errorData)
-        alert(errorData.error || 'Failed to send message')
-        return
-      }
-      
-      const result = await res.json()
-      console.log('Message sent successfully:', result)
       
       setNewMessage('')
       fetchMessages()
-      
-      // Clear notification from this recipient if replying in private chat
-      if (chatMode === 'private' && privateRecipient) {
-        const hasInvite = chatInvites.some(invite => invite.sender.id === privateRecipient.id)
-        if (hasInvite) {
-          try {
-            await fetch('/api/chat/invites', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ senderId: privateRecipient.id }),
-            })
-            fetchChatInvites()
-          } catch (err) {
-            console.error('Error clearing invite:', err)
-          }
-        }
-      }
     } catch (error) {
       console.error('Error sending message:', error)
+      alert('Failed to send message')
     } finally {
       setLoading(false)
     }
@@ -1242,7 +1291,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                width: '300px',
+                width: '320px',
                 maxWidth: 'calc(100vw - 32px)',
                 background: '#e5e7eb',
                 borderRadius: '12px',
@@ -1274,6 +1323,61 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     Close
                   </button>
                 </div>
+                
+                {/* Selected recipients as chips */}
+                {selectedRecipients.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '6px',
+                    marginBottom: '10px',
+                    padding: '8px',
+                    background: 'white',
+                    borderRadius: '6px',
+                    border: '1px solid #d1d5db',
+                  }}>
+                    {selectedRecipients.map((user) => (
+                      <div
+                        key={user.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          background: '#8b5cf6',
+                          color: 'white',
+                          padding: '4px 8px',
+                          borderRadius: '16px',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                        }}
+                      >
+                        <span>@{user.username}</span>
+                        <button
+                          onClick={() => removeRecipient(user.id)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'white',
+                            cursor: 'pointer',
+                            padding: '0',
+                            marginLeft: '2px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '50%',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
                 <input
                   type="text"
                   value={userSearchQuery}
@@ -1298,6 +1402,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     WebkitAppearance: 'none', // iOS input fix
                   }}
                 />
+                
+                {/* Hint text for group chat */}
+                <p style={{ fontSize: '11px', color: '#666', marginTop: '6px', textAlign: 'center' }}>
+                  💡 Select multiple users for group message
+                </p>
               </div>
               <div style={{
                 maxHeight: '200px',
@@ -1313,57 +1422,103 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     No users found
                   </div>
                 ) : searchedUsers.length > 0 ? (
-                  searchedUsers.map((user) => (
-                    <button
-                      key={user.id}
-                      onClick={() => selectPrivateRecipient(user)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: 'none',
-                        borderBottom: '1px solid #e5e7eb',
-                        background: '#f9fafb',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        textAlign: 'left',
-                        transition: 'background 0.15s',
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = '#e5e7eb'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = '#f9fafb'}
-                    >
-                      <div style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '6px',
-                        overflow: 'hidden',
-                        background: '#8b5cf6',
-                        flexShrink: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                        {user.avatar ? (
-                          <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
-                            {user.username?.[0]?.toUpperCase()}
-                          </span>
+                  searchedUsers.map((user) => {
+                    const isSelected = selectedRecipients.some(r => r.id === user.id)
+                    return (
+                      <button
+                        key={user.id}
+                        onClick={() => selectPrivateRecipient(user)}
+                        disabled={isSelected}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          border: 'none',
+                          borderBottom: '1px solid #e5e7eb',
+                          background: isSelected ? '#e0e7ff' : '#f9fafb',
+                          cursor: isSelected ? 'default' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          textAlign: 'left',
+                          transition: 'background 0.15s',
+                          opacity: isSelected ? 0.7 : 1,
+                        }}
+                        onMouseEnter={(e) => !isSelected && (e.currentTarget.style.background = '#e5e7eb')}
+                        onMouseLeave={(e) => !isSelected && (e.currentTarget.style.background = '#f9fafb')}
+                      >
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                          background: '#8b5cf6',
+                          flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                          {user.avatar ? (
+                            <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
+                              {user.username?.[0]?.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>@{user.username}</div>
+                          {user.name && <div style={{ fontSize: '12px', color: '#666' }}>{user.name}</div>}
+                        </div>
+                        {isSelected && (
+                          <svg width="20" height="20" fill="#8b5cf6" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
                         )}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>@{user.username}</div>
-                        {user.name && <div style={{ fontSize: '12px', color: '#666' }}>{user.name}</div>}
-                      </div>
-                    </button>
-                  ))
+                      </button>
+                    )
+                  })
                 ) : (
                   <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
                     Type to search users
                   </div>
                 )}
               </div>
+              
+              {/* Start Chat Button - visible when recipients selected */}
+              {selectedRecipients.length > 0 && (
+                <div style={{
+                  padding: '12px',
+                  borderTop: '1px solid #d1d5db',
+                  background: '#f3f4f6',
+                }}>
+                  <button
+                    onClick={startChatWithSelected}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      background: '#8b5cf6',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    {selectedRecipients.length === 1 
+                      ? `Start Chat with @${selectedRecipients[0].username}`
+                      : `Send to ${selectedRecipients.length} users`
+                    }
+                  </button>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1511,7 +1666,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               background: #999;
             }
           `}</style>
-          {chatMode === 'private' && !privateRecipient ? (
+          {chatMode === 'private' && selectedRecipients.length === 0 ? (
             <div style={{ 
               display: 'flex', 
               flexDirection: 'column', 
@@ -1651,11 +1806,37 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ marginBottom: '12px', opacity: 0.3 }}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              <p style={{ fontSize: '14px' }}>
+              <p style={{ fontSize: '14px', textAlign: 'center' }}>
                 {chatMode === 'private' 
-                  ? `Start a private conversation with @${privateRecipient?.username}` 
+                  ? selectedRecipients.length === 1
+                    ? `Start a private conversation with @${selectedRecipients[0]?.username}`
+                    : selectedRecipients.length > 1
+                      ? `Send a group message to ${selectedRecipients.length} users`
+                      : 'Select a user to chat with'
                   : 'No messages yet. Start the conversation!'}
               </p>
+              {chatMode === 'private' && selectedRecipients.length > 1 && (
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '4px',
+                  marginTop: '8px',
+                  justifyContent: 'center',
+                }}>
+                  {selectedRecipients.map(r => (
+                    <span key={r.id} style={{
+                      background: '#e0e7ff',
+                      color: '#5b21b6',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                    }}>
+                      @{r.username}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             messages.map((msg) => {
@@ -2146,13 +2327,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               placeholder={
                 !isSignedIn 
                   ? "Sign in or Sign up to chat" 
-                  : chatMode === 'private' && !privateRecipient
+                  : chatMode === 'private' && selectedRecipients.length === 0
                     ? "Select a user first..."
                     : chatMode === 'private'
-                      ? `Message @${privateRecipient?.username}...`
+                      ? selectedRecipients.length === 1
+                        ? `Message @${selectedRecipients[0]?.username}...`
+                        : `Message ${selectedRecipients.length} users...`
                       : "Type @ to mention..."
               }
-              disabled={!isSignedIn || (chatMode === 'private' && !privateRecipient)}
+              disabled={!isSignedIn || (chatMode === 'private' && selectedRecipients.length === 0)}
               style={{
                 flex: 1,
                 padding: '8px 12px',

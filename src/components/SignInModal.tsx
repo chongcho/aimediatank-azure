@@ -248,3 +248,4 @@ export default function SignInModal({ isOpen, onClose }: SignInModalProps) {
     document.body
   )
 }
+
