@@ -411,6 +411,19 @@ export default function MediaPage() {
         </div>
       </div>
 
+      {/* Back Button */}
+      <div className="mt-8 flex justify-center">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 px-6 py-3 bg-tank-gray hover:bg-tank-light border border-tank-light rounded-xl font-semibold text-white transition-all"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back
+        </button>
+      </div>
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
