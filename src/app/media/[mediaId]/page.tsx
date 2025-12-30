@@ -262,8 +262,8 @@ export default function MediaPage() {
 
           {/* Info */}
           <div className="card">
-            <div className="flex items-start justify-between gap-4 mb-2">
-              <h1 className="text-xl font-bold truncate flex-1 min-w-0" title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <h1 className="text-xl font-bold truncate min-w-0 max-w-[calc(100%-80px)] md:max-w-[calc(100%-160px)]" title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
               
               <div className="flex items-center gap-2 shrink-0">
                 {/* Edit Button - for owners */}
