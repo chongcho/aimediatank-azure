@@ -277,15 +277,14 @@ export default function MediaPage() {
                   </svg>
                 </Link>
               )}
-              {/* Back Button - arrow only */}
+              {/* Back Button */}
               <button
                 onClick={() => router.back()}
-                className="flex items-center justify-center w-8 h-8 bg-tank-gray hover:bg-tank-light border border-tank-light rounded-lg text-white transition-colors flex-shrink-0"
+                className="flex items-center gap-1 px-2 py-1 bg-tank-gray hover:bg-tank-light border border-tank-light rounded-lg text-white transition-colors flex-shrink-0 text-sm"
                 title="Go back"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
+                <span className="text-base">←</span>
+                <span>Back</span>
               </button>
             </div>
             
