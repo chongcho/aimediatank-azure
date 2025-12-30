@@ -1586,9 +1586,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   No users found
                 </div>
               ) : searchedUsers.length === 0 && !userSearchQuery ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
-                  Type to search users
-                </div>
+                null
               ) : (
                 searchedUsers.map((user) => {
                   const isSelected = selectedRecipients.some(r => r.id === user.id)
@@ -1642,18 +1640,27 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               )}
             </div>
             
-            {/* Bottom area to cover input section visually - mimics input area position */}
-            <div style={{
-              padding: '12px',
-              background: '#e8e8e8',
-              borderTop: '1px solid #ccc',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#888',
-              fontSize: '12px',
-            }}>
-              Select a user first...
+            {/* Bottom resize area */}
+            <div 
+              onMouseDown={isDesktop && hasCustomPosition ? handleResizeStart : undefined}
+              style={{
+                padding: '8px',
+                background: '#e8e8e8',
+                borderTop: '1px solid #ccc',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                cursor: isDesktop && hasCustomPosition ? 'se-resize' : 'default',
+              }}
+            >
+              {isDesktop && hasCustomPosition && (
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  background: 'linear-gradient(135deg, transparent 50%, #2563eb 50%)',
+                  borderRadius: '0 0 4px 0',
+                }} title="Drag to resize" />
+              )}
             </div>
           </div>
         )}
