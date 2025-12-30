@@ -265,27 +265,27 @@ export default function MediaPage() {
             <div className="flex items-center gap-2 mb-2 overflow-hidden">
               <h1 className="font-semibold text-white truncate flex-1 min-w-0" style={{ maxWidth: 'calc(100% - 110px)' }} title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
               
-              {/* Edit Button - for owners */}
+              {/* Edit Button - for owners, icon only */}
               {canManage && (
                 <Link
                   href={`/media/${mediaId}/edit`}
-                  className="flex items-center gap-1 px-2 py-1 text-sm bg-tank-gray hover:bg-tank-light rounded-lg transition-colors flex-shrink-0"
+                  className="flex items-center justify-center w-8 h-8 bg-tank-gray hover:bg-tank-light rounded-lg transition-colors flex-shrink-0"
+                  title="Edit"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
-                  <span className="hidden sm:inline">Edit</span>
                 </Link>
               )}
-              {/* Back Button */}
+              {/* Back Button - arrow only */}
               <button
                 onClick={() => router.back()}
-                className="flex items-center gap-1 px-2 py-1 text-sm bg-tank-gray hover:bg-tank-light border border-tank-light rounded-lg text-white transition-colors flex-shrink-0"
+                className="flex items-center justify-center w-8 h-8 bg-tank-gray hover:bg-tank-light border border-tank-light rounded-lg text-white transition-colors flex-shrink-0"
+                title="Go back"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
-                <span className="hidden sm:inline">Back</span>
               </button>
             </div>
             
