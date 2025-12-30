@@ -262,33 +262,31 @@ export default function MediaPage() {
 
           {/* Info */}
           <div className="card">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <h1 className="text-xl font-bold truncate min-w-0 max-w-[calc(100%-80px)] md:max-w-[calc(100%-160px)]" title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
+            <div className="flex items-center gap-2 mb-2 overflow-hidden">
+              <h1 className="text-xl font-bold truncate flex-1 min-w-0" style={{ maxWidth: 'calc(100% - 70px)' }} title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
               
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Edit Button - for owners */}
-                {canManage && (
-                  <Link
-                    href={`/media/${mediaId}/edit`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-tank-gray hover:bg-tank-light rounded-lg transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Edit
-                  </Link>
-                )}
-                {/* Back Button */}
-                <button
-                  onClick={() => router.back()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-tank-gray hover:bg-tank-light border border-tank-light rounded-lg text-white transition-colors"
+              {/* Edit Button - for owners */}
+              {canManage && (
+                <Link
+                  href={`/media/${mediaId}/edit`}
+                  className="flex items-center gap-1 px-2 py-1 text-sm bg-tank-gray hover:bg-tank-light rounded-lg transition-colors flex-shrink-0"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
-                  Back
-                </button>
-              </div>
+                  <span className="hidden sm:inline">Edit</span>
+                </Link>
+              )}
+              {/* Back Button */}
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-1 px-2 py-1 text-sm bg-tank-gray hover:bg-tank-light border border-tank-light rounded-lg text-white transition-colors flex-shrink-0"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span className="hidden sm:inline">Back</span>
+              </button>
             </div>
             
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400 mb-4">
