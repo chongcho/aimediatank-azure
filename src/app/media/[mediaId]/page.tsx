@@ -263,7 +263,7 @@ export default function MediaPage() {
           {/* Info */}
           <div className="card">
             <div className="flex items-center gap-2 mb-2 overflow-hidden">
-              <h1 className="text-xl font-bold truncate flex-1 min-w-0" style={{ maxWidth: 'calc(100% - 70px)' }} title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
+              <h1 className="text-lg font-bold truncate flex-1 min-w-0" style={{ maxWidth: 'calc(100% - 110px)' }} title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
               
               {/* Edit Button - for owners */}
               {canManage && (
