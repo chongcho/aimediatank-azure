@@ -262,7 +262,7 @@ export default function MediaPage() {
 
           {/* Info */}
           <div className="card">
-            <div className="flex items-center justify-between mb-2 overflow-hidden" style={{ marginRight: '10px' }}>
+            <div className="flex items-center justify-between mb-2 overflow-hidden">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <h1 className="font-semibold text-white truncate min-w-0" title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
                 
