@@ -1186,6 +1186,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         right: 0,
         display: isDesktop && hasCustomPosition ? 'block' : 'flex',
         justifyContent: 'center',
+        background: 'transparent',
       }}>
         <style>{`
           .chat-wrapper-responsive {
@@ -1216,11 +1217,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             borderTopLeftRadius: isDesktop && hasCustomPosition ? undefined : '12px',
             borderTopRightRadius: isDesktop && hasCustomPosition ? undefined : '12px',
             overflow: 'hidden',
-            boxShadow: isDesktop && hasCustomPosition ? '0 4px 30px rgba(0, 0, 0, 0.4)' : '0 -4px 20px rgba(0, 0, 0, 0.3)',
+            boxShadow: isDesktop && hasCustomPosition ? '0 4px 30px rgba(0, 0, 0, 0.2)' : '0 -4px 20px rgba(0, 0, 0, 0.15)',
             background: '#f0f0f0',
             transition: isDragging || isResizing ? 'none' : 'height 0.3s ease-in-out',
             pointerEvents: 'auto',
             overscrollBehavior: 'contain',
+            boxSizing: 'border-box',
           }}>
           <style>{`
             @media (max-width: 767px) {
@@ -1451,6 +1453,22 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
+        {/* Overlay to block interaction when New Chat popup is open */}
+        {showUserPicker && (
+          <div
+            onClick={() => setShowUserPicker(false)}
+            style={{
+              position: 'absolute',
+              top: '36px',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(255, 255, 255, 0.85)',
+              zIndex: 99,
+            }}
+          />
+        )}
+        
         {/* New Chat Popup - Aligned with header bottom */}
         {showUserPicker && (
           <div
@@ -2508,10 +2526,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               position: 'absolute',
               bottom: 0,
               right: 0,
-              width: '20px',
-              height: '20px',
+              width: '16px',
+              height: '16px',
               cursor: 'se-resize',
-              background: 'linear-gradient(135deg, transparent 50%, #2563eb 50%)',
+              background: 'linear-gradient(135deg, transparent 50%, #93c5fd 50%)',
               borderBottomRightRadius: '12px',
             }}
             title="Drag to resize"
