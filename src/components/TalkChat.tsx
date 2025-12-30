@@ -87,6 +87,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const [userMedia, setUserMedia] = useState<MediaItem[]>([])
   const [loadingMedia, setLoadingMedia] = useState(false)
+  // Current user avatar
+  const [userAvatar, setUserAvatar] = useState<string | null>(null)
   // @mention states
   const [showMentionPicker, setShowMentionPicker] = useState(false)
   const [mentionQuery, setMentionQuery] = useState('')
@@ -117,6 +119,28 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       return () => clearTimeout(timer)
     }
   }, [inlineNotice])
+  
+  // Fetch user avatar
+  useEffect(() => {
+    const fetchUserAvatar = async () => {
+      if (!session?.user) return
+      try {
+        const res = await fetch('/api/user/profile')
+        if (res.ok) {
+          const data = await res.json()
+          setUserAvatar(data.user?.avatar || null)
+        }
+      } catch (error) {
+        console.error('Error fetching user avatar:', error)
+      }
+    }
+    fetchUserAvatar()
+    
+    // Listen for profile update events
+    const handleProfileUpdate = () => fetchUserAvatar()
+    window.addEventListener('profileUpdated', handleProfileUpdate)
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdate)
+  }, [session?.user])
   
   // Size control functions
   const pushDown = () => {
@@ -1290,9 +1314,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               justifyContent: 'center',
               flexShrink: 0,
             }}>
-              {(session?.user as { image?: string })?.image ? (
+              {userAvatar ? (
                 <img 
-                  src={(session?.user as { image?: string })?.image || ''} 
+                  src={`${userAvatar}${userAvatar.includes('?') ? '&' : '?'}t=${Date.now()}`}
                   alt="" 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
