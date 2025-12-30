@@ -1457,15 +1457,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             ref={userPickerRef}
             style={{
               position: 'absolute',
-              top: '40px', // Align with header bottom
-              left: '8px',
-              right: '8px',
-              background: '#f5f5f5',
-              borderRadius: '8px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-              border: '1px solid #ddd',
+              top: '36px', // Align with header bottom
+              left: '4px',
+              right: '4px',
+              background: '#fafafa',
+              borderRadius: '6px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #e0e0e0',
               zIndex: 100,
-              maxHeight: 'calc(100% - 100px)', // Don't exceed chat box
+              maxHeight: 'calc(100% - 80px)', // Don't exceed chat box
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
@@ -1473,14 +1473,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           >
             {/* Header with title and Invite button */}
             <div style={{
-              padding: '8px 12px',
+              padding: '4px 8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              borderBottom: '1px solid #e0e0e0',
-              background: '#f5f5f5',
+              background: '#fafafa',
             }}>
-              <span style={{ fontSize: '13px', color: '#333' }}>
+              <span style={{ fontSize: '12px', color: '#555' }}>
                 Invite one or multiple members
               </span>
               <button
@@ -1490,9 +1489,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   background: selectedRecipients.length > 0 ? '#10b981' : '#9ca3af',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '6px',
-                  padding: '6px 14px',
-                  fontSize: '13px',
+                  borderRadius: '4px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
                   fontWeight: '600',
                   cursor: selectedRecipients.length > 0 ? 'pointer' : 'not-allowed',
                 }}
@@ -1503,18 +1502,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             
             {/* Combined input box - type @userid directly */}
             <div style={{
-              padding: '8px 12px',
-              background: '#f5f5f5',
+              padding: '4px 8px 6px',
+              background: '#fafafa',
             }}>
               <div style={{
-                position: 'relative',
                 background: 'white',
-                border: '2px solid #10b981',
-                borderRadius: '8px',
-                minHeight: '60px',
-                maxHeight: '80px',
+                border: '1px solid #10b981',
+                borderRadius: '4px',
+                minHeight: '40px',
+                maxHeight: '60px',
                 overflowY: 'auto',
-                padding: '8px',
+                padding: '6px 8px',
               }}>
                 {/* Display selected users inline with input */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px' }}>
@@ -1524,7 +1522,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       onClick={() => removeRecipient(u.id)}
                       style={{
                         color: '#333',
-                        fontSize: '14px',
+                        fontSize: '13px',
                         cursor: 'pointer',
                       }}
                       title="Click to remove"
@@ -1547,10 +1545,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     autoFocus
                     style={{
                       flex: 1,
-                      minWidth: '100px',
-                      padding: '4px',
+                      minWidth: '80px',
+                      padding: '2px',
                       border: 'none',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       outline: 'none',
                       background: 'transparent',
                       color: '#333',
@@ -1563,16 +1561,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             {/* Search results - only show when searching */}
             {(searchingUsers || searchedUsers.length > 0 || (userSearchQuery && searchedUsers.length === 0)) && (
               <div style={{
-                maxHeight: '150px',
+                maxHeight: '120px',
                 overflowY: 'auto',
-                borderTop: '1px solid #e0e0e0',
+                borderTop: '1px solid #eee',
               }}>
                 {searchingUsers ? (
-                  <div style={{ padding: '12px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
+                  <div style={{ padding: '8px', textAlign: 'center', color: '#666', fontSize: '12px' }}>
                     Searching...
                   </div>
                 ) : searchedUsers.length === 0 && userSearchQuery ? (
-                  <div style={{ padding: '12px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
+                  <div style={{ padding: '8px', textAlign: 'center', color: '#666', fontSize: '12px' }}>
                     No users found
                   </div>
                 ) : (
@@ -1592,22 +1590,22 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                         }}
                         style={{
                           width: '100%',
-                          padding: '8px 12px',
+                          padding: '6px 8px',
                           border: 'none',
-                          borderBottom: '1px solid #eee',
+                          borderBottom: '1px solid #f0f0f0',
                           background: isSelected ? '#dcfce7' : 'white',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '8px',
+                          gap: '6px',
                           textAlign: 'left',
                         }}
                       >
                         <div style={{
-                          width: '12px',
-                          height: '12px',
+                          width: '10px',
+                          height: '10px',
                           borderRadius: '2px',
-                          border: isSelected ? 'none' : '2px solid #ccc',
+                          border: isSelected ? 'none' : '1px solid #ccc',
                           background: isSelected ? '#10b981' : 'transparent',
                           display: 'flex',
                           alignItems: 'center',
@@ -1615,13 +1613,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           flexShrink: 0,
                         }}>
                           {isSelected && (
-                            <svg width="8" height="8" fill="white" viewBox="0 0 20 20">
+                            <svg width="6" height="6" fill="white" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
                           )}
                         </div>
-                        <span style={{ fontSize: '13px', color: '#333' }}>@{user.username}</span>
-                        {user.name && <span style={{ fontSize: '11px', color: '#666' }}>({user.name})</span>}
+                        <span style={{ fontSize: '12px', color: '#333' }}>@{user.username}</span>
+                        {user.name && <span style={{ fontSize: '10px', color: '#888' }}>({user.name})</span>}
                       </button>
                     )
                   })
