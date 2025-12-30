@@ -1256,6 +1256,24 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             }
           `}</style>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 1, minWidth: 0 }}>
+            {/* Chat label */}
+            <div style={{
+              background: '#facc15',
+              borderRadius: '4px',
+              padding: '4px 8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <span style={{
+                fontSize: '13px',
+                fontWeight: '700',
+                color: '#1a1a1a',
+                letterSpacing: '0.5px',
+              }}>Chat</span>
+            </div>
+            
             {/* Open Button */}
             <button
               onClick={switchToOpenChat}
