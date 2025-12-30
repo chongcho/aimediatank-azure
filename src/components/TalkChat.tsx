@@ -1256,30 +1256,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             }
           `}</style>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 1, minWidth: 0 }}>
-            {/* Chat label */}
-            <div style={{
-              background: '#facc15',
-              borderRadius: '4px',
-              padding: '4px 8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              <span style={{
-                fontSize: '13px',
-                fontWeight: '700',
-                color: '#1a1a1a',
-                letterSpacing: '0.5px',
-              }}>Chat</span>
-            </div>
-            
-            {/* Open Chat Button */}
+            {/* Open Button */}
             <button
               onClick={switchToOpenChat}
               className="chat-btn-responsive"
               style={{
-                padding: '4px 6px',
+                padding: '4px 8px',
                 borderRadius: '4px',
                 border: 'none',
                 background: chatMode === 'open' ? '#10b981' : 'transparent',
@@ -1291,15 +1273,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 whiteSpace: 'nowrap',
               }}
             >
-              Open Chat
+              Open
             </button>
             
-            {/* Private Chat Button - shows chat records */}
+            {/* Private Button - shows chat records */}
             <button
               onClick={switchToPrivateChat}
               className="chat-btn-responsive"
               style={{
-                padding: '4px 6px',
+                padding: '4px 8px',
                 borderRadius: '4px',
                 border: 'none',
                 background: chatMode === 'private' && !showUserPicker ? '#8b5cf6' : 'transparent',
@@ -1311,16 +1293,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 whiteSpace: 'nowrap',
               }}
             >
-              Private Chat
+              Private
             </button>
 
-            {/* New Chat Button with User Picker */}
+            {/* New Button with User Picker */}
             <div style={{ position: 'relative' }}>
               <button
                 onClick={toggleNewChat}
                 className="chat-btn-responsive"
                 style={{
-                  padding: '4px 6px',
+                  padding: '4px 8px',
                   borderRadius: '4px',
                   border: 'none',
                   background: showUserPicker ? '#f97316' : 'transparent',
@@ -1332,7 +1314,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                New Chat
+                New
               </button>
               {/* Invite notification badge - on Private Chat button area */}
               {chatInvites.length > 0 && (
@@ -1425,7 +1407,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     </div>
                   )}
                 </div>
-                {/* Member names (truncated) */}
+                {/* Member count */}
                 <div style={{
                   fontSize: '11px',
                   color: '#666',
@@ -1436,7 +1418,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 }}>
                   {selectedRecipients.length === 1
                     ? `@${selectedRecipients[0].username}`
-                    : `${selectedRecipients.length} members`
+                    : `${selectedRecipients.length} joined`
                   }
                 </div>
               </div>
