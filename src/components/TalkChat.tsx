@@ -1473,14 +1473,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           >
             {/* Header with title and Invite button */}
             <div style={{
-              padding: '10px 12px',
+              padding: '8px 12px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               borderBottom: '1px solid #e0e0e0',
               background: '#f5f5f5',
             }}>
-              <span style={{ fontSize: '14px', color: '#333' }}>
+              <span style={{ fontSize: '13px', color: '#333' }}>
                 Invite one or multiple members
               </span>
               <button
@@ -1491,8 +1491,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
-                  padding: '8px 16px',
-                  fontSize: '14px',
+                  padding: '6px 14px',
+                  fontSize: '13px',
                   fontWeight: '600',
                   cursor: selectedRecipients.length > 0 ? 'pointer' : 'not-allowed',
                 }}
@@ -1501,135 +1501,133 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               </button>
             </div>
             
-            {/* Selected members input box */}
+            {/* Combined input box - type @userid directly */}
             <div style={{
-              padding: '10px 12px',
+              padding: '8px 12px',
               background: '#f5f5f5',
             }}>
-              <div 
-                onClick={() => {
-                  // Focus on the hidden input when clicking the box
-                  const input = document.getElementById('member-search-input')
-                  if (input) input.focus()
-                }}
-                style={{
-                  minHeight: '80px',
-                  maxHeight: '120px',
-                  overflowY: 'auto',
-                  padding: '10px',
-                  background: 'white',
-                  border: '2px solid #10b981',
-                  borderRadius: '8px',
-                  cursor: 'text',
-                }}
-              >
-                {selectedRecipients.length > 0 ? (
-                  <span style={{ fontSize: '14px', color: '#333' }}>
-                    {selectedRecipients.map(u => `@${u.username}`).join(' ')} ...
-                  </span>
-                ) : (
-                  <span style={{ fontSize: '14px', color: '#999' }}>
-                    @user1 @user2 @user3 @user4 ...
-                  </span>
-                )}
+              <div style={{
+                position: 'relative',
+                background: 'white',
+                border: '2px solid #10b981',
+                borderRadius: '8px',
+                minHeight: '60px',
+                maxHeight: '80px',
+                overflowY: 'auto',
+                padding: '8px',
+              }}>
+                {/* Display selected users inline with input */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px' }}>
+                  {selectedRecipients.map(u => (
+                    <span
+                      key={u.id}
+                      onClick={() => removeRecipient(u.id)}
+                      style={{
+                        color: '#333',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                      }}
+                      title="Click to remove"
+                    >
+                      @{u.username}
+                    </span>
+                  ))}
+                  <input
+                    id="member-search-input"
+                    type="text"
+                    value={userSearchQuery}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setUserSearchQuery(value)
+                      const searchTerm = value.startsWith('@') ? value.slice(1) : value
+                      searchUsersForPrivateChat(searchTerm)
+                    }}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    placeholder={selectedRecipients.length === 0 ? "@user1 @user2 @user3 ..." : ""}
+                    autoFocus
+                    style={{
+                      flex: 1,
+                      minWidth: '100px',
+                      padding: '4px',
+                      border: 'none',
+                      fontSize: '14px',
+                      outline: 'none',
+                      background: 'transparent',
+                      color: '#333',
+                    }}
+                  />
+                </div>
               </div>
-              
-              {/* Search input */}
-              <input
-                id="member-search-input"
-                type="text"
-                value={userSearchQuery}
-                onChange={(e) => {
-                  const value = e.target.value
-                  setUserSearchQuery(value)
-                  const searchTerm = value.startsWith('@') ? value.slice(1) : value
-                  searchUsersForPrivateChat(searchTerm)
-                }}
-                onTouchStart={(e) => e.stopPropagation()}
-                placeholder="Type to search users..."
-                autoFocus
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  marginTop: '8px',
-                  borderRadius: '6px',
-                  border: '1px solid #ddd',
-                  fontSize: '14px',
-                  outline: 'none',
-                  background: 'white',
-                  color: '#333',
-                }}
-              />
             </div>
             
-            {/* Search results */}
-            <div style={{
-              flex: 1,
-              overflowY: 'auto',
-              borderTop: '1px solid #e0e0e0',
-            }}>
-              {searchingUsers ? (
-                <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
-                  Searching...
-                </div>
-              ) : searchedUsers.length === 0 && userSearchQuery ? (
-                <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
-                  No users found
-                </div>
-              ) : searchedUsers.length > 0 ? (
-                searchedUsers.map((user) => {
-                  const isSelected = selectedRecipients.some(r => r.id === user.id)
-                  return (
-                    <button
-                      key={user.id}
-                      onClick={() => {
-                        if (isSelected) {
-                          removeRecipient(user.id)
-                        } else {
-                          selectPrivateRecipient(user)
-                        }
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: 'none',
-                        borderBottom: '1px solid #eee',
-                        background: isSelected ? '#dcfce7' : 'white',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        textAlign: 'left',
-                      }}
-                    >
-                      <div style={{
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '2px',
-                        border: isSelected ? 'none' : '2px solid #ccc',
-                        background: isSelected ? '#10b981' : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}>
-                        {isSelected && (
-                          <svg width="8" height="8" fill="white" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                      <span style={{ fontSize: '14px', color: '#333' }}>@{user.username}</span>
-                      {user.name && <span style={{ fontSize: '12px', color: '#666' }}>({user.name})</span>}
-                    </button>
-                  )
-                })
-              ) : (
-                <div style={{ padding: '16px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
-                  Type to search users
-                </div>
-              )}
-            </div>
+            {/* Search results - only show when searching */}
+            {(searchingUsers || searchedUsers.length > 0 || (userSearchQuery && searchedUsers.length === 0)) && (
+              <div style={{
+                maxHeight: '150px',
+                overflowY: 'auto',
+                borderTop: '1px solid #e0e0e0',
+              }}>
+                {searchingUsers ? (
+                  <div style={{ padding: '12px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
+                    Searching...
+                  </div>
+                ) : searchedUsers.length === 0 && userSearchQuery ? (
+                  <div style={{ padding: '12px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
+                    No users found
+                  </div>
+                ) : (
+                  searchedUsers.map((user) => {
+                    const isSelected = selectedRecipients.some(r => r.id === user.id)
+                    return (
+                      <button
+                        key={user.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            removeRecipient(user.id)
+                          } else {
+                            selectPrivateRecipient(user)
+                          }
+                          setUserSearchQuery('')
+                          setSearchedUsers([])
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: 'none',
+                          borderBottom: '1px solid #eee',
+                          background: isSelected ? '#dcfce7' : 'white',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <div style={{
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '2px',
+                          border: isSelected ? 'none' : '2px solid #ccc',
+                          background: isSelected ? '#10b981' : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}>
+                          {isSelected && (
+                            <svg width="8" height="8" fill="white" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                        <span style={{ fontSize: '13px', color: '#333' }}>@{user.username}</span>
+                        {user.name && <span style={{ fontSize: '11px', color: '#666' }}>({user.name})</span>}
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            )}
           </div>
         )}
 
