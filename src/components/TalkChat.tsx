@@ -70,6 +70,13 @@ interface UserSuggestion {
   avatar: string | null
 }
 
+interface Conversation {
+  id: string
+  name: string | null
+  isGroup: boolean
+  members: UserSuggestion[]
+}
+
 function TalkChatContent({ onClose }: { onClose: () => void }) {
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -152,6 +159,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [selectedRecipients, setSelectedRecipients] = useState<UserSuggestion[]>([])
   // For backward compatibility, derive single recipient for 1-on-1 chat
   const privateRecipient = selectedRecipients.length === 1 ? selectedRecipients[0] : null
+  // Active conversation (for group chat or 1-on-1)
+  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
   
   // Load chat mode from localStorage on mount
   useEffect(() => {
@@ -182,7 +191,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Chat records state
   const [showChatRecords, setShowChatRecords] = useState(false)
   const [chatRecords, setChatRecords] = useState<Array<{
-    user: UserSuggestion
+    conversationId?: string
+    isGroup?: boolean
+    user: UserSuggestion | null
+    members?: UserSuggestion[]
     lastMessage: string
     lastMessageAt: string
   }>>([])
@@ -508,17 +520,60 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setSelectedRecipients(prev => prev.filter(r => r.id !== userId))
   }
   
-  // Start chat with selected recipients (close picker and start conversation)
-  const startChatWithSelected = () => {
+  // Start chat with selected recipients (create/find conversation)
+  const startChatWithSelected = async () => {
     if (selectedRecipients.length === 0) return
-    setShowUserPicker(false)
-    setMessages([]) // Clear messages when switching
+    
+    try {
+      // Create or find conversation
+      const memberIds = selectedRecipients.map(r => r.id)
+      const res = await fetch('/api/chat/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberIds }),
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        setActiveConversation(data.conversation)
+        setShowUserPicker(false)
+        setMessages([]) // Clear messages, will be fetched
+        
+        // Fetch messages for this conversation
+        fetchConversationMessages(data.conversation.id)
+      } else {
+        const error = await res.json()
+        setInlineNotice(error.error || 'Failed to start conversation')
+      }
+    } catch (error) {
+      console.error('Error starting conversation:', error)
+      setInlineNotice('Failed to start conversation')
+    }
   }
+  
+  // Fetch messages for a specific conversation
+  const fetchConversationMessages = useCallback(async (conversationId: string) => {
+    try {
+      const res = await fetch(`/api/chat/conversations/${conversationId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setMessages(data.messages || [])
+        if (data.conversation) {
+          setActiveConversation(data.conversation)
+          // Update selected recipients from conversation members
+          setSelectedRecipients(data.conversation.members || [])
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching conversation messages:', error)
+    }
+  }, [])
 
   // Switch to open chat
   const switchToOpenChat = () => {
     setChatMode('open')
     setSelectedRecipients([])
+    setActiveConversation(null)
     setMessages([])
     // Close all popups
     setShowUserPicker(false)
@@ -572,6 +627,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
     setChatMode('private')
     setSelectedRecipients([]) // Clear recipients to show chat records
+    setActiveConversation(null) // Clear active conversation
     fetchChatRecords() // Fetch chat records to display in main window
     // Close all popups
     setShowUserPicker(false)
@@ -584,6 +640,24 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     if (!session?.user?.id) return
     setLoadingChatRecords(true)
     try {
+      // Try to fetch conversations first (new API)
+      const convRes = await fetch('/api/chat/conversations')
+      if (convRes.ok) {
+        const convData = await convRes.json()
+        // Transform conversations to chat records format
+        const records = (convData.conversations || []).map((conv: any) => ({
+          conversationId: conv.id,
+          isGroup: conv.isGroup,
+          user: conv.members[0] || null, // First member for display
+          members: conv.members,
+          lastMessage: conv.lastMessage?.content || '',
+          lastMessageAt: conv.lastMessage?.createdAt || conv.updatedAt,
+        }))
+        setChatRecords(records)
+        return
+      }
+      
+      // Fallback to old API
       const res = await fetch('/api/chat/records')
       if (res.ok) {
         const data = await res.json()
@@ -609,27 +683,65 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
 
   // Select a chat record to continue conversation
-  const selectChatRecord = async (user: UserSuggestion) => {
-    // Check if this user has a pending invite and clear it
-    const hasInvite = chatInvites.some(invite => invite.sender.id === user.id)
-    if (hasInvite) {
-      try {
-        await fetch('/api/chat/invites', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ senderId: user.id }),
-        })
-        // Refresh invites
-        fetchChatInvites()
-      } catch (error) {
-        console.error('Error clearing invite:', error)
+  const selectChatRecord = async (record: { conversationId?: string; isGroup?: boolean; user: UserSuggestion | null; members?: UserSuggestion[] }) => {
+    // If this is a conversation (new system)
+    if (record.conversationId) {
+      // Clear any invites from members
+      for (const member of (record.members || [])) {
+        const hasInvite = chatInvites.some(invite => invite.sender.id === member.id)
+        if (hasInvite) {
+          try {
+            await fetch('/api/chat/invites', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ senderId: member.id }),
+            })
+          } catch (error) {
+            console.error('Error clearing invite:', error)
+          }
+        }
       }
+      fetchChatInvites()
+      
+      // Set the conversation
+      setActiveConversation({
+        id: record.conversationId,
+        name: null,
+        isGroup: record.isGroup || false,
+        members: record.members || [],
+      })
+      setSelectedRecipients(record.members || [])
+      setChatMode('private')
+      setShowChatRecords(false)
+      setMessages([])
+      
+      // Fetch messages for this conversation
+      fetchConversationMessages(record.conversationId)
+      return
     }
     
-    setSelectedRecipients([user])
-    setChatMode('private')
-    setShowChatRecords(false)
-    setMessages([]) // Clear messages, will be fetched
+    // Legacy: single user record (backward compatibility)
+    if (record.user) {
+      const hasInvite = chatInvites.some(invite => invite.sender.id === record.user!.id)
+      if (hasInvite) {
+        try {
+          await fetch('/api/chat/invites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ senderId: record.user.id }),
+          })
+          fetchChatInvites()
+        } catch (error) {
+          console.error('Error clearing invite:', error)
+        }
+      }
+      
+      setSelectedRecipients([record.user])
+      setActiveConversation(null)
+      setChatMode('private')
+      setShowChatRecords(false)
+      setMessages([])
+    }
   }
 
   const insertEmoji = (emoji: string) => {
@@ -814,16 +926,28 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     if (!isInitialized) return
     
     try {
+      // If we have an active conversation, use the conversation API
+      if (chatMode === 'private' && activeConversation) {
+        const res = await fetch(`/api/chat/conversations/${activeConversation.id}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (Array.isArray(data.messages)) {
+            setMessages(data.messages)
+          }
+        }
+        return
+      }
+      
+      // For open chat or legacy 1-on-1 private chat
       let url = '/api/chat?mode=open'
       
-      // For private chat with single recipient, fetch messages
-      // For group chat (multiple recipients), messages are sent individually
-      if (chatMode === 'private' && selectedRecipients.length === 1 && session?.user?.id) {
+      // For private chat with single recipient (legacy support)
+      if (chatMode === 'private' && selectedRecipients.length === 1 && !activeConversation && session?.user?.id) {
         url = `/api/chat?mode=private&recipientId=${selectedRecipients[0].id}`
       }
       
-      // Don't fetch messages for group chat (multiple recipients) - show empty state
-      if (chatMode === 'private' && selectedRecipients.length > 1) {
+      // Don't fetch for private mode without conversation or recipient
+      if (chatMode === 'private' && selectedRecipients.length === 0 && !activeConversation) {
         return
       }
       
@@ -837,7 +961,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     } catch (error) {
       console.error('Error fetching messages:', error)
     }
-  }, [isInitialized, chatMode, selectedRecipients, session?.user?.id])
+  }, [isInitialized, chatMode, selectedRecipients, activeConversation, session?.user?.id])
 
   // Initialize after mount
   useEffect(() => {
@@ -892,8 +1016,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       return
     }
 
-    // For private chat, require at least one recipient
-    if (chatMode === 'private' && selectedRecipients.length === 0) {
+    // For private chat, require at least one recipient or active conversation
+    if (chatMode === 'private' && selectedRecipients.length === 0 && !activeConversation) {
       alert('Please select at least one user to chat with')
       return
     }
@@ -902,33 +1026,78 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     try {
       const messageContent = newMessage.trim()
       
-      if (chatMode === 'private' && selectedRecipients.length > 0) {
-        // Send message to each recipient (supports group chat)
-        const sendPromises = selectedRecipients.map(async (recipient) => {
-          const body = {
-            content: messageContent,
-            isPrivate: true,
-            recipientId: recipient.id,
-          }
-          
-          const res = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          })
-          
-          if (!res.ok) {
-            const errorData = await res.json()
-            throw new Error(errorData.error || 'Failed to send message')
-          }
-          
-          return res.json()
+      // If we have an active conversation, use the conversation API
+      if (chatMode === 'private' && activeConversation) {
+        const res = await fetch(`/api/chat/conversations/${activeConversation.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: messageContent }),
         })
         
-        await Promise.all(sendPromises)
-        console.log(`Message sent to ${selectedRecipients.length} recipient(s)`)
+        if (!res.ok) {
+          const errorData = await res.json()
+          console.error('Failed to send message:', errorData)
+          alert(errorData.error || 'Failed to send message')
+          setLoading(false)
+          return
+        }
         
-        // Clear invites from recipients if any
+        console.log('Message sent to conversation')
+        
+        // Clear invites from conversation members if any
+        for (const member of activeConversation.members) {
+          const hasInvite = chatInvites.some(invite => invite.sender.id === member.id)
+          if (hasInvite) {
+            try {
+              await fetch('/api/chat/invites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ senderId: member.id }),
+              })
+            } catch (err) {
+              console.error('Error clearing invite:', err)
+            }
+          }
+        }
+        fetchChatInvites()
+      } else if (chatMode === 'private' && selectedRecipients.length > 0 && !activeConversation) {
+        // Create conversation first, then send message
+        const memberIds = selectedRecipients.map(r => r.id)
+        const convRes = await fetch('/api/chat/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ memberIds }),
+        })
+        
+        if (!convRes.ok) {
+          const error = await convRes.json()
+          alert(error.error || 'Failed to create conversation')
+          setLoading(false)
+          return
+        }
+        
+        const convData = await convRes.json()
+        setActiveConversation(convData.conversation)
+        
+        // Now send message to the conversation
+        const res = await fetch(`/api/chat/conversations/${convData.conversation.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: messageContent }),
+        })
+        
+        if (!res.ok) {
+          const errorData = await res.json()
+          console.error('Failed to send message:', errorData)
+          alert(errorData.error || 'Failed to send message')
+          setLoading(false)
+          return
+        }
+        
+        console.log('Conversation created and message sent')
+        setShowUserPicker(false)
+        
+        // Clear invites
         for (const recipient of selectedRecipients) {
           const hasInvite = chatInvites.some(invite => invite.sender.id === recipient.id)
           if (hasInvite) {
@@ -965,6 +1134,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           const errorData = await res.json()
           console.error('Failed to send message:', errorData)
           alert(errorData.error || 'Failed to send message')
+          setLoading(false)
           return
         }
         
@@ -1695,11 +1865,22 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   </div>
                 ) : (
                   chatRecords.map((record, index) => {
-                    const hasNotification = chatInvites.some(invite => invite.sender.id === record.user.id)
+                    // Check for notifications from any member
+                    const hasNotification = record.members 
+                      ? chatInvites.some(invite => record.members!.some(m => m.id === invite.sender.id))
+                      : record.user ? chatInvites.some(invite => invite.sender.id === record.user!.id) : false
+                    
+                    // Get display info
+                    const isGroup = record.isGroup || (record.members && record.members.length > 1)
+                    const displayUser = record.user || (record.members && record.members[0])
+                    const displayName = isGroup && record.members
+                      ? record.members.map(m => `@${m.username}`).join(', ')
+                      : displayUser ? `@${displayUser.username}` : 'Unknown'
+                    
                     return (
                       <button
-                        key={record.user.id || index}
-                        onClick={() => selectChatRecord(record.user)}
+                        key={record.conversationId || (displayUser?.id) || index}
+                        onClick={() => selectChatRecord(record)}
                         style={{
                           width: '100%',
                           padding: '12px 16px',
@@ -1722,7 +1903,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           height: '44px',
                           borderRadius: '8px',
                           overflow: 'visible',
-                          background: '#8b5cf6',
+                          background: isGroup ? '#10b981' : '#8b5cf6',
                           flexShrink: 0,
                           display: 'flex',
                           alignItems: 'center',
@@ -1737,11 +1918,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                             alignItems: 'center',
                             justifyContent: 'center',
                           }}>
-                            {record.user.avatar ? (
-                              <img src={record.user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            {isGroup ? (
+                              <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
+                                {record.members?.length || 2}
+                              </span>
+                            ) : displayUser?.avatar ? (
+                              <img src={displayUser.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                               <span style={{ color: 'white', fontWeight: 'bold', fontSize: '18px' }}>
-                                {record.user.username?.[0]?.toUpperCase()}
+                                {displayUser?.username?.[0]?.toUpperCase() || '?'}
                               </span>
                             )}
                           </div>
@@ -1760,7 +1945,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '15px', fontWeight: '600', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            @{record.user.username}
+                            {isGroup && <span style={{ fontSize: '12px' }}>👥</span>}
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {displayName}
+                            </span>
                             {hasNotification && (
                               <span style={{
                                 background: '#ef4444',
@@ -1769,6 +1957,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                                 fontWeight: 'bold',
                                 padding: '2px 6px',
                                 borderRadius: '10px',
+                                flexShrink: 0,
                               }}>
                                 NEW
                               </span>

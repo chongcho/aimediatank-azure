@@ -46,6 +46,7 @@ model User {
   notifications Notification[]
   chatMessages  ChatMessage[]
   pendingUploads PendingUpload[]
+  conversationMemberships ConversationMember[]
 }
 
 model Media {
@@ -207,21 +208,55 @@ model Notification {
   @@index([createdAt])
 }
 
+model Conversation {
+  id        String   @id @default(uuid())
+  name      String?  // Optional name for group chats
+  isGroup   Boolean  @default(false)  // true for group (3+), false for 1-on-1
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  members   ConversationMember[]
+  messages  ChatMessage[]
+  
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model ConversationMember {
+  id             String    @id @default(uuid())
+  joinedAt       DateTime  @default(now())
+  lastReadAt     DateTime? // Track when user last read messages
+  
+  // Relations
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+}
+
 model ChatMessage {
-  id            String    @id @default(uuid())
-  content       String
-  isPrivate     Boolean   @default(false)  // true for private 1-to-1 messages
-  recipientId   String?   // For private messages: the recipient user ID
-  createdAt     DateTime  @default(now())
+  id             String    @id @default(uuid())
+  content        String
+  isPrivate      Boolean   @default(false)  // true for private messages (group or 1-on-1)
+  recipientId    String?   // For backward compatibility with old 1-on-1 messages
+  conversationId String?   // Link to conversation for group/private chat
+  createdAt      DateTime  @default(now())
 
   // Relations
-  userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([userId])
   @@index([isPrivate])
   @@index([recipientId])
+  @@index([conversationId])
 }
 
 // Email verification codes (persisted for serverless environments)
