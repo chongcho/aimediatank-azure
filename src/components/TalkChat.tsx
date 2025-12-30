@@ -1361,6 +1361,86 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               )}
 
             </div>
+            
+            {/* Group chat member avatars - shown when in private chat with recipients */}
+            {chatMode === 'private' && selectedRecipients.length > 0 && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                marginLeft: '8px',
+                paddingLeft: '8px',
+                borderLeft: '1px solid #ccc',
+              }}>
+                {/* Stacked avatars */}
+                <div style={{ display: 'flex', marginRight: '4px' }}>
+                  {selectedRecipients.slice(0, 4).map((member, idx) => (
+                    <div
+                      key={member.id}
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        background: '#8b5cf6',
+                        border: '2px solid #e8e8e8',
+                        marginLeft: idx > 0 ? '-8px' : '0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10 - idx,
+                        position: 'relative',
+                      }}
+                      title={`@${member.username}`}
+                    >
+                      {member.avatar ? (
+                        <img src={member.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '10px' }}>
+                          {member.username?.[0]?.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  {selectedRecipients.length > 4 && (
+                    <div
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: '#6b7280',
+                        border: '2px solid #e8e8e8',
+                        marginLeft: '-8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 5,
+                        position: 'relative',
+                        color: 'white',
+                        fontSize: '9px',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      +{selectedRecipients.length - 4}
+                    </div>
+                  )}
+                </div>
+                {/* Member names (truncated) */}
+                <div style={{
+                  fontSize: '11px',
+                  color: '#666',
+                  maxWidth: '150px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {selectedRecipients.length === 1
+                    ? `@${selectedRecipients[0].username}`
+                    : `${selectedRecipients.length} members`
+                  }
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Size control buttons - different for desktop vs mobile */}
