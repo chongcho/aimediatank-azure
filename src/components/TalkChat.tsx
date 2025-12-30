@@ -1352,52 +1352,26 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </button>
             
             {/* Private Button - shows chat records, active when in private mode or new chat */}
-            <button
-              onClick={switchToPrivateChat}
-              className="chat-btn-responsive"
-              style={{
-                padding: '4px 8px',
-                borderRadius: '4px',
-                border: 'none',
-                background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
-                color: chatMode === 'private' ? 'white' : '#666',
-                fontWeight: '700',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Private
-            </button>
-
-            {/* New Chat Button with Icon - purple when active to match Private button */}
             <div style={{ position: 'relative' }}>
               <button
-                onClick={toggleNewChat}
+                onClick={switchToPrivateChat}
                 className="chat-btn-responsive"
                 style={{
-                  padding: '4px 6px',
+                  padding: '4px 8px',
                   borderRadius: '4px',
                   border: 'none',
-                  background: showUserPicker ? '#8b5cf6' : '#facc15',
-                  color: 'white',
+                  background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
+                  color: chatMode === 'private' ? 'white' : '#666',
+                  fontWeight: '700',
+                  fontSize: '12px',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  whiteSpace: 'nowrap',
                 }}
-                title="New Chat"
               >
-                {/* Chat bubble with plus icon */}
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={showUserPicker ? 'white' : '#1a1a1a'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  <line x1="12" y1="8" x2="12" y2="14" />
-                  <line x1="9" y1="11" x2="15" y2="11" />
-                </svg>
+                Private
               </button>
-              {/* Invite notification badge - on Private Chat button area */}
+              {/* Invite notification badge on Private button */}
               {chatInvites.length > 0 && (
                 <span
                   onClick={(e) => { e.stopPropagation(); switchToPrivateChat(); }}
@@ -1408,12 +1382,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     background: '#ef4444',
                     color: 'white',
                     borderRadius: '50%',
-                    width: '20px',
-                    height: '20px',
+                    width: '18px',
+                    height: '18px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '11px',
+                    fontSize: '10px',
                     fontWeight: 'bold',
                     cursor: 'pointer',
                     animation: 'pulse 2s infinite',
@@ -1422,8 +1396,33 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   {chatInvites.length}
                 </span>
               )}
-
             </div>
+
+            {/* New Chat Button with Icon - purple when active to match Private button */}
+            <button
+              onClick={toggleNewChat}
+              className="chat-btn-responsive"
+              style={{
+                padding: '4px 6px',
+                borderRadius: '4px',
+                border: 'none',
+                background: showUserPicker ? '#8b5cf6' : '#facc15',
+                color: 'white',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="New Chat"
+            >
+              {/* Chat bubble with plus icon */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={showUserPicker ? 'white' : '#1a1a1a'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                <line x1="12" y1="8" x2="12" y2="14" />
+                <line x1="9" y1="11" x2="15" y2="11" />
+              </svg>
+            </button>
             
             {/* Member count - shown when in private chat with recipients */}
             {chatMode === 'private' && selectedRecipients.length > 0 && (
