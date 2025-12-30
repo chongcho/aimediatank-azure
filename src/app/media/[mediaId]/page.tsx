@@ -282,7 +282,7 @@ export default function MediaPage() {
               {/* Back Button - aligned right */}
               <button
                 onClick={() => router.back()}
-                className="flex items-center gap-1 px-3 py-1 bg-tank-gray hover:bg-tank-light border border-tank-light rounded-lg text-white transition-colors flex-shrink-0 font-semibold"
+                className="flex items-center gap-1 px-3 py-1 bg-gray-600 hover:bg-gray-500 border border-gray-500 rounded-lg text-white transition-colors flex-shrink-0 font-semibold"
                 title="Go back"
               >
                 <span>←</span>
