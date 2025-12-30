@@ -290,15 +290,27 @@ export default function MediaPage() {
               )}
             </div>
             
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400 mb-4">
-              <span>{media.views.toLocaleString()} views</span>
-              <span>{formatDate(media.createdAt)}</span>
-              <span className={`badge ${
-                media.type === 'VIDEO' ? 'badge-video' :
-                media.type === 'IMAGE' ? 'badge-image' : 'badge-music'
-              }`}>
-                {media.type}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-gray-400 mb-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <span>{media.views.toLocaleString()} views</span>
+                <span>{formatDate(media.createdAt)}</span>
+                <span className={`badge ${
+                  media.type === 'VIDEO' ? 'badge-video' :
+                  media.type === 'IMAGE' ? 'badge-image' : 'badge-music'
+                }`}>
+                  {media.type}
+                </span>
+              </div>
+              {/* Back Button */}
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-tank-gray hover:bg-tank-light border border-tank-light rounded-lg text-white transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back
+              </button>
             </div>
 
             {media.description && (
@@ -409,19 +421,6 @@ export default function MediaPage() {
           </div>
 
         </div>
-      </div>
-
-      {/* Back Button */}
-      <div className="mt-8 flex justify-center">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 px-6 py-3 bg-tank-gray hover:bg-tank-light border border-tank-light rounded-xl font-semibold text-white transition-all"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back
-        </button>
       </div>
 
       {/* Delete Confirmation Modal */}
