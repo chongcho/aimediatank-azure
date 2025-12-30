@@ -180,6 +180,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [searchedUsers, setSearchedUsers] = useState<UserSuggestion[]>([])
   const [searchingUsers, setSearchingUsers] = useState(false)
+  // Chat title for new private chat
+  const [chatTitle, setChatTitle] = useState('')
   // Private chat invites
   const [chatInvites, setChatInvites] = useState<Array<{
     notificationId: string
@@ -513,6 +515,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setUserSearchQuery('')
     setSearchedUsers([])
     // Don't close picker - allow adding more users
+    // Auto-focus the input for next user entry
+    setTimeout(() => {
+      const input = document.getElementById('member-search-input')
+      if (input) input.focus()
+    }, 50)
   }
   
   // Remove a recipient from selection
@@ -677,7 +684,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       return
     }
     setChatMode('private')
-    setShowUserPicker(!showUserPicker)
+    const newState = !showUserPicker
+    setShowUserPicker(newState)
+    // Reset form when opening
+    if (newState) {
+      setChatTitle('')
+      setSelectedRecipients([])
+      setUserSearchQuery('')
+      setSearchedUsers([])
+    }
     // Close other popups
     setShowChatRecords(false)
   }
@@ -1482,18 +1497,31 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               overflow: 'hidden',
             }}
           >
-            {/* Header with title and Invite button */}
+            {/* Chat title input with Start button */}
             <div style={{
               padding: '8px 12px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              gap: '8px',
               background: '#fafafa',
               borderBottom: '1px solid #e0e0e0',
             }}>
-              <span style={{ fontSize: '13px', color: '#555', fontWeight: '500' }}>
-                Invite one or multiple members
-              </span>
+              <input
+                type="text"
+                value={chatTitle}
+                onChange={(e) => setChatTitle(e.target.value)}
+                placeholder="Enter chat title"
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  border: '2px solid #10b981',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  background: 'white',
+                  color: '#333',
+                }}
+              />
               <button
                 onClick={startChatWithSelected}
                 disabled={selectedRecipients.length === 0}
@@ -1501,14 +1529,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   background: selectedRecipients.length > 0 ? '#10b981' : '#9ca3af',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '4px',
-                  padding: '6px 14px',
-                  fontSize: '13px',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
                   fontWeight: '600',
                   cursor: selectedRecipients.length > 0 ? 'pointer' : 'not-allowed',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                Invite
+                Start
               </button>
             </div>
             
