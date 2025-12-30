@@ -1362,83 +1362,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
             </div>
             
-            {/* Group chat member avatars - shown when in private chat with recipients */}
+            {/* Member count - shown when in private chat with recipients */}
             {chatMode === 'private' && selectedRecipients.length > 0 && (
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
                 marginLeft: '8px',
                 paddingLeft: '8px',
                 borderLeft: '1px solid #ccc',
+                fontSize: '13px',
+                fontWeight: '700',
+                color: '#333',
               }}>
-                {/* Stacked avatars */}
-                <div style={{ display: 'flex', marginRight: '4px' }}>
-                  {selectedRecipients.slice(0, 4).map((member, idx) => (
-                    <div
-                      key={member.id}
-                      style={{
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
-                        overflow: 'hidden',
-                        background: '#8b5cf6',
-                        border: '2px solid #e8e8e8',
-                        marginLeft: idx > 0 ? '-8px' : '0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 10 - idx,
-                        position: 'relative',
-                      }}
-                      title={`@${member.username}`}
-                    >
-                      {member.avatar ? (
-                        <img src={member.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '10px' }}>
-                          {member.username?.[0]?.toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                  {selectedRecipients.length > 4 && (
-                    <div
-                      style={{
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
-                        background: '#6b7280',
-                        border: '2px solid #e8e8e8',
-                        marginLeft: '-8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 5,
-                        position: 'relative',
-                        color: 'white',
-                        fontSize: '9px',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      +{selectedRecipients.length - 4}
-                    </div>
-                  )}
-                </div>
-                {/* Member count */}
-                <div style={{
-                  fontSize: '11px',
-                  color: '#666',
-                  maxWidth: '150px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {selectedRecipients.length === 1
-                    ? `@${selectedRecipients[0].username}`
-                    : `${selectedRecipients.length} joined`
-                  }
-                </div>
+                {selectedRecipients.length} member{selectedRecipients.length > 1 ? 's' : ''}
               </div>
             )}
           </div>
@@ -1517,260 +1451,186 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* New Chat Popup - Centered overlay */}
+        {/* New Chat Popup - Aligned with header bottom */}
         {showUserPicker && (
-          <>
-            {/* Overlay to block interaction with chat window */}
-            <div 
-              onClick={() => setShowUserPicker(false)}
-              style={{
-                position: 'absolute',
-                top: '40px',
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(0, 0, 0, 0.3)',
-                zIndex: 99,
-              }}
-            />
-            <div
-              ref={userPickerRef}
-              className="chat-dropdown-responsive"
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '320px',
-                maxWidth: 'calc(100vw - 32px)',
-                background: '#e5e7eb',
-                borderRadius: '12px',
-                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.3)',
-                border: '1px solid #d1d5db',
-                zIndex: 100,
-                overflow: 'hidden',
-              }}
-            >
-              <div style={{
-                padding: '12px 14px',
-                borderBottom: '1px solid #d1d5db',
-                background: '#f3f4f6',
-              }}>
-                <div style={{ fontSize: '14px', fontWeight: '600', color: '#333', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>🔒 New Private Chat to ...</span>
-                  <button
-                    onClick={() => setShowUserPicker(false)}
-                    style={{
-                      background: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '4px 10px',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Close
-                  </button>
-                </div>
-                
-                {/* Selected recipients as chips */}
-                {selectedRecipients.length > 0 && (
-                  <div style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '6px',
-                    marginBottom: '10px',
-                    padding: '8px',
-                    background: 'white',
-                    borderRadius: '6px',
-                    border: '1px solid #d1d5db',
-                  }}>
-                    {selectedRecipients.map((user) => (
-                      <div
-                        key={user.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          background: '#8b5cf6',
-                          color: 'white',
-                          padding: '4px 8px',
-                          borderRadius: '16px',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                        }}
-                      >
-                        <span>@{user.username}</span>
-                        <button
-                          onClick={() => removeRecipient(user.id)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'white',
-                            cursor: 'pointer',
-                            padding: '0',
-                            marginLeft: '2px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '16px',
-                            height: '16px',
-                            borderRadius: '50%',
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                <input
-                  type="text"
-                  value={userSearchQuery}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setUserSearchQuery(value)
-                    const searchTerm = value.startsWith('@') ? value.slice(1) : value
-                    searchUsersForPrivateChat(searchTerm)
-                  }}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  placeholder="type @User ID or select"
-                  autoFocus
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #d1d5db',
-                    fontSize: '16px', // Prevents iOS zoom on focus
-                    outline: 'none',
-                    background: 'white',
-                    color: '#333',
-                    WebkitAppearance: 'none', // iOS input fix
-                  }}
-                />
-                
-                {/* Hint text for group chat */}
-                <p style={{ fontSize: '11px', color: '#666', marginTop: '6px', textAlign: 'center' }}>
-                  💡 Select multiple users for group message
-                </p>
-              </div>
-              <div style={{
-                maxHeight: '200px',
-                overflowY: 'auto',
-                background: '#f3f4f6',
-              }}>
-                {searchingUsers ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
-                    Searching...
-                  </div>
-                ) : searchedUsers.length === 0 && userSearchQuery ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
-                    No users found
-                  </div>
-                ) : searchedUsers.length > 0 ? (
-                  searchedUsers.map((user) => {
-                    const isSelected = selectedRecipients.some(r => r.id === user.id)
-                    return (
-                      <button
-                        key={user.id}
-                        onClick={() => selectPrivateRecipient(user)}
-                        disabled={isSelected}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          border: 'none',
-                          borderBottom: '1px solid #e5e7eb',
-                          background: isSelected ? '#e0e7ff' : '#f9fafb',
-                          cursor: isSelected ? 'default' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          textAlign: 'left',
-                          transition: 'background 0.15s',
-                          opacity: isSelected ? 0.7 : 1,
-                        }}
-                        onMouseEnter={(e) => !isSelected && (e.currentTarget.style.background = '#e5e7eb')}
-                        onMouseLeave={(e) => !isSelected && (e.currentTarget.style.background = '#f9fafb')}
-                      >
-                        <div style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '6px',
-                          overflow: 'hidden',
-                          background: '#8b5cf6',
-                          flexShrink: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}>
-                          {user.avatar ? (
-                            <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          ) : (
-                            <span style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
-                              {user.username?.[0]?.toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>@{user.username}</div>
-                          {user.name && <div style={{ fontSize: '12px', color: '#666' }}>{user.name}</div>}
-                        </div>
-                        {isSelected && (
-                          <svg width="20" height="20" fill="#8b5cf6" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </button>
-                    )
-                  })
+          <div
+            ref={userPickerRef}
+            style={{
+              position: 'absolute',
+              top: '40px', // Align with header bottom
+              left: '8px',
+              right: '8px',
+              background: '#f5f5f5',
+              borderRadius: '8px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+              border: '1px solid #ddd',
+              zIndex: 100,
+              maxHeight: 'calc(100% - 100px)', // Don't exceed chat box
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header with title and Invite button */}
+            <div style={{
+              padding: '10px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid #e0e0e0',
+              background: '#f5f5f5',
+            }}>
+              <span style={{ fontSize: '14px', color: '#333' }}>
+                Invite one or multiple members
+              </span>
+              <button
+                onClick={startChatWithSelected}
+                disabled={selectedRecipients.length === 0}
+                style={{
+                  background: selectedRecipients.length > 0 ? '#10b981' : '#9ca3af',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: selectedRecipients.length > 0 ? 'pointer' : 'not-allowed',
+                }}
+              >
+                Invite
+              </button>
+            </div>
+            
+            {/* Selected members input box */}
+            <div style={{
+              padding: '10px 12px',
+              background: '#f5f5f5',
+            }}>
+              <div 
+                onClick={() => {
+                  // Focus on the hidden input when clicking the box
+                  const input = document.getElementById('member-search-input')
+                  if (input) input.focus()
+                }}
+                style={{
+                  minHeight: '80px',
+                  maxHeight: '120px',
+                  overflowY: 'auto',
+                  padding: '10px',
+                  background: 'white',
+                  border: '2px solid #10b981',
+                  borderRadius: '8px',
+                  cursor: 'text',
+                }}
+              >
+                {selectedRecipients.length > 0 ? (
+                  <span style={{ fontSize: '14px', color: '#333' }}>
+                    {selectedRecipients.map(u => `@${u.username}`).join(' ')} ...
+                  </span>
                 ) : (
-                  <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
-                    Type to search users
-                  </div>
+                  <span style={{ fontSize: '14px', color: '#999' }}>
+                    @user1 @user2 @user3 @user4 ...
+                  </span>
                 )}
               </div>
               
-              {/* Start Chat Button - visible when recipients selected */}
-              {selectedRecipients.length > 0 && (
-                <div style={{
-                  padding: '12px',
-                  borderTop: '1px solid #d1d5db',
-                  background: '#f3f4f6',
-                }}>
-                  <button
-                    onClick={startChatWithSelected}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      background: '#8b5cf6',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    {selectedRecipients.length === 1 
-                      ? `Start Chat with @${selectedRecipients[0].username}`
-                      : `Send to ${selectedRecipients.length} users`
-                    }
-                  </button>
+              {/* Search input */}
+              <input
+                id="member-search-input"
+                type="text"
+                value={userSearchQuery}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setUserSearchQuery(value)
+                  const searchTerm = value.startsWith('@') ? value.slice(1) : value
+                  searchUsersForPrivateChat(searchTerm)
+                }}
+                onTouchStart={(e) => e.stopPropagation()}
+                placeholder="Type to search users..."
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  marginTop: '8px',
+                  borderRadius: '6px',
+                  border: '1px solid #ddd',
+                  fontSize: '14px',
+                  outline: 'none',
+                  background: 'white',
+                  color: '#333',
+                }}
+              />
+            </div>
+            
+            {/* Search results */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              borderTop: '1px solid #e0e0e0',
+            }}>
+              {searchingUsers ? (
+                <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
+                  Searching...
+                </div>
+              ) : searchedUsers.length === 0 && userSearchQuery ? (
+                <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
+                  No users found
+                </div>
+              ) : searchedUsers.length > 0 ? (
+                searchedUsers.map((user) => {
+                  const isSelected = selectedRecipients.some(r => r.id === user.id)
+                  return (
+                    <button
+                      key={user.id}
+                      onClick={() => {
+                        if (isSelected) {
+                          removeRecipient(user.id)
+                        } else {
+                          selectPrivateRecipient(user)
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: 'none',
+                        borderBottom: '1px solid #eee',
+                        background: isSelected ? '#dcfce7' : 'white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <div style={{
+                        width: '12px',
+                        height: '12px',
+                        borderRadius: '2px',
+                        border: isSelected ? 'none' : '2px solid #ccc',
+                        background: isSelected ? '#10b981' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        {isSelected && (
+                          <svg width="8" height="8" fill="white" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '14px', color: '#333' }}>@{user.username}</span>
+                      {user.name && <span style={{ fontSize: '12px', color: '#666' }}>({user.name})</span>}
+                    </button>
+                  )
+                })
+              ) : (
+                <div style={{ padding: '16px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
+                  Type to search users
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
 
