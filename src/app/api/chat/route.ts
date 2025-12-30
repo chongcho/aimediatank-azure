@@ -65,10 +65,11 @@ export async function GET(request: Request) {
     return NextResponse.json({
       messages: messages.reverse(),
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching chat messages:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to fetch messages' },
+      { error: 'Failed to fetch messages', details: errorMessage },
       { status: 500 }
     )
   }
