@@ -30,6 +30,8 @@ export default function EditMediaPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -131,6 +133,32 @@ export default function EditMediaPage() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!media) return
+
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/media/${mediaId}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        // Redirect back to user's profile
+        const username = session?.user?.username || media.user.username
+        router.push(`/profile/${username}`)
+      } else {
+        const data = await res.json()
+        setError(data.error || 'Failed to delete media')
+      }
+    } catch (error) {
+      console.error('Error deleting media:', error)
+      setError('Failed to delete media')
+    } finally {
+      setDeleting(false)
+      setShowDeleteModal(false)
+    }
+  }
+
   if (loading || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -173,29 +201,41 @@ export default function EditMediaPage() {
 
       {/* Preview */}
       <div className="card mb-3 !py-2">
-        <div className="flex items-center gap-4">
-          <div className="w-24 h-16 rounded-lg overflow-hidden bg-tank-dark flex-shrink-0">
-            {media.type === 'IMAGE' ? (
-              <img src={media.url} alt={media.title} className="w-full h-full object-cover" />
-            ) : media.thumbnailUrl ? (
-              <img src={media.thumbnailUrl} alt={media.title} className="w-full h-full object-cover" />
-            ) : media.type === 'VIDEO' ? (
-              <video src={media.url} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                </svg>
-              </div>
-            )}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-24 h-16 rounded-lg overflow-hidden bg-tank-dark flex-shrink-0">
+              {media.type === 'IMAGE' ? (
+                <img src={media.url} alt={media.title} className="w-full h-full object-cover" />
+              ) : media.thumbnailUrl ? (
+                <img src={media.thumbnailUrl} alt={media.title} className="w-full h-full object-cover" />
+              ) : media.type === 'VIDEO' ? (
+                <video src={media.url} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded ${
+                media.type === 'VIDEO' ? 'bg-red-500/20 text-red-400' :
+                media.type === 'IMAGE' ? 'bg-blue-500/20 text-blue-400' :
+                'bg-purple-500/20 text-purple-400'
+              }`}>
+                {media.type}
+              </span>
           </div>
-          <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded ${
-              media.type === 'VIDEO' ? 'bg-red-500/20 text-red-400' :
-              media.type === 'IMAGE' ? 'bg-blue-500/20 text-blue-400' :
-              'bg-purple-500/20 text-purple-400'
-            }`}>
-              {media.type}
-            </span>
+          {/* Delete Button */}
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete
+          </button>
         </div>
       </div>
 
@@ -346,6 +386,45 @@ export default function EditMediaPage() {
           </button>
         </div>
       </form>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold">Delete Media</h3>
+                <p className="text-sm text-gray-400">This action cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-gray-300 mb-6">
+              Are you sure you want to delete "<span className="font-semibold">{title || media.title}</span>"? 
+              This will permanently remove the media file and all associated comments and ratings.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="btn-secondary flex-1"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
