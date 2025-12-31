@@ -3,27 +3,41 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
-// Mask email address for security (e.g., "john@example.com" -> "j***n@e****e.com")
+// Mask email address for security while preserving character count
+// e.g., "john@example.com" -> "j**n@e*****e.com"
 function maskEmail(email: string): string {
   const [localPart, domain] = email.split('@')
   if (!domain) return '***@***.***'
   
-  const [domainName, domainExt] = domain.split('.')
+  // Find the last dot to separate domain name from extension
+  const lastDotIndex = domain.lastIndexOf('.')
+  if (lastDotIndex === -1) return '***@***.***'
   
-  // Mask local part: show first and last character
+  const domainName = domain.substring(0, lastDotIndex)
+  const domainExt = domain.substring(lastDotIndex + 1)
+  
+  // Mask local part: show first and last character, replace middle with *
   let maskedLocal: string
-  if (localPart.length <= 2) {
-    maskedLocal = localPart[0] + '***'
+  if (localPart.length <= 1) {
+    maskedLocal = localPart[0] || '*'
+  } else if (localPart.length === 2) {
+    maskedLocal = localPart[0] + '*'
   } else {
-    maskedLocal = localPart[0] + '***' + localPart[localPart.length - 1]
+    // Show first and last, mask the middle with exact count
+    const middleLength = localPart.length - 2
+    maskedLocal = localPart[0] + '*'.repeat(middleLength) + localPart[localPart.length - 1]
   }
   
-  // Mask domain name: show first and last character
+  // Mask domain name: show first and last character, replace middle with *
   let maskedDomain: string
-  if (domainName.length <= 2) {
-    maskedDomain = domainName[0] + '***'
+  if (domainName.length <= 1) {
+    maskedDomain = domainName[0] || '*'
+  } else if (domainName.length === 2) {
+    maskedDomain = domainName[0] + '*'
   } else {
-    maskedDomain = domainName[0] + '***' + domainName[domainName.length - 1]
+    // Show first and last, mask the middle with exact count
+    const middleLength = domainName.length - 2
+    maskedDomain = domainName[0] + '*'.repeat(middleLength) + domainName[domainName.length - 1]
   }
   
   return `${maskedLocal}@${maskedDomain}.${domainExt}`
