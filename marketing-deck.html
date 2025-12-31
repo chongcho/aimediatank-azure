@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Media Tank - Marketing Presentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00FF88;
+            --primary-dark: #00CC6A;
+            --bg-dark: #0A0A0F;
+            --bg-card: #141419;
+            --bg-light: #1E1E26;
+            --text-primary: #FFFFFF;
+            --text-secondary: #9CA3AF;
+            --gradient-1: linear-gradient(135deg, #00FF88 0%, #00D4FF 100%);
+            --gradient-2: linear-gradient(135deg, #FF6B6B 0%, #FFE66D 100%);
+            --gradient-3: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* Navigation */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 1rem 2rem;
+            background: rgba(10, 10, 15, 0.9);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+        }
+
+        /* Slide Base */
+        .slide {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 6rem 4rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slide-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Hero Slide */
+        .hero {
+            background: radial-gradient(ellipse at 20% 50%, rgba(0, 255, 136, 0.15) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 80%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+                        var(--bg-dark);
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 100px;
+            font-size: 0.9rem;
+            color: var(--primary);
+            margin-bottom: 2rem;
+        }
+
+        .hero-title {
+            font-size: 5rem;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero-title span {
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto 3rem;
+        }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 4rem;
+            margin-top: 4rem;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--primary);
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Problem Slide */
+        .problem {
+            background: radial-gradient(ellipse at 80% 20%, rgba(255, 107, 107, 0.1) 0%, transparent 50%),
+                        var(--bg-dark);
+        }
+
+        .section-label {
+            color: var(--primary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 3rem;
+            line-height: 1.2;
+        }
+
+        .problem-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+
+        .problem-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+
+        .problem-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 107, 107, 0.5);
+        }
+
+        .problem-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #FF6B6B 0%, #FFE66D 100%);
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .problem-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+        }
+
+        .problem-card p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        /* Solution Slide */
+        .solution {
+            background: radial-gradient(ellipse at 20% 80%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+                        var(--bg-dark);
+        }
+
+        .solution-intro {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .solution-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+        }
+
+        .solution-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+
+        .solution-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .solution-card.featured {
+            grid-column: span 2;
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 212, 255, 0.05) 100%);
+            border-color: rgba(0, 255, 136, 0.3);
+        }
+
+        .solution-icon {
+            width: 70px;
+            height: 70px;
+            background: var(--gradient-1);
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .solution-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .solution-card p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            line-height: 1.7;
+        }
+
+        /* Features Slide */
+        .features {
+            background: var(--bg-dark);
+        }
+
+        .features-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 20px 40px rgba(0, 255, 136, 0.1);
+        }
+
+        .feature-emoji {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h4 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Pricing Slide */
+        .pricing {
+            background: radial-gradient(ellipse at 50% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
+                        var(--bg-dark);
+        }
+
+        .pricing-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .pricing-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--primary);
+        }
+
+        .pricing-card.popular {
+            border-color: var(--primary);
+            position: relative;
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 212, 255, 0.05) 100%);
+        }
+
+        .popular-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--gradient-1);
+            color: var(--bg-dark);
+            padding: 0.3rem 1rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .pricing-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-price {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-period {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .pricing-features {
+            list-style: none;
+            text-align: left;
+            margin-bottom: 1.5rem;
+        }
+
+        .pricing-features li {
+            padding: 0.5rem 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pricing-features li::before {
+            content: "✓";
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        /* Market Slide */
+        .market {
+            background: radial-gradient(ellipse at 30% 70%, rgba(118, 75, 162, 0.15) 0%, transparent 50%),
+                        var(--bg-dark);
+        }
+
+        .market-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .market-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+        }
+
+        .market-stat {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .market-stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient-3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .market-stat-label {
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        /* Roadmap Slide */
+        .roadmap {
+            background: var(--bg-dark);
+        }
+
+        .roadmap-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .timeline::before {
+            content: "";
+            position: absolute;
+            top: 30px;
+            left: 10%;
+            right: 10%;
+            height: 4px;
+            background: var(--gradient-1);
+            border-radius: 2px;
+        }
+
+        .timeline-item {
+            text-align: center;
+            flex: 1;
+            position: relative;
+        }
+
+        .timeline-dot {
+            width: 60px;
+            height: 60px;
+            background: var(--bg-card);
+            border: 4px solid var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 1.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .timeline-phase {
+            font-size: 0.9rem;
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .timeline-title {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .timeline-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            max-width: 200px;
+            margin: 0 auto;
+        }
+
+        /* CTA Slide */
+        .cta {
+            background: radial-gradient(ellipse at 50% 50%, rgba(0, 255, 136, 0.2) 0%, transparent 60%),
+                        var(--bg-dark);
+            text-align: center;
+        }
+
+        .cta-title {
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        .cta-title span {
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .cta-subtitle {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 3rem;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 1rem 2.5rem;
+            border-radius: 100px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--gradient-1);
+            color: var(--bg-dark);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--primary);
+            color: var(--bg-dark);
+        }
+
+        /* Team Slide */
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .team-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .team-avatar {
+            width: 100px;
+            height: 100px;
+            background: var(--gradient-1);
+            border-radius: 50%;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+
+        .team-name {
+            font-size: 1.3rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .team-role {
+            color: var(--primary);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .team-bio {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Contact Info */
+        .contact-info {
+            display: flex;
+            justify-content: center;
+            gap: 4rem;
+            margin-top: 4rem;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .contact-icon {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 255, 136, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .contact-text {
+            text-align: left;
+        }
+
+        .contact-label {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .contact-value {
+            font-size: 1.1rem;
+        }
+
+        /* Print Styles */
+        @media print {
+            .slide {
+                page-break-after: always;
+                height: 100vh;
+            }
+            .nav {
+                display: none;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .pricing-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .slide {
+                padding: 4rem 2rem;
+            }
+            .hero-title {
+                font-size: 3rem;
+            }
+            .section-title {
+                font-size: 2.5rem;
+            }
+            .problem-grid,
+            .solution-grid,
+            .features-grid,
+            .pricing-grid,
+            .team-grid {
+                grid-template-columns: 1fr;
+            }
+            .solution-card.featured {
+                grid-column: span 1;
+            }
+            .market-content {
+                grid-template-columns: 1fr;
+            }
+            .timeline {
+                flex-direction: column;
+                gap: 2rem;
+            }
+            .timeline::before {
+                display: none;
+            }
+            .hero-stats {
+                flex-direction: column;
+                gap: 2rem;
+            }
+            .contact-info {
+                flex-direction: column;
+                gap: 2rem;
+            }
+            .nav-links {
+                display: none;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+        .delay-4 { animation-delay: 0.4s; }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="nav-logo">AI Media Tank</div>
+        <div class="nav-links">
+            <a href="#hero" class="nav-link">Home</a>
+            <a href="#problem" class="nav-link">Problem</a>
+            <a href="#solution" class="nav-link">Solution</a>
+            <a href="#features" class="nav-link">Features</a>
+            <a href="#pricing" class="nav-link">Pricing</a>
+            <a href="#contact" class="nav-link">Contact</a>
+        </div>
+    </nav>
+
+    <!-- Slide 1: Hero -->
+    <section id="hero" class="slide hero">
+        <div class="slide-content">
+            <span class="hero-badge">🚀 The Future of AI Content Sharing</span>
+            <h1 class="hero-title">
+                <span>AI Media Tank</span>
+            </h1>
+            <p class="hero-subtitle">
+                The premiere community platform for AI creators to share, discover, and monetize 
+                AI-generated videos, images, and music.
+            </p>
+            <div class="cta-buttons">
+                <a href="https://aimediatank.com" class="btn btn-primary">Visit Platform</a>
+                <a href="#solution" class="btn btn-secondary">Learn More</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Media Types</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">∞</div>
+                    <div class="stat-label">Creative Possibilities</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">$0</div>
+                    <div class="stat-label">To Start</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 2: Problem -->
+    <section id="problem" class="slide problem">
+        <div class="slide-content">
+            <span class="section-label">The Challenge</span>
+            <h2 class="section-title">AI Creators Need a Home</h2>
+            <div class="problem-grid">
+                <div class="problem-card">
+                    <div class="problem-icon">🚫</div>
+                    <h3>No Dedicated Platform</h3>
+                    <p>AI-generated content is scattered across generic platforms that don't understand or support AI creators' unique needs.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">💸</div>
+                    <h3>Monetization Barriers</h3>
+                    <p>AI artists struggle to monetize their creations. Traditional platforms don't offer easy ways to sell AI-generated work.</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">🔍</div>
+                    <h3>Hard to Discover</h3>
+                    <p>Amazing AI content gets lost in the noise. Creators can't easily find their audience or connect with fellow enthusiasts.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 3: Solution -->
+    <section id="solution" class="slide solution">
+        <div class="slide-content">
+            <div class="solution-intro">
+                <span class="section-label">Our Solution</span>
+                <h2 class="section-title">Built for AI Creators, by AI Enthusiasts</h2>
+            </div>
+            <div class="solution-grid">
+                <div class="solution-card featured">
+                    <div class="solution-icon">🎨</div>
+                    <h3>All-in-One AI Media Hub</h3>
+                    <p>Upload, share, and showcase your AI-generated videos, images, and music in one beautiful platform designed specifically for AI content. Our community celebrates and appreciates the art of AI creation.</p>
+                </div>
+                <div class="solution-card">
+                    <div class="solution-icon">💰</div>
+                    <h3>Built-in Marketplace</h3>
+                    <p>Set your own prices and sell your AI creations directly to collectors. Secure payments powered by Stripe with instant payouts.</p>
+                </div>
+                <div class="solution-card">
+                    <div class="solution-icon">👥</div>
+                    <h3>Vibrant Community</h3>
+                    <p>Connect with fellow AI creators through chat, comments, and ratings. Share prompts, techniques, and inspiration.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 4: Features -->
+    <section id="features" class="slide features">
+        <div class="slide-content">
+            <div class="features-header">
+                <span class="section-label">Platform Features</span>
+                <h2 class="section-title">Everything You Need to Create & Sell</h2>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-emoji">🎬</div>
+                    <h4>Video Support</h4>
+                    <p>Upload AI-generated videos in all popular formats</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">🖼️</div>
+                    <h4>Image Gallery</h4>
+                    <p>Showcase your AI artwork in stunning quality</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">🎵</div>
+                    <h4>Music Hosting</h4>
+                    <p>Share AI-composed music with built-in player</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">🔐</div>
+                    <h4>Secure Uploads</h4>
+                    <p>Azure cloud storage with CDN delivery</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">💳</div>
+                    <h4>Stripe Payments</h4>
+                    <p>Secure transactions with instant checkout</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">💬</div>
+                    <h4>Real-time Chat</h4>
+                    <p>Public and private messaging with creators</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">⭐</div>
+                    <h4>Ratings & Reviews</h4>
+                    <p>Build your reputation with community feedback</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">#️⃣</div>
+                    <h4>Hashtag Discovery</h4>
+                    <p>Find content by tags, tools, and style</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">👤</div>
+                    <h4>Creator Profiles</h4>
+                    <p>Customizable profiles with portfolio view</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">🔔</div>
+                    <h4>Notifications</h4>
+                    <p>Stay updated on likes, comments, and sales</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">🔖</div>
+                    <h4>Save & Bookmark</h4>
+                    <p>Curate your favorite AI content</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">📱</div>
+                    <h4>PWA Support</h4>
+                    <p>Install as app on any device</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 5: Pricing -->
+    <section id="pricing" class="slide pricing">
+        <div class="slide-content">
+            <div class="pricing-header">
+                <span class="section-label">Simple Pricing</span>
+                <h2 class="section-title">Choose Your Creator Plan</h2>
+            </div>
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <h3 class="pricing-name">Viewer</h3>
+                    <div class="pricing-price">Free</div>
+                    <div class="pricing-period">Forever</div>
+                    <ul class="pricing-features">
+                        <li>Browse all content</li>
+                        <li>Purchase media</li>
+                        <li>5 free uploads</li>
+                        <li>Basic profile</li>
+                    </ul>
+                </div>
+                <div class="pricing-card">
+                    <h3 class="pricing-name">Basic</h3>
+                    <div class="pricing-price">$2</div>
+                    <div class="pricing-period">per month</div>
+                    <ul class="pricing-features">
+                        <li>Everything in Viewer</li>
+                        <li>5 free uploads</li>
+                        <li>$1 per additional upload</li>
+                        <li>Sell your content</li>
+                    </ul>
+                </div>
+                <div class="pricing-card popular">
+                    <span class="popular-badge">Most Popular</span>
+                    <h3 class="pricing-name">Advanced</h3>
+                    <div class="pricing-price">$5</div>
+                    <div class="pricing-period">per month</div>
+                    <ul class="pricing-features">
+                        <li>Everything in Basic</li>
+                        <li>5 free uploads</li>
+                        <li>$0.50 per additional upload</li>
+                        <li>Priority support</li>
+                    </ul>
+                </div>
+                <div class="pricing-card">
+                    <h3 class="pricing-name">Premium</h3>
+                    <div class="pricing-price">$8</div>
+                    <div class="pricing-period">per month</div>
+                    <ul class="pricing-features">
+                        <li>Everything in Advanced</li>
+                        <li>Unlimited free uploads</li>
+                        <li>Featured placement</li>
+                        <li>Creator badge</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 6: Market Opportunity -->
+    <section id="market" class="slide market">
+        <div class="slide-content">
+            <div class="market-content">
+                <div>
+                    <span class="section-label">Market Opportunity</span>
+                    <h2 class="section-title">The AI Content Revolution</h2>
+                    <p style="color: var(--text-secondary); font-size: 1.2rem; margin-bottom: 2rem;">
+                        The generative AI market is exploding. As AI tools become more accessible, 
+                        millions of creators are generating content daily. They need a dedicated 
+                        platform to share and monetize their work.
+                    </p>
+                    <ul style="list-style: none; font-size: 1.1rem;">
+                        <li style="margin-bottom: 1rem;">✅ 100M+ users of AI image generators</li>
+                        <li style="margin-bottom: 1rem;">✅ AI video tools going mainstream</li>
+                        <li style="margin-bottom: 1rem;">✅ Music AI disrupting the industry</li>
+                        <li style="margin-bottom: 1rem;">✅ Growing demand for AI art marketplace</li>
+                    </ul>
+                </div>
+                <div class="market-stats">
+                    <div class="market-stat">
+                        <div class="market-stat-value">$110B</div>
+                        <div class="market-stat-label">Generative AI Market by 2030</div>
+                    </div>
+                    <div class="market-stat">
+                        <div class="market-stat-value">40%</div>
+                        <div class="market-stat-label">Annual Growth Rate</div>
+                    </div>
+                    <div class="market-stat">
+                        <div class="market-stat-value">15M+</div>
+                        <div class="market-stat-label">AI Images Created Daily</div>
+                    </div>
+                    <div class="market-stat">
+                        <div class="market-stat-value">First</div>
+                        <div class="market-stat-label">Mover Advantage</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 7: Roadmap -->
+    <section id="roadmap" class="slide roadmap">
+        <div class="slide-content">
+            <div class="roadmap-header">
+                <span class="section-label">Product Roadmap</span>
+                <h2 class="section-title">Our Journey Ahead</h2>
+            </div>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-dot">🚀</div>
+                    <div class="timeline-phase">Phase 1</div>
+                    <div class="timeline-title">Launch</div>
+                    <div class="timeline-desc">Core platform with uploads, profiles, and basic marketplace</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot">📈</div>
+                    <div class="timeline-phase">Phase 2</div>
+                    <div class="timeline-title">Growth</div>
+                    <div class="timeline-desc">Mobile app, advanced analytics, creator partnerships</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot">🌐</div>
+                    <div class="timeline-phase">Phase 3</div>
+                    <div class="timeline-title">Scale</div>
+                    <div class="timeline-desc">API marketplace, AI tool integrations, enterprise features</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot">🏆</div>
+                    <div class="timeline-phase">Phase 4</div>
+                    <div class="timeline-title">Dominate</div>
+                    <div class="timeline-desc">NFT support, DAO governance, global expansion</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 8: Tech Stack -->
+    <section id="tech" class="slide features">
+        <div class="slide-content">
+            <div class="features-header">
+                <span class="section-label">Built to Scale</span>
+                <h2 class="section-title">Enterprise-Grade Technology</h2>
+            </div>
+            <div class="features-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="feature-card">
+                    <div class="feature-emoji">⚡</div>
+                    <h4>Next.js 14</h4>
+                    <p>Modern React framework with App Router for blazing fast performance</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">🗄️</div>
+                    <h4>PostgreSQL + Prisma</h4>
+                    <p>Robust database with type-safe ORM for reliable data management</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">☁️</div>
+                    <h4>Azure Cloud</h4>
+                    <p>Microsoft Azure for hosting, storage, and CDN with global reach</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">💳</div>
+                    <h4>Stripe</h4>
+                    <p>Industry-leading payment processing for subscriptions and purchases</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">🔒</div>
+                    <h4>NextAuth.js</h4>
+                    <p>Secure authentication with email verification and session management</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-emoji">🎨</div>
+                    <h4>Tailwind CSS</h4>
+                    <p>Modern, responsive design system for beautiful UI across all devices</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 9: Contact / CTA -->
+    <section id="contact" class="slide cta">
+        <div class="slide-content">
+            <h2 class="cta-title">
+                Ready to <span>Join the Future?</span>
+            </h2>
+            <p class="cta-subtitle">
+                Whether you're an AI creator looking to share your work, or an enthusiast 
+                wanting to discover amazing AI content, AI Media Tank is your home.
+            </p>
+            <div class="cta-buttons">
+                <a href="https://aimediatank.com" class="btn btn-primary">Get Started Free</a>
+                <a href="mailto:hello@aimediatank.com" class="btn btn-secondary">Contact Us</a>
+            </div>
+            <div class="contact-info">
+                <div class="contact-item">
+                    <div class="contact-icon">🌐</div>
+                    <div class="contact-text">
+                        <div class="contact-label">Website</div>
+                        <div class="contact-value">aimediatank.com</div>
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <div class="contact-icon">📧</div>
+                    <div class="contact-text">
+                        <div class="contact-label">Email</div>
+                        <div class="contact-value">hello@aimediatank.com</div>
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <div class="contact-icon">📍</div>
+                    <div class="contact-text">
+                        <div class="contact-label">Headquarters</div>
+                        <div class="contact-value">United States</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer style="padding: 2rem; text-align: center; border-top: 1px solid rgba(255,255,255,0.1);">
+        <p style="color: var(--text-secondary);">
+            © 2025 AI Media Tank. All rights reserved. | 
+            <span style="color: var(--primary);">Built with ❤️ for AI Creators</span>
+        </p>
+    </footer>
+
+    <script>
+        // Smooth scroll for navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = document.querySelector(link.getAttribute('href'));
+                target.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // Intersection Observer for animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-in');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.problem-card, .solution-card, .feature-card, .pricing-card, .timeline-item').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
+
