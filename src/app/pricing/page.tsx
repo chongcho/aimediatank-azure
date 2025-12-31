@@ -542,7 +542,7 @@ function PricingPageContent() {
       {/* Billing Period Selection Modal */}
       {showBillingModal && selectedPlan && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-700 border border-gray-600 rounded-2xl max-w-md w-full p-6">
+          <div className="bg-gray-500 border border-gray-400 rounded-2xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold">Choose Billing Period</h3>
               <button
@@ -551,7 +551,7 @@ function PricingPageContent() {
                   setSelectedPlan(null)
                   setPolicyAgreed(false)
                 }}
-                className="p-2 hover:bg-gray-600 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-400 rounded-lg transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -559,7 +559,7 @@ function PricingPageContent() {
               </button>
             </div>
 
-            <p className="text-gray-400 mb-6 text-center">
+            <p className="text-gray-200 mb-6 text-center">
               You selected: <span className="text-tank-accent font-bold">{selectedPlan.name}</span>
             </p>
 
@@ -567,16 +567,16 @@ function PricingPageContent() {
               {/* Monthly Option */}
               <button
                 onClick={() => handleSubscribe('month')}
-                className="w-full p-4 bg-gray-600 border-2 border-gray-500 rounded-xl transition-all group hover:border-tank-accent hover:bg-gray-500 cursor-pointer"
+                className="w-full p-4 h-20 bg-gray-600 border-2 border-gray-400 rounded-xl transition-all group hover:border-tank-accent hover:bg-gray-500 cursor-pointer"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between h-full">
                   <div className="text-left">
-                    <p className="font-semibold text-lg text-tank-accent">Monthly</p>
-                    <p className="text-gray-400 text-sm">Billed every month</p>
+                    <p className="font-semibold text-lg text-white group-hover:text-tank-accent transition-colors">Monthly</p>
+                    <p className="text-gray-300 text-sm">Billed every month</p>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold">${selectedPlan.price}</p>
-                    <p className="text-gray-400 text-sm">/month</p>
+                    <p className="text-gray-300 text-sm">/month</p>
                   </div>
                 </div>
               </button>
@@ -584,17 +584,16 @@ function PricingPageContent() {
               {/* Yearly Option */}
               <button
                 onClick={() => handleSubscribe('year')}
-                className="w-full p-4 bg-gray-600 border-2 border-gray-500 rounded-xl transition-all group hover:border-tank-accent hover:bg-gray-500 cursor-pointer"
+                className="w-full p-4 h-20 bg-gray-600 border-2 border-gray-400 rounded-xl transition-all group hover:border-tank-accent hover:bg-gray-500 cursor-pointer"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between h-full">
                   <div className="text-left">
-                    <p className="font-semibold text-lg group-hover:text-tank-accent transition-colors">Yearly</p>
-                    <p className="text-gray-400 text-sm">Billed annually</p>
+                    <p className="font-semibold text-lg text-white group-hover:text-tank-accent transition-colors">Yearly</p>
+                    <p className="text-gray-300 text-sm">Billed annually</p>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold">${selectedPlan.yearlyPrice}</p>
-                    <p className="text-gray-400 text-sm">/year</p>
-                    <p className="text-yellow-400 text-xs">(${(selectedPlan.yearlyPrice / 12).toFixed(2)}/mo)</p>
+                    <p className="text-gray-300 text-sm">/year</p>
                   </div>
                 </div>
               </button>
