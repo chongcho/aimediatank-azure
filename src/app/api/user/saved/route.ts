@@ -14,6 +14,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('Fetching saved media for user:', session.user.id)
+
     // Get all saved media for this user
     const savedItems = await prisma.savedMedia.findMany({
       where: {
@@ -54,6 +56,8 @@ export async function GET() {
 
     // Filter out any items where media might have been deleted
     const validSaved = savedItems.filter(item => item.media !== null)
+
+    console.log('Found saved items:', validSaved.length)
 
     return NextResponse.json({
       saved: validSaved,

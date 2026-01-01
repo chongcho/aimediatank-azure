@@ -43,12 +43,14 @@ export async function POST(
     }
 
     // Create save record
-    await prisma.savedMedia.create({
+    const savedRecord = await prisma.savedMedia.create({
       data: {
         userId: session.user.id,
         mediaId,
       },
     })
+
+    console.log('Created saved record:', savedRecord)
 
     return NextResponse.json({ message: 'Media saved', saved: true })
   } catch (error) {

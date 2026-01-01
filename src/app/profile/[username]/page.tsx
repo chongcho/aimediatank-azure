@@ -192,8 +192,11 @@ export default function ProfilePage() {
     try {
       const res = await fetch('/api/user/saved')
       const data = await res.json()
+      console.log('Fetched saved media:', data)
       if (data.saved) {
         setSavedMedia(data.saved)
+      } else if (data.error) {
+        console.error('Error from API:', data.error)
       }
     } catch (error) {
       console.error('Error fetching saved media:', error)
