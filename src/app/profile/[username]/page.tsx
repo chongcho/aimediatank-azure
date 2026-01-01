@@ -107,21 +107,25 @@ export default function ProfilePage() {
 
   // Fetch counts for own profile on initial load
   useEffect(() => {
-    if (isOwnProfile) {
+    if (isOwnProfile && session?.user?.id) {
+      console.log('Fetching saved/purchased for own profile, user ID:', session.user.id)
       fetchPurchases()
       fetchSaved()
     }
-  }, [isOwnProfile])
+  }, [isOwnProfile, session?.user?.id])
 
   // Refetch data when switching tabs (in case new items were added)
   useEffect(() => {
-    if (isOwnProfile && mainSection === 'purchased') {
-      fetchPurchases()
+    if (isOwnProfile && session?.user?.id) {
+      if (mainSection === 'purchased') {
+        fetchPurchases()
+      }
+      if (mainSection === 'saved') {
+        console.log('Fetching saved for tab switch')
+        fetchSaved()
+      }
     }
-    if (isOwnProfile && mainSection === 'saved') {
-      fetchSaved()
-    }
-  }, [mainSection])
+  }, [mainSection, isOwnProfile, session?.user?.id])
 
   const fetchProfile = async () => {
     try {
