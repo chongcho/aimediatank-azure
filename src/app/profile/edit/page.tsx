@@ -500,14 +500,26 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-0 m-0 pb-[500px]">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">Edit Profile</h1>
-        <p className="text-gray-400">Update your account information</p>
+    <div className="max-w-2xl mx-auto p-0 m-0 pb-[500px] pt-[10px]">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex-1" />
+        <div className="text-center">
+          <h1 className="text-[14px] font-bold">Edit Profile</h1>
+          <p className="text-gray-400 text-xs">Update your account information</p>
+        </div>
+        <div className="flex-1 flex justify-end">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+          >
+            ← Back
+          </button>
+        </div>
       </div>
 
       <div className="card">
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
               {error}
@@ -521,10 +533,10 @@ export default function EditProfilePage() {
           )}
 
           {/* Avatar Upload with Bio */}
-          <div className="flex items-start justify-center gap-6">
-            <div className="flex flex-col items-center gap-3">
+          <div className="flex items-start justify-center gap-4">
+            <div className="flex flex-col items-center gap-1">
               <div className="relative">
-                <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-tank-light">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-tank-light">
                   {avatarPreview ? (
                     <img 
                       src={avatarPreview} 
@@ -532,7 +544,7 @@ export default function EditProfilePage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-3xl font-bold">
+                    <div className="w-full h-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-xl font-bold">
                       {formData.username?.[0]?.toUpperCase() || '?'}
                     </div>
                   )}
@@ -815,13 +827,13 @@ export default function EditProfilePage() {
               <option value="UNDER_18">Under 18</option>
               <option value="18_PLUS">18 and over</option>
             </select>
-            <p className="text-xs text-gray-500 mt-1">Required for content filtering</p>
+            <p className="text-xs text-gray-500 mt-0">Required for content filtering</p>
           </div>
 
           {/* Password Section */}
-          <div className="border-t border-tank-light pt-6">
-            <h3 className="text-lg font-semibold mb-4">Change Password</h3>
-            <p className="text-sm text-gray-400 mb-4">Leave blank to keep current password</p>
+          <div className="border-t border-tank-light pt-4">
+            <h3 className="text-lg font-semibold mb-0">Change Password</h3>
+            <p className="text-sm text-gray-400 mb-2">Leave blank to keep current password</p>
 
             <div className="space-y-4">
               <div>
@@ -888,18 +900,18 @@ export default function EditProfilePage() {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-4 pt-4">
+          <div className="flex justify-center gap-4 pt-4">
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex-1 px-4 py-3 bg-tank-gray border border-tank-light rounded-xl hover:bg-tank-light transition-colors"
+              className="px-8 py-3 bg-tank-gray border border-tank-light rounded-xl hover:bg-tank-light transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 btn-primary"
+              className="px-8 py-3 btn-primary"
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
