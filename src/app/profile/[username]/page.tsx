@@ -365,7 +365,7 @@ export default function ProfilePage() {
 
           {/* Info */}
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-3xl font-bold mb-4">
+            <h1 className="text-[18px] font-bold mb-4">
               {profile.name || profile.username}
             </h1>
             
@@ -409,10 +409,10 @@ export default function ProfilePage() {
 
       {/* Main Section Toggle - Only show for own profile */}
       {isOwnProfile && (
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-2 mb-6 pl-[10px]">
           <button
             onClick={() => setMainSection('uploads')}
-            className={`px-6 py-3 rounded-xl font-semibold text-lg transition-all ${
+            className={`px-3 py-2 rounded-xl font-semibold text-sm transition-all ${
               mainSection === 'uploads'
                 ? 'bg-tank-accent text-tank-black'
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
@@ -422,7 +422,7 @@ export default function ProfilePage() {
           </button>
           <button
             onClick={() => setMainSection('purchased')}
-            className={`px-6 py-3 rounded-xl font-semibold text-lg transition-all ${
+            className={`px-3 py-2 rounded-xl font-semibold text-sm transition-all ${
               mainSection === 'purchased'
                 ? 'bg-gradient-to-r from-tank-accent to-purple-500 text-tank-black'
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
@@ -432,7 +432,7 @@ export default function ProfilePage() {
           </button>
           <button
             onClick={() => setMainSection('saved')}
-            className={`px-6 py-3 rounded-xl font-semibold text-lg transition-all ${
+            className={`px-3 py-2 rounded-xl font-semibold text-sm transition-all ${
               mainSection === 'saved'
                 ? 'bg-blue-500 text-white'
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
@@ -447,10 +447,10 @@ export default function ProfilePage() {
       {mainSection === 'uploads' && (
         <>
           {/* Content Tabs */}
-          <div className="flex items-center gap-2 mb-6 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2 mb-6 overflow-x-auto no-scrollbar pl-[10px]">
             <button
               onClick={() => setActiveTab('all')}
-              className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl font-medium text-sm whitespace-nowrap ${
                 activeTab === 'all'
                   ? 'bg-tank-accent text-tank-black'
                   : 'bg-tank-gray text-gray-400 hover:text-white'
@@ -460,7 +460,7 @@ export default function ProfilePage() {
             </button>
             <button
               onClick={() => setActiveTab('VIDEO')}
-              className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl font-medium text-sm whitespace-nowrap ${
                 activeTab === 'VIDEO'
                   ? 'bg-red-500 text-white'
                   : 'bg-tank-gray text-gray-400 hover:text-white'
@@ -470,7 +470,7 @@ export default function ProfilePage() {
             </button>
             <button
               onClick={() => setActiveTab('IMAGE')}
-              className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl font-medium text-sm whitespace-nowrap ${
                 activeTab === 'IMAGE'
                   ? 'bg-blue-500 text-white'
                   : 'bg-tank-gray text-gray-400 hover:text-white'
