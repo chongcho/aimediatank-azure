@@ -241,19 +241,27 @@ export default function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-tank-dark/90 backdrop-blur-md border-b border-tank-light pwa-navbar">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}>
-            <img 
-              src="/logo.png" 
-              alt="AiMediaTank" 
-              className="h-9 w-auto"
-            />
-            <div className="hidden min-[200px]:flex flex-col text-[12px] font-bold leading-none">
-              <span><span className="text-red-500">A</span><span className="text-white">i</span></span>
-              <span><span className="text-green-500">M</span><span className="text-white">edia</span></span>
-              <span><span className="text-sky-400">T</span><span className="text-white">ank</span></span>
-            </div>
-          </Link>
+          {/* Logo and Home Icon */}
+          <div className="flex items-center flex-shrink-0">
+            <Link href="/" className="flex items-center" onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}>
+              <img 
+                src="/logo.png" 
+                alt="AiMediaTank" 
+                className="h-10 w-auto"
+              />
+            </Link>
+            {/* Home Icon - wireframe only */}
+            <Link 
+              href="/" 
+              className="ml-[30px] text-gray-400 hover:text-white transition-colors"
+              onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
+              title="Home"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+              </svg>
+            </Link>
+          </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
