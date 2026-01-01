@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import EmailSupportModal from './EmailSupportModal'
 import SignInModal from './SignInModal'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
 
@@ -26,7 +25,6 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
-  const [isEmailSupportOpen, setIsEmailSupportOpen] = useState(false)
   const [isTalkChatOpen, setIsTalkChatOpen] = useState(true) // Always show chat
   const [isSignInOpen, setIsSignInOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -450,18 +448,16 @@ export default function Navbar() {
                         </svg>
                         Membership
                       </Link>
-                      <button
-                        onClick={() => {
-                          setIsProfileOpen(false)
-                          setIsEmailSupportOpen(true)
-                        }}
-                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors w-full text-left"
+                      <Link
+                        href="/support"
+                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
+                        onClick={() => setIsProfileOpen(false)}
                       >
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                         Support
-                      </button>
+                      </Link>
                       <Link
                         href="/policy"
                         className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
@@ -550,13 +546,6 @@ export default function Navbar() {
           </div>
         )}
       </div>
-
-      {/* Email Support Modal */}
-      <EmailSupportModal
-        isOpen={isEmailSupportOpen}
-        onClose={() => setIsEmailSupportOpen(false)}
-        userName={userData?.name || session?.user?.name || displayName || 'there'}
-      />
 
       {/* Talk Chat */}
       <TalkChat
