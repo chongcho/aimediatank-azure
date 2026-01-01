@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function PolicyPage() {
+  const router = useRouter()
   const { data: session } = useSession()
   const [activeSection, setActiveSection] = useState('terms')
   const [policyStatus, setPolicyStatus] = useState<{ agreed: boolean; agreedAt: string | null }>({ agreed: false, agreedAt: null })
@@ -440,6 +442,17 @@ export default function PolicyPage() {
 
             <div className="text-center text-gray-500 text-sm pt-8 border-t border-tank-light">
               © 2024 AiMediaTank. All Rights Reserved.
+            </div>
+
+            {/* Back Button at bottom left */}
+            <div className="flex justify-start mt-8">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+              >
+                ← Back
+              </button>
             </div>
           </div>
         </div>
