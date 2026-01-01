@@ -347,6 +347,17 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-7xl mx-auto p-0 m-0 pb-[500px]">
+      {/* Top Header with Back Button */}
+      <div className="flex justify-end py-4 pr-4">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+        >
+          ← Back
+        </button>
+      </div>
+
       {/* Profile Header */}
       <div className="card mb-8">
         <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
