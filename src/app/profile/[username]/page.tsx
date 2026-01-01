@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 
@@ -65,6 +65,7 @@ interface Purchase {
 
 export default function ProfilePage() {
   const params = useParams()
+  const router = useRouter()
   const { data: session } = useSession()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
