@@ -10,19 +10,9 @@ export default function SupportPage() {
 
   return (
     <div className="max-w-md mx-auto p-0 m-0 pb-[500px] pt-[25px]">
-      {/* Header with Back Button */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex-1" />
+      {/* Header */}
+      <div className="text-center mb-6">
         <h1 className="text-[18px] font-bold">Support</h1>
-        <div className="flex-1 flex justify-end">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
-          >
-            ← Back
-          </button>
-        </div>
       </div>
 
       <div className="bg-tank-dark border border-tank-light rounded-2xl shadow-2xl overflow-hidden">
@@ -80,6 +70,17 @@ export default function SupportPage() {
             Send Email
           </a>
         </div>
+      </div>
+
+      {/* Back Button at bottom left */}
+      <div className="flex justify-start mt-8">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+        >
+          ← Back
+        </button>
       </div>
     </div>
   )

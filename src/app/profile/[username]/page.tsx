@@ -351,27 +351,17 @@ export default function ProfilePage() {
       {/* Profile Header */}
       <div className="card mb-8">
         <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-          {/* Avatar with Back button */}
-          <div className="flex items-start gap-4">
-            <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-4xl font-bold shrink-0">
-              {profile.avatar ? (
-                <img 
-                  src={`${profile.avatar}${profile.avatar.includes('?') ? '&' : '?'}t=${Date.now()}`}
-                  alt={profile.name || profile.username} 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                profile.name?.[0]?.toUpperCase() || profile.username[0].toUpperCase()
-              )}
-            </div>
-            {/* Back Button */}
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors mt-2"
-            >
-              ← Back
-            </button>
+          {/* Avatar */}
+          <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-4xl font-bold shrink-0">
+            {profile.avatar ? (
+              <img 
+                src={`${profile.avatar}${profile.avatar.includes('?') ? '&' : '?'}t=${Date.now()}`}
+                alt={profile.name || profile.username} 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              profile.name?.[0]?.toUpperCase() || profile.username[0].toUpperCase()
+            )}
           </div>
 
           {/* Info */}
@@ -774,6 +764,17 @@ export default function ProfilePage() {
           )}
         </>
       )}
+
+      {/* Back Button at bottom left */}
+      <div className="flex justify-start mt-8">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+        >
+          ← Back
+        </button>
+      </div>
     </div>
   )
 }

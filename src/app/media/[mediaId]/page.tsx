@@ -262,29 +262,18 @@ export default function MediaPage() {
 
           {/* Info */}
           <div className="card">
-            <div className="flex items-center justify-between mb-2 overflow-hidden">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <h1 className="font-semibold text-white truncate min-w-0" title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
-                
-                {/* Edit Button - for owners */}
-                {canManage && (
-                  <Link
-                    href={`/media/${mediaId}/edit`}
-                    className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold"
-                  >
-                    Edit
-                  </Link>
-                )}
-              </div>
-              {/* Back Button - aligned right */}
-              <button
-                onClick={() => router.back()}
-                className="flex items-center gap-1 px-3 py-1 bg-gray-600 hover:bg-gray-500 border border-gray-500 rounded-lg text-white transition-colors flex-shrink-0 font-semibold"
-                title="Go back"
-              >
-                <span>←</span>
-                <span>Back</span>
-              </button>
+            <div className="flex items-center gap-2 mb-2 overflow-hidden">
+              <h1 className="font-semibold text-white truncate min-w-0" title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
+              
+              {/* Edit Button - for owners */}
+              {canManage && (
+                <Link
+                  href={`/media/${mediaId}/edit`}
+                  className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold"
+                >
+                  Edit
+                </Link>
+              )}
             </div>
             
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400 mb-4">
@@ -446,6 +435,17 @@ export default function MediaPage() {
           </div>
         </div>
       )}
+
+      {/* Back Button at bottom left */}
+      <div className="flex justify-start mt-8">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+        >
+          ← Back
+        </button>
+      </div>
     </div>
   )
 }

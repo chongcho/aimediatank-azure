@@ -501,21 +501,9 @@ export default function EditProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto p-0 m-0 pb-[500px] pt-[10px]">
-      <div className="flex items-center justify-between py-[20px]">
-        <div className="flex-1" />
-        <div className="text-center">
-          <h1 className="text-[18px] font-bold">Edit Profile</h1>
-          <p className="text-gray-400 text-xs">Update your account information</p>
-        </div>
-        <div className="flex-1 flex justify-end">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
-          >
-            ← Back
-          </button>
-        </div>
+      <div className="text-center py-[20px]">
+        <h1 className="text-[18px] font-bold">Edit Profile</h1>
+        <p className="text-gray-400 text-xs">Update your account information</p>
       </div>
 
       <div className="card">
@@ -917,6 +905,17 @@ export default function EditProfilePage() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Back Button at bottom left */}
+      <div className="flex justify-start mt-8">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+        >
+          ← Back
+        </button>
       </div>
 
       {/* Verification Code Modal */}
