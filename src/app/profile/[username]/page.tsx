@@ -393,10 +393,6 @@ export default function ProfilePage() {
                 <div className="text-2xl font-bold text-blue-400">{stats.images}</div>
                 <div className="text-sm text-gray-500">Images</div>
               </div>
-              <div>
-                <div className="text-2xl font-bold text-purple-400">{stats.music}</div>
-                <div className="text-sm text-gray-500">Music</div>
-              </div>
             </div>
           </div>
 
@@ -496,16 +492,6 @@ export default function ProfilePage() {
               }`}
             >
               Images ({stats.images})
-            </button>
-            <button
-              onClick={() => setActiveTab('MUSIC')}
-              className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
-                activeTab === 'MUSIC'
-                  ? 'bg-purple-500 text-white'
-                  : 'bg-tank-gray text-gray-400 hover:text-white'
-              }`}
-            >
-              Music ({stats.music})
             </button>
           </div>
 
