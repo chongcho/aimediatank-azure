@@ -137,7 +137,8 @@ export async function POST(request: Request) {
       },
     })
 
-    // Create notification for private message recipient
+    // Create notification ONLY for private message recipient
+    // Open/Public chat messages do NOT trigger notifications
     if (isPrivate && recipientId) {
       const senderName = session.user.username || session.user.name || 'Someone'
       
