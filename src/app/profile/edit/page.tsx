@@ -582,13 +582,13 @@ export default function EditProfilePage() {
             </div>
             
             {/* Bio section */}
-            <div className="flex-1 text-left space-y-2">
+            <div className="flex-1 text-left space-y-1">
               <p className="text-sm text-gray-400">Bio</p>
               <textarea
                 value={formData.bio}
                 onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                 placeholder="Tell others about yourself..."
-                rows={3}
+                rows={2}
                 className="w-full resize-none text-sm bg-tank-gray border border-tank-light rounded-lg p-2"
                 />
             </div>
