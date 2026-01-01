@@ -22,6 +22,7 @@ interface MediaItem {
   url: string
   thumbnailUrl: string | null
   type: string
+  source?: 'uploads' | 'purchased' | 'saved'
 }
 
 interface TalkChatProps {
@@ -793,18 +794,69 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     inputRef.current?.focus()
   }
 
-  // Fetch user's media
+  // Fetch user's media (uploads, purchased, and saved)
   const fetchUserMedia = async () => {
     if (!session?.user?.username) return
     setLoadingMedia(true)
     try {
-      const res = await fetch(`/api/media?user=${session.user.username}&limit=20`)
-      if (res.ok) {
-        const data = await res.json()
+      const allMedia: MediaItem[] = []
+      
+      // Fetch uploads
+      const uploadsRes = await fetch(`/api/media?user=${session.user.username}&limit=20`)
+      if (uploadsRes.ok) {
+        const data = await uploadsRes.json()
         if (Array.isArray(data.media)) {
-          setUserMedia(data.media)
+          data.media.forEach((m: MediaItem) => {
+            allMedia.push({ ...m, source: 'uploads' })
+          })
         }
       }
+      
+      // Fetch purchased
+      const purchasedRes = await fetch('/api/user/purchases')
+      if (purchasedRes.ok) {
+        const data = await purchasedRes.json()
+        if (Array.isArray(data.purchases)) {
+          data.purchases.forEach((p: any) => {
+            if (p.media) {
+              allMedia.push({
+                id: p.media.id,
+                title: p.media.title,
+                url: p.media.url,
+                thumbnailUrl: p.media.thumbnailUrl,
+                type: p.media.type,
+                source: 'purchased'
+              })
+            }
+          })
+        }
+      }
+      
+      // Fetch saved
+      const savedRes = await fetch('/api/user/saved')
+      if (savedRes.ok) {
+        const data = await savedRes.json()
+        if (Array.isArray(data.saved)) {
+          data.saved.forEach((s: any) => {
+            if (s.media) {
+              // Avoid duplicates (media already in uploads or purchased)
+              const exists = allMedia.some(m => m.id === s.media.id)
+              if (!exists) {
+                allMedia.push({
+                  id: s.media.id,
+                  title: s.media.title,
+                  url: s.media.url,
+                  thumbnailUrl: s.media.thumbnailUrl,
+                  type: s.media.type,
+                  source: 'saved'
+                })
+              }
+            }
+          })
+        }
+      }
+      
+      setUserMedia(allMedia)
     } catch (error) {
       console.error('Error fetching user media:', error)
     } finally {
@@ -2285,7 +2337,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                My Media
+                My Contents
+                <span style={{ marginLeft: 'auto', fontSize: '9px', fontWeight: '400', color: '#888' }}>
+                  ↑ Uploads · ⬇ Purchased · ♡ Saved
+                </span>
               </div>
               <div 
                 className="media-picker-scroll"
@@ -2334,7 +2389,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ marginBottom: '8px', opacity: 0.5 }}>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    No media uploaded yet
+                    No media in My Contents
                   </div>
                 ) : (
                   <div style={{
@@ -2390,6 +2445,24 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               )}
                             </svg>
+                          </div>
+                        )}
+                        {/* Source badge */}
+                        {media.source && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '2px',
+                            left: '2px',
+                            padding: '1px 4px',
+                            borderRadius: '3px',
+                            fontSize: '8px',
+                            fontWeight: '600',
+                            color: 'white',
+                            background: media.source === 'uploads' ? '#22c55e' 
+                              : media.source === 'purchased' ? '#f59e0b' 
+                              : '#3b82f6',
+                          }}>
+                            {media.source === 'uploads' ? '↑' : media.source === 'purchased' ? '⬇' : '♡'}
                           </div>
                         )}
                         <div style={{
