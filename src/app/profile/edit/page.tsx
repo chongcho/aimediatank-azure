@@ -900,7 +900,7 @@ export default function EditProfilePage() {
           </div>
 
           {/* Actions */}
-          <div className="flex justify-center gap-4 pt-4">
+          <div className="flex justify-center gap-4 pt-0">
             <button
               type="button"
               onClick={() => router.back()}
