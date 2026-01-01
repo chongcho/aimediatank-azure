@@ -248,10 +248,10 @@ function HomeContent() {
         {/* Left: Title */}
         <div className="flex-shrink-0 overflow-visible">
           <h1 className="text-2xl md:text-3xl font-bold italic">
-            <span className="text-gradient pr-2">AI-Generated</span>
+            <span className="text-gradient pr-2">AiMediaTank</span>
           </h1>
-          <p className="text-gray-400 text-sm">
-            Community for AI creators and enthusiasts
+          <p className="text-gray-400 text-sm italic">
+            Community for AI Creators and Digital Art Enthusiasts
           </p>
         </div>
 
@@ -467,10 +467,10 @@ export default function Home() {
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mb-8 py-2">
           <div className="flex-shrink-0 overflow-visible">
             <h1 className="text-2xl md:text-3xl font-bold italic">
-              <span className="text-gradient pr-2">AI-Generated</span>
+              <span className="text-gradient pr-2">AiMediaTank</span>
             </h1>
-            <p className="text-gray-400 text-sm">
-              Community for AI creators and enthusiasts
+            <p className="text-gray-400 text-sm italic">
+              Community for AI Creators and Digital Art Enthusiasts
             </p>
           </div>
         </div>
