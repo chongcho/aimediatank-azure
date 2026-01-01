@@ -348,31 +348,30 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-7xl mx-auto p-0 m-0 pb-[500px]">
-      {/* Top Header with Back Button */}
-      <div className="flex justify-end py-4 pr-4">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
-        >
-          ← Back
-        </button>
-      </div>
-
       {/* Profile Header */}
       <div className="card mb-8">
         <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-          {/* Avatar */}
-          <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-4xl font-bold shrink-0">
-            {profile.avatar ? (
-              <img 
-                src={`${profile.avatar}${profile.avatar.includes('?') ? '&' : '?'}t=${Date.now()}`}
-                alt={profile.name || profile.username} 
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              profile.name?.[0]?.toUpperCase() || profile.username[0].toUpperCase()
-            )}
+          {/* Avatar with Back button */}
+          <div className="flex items-start gap-4">
+            <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-4xl font-bold shrink-0">
+              {profile.avatar ? (
+                <img 
+                  src={`${profile.avatar}${profile.avatar.includes('?') ? '&' : '?'}t=${Date.now()}`}
+                  alt={profile.name || profile.username} 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                profile.name?.[0]?.toUpperCase() || profile.username[0].toUpperCase()
+              )}
+            </div>
+            {/* Back Button */}
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors mt-2"
+            >
+              ← Back
+            </button>
           </div>
 
           {/* Info */}
