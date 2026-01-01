@@ -266,16 +266,13 @@ export default function MediaPage() {
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <h1 className="font-semibold text-white truncate min-w-0" title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
                 
-                {/* Edit Button - for owners, icon only */}
+                {/* Edit Button - for owners */}
                 {canManage && (
                   <Link
                     href={`/media/${mediaId}/edit`}
-                    className="flex items-center justify-center w-8 h-8 bg-tank-gray hover:bg-tank-light rounded-lg transition-colors flex-shrink-0"
-                    title="Edit"
+                    className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
+                    Edit
                   </Link>
                 )}
               </div>
