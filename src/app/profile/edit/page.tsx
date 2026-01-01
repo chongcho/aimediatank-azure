@@ -504,7 +504,7 @@ export default function EditProfilePage() {
       <div className="flex items-center justify-between py-[20px]">
         <div className="flex-1" />
         <div className="text-center">
-          <h1 className="text-[14px] font-bold">Edit Profile</h1>
+          <h1 className="text-[18px] font-bold">Edit Profile</h1>
           <p className="text-gray-400 text-xs">Update your account information</p>
         </div>
         <div className="flex-1 flex justify-end">
