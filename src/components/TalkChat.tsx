@@ -2600,37 +2600,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
             </button>
-
-            {/* Emoji Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowEmojiPicker(!showEmojiPicker)
-                setShowMediaPicker(false)
-                setShowMentionPicker(false)
-              }}
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: '#1e3a8a',
-                color: '#fff',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-              title="Emoji"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="12" cy="12" r="10" strokeWidth="2"/>
-                <path d="M8 14s1.5 2 4 2 4-2 4-2" strokeWidth="2" strokeLinecap="round"/>
-                <circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none"/>
-                <circle cx="15" cy="9" r="1.5" fill="currentColor" stroke="none"/>
-              </svg>
-            </button>
             <input
               ref={inputRef}
               type="text"
