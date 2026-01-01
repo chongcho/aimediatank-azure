@@ -300,12 +300,18 @@ function PricingPageContent() {
         </div>
       )}
 
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
-        <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-          Whether you&apos;re here to explore or create, we have a plan that fits your needs.
-          Upgrade anytime to unlock more features.
-        </p>
+      <div className="flex items-center justify-between pt-[25px] mb-8">
+        <div className="flex-1" />
+        <h1 className="text-[18px] font-bold">Choose Your Plan</h1>
+        <div className="flex-1 flex justify-end">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+          >
+            ← Back
+          </button>
+        </div>
       </div>
 
       {/* Current Plan Banner */}
