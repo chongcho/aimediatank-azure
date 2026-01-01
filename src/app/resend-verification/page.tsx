@@ -44,7 +44,7 @@ export default function ResendVerificationPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-0 m-0">
+    <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Resend Verification</h1>

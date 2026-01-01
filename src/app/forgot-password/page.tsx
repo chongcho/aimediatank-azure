@@ -110,7 +110,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-0 m-0">
+    <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-6">

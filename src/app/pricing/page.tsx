@@ -272,7 +272,7 @@ function PricingPageContent() {
   const hasPaidSubscription = currentMembership !== 'VIEWER'
 
   return (
-    <div className="max-w-6xl mx-auto p-0 m-0">
+    <div className="max-w-6xl mx-auto p-0 m-0 pb-[500px]">
       {/* Success Message Banner */}
       {showSuccessMessage && (
         <div className="relative mb-8 p-6 bg-gradient-to-r from-tank-accent/20 to-emerald-500/20 border border-tank-accent rounded-xl">

@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-tank-dark text-white">
+    <div className="min-h-screen bg-tank-dark text-white pb-[500px]">
       {/* Hero Section */}
       <section className="relative py-20 px-4 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-tank-accent/10 via-transparent to-cyan-500/10" />

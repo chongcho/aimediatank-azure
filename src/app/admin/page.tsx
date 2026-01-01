@@ -126,7 +126,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-0 m-0">
+    <div className="max-w-7xl mx-auto p-0 m-0 pb-[500px]">
       <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
       <p className="text-gray-400 mb-8">Manage users, content, and reports</p>
 

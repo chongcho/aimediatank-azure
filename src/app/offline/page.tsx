@@ -2,7 +2,7 @@
 
 export default function OfflinePage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-0 m-0">
+    <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
       <div className="text-center">
         <div className="mb-6">
           <span className="font-bold text-4xl">

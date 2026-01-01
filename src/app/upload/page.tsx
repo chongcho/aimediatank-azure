@@ -394,7 +394,7 @@ function UploadPageContent() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-0 m-0">
+    <div className="max-w-3xl mx-auto p-0 m-0 pb-[500px]">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2">Upload AI Media</h1>
         <p className="text-gray-400">

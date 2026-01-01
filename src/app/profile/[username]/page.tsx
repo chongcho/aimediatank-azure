@@ -346,7 +346,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-0 m-0">
+    <div className="max-w-7xl mx-auto p-0 m-0 pb-[500px]">
       {/* Profile Header */}
       <div className="card mb-8">
         <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
