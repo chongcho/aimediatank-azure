@@ -418,12 +418,7 @@ export default function ProfilePage() {
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
             }`}
           >
-            <span className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              Uploads ({profile._count.media})
-            </span>
+            Uploads ({profile._count.media})
           </button>
           <button
             onClick={() => setMainSection('purchased')}
@@ -433,12 +428,7 @@ export default function ProfilePage() {
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
             }`}
           >
-            <span className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              Purchased ({purchases.length})
-            </span>
+            Purchased ({purchases.length})
           </button>
           <button
             onClick={() => setMainSection('saved')}
@@ -448,12 +438,7 @@ export default function ProfilePage() {
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
             }`}
           >
-            <span className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-              </svg>
-              Saved ({savedMedia.length})
-            </span>
+            Saved ({savedMedia.length})
           </button>
         </div>
       )}
