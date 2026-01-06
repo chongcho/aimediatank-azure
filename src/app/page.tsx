@@ -69,22 +69,16 @@ function HomeContent() {
   // Load sort preference from localStorage on mount (client-side only)
   useEffect(() => {
     const savedSort = localStorage.getItem('mediaSortPreference')
-    console.log('[Sort Debug] Loading from localStorage:', savedSort)
     if (savedSort && ['popular', 'recent', 'rated'].includes(savedSort)) {
-      console.log('[Sort Debug] Setting sort to:', savedSort)
       setSort(savedSort)
-    } else {
-      console.log('[Sort Debug] No valid saved sort, using default: popular')
     }
     setSortInitialized(true)
   }, [])
 
   // Handler for when user changes sort - saves to localStorage
   const handleSortChange = (newSort: string) => {
-    console.log('[Sort Debug] User changed sort to:', newSort)
     setSort(newSort)
     localStorage.setItem('mediaSortPreference', newSort)
-    console.log('[Sort Debug] Saved to localStorage:', localStorage.getItem('mediaSortPreference'))
   }
 
   useEffect(() => {
