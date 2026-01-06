@@ -335,11 +335,22 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
   }, [isDragging, dragOffset, size])
 
-  // Resize handlers - separate for width (left edge) and height (top edge)
+  // Resize handlers - separate for each edge
+  const [resizeDirection, setResizeDirection] = useState<'left' | 'right' | 'top' | 'bottom' | null>(null)
+
   const handleResizeWidthStart = (e: React.MouseEvent) => {
     if (!isDesktop) return
     e.preventDefault()
     e.stopPropagation()
+    setResizeDirection('left')
+    setIsResizingWidth(true)
+  }
+
+  const handleResizeWidthRightStart = (e: React.MouseEvent) => {
+    if (!isDesktop) return
+    e.preventDefault()
+    e.stopPropagation()
+    setResizeDirection('right')
     setIsResizingWidth(true)
   }
 
@@ -347,29 +358,46 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     if (!isDesktop) return
     e.preventDefault()
     e.stopPropagation()
+    setResizeDirection('top')
     setIsResizingHeight(true)
   }
 
-  // Width resize effect (left edge - drag left to make wider)
+  const handleResizeHeightBottomStart = (e: React.MouseEvent) => {
+    if (!isDesktop) return
+    e.preventDefault()
+    e.stopPropagation()
+    setResizeDirection('bottom')
+    setIsResizingHeight(true)
+  }
+
+  // Width resize effect
   useEffect(() => {
     if (!isResizingWidth) return
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = chatContainerRef.current?.getBoundingClientRect()
       if (!rect) return
-      // Calculate new width based on distance from right edge to mouse
-      const rightEdge = hasCustomPosition ? position.x + size.width : rect.right
-      const newWidth = Math.max(350, Math.min(800, rightEdge - e.clientX))
-      // Adjust position to keep right edge fixed
-      if (hasCustomPosition) {
-        const newX = rightEdge - newWidth
-        setPosition(prev => ({ ...prev, x: Math.max(0, newX) }))
+      
+      if (resizeDirection === 'left') {
+        // Left edge - drag left to make wider, right edge stays fixed
+        const rightEdge = hasCustomPosition ? position.x + size.width : rect.right
+        const newWidth = Math.max(350, Math.min(800, rightEdge - e.clientX))
+        if (hasCustomPosition) {
+          const newX = rightEdge - newWidth
+          setPosition(prev => ({ ...prev, x: Math.max(0, newX) }))
+        }
+        setSize(prev => ({ ...prev, width: newWidth }))
+      } else if (resizeDirection === 'right') {
+        // Right edge - drag right to make wider, left edge stays fixed
+        const leftEdge = hasCustomPosition ? position.x : rect.left
+        const newWidth = Math.max(350, Math.min(800, e.clientX - leftEdge))
+        setSize(prev => ({ ...prev, width: newWidth }))
       }
-      setSize(prev => ({ ...prev, width: newWidth }))
     }
 
     const handleMouseUp = () => {
       setIsResizingWidth(false)
+      setResizeDirection(null)
     }
 
     document.addEventListener('mousemove', handleMouseMove)
@@ -378,28 +406,36 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isResizingWidth, position, hasCustomPosition, size.width])
+  }, [isResizingWidth, resizeDirection, position, hasCustomPosition, size.width])
 
-  // Height resize effect (top edge - drag up to make taller)
+  // Height resize effect
   useEffect(() => {
     if (!isResizingHeight) return
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = chatContainerRef.current?.getBoundingClientRect()
       if (!rect) return
-      // Calculate new height based on distance from bottom edge to mouse
-      const bottomEdge = hasCustomPosition ? position.y + size.height : rect.bottom
-      const newHeight = Math.max(250, Math.min(700, bottomEdge - e.clientY))
-      // Adjust position to keep bottom edge fixed
-      if (hasCustomPosition) {
-        const newY = bottomEdge - newHeight
-        setPosition(prev => ({ ...prev, y: Math.max(0, newY) }))
+      
+      if (resizeDirection === 'top') {
+        // Top edge - drag up to make taller, bottom edge stays fixed
+        const bottomEdge = hasCustomPosition ? position.y + size.height : rect.bottom
+        const newHeight = Math.max(250, Math.min(700, bottomEdge - e.clientY))
+        if (hasCustomPosition) {
+          const newY = bottomEdge - newHeight
+          setPosition(prev => ({ ...prev, y: Math.max(0, newY) }))
+        }
+        setSize(prev => ({ ...prev, height: newHeight }))
+      } else if (resizeDirection === 'bottom') {
+        // Bottom edge - drag down to make taller, top edge stays fixed
+        const topEdge = hasCustomPosition ? position.y : rect.top
+        const newHeight = Math.max(250, Math.min(700, e.clientY - topEdge))
+        setSize(prev => ({ ...prev, height: newHeight }))
       }
-      setSize(prev => ({ ...prev, height: newHeight }))
     }
 
     const handleMouseUp = () => {
       setIsResizingHeight(false)
+      setResizeDirection(null)
     }
 
     document.addEventListener('mousemove', handleMouseMove)
@@ -408,7 +444,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isResizingHeight, position, hasCustomPosition, size.height])
+  }, [isResizingHeight, resizeDirection, position, hasCustomPosition, size.height])
 
   // Reset position (double-click header)
   const handleResetPosition = () => {
@@ -2692,38 +2728,62 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         </form>
         )}
 
-        {/* Resize handles - desktop only */}
+        {/* Resize handles - desktop only, full edge areas */}
         {isDesktop && hasCustomPosition && (
           <>
-            {/* Left edge - horizontal resize (width) */}
+            {/* Left edge - full height for horizontal resize (width) */}
             <div
               onMouseDown={handleResizeWidthStart}
               style={{
                 position: 'absolute',
                 left: 0,
-                top: '50%',
-                transform: 'translateY(-50%)',
+                top: 0,
                 width: '6px',
-                height: '60px',
+                height: '100%',
                 cursor: 'ew-resize',
-                background: 'linear-gradient(to right, #93c5fd, transparent)',
-                borderRadius: '3px 0 0 3px',
+                background: 'transparent',
               }}
               title="Drag to resize width"
             />
-            {/* Top edge - vertical resize (height) */}
+            {/* Right edge - full height for horizontal resize (width) */}
+            <div
+              onMouseDown={handleResizeWidthRightStart}
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                width: '6px',
+                height: '100%',
+                cursor: 'ew-resize',
+                background: 'transparent',
+              }}
+              title="Drag to resize width"
+            />
+            {/* Top edge - full width for vertical resize (height) */}
             <div
               onMouseDown={handleResizeHeightStart}
               style={{
                 position: 'absolute',
                 top: 0,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '60px',
+                left: 0,
+                width: '100%',
                 height: '6px',
                 cursor: 'ns-resize',
-                background: 'linear-gradient(to bottom, #93c5fd, transparent)',
-                borderRadius: '3px 3px 0 0',
+                background: 'transparent',
+              }}
+              title="Drag to resize height"
+            />
+            {/* Bottom edge - full width for vertical resize (height) */}
+            <div
+              onMouseDown={handleResizeHeightBottomStart}
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                width: '100%',
+                height: '6px',
+                cursor: 'ns-resize',
+                background: 'transparent',
               }}
               title="Drag to resize height"
             />
