@@ -2689,13 +2689,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               disabled={!isSignedIn || (chatMode === 'private' && selectedRecipients.length === 0)}
               style={{
                 flex: 1,
-                padding: '8px 12px',
+                height: '32px',
+                padding: '0 12px',
                 borderRadius: '6px',
                 border: '1px solid #ccc',
                 backgroundColor: isSignedIn ? '#fff' : '#f0f0f0',
                 fontSize: '14px',
                 outline: 'none',
                 color: '#333',
+                boxSizing: 'border-box',
               }}
             />
             <button
