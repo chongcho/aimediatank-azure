@@ -52,13 +52,8 @@ function HomeContent() {
   const [media, setMedia] = useState<Media[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [sort, setSort] = useState(() => {
-    // Initialize from localStorage if available (client-side only)
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('mediaSortPreference') || 'popular'
-    }
-    return 'popular'
-  })
+  const [sort, setSort] = useState('popular')
+  const [sortInitialized, setSortInitialized] = useState(false)
   const [type, setType] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -71,12 +66,21 @@ function HomeContent() {
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
 
-  // Save sort preference to localStorage whenever it changes
+  // Load sort preference from localStorage on mount (client-side only)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    const savedSort = localStorage.getItem('mediaSortPreference')
+    if (savedSort && ['popular', 'recent', 'rated'].includes(savedSort)) {
+      setSort(savedSort)
+    }
+    setSortInitialized(true)
+  }, [])
+
+  // Save sort preference to localStorage whenever it changes (after initialization)
+  useEffect(() => {
+    if (sortInitialized) {
       localStorage.setItem('mediaSortPreference', sort)
     }
-  }, [sort])
+  }, [sort, sortInitialized])
 
   useEffect(() => {
     const typeParam = searchParams.get('type')
@@ -94,13 +98,14 @@ function HomeContent() {
     }
   }, [searchParams])
 
-  // Reset and fetch when filters change
+  // Reset and fetch when filters change (only after sort is initialized)
   useEffect(() => {
+    if (!sortInitialized) return
     setMedia([])
     setPage(1)
     setHasMore(true)
     fetchMedia(1, true)
-  }, [sort, type, search])
+  }, [sort, type, search, sortInitialized])
 
   // Infinite scroll observer
   useEffect(() => {
