@@ -52,7 +52,13 @@ function HomeContent() {
   const [media, setMedia] = useState<Media[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [sort, setSort] = useState('popular')
+  const [sort, setSort] = useState(() => {
+    // Initialize from localStorage if available (client-side only)
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('mediaSortPreference') || 'popular'
+    }
+    return 'popular'
+  })
   const [type, setType] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -64,6 +70,13 @@ function HomeContent() {
   const searchRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
+
+  // Save sort preference to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mediaSortPreference', sort)
+    }
+  }, [sort])
 
   useEffect(() => {
     const typeParam = searchParams.get('type')
