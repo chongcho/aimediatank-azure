@@ -264,9 +264,12 @@ function HomeContent() {
       <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mb-8 py-2 px-[10px]">
         {/* Left: Title */}
         <div className="flex-shrink-0 overflow-visible">
-          <h1 className="text-2xl md:text-3xl font-bold italic">
-            <span className="text-gradient pr-2">AiMediaTank</span>
-          </h1>
+          <div className="flex items-end gap-0">
+            <h1 className="text-2xl md:text-3xl font-bold" style={{ paddingRight: '20px' }}>
+              <span className="text-gradient">AiMediaTank</span>
+            </h1>
+            <span className="text-lg md:text-xl font-bold italic text-gray-300 pb-[2px]">AI-Generated</span>
+          </div>
           <p className="text-gray-400 text-sm italic">
             Community for AI Creators and Digital Art Enthusiasts
           </p>
@@ -483,9 +486,12 @@ export default function Home() {
       <div className="w-full p-0 m-0">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mb-8 py-2">
           <div className="flex-shrink-0 overflow-visible">
-            <h1 className="text-2xl md:text-3xl font-bold italic">
-              <span className="text-gradient pr-2">AiMediaTank</span>
-            </h1>
+            <div className="flex items-end gap-0">
+              <h1 className="text-2xl md:text-3xl font-bold" style={{ paddingRight: '20px' }}>
+                <span className="text-gradient">AiMediaTank</span>
+              </h1>
+              <span className="text-lg md:text-xl font-bold italic text-gray-300 pb-[2px]">AI-Generated</span>
+            </div>
             <p className="text-gray-400 text-sm italic">
               Community for AI Creators and Digital Art Enthusiasts
             </p>
