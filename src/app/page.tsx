@@ -75,12 +75,11 @@ function HomeContent() {
     setSortInitialized(true)
   }, [])
 
-  // Save sort preference to localStorage whenever it changes (after initialization)
-  useEffect(() => {
-    if (sortInitialized) {
-      localStorage.setItem('mediaSortPreference', sort)
-    }
-  }, [sort, sortInitialized])
+  // Handler for when user changes sort - saves to localStorage
+  const handleSortChange = (newSort: string) => {
+    setSort(newSort)
+    localStorage.setItem('mediaSortPreference', newSort)
+  }
 
   useEffect(() => {
     const typeParam = searchParams.get('type')
@@ -391,7 +390,7 @@ function HomeContent() {
           <select
             id="sort-select"
             value={sort}
-            onChange={(e) => setSort(e.target.value)}
+            onChange={(e) => handleSortChange(e.target.value)}
             className="bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-sm min-w-[130px]"
             aria-label="Sort media by"
           >
