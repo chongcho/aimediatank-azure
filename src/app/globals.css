@@ -83,7 +83,8 @@ body {
 }
 
 /* Mobile/PWA landscape mode - add 1 inch (96px) black padding on left and right */
-@media screen and (orientation: landscape) and (max-height: 600px) {
+/* Only applies to mobile devices (max-width: 932px covers iPhone landscape) */
+@media screen and (orientation: landscape) and (max-height: 500px) and (max-width: 932px) {
   html {
     background: #000000 !important;
   }
