@@ -270,10 +270,29 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     if (isDesktop) {
       const savedPosition = localStorage.getItem('talkChatPosition')
       const savedSize = localStorage.getItem('talkChatCustomSize')
+      
+      // First load size (needed for position constraint)
+      let loadedWidth = 500
+      let loadedHeight = 400
+      if (savedSize) {
+        try {
+          const s = JSON.parse(savedSize)
+          loadedWidth = s.width || 500
+          loadedHeight = s.height || 400
+          setSize(s)
+        } catch {}
+      }
+      
       if (savedPosition) {
         try {
           const pos = JSON.parse(savedPosition)
-          setPosition(pos)
+          // Constrain position to current viewport
+          const maxX = Math.max(0, window.innerWidth - loadedWidth)
+          const maxY = Math.max(0, window.innerHeight - loadedHeight)
+          setPosition({
+            x: Math.max(0, Math.min(pos.x, maxX)),
+            y: Math.max(0, Math.min(pos.y, maxY))
+          })
           setHasCustomPosition(true)
         } catch {}
       }
@@ -292,6 +311,25 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       localStorage.setItem('talkChatPosition', JSON.stringify(position))
     }
   }, [position, isDesktop, hasCustomPosition])
+
+  // Keep chat visible when window is resized
+  useEffect(() => {
+    if (!isDesktop || !hasCustomPosition) return
+
+    const handleWindowResize = () => {
+      setPosition(prev => {
+        const maxX = Math.max(0, window.innerWidth - size.width)
+        const maxY = Math.max(0, window.innerHeight - size.height)
+        return {
+          x: Math.max(0, Math.min(prev.x, maxX)),
+          y: Math.max(0, Math.min(prev.y, maxY))
+        }
+      })
+    }
+
+    window.addEventListener('resize', handleWindowResize)
+    return () => window.removeEventListener('resize', handleWindowResize)
+  }, [isDesktop, hasCustomPosition, size])
 
   useEffect(() => {
     if (isDesktop) {
@@ -434,7 +472,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       } else if (resizeDirection === 'bottom') {
         // Bottom edge - drag down to make taller, top edge stays fixed
         const topEdge = hasCustomPosition ? position.y : rect.top
-        const newHeight = Math.max(250, Math.min(700, e.clientY - topEdge))
+        // Also constrain to not go below viewport
+        const maxBottomHeight = window.innerHeight - topEdge
+        const newHeight = Math.max(250, Math.min(700, maxBottomHeight, e.clientY - topEdge))
         setSize(prev => ({ ...prev, height: newHeight }))
       }
     }
