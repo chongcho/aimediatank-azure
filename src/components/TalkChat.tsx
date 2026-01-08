@@ -983,13 +983,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       // Position popup within TalkChat box for mobile
       const rect = chatContainerRef.current?.getBoundingClientRect()
       if (rect) {
-        // Menu bar + header is about 90px from top of chat container
-        const headerHeight = 90
+        // Menu bar height is about 44px from top of chat container
+        const menuBarHeight = 44
         const menuWidth = 180
-        // Center horizontally within the chat box, but ensure it stays inside
-        const x = Math.max(rect.left + 10, Math.min(rect.left + (rect.width - menuWidth) / 2, rect.right - menuWidth - 10))
-        // Position below header, within chat box
-        const y = rect.top + headerHeight
+        // Position shifted 30px to the right from center
+        const x = Math.max(rect.left + 10, Math.min(rect.left + (rect.width - menuWidth) / 2 + 30, rect.right - menuWidth - 10))
+        // Position aligned with menubar bottom edge
+        const y = rect.top + menuBarHeight
         setContextMenu({
           show: true,
           x,
@@ -999,8 +999,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       } else {
         setContextMenu({
           show: true,
-          x: 100,
-          y: 150,
+          x: 130,
+          y: 100,
           record,
         })
       }
@@ -2558,13 +2558,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     onClick={handleTogglePriority}
                     style={{
                       width: '100%',
-                      padding: '12px 16px',
+                      padding: '8px 12px',
                       border: 'none',
                       background: 'white',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
+                      gap: '8px',
                       fontSize: '14px',
                       color: contextMenu.record?.priority ? '#ef4444' : '#333',
                       textAlign: 'left',
@@ -2582,13 +2582,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     onClick={handleEditChatName}
                     style={{
                       width: '100%',
-                      padding: '12px 16px',
+                      padding: '8px 12px',
                       border: 'none',
                       background: 'white',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
+                      gap: '8px',
                       fontSize: '14px',
                       color: '#333',
                       textAlign: 'left',
@@ -2606,13 +2606,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     onClick={handleLeaveChat}
                     style={{
                       width: '100%',
-                      padding: '12px 16px',
+                      padding: '8px 12px',
                       border: 'none',
                       background: 'white',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
+                      gap: '8px',
                       fontSize: '14px',
                       color: '#ef4444',
                       textAlign: 'left',
@@ -2630,13 +2630,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     onClick={closeContextMenu}
                     style={{
                       width: '100%',
-                      padding: '12px 16px',
+                      padding: '8px 12px',
                       border: 'none',
                       background: 'white',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
+                      gap: '8px',
                       fontSize: '14px',
                       color: '#6b7280',
                       textAlign: 'left',
