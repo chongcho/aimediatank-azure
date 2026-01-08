@@ -137,7 +137,8 @@ export default function Navbar() {
 
   const fetchUserData = async () => {
     try {
-      const res = await fetch('/api/user/profile')
+      // Add timestamp to prevent any caching
+      const res = await fetch(`/api/user/profile?t=${Date.now()}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         setUserData({

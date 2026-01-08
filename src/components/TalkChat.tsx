@@ -88,8 +88,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const [userMedia, setUserMedia] = useState<MediaItem[]>([])
   const [loadingMedia, setLoadingMedia] = useState(false)
-  // Current user avatar
+  // Current user avatar and username (fetched fresh from API)
   const [userAvatar, setUserAvatar] = useState<string | null>(null)
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null)
   // @mention states
   const [showMentionPicker, setShowMentionPicker] = useState(false)
   const [mentionQuery, setMentionQuery] = useState('')
@@ -121,24 +122,26 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
   }, [inlineNotice])
   
-  // Fetch user avatar
+  // Fetch user avatar and username (fresh from API)
   useEffect(() => {
-    const fetchUserAvatar = async () => {
+    const fetchUserProfile = async () => {
       if (!session?.user) return
       try {
-        const res = await fetch('/api/user/profile')
+        // Add timestamp to prevent any caching
+        const res = await fetch(`/api/user/profile?t=${Date.now()}`, { cache: 'no-store' })
         if (res.ok) {
           const data = await res.json()
           setUserAvatar(data.user?.avatar || null)
+          setCurrentUsername(data.user?.username || null)
         }
       } catch (error) {
-        console.error('Error fetching user avatar:', error)
+        console.error('Error fetching user profile:', error)
       }
     }
-    fetchUserAvatar()
+    fetchUserProfile()
     
     // Listen for profile update events
-    const handleProfileUpdate = () => fetchUserAvatar()
+    const handleProfileUpdate = () => fetchUserProfile()
     window.addEventListener('profileUpdated', handleProfileUpdate)
     return () => window.removeEventListener('profileUpdated', handleProfileUpdate)
   }, [session?.user])
@@ -877,13 +880,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   // Fetch user's media (uploads, purchased, and saved)
   const fetchUserMedia = async () => {
-    if (!session?.user?.username) return
+    // Use currentUsername (fresh from API) instead of session username
+    const username = currentUsername || session?.user?.username
+    if (!username) return
     setLoadingMedia(true)
     try {
       const allMedia: MediaItem[] = []
       
       // Fetch uploads
-      const uploadsRes = await fetch(`/api/media?user=${session.user.username}&limit=20`)
+      const uploadsRes = await fetch(`/api/media?user=${username}&limit=20`, { cache: 'no-store' })
       if (uploadsRes.ok) {
         const data = await uploadsRes.json()
         if (Array.isArray(data.media)) {
@@ -894,7 +899,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       }
       
       // Fetch purchased
-      const purchasedRes = await fetch('/api/user/purchases')
+      const purchasedRes = await fetch('/api/user/purchases', { cache: 'no-store' })
       if (purchasedRes.ok) {
         const data = await purchasedRes.json()
         if (Array.isArray(data.purchases)) {
@@ -914,7 +919,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       }
       
       // Fetch saved
-      const savedRes = await fetch('/api/user/saved')
+      const savedRes = await fetch('/api/user/saved', { cache: 'no-store' })
       if (savedRes.ok) {
         const data = await savedRes.json()
         if (Array.isArray(data.saved)) {
