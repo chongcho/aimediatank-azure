@@ -384,7 +384,7 @@ export default function MediaPage() {
               href={`/profile/${media.user.username}`}
                 className="text-tank-accent hover:underline font-medium"
               >
-                {media.user.name || media.user.username}
+                {media.user.username}
               </Link>
             </p>
             {media.aiTool && (
