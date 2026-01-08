@@ -1556,6 +1556,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   return (
     <div 
       className="talkchat-container"
+      onContextMenu={(e) => e.preventDefault()} // Disable right-click on entire TalkChat except chat records
       style={{
         position: 'fixed',
         ...(isDesktop && hasCustomPosition ? {
