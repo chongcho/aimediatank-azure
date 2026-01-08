@@ -2504,6 +2504,30 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     </svg>
                     Leave Chat
                   </button>
+                  <div style={{ height: '1px', background: '#e5e7eb' }} />
+                  <button
+                    onClick={closeContextMenu}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: 'none',
+                      background: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      fontSize: '14px',
+                      color: '#6b7280',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                  >
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Close
+                  </button>
                 </div>
               )}
               
