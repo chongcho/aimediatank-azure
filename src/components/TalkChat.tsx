@@ -2343,6 +2343,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           gap: '12px',
                           textAlign: 'left',
                           transition: 'background 0.15s',
+                          // Prevent iOS copy/writing tools popup on long-press
+                          WebkitTouchCallout: 'none',
+                          WebkitUserSelect: 'none',
+                          userSelect: 'none',
                         }}
                         onMouseEnter={(e) => {
                           if (contextMenu.show && contextMenu.record?.conversationId === record.conversationId) return
