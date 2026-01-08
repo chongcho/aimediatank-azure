@@ -244,6 +244,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [editingChatName, setEditingChatName] = useState<string | null>(null) // conversationId being edited
   const [newChatName, setNewChatName] = useState('')
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean
+    title: string
+    message: string
+    onConfirm: () => void
+  }>({ show: false, title: '', message: '', onConfirm: () => {} })
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -1024,32 +1031,36 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setNewChatName('')
   }
 
-  const handleLeaveChat = async () => {
+  const handleLeaveChat = () => {
     if (!contextMenu.record?.conversationId) {
       closeContextMenu()
       return
     }
     
-    const confirmLeave = window.confirm('Are you sure you want to leave this chat? You will no longer see messages from this conversation.')
-    if (!confirmLeave) {
-      closeContextMenu()
-      return
-    }
-
-    try {
-      const res = await fetch(`/api/chat/conversations/${contextMenu.record.conversationId}`, {
-        method: 'DELETE',
-      })
-      if (res.ok) {
-        // Remove from local state
-        setChatRecords(prev => prev.filter(r => r.conversationId !== contextMenu.record?.conversationId))
-        // Refresh unread count
-        fetchUnreadCount()
-      }
-    } catch (error) {
-      console.error('Error leaving chat:', error)
-    }
+    const conversationId = contextMenu.record.conversationId
     closeContextMenu()
+    
+    setConfirmModal({
+      show: true,
+      title: 'Leave Chat',
+      message: 'Are you sure you want to leave this chat? You will no longer see messages from this conversation.',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/chat/conversations/${conversationId}`, {
+            method: 'DELETE',
+          })
+          if (res.ok) {
+            // Remove from local state
+            setChatRecords(prev => prev.filter(r => r.conversationId !== conversationId))
+            // Refresh unread count
+            fetchUnreadCount()
+          }
+        } catch (error) {
+          console.error('Error leaving chat:', error)
+        }
+        setConfirmModal(prev => ({ ...prev, show: false }))
+      },
+    })
   }
 
   // Close context menu when clicking outside
@@ -2493,6 +2504,89 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     </svg>
                     Leave Chat
                   </button>
+                </div>
+              )}
+              
+              {/* Confirmation Modal */}
+              {confirmModal.show && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 100001,
+                  }}
+                  onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}
+                >
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      background: 'white',
+                      borderRadius: '12px',
+                      padding: '20px',
+                      maxWidth: '320px',
+                      width: '90%',
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                    }}
+                  >
+                    <h3 style={{
+                      margin: '0 0 12px 0',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      color: '#333',
+                    }}>
+                      {confirmModal.title}
+                    </h3>
+                    <p style={{
+                      margin: '0 0 20px 0',
+                      fontSize: '14px',
+                      color: '#666',
+                      lineHeight: '1.5',
+                    }}>
+                      {confirmModal.message}
+                    </p>
+                    <div style={{
+                      display: 'flex',
+                      gap: '10px',
+                      justifyContent: 'flex-end',
+                    }}>
+                      <button
+                        onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}
+                        style={{
+                          padding: '8px 16px',
+                          border: '1px solid #d1d5db',
+                          background: 'white',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          cursor: 'pointer',
+                          color: '#374151',
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={confirmModal.onConfirm}
+                        style={{
+                          padding: '8px 16px',
+                          border: 'none',
+                          background: '#ef4444',
+                          color: 'white',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Leave
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
