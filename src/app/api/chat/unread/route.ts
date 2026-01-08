@@ -24,15 +24,31 @@ export async function GET() {
     })
 
     if (memberships.length === 0) {
-      // Also check for invites (notification-based)
-      const inviteCount = await prisma.notification.count({
+      // Also check for invites (notification-based) - only count those with valid senders
+      const inviteNotifications = await prisma.notification.findMany({
         where: {
           userId: session.user.id,
           type: 'private_chat',
           read: false,
+          link: { not: null },
         },
+        select: { link: true },
       })
-      return NextResponse.json({ unreadCount: inviteCount })
+      
+      // Verify each invite has a valid sender
+      let validInviteCount = 0
+      for (const notif of inviteNotifications) {
+        if (notif.link) {
+          const senderExists = await prisma.user.findUnique({
+            where: { id: notif.link },
+            select: { id: true },
+          })
+          if (senderExists) {
+            validInviteCount++
+          }
+        }
+      }
+      return NextResponse.json({ unreadCount: validInviteCount })
     }
 
     // Count unread messages across all conversations
@@ -51,17 +67,33 @@ export async function GET() {
       totalUnread += unreadCount
     }
 
-    // Also add pending invites (notifications for new chats)
-    const inviteCount = await prisma.notification.count({
+    // Also add pending invites (notifications for new chats) - only count those with valid senders
+    const inviteNotifications = await prisma.notification.findMany({
       where: {
         userId: session.user.id,
         type: 'private_chat',
         read: false,
+        link: { not: null },  // Must have a sender ID
       },
+      select: { link: true },
     })
+    
+    // Verify each invite has a valid sender (user still exists)
+    let validInviteCount = 0
+    for (const notif of inviteNotifications) {
+      if (notif.link) {
+        const senderExists = await prisma.user.findUnique({
+          where: { id: notif.link },
+          select: { id: true },
+        })
+        if (senderExists) {
+          validInviteCount++
+        }
+      }
+    }
 
     return NextResponse.json({ 
-      unreadCount: totalUnread + inviteCount 
+      unreadCount: totalUnread + validInviteCount 
     })
   } catch (error) {
     console.error('Error fetching unread count:', error)
