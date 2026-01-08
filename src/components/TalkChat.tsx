@@ -980,12 +980,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const handleTouchStart = (record: typeof chatRecords[0]) => {
     longPressTimerRef.current = setTimeout(() => {
-      // Get approximate position for mobile
+      // Position popup aligned with menu bar bottom edge for mobile
       const rect = chatContainerRef.current?.getBoundingClientRect()
+      // Menu bar is about 40px, so position popup just below it
+      const menuBarHeight = 40
       setContextMenu({
         show: true,
-        x: rect ? rect.left + rect.width / 2 : 150,
-        y: rect ? rect.top + 150 : 200,
+        x: rect ? rect.left + (rect.width / 2) - 80 : 100, // Center horizontally (menu is ~160px wide)
+        y: rect ? rect.top + menuBarHeight + 10 : 60, // Below menu bar
         record,
       })
     }, 600) // 600ms long press
@@ -2313,7 +2315,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     return (
                       <button
                         key={record.conversationId || (displayUser?.id) || index}
-                        onClick={() => selectChatRecord(record)}
+                        onClick={() => {
+                          // Close context menu if clicking another record
+                          if (contextMenu.show) {
+                            closeContextMenu()
+                            return
+                          }
+                          selectChatRecord(record)
+                        }}
                         onContextMenu={(e) => handleContextMenu(e, record)}
                         onTouchStart={() => handleTouchStart(record)}
                         onTouchEnd={handleTouchEnd}
@@ -2323,7 +2332,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           padding: '12px 16px',
                           border: 'none',
                           borderBottom: '1px solid #eee',
-                          background: editingChatName === record.conversationId ? '#e0f2fe' : (hasUnread ? '#fef2f2' : 'white'),
+                          background: contextMenu.show && contextMenu.record?.conversationId === record.conversationId 
+                            ? '#ddd6fe' // Purple highlight for context menu target
+                            : editingChatName === record.conversationId 
+                              ? '#e0f2fe' 
+                              : (hasUnread ? '#fef2f2' : 'white'),
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -2331,8 +2344,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           textAlign: 'left',
                           transition: 'background 0.15s',
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = editingChatName === record.conversationId ? '#e0f2fe' : (hasUnread ? '#fee2e2' : '#f3e8ff')}
-                        onMouseLeave={(e) => e.currentTarget.style.background = editingChatName === record.conversationId ? '#e0f2fe' : (hasUnread ? '#fef2f2' : 'white')}
+                        onMouseEnter={(e) => {
+                          if (contextMenu.show && contextMenu.record?.conversationId === record.conversationId) return
+                          e.currentTarget.style.background = editingChatName === record.conversationId ? '#e0f2fe' : (hasUnread ? '#fee2e2' : '#f3e8ff')
+                        }}
+                        onMouseLeave={(e) => {
+                          if (contextMenu.show && contextMenu.record?.conversationId === record.conversationId) {
+                            e.currentTarget.style.background = '#ddd6fe'
+                            return
+                          }
+                          e.currentTarget.style.background = editingChatName === record.conversationId ? '#e0f2fe' : (hasUnread ? '#fef2f2' : 'white')
+                        }}
                       >
                         <div style={{
                           position: 'relative',
