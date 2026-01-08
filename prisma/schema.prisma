@@ -227,6 +227,7 @@ model ConversationMember {
   id             String    @id @default(uuid())
   joinedAt       DateTime  @default(now())
   lastReadAt     DateTime? // Track when user last read messages
+  priority       Boolean   @default(false) // User can mark conversation as priority
   
   // Relations
   conversationId String

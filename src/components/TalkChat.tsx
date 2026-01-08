@@ -231,6 +231,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     lastMessage: string
     lastMessageAt: string
     unreadCount?: number  // Unread message count for this conversation
+    priority?: boolean  // Priority flag for this conversation
   }>>([])
   const [loadingChatRecords, setLoadingChatRecords] = useState(false)
   
@@ -850,6 +851,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           lastMessage: conv.lastMessage?.content || '',
           lastMessageAt: conv.lastMessage?.createdAt || conv.updatedAt,
           unreadCount: conv.unreadCount || 0, // Unread message count
+          priority: conv.priority || false, // Priority flag
         }))
         setChatRecords(records)
         return
@@ -1006,6 +1008,44 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       setNewChatName(contextMenu.record.name || '')
     }
     closeContextMenu()
+  }
+
+  const handleTogglePriority = async () => {
+    if (!contextMenu.record?.conversationId) {
+      closeContextMenu()
+      return
+    }
+    
+    const conversationId = contextMenu.record.conversationId
+    const currentPriority = contextMenu.record.priority || false
+    const newPriority = !currentPriority
+    closeContextMenu()
+    
+    try {
+      const res = await fetch(`/api/chat/conversations/${conversationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: newPriority }),
+      })
+      if (res.ok) {
+        // Update local state and re-sort (priority first)
+        setChatRecords(prev => {
+          const updated = prev.map(r => 
+            r.conversationId === conversationId 
+              ? { ...r, priority: newPriority }
+              : r
+          )
+          // Sort: priority first, then keep original order
+          return updated.sort((a, b) => {
+            if (a.priority && !b.priority) return -1
+            if (!a.priority && b.priority) return 1
+            return 0
+          })
+        })
+      }
+    } catch (error) {
+      console.error('Error updating priority:', error)
+    }
   }
 
   const saveEditedChatName = async () => {
@@ -2348,6 +2388,21 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                               {unreadCount > 9 ? '9+' : (unreadCount || '!')}
                             </span>
                           )}
+                          {/* Priority flag on left side */}
+                          {record.priority && (
+                            <span style={{
+                              position: 'absolute',
+                              top: '-4px',
+                              left: '-8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}>
+                              <svg width="16" height="16" fill="#ef4444" stroke="#ef4444" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                              </svg>
+                            </span>
+                          )}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '15px', fontWeight: '600', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2458,6 +2513,30 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     border: '1px solid #e5e7eb',
                   }}
                 >
+                  <button
+                    onClick={handleTogglePriority}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: 'none',
+                      background: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      fontSize: '14px',
+                      color: contextMenu.record?.priority ? '#ef4444' : '#333',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                  >
+                    <svg width="18" height="18" fill={contextMenu.record?.priority ? '#ef4444' : 'none'} stroke={contextMenu.record?.priority ? '#ef4444' : 'currentColor'} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                    </svg>
+                    {contextMenu.record?.priority ? 'Remove Priority' : 'Priority'}
+                  </button>
+                  <div style={{ height: '1px', background: '#e5e7eb' }} />
                   <button
                     onClick={handleEditChatName}
                     style={{

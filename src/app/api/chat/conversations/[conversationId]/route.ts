@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
-// PATCH - Update conversation (e.g., rename)
+// PATCH - Update conversation (e.g., rename, priority)
 export async function PATCH(
   request: Request,
   { params }: { params: { conversationId: string } }
@@ -18,7 +18,8 @@ export async function PATCH(
     }
 
     const { conversationId } = params
-    const { name } = await request.json()
+    const body = await request.json()
+    const { name, priority } = body
 
     // Verify user is a member of this conversation
     const membership = await prisma.conversationMember.findFirst({
@@ -32,13 +33,23 @@ export async function PATCH(
       return NextResponse.json({ error: 'Not a member of this conversation' }, { status: 403 })
     }
 
-    // Update conversation name
-    const updated = await prisma.conversation.update({
-      where: { id: conversationId },
-      data: { name: name || null },
-    })
+    // Update conversation name if provided
+    if (name !== undefined) {
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { name: name || null },
+      })
+    }
 
-    return NextResponse.json({ success: true, conversation: updated })
+    // Update priority if provided (stored per-user in membership)
+    if (priority !== undefined) {
+      await prisma.conversationMember.update({
+        where: { id: membership.id },
+        data: { priority: !!priority },
+      })
+    }
+
+    return NextResponse.json({ success: true, priority: priority !== undefined ? !!priority : membership.priority })
   } catch (error) {
     console.error('Error updating conversation:', error)
     return NextResponse.json(
