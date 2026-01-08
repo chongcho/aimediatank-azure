@@ -169,13 +169,14 @@ export default function Navbar() {
 
   const fetchChatInvites = async () => {
     try {
-      const res = await fetch('/api/chat/invites')
+      // Fetch unread private message count (includes invites)
+      const res = await fetch('/api/chat/unread')
       if (res.ok) {
         const data = await res.json()
-        setChatInviteCount(data.invites?.length || 0)
+        setChatInviteCount(data.unreadCount || 0)
       }
     } catch (error) {
-      console.error('Error fetching chat invites:', error)
+      console.error('Error fetching unread messages:', error)
     }
   }
 
@@ -245,11 +246,11 @@ export default function Navbar() {
           {/* Logo and Home Icon */}
           <div className="flex items-center flex-shrink-0">
             <Link href="/" className="flex items-center" onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}>
-              <img 
-                src="/logo.png" 
-                alt="AiMediaTank" 
+            <img 
+              src="/logo.png" 
+              alt="AiMediaTank" 
                 className="h-10 w-auto"
-              />
+            />
             </Link>
             {/* Home Icon - wireframe only */}
             <Link 
@@ -262,7 +263,7 @@ export default function Navbar() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
               </svg>
             </Link>
-          </div>
+            </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">

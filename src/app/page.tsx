@@ -267,7 +267,7 @@ function HomeContent() {
           <div className="flex items-end gap-0">
             <h1 className="text-2xl md:text-3xl font-bold" style={{ paddingRight: '20px' }}>
               <span className="text-gradient">AiMediaTank</span>
-            </h1>
+          </h1>
             <span className="font-bold italic text-gray-400" style={{ fontSize: '16px' }}>AI-Generated</span>
           </div>
           <p className="text-gray-400 text-sm italic">
@@ -489,7 +489,7 @@ export default function Home() {
             <div className="flex items-end gap-0">
               <h1 className="text-2xl md:text-3xl font-bold" style={{ paddingRight: '20px' }}>
                 <span className="text-gradient">AiMediaTank</span>
-              </h1>
+            </h1>
               <span className="font-bold italic text-gray-400" style={{ fontSize: '16px' }}>AI-Generated</span>
             </div>
             <p className="text-gray-400 text-sm italic">

@@ -33,8 +33,8 @@ body {
   
   body {
     /* Add padding for safe areas (notch at top, home indicator at bottom) */
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
     min-height: 100vh;
     min-height: -webkit-fill-available;
   }
@@ -68,8 +68,8 @@ body {
   /* Navbar positioning below safe area */
   .pwa-navbar {
     top: env(safe-area-inset-top, 0px) !important;
-  }
-  
+}
+
   /* Main content padding for navbar + safe area */
   main.pt-16 {
     padding-top: calc(4rem + env(safe-area-inset-top, 0px)) !important;

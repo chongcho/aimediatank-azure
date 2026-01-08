@@ -218,6 +218,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     createdAt: string
   }>>([])
   const [showInvites, setShowInvites] = useState(false)
+  // Unread private message count (includes invites + unread messages)
+  const [unreadPrivateCount, setUnreadPrivateCount] = useState(0)
   // Chat records state
   const [showChatRecords, setShowChatRecords] = useState(false)
   const [chatRecords, setChatRecords] = useState<Array<{
@@ -716,6 +718,20 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
   }, [session?.user?.id])
 
+  // Fetch unread private message count
+  const fetchUnreadCount = useCallback(async () => {
+    if (!session?.user?.id) return
+    try {
+      const res = await fetch('/api/chat/unread')
+      if (res.ok) {
+        const data = await res.json()
+        setUnreadPrivateCount(data.unreadCount || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error)
+    }
+  }, [session?.user?.id])
+
   // Accept chat invite and start private chat
   const acceptChatInvite = async (sender: UserSuggestion) => {
     // Mark notification as read
@@ -735,8 +751,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setShowInvites(false)
     setShowUserPicker(false)
     
-    // Refresh invites
+    // Refresh invites and unread count
     fetchChatInvites()
+    fetchUnreadCount()
   }
 
   // Switch to private chat - shows chat records in main window
@@ -818,19 +835,32 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       // Clear any invites from members
       for (const member of (record.members || [])) {
         const hasInvite = chatInvites.some(invite => invite.sender.id === member.id)
-        if (hasInvite) {
-          try {
-            await fetch('/api/chat/invites', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+    if (hasInvite) {
+      try {
+        await fetch('/api/chat/invites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ senderId: member.id }),
-            })
+        })
           } catch (error) {
             console.error('Error clearing invite:', error)
           }
         }
       }
       fetchChatInvites()
+      fetchUnreadCount()
+      
+      // Mark conversation as read
+      try {
+        await fetch('/api/chat/unread', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId: record.conversationId }),
+        })
+        fetchUnreadCount() // Refresh after marking as read
+      } catch (error) {
+        console.error('Error marking conversation as read:', error)
+      }
       
       // Set the conversation
       setActiveConversation({
@@ -859,16 +889,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ senderId: record.user.id }),
           })
-          fetchChatInvites()
-        } catch (error) {
-          console.error('Error clearing invite:', error)
-        }
+        fetchChatInvites()
+        fetchUnreadCount()
+      } catch (error) {
+        console.error('Error clearing invite:', error)
       }
-      
+    }
+    
       setSelectedRecipients([record.user])
       setActiveConversation(null)
-      setChatMode('private')
-      setShowChatRecords(false)
+    setChatMode('private')
+    setShowChatRecords(false)
       setMessages([])
     }
   }
@@ -936,8 +967,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   type: s.media.type,
                   source: 'saved'
                 })
-              }
-            }
+        }
+      }
           })
         }
       }
@@ -1166,6 +1197,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return () => clearInterval(interval)
   }, [isInitialized, session?.user?.id, fetchChatInvites])
 
+  // Fetch unread count periodically
+  useEffect(() => {
+    if (!isInitialized || !session?.user?.id) return
+    fetchUnreadCount()
+    const interval = setInterval(fetchUnreadCount, 10000) // Check every 10 seconds
+    return () => clearInterval(interval)
+  }, [isInitialized, session?.user?.id, fetchUnreadCount])
+
   // Fetch chat records when in private mode without any recipients
   useEffect(() => {
     if (!isInitialized || !session?.user?.id) return
@@ -1222,8 +1261,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           alert(errorData.error || 'Failed to send message')
           setLoading(false)
           return
-        }
-        
+      }
+      
         console.log('Message sent to conversation')
         
         // Clear invites from conversation members if any
@@ -1232,16 +1271,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           if (hasInvite) {
             try {
               await fetch('/api/chat/invites', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ senderId: member.id }),
-              })
+      })
             } catch (err) {
               console.error('Error clearing invite:', err)
             }
           }
         }
         fetchChatInvites()
+        fetchUnreadCount()
       } else if (chatMode === 'private' && selectedRecipients.length > 0 && !activeConversation) {
         // Create conversation first, then send message
         const memberIds = selectedRecipients.map(r => r.id)
@@ -1267,34 +1307,35 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content: messageContent }),
         })
-        
-        if (!res.ok) {
-          const errorData = await res.json()
-          console.error('Failed to send message:', errorData)
-          alert(errorData.error || 'Failed to send message')
+      
+      if (!res.ok) {
+        const errorData = await res.json()
+        console.error('Failed to send message:', errorData)
+        alert(errorData.error || 'Failed to send message')
           setLoading(false)
-          return
-        }
-        
+        return
+      }
+      
         console.log('Conversation created and message sent')
         setShowUserPicker(false)
-        
+      
         // Clear invites
         for (const recipient of selectedRecipients) {
           const hasInvite = chatInvites.some(invite => invite.sender.id === recipient.id)
-          if (hasInvite) {
-            try {
-              await fetch('/api/chat/invites', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+        if (hasInvite) {
+          try {
+            await fetch('/api/chat/invites', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ senderId: recipient.id }),
-              })
-            } catch (err) {
-              console.error('Error clearing invite:', err)
-            }
+            })
+          } catch (err) {
+            console.error('Error clearing invite:', err)
           }
         }
+      }
         fetchChatInvites()
+        fetchUnreadCount()
       } else {
         // Open chat - single message
         const body = {
@@ -1353,9 +1394,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           bottom: 'auto',
           right: 'auto',
         } : {
-          bottom: 'env(safe-area-inset-bottom, 0px)',
-          left: 0,
-          right: 0,
+        bottom: 'env(safe-area-inset-bottom, 0px)',
+        left: 0,
+        right: 0,
         }),
         zIndex: 99999,
         pointerEvents: 'none',
@@ -1419,16 +1460,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           onMouseDown={isDesktop ? handleDragStart : undefined}
           onDoubleClick={isDesktop ? handleResetPosition : undefined}
           style={{
-            background: '#e8e8e8',
-            padding: '2px 4px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #ccc',
-            gap: '2px',
+          background: '#e8e8e8',
+          padding: '2px 4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid #ccc',
+          gap: '2px',
             cursor: isDesktop ? (isDragging ? 'grabbing' : 'grab') : 'default',
             userSelect: 'none',
-          }}>
+        }}>
           <style>{`
             @media (min-width: 768px) {
               .chat-header-responsive {
@@ -1489,26 +1530,26 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             
             {/* Private Button - shows chat records, active when in private mode or new chat */}
             <div style={{ position: 'relative' }}>
-              <button
-                onClick={switchToPrivateChat}
-                className="chat-btn-responsive"
-                style={{
+            <button
+              onClick={switchToPrivateChat}
+              className="chat-btn-responsive"
+              style={{
                   padding: '4px 8px',
-                  borderRadius: '4px',
-                  border: 'none',
+                borderRadius: '4px',
+                border: 'none',
                   background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
                   color: chatMode === 'private' ? 'white' : '#666',
-                  fontWeight: '700',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  whiteSpace: 'nowrap',
-                }}
-              >
+                fontWeight: '700',
+                fontSize: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+              }}
+            >
                 Private
-              </button>
-              {/* Invite notification badge on Private button */}
-              {chatInvites.length > 0 && (
+            </button>
+              {/* Unread private message badge on Private button */}
+              {unreadPrivateCount > 0 && (
                 <span
                   onClick={(e) => { e.stopPropagation(); switchToPrivateChat(); }}
                   style={{
@@ -1529,7 +1570,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     animation: 'pulse 2s infinite',
                   }}
                 >
-                  {chatInvites.length}
+                  {unreadPrivateCount > 9 ? '9+' : unreadPrivateCount}
                 </span>
               )}
             </div>
@@ -1571,7 +1612,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 color: '#333',
               }}>
                 {selectedRecipients.length} member{selectedRecipients.length > 1 ? 's' : ''}
-              </div>
+            </div>
             )}
           </div>
           
@@ -1602,48 +1643,48 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             ) : (
               /* Mobile: Up/Down buttons */
               <>
-                <button
-                  onClick={pushUp}
-                  disabled={chatSize === 'max'}
+            <button
+              onClick={pushUp}
+              disabled={chatSize === 'max'}
                   className="w-6 h-6"
-                  style={{
-                    borderRadius: '3px 0 0 3px',
-                    border: 'none',
-                    background: chatSize === 'max' ? '#94a3b8' : '#2563eb',
-                    color: 'white',
-                    cursor: chatSize === 'max' ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: chatSize === 'max' ? 0.5 : 1,
-                  }}
-                  title={chatSize === 'min' ? 'Medium size' : chatSize === 'medium' ? 'Max size' : 'Already at max'}
-                >
+              style={{
+                borderRadius: '3px 0 0 3px',
+                border: 'none',
+                background: chatSize === 'max' ? '#94a3b8' : '#2563eb',
+                color: 'white',
+                cursor: chatSize === 'max' ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: chatSize === 'max' ? 0.5 : 1,
+              }}
+              title={chatSize === 'min' ? 'Medium size' : chatSize === 'medium' ? 'Max size' : 'Already at max'}
+            >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                  </svg>
-                </button>
-                <button
-                  onClick={pushDown}
-                  disabled={chatSize === 'min'}
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            <button
+              onClick={pushDown}
+              disabled={chatSize === 'min'}
                   className="w-6 h-6"
-                  style={{
-                    borderRadius: '0 3px 3px 0',
-                    border: 'none',
-                    background: chatSize === 'min' ? '#94a3b8' : '#2563eb',
-                    color: 'white',
-                    cursor: chatSize === 'min' ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: chatSize === 'min' ? 0.5 : 1,
-                  }}
-                  title={chatSize === 'max' ? 'Medium size' : chatSize === 'medium' ? 'Minimize' : 'Already minimized'}
-                >
+              style={{
+                borderRadius: '0 3px 3px 0',
+                border: 'none',
+                background: chatSize === 'min' ? '#94a3b8' : '#2563eb',
+                color: 'white',
+                cursor: chatSize === 'min' ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: chatSize === 'min' ? 0.5 : 1,
+              }}
+              title={chatSize === 'max' ? 'Medium size' : chatSize === 'medium' ? 'Minimize' : 'Already minimized'}
+            >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
               </>
             )}
           </div>
@@ -1651,25 +1692,25 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
         {/* New Chat Full Panel - Takes whole chat window when active */}
         {showUserPicker && (
-          <div
-            ref={userPickerRef}
-            style={{
+            <div
+              ref={userPickerRef}
+              style={{
               flex: 1,
               display: 'flex',
               flexDirection: 'column',
               background: '#fafafa',
-              overflow: 'hidden',
-            }}
-          >
+                overflow: 'hidden',
+              }}
+            >
             {/* Chat title input with Start button */}
-            <div style={{
+              <div style={{
               padding: '8px 12px',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               background: '#fafafa',
               borderBottom: '1px solid #e0e0e0',
-            }}>
+              }}>
               <input
                 type="text"
                 value={chatTitle}
@@ -1686,24 +1727,24 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   color: '#333',
                 }}
               />
-              <button
+                  <button
                 onClick={startChatWithSelected}
                 disabled={selectedRecipients.length === 0}
-                style={{
+                    style={{
                   background: selectedRecipients.length > 0 ? '#10b981' : '#9ca3af',
-                  color: 'white',
-                  border: 'none',
+                      color: 'white',
+                      border: 'none',
                   borderRadius: '6px',
                   padding: '8px 16px',
                   fontSize: '14px',
                   fontWeight: '600',
                   cursor: selectedRecipients.length > 0 ? 'pointer' : 'not-allowed',
                   whiteSpace: 'nowrap',
-                }}
-              >
+                    }}
+                  >
                 Start
-              </button>
-            </div>
+                  </button>
+                </div>
             
             {/* Combined input box - type @userid directly */}
             <div style={{
@@ -1735,49 +1776,49 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       @{u.username}
                     </span>
                   ))}
-                  <input
+                <input
                     id="member-search-input"
-                    type="text"
-                    value={userSearchQuery}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setUserSearchQuery(value)
-                      const searchTerm = value.startsWith('@') ? value.slice(1) : value
-                      searchUsersForPrivateChat(searchTerm)
-                    }}
-                    onTouchStart={(e) => e.stopPropagation()}
+                  type="text"
+                  value={userSearchQuery}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setUserSearchQuery(value)
+                    const searchTerm = value.startsWith('@') ? value.slice(1) : value
+                    searchUsersForPrivateChat(searchTerm)
+                  }}
+                  onTouchStart={(e) => e.stopPropagation()}
                     placeholder={selectedRecipients.length === 0 ? "@user1 @user2 @user3 ..." : ""}
-                    autoFocus
-                    style={{
+                  autoFocus
+                  style={{
                       flex: 1,
                       minWidth: '80px',
                       padding: '4px',
                       border: 'none',
                       fontSize: '14px',
-                      outline: 'none',
+                    outline: 'none',
                       background: 'transparent',
-                      color: '#333',
-                    }}
-                  />
-                </div>
+                    color: '#333',
+                  }}
+                />
+              </div>
               </div>
             </div>
             
             {/* Search results - fills remaining space */}
-            <div style={{
+              <div style={{
               flex: 1,
-              overflowY: 'auto',
+                overflowY: 'auto',
               background: 'white',
               borderTop: '1px solid #eee',
-            }}>
-              {searchingUsers ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
-                  Searching...
-                </div>
-              ) : searchedUsers.length === 0 && userSearchQuery ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
-                  No users found
-                </div>
+              }}>
+                {searchingUsers ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
+                    Searching...
+                  </div>
+                ) : searchedUsers.length === 0 && userSearchQuery ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
+                    No users found
+                  </div>
               ) : searchedUsers.length === 0 && !userSearchQuery ? (
                 null
               ) : (
@@ -1830,8 +1871,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     </button>
                   )
                 })
-              )}
-            </div>
+                )}
+              </div>
             
             {/* Bottom area */}
             <div 

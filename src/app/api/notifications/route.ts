@@ -14,9 +14,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get notifications from the database
+    // Get notifications from the database (exclude private_chat - those are shown on Chat button)
     const notifications = await prisma.notification.findMany({
-      where: { userId: session.user.id },
+      where: { 
+        userId: session.user.id,
+        type: { not: 'private_chat' }  // Exclude private chat notifications
+      },
       orderBy: { createdAt: 'desc' },
       take: 20,
     })
@@ -24,7 +27,8 @@ export async function GET(request: Request) {
     const unreadCount = await prisma.notification.count({
       where: { 
         userId: session.user.id,
-        read: false 
+        read: false,
+        type: { not: 'private_chat' }  // Exclude private chat notifications from count
       },
     })
 
