@@ -179,7 +179,8 @@ export default function MediaPage() {
 
   const fetchMedia = async () => {
     try {
-      const res = await fetch(`/api/media/${mediaId}`)
+      // Add timestamp to prevent caching and get fresh user data
+      const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { cache: 'no-store' })
       const data = await res.json()
       if (res.ok) {
         setMedia(data)
@@ -267,12 +268,12 @@ export default function MediaPage() {
               
               {/* Edit Button - for owners */}
               {canManage && (
-                <Link
-                  href={`/media/${mediaId}/edit`}
+                  <Link
+                    href={`/media/${mediaId}/edit`}
                   className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold"
-                >
-                  Edit
-                </Link>
+                  >
+                    Edit
+                  </Link>
               )}
             </div>
             

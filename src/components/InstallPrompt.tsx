@@ -224,12 +224,12 @@ export default function InstallPrompt() {
 
         {/* Header */}
         <div style={{ marginBottom: '12px' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: 'white' }}>
-            Install AiMediaTank
-          </h3>
-          <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#888' }}>
-            Get the full app experience
-          </p>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: 'white' }}>
+              Install AiMediaTank
+            </h3>
+            <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#888' }}>
+              Get the full app experience
+            </p>
         </div>
 
         {/* Instructions based on device/browser */}
@@ -261,40 +261,40 @@ export default function InstallPrompt() {
         ) : isIOS ? (
           // iOS instructions
           <div>
-            <div style={{ fontSize: '13px', color: '#ccc', lineHeight: 1.5 }}>
-              <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ 
-                  background: '#333', 
-                  borderRadius: '6px', 
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                }}>1</span>
-                Tap the <strong style={{ color: '#00ff88' }}>Share</strong> button
-                <svg width="18" height="18" fill="#00ff88" viewBox="0 0 24 24">
-                  <path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V10c0-1.1.9-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .9 2 2z"/>
-                </svg>
-              </p>
-              <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ 
-                  background: '#333', 
-                  borderRadius: '6px', 
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                }}>2</span>
-                Scroll & tap <strong style={{ color: '#00ff88' }}>"Add to Home Screen"</strong>
-              </p>
+          <div style={{ fontSize: '13px', color: '#ccc', lineHeight: 1.5 }}>
+            <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ 
+                background: '#333', 
+                borderRadius: '6px', 
+                padding: '4px 8px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+              }}>1</span>
+              Tap the <strong style={{ color: '#00ff88' }}>Share</strong> button
+              <svg width="18" height="18" fill="#00ff88" viewBox="0 0 24 24">
+                <path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V10c0-1.1.9-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .9 2 2z"/>
+              </svg>
+            </p>
+            <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ 
+                background: '#333', 
+                borderRadius: '6px', 
+                padding: '4px 8px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+              }}>2</span>
+              Scroll & tap <strong style={{ color: '#00ff88' }}>"Add to Home Screen"</strong>
+            </p>
               <p style={{ margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ 
-                  background: '#333', 
-                  borderRadius: '6px', 
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                }}>3</span>
-                Tap <strong style={{ color: '#00ff88' }}>"Add"</strong> to install
-              </p>
+              <span style={{ 
+                background: '#333', 
+                borderRadius: '6px', 
+                padding: '4px 8px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+              }}>3</span>
+              Tap <strong style={{ color: '#00ff88' }}>"Add"</strong> to install
+            </p>
             </div>
             {/* Button for user to confirm they've installed */}
             <button

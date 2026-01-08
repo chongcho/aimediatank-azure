@@ -119,11 +119,11 @@ export default function ProfilePage() {
   useEffect(() => {
     if (isOwnProfile && session?.user?.id) {
       if (mainSection === 'purchased') {
-        fetchPurchases()
-      }
+      fetchPurchases()
+    }
       if (mainSection === 'saved') {
         console.log('Fetching saved for tab switch')
-        fetchSaved()
+      fetchSaved()
       }
     }
   }, [mainSection, isOwnProfile, session?.user?.id])
@@ -419,7 +419,7 @@ export default function ProfilePage() {
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
             }`}
           >
-            Uploads ({profile._count.media})
+              Uploads ({profile._count.media})
           </button>
           <button
             onClick={() => setMainSection('purchased')}
@@ -429,7 +429,7 @@ export default function ProfilePage() {
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
             }`}
           >
-            Purchased ({purchases.length})
+              Purchased ({purchases.length})
           </button>
           <button
             onClick={() => setMainSection('saved')}
@@ -439,7 +439,7 @@ export default function ProfilePage() {
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
             }`}
           >
-            Saved ({savedMedia.length})
+              Saved ({savedMedia.length})
           </button>
         </div>
       )}

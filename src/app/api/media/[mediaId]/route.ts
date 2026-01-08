@@ -5,6 +5,9 @@ import { prisma } from '@/lib/prisma'
 import { unlink } from 'fs/promises'
 import { join } from 'path'
 
+// Force dynamic rendering to always get fresh data
+export const dynamic = 'force-dynamic'
+
 // GET - Fetch single media with details
 export async function GET(
   request: Request,
