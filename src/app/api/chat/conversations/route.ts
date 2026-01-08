@@ -52,21 +52,37 @@ export async function GET() {
       orderBy: { updatedAt: 'desc' },
     })
 
-    // Transform to include last message and other members (excluding current user)
-    const transformedConversations = conversations.map((conv) => {
-      const otherMembers = conv.members
-        .filter((m) => m.userId !== session.user.id)
-        .map((m) => m.user)
-      
-      return {
-        id: conv.id,
-        name: conv.name,
-        isGroup: conv.isGroup,
-        members: otherMembers,
-        lastMessage: conv.messages[0] || null,
-        updatedAt: conv.updatedAt,
-      }
-    })
+    // Transform to include last message, other members, and unread count
+    const transformedConversations = await Promise.all(
+      conversations.map(async (conv) => {
+        const otherMembers = conv.members
+          .filter((m) => m.userId !== session.user.id)
+          .map((m) => m.user)
+        
+        // Get current user's membership to find lastReadAt
+        const currentUserMember = conv.members.find((m) => m.userId === session.user.id)
+        const lastReadAt = currentUserMember?.lastReadAt
+        
+        // Count unread messages (messages after lastReadAt, not sent by current user)
+        const unreadCount = await prisma.chatMessage.count({
+          where: {
+            conversationId: conv.id,
+            userId: { not: session.user.id },
+            ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+          },
+        })
+        
+        return {
+          id: conv.id,
+          name: conv.name,
+          isGroup: conv.isGroup,
+          members: otherMembers,
+          lastMessage: conv.messages[0] || null,
+          updatedAt: conv.updatedAt,
+          unreadCount,
+        }
+      })
+    )
 
     return NextResponse.json({ conversations: transformedConversations })
   } catch (error) {

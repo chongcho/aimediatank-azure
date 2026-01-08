@@ -230,6 +230,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     members?: UserSuggestion[]
     lastMessage: string
     lastMessageAt: string
+    unreadCount?: number  // Unread message count for this conversation
   }>>([])
   const [loadingChatRecords, setLoadingChatRecords] = useState(false)
   
@@ -790,6 +791,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           members: conv.members,
           lastMessage: conv.lastMessage?.content || '',
           lastMessageAt: conv.lastMessage?.createdAt || conv.updatedAt,
+          unreadCount: conv.unreadCount || 0, // Unread message count
         }))
         setChatRecords(records)
         return
@@ -2080,10 +2082,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   </div>
                 ) : (
                   chatRecords.map((record, index) => {
-                    // Check for notifications from any member
-                    const hasNotification = record.members 
+                    // Check for notifications from any member (invites)
+                    const hasInviteNotification = record.members 
                       ? chatInvites.some(invite => record.members!.some(m => m.id === invite.sender.id))
                       : record.user ? chatInvites.some(invite => invite.sender.id === record.user!.id) : false
+                    
+                    // Unread count from conversation
+                    const unreadCount = record.unreadCount || 0
+                    const hasUnread = unreadCount > 0 || hasInviteNotification
                     
                     // Get display info
                     const isGroup = record.isGroup || (record.members && record.members.length > 1)
@@ -2104,7 +2110,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           padding: '12px 16px',
                           border: 'none',
                           borderBottom: '1px solid #eee',
-                          background: hasNotification ? '#fef2f2' : 'white',
+                          background: hasUnread ? '#fef2f2' : 'white',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -2112,8 +2118,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           textAlign: 'left',
                           transition: 'background 0.15s',
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = hasNotification ? '#fee2e2' : '#f3e8ff'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = hasNotification ? '#fef2f2' : 'white'}
+                        onMouseEnter={(e) => e.currentTarget.style.background = hasUnread ? '#fee2e2' : '#f3e8ff'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = hasUnread ? '#fef2f2' : 'white'}
                       >
                         <div style={{
                           position: 'relative',
@@ -2148,17 +2154,26 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                               </span>
                             )}
                           </div>
-                          {hasNotification && (
+                          {hasUnread && (
                             <span style={{
                               position: 'absolute',
-                              top: '-4px',
-                              right: '-4px',
-                              width: '14px',
-                              height: '14px',
+                              top: '-6px',
+                              right: '-6px',
+                              minWidth: '20px',
+                              height: '20px',
                               background: '#ef4444',
-                              borderRadius: '50%',
+                              borderRadius: '10px',
                               border: '2px solid white',
-                            }}></span>
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              padding: '0 4px',
+                            }}>
+                              {unreadCount > 9 ? '9+' : (unreadCount || '!')}
+                            </span>
                           )}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -2167,7 +2182,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {displayName}
                             </span>
-                            {hasNotification && (
+                            {hasUnread && (
                               <span style={{
                                 background: '#ef4444',
                                 color: 'white',
@@ -2177,7 +2192,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                                 borderRadius: '10px',
                                 flexShrink: 0,
                               }}>
-                                NEW
+                                {unreadCount > 0 ? `${unreadCount} NEW` : 'NEW'}
                               </span>
                             )}
                           </div>
