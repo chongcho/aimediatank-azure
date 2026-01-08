@@ -980,16 +980,30 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const handleTouchStart = (record: typeof chatRecords[0]) => {
     longPressTimerRef.current = setTimeout(() => {
-      // Position popup aligned with menu bar bottom edge for mobile
+      // Position popup within TalkChat box for mobile
       const rect = chatContainerRef.current?.getBoundingClientRect()
-      // Menu bar is about 40px, so position popup just below it
-      const menuBarHeight = 40
-      setContextMenu({
-        show: true,
-        x: rect ? rect.left + (rect.width / 2) - 80 : 100, // Center horizontally (menu is ~160px wide)
-        y: rect ? rect.top + menuBarHeight + 10 : 60, // Below menu bar
-        record,
-      })
+      if (rect) {
+        // Menu bar + header is about 90px from top of chat container
+        const headerHeight = 90
+        const menuWidth = 180
+        // Center horizontally within the chat box, but ensure it stays inside
+        const x = Math.max(rect.left + 10, Math.min(rect.left + (rect.width - menuWidth) / 2, rect.right - menuWidth - 10))
+        // Position below header, within chat box
+        const y = rect.top + headerHeight
+        setContextMenu({
+          show: true,
+          x,
+          y,
+          record,
+        })
+      } else {
+        setContextMenu({
+          show: true,
+          x: 100,
+          y: 150,
+          record,
+        })
+      }
     }, 600) // 600ms long press
   }
 
@@ -2535,6 +2549,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
                     zIndex: 100000,
                     minWidth: '160px',
+                    maxWidth: '200px',
                     overflow: 'hidden',
                     border: '1px solid #e5e7eb',
                   }}
