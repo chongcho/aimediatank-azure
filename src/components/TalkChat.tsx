@@ -234,6 +234,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }>>([])
   const [loadingChatRecords, setLoadingChatRecords] = useState(false)
   
+  // Context menu state for chat records
+  const [contextMenu, setContextMenu] = useState<{
+    show: boolean
+    x: number
+    y: number
+    record: typeof chatRecords[0] | null
+  }>({ show: false, x: 0, y: 0, record: null })
+  const [editingChatName, setEditingChatName] = useState<string | null>(null) // conversationId being edited
+  const [newChatName, setNewChatName] = useState('')
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
@@ -945,6 +956,112 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       setMessages([])
     }
   }
+
+  // Context menu handlers for chat records
+  const handleContextMenu = (e: React.MouseEvent, record: typeof chatRecords[0]) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({
+      show: true,
+      x: e.clientX,
+      y: e.clientY,
+      record,
+    })
+  }
+
+  const handleTouchStart = (record: typeof chatRecords[0]) => {
+    longPressTimerRef.current = setTimeout(() => {
+      // Get approximate position for mobile
+      const rect = chatContainerRef.current?.getBoundingClientRect()
+      setContextMenu({
+        show: true,
+        x: rect ? rect.left + rect.width / 2 : 150,
+        y: rect ? rect.top + 150 : 200,
+        record,
+      })
+    }, 600) // 600ms long press
+  }
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }
+
+  const closeContextMenu = () => {
+    setContextMenu({ show: false, x: 0, y: 0, record: null })
+  }
+
+  const handleEditChatName = () => {
+    if (contextMenu.record?.conversationId) {
+      setEditingChatName(contextMenu.record.conversationId)
+      setNewChatName(contextMenu.record.name || '')
+    }
+    closeContextMenu()
+  }
+
+  const saveEditedChatName = async () => {
+    if (!editingChatName) return
+    try {
+      const res = await fetch(`/api/chat/conversations/${editingChatName}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newChatName.trim() || null }),
+      })
+      if (res.ok) {
+        // Update local state
+        setChatRecords(prev => prev.map(r => 
+          r.conversationId === editingChatName 
+            ? { ...r, name: newChatName.trim() || null }
+            : r
+        ))
+      }
+    } catch (error) {
+      console.error('Error updating chat name:', error)
+    }
+    setEditingChatName(null)
+    setNewChatName('')
+  }
+
+  const handleLeaveChat = async () => {
+    if (!contextMenu.record?.conversationId) {
+      closeContextMenu()
+      return
+    }
+    
+    const confirmLeave = window.confirm('Are you sure you want to leave this chat? You will no longer see messages from this conversation.')
+    if (!confirmLeave) {
+      closeContextMenu()
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/chat/conversations/${contextMenu.record.conversationId}`, {
+        method: 'DELETE',
+      })
+      if (res.ok) {
+        // Remove from local state
+        setChatRecords(prev => prev.filter(r => r.conversationId !== contextMenu.record?.conversationId))
+        // Refresh unread count
+        fetchUnreadCount()
+      }
+    } catch (error) {
+      console.error('Error leaving chat:', error)
+    }
+    closeContextMenu()
+  }
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (contextMenu.show) {
+        closeContextMenu()
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [contextMenu.show])
 
   const insertEmoji = (emoji: string) => {
     setNewMessage(prev => prev + emoji)
@@ -2145,12 +2262,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       <button
                         key={record.conversationId || (displayUser?.id) || index}
                         onClick={() => selectChatRecord(record)}
+                        onContextMenu={(e) => handleContextMenu(e, record)}
+                        onTouchStart={() => handleTouchStart(record)}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchMove={handleTouchEnd}
                         style={{
                           width: '100%',
                           padding: '12px 16px',
                           border: 'none',
                           borderBottom: '1px solid #eee',
-                          background: hasUnread ? '#fef2f2' : 'white',
+                          background: editingChatName === record.conversationId ? '#e0f2fe' : (hasUnread ? '#fef2f2' : 'white'),
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -2158,8 +2279,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           textAlign: 'left',
                           transition: 'background 0.15s',
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = hasUnread ? '#fee2e2' : '#f3e8ff'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = hasUnread ? '#fef2f2' : 'white'}
+                        onMouseEnter={(e) => e.currentTarget.style.background = editingChatName === record.conversationId ? '#e0f2fe' : (hasUnread ? '#fee2e2' : '#f3e8ff')}
+                        onMouseLeave={(e) => e.currentTarget.style.background = editingChatName === record.conversationId ? '#e0f2fe' : (hasUnread ? '#fef2f2' : 'white')}
                       >
                         <div style={{
                           position: 'relative',
@@ -2219,10 +2340,62 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '15px', fontWeight: '600', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {isGroup && <span style={{ fontSize: '12px' }}>👥</span>}
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {displayName}
-                            </span>
-                            {hasUnread && (
+                            {editingChatName === record.conversationId ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }} onClick={e => e.stopPropagation()}>
+                                <input
+                                  type="text"
+                                  value={newChatName}
+                                  onChange={(e) => setNewChatName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') saveEditedChatName()
+                                    if (e.key === 'Escape') { setEditingChatName(null); setNewChatName('') }
+                                  }}
+                                  autoFocus
+                                  placeholder="Chat name..."
+                                  style={{
+                                    flex: 1,
+                                    padding: '4px 8px',
+                                    fontSize: '14px',
+                                    border: '1px solid #8b5cf6',
+                                    borderRadius: '4px',
+                                    outline: 'none',
+                                  }}
+                                />
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); saveEditedChatName() }}
+                                  style={{
+                                    padding: '4px 8px',
+                                    background: '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingChatName(null); setNewChatName('') }}
+                                  style={{
+                                    padding: '4px 8px',
+                                    background: '#6b7280',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {displayName}
+                              </span>
+                            )}
+                            {hasUnread && editingChatName !== record.conversationId && (
                               <span style={{
                                 background: '#ef4444',
                                 color: 'white',
@@ -2255,6 +2428,73 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   })
                 )}
               </div>
+              
+              {/* Context Menu for Chat Records */}
+              {contextMenu.show && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: 'fixed',
+                    top: contextMenu.y,
+                    left: contextMenu.x,
+                    background: 'white',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                    zIndex: 100000,
+                    minWidth: '160px',
+                    overflow: 'hidden',
+                    border: '1px solid #e5e7eb',
+                  }}
+                >
+                  <button
+                    onClick={handleEditChatName}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: 'none',
+                      background: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      fontSize: '14px',
+                      color: '#333',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                  >
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit Chat Name
+                  </button>
+                  <div style={{ height: '1px', background: '#e5e7eb' }} />
+                  <button
+                    onClick={handleLeaveChat}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: 'none',
+                      background: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      fontSize: '14px',
+                      color: '#ef4444',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                  >
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Leave Chat
+                  </button>
+                </div>
+              )}
             </div>
           ) : messages.length === 0 ? (
             <div style={{ 
