@@ -97,6 +97,7 @@ export async function GET(request: Request) {
           email: true,
           username: true,
           name: true,
+          legalName: true,
           avatar: true,
           phone: true,
           location: true,

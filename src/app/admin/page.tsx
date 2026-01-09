@@ -31,6 +31,7 @@ interface User {
   email: string
   username: string
   name: string | null
+  legalName: string | null
   avatar: string | null
   phone: string | null
   location: string | null
@@ -490,14 +491,14 @@ export default function AdminPage() {
                               {user.avatar ? (
                                 <img src={user.avatar} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                user.name?.[0]?.toUpperCase() || user.username[0].toUpperCase()
+                                user.legalName?.[0]?.toUpperCase() || user.username[0].toUpperCase()
                               )}
                             </div>
                             <span className="font-medium whitespace-nowrap">@{user.username}</span>
                           </div>
                         </td>
                         <td className="p-3 text-gray-300 whitespace-nowrap">
-                          {user.name || '-'}
+                          {user.legalName || '-'}
                         </td>
                         <td className="p-3 text-gray-300 max-w-[180px] truncate" title={user.email}>
                           {user.email}
@@ -781,11 +782,11 @@ export default function AdminPage() {
                 {selectedUser.avatar ? (
                   <img src={selectedUser.avatar} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  selectedUser.username[0].toUpperCase()
+                  selectedUser.legalName?.[0]?.toUpperCase() || selectedUser.username[0].toUpperCase()
                 )}
               </div>
               <div>
-                <h2 className="text-xl font-bold">{selectedUser.name || selectedUser.username}</h2>
+                <h2 className="text-xl font-bold">{selectedUser.legalName || selectedUser.username}</h2>
                 <p className="text-gray-400">@{selectedUser.username}</p>
                 <p className="text-sm text-gray-500">{selectedUser.email}</p>
               </div>
