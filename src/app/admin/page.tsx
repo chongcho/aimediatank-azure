@@ -63,6 +63,7 @@ interface Media {
   deletionReason: string | null
   isSold: boolean
   soldAt: string | null
+  ageRestriction: string
   createdAt: string
   user: { id: string; username: string; name: string | null; email: string }
   purchases: Array<{
@@ -618,7 +619,7 @@ export default function AdminPage() {
           {activeTab === 'media' && (
             <div className="space-y-4">
               <div className="card overflow-x-auto">
-                <table className="w-full text-sm min-w-[1400px]">
+                <table className="w-full text-sm min-w-[1500px]">
                   <thead>
                     <tr className="border-b border-tank-light">
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Media Title</th>
@@ -626,6 +627,7 @@ export default function AdminPage() {
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Creator</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Upload Date</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">File Location</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Age Filter</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Status</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Sold Date</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Buyer User ID</th>
@@ -664,6 +666,16 @@ export default function AdminPage() {
                             >
                               {item.url.split('/').pop()?.slice(0, 20)}...
                             </a>
+                          </td>
+                          <td className="p-3">
+                            <select
+                              value={item.ageRestriction || 'ALL'}
+                              onChange={(e) => handleAction('updateMediaAgeRestriction', item.id, { ageRestriction: e.target.value })}
+                              className="bg-tank-dark border border-tank-light rounded px-2 py-1 text-xs"
+                            >
+                              <option value="ALL">All Ages</option>
+                              <option value="18+">18+</option>
+                            </select>
                           </td>
                           <td className="p-3">
                             {item.isDeleted ? (

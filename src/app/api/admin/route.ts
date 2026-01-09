@@ -398,6 +398,16 @@ export async function POST(request: Request) {
         await logAdminAction(adminId, 'UPDATE_MEDIA_STATUS', 'MEDIA', targetId, { isSold: data?.isSold })
         return NextResponse.json({ message: 'Media status updated' })
 
+      case 'updateMediaAgeRestriction':
+        await prisma.media.update({
+          where: { id: targetId },
+          data: { 
+            ageRestriction: data?.ageRestriction || 'ALL',
+          },
+        })
+        await logAdminAction(adminId, 'UPDATE_MEDIA_AGE_RESTRICTION', 'MEDIA', targetId, { ageRestriction: data?.ageRestriction })
+        return NextResponse.json({ message: 'Media age restriction updated' })
+
       case 'restoreMedia':
         await prisma.media.update({
           where: { id: targetId },
