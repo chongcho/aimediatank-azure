@@ -54,6 +54,9 @@ interface Media {
   type: string
   url: string
   isApproved: boolean
+  isDeleted: boolean
+  deletedAt: string | null
+  deletionReason: string | null
   createdAt: string
   user: { username: string; name: string | null; email: string }
   _count: { reports: number }
@@ -545,6 +548,7 @@ export default function AdminPage() {
                   <option value="all">All Status</option>
                   <option value="approved">Approved</option>
                   <option value="pending">Pending</option>
+                  <option value="deleted">Deleted</option>
                 </select>
                 <p className="text-gray-400">Total: {mediaTotal} items</p>
               </div>
@@ -578,11 +582,17 @@ export default function AdminPage() {
                         </td>
                         <td className="p-4 text-gray-400">@{item.user.username}</td>
                         <td className="p-4">
-                          <span className={`badge ${
-                            item.isApproved ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
-                          }`}>
-                            {item.isApproved ? 'Approved' : 'Pending'}
-                          </span>
+                          {item.isDeleted ? (
+                            <span className="badge bg-red-500/20 text-red-400" title={item.deletionReason || ''}>
+                              Deleted
+                            </span>
+                          ) : (
+                            <span className={`badge ${
+                              item.isApproved ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                            }`}>
+                              {item.isApproved ? 'Approved' : 'Pending'}
+                            </span>
+                          )}
                         </td>
                         <td className="p-4">
                           {item._count.reports > 0 && (
@@ -591,28 +601,36 @@ export default function AdminPage() {
                         </td>
                         <td className="p-4">
                           <div className="flex gap-2">
-                            {!item.isApproved && (
-                              <button onClick={() => handleAction('approveMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
-                                Approve
+                            {item.isDeleted ? (
+                              <button onClick={() => handleAction('restoreMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
+                                Restore
                               </button>
+                            ) : (
+                              <>
+                                {!item.isApproved && (
+                                  <button onClick={() => handleAction('approveMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
+                                    Approve
+                                  </button>
+                                )}
+                                {item.isApproved && (
+                                  <button onClick={() => handleAction('rejectMedia', item.id)} className="text-yellow-400 hover:text-yellow-300 text-sm">
+                                    Reject
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={() => setDeleteModal({
+                                    show: true,
+                                    mediaId: item.id,
+                                    mediaTitle: item.title,
+                                    creatorUsername: item.user.username,
+                                    creatorEmail: item.user.email
+                                  })} 
+                                  className="text-red-400 hover:text-red-300 text-sm"
+                                >
+                                  Delete
+                                </button>
+                              </>
                             )}
-                            {item.isApproved && (
-                              <button onClick={() => handleAction('rejectMedia', item.id)} className="text-yellow-400 hover:text-yellow-300 text-sm">
-                                Reject
-                              </button>
-                            )}
-                          <button 
-                            onClick={() => setDeleteModal({
-                              show: true,
-                              mediaId: item.id,
-                              mediaTitle: item.title,
-                              creatorUsername: item.user.username,
-                              creatorEmail: item.user.email
-                            })} 
-                            className="text-red-400 hover:text-red-300 text-sm"
-                          >
-                            Delete
-                          </button>
                           </div>
                         </td>
                       </tr>

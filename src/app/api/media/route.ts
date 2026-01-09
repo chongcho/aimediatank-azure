@@ -18,11 +18,12 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit
 
     // Build where clause
-    // Show all public, approved items
+    // Show all public, approved, non-deleted items
     // Sold items will be filtered out by cron job after 10 days
     const where: any = {
       isPublic: true,
       isApproved: true,
+      isDeleted: false,
     }
 
     // Filter by username if provided

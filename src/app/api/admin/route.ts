@@ -228,8 +228,15 @@ export async function GET(request: Request) {
       const where: any = {}
       if (status === 'pending') {
         where.isApproved = false
+        where.isDeleted = false
       } else if (status === 'approved') {
         where.isApproved = true
+        where.isDeleted = false
+      } else if (status === 'deleted') {
+        where.isDeleted = true
+      } else {
+        // "all" - show non-deleted by default
+        where.isDeleted = false
       }
       if (type && ['VIDEO', 'IMAGE', 'MUSIC'].includes(type)) {
         where.type = type
@@ -344,6 +351,20 @@ export async function POST(request: Request) {
         await logAdminAction(adminId, 'REJECT_MEDIA', 'MEDIA', targetId)
         return NextResponse.json({ message: 'Media rejected' })
 
+      case 'restoreMedia':
+        await prisma.media.update({
+          where: { id: targetId },
+          data: { 
+            isDeleted: false,
+            deletedAt: null,
+            deletedBy: null,
+            deletionReason: null,
+            isPublic: true,
+          },
+        })
+        await logAdminAction(adminId, 'RESTORE_MEDIA', 'MEDIA', targetId)
+        return NextResponse.json({ message: 'Media restored' })
+
       case 'deleteMedia': {
         // Get media details before deletion
         const mediaToDelete = await prisma.media.findUnique({
@@ -355,19 +376,26 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: 'Media not found' }, { status: 404 })
         }
         
-        // Delete the media
-        await prisma.media.delete({
+        // Soft delete the media (keep record but hide from platform)
+        const deletionReason = data?.reason || 'Policy violation'
+        await prisma.media.update({
           where: { id: targetId },
+          data: {
+            isDeleted: true,
+            deletedAt: new Date(),
+            deletedBy: adminId,
+            deletionReason: deletionReason,
+            isPublic: false, // Also hide from public
+          },
         })
         
         // Create notification for the creator
-        const reason = data?.reason || 'Policy violation'
         await prisma.notification.create({
           data: {
             userId: mediaToDelete.user.id,
             type: 'content_removed',
             title: 'Content Removed',
-            message: `Your content "${data?.mediaTitle || 'Untitled'}" has been removed. Reason: ${reason}`,
+            message: `Your content "${data?.mediaTitle || 'Untitled'}" has been removed. Reason: ${deletionReason}`,
           },
         })
         
@@ -381,7 +409,7 @@ export async function POST(request: Request) {
               html: `
                 <h2>Content Removed</h2>
                 <p>Your content "<strong>${data?.mediaTitle || 'Untitled'}</strong>" has been removed from AiMediaTank.</p>
-                <p><strong>Reason:</strong> ${reason}</p>
+                <p><strong>Reason:</strong> ${deletionReason}</p>
                 <p>If you believe this was a mistake, please contact our support team.</p>
                 <p>Best regards,<br>AiMediaTank Team</p>
               `,
@@ -391,7 +419,7 @@ export async function POST(request: Request) {
           }
         }
         
-        await logAdminAction(adminId, 'DELETE_MEDIA', 'MEDIA', targetId, { reason, mediaTitle: data?.mediaTitle })
+        await logAdminAction(adminId, 'DELETE_MEDIA', 'MEDIA', targetId, { reason: deletionReason, mediaTitle: data?.mediaTitle })
         return NextResponse.json({ message: 'Media deleted' })
       }
 

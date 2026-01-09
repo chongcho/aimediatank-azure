@@ -66,6 +66,11 @@ export async function GET(
       return NextResponse.json({ error: 'Media not found' }, { status: 404 })
     }
 
+    // Check if media is deleted (soft delete) - return 404 for regular users
+    if (media.isDeleted) {
+      return NextResponse.json({ error: 'Media not found' }, { status: 404 })
+    }
+
     // Increment view count
     await prisma.media.update({
       where: { id: params.mediaId },
