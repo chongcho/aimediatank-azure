@@ -256,7 +256,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 pb-[500px]">
+    <div className="w-full px-4 lg:px-8 pb-[500px]">
       <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
       <p className="text-gray-400 mb-8">Manage users, content, chat, and reports</p>
 
@@ -467,7 +467,7 @@ export default function AdminPage() {
           {activeTab === 'users' && (
             <div className="space-y-4">
               <div className="card overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[1200px]">
                   <thead>
                     <tr className="border-b border-tank-light">
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User ID</th>
@@ -611,26 +611,26 @@ export default function AdminPage() {
           {activeTab === 'media' && (
             <div className="space-y-4">
               <div className="card overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full text-sm min-w-[800px]">
                   <thead>
                     <tr className="border-b border-tank-light">
-                      <th className="text-left p-4 text-gray-400 font-medium">Media</th>
-                      <th className="text-left p-4 text-gray-400 font-medium">Type</th>
-                      <th className="text-left p-4 text-gray-400 font-medium">Creator</th>
-                      <th className="text-left p-4 text-gray-400 font-medium">Status</th>
-                      <th className="text-left p-4 text-gray-400 font-medium">Reports</th>
-                      <th className="text-left p-4 text-gray-400 font-medium">Actions</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Media</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Type</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Creator</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Status</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Reports</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {media.map((item) => (
-                      <tr key={item.id} className="border-b border-tank-light/50">
-                        <td className="p-4">
+                      <tr key={item.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
+                        <td className="p-3">
                           <Link href={`/media/${item.id}`} className="font-medium hover:text-tank-accent line-clamp-1">
                             {item.title}
                           </Link>
                         </td>
-                        <td className="p-4">
+                        <td className="p-3">
                           <span className={`badge ${
                             item.type === 'VIDEO' ? 'badge-video' :
                             item.type === 'IMAGE' ? 'badge-image' : 'badge-music'
@@ -638,8 +638,8 @@ export default function AdminPage() {
                             {item.type}
                           </span>
                         </td>
-                        <td className="p-4 text-gray-400">@{item.user.username}</td>
-                        <td className="p-4">
+                        <td className="p-3 text-gray-400">@{item.user.username}</td>
+                        <td className="p-3">
                           {item.isDeleted ? (
                             <span className="badge bg-red-500/20 text-red-400" title={item.deletionReason || ''}>
                               Deleted
@@ -652,12 +652,12 @@ export default function AdminPage() {
                             </span>
                           )}
                         </td>
-                        <td className="p-4">
+                        <td className="p-3">
                           {item._count.reports > 0 && (
                             <span className="badge bg-red-500/20 text-red-400">{item._count.reports}</span>
                           )}
                         </td>
-                        <td className="p-4">
+                        <td className="p-3">
                           <div className="flex gap-2">
                             {item.isDeleted ? (
                               <button onClick={() => handleAction('restoreMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
