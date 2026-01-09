@@ -128,6 +128,15 @@ export default function AdminPage() {
     lastWarningAt: string | null
   } | null>(null)
   
+  // Suspension details modal state
+  const [suspensionModal, setSuspensionModal] = useState<{
+    show: boolean
+    username: string
+    suspendReason: string | null
+    suspendedAt: string | null
+    suspendedUntil: string | null
+  } | null>(null)
+  
   // Search/filter state
   const [userSearch, setUserSearch] = useState('')
   const [userSearchDebounced, setUserSearchDebounced] = useState('')
@@ -609,40 +618,43 @@ export default function AdminPage() {
                           </span>
                         </td>
                         <td className="p-3">
-                          <div className="flex flex-col gap-1">
-                            {user.isSuspended ? (
-                              <span className="badge bg-red-500/20 text-red-400 text-xs">Suspended</span>
-                            ) : (
-                              <span className={`badge text-xs ${
-                                user.membershipType === 'PREMIUM' ? 'bg-purple-500/20 text-purple-400' :
-                                user.membershipType === 'ADVANCED' ? 'bg-blue-500/20 text-blue-400' :
-                                user.membershipType === 'BASIC' ? 'bg-tank-accent/20 text-tank-accent' :
-                                'bg-gray-500/20 text-gray-400'
-                              }`}>
-                                {user.membershipType === 'VIEWER' ? 'Viewer' : 
-                                 user.membershipType === 'BASIC' ? 'Basic' :
-                                 user.membershipType === 'ADVANCED' ? 'Advanced' :
-                                 user.membershipType === 'PREMIUM' ? 'Premium' : user.membershipType}
-                              </span>
-                            )}
-                            {user.warningCount > 0 && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setWarningModal({
-                                    show: true,
-                                    username: user.username,
-                                    warningCount: user.warningCount,
-                                    lastWarningReason: user.lastWarningReason,
-                                    lastWarningAt: user.lastWarningAt
-                                  })
-                                }}
-                                className="badge bg-yellow-500/20 text-yellow-400 text-xs hover:bg-yellow-500/30 transition-colors cursor-pointer"
-                              >
-                                {user.warningCount}⚠️
-                              </button>
-                            )}
-                          </div>
+                          {user.isSuspended ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSuspensionModal({
+                                  show: true,
+                                  username: user.username,
+                                  suspendReason: user.suspendReason,
+                                  suspendedAt: user.suspendedAt,
+                                  suspendedUntil: user.suspendedUntil
+                                })
+                              }}
+                              className="badge bg-red-500/20 text-red-400 text-xs hover:bg-red-500/30 transition-colors cursor-pointer"
+                            >
+                              🚫 Suspended
+                            </button>
+                          ) : user.warningCount > 0 ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setWarningModal({
+                                  show: true,
+                                  username: user.username,
+                                  warningCount: user.warningCount,
+                                  lastWarningReason: user.lastWarningReason,
+                                  lastWarningAt: user.lastWarningAt
+                                })
+                              }}
+                              className="badge bg-yellow-500/20 text-yellow-400 text-xs hover:bg-yellow-500/30 transition-colors cursor-pointer"
+                            >
+                              ⚠️ Warned ({user.warningCount})
+                            </button>
+                          ) : (
+                            <span className="badge bg-green-500/20 text-green-400 text-xs">
+                              ✅ Active
+                            </span>
+                          )}
                         </td>
                         <td className="p-3 text-gray-400 whitespace-nowrap">
                           {user.bonusCredits + user.paidUploadCredits}
@@ -1114,6 +1126,54 @@ export default function AdminPage() {
             
             <button
               onClick={() => setWarningModal(null)}
+              className="w-full mt-6 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Suspension Details Modal */}
+      {suspensionModal?.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSuspensionModal(null)}>
+          <div className="bg-tank-gray rounded-xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">🚫</span>
+              <div>
+                <h2 className="text-xl font-bold text-red-400">Suspension Details</h2>
+                <p className="text-gray-400">@{suspensionModal.username}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {suspensionModal.suspendReason && (
+                <div className="bg-tank-dark rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-1">Reason for Suspension</p>
+                  <p className="text-white">{suspensionModal.suspendReason}</p>
+                </div>
+              )}
+              
+              {suspensionModal.suspendedAt && (
+                <div className="bg-tank-dark rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-1">Suspended On</p>
+                  <p className="text-white">{new Date(suspensionModal.suspendedAt).toLocaleDateString()} at {new Date(suspensionModal.suspendedAt).toLocaleTimeString()}</p>
+                </div>
+              )}
+              
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm mb-1">Duration</p>
+                <p className="text-white">
+                  {suspensionModal.suspendedUntil 
+                    ? `Until ${new Date(suspensionModal.suspendedUntil).toLocaleDateString()} at ${new Date(suspensionModal.suspendedUntil).toLocaleTimeString()}`
+                    : 'Permanent'
+                  }
+                </p>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setSuspensionModal(null)}
               className="w-full mt-6 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors"
             >
               Close
