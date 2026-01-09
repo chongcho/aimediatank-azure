@@ -16,7 +16,6 @@ export default function RegisterPage() {
     legalName: '',
     phone: '',
     location: '',
-    ageRange: '',
     bio: '',
   })
   const [error, setError] = useState('')
@@ -322,7 +321,6 @@ export default function RegisterPage() {
           legalName: formData.legalName,
           phone: formData.phone,
           location: formData.location,
-          ageRange: formData.ageRange,
           bio: formData.bio,
         }),
       })
@@ -699,29 +697,6 @@ export default function RegisterPage() {
                 <option value="Peru">Peru</option>
                 <option value="Other">Other</option>
               </select>
-            </div>
-
-            {/* Age Range */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Age Range *
-              </label>
-              <select
-                name="ageRange"
-                value={formData.ageRange}
-                onChange={handleChange}
-                className="w-full"
-                required
-                aria-label="Select your age range"
-                title="Select your age range"
-              >
-                <option value="">Select your age range</option>
-                <option value="UNDER_18">Under 18</option>
-                <option value="18_PLUS">18 and over</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Required for content filtering
-              </p>
             </div>
 
             {/* Password Section */}

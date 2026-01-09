@@ -103,7 +103,6 @@ export async function GET(request: Request) {
           avatar: true,
           phone: true,
           location: true,
-          ageRange: true,
           role: true,
           membershipType: true,
           isSuspended: true,

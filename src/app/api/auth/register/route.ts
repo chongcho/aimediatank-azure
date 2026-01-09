@@ -10,7 +10,7 @@ function generateVerificationToken() {
 
 export async function POST(request: Request) {
   try {
-    const { email: rawEmail, username, password, name, legalName, phone, location, ageRange, bio } = await request.json()
+    const { email: rawEmail, username, password, name, legalName, phone, location, bio } = await request.json()
 
     // Validation
     if (!rawEmail || !username || !password) {
@@ -79,7 +79,6 @@ export async function POST(request: Request) {
           legalName: legalName || null,
           phone: phone || null,
           location: location || null,
-          ageRange: ageRange || null,
           bio: bio || null,
           role: userRole,
           policyAgreedAt: new Date(),
@@ -107,7 +106,6 @@ export async function POST(request: Request) {
             legalName: legalName || null,
             phone: phone || null,
             location: location || null,
-            ageRange: ageRange || null,
             bio: bio || null,
           },
     })

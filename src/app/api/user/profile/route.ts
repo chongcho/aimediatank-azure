@@ -27,7 +27,6 @@ export async function GET(request: Request) {
         bio: true,
         phone: true,
         location: true,
-        ageRange: true,
         role: true,
         membershipType: true,
         emailVerified: true,
@@ -59,7 +58,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { name, legalName, username, email, phone, location, ageRange, bio, password, avatar } = body
+    const { name, legalName, username, email, phone, location, bio, password, avatar } = body
 
     // Check if username is taken by another user
     if (username) {
@@ -114,7 +113,6 @@ export async function PUT(request: Request) {
     }
     if (phone !== undefined) updateData.phone = phone
     if (location !== undefined) updateData.location = location
-    if (ageRange !== undefined) updateData.ageRange = ageRange
     if (bio !== undefined) updateData.bio = bio
     if (avatar !== undefined) updateData.avatar = avatar
 
@@ -136,7 +134,6 @@ export async function PUT(request: Request) {
         bio: true,
         phone: true,
         location: true,
-        ageRange: true,
         role: true,
         membershipType: true,
         emailVerified: true,

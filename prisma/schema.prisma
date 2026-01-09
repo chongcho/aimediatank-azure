@@ -18,7 +18,6 @@ model User {
   bio           String?
   phone         String?
   location      String?
-  ageRange      String?   // "UNDER_18" or "18_PLUS"
   role          String    @default("VIEWER")
   membershipType String   @default("VIEWER")  // "VIEWER", "BASIC", "PREMIUM"
   membershipExpiresAt DateTime?

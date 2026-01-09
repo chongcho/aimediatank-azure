@@ -35,7 +35,6 @@ interface User {
   avatar: string | null
   phone: string | null
   location: string | null
-  ageRange: string | null
   role: string
   membershipType: string
   isSuspended: boolean
@@ -544,7 +543,6 @@ export default function AdminPage() {
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email Address</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Phone Number</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Country</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Age Range</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Subscription Date</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Membership Status</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Status</th>
@@ -578,9 +576,6 @@ export default function AdminPage() {
                         </td>
                         <td className="p-3 text-gray-400 whitespace-nowrap">
                           {user.location || '-'}
-                        </td>
-                        <td className="p-3 text-gray-400 whitespace-nowrap">
-                          {user.ageRange === '18_PLUS' ? '18+' : user.ageRange === 'UNDER_18' ? 'Under 18' : '-'}
                         </td>
                         <td className="p-3 text-gray-400 whitespace-nowrap">
                           {new Date(user.createdAt).toLocaleDateString()}

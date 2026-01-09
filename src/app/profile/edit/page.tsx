@@ -12,7 +12,6 @@ interface ProfileData {
   email: string
   phone: string
   location: string
-  ageRange: string
   bio: string
   password: string
   confirmPassword: string
@@ -34,7 +33,6 @@ export default function EditProfilePage() {
     email: '',
     phone: '',
     location: '',
-    ageRange: '',
     bio: '',
     password: '',
     confirmPassword: '',
@@ -100,7 +98,6 @@ export default function EditProfilePage() {
           email: data.user.email || '',
           phone: data.user.phone || '',
           location: data.user.location || '',
-          ageRange: data.user.ageRange || '',
           bio: data.user.bio || '',
           password: '',
           confirmPassword: '',
@@ -438,7 +435,6 @@ export default function EditProfilePage() {
         email: formData.email,
         phone: formData.phone,
         location: formData.location,
-        ageRange: formData.ageRange,
         bio: formData.bio,
         avatar: formData.avatar,
       }
@@ -798,24 +794,6 @@ export default function EditProfilePage() {
               <option value="Peru">Peru</option>
               <option value="Other">Other</option>
             </select>
-          </div>
-
-          {/* Age Range */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Age Range *
-            </label>
-            <select
-              value={formData.ageRange}
-              onChange={(e) => setFormData({ ...formData, ageRange: e.target.value })}
-              className="w-full"
-              required
-            >
-              <option value="">Select your age range</option>
-              <option value="UNDER_18">Under 18</option>
-              <option value="18_PLUS">18 and over</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-0">Required for content filtering</p>
           </div>
 
           {/* Password Section */}
