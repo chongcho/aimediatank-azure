@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -109,7 +109,12 @@ export default function AdminPage() {
   
   // Search/filter state
   const [userSearch, setUserSearch] = useState('')
+  const [userSearchDebounced, setUserSearchDebounced] = useState('')
   const [userFilter, setUserFilter] = useState('all')
+  
+  // Debounce timers
+  const userSearchTimer = useRef<NodeJS.Timeout | null>(null)
+  const mediaSearchTimer = useRef<NodeJS.Timeout | null>(null)
   
   // Pagination state
   const [mediaPage, setMediaPage] = useState(1)
@@ -118,6 +123,7 @@ export default function AdminPage() {
   
   // Media filter state
   const [mediaSearch, setMediaSearch] = useState('')
+  const [mediaSearchDebounced, setMediaSearchDebounced] = useState('')
   const [mediaTypeFilter, setMediaTypeFilter] = useState('all')
   const [mediaStatusFilter, setMediaStatusFilter] = useState('all')
   
@@ -140,11 +146,34 @@ export default function AdminPage() {
     }
   }, [status, session, router])
 
+  // Debounce user search
+  useEffect(() => {
+    if (userSearchTimer.current) clearTimeout(userSearchTimer.current)
+    userSearchTimer.current = setTimeout(() => {
+      setUserSearchDebounced(userSearch)
+    }, 300)
+    return () => {
+      if (userSearchTimer.current) clearTimeout(userSearchTimer.current)
+    }
+  }, [userSearch])
+
+  // Debounce media search
+  useEffect(() => {
+    if (mediaSearchTimer.current) clearTimeout(mediaSearchTimer.current)
+    mediaSearchTimer.current = setTimeout(() => {
+      setMediaSearchDebounced(mediaSearch)
+      setMediaPage(1)
+    }, 300)
+    return () => {
+      if (mediaSearchTimer.current) clearTimeout(mediaSearchTimer.current)
+    }
+  }, [mediaSearch])
+
   useEffect(() => {
     if (session?.user?.role === 'ADMIN') {
       fetchData()
     }
-  }, [session, activeTab, userSearch, userFilter, mediaPage, mediaSearch, mediaTypeFilter, mediaStatusFilter])
+  }, [session, activeTab, userSearchDebounced, userFilter, mediaPage, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter])
 
   const fetchData = async () => {
     setLoading(true)
@@ -159,14 +188,14 @@ export default function AdminPage() {
         setAnalytics(data.analytics)
       } else if (activeTab === 'users') {
         const params = new URLSearchParams({ action: 'users' })
-        if (userSearch) params.set('search', userSearch)
+        if (userSearchDebounced) params.set('search', userSearchDebounced)
         if (userFilter !== 'all') params.set('filter', userFilter)
         const res = await fetch(`/api/admin?${params}`)
         const data = await res.json()
         setUsers(data.users || [])
       } else if (activeTab === 'media') {
         const params = new URLSearchParams({ action: 'media', page: String(mediaPage), limit: '20' })
-        if (mediaSearch) params.set('search', mediaSearch)
+        if (mediaSearchDebounced) params.set('search', mediaSearchDebounced)
         if (mediaTypeFilter !== 'all') params.set('type', mediaTypeFilter)
         if (mediaStatusFilter !== 'all') params.set('status', mediaStatusFilter)
         const res = await fetch(`/api/admin?${params}`)
@@ -527,7 +556,7 @@ export default function AdminPage() {
                   type="text"
                   placeholder="Search title or creator..."
                   value={mediaSearch}
-                  onChange={(e) => { setMediaSearch(e.target.value); setMediaPage(1); }}
+                  onChange={(e) => setMediaSearch(e.target.value)}
                   className="input flex-1 min-w-[200px]"
                 />
                 <select
