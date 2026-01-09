@@ -1370,8 +1370,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         const res = await fetch(`/api/chat/conversations/${activeConversation.id}`)
         if (res.ok) {
           const data = await res.json()
-          if (Array.isArray(data.messages)) {
-            setMessages(data.messages)
+          // Messages are inside data.conversation.messages
+          if (data.conversation && Array.isArray(data.conversation.messages)) {
+            setMessages(data.conversation.messages)
           }
         }
         return
