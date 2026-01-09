@@ -40,6 +40,7 @@ model User {
   lastWarningAt DateTime?                     // Last warning date
   lastWarningReason String?                   // Last warning reason
   bonusCredits  Int       @default(0)         // Bonus credits given by admin
+  creditsUsed   Int       @default(0)         // Total credits consumed (for display)
   adminNotes    String?                       // Internal admin notes
   
   createdAt     DateTime  @default(now())

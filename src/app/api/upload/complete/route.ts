@@ -220,6 +220,8 @@ export async function POST(request: Request) {
         freeUploadsUsed: true,
         freeUploadsResetAt: true,
         paidUploadCredits: true,
+        bonusCredits: true,
+        creditsUsed: true,
         _count: {
           select: { media: true }
         }
@@ -233,12 +235,15 @@ export async function POST(request: Request) {
     const config = UPLOAD_CONFIG[user.membershipType] || UPLOAD_CONFIG.VIEWER
     const freeUploadsUsed = user.freeUploadsUsed || 0
     const paidUploadCredits = user.paidUploadCredits || 0
+    const bonusCredits = user.bonusCredits || 0
+    const creditsUsed = user.creditsUsed || 0
+    const totalCredits = paidUploadCredits + bonusCredits
     const freeUploadsRemaining = user.membershipType === 'PREMIUM' 
       ? Infinity 
       : Math.max(0, config.freeUploads - freeUploadsUsed)
     
     const isFreeUpload = freeUploadsRemaining > 0 || user.membershipType === 'PREMIUM'
-    const hasPaidCredit = paidUploadCredits > 0
+    const hasPaidCredit = totalCredits > 0
     const canUpload = isFreeUpload || hasPaidCredit || config.canUploadAfterFree
 
     // Check if user can upload
@@ -315,6 +320,8 @@ export async function POST(request: Request) {
     let newFreeUploadsUsed = freeUploadsUsed
     let newFreeUploadsRemaining: number | string = freeUploadsRemaining
     let newPaidUploadCredits = paidUploadCredits
+    let newBonusCredits = bonusCredits
+    let newCreditsUsed = creditsUsed
 
     if (user.membershipType !== 'PREMIUM') {
       if (isFreeUpload) {
@@ -327,15 +334,32 @@ export async function POST(request: Request) {
           data: { freeUploadsUsed: newFreeUploadsUsed },
         })
       } else if (isPaidWithCredit) {
-        // Consume a paid upload credit
-        newPaidUploadCredits = paidUploadCredits - 1
+        // Consume a credit (bonus credits first, then paid credits)
+        newCreditsUsed = creditsUsed + 1
         
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { paidUploadCredits: newPaidUploadCredits },
-        })
-        
-        console.log(`User ${user.id} used paid upload credit. Remaining: ${newPaidUploadCredits}`)
+        if (bonusCredits > 0) {
+          // Use bonus credit first
+          newBonusCredits = bonusCredits - 1
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { 
+              bonusCredits: newBonusCredits,
+              creditsUsed: newCreditsUsed,
+            },
+          })
+          console.log(`User ${user.id} used bonus credit. Remaining bonus: ${newBonusCredits}`)
+        } else {
+          // Use paid credit
+          newPaidUploadCredits = paidUploadCredits - 1
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { 
+              paidUploadCredits: newPaidUploadCredits,
+              creditsUsed: newCreditsUsed,
+            },
+          })
+          console.log(`User ${user.id} used paid upload credit. Remaining: ${newPaidUploadCredits}`)
+        }
       }
     }
 
