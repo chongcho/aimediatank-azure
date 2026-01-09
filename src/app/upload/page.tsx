@@ -11,8 +11,6 @@ interface UploadQuota {
   freeUploadsUsed: number
   freeUploadsRemaining: number | string
   paidUploadCredits: number
-  bonusCredits: number
-  totalCredits: number
   costPerUpload: number
   nextUploadCost: number
   canUpload: boolean
@@ -318,9 +316,9 @@ function UploadPageContent() {
     }
 
     // Check if payment is required (free uploads exhausted for paid plans)
-    // If user has credits (paid or bonus), they can upload without showing payment modal
-    const hasCredits = (uploadQuota?.totalCredits || 0) > 0
-    if (uploadQuota?.statusType === 'paid' && !uploadPaid && !hasCredits) {
+    // If user has paid credits, they can upload without showing payment modal
+    const hasPaidCredits = (uploadQuota?.paidUploadCredits || 0) > 0
+    if (uploadQuota?.statusType === 'paid' && !uploadPaid && !hasPaidCredits) {
       setShowPaymentModal(true)
       return
     }
@@ -453,31 +451,19 @@ function UploadPageContent() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              {/* Free Uploads Counter */}
-              {uploadQuota.freeUploadsRemaining !== 'Unlimited' && (
-                <div className="flex items-center gap-2">
-                  <div className="text-center px-4 py-2 bg-tank-dark rounded-lg">
-                    <p className="text-2xl font-bold text-white">{uploadQuota.freeUploadsUsed}</p>
-                    <p className="text-xs text-gray-400">Used</p>
-                  </div>
-                  <div className="text-gray-500">/</div>
-                  <div className="text-center px-4 py-2 bg-tank-dark rounded-lg">
-                    <p className="text-2xl font-bold text-tank-accent">{uploadQuota.freeUploads}</p>
-                    <p className="text-xs text-gray-400">Free</p>
-                  </div>
+            {uploadQuota.freeUploadsRemaining !== 'Unlimited' && (
+              <div className="flex items-center gap-2">
+                <div className="text-center px-4 py-2 bg-tank-dark rounded-lg">
+                  <p className="text-2xl font-bold text-white">{uploadQuota.freeUploadsUsed}</p>
+                  <p className="text-xs text-gray-400">Used</p>
                 </div>
-              )}
-              {/* Credits Counter */}
-              {uploadQuota.totalCredits > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="text-center px-4 py-2 bg-tank-dark rounded-lg border border-purple-500/30">
-                    <p className="text-2xl font-bold text-purple-400">{uploadQuota.totalCredits}</p>
-                    <p className="text-xs text-gray-400">Credits</p>
-                  </div>
+                <div className="text-gray-500">/</div>
+                <div className="text-center px-4 py-2 bg-tank-dark rounded-lg">
+                  <p className="text-2xl font-bold text-tank-accent">{uploadQuota.freeUploads}</p>
+                  <p className="text-xs text-gray-400">Free</p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
           {uploadQuota.statusType === 'blocked' && (
             <div className="mt-4 text-center">
@@ -752,10 +738,10 @@ function UploadPageContent() {
             className="btn-primary w-full"
           >
             {loading ? 'Uploading...' : 
-              uploadQuota?.statusType === 'paid' && !uploadPaid && !((uploadQuota?.totalCredits ?? 0) > 0) 
+              uploadQuota?.statusType === 'paid' && !uploadPaid && !((uploadQuota?.paidUploadCredits ?? 0) > 0) 
                 ? `Pay & Upload ($${uploadQuota.costPerUpload.toFixed(2)})` 
-                : (uploadQuota?.totalCredits ?? 0) > 0 
-                  ? `Upload (Using Credit)` 
+                : (uploadQuota?.paidUploadCredits ?? 0) > 0 
+                  ? `Upload (Using Paid Credit)` 
                   : 'Upload Media'}
           </button>
         </form>
