@@ -1019,9 +1019,24 @@ export default function AdminPage() {
           {/* Ad Sales Reports */}
           {activeTab === 'adSales' && (
             <div className="space-y-4">
-              <div className="card text-center py-12 text-gray-500">
-                <h3 className="text-lg font-semibold mb-2">Ad Sales Reports</h3>
-                <p>No ad sales data available yet.</p>
+              <div className="card overflow-x-auto">
+                <table className="w-full text-sm min-w-[800px]">
+                  <thead>
+                    <tr className="border-b border-tank-light bg-[#2a7b9b]">
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Year</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Month</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Google AdSense</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Revenues</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-gray-500">
+                        No ad sales data available yet. Connect Google AdSense to view revenue reports.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
