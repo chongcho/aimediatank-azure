@@ -5,6 +5,84 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
+// GET - Fetch conversation messages
+export async function GET(
+  request: Request,
+  { params }: { params: { conversationId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { conversationId } = params
+
+    // Verify user is a member of this conversation
+    const membership = await prisma.conversationMember.findFirst({
+      where: {
+        conversationId,
+        userId: session.user.id,
+      },
+    })
+
+    if (!membership) {
+      return NextResponse.json({ error: 'Not a member of this conversation' }, { status: 403 })
+    }
+
+    // Fetch conversation with messages
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        messages: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!conversation) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+    }
+
+    // Update lastReadAt for this user
+    await prisma.conversationMember.update({
+      where: { id: membership.id },
+      data: { lastReadAt: new Date() },
+    })
+
+    return NextResponse.json({ conversation })
+  } catch (error) {
+    console.error('Error fetching conversation:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch conversation' },
+      { status: 500 }
+    )
+  }
+}
+
 // PATCH - Update conversation (e.g., rename, priority)
 export async function PATCH(
   request: Request,
