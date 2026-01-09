@@ -273,9 +273,10 @@ export default function AdminPage() {
         const data = await res.json()
         setChatMessages(data.messages || [])
       } else if (activeTab === 'membershipSales') {
-        const res = await fetch('/api/admin?action=reports')
+        // Fetch users with membership for sales report
+        const res = await fetch('/api/admin?action=users&filter=members')
         const data = await res.json()
-        setReports(data.reports || [])
+        setUsers(data.users || [])
       } else if (activeTab === 'contentSales') {
         const res = await fetch('/api/admin?action=contentSales')
         const data = await res.json()
@@ -907,9 +908,58 @@ export default function AdminPage() {
           {/* Membership Sales Reports */}
           {activeTab === 'membershipSales' && (
             <div className="space-y-4">
-              <div className="card text-center py-12 text-gray-500">
-                <h3 className="text-lg font-semibold mb-2">Membership Sales Reports</h3>
-                <p>No membership sales data available yet.</p>
+              <div className="card overflow-x-auto">
+                <table className="w-full text-sm min-w-[1200px]">
+                  <thead>
+                    <tr className="border-b border-tank-light bg-[#2a7b9b]">
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Year</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Month</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">User ID</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">User Name</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Email</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Phone</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Country</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Membership</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Revenues</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.filter(u => u.membershipType !== 'VIEWER').length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-gray-500">
+                          No membership sales data available yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      users.filter(u => u.membershipType !== 'VIEWER').map((user) => {
+                        const date = new Date(user.createdAt)
+                        return (
+                          <tr key={user.id} className="border-b border-tank-light/50 hover:bg-tank-light/20 even:bg-[#c5d9e0]/10">
+                            <td className="p-3 text-gray-300">{date.getFullYear()}</td>
+                            <td className="p-3 text-gray-300">{date.toLocaleString('default', { month: 'short' })}</td>
+                            <td className="p-3 text-gray-300">@{user.username}</td>
+                            <td className="p-3 text-gray-300">{user.legalName || '-'}</td>
+                            <td className="p-3 text-gray-300">{user.email}</td>
+                            <td className="p-3 text-gray-300">{user.phone || '-'}</td>
+                            <td className="p-3 text-gray-300">{user.location || '-'}</td>
+                            <td className="p-3">
+                              <span className={`badge text-xs ${
+                                user.membershipType === 'PREMIUM' ? 'bg-purple-500/20 text-purple-400' :
+                                'bg-tank-accent/20 text-tank-accent'
+                              }`}>
+                                {user.membershipType}
+                              </span>
+                            </td>
+                            <td className="p-3 text-gray-300">
+                              {user.membershipType === 'PREMIUM' ? '$19.99' : 
+                               user.membershipType === 'BASIC' ? '$9.99' : '-'}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

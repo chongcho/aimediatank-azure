@@ -88,6 +88,8 @@ export async function GET(request: Request) {
         where.isSuspended = true
       } else if (filter === 'warned') {
         where.warningCount = { gt: 0 }
+      } else if (filter === 'members') {
+        where.membershipType = { not: 'VIEWER' }
       }
       
       const users = await prisma.user.findMany({
