@@ -1,0 +1,66 @@
+Request #,Date,Category,Request Summary,Status,Files Modified
+1,Dec 2025,Project Setup,Go back to version fb2701f and continue development,Completed,Git operations
+2,Dec 2025,Bug Fix,Fix "Save to My Contents" not showing saved items,Completed,"src/app/api/media/[mediaId]/save/route.ts, src/app/api/user/saved/route.ts"
+3,Dec 2025,UI Change,Remove "Music" button from profile page,Completed,src/app/profile/[username]/page.tsx
+4,Dec 2025,Bug Fix,Show thumbnails on saved contents,Completed,src/app/profile/[username]/page.tsx
+5,Dec 2025,Feature,Show all media in TalkChat "+" picker (Uploads/Purchased/Saved),Completed,src/components/TalkChat.tsx
+6,Dec 2025,Verification,Double check Google AdSense configuration,Completed,"src/app/layout.tsx, public/ads.txt"
+7,Dec 2025,UI Change,Media detail - change edit icon to green "Edit" button,Completed,src/app/media/[mediaId]/page.tsx
+8,Dec 2025,Deployment,Push changes to repository,Completed,Git operations
+9,Dec 2025,UI Change,Remove icons from buttons,Completed,Multiple page files
+10,Dec 2025,Deployment,Push to branches,Completed,Git operations
+11,Dec 2025,UI Change,TalkChat scroll behavior - scroll up to menubar top,Completed,src/app/profile/edit/page.tsx
+12,Dec 2025,UI Change,Apply scroll behavior to all screens,Completed,All page components (pb-[500px])
+13,Dec 2025,UI Change,Review and update Edit Profile page (padding/fonts/spacing),Completed,src/app/profile/edit/page.tsx
+14,Dec 2025,UI Change,Add 20px padding to Edit Profile header,Completed,src/app/profile/edit/page.tsx
+15,Dec 2025,UI Change,Increase "Edit Profile" font to 18px,Completed,src/app/profile/edit/page.tsx
+16,Dec 2025,UI Change,Align Bio box with Edit Avatar button,Completed,src/app/profile/edit/page.tsx
+17,Dec 2025,UI Change,Review and update My Contents page (fonts/padding/buttons),Completed,src/app/profile/[username]/page.tsx
+18,Dec 2025,UI Change,Review and update Membership page,Completed,src/app/pricing/page.tsx
+19,Dec 2025,UI Change,Add "Back" button to My Contents page,Completed,src/app/profile/[username]/page.tsx
+20,Dec 2025,Build,Run npm run build,Completed,Build verification
+21,Dec 2025,UI Change,Relocate "Back" button to bottom left on all pages,Completed,"Edit Profile, Pricing, Support, Profile, Media Detail, Policy pages"
+22,Dec 2025,UI Change,TalkChat - remove Emoji icon,Completed,src/components/TalkChat.tsx
+23,Dec 2025,UI Change,Main menu bar - replace logo and add Home icon,Completed,src/components/Navbar.tsx
+24,Dec 2025,Verification,Check AdSense status link,Completed,Provided AdSense dashboard URL
+25,Dec 2025,Bug Fix,Fix sort mode persistence (returning to Most Popular),Completed,src/app/page.tsx (localStorage implementation)
+26,Dec 2025,Feature,Change TalkChat resize to independent horizontal/vertical,Completed,src/components/TalkChat.tsx
+27,Dec 2025,UI Change,Remove TalkChat bottom and top rounded corners,Completed,src/components/TalkChat.tsx
+28,Dec 2025,UI Change,Style "AiMediaTank" title (non-italic/straight),Completed,src/app/page.tsx
+29,Dec 2025,UI Change,Reduce TalkChat message input box height,Completed,src/components/TalkChat.tsx
+30,Dec 2025,UI Change,Style "AI-Generated" text and update subtitle,Completed,src/app/page.tsx
+31,Dec 2025,UI Change,Reduce Upload button size (remove + icon),Completed,src/components/Navbar.tsx
+32,Dec 2025,Feature,Media detail - autoplay video,Completed,src/components/MediaPlayer.tsx
+33,Dec 2025,Verification,Check staging web link,Completed,Identified URL mismatch
+34,Dec 2025,Bug Fix,Fix username update on media detail page,Completed,"src/app/api/media/[mediaId]/route.ts, src/app/media/[mediaId]/page.tsx, src/lib/auth.ts"
+35,Dec 2025,Infrastructure,Check staging environment configuration,Completed,Identified NEXTAUTH_URL issue
+36,Jan 2026,Feature,New private message badge on Chat/Private buttons,Completed,"src/app/api/chat/unread/route.ts, src/components/Navbar.tsx, src/components/TalkChat.tsx"
+37,Jan 2026,Verification,Check staging database sharing with production,Completed,Confirmed same database
+38,Jan 2026,Feature,Display Open chat records always (regardless of sign-in),Completed,src/components/TalkChat.tsx
+39,Jan 2026,Bug Fix,Fix staging/production mismatch,Completed,Azure Portal configuration guidance
+40,Jan 2026,UI Change,Add unread badge on message list,Completed,src/components/TalkChat.tsx
+41,Jan 2026,Bug Fix,Fix media display black areas on desktop,Completed,src/app/globals.css
+42,Jan 2026,Bug Fix,Move chat window to always visible position,Completed,src/components/TalkChat.tsx (viewport constraints)
+43,Jan 2026,Feature,Chat/Private badge show TalkChat unread only,Completed,"src/app/api/notifications/route.ts, src/app/api/chat/unread/route.ts"
+44,Jan 2026,Bug Fix,Fix Private tab badge mismatch (showing 1 but no messages),Completed,src/app/api/chat/unread/route.ts
+45,Jan 2026,Feature,Add context menu to chat records (Edit/Leave/Close),Completed,"src/components/TalkChat.tsx, src/app/api/chat/conversations/[conversationId]/route.ts"
+46,Jan 2026,UI Change,Make confirmation popup in TalkChat (not browser dialog),Completed,src/components/TalkChat.tsx
+47,Jan 2026,Feature,Add "Close" option to context menu,Completed,src/components/TalkChat.tsx
+48,Jan 2026,Feature,Activate right-click only on Private chat records,Completed,src/components/TalkChat.tsx
+49,Jan 2026,Feature,Add "Priority" to context menu with red flag indicator,Completed,"prisma/schema.prisma, src/components/TalkChat.tsx, src/app/api/chat/conversations/route.ts"
+50,Jan 2026,UI Change,Color highlight clicked message in chat list,Completed,src/components/TalkChat.tsx
+51,Jan 2026,UI Change,Mobile popup alignment with TalkChat menubar,Completed,src/components/TalkChat.tsx
+52,Jan 2026,Bug Fix,Block iOS Copy Writing Tools popup on long-press,Completed,src/components/TalkChat.tsx (CSS properties)
+53,Jan 2026,UI Change,Adjust mobile popup to fit within TalkChat box,Completed,src/components/TalkChat.tsx
+54,Jan 2026,Feature,Create Admin Panel (analytics/users/media/chat/reports),Completed,"src/app/admin/page.tsx, src/app/api/admin/route.ts, prisma/schema.prisma"
+55,Jan 2026,Configuration,Set support@aimediatank.com as admin,Completed,Database update via API
+56,Jan 2026,Bug Fix,Fix admin panel showing only 20 of 57 items,Completed,src/app/admin/page.tsx (pagination)
+57,Jan 2026,Feature,Add filter function to Admin Media tab,Completed,"src/app/admin/page.tsx, src/app/api/admin/route.ts"
+58,Jan 2026,Feature,Custom delete popup with email notification option,Completed,"src/app/admin/page.tsx, src/app/api/admin/route.ts"
+59,Jan 2026,UI Change,Change "Delete Content" to "Send and Delete Content",Completed,src/app/admin/page.tsx
+60,Jan 2026,Feature,Soft delete content (keep records but remove from platform),Completed,"prisma/schema.prisma, src/app/api/admin/route.ts, src/app/api/media/[mediaId]/route.ts"
+61,Jan 2026,Bug Fix,Fix TalkChat 405 error,Completed,src/app/api/chat/conversations/[conversationId]/route.ts (added GET/POST)
+62,Jan 2026,Bug Fix,Fix message not displayed in TalkChat,Completed,src/components/TalkChat.tsx (data path fix)
+63,Jan 2026,Bug Fix,Fix admin search input deactivation,Completed,src/app/admin/page.tsx (debounce + restructure)
+64,Jan 2026,Feature,Update @mention search to work in Admin Panel,Completed,src/app/api/admin/route.ts
+
