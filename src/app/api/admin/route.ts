@@ -70,11 +70,19 @@ export async function GET(request: Request) {
       
       const where: any = {}
       if (search) {
-        where.OR = [
-          { username: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
-          { name: { contains: search, mode: 'insensitive' } },
-        ]
+        // Strip @ prefix if present for username search
+        const searchTerm = search.startsWith('@') ? search.slice(1) : search
+        
+        if (search.startsWith('@')) {
+          // Search only by username when @ prefix is used
+          where.username = { contains: searchTerm, mode: 'insensitive' }
+        } else {
+          where.OR = [
+            { username: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { name: { contains: search, mode: 'insensitive' } },
+          ]
+        }
       }
       if (filter === 'suspended') {
         where.isSuspended = true
