@@ -119,6 +119,15 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [showUserModal, setShowUserModal] = useState(false)
   
+  // Warning details modal state
+  const [warningModal, setWarningModal] = useState<{
+    show: boolean
+    username: string
+    warningCount: number
+    lastWarningReason: string | null
+    lastWarningAt: string | null
+  } | null>(null)
+  
   // Search/filter state
   const [userSearch, setUserSearch] = useState('')
   const [userSearchDebounced, setUserSearchDebounced] = useState('')
@@ -604,12 +613,34 @@ export default function AdminPage() {
                             {user.isSuspended ? (
                               <span className="badge bg-red-500/20 text-red-400 text-xs">Suspended</span>
                             ) : (
-                              <span className="badge bg-green-500/20 text-green-400 text-xs">Active</span>
+                              <span className={`badge text-xs ${
+                                user.membershipType === 'PREMIUM' ? 'bg-purple-500/20 text-purple-400' :
+                                user.membershipType === 'ADVANCED' ? 'bg-blue-500/20 text-blue-400' :
+                                user.membershipType === 'BASIC' ? 'bg-tank-accent/20 text-tank-accent' :
+                                'bg-gray-500/20 text-gray-400'
+                              }`}>
+                                {user.membershipType === 'VIEWER' ? 'Viewer' : 
+                                 user.membershipType === 'BASIC' ? 'Basic' :
+                                 user.membershipType === 'ADVANCED' ? 'Advanced' :
+                                 user.membershipType === 'PREMIUM' ? 'Premium' : user.membershipType}
+                              </span>
                             )}
                             {user.warningCount > 0 && (
-                              <span className="badge bg-yellow-500/20 text-yellow-400 text-xs">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setWarningModal({
+                                    show: true,
+                                    username: user.username,
+                                    warningCount: user.warningCount,
+                                    lastWarningReason: user.lastWarningReason,
+                                    lastWarningAt: user.lastWarningAt
+                                  })
+                                }}
+                                className="badge bg-yellow-500/20 text-yellow-400 text-xs hover:bg-yellow-500/30 transition-colors cursor-pointer"
+                              >
                                 {user.warningCount}⚠️
-                              </span>
+                              </button>
                             )}
                           </div>
                         </td>
@@ -1046,6 +1077,49 @@ export default function AdminPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Warning Details Modal */}
+      {warningModal?.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setWarningModal(null)}>
+          <div className="bg-tank-gray rounded-xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h2 className="text-xl font-bold text-yellow-400">Warning Details</h2>
+                <p className="text-gray-400">@{warningModal.username}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm mb-1">Total Warnings</p>
+                <p className="text-2xl font-bold text-yellow-400">{warningModal.warningCount}</p>
+              </div>
+              
+              {warningModal.lastWarningReason && (
+                <div className="bg-tank-dark rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-1">Last Warning Reason</p>
+                  <p className="text-white">{warningModal.lastWarningReason}</p>
+                </div>
+              )}
+              
+              {warningModal.lastWarningAt && (
+                <div className="bg-tank-dark rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-1">Last Warning Date</p>
+                  <p className="text-white">{new Date(warningModal.lastWarningAt).toLocaleDateString()} at {new Date(warningModal.lastWarningAt).toLocaleTimeString()}</p>
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={() => setWarningModal(null)}
+              className="w-full mt-6 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
 
       {/* User Management Modal */}
