@@ -484,9 +484,6 @@ export default function AdminPage() {
                   <tbody>
                     {users.map((user) => (
                       <tr key={user.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
-                        <td className="p-3 text-gray-400 font-mono text-xs" title={user.id}>
-                          {user.id.slice(0, 8)}...
-                        </td>
                         <td className="p-3">
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-xs font-bold overflow-hidden flex-shrink-0">
@@ -498,6 +495,9 @@ export default function AdminPage() {
                             </div>
                             <span className="font-medium whitespace-nowrap">@{user.username}</span>
                           </div>
+                        </td>
+                        <td className="p-3 text-gray-300 whitespace-nowrap">
+                          {user.name || '-'}
                         </td>
                         <td className="p-3 text-gray-300 max-w-[180px] truncate" title={user.email}>
                           {user.email}
