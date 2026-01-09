@@ -101,7 +101,7 @@ interface ChatMessage {
   }
 }
 
-type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales'
+type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales'
 
 export default function AdminPage() {
   const { data: session, status } = useSession()
@@ -333,6 +333,7 @@ export default function AdminPage() {
           { id: 'chat', label: 'Chat' },
           { id: 'membershipSales', label: 'Membership Sales Reports' },
           { id: 'contentSales', label: 'Contents Sales Reports' },
+          { id: 'adSales', label: 'Ad Sales Reports' },
         ] as { id: TabType; label: string }[]).map((tab) => (
           <button
             key={tab.id}
@@ -919,6 +920,16 @@ export default function AdminPage() {
               <div className="card text-center py-12 text-gray-500">
                 <h3 className="text-lg font-semibold mb-2">Contents Sales Reports</h3>
                 <p>No content sales data available yet.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Ad Sales Reports */}
+          {activeTab === 'adSales' && (
+            <div className="space-y-4">
+              <div className="card text-center py-12 text-gray-500">
+                <h3 className="text-lg font-semibold mb-2">Ad Sales Reports</h3>
+                <p>No ad sales data available yet.</p>
               </div>
             </div>
           )}
