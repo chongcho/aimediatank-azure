@@ -83,6 +83,79 @@ export async function GET(
   }
 }
 
+// POST - Send a message to the conversation
+export async function POST(
+  request: Request,
+  { params }: { params: { conversationId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { conversationId } = params
+    const body = await request.json()
+    const { content } = body
+
+    if (!content || !content.trim()) {
+      return NextResponse.json({ error: 'Message content required' }, { status: 400 })
+    }
+
+    // Verify user is a member of this conversation
+    const membership = await prisma.conversationMember.findFirst({
+      where: {
+        conversationId,
+        userId: session.user.id,
+      },
+    })
+
+    if (!membership) {
+      return NextResponse.json({ error: 'Not a member of this conversation' }, { status: 403 })
+    }
+
+    // Create the message
+    const message = await prisma.chatMessage.create({
+      data: {
+        content: content.trim(),
+        conversationId,
+        userId: session.user.id,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            name: true,
+            avatar: true,
+          },
+        },
+      },
+    })
+
+    // Update conversation's updatedAt
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { updatedAt: new Date() },
+    })
+
+    // Update sender's lastReadAt
+    await prisma.conversationMember.update({
+      where: { id: membership.id },
+      data: { lastReadAt: new Date() },
+    })
+
+    return NextResponse.json({ message })
+  } catch (error) {
+    console.error('Error sending message:', error)
+    return NextResponse.json(
+      { error: 'Failed to send message' },
+      { status: 500 }
+    )
+  }
+}
+
 // PATCH - Update conversation (e.g., rename, priority)
 export async function PATCH(
   request: Request,
