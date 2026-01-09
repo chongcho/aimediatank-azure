@@ -113,6 +113,7 @@ export default function AdminPage() {
   const [media, setMedia] = useState<Media[]>([])
   const [reports, setReports] = useState<Report[]>([])
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [contentSales, setContentSales] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   
   // User modal state
@@ -280,7 +281,7 @@ export default function AdminPage() {
       } else if (activeTab === 'contentSales') {
         const res = await fetch('/api/admin?action=contentSales')
         const data = await res.json()
-        setReports(data.sales || [])
+        setContentSales(data.sales || [])
       }
     } catch (error) {
       console.error('Error fetching admin data:', error)
@@ -967,9 +968,50 @@ export default function AdminPage() {
           {/* Contents Sales Reports */}
           {activeTab === 'contentSales' && (
             <div className="space-y-4">
-              <div className="card text-center py-12 text-gray-500">
-                <h3 className="text-lg font-semibold mb-2">Contents Sales Reports</h3>
-                <p>No content sales data available yet.</p>
+              <div className="card overflow-x-auto">
+                <table className="w-full text-sm min-w-[1200px]">
+                  <thead>
+                    <tr className="border-b border-tank-light bg-[#2a7b9b]">
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Year</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Month</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">User ID</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">User Name</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Email</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Phone</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Country</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Media Title</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Sold Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(!contentSales || contentSales.length === 0) ? (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-gray-500">
+                          No content sales data available yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      contentSales.map((sale: any) => {
+                        const date = new Date(sale.completedAt || sale.createdAt)
+                        return (
+                          <tr key={sale.id} className="border-b border-tank-light/50 hover:bg-tank-light/20 even:bg-[#c5d9e0]/10">
+                            <td className="p-3 text-gray-300">{date.getFullYear()}</td>
+                            <td className="p-3 text-gray-300">{date.toLocaleString('default', { month: 'short' })}</td>
+                            <td className="p-3 text-gray-300">@{sale.buyer?.username || '-'}</td>
+                            <td className="p-3 text-gray-300">{sale.buyer?.legalName || sale.buyer?.name || '-'}</td>
+                            <td className="p-3 text-gray-300">{sale.buyer?.email || '-'}</td>
+                            <td className="p-3 text-gray-300">{sale.buyer?.phone || '-'}</td>
+                            <td className="p-3 text-gray-300">{sale.buyer?.location || '-'}</td>
+                            <td className="p-3 text-gray-300 max-w-[200px] truncate" title={sale.media?.title}>
+                              {sale.media?.title || '-'}
+                            </td>
+                            <td className="p-3 text-gray-300">${sale.amount?.toFixed(2) || '0.00'}</td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

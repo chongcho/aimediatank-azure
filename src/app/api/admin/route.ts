@@ -246,6 +246,36 @@ export async function GET(request: Request) {
       return NextResponse.json({ actions })
     }
 
+    if (action === 'contentSales') {
+      // Get content/media sales (completed purchases)
+      const sales = await prisma.purchase.findMany({
+        where: { status: 'completed' },
+        include: {
+          buyer: {
+            select: {
+              id: true,
+              username: true,
+              name: true,
+              legalName: true,
+              email: true,
+              phone: true,
+              location: true,
+            },
+          },
+          media: {
+            select: {
+              id: true,
+              title: true,
+              type: true,
+            },
+          },
+        },
+        orderBy: { completedAt: 'desc' },
+        take: 100,
+      })
+      return NextResponse.json({ sales })
+    }
+
     if (action === 'media') {
       // Get all media for moderation
       const page = parseInt(searchParams.get('page') || '1')
