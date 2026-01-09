@@ -387,6 +387,59 @@ export async function POST(request: Request) {
         await logAdminAction(adminId, 'REJECT_MEDIA', 'MEDIA', targetId)
         return NextResponse.json({ message: 'Media rejected' })
 
+      case 'suspendMedia': {
+        // Get media details
+        const mediaToSuspend = await prisma.media.findUnique({
+          where: { id: targetId },
+          include: { user: { select: { id: true, email: true } } }
+        })
+        
+        if (!mediaToSuspend) {
+          return NextResponse.json({ error: 'Media not found' }, { status: 404 })
+        }
+        
+        const suspendReason = data?.reason || 'Policy violation'
+        
+        // Suspend the media (set isApproved to false)
+        await prisma.media.update({
+          where: { id: targetId },
+          data: { isApproved: false },
+        })
+        
+        // Create notification for the creator
+        await prisma.notification.create({
+          data: {
+            userId: mediaToSuspend.user.id,
+            type: 'content_suspended',
+            title: 'Content Suspended',
+            message: `Your content "${data?.mediaTitle || 'Untitled'}" has been suspended. Reason: ${suspendReason}`,
+          },
+        })
+        
+        // Send email notification if requested
+        if (data?.sendNotification && data?.creatorEmail) {
+          try {
+            const { sendEmail } = await import('@/lib/email')
+            await sendEmail({
+              to: data.creatorEmail,
+              subject: 'AiMediaTank - Content Suspended',
+              html: `
+                <h2>Content Suspended</h2>
+                <p>Your content "<strong>${data?.mediaTitle || 'Untitled'}</strong>" has been suspended on AiMediaTank.</p>
+                <p><strong>Reason:</strong> ${suspendReason}</p>
+                <p>Please review our community guidelines. If you believe this was a mistake, please contact our support team.</p>
+                <p>Best regards,<br>AiMediaTank Team</p>
+              `,
+            })
+          } catch (emailError) {
+            console.error('Failed to send suspension notification email:', emailError)
+          }
+        }
+        
+        await logAdminAction(adminId, 'SUSPEND_MEDIA', 'MEDIA', targetId, { reason: suspendReason, mediaTitle: data?.mediaTitle })
+        return NextResponse.json({ message: 'Media suspended' })
+      }
+
       case 'updateMediaStatus':
         await prisma.media.update({
           where: { id: targetId },

@@ -149,6 +149,17 @@ export default function AdminPage() {
   } | null>(null)
   const [deleteReason, setDeleteReason] = useState('')
   const [sendNotification, setSendNotification] = useState(true)
+  
+  // Suspend media modal state
+  const [suspendModal, setSuspendModal] = useState<{
+    show: boolean
+    mediaId: string
+    mediaTitle: string
+    creatorUsername: string
+    creatorEmail: string
+  } | null>(null)
+  const [suspendReason, setSuspendReason] = useState('')
+  const [sendSuspendNotification, setSendSuspendNotification] = useState(true)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -707,30 +718,39 @@ export default function AdminPage() {
                                   Restore
                                 </button>
                               ) : (
-                                <>
-                                  {!item.isApproved && (
-                                    <button onClick={() => handleAction('approveMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
-                                      Approve
-                                    </button>
-                                  )}
-                                  {item.isApproved && (
-                                    <button onClick={() => handleAction('rejectMedia', item.id)} className="text-yellow-400 hover:text-yellow-300 text-sm">
-                                      Reject
-                                    </button>
-                                  )}
+                              <>
+                                {!item.isApproved && (
+                                  <button onClick={() => handleAction('approveMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
+                                    Approve
+                                  </button>
+                                )}
+                                {item.isApproved && (
                                   <button 
-                                    onClick={() => setDeleteModal({
+                                    onClick={() => setSuspendModal({
                                       show: true,
                                       mediaId: item.id,
                                       mediaTitle: item.title,
                                       creatorUsername: item.user.username,
                                       creatorEmail: item.user.email
-                                    })} 
-                                    className="text-red-400 hover:text-red-300 text-sm"
+                                    })}
+                                    className="text-yellow-400 hover:text-yellow-300 text-sm"
                                   >
-                                    Delete
+                                    Suspend
                                   </button>
-                                </>
+                                )}
+                                <button 
+                                  onClick={() => setDeleteModal({
+                                    show: true,
+                                    mediaId: item.id,
+                                    mediaTitle: item.title,
+                                    creatorUsername: item.user.username,
+                                    creatorEmail: item.user.email
+                                  })} 
+                                  className="text-red-400 hover:text-red-300 text-sm"
+                                >
+                                  Delete
+                                </button>
+                              </>
                               )}
                             </div>
                           </td>
@@ -1032,6 +1052,72 @@ export default function AdminPage() {
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 px-4"
               >
                 Send and Delete Content
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend Media Modal */}
+      {suspendModal?.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setSuspendModal(null); setSuspendReason(''); }}>
+          <div className="bg-tank-gray rounded-xl p-6 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-4 text-yellow-400">⚠️ Suspend Content</h2>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm">Content Title:</p>
+                <p className="font-medium">{suspendModal.mediaTitle}</p>
+              </div>
+              
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm">Creator:</p>
+                <p className="font-medium">@{suspendModal.creatorUsername}</p>
+                <p className="text-sm text-gray-400">{suspendModal.creatorEmail}</p>
+              </div>
+              
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Reason for Suspension:</label>
+                <textarea
+                  value={suspendReason}
+                  onChange={(e) => setSuspendReason(e.target.value)}
+                  placeholder="Enter the reason for suspending this content..."
+                  className="input w-full h-24 resize-none"
+                />
+              </div>
+              
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={sendSuspendNotification}
+                  onChange={(e) => setSendSuspendNotification(e.target.checked)}
+                  className="w-4 h-4 rounded"
+                />
+                <span className="text-gray-300">Send notification email to creator</span>
+              </label>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setSuspendModal(null); setSuspendReason(''); }}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await handleAction('suspendMedia', suspendModal.mediaId, {
+                    reason: suspendReason,
+                    sendNotification: sendSuspendNotification,
+                    creatorEmail: suspendModal.creatorEmail,
+                    mediaTitle: suspendModal.mediaTitle
+                  })
+                  setSuspendModal(null)
+                  setSuspendReason('')
+                }}
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg py-2 px-4"
+              >
+                Send and Suspend Content
               </button>
             </div>
           </div>
