@@ -13,6 +13,7 @@ interface ChatMessage {
     username: string
     name: string | null
     avatar: string | null
+    warningCount?: number
   }
 }
 
@@ -2823,8 +2824,20 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     flexDirection: 'column',
                     alignItems: isOwn ? 'flex-end' : 'flex-start',
                   }}>
-                    <p style={{ fontSize: '10px', color: '#666', marginBottom: '2px' }}>
+                    <p style={{ fontSize: '10px', color: '#666', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       {msg.user.username}
+                      {msg.user.warningCount && msg.user.warningCount > 0 && (
+                        <span style={{
+                          backgroundColor: '#fef3c7',
+                          color: '#d97706',
+                          fontSize: '9px',
+                          padding: '1px 4px',
+                          borderRadius: '4px',
+                          fontWeight: 'bold',
+                        }}>
+                          ⚠️{msg.user.warningCount}
+                        </span>
+                      )}
                     </p>
                     <div style={{
                       padding: '1px 12px',
