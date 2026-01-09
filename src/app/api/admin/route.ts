@@ -617,23 +617,64 @@ export async function POST(request: Request) {
 
       // New actions for user moderation
       case 'suspendUser': {
+        // Get user info for email
+        const suspendTargetUser = await prisma.user.findUnique({
+          where: { id: targetId },
+          select: { email: true, legalName: true, username: true }
+        })
+        
         const suspendUntil = data?.duration 
           ? new Date(Date.now() + data.duration * 24 * 60 * 60 * 1000) // duration in days
           : null // permanent
+        const suspendReason = data?.reason || 'Policy violation'
+        
         await prisma.user.update({
           where: { id: targetId },
           data: {
             isSuspended: true,
             suspendedAt: new Date(),
             suspendedUntil: suspendUntil,
-            suspendReason: data?.reason || 'Policy violation',
+            suspendReason: suspendReason,
           },
         })
+        
+        // Create notification for user
+        await prisma.notification.create({
+          data: {
+            userId: targetId,
+            type: 'suspension',
+            title: 'Account Suspended',
+            message: `🚫 Your account has been suspended${suspendUntil ? ` until ${suspendUntil.toLocaleDateString()}` : ' permanently'}. Reason: ${suspendReason}`,
+          },
+        })
+        
+        // Send email notification
+        if (suspendTargetUser) {
+          try {
+            const { sendEmail, generateSuspensionEmail } = await import('@/lib/email')
+            const userName = suspendTargetUser.legalName || suspendTargetUser.username || 'User'
+            await sendEmail({
+              to: suspendTargetUser.email,
+              subject: '🚫 Your AI Media Tank Account Has Been Suspended',
+              html: generateSuspensionEmail(userName, suspendReason, suspendUntil)
+            })
+            console.log(`Suspension email sent to ${suspendTargetUser.email}`)
+          } catch (emailError) {
+            console.error('Failed to send suspension email:', emailError)
+          }
+        }
+        
         await logAdminAction(adminId, 'SUSPEND_USER', 'USER', targetId, data)
         return NextResponse.json({ message: 'User suspended' })
       }
 
-      case 'unsuspendUser':
+      case 'unsuspendUser': {
+        // Get user info for email
+        const unsuspendTargetUser = await prisma.user.findUnique({
+          where: { id: targetId },
+          select: { email: true, legalName: true, username: true }
+        })
+        
         await prisma.user.update({
           where: { id: targetId },
           data: {
@@ -643,29 +684,85 @@ export async function POST(request: Request) {
             suspendReason: null,
           },
         })
+        
+        // Create notification for user
+        await prisma.notification.create({
+          data: {
+            userId: targetId,
+            type: 'info',
+            title: 'Account Reinstated',
+            message: '✅ Your account has been reinstated and is now fully active.',
+          },
+        })
+        
+        // Send email notification
+        if (unsuspendTargetUser) {
+          try {
+            const { sendEmail, generateUnsuspensionEmail } = await import('@/lib/email')
+            const userName = unsuspendTargetUser.legalName || unsuspendTargetUser.username || 'User'
+            await sendEmail({
+              to: unsuspendTargetUser.email,
+              subject: '✅ Your AI Media Tank Account Has Been Reinstated',
+              html: generateUnsuspensionEmail(userName)
+            })
+            console.log(`Unsuspension email sent to ${unsuspendTargetUser.email}`)
+          } catch (emailError) {
+            console.error('Failed to send unsuspension email:', emailError)
+          }
+        }
+        
         await logAdminAction(adminId, 'UNSUSPEND_USER', 'USER', targetId)
         return NextResponse.json({ message: 'User unsuspended' })
+      }
 
-      case 'warnUser':
+      case 'warnUser': {
+        // Get user info for email
+        const warnTargetUser = await prisma.user.findUnique({
+          where: { id: targetId },
+          select: { email: true, legalName: true, username: true, warningCount: true }
+        })
+        
+        const warningReason = data?.reason || 'Policy violation'
+        const newWarningCount = (warnTargetUser?.warningCount || 0) + 1
+        
         await prisma.user.update({
           where: { id: targetId },
           data: {
             warningCount: { increment: 1 },
             lastWarningAt: new Date(),
-            lastWarningReason: data?.reason || 'Policy violation',
+            lastWarningReason: warningReason,
           },
         })
+        
         // Create notification for user
         await prisma.notification.create({
           data: {
             userId: targetId,
             type: 'warning',
             title: 'Account Warning',
-            message: `⚠️ Warning: ${data?.reason || 'Policy violation'}`,
+            message: `⚠️ Warning: ${warningReason}. You now have ${newWarningCount} warning(s).`,
           },
         })
+        
+        // Send email notification
+        if (warnTargetUser) {
+          try {
+            const { sendEmail, generateWarningEmail } = await import('@/lib/email')
+            const userName = warnTargetUser.legalName || warnTargetUser.username || 'User'
+            await sendEmail({
+              to: warnTargetUser.email,
+              subject: '⚠️ Warning: Your AI Media Tank Account',
+              html: generateWarningEmail(userName, warningReason, newWarningCount)
+            })
+            console.log(`Warning email sent to ${warnTargetUser.email}`)
+          } catch (emailError) {
+            console.error('Failed to send warning email:', emailError)
+          }
+        }
+        
         await logAdminAction(adminId, 'WARN_USER', 'USER', targetId, data)
         return NextResponse.json({ message: 'User warned' })
+      }
 
       case 'clearWarnings':
         await prisma.user.update({

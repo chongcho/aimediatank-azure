@@ -319,6 +319,161 @@ export function generateUploadLimitEmail(
 `
 }
 
+// Generate warning notification email
+export function generateWarningEmail(
+  userName: string,
+  warningReason: string,
+  warningCount: number
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #ffa500; margin: 0; font-size: 24px;">⚠️ Account Warning</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Dear ${userName},</p>
+  
+  <p style="font-size: 16px;">Your account has received a warning from the AI Media Tank moderation team.</p>
+  
+  <div style="background: #fff8e6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffa500;">
+    <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Reason for Warning:</p>
+    <p style="margin: 0; font-size: 16px; font-weight: bold; color: #333;">${warningReason}</p>
+  </div>
+  
+  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+    <p style="margin: 0; font-size: 14px;">
+      <strong>Total Warnings:</strong> ${warningCount}
+    </p>
+  </div>
+  
+  <p style="font-size: 16px;">Please review our <a href="https://www.aimediatank.com/policy" style="color: #0066cc;">Community Guidelines</a> to ensure your account remains in good standing. Continued violations may result in account suspension.</p>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+  
+  <p style="font-size: 12px; color: #999; margin-top: 30px;">
+    If you believe this warning was issued in error, please contact our support team.
+  </p>
+</body>
+</html>
+`
+}
+
+// Generate suspension notification email
+export function generateSuspensionEmail(
+  userName: string,
+  suspendReason: string,
+  suspendedUntil: Date | null
+): string {
+  const duration = suspendedUntil 
+    ? `until ${suspendedUntil.toLocaleDateString()}` 
+    : 'permanently'
+  
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #ff4444; margin: 0; font-size: 24px;">🚫 Account Suspended</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Dear ${userName},</p>
+  
+  <p style="font-size: 16px;">Your AI Media Tank account has been suspended ${duration}.</p>
+  
+  <div style="background: #fff0f0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff4444;">
+    <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Reason for Suspension:</p>
+    <p style="margin: 0; font-size: 16px; font-weight: bold; color: #333;">${suspendReason}</p>
+  </div>
+  
+  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+    <p style="margin: 0; font-size: 14px;">
+      <strong>Suspension Duration:</strong> ${suspendedUntil ? `Until ${suspendedUntil.toLocaleDateString()} at ${suspendedUntil.toLocaleTimeString()}` : 'Permanent'}
+    </p>
+  </div>
+  
+  <p style="font-size: 16px;">While suspended, you will not be able to:</p>
+  <ul style="font-size: 16px; color: #666;">
+    <li>Upload new content</li>
+    <li>Make purchases</li>
+    <li>Participate in chat</li>
+  </ul>
+  
+  <p style="font-size: 16px;">If you believe this suspension was issued in error, please contact our support team at <a href="mailto:support@aimediatank.com" style="color: #0066cc;">support@aimediatank.com</a>.</p>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+</body>
+</html>
+`
+}
+
+// Generate unsuspension notification email
+export function generateUnsuspensionEmail(
+  userName: string
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #0f8; margin: 0; font-size: 24px;">✅ Account Reinstated</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Dear ${userName},</p>
+  
+  <p style="font-size: 16px;">Good news! Your AI Media Tank account has been reinstated and is now fully active.</p>
+  
+  <div style="background: #f0fff0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8;">
+    <p style="margin: 0; font-size: 16px;">Your account access has been restored. You can now:</p>
+    <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+      <li>Upload new content</li>
+      <li>Make purchases</li>
+      <li>Participate in chat</li>
+    </ul>
+  </div>
+  
+  <p style="font-size: 16px;">Please continue to follow our <a href="https://www.aimediatank.com/policy" style="color: #0066cc;">Community Guidelines</a> to keep your account in good standing.</p>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="https://www.aimediatank.com" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+      Go to AI Media Tank
+    </a>
+  </div>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+</body>
+</html>
+`
+}
+
 // Generate bonus credits notification email
 export function generateBonusCreditsEmail(
   userName: string,
