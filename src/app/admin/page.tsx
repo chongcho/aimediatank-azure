@@ -160,6 +160,32 @@ export default function AdminPage() {
   } | null>(null)
   const [suspendReason, setSuspendReason] = useState('')
   const [sendSuspendNotification, setSendSuspendNotification] = useState(true)
+  
+  // Chat search/filter state
+  const [chatSearch, setChatSearch] = useState('')
+  const [chatSearchDebounced, setChatSearchDebounced] = useState('')
+  const [chatFilter, setChatFilter] = useState('all')
+  const chatSearchTimer = useRef<NodeJS.Timeout | null>(null)
+  
+  // Chat warning modal state
+  const [chatWarningModal, setChatWarningModal] = useState<{
+    show: boolean
+    messageId: string
+    messageContent: string
+    userId: string
+    username: string
+  } | null>(null)
+  const [chatWarningReason, setChatWarningReason] = useState('')
+  
+  // Chat delete modal state
+  const [chatDeleteModal, setChatDeleteModal] = useState<{
+    show: boolean
+    messageId: string
+    messageContent: string
+    userId: string
+    username: string
+  } | null>(null)
+  const [chatDeleteReason, setChatDeleteReason] = useState('')
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -192,11 +218,22 @@ export default function AdminPage() {
     }
   }, [mediaSearch])
 
+  // Debounce chat search
+  useEffect(() => {
+    if (chatSearchTimer.current) clearTimeout(chatSearchTimer.current)
+    chatSearchTimer.current = setTimeout(() => {
+      setChatSearchDebounced(chatSearch)
+    }, 300)
+    return () => {
+      if (chatSearchTimer.current) clearTimeout(chatSearchTimer.current)
+    }
+  }, [chatSearch])
+
   useEffect(() => {
     if (session?.user?.role === 'ADMIN') {
       fetchData()
     }
-  }, [session, activeTab, userSearchDebounced, userFilter, mediaPage, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter])
+  }, [session, activeTab, userSearchDebounced, userFilter, mediaPage, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter])
 
   const fetchData = async () => {
     setLoading(true)
@@ -229,7 +266,10 @@ export default function AdminPage() {
           setMediaTotal(data.pagination.total)
         }
       } else if (activeTab === 'chat') {
-        const res = await fetch('/api/admin?action=chatMessages')
+        const params = new URLSearchParams({ action: 'chatMessages' })
+        if (chatSearchDebounced) params.set('search', chatSearchDebounced)
+        if (chatFilter !== 'all') params.set('filter', chatFilter)
+        const res = await fetch(`/api/admin?${params}`)
         const data = await res.json()
         setChatMessages(data.messages || [])
       } else if (activeTab === 'reports') {
@@ -570,58 +610,104 @@ export default function AdminPage() {
           {/* Chat Moderation */}
           {activeTab === 'chat' && (
             <div className="space-y-4">
-              <div className="card">
-                <h3 className="font-semibold mb-4">Recent Chat Messages</h3>
-                <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                  {chatMessages.map((msg) => (
-                    <div key={msg.id} className="flex items-start gap-3 p-3 bg-tank-dark rounded-lg">
-                      <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        {msg.user.avatar ? (
-                          <img src={msg.user.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                          msg.user.username[0].toUpperCase()
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-sm">@{msg.user.username}</span>
-                          {msg.user.isSuspended && (
-                            <span className="text-xs bg-red-500/20 text-red-400 px-1 rounded">Suspended</span>
-                          )}
-                          {msg.user.warningCount > 0 && (
-                            <span className="text-xs bg-yellow-500/20 text-yellow-400 px-1 rounded">
-                              {msg.user.warningCount}⚠️
-                            </span>
-                          )}
-                          <span className="text-xs text-gray-500">
-                            {new Date(msg.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-                        <p className="text-gray-300 text-sm break-words">{msg.content}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleAction('warnChatUser', msg.user.id, { 
-                            messageId: msg.id, 
-                            messageContent: msg.content,
-                            reason: prompt('Reason for warning:') 
-                          })}
-                          className="text-yellow-400 hover:text-yellow-300 text-xs"
-                          title="Warn User"
-                        >
-                          ⚠️
-                        </button>
-                        <button
-                          onClick={() => handleAction('deleteChatMessage', msg.id)}
-                          className="text-red-400 hover:text-red-300 text-xs"
-                          title="Delete Message"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              {/* Search and Filter */}
+              <div className="flex gap-4 flex-wrap items-center">
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={chatSearch}
+                  onChange={(e) => setChatSearch(e.target.value)}
+                  className="input flex-1 min-w-[200px]"
+                />
+                <select
+                  value={chatFilter}
+                  onChange={(e) => setChatFilter(e.target.value)}
+                  className="input w-auto"
+                >
+                  <option value="all">All Users</option>
+                  <option value="warned">With Warnings</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+              
+              <div className="card overflow-x-auto">
+                <table className="w-full text-sm min-w-[900px]">
+                  <thead>
+                    <tr className="border-b border-tank-light">
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Date</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User ID</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Open Chat Messages</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chatMessages.map((msg) => (
+                      <tr key={msg.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
+                        <td className="p-3 text-gray-400 whitespace-nowrap">
+                          {new Date(msg.createdAt).toLocaleDateString()}<br/>
+                          <span className="text-xs text-gray-500">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden">
+                              {msg.user.avatar ? (
+                                <img src={msg.user.avatar} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                msg.user.username[0].toUpperCase()
+                              )}
+                            </div>
+                            <div>
+                              <span className="font-medium whitespace-nowrap">@{msg.user.username}</span>
+                              <div className="flex gap-1 mt-0.5">
+                                {msg.user.isSuspended && (
+                                  <span className="text-xs bg-red-500/20 text-red-400 px-1 rounded">Suspended</span>
+                                )}
+                                {msg.user.warningCount > 0 && (
+                                  <span className="text-xs bg-yellow-500/20 text-yellow-400 px-1 rounded">
+                                    {msg.user.warningCount}⚠️
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 max-w-[400px]">
+                          <p className="text-gray-300 text-sm break-words line-clamp-2" title={msg.content}>
+                            {msg.content}
+                          </p>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex gap-2 whitespace-nowrap">
+                            <button
+                              onClick={() => setChatWarningModal({
+                                show: true,
+                                messageId: msg.id,
+                                messageContent: msg.content,
+                                userId: msg.user.id,
+                                username: msg.user.username
+                              })}
+                              className="text-yellow-400 hover:text-yellow-300 text-sm"
+                            >
+                              Warning
+                            </button>
+                            <button
+                              onClick={() => setChatDeleteModal({
+                                show: true,
+                                messageId: msg.id,
+                                messageContent: msg.content,
+                                userId: msg.user.id,
+                                username: msg.user.username
+                              })}
+                              className="text-red-400 hover:text-red-300 text-sm"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -1118,6 +1204,114 @@ export default function AdminPage() {
                 className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg py-2 px-4"
               >
                 Send and Suspend Content
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Warning Modal */}
+      {chatWarningModal?.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setChatWarningModal(null); setChatWarningReason(''); }}>
+          <div className="bg-tank-gray rounded-xl p-6 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-4 text-yellow-400">⚠️ Warning Chat User</h2>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm">User:</p>
+                <p className="font-medium">@{chatWarningModal.username}</p>
+              </div>
+              
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm">Message:</p>
+                <p className="text-sm text-gray-300 break-words">{chatWarningModal.messageContent}</p>
+              </div>
+              
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Reason for Warning:</label>
+                <textarea
+                  value={chatWarningReason}
+                  onChange={(e) => setChatWarningReason(e.target.value)}
+                  placeholder="Enter the reason for warning this user..."
+                  className="input w-full h-24 resize-none"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setChatWarningModal(null); setChatWarningReason(''); }}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await handleAction('warnChatUser', chatWarningModal.userId, {
+                    messageId: chatWarningModal.messageId,
+                    messageContent: chatWarningModal.messageContent,
+                    reason: chatWarningReason
+                  })
+                  setChatWarningModal(null)
+                  setChatWarningReason('')
+                }}
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg py-2 px-4"
+              >
+                Send Warning
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Delete Modal */}
+      {chatDeleteModal?.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setChatDeleteModal(null); setChatDeleteReason(''); }}>
+          <div className="bg-tank-gray rounded-xl p-6 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-4 text-red-400">🗑️ Delete Chat Message</h2>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm">User:</p>
+                <p className="font-medium">@{chatDeleteModal.username}</p>
+              </div>
+              
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm">Message:</p>
+                <p className="text-sm text-gray-300 break-words">{chatDeleteModal.messageContent}</p>
+              </div>
+              
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Reason for Deletion:</label>
+                <textarea
+                  value={chatDeleteReason}
+                  onChange={(e) => setChatDeleteReason(e.target.value)}
+                  placeholder="Enter the reason for deleting this message..."
+                  className="input w-full h-24 resize-none"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setChatDeleteModal(null); setChatDeleteReason(''); }}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await handleAction('deleteChatMessage', chatDeleteModal.messageId, {
+                    reason: chatDeleteReason,
+                    userId: chatDeleteModal.userId,
+                    username: chatDeleteModal.username
+                  })
+                  setChatDeleteModal(null)
+                  setChatDeleteReason('')
+                }}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 px-4"
+              >
+                Delete Message
               </button>
             </div>
           </div>

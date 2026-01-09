@@ -133,10 +133,25 @@ export async function GET(request: Request) {
       const page = parseInt(searchParams.get('page') || '1')
       const limit = parseInt(searchParams.get('limit') || '50')
       const userId = searchParams.get('userId')
+      const search = searchParams.get('search') || ''
+      const filter = searchParams.get('filter') // 'warned', 'suspended', 'all'
       
       const where: any = {}
       if (userId) {
         where.userId = userId
+      }
+      
+      // Handle search - search by username
+      if (search) {
+        const searchTerm = search.startsWith('@') ? search.slice(1) : search
+        where.user = { username: { contains: searchTerm, mode: 'insensitive' } }
+      }
+      
+      // Handle filter
+      if (filter === 'warned') {
+        where.user = { ...where.user, warningCount: { gt: 0 } }
+      } else if (filter === 'suspended') {
+        where.user = { ...where.user, isSuspended: true }
       }
       
       const [messages, total] = await Promise.all([
