@@ -250,6 +250,7 @@ export async function GET(request: Request) {
                 id: true,
                 username: true,
                 name: true,
+                email: true,
               },
             },
             _count: {
@@ -343,12 +344,56 @@ export async function POST(request: Request) {
         await logAdminAction(adminId, 'REJECT_MEDIA', 'MEDIA', targetId)
         return NextResponse.json({ message: 'Media rejected' })
 
-      case 'deleteMedia':
+      case 'deleteMedia': {
+        // Get media details before deletion
+        const mediaToDelete = await prisma.media.findUnique({
+          where: { id: targetId },
+          include: { user: { select: { id: true, email: true } } }
+        })
+        
+        if (!mediaToDelete) {
+          return NextResponse.json({ error: 'Media not found' }, { status: 404 })
+        }
+        
+        // Delete the media
         await prisma.media.delete({
           where: { id: targetId },
         })
-        await logAdminAction(adminId, 'DELETE_MEDIA', 'MEDIA', targetId)
+        
+        // Create notification for the creator
+        const reason = data?.reason || 'Policy violation'
+        await prisma.notification.create({
+          data: {
+            userId: mediaToDelete.user.id,
+            type: 'content_removed',
+            title: 'Content Removed',
+            message: `Your content "${data?.mediaTitle || 'Untitled'}" has been removed. Reason: ${reason}`,
+          },
+        })
+        
+        // Send email notification if requested
+        if (data?.sendNotification && data?.creatorEmail) {
+          try {
+            const { sendEmail } = await import('@/lib/email')
+            await sendEmail({
+              to: data.creatorEmail,
+              subject: 'AiMediaTank - Content Removed',
+              html: `
+                <h2>Content Removed</h2>
+                <p>Your content "<strong>${data?.mediaTitle || 'Untitled'}</strong>" has been removed from AiMediaTank.</p>
+                <p><strong>Reason:</strong> ${reason}</p>
+                <p>If you believe this was a mistake, please contact our support team.</p>
+                <p>Best regards,<br>AiMediaTank Team</p>
+              `,
+            })
+          } catch (emailError) {
+            console.error('Failed to send deletion notification email:', emailError)
+          }
+        }
+        
+        await logAdminAction(adminId, 'DELETE_MEDIA', 'MEDIA', targetId, { reason, mediaTitle: data?.mediaTitle })
         return NextResponse.json({ message: 'Media deleted' })
+      }
 
       case 'updateUserRole':
         if (!data?.role || !['ADMIN', 'SUBSCRIBER', 'VIEWER'].includes(data.role)) {
