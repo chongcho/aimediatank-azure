@@ -557,10 +557,11 @@ export async function POST(request: Request) {
         })
         
         // Send email notification if requested
+        let emailSent = false
         if (data?.sendNotification && data?.creatorEmail) {
           try {
             const { sendEmail } = await import('@/lib/email')
-            await sendEmail({
+            emailSent = await sendEmail({
               to: data.creatorEmail,
               subject: 'AiMediaTank - Content Removed',
               html: `
@@ -571,13 +572,18 @@ export async function POST(request: Request) {
                 <p>Best regards,<br>AiMediaTank Team</p>
               `,
             })
+            console.log(`Delete notification email ${emailSent ? 'sent successfully' : 'failed'} to:`, data.creatorEmail)
           } catch (emailError) {
             console.error('Failed to send deletion notification email:', emailError)
           }
         }
         
-        await logAdminAction(adminId, 'DELETE_MEDIA', 'MEDIA', targetId, { reason: deletionReason, mediaTitle: data?.mediaTitle })
-        return NextResponse.json({ message: 'Media deleted' })
+        await logAdminAction(adminId, 'DELETE_MEDIA', 'MEDIA', targetId, { reason: deletionReason, mediaTitle: data?.mediaTitle, emailSent })
+        return NextResponse.json({ 
+          message: 'Media deleted',
+          emailSent: data?.sendNotification ? emailSent : null,
+          notificationSent: true
+        })
       }
 
       case 'updateUserRole':

@@ -1246,12 +1246,31 @@ export default function AdminPage() {
               </button>
               <button
                 onClick={async () => {
-                  await handleAction('deleteMedia', deleteModal.mediaId, {
-                    reason: deleteReason,
-                    sendNotification,
-                    creatorEmail: deleteModal.creatorEmail,
-                    mediaTitle: deleteModal.mediaTitle
+                  const res = await fetch('/api/admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      action: 'deleteMedia', 
+                      targetId: deleteModal.mediaId, 
+                      data: {
+                        reason: deleteReason,
+                        sendNotification,
+                        creatorEmail: deleteModal.creatorEmail,
+                        mediaTitle: deleteModal.mediaTitle
+                      }
+                    }),
                   })
+                  const result = await res.json()
+                  if (res.ok) {
+                    if (sendNotification) {
+                      alert(result.emailSent 
+                        ? '✅ Content deleted. Notification and email sent to creator.' 
+                        : '⚠️ Content deleted. Notification sent, but email failed to send.')
+                    } else {
+                      alert('✅ Content deleted. Notification sent to creator.')
+                    }
+                    fetchData()
+                  }
                   setDeleteModal(null)
                   setDeleteReason('')
                 }}
