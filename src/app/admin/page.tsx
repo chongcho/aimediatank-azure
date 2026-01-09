@@ -286,6 +286,62 @@ export default function AdminPage() {
         ))}
       </div>
 
+      {/* Media Filters - Always visible to prevent losing focus */}
+      {activeTab === 'media' && (
+        <div className="flex gap-4 flex-wrap items-center mb-4">
+          <input
+            type="text"
+            placeholder="Search title or creator..."
+            value={mediaSearch}
+            onChange={(e) => setMediaSearch(e.target.value)}
+            className="input flex-1 min-w-[200px]"
+          />
+          <select
+            value={mediaTypeFilter}
+            onChange={(e) => { setMediaTypeFilter(e.target.value); setMediaPage(1); }}
+            className="input w-auto"
+          >
+            <option value="all">All Types</option>
+            <option value="VIDEO">Video</option>
+            <option value="IMAGE">Image</option>
+            <option value="MUSIC">Music</option>
+          </select>
+          <select
+            value={mediaStatusFilter}
+            onChange={(e) => { setMediaStatusFilter(e.target.value); setMediaPage(1); }}
+            className="input w-auto"
+          >
+            <option value="all">All Status</option>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+            <option value="deleted">Deleted</option>
+          </select>
+          <p className="text-gray-400">Total: {mediaTotal} items</p>
+        </div>
+      )}
+
+      {/* Users Filters - Always visible */}
+      {activeTab === 'users' && (
+        <div className="flex gap-4 flex-wrap mb-4">
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+            className="input flex-1 min-w-[200px]"
+          />
+          <select
+            value={userFilter}
+            onChange={(e) => setUserFilter(e.target.value)}
+            className="input w-auto"
+          >
+            <option value="all">All Users</option>
+            <option value="suspended">Suspended</option>
+            <option value="warned">With Warnings</option>
+          </select>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="spinner" />
@@ -406,26 +462,6 @@ export default function AdminPage() {
           {/* Users */}
           {activeTab === 'users' && (
             <div className="space-y-4">
-              {/* Search and Filters */}
-              <div className="flex gap-4 flex-wrap">
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="input flex-1 min-w-[200px]"
-                />
-                <select
-                  value={userFilter}
-                  onChange={(e) => setUserFilter(e.target.value)}
-                  className="input w-auto"
-                >
-                  <option value="all">All Users</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="warned">With Warnings</option>
-                </select>
-              </div>
-
               <div className="card overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -550,37 +586,6 @@ export default function AdminPage() {
           {/* Media */}
           {activeTab === 'media' && (
             <div className="space-y-4">
-              {/* Filters */}
-              <div className="flex gap-4 flex-wrap items-center">
-                <input
-                  type="text"
-                  placeholder="Search title or creator..."
-                  value={mediaSearch}
-                  onChange={(e) => setMediaSearch(e.target.value)}
-                  className="input flex-1 min-w-[200px]"
-                />
-                <select
-                  value={mediaTypeFilter}
-                  onChange={(e) => { setMediaTypeFilter(e.target.value); setMediaPage(1); }}
-                  className="input w-auto"
-                >
-                  <option value="all">All Types</option>
-                  <option value="VIDEO">Video</option>
-                  <option value="IMAGE">Image</option>
-                  <option value="MUSIC">Music</option>
-                </select>
-                <select
-                  value={mediaStatusFilter}
-                  onChange={(e) => { setMediaStatusFilter(e.target.value); setMediaPage(1); }}
-                  className="input w-auto"
-                >
-                  <option value="all">All Status</option>
-                  <option value="approved">Approved</option>
-                  <option value="pending">Pending</option>
-                  <option value="deleted">Deleted</option>
-                </select>
-                <p className="text-gray-400">Total: {mediaTotal} items</p>
-              </div>
               <div className="card overflow-x-auto">
                 <table className="w-full">
                   <thead>
