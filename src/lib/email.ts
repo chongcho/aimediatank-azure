@@ -319,6 +319,69 @@ export function generateUploadLimitEmail(
 `
 }
 
+// Generate bonus credits notification email
+export function generateBonusCreditsEmail(
+  userName: string,
+  credits: number,
+  totalCredits: number
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #0f8; margin: 0; font-size: 24px;">🎁 You Received Bonus Credits!</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Dear ${userName},</p>
+  
+  <p style="font-size: 16px;">Great news! You've received bonus upload credits from AI Media Tank.</p>
+  
+  <div style="background: #f0fff0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8; text-align: center;">
+    <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Credits Received</p>
+    <p style="margin: 0; font-size: 48px; font-weight: bold; color: #0f8;">+${credits}</p>
+  </div>
+  
+  <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Credits Added:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #0f8;">+${credits}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Total Credits:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${totalCredits}</td>
+      </tr>
+    </table>
+  </div>
+  
+  <p style="font-size: 16px;">Each credit allows you to upload one piece of content without additional charges. Start uploading your AI-generated media today!</p>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="https://www.aimediatank.com/upload" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+      Upload Now
+    </a>
+  </div>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+  
+  <p style="font-size: 12px; color: #999; margin-top: 30px;">
+    This email was sent because you received bonus credits on AI Media Tank. If you have any questions, please contact our support team.
+  </p>
+</body>
+</html>
+`
+}
+
 // Generate download reminder email (can be used by a cron job)
 export function generateDownloadReminderEmail(
   buyerName: string,

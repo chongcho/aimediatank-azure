@@ -684,21 +684,52 @@ export async function POST(request: Request) {
         if (credits <= 0) {
           return NextResponse.json({ error: 'Invalid credits amount' }, { status: 400 })
         }
+        
+        // Get user info for email
+        const creditUser = await prisma.user.findUnique({
+          where: { id: targetId },
+          select: { email: true, legalName: true, username: true, bonusCredits: true, paidUploadCredits: true }
+        })
+        
+        if (!creditUser) {
+          return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        }
+        
+        // Update credits
         await prisma.user.update({
           where: { id: targetId },
           data: {
             bonusCredits: { increment: credits },
           },
         })
+        
+        const newTotalCredits = (creditUser.bonusCredits || 0) + (creditUser.paidUploadCredits || 0) + credits
+        
         // Create notification for user
         await prisma.notification.create({
           data: {
             userId: targetId,
             type: 'credits',
-            title: 'Bonus Credits',
-            message: `🎁 You received ${credits} bonus credits!`,
+            title: 'Bonus Credits Received',
+            message: `🎁 You received ${credits} bonus upload credits! You now have ${newTotalCredits} total credits.`,
           },
         })
+        
+        // Send email notification
+        try {
+          const { sendEmail, generateBonusCreditsEmail } = await import('@/lib/email')
+          const userName = creditUser.legalName || creditUser.username || 'User'
+          await sendEmail({
+            to: creditUser.email,
+            subject: `🎁 You Received ${credits} Bonus Credits!`,
+            html: generateBonusCreditsEmail(userName, credits, newTotalCredits)
+          })
+          console.log(`Bonus credits email sent to ${creditUser.email}`)
+        } catch (emailError) {
+          console.error('Failed to send bonus credits email:', emailError)
+          // Don't fail the action if email fails
+        }
+        
         await logAdminAction(adminId, 'GIVE_CREDITS', 'USER', targetId, { credits })
         return NextResponse.json({ message: `${credits} credits given` })
       }
