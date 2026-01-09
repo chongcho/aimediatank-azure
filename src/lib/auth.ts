@@ -39,6 +39,29 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid password')
         }
 
+        // Check if user is suspended
+        if (user.isSuspended) {
+          // Check if suspension has expired
+          if (user.suspendedUntil && new Date(user.suspendedUntil) < new Date()) {
+            // Suspension expired, unsuspend the user
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                isSuspended: false,
+                suspendedAt: null,
+                suspendedUntil: null,
+                suspendReason: null,
+              },
+            })
+          } else {
+            const reason = user.suspendReason || 'Policy violation'
+            const until = user.suspendedUntil 
+              ? ` until ${new Date(user.suspendedUntil).toLocaleDateString()}`
+              : ''
+            throw new Error(`Account suspended${until}: ${reason}`)
+          }
+        }
+
         return {
           id: user.id,
           email: user.email,

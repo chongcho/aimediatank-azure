@@ -3,6 +3,25 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
+// Helper to log admin actions
+async function logAdminAction(adminId: string, action: string, targetType: string, targetId: string, details?: any) {
+  try {
+    await prisma.adminAction.create({
+      data: {
+        adminId,
+        action,
+        targetType,
+        targetId,
+        details: details ? JSON.stringify(details) : null,
+      },
+    })
+  } catch (e) {
+    console.error('Failed to log admin action:', e)
+  }
+}
+
 // GET - Admin dashboard stats
 export async function GET(request: Request) {
   try {
@@ -45,24 +64,157 @@ export async function GET(request: Request) {
     }
 
     if (action === 'users') {
-      // Get all users
+      // Get all users with moderation info
+      const search = searchParams.get('search') || ''
+      const filter = searchParams.get('filter') // 'suspended', 'warned', 'all'
+      
+      const where: any = {}
+      if (search) {
+        where.OR = [
+          { username: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { name: { contains: search, mode: 'insensitive' } },
+        ]
+      }
+      if (filter === 'suspended') {
+        where.isSuspended = true
+      } else if (filter === 'warned') {
+        where.warningCount = { gt: 0 }
+      }
+      
       const users = await prisma.user.findMany({
+        where,
         select: {
           id: true,
           email: true,
           username: true,
           name: true,
+          avatar: true,
           role: true,
+          membershipType: true,
+          isSuspended: true,
+          suspendedAt: true,
+          suspendedUntil: true,
+          suspendReason: true,
+          warningCount: true,
+          lastWarningAt: true,
+          lastWarningReason: true,
+          bonusCredits: true,
+          paidUploadCredits: true,
+          adminNotes: true,
           createdAt: true,
           _count: {
             select: {
               media: true,
+              chatMessages: true,
             },
           },
         },
         orderBy: { createdAt: 'desc' },
+        take: 100,
       })
       return NextResponse.json({ users })
+    }
+    
+    if (action === 'chatMessages') {
+      // Get recent chat messages for moderation
+      const page = parseInt(searchParams.get('page') || '1')
+      const limit = parseInt(searchParams.get('limit') || '50')
+      const userId = searchParams.get('userId')
+      
+      const where: any = {}
+      if (userId) {
+        where.userId = userId
+      }
+      
+      const [messages, total] = await Promise.all([
+        prisma.chatMessage.findMany({
+          where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                name: true,
+                avatar: true,
+                isSuspended: true,
+                warningCount: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.chatMessage.count({ where }),
+      ])
+      
+      return NextResponse.json({
+        messages,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      })
+    }
+    
+    if (action === 'analytics') {
+      // Get analytics data
+      const now = new Date()
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      
+      const [
+        totalUsers,
+        newUsersThisMonth,
+        newUsersThisWeek,
+        totalSubscribers,
+        totalMedia,
+        newMediaThisWeek,
+        totalChatMessages,
+        activeUsersThisWeek,
+      ] = await Promise.all([
+        prisma.user.count(),
+        prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+        prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+        prisma.user.count({ where: { membershipType: { in: ['BASIC', 'PREMIUM', 'SUBSCRIBER'] } } }),
+        prisma.media.count(),
+        prisma.media.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+        prisma.chatMessage.count(),
+        prisma.chatMessage.groupBy({
+          by: ['userId'],
+          where: { createdAt: { gte: sevenDaysAgo } },
+        }).then(r => r.length),
+      ])
+      
+      // User growth by day (last 30 days)
+      const userGrowth = await prisma.$queryRaw`
+        SELECT DATE(\"createdAt\") as date, COUNT(*) as count
+        FROM "User"
+        WHERE "createdAt" >= ${thirtyDaysAgo}
+        GROUP BY DATE("createdAt")
+        ORDER BY date
+      ` as Array<{ date: string; count: bigint }>
+      
+      return NextResponse.json({
+        analytics: {
+          totalUsers,
+          newUsersThisMonth,
+          newUsersThisWeek,
+          totalSubscribers,
+          totalMedia,
+          newMediaThisWeek,
+          totalChatMessages,
+          activeUsersThisWeek,
+          userGrowth: userGrowth.map(r => ({ date: r.date, count: Number(r.count) })),
+        },
+      })
+    }
+    
+    if (action === 'adminActions') {
+      // Get recent admin actions for audit
+      const actions = await prisma.adminAction.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      })
+      return NextResponse.json({ actions })
     }
 
     if (action === 'media') {
@@ -161,6 +313,7 @@ export async function POST(request: Request) {
     }
 
     const { action, targetId, data } = await request.json()
+    const adminId = session.user.id
 
     switch (action) {
       case 'approveMedia':
@@ -168,6 +321,7 @@ export async function POST(request: Request) {
           where: { id: targetId },
           data: { isApproved: true },
         })
+        await logAdminAction(adminId, 'APPROVE_MEDIA', 'MEDIA', targetId)
         return NextResponse.json({ message: 'Media approved' })
 
       case 'rejectMedia':
@@ -175,12 +329,14 @@ export async function POST(request: Request) {
           where: { id: targetId },
           data: { isApproved: false },
         })
+        await logAdminAction(adminId, 'REJECT_MEDIA', 'MEDIA', targetId)
         return NextResponse.json({ message: 'Media rejected' })
 
       case 'deleteMedia':
         await prisma.media.delete({
           where: { id: targetId },
         })
+        await logAdminAction(adminId, 'DELETE_MEDIA', 'MEDIA', targetId)
         return NextResponse.json({ message: 'Media deleted' })
 
       case 'updateUserRole':
@@ -191,12 +347,14 @@ export async function POST(request: Request) {
           where: { id: targetId },
           data: { role: data.role },
         })
+        await logAdminAction(adminId, 'UPDATE_USER_ROLE', 'USER', targetId, { role: data.role })
         return NextResponse.json({ message: 'User role updated' })
 
       case 'deleteUser':
         await prisma.user.delete({
           where: { id: targetId },
         })
+        await logAdminAction(adminId, 'DELETE_USER', 'USER', targetId)
         return NextResponse.json({ message: 'User deleted' })
 
       case 'resolveReport':
@@ -208,7 +366,148 @@ export async function POST(request: Request) {
             resolvedAt: new Date(),
           },
         })
+        await logAdminAction(adminId, 'RESOLVE_REPORT', 'REPORT', targetId, data)
         return NextResponse.json({ message: 'Report resolved' })
+
+      // New actions for user moderation
+      case 'suspendUser': {
+        const suspendUntil = data?.duration 
+          ? new Date(Date.now() + data.duration * 24 * 60 * 60 * 1000) // duration in days
+          : null // permanent
+        await prisma.user.update({
+          where: { id: targetId },
+          data: {
+            isSuspended: true,
+            suspendedAt: new Date(),
+            suspendedUntil: suspendUntil,
+            suspendReason: data?.reason || 'Policy violation',
+          },
+        })
+        await logAdminAction(adminId, 'SUSPEND_USER', 'USER', targetId, data)
+        return NextResponse.json({ message: 'User suspended' })
+      }
+
+      case 'unsuspendUser':
+        await prisma.user.update({
+          where: { id: targetId },
+          data: {
+            isSuspended: false,
+            suspendedAt: null,
+            suspendedUntil: null,
+            suspendReason: null,
+          },
+        })
+        await logAdminAction(adminId, 'UNSUSPEND_USER', 'USER', targetId)
+        return NextResponse.json({ message: 'User unsuspended' })
+
+      case 'warnUser':
+        await prisma.user.update({
+          where: { id: targetId },
+          data: {
+            warningCount: { increment: 1 },
+            lastWarningAt: new Date(),
+            lastWarningReason: data?.reason || 'Policy violation',
+          },
+        })
+        // Create notification for user
+        await prisma.notification.create({
+          data: {
+            userId: targetId,
+            type: 'warning',
+            title: 'Account Warning',
+            message: `⚠️ Warning: ${data?.reason || 'Policy violation'}`,
+          },
+        })
+        await logAdminAction(adminId, 'WARN_USER', 'USER', targetId, data)
+        return NextResponse.json({ message: 'User warned' })
+
+      case 'clearWarnings':
+        await prisma.user.update({
+          where: { id: targetId },
+          data: {
+            warningCount: 0,
+            lastWarningAt: null,
+            lastWarningReason: null,
+          },
+        })
+        await logAdminAction(adminId, 'CLEAR_WARNINGS', 'USER', targetId)
+        return NextResponse.json({ message: 'Warnings cleared' })
+
+      case 'giveCredits': {
+        const credits = parseInt(data?.credits) || 0
+        if (credits <= 0) {
+          return NextResponse.json({ error: 'Invalid credits amount' }, { status: 400 })
+        }
+        await prisma.user.update({
+          where: { id: targetId },
+          data: {
+            bonusCredits: { increment: credits },
+          },
+        })
+        // Create notification for user
+        await prisma.notification.create({
+          data: {
+            userId: targetId,
+            type: 'credits',
+            title: 'Bonus Credits',
+            message: `🎁 You received ${credits} bonus credits!`,
+          },
+        })
+        await logAdminAction(adminId, 'GIVE_CREDITS', 'USER', targetId, { credits })
+        return NextResponse.json({ message: `${credits} credits given` })
+      }
+
+      case 'updateAdminNotes':
+        await prisma.user.update({
+          where: { id: targetId },
+          data: {
+            adminNotes: data?.notes || null,
+          },
+        })
+        return NextResponse.json({ message: 'Admin notes updated' })
+
+      // Chat moderation actions
+      case 'deleteChatMessage':
+        await prisma.chatMessage.delete({
+          where: { id: targetId },
+        })
+        await logAdminAction(adminId, 'DELETE_CHAT_MESSAGE', 'CHAT_MESSAGE', targetId)
+        return NextResponse.json({ message: 'Chat message deleted' })
+
+      case 'warnChatUser': {
+        // Create chat warning record
+        await prisma.chatWarning.create({
+          data: {
+            userId: targetId,
+            messageId: data?.messageId,
+            messageContent: data?.messageContent,
+            reason: data?.reason || 'Inappropriate message',
+            action: data?.action || 'WARNING', // WARNING, MUTE, BAN
+            duration: data?.duration, // minutes for mute
+            adminId,
+          },
+        })
+        // Update user warning count
+        await prisma.user.update({
+          where: { id: targetId },
+          data: {
+            warningCount: { increment: 1 },
+            lastWarningAt: new Date(),
+            lastWarningReason: `Chat: ${data?.reason || 'Inappropriate message'}`,
+          },
+        })
+        // Notify user
+        await prisma.notification.create({
+          data: {
+            userId: targetId,
+            type: 'chat_warning',
+            title: 'Chat Warning',
+            message: `⚠️ Chat Warning: ${data?.reason || 'Inappropriate message'}`,
+          },
+        })
+        await logAdminAction(adminId, 'WARN_CHAT_USER', 'USER', targetId, data)
+        return NextResponse.json({ message: 'Chat user warned' })
+      }
 
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })

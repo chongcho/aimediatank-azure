@@ -31,6 +31,18 @@ model User {
   verificationToken String?
   verificationExpires DateTime?
   policyAgreedAt DateTime?  // When user agreed to Terms of Service and Privacy Policy
+  
+  // Admin moderation fields
+  isSuspended   Boolean   @default(false)    // Account suspended
+  suspendedAt   DateTime?                     // When suspended
+  suspendedUntil DateTime?                    // Suspension end date (null = permanent)
+  suspendReason String?                       // Reason for suspension
+  warningCount  Int       @default(0)         // Number of warnings received
+  lastWarningAt DateTime?                     // Last warning date
+  lastWarningReason String?                   // Last warning reason
+  bonusCredits  Int       @default(0)         // Bonus credits given by admin
+  adminNotes    String?                       // Internal admin notes
+  
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -150,6 +162,40 @@ model Report {
 
   @@index([status])
   @@index([mediaId])
+}
+
+// Track all admin actions for audit
+model AdminAction {
+  id            String    @id @default(uuid())
+  action        String    // "SUSPEND_USER", "WARN_USER", "GIVE_CREDITS", "DELETE_MEDIA", etc.
+  targetType    String    // "USER", "MEDIA", "CHAT_MESSAGE"
+  targetId      String    // ID of the target
+  details       String?   // JSON details of the action
+  adminId       String    // Admin who performed the action
+  createdAt     DateTime  @default(now())
+
+  @@index([action])
+  @@index([targetId])
+  @@index([adminId])
+  @@index([createdAt])
+}
+
+// Chat message warnings/violations
+model ChatWarning {
+  id            String    @id @default(uuid())
+  messageId     String?   // Optional: specific message that caused warning
+  messageContent String?  // Content of the violating message
+  reason        String    // Reason for warning
+  action        String    @default("WARNING") // "WARNING", "MUTE", "BAN"
+  duration      Int?      // Duration in minutes for mute/ban
+  adminId       String    // Admin who issued the warning
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  userId        String
+  
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Purchase {
