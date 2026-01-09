@@ -526,7 +526,7 @@ export default function AdminPage() {
           {activeTab === 'users' && (
             <div className="space-y-4">
               <div className="card overflow-x-auto">
-                <table className="w-full text-sm min-w-[1200px]">
+                <table className="w-full text-sm min-w-[1300px]">
                   <thead>
                     <tr className="border-b border-tank-light">
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User ID</th>
@@ -536,6 +536,7 @@ export default function AdminPage() {
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Country</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Age Range</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Subscription Date</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Membership Status</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Status</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Credits</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Actions</th>
@@ -573,6 +574,15 @@ export default function AdminPage() {
                         </td>
                         <td className="p-3 text-gray-400 whitespace-nowrap">
                           {new Date(user.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="p-3">
+                          <span className={`badge text-xs ${
+                            user.membershipType === 'PREMIUM' ? 'bg-purple-500/20 text-purple-400' :
+                            user.membershipType === 'BASIC' || user.membershipType === 'SUBSCRIBER' ? 'bg-tank-accent/20 text-tank-accent' :
+                            'bg-gray-500/20 text-gray-400'
+                          }`}>
+                            {user.membershipType}
+                          </span>
                         </td>
                         <td className="p-3">
                           <div className="flex flex-col gap-1">
