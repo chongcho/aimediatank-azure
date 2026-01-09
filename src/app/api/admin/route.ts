@@ -242,10 +242,19 @@ export async function GET(request: Request) {
         where.type = type
       }
       if (search) {
-        where.OR = [
-          { title: { contains: search, mode: 'insensitive' } },
-          { user: { username: { contains: search, mode: 'insensitive' } } },
-        ]
+        // Handle @mention search - strip @ prefix for username search
+        const searchTerm = search.startsWith('@') ? search.slice(1) : search
+        
+        if (search.startsWith('@')) {
+          // Search only by username when @ prefix is used
+          where.user = { username: { contains: searchTerm, mode: 'insensitive' } }
+        } else {
+          // Search by title or username
+          where.OR = [
+            { title: { contains: search, mode: 'insensitive' } },
+            { user: { username: { contains: search, mode: 'insensitive' } } },
+          ]
+        }
       }
 
       const [media, total] = await Promise.all([
