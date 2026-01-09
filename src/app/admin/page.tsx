@@ -107,6 +107,11 @@ export default function AdminPage() {
   // Search/filter state
   const [userSearch, setUserSearch] = useState('')
   const [userFilter, setUserFilter] = useState('all')
+  
+  // Pagination state
+  const [mediaPage, setMediaPage] = useState(1)
+  const [mediaTotalPages, setMediaTotalPages] = useState(1)
+  const [mediaTotal, setMediaTotal] = useState(0)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -120,7 +125,7 @@ export default function AdminPage() {
     if (session?.user?.role === 'ADMIN') {
       fetchData()
     }
-  }, [session, activeTab, userSearch, userFilter])
+  }, [session, activeTab, userSearch, userFilter, mediaPage])
 
   const fetchData = async () => {
     setLoading(true)
@@ -141,9 +146,13 @@ export default function AdminPage() {
         const data = await res.json()
         setUsers(data.users || [])
       } else if (activeTab === 'media') {
-        const res = await fetch('/api/admin?action=media')
+        const res = await fetch(`/api/admin?action=media&page=${mediaPage}&limit=20`)
         const data = await res.json()
         setMedia(data.media || [])
+        if (data.pagination) {
+          setMediaTotalPages(data.pagination.totalPages)
+          setMediaTotal(data.pagination.total)
+        }
       } else if (activeTab === 'chat') {
         const res = await fetch('/api/admin?action=chatMessages')
         const data = await res.json()
@@ -200,7 +209,10 @@ export default function AdminPage() {
         {(['dashboard', 'analytics', 'users', 'media', 'chat', 'reports'] as TabType[]).map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setActiveTab(tab)
+              if (tab === 'media') setMediaPage(1)
+            }}
             className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
               activeTab === tab
                 ? 'bg-tank-accent text-tank-black'
@@ -480,68 +492,110 @@ export default function AdminPage() {
 
           {/* Media */}
           {activeTab === 'media' && (
-            <div className="card overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-tank-light">
-                    <th className="text-left p-4 text-gray-400 font-medium">Media</th>
-                    <th className="text-left p-4 text-gray-400 font-medium">Type</th>
-                    <th className="text-left p-4 text-gray-400 font-medium">Creator</th>
-                    <th className="text-left p-4 text-gray-400 font-medium">Status</th>
-                    <th className="text-left p-4 text-gray-400 font-medium">Reports</th>
-                    <th className="text-left p-4 text-gray-400 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {media.map((item) => (
-                    <tr key={item.id} className="border-b border-tank-light/50">
-                      <td className="p-4">
-                        <Link href={`/media/${item.id}`} className="font-medium hover:text-tank-accent line-clamp-1">
-                          {item.title}
-                        </Link>
-                      </td>
-                      <td className="p-4">
-                        <span className={`badge ${
-                          item.type === 'VIDEO' ? 'badge-video' :
-                          item.type === 'IMAGE' ? 'badge-image' : 'badge-music'
-                        }`}>
-                          {item.type}
-                        </span>
-                      </td>
-                      <td className="p-4 text-gray-400">@{item.user.username}</td>
-                      <td className="p-4">
-                        <span className={`badge ${
-                          item.isApproved ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
-                        }`}>
-                          {item.isApproved ? 'Approved' : 'Pending'}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        {item._count.reports > 0 && (
-                          <span className="badge bg-red-500/20 text-red-400">{item._count.reports}</span>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          {!item.isApproved && (
-                            <button onClick={() => handleAction('approveMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
-                              Approve
-                            </button>
-                          )}
-                          {item.isApproved && (
-                            <button onClick={() => handleAction('rejectMedia', item.id)} className="text-yellow-400 hover:text-yellow-300 text-sm">
-                              Reject
-                            </button>
-                          )}
-                          <button onClick={() => handleAction('deleteMedia', item.id)} className="text-red-400 hover:text-red-300 text-sm">
-                            Delete
-                          </button>
-                        </div>
-                      </td>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <p className="text-gray-400">Total: {mediaTotal} items</p>
+              </div>
+              <div className="card overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-tank-light">
+                      <th className="text-left p-4 text-gray-400 font-medium">Media</th>
+                      <th className="text-left p-4 text-gray-400 font-medium">Type</th>
+                      <th className="text-left p-4 text-gray-400 font-medium">Creator</th>
+                      <th className="text-left p-4 text-gray-400 font-medium">Status</th>
+                      <th className="text-left p-4 text-gray-400 font-medium">Reports</th>
+                      <th className="text-left p-4 text-gray-400 font-medium">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {media.map((item) => (
+                      <tr key={item.id} className="border-b border-tank-light/50">
+                        <td className="p-4">
+                          <Link href={`/media/${item.id}`} className="font-medium hover:text-tank-accent line-clamp-1">
+                            {item.title}
+                          </Link>
+                        </td>
+                        <td className="p-4">
+                          <span className={`badge ${
+                            item.type === 'VIDEO' ? 'badge-video' :
+                            item.type === 'IMAGE' ? 'badge-image' : 'badge-music'
+                          }`}>
+                            {item.type}
+                          </span>
+                        </td>
+                        <td className="p-4 text-gray-400">@{item.user.username}</td>
+                        <td className="p-4">
+                          <span className={`badge ${
+                            item.isApproved ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                          }`}>
+                            {item.isApproved ? 'Approved' : 'Pending'}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          {item._count.reports > 0 && (
+                            <span className="badge bg-red-500/20 text-red-400">{item._count.reports}</span>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex gap-2">
+                            {!item.isApproved && (
+                              <button onClick={() => handleAction('approveMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
+                                Approve
+                              </button>
+                            )}
+                            {item.isApproved && (
+                              <button onClick={() => handleAction('rejectMedia', item.id)} className="text-yellow-400 hover:text-yellow-300 text-sm">
+                                Reject
+                              </button>
+                            )}
+                            <button onClick={() => handleAction('deleteMedia', item.id)} className="text-red-400 hover:text-red-300 text-sm">
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Pagination */}
+              {mediaTotalPages > 1 && (
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => setMediaPage(1)}
+                    disabled={mediaPage === 1}
+                    className="px-3 py-1 rounded bg-tank-gray text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    ««
+                  </button>
+                  <button
+                    onClick={() => setMediaPage(p => Math.max(1, p - 1))}
+                    disabled={mediaPage === 1}
+                    className="px-3 py-1 rounded bg-tank-gray text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    «
+                  </button>
+                  <span className="px-4 py-1 text-gray-300">
+                    Page {mediaPage} of {mediaTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setMediaPage(p => Math.min(mediaTotalPages, p + 1))}
+                    disabled={mediaPage === mediaTotalPages}
+                    className="px-3 py-1 rounded bg-tank-gray text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    »
+                  </button>
+                  <button
+                    onClick={() => setMediaPage(mediaTotalPages)}
+                    disabled={mediaPage === mediaTotalPages}
+                    className="px-3 py-1 rounded bg-tank-gray text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    »»
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
