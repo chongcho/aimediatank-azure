@@ -911,7 +911,7 @@ export default function AdminPage() {
                 }}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 px-4"
               >
-                Delete Content
+                Send and Delete Content
               </button>
             </div>
           </div>
