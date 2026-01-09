@@ -161,6 +161,16 @@ export default function AdminPage() {
   const [suspendReason, setSuspendReason] = useState('')
   const [sendSuspendNotification, setSendSuspendNotification] = useState(true)
   
+  // Give credits modal state
+  const [creditsModal, setCreditsModal] = useState<{
+    show: boolean
+    userId: string
+    username: string
+    legalName: string | null
+    currentCredits: number
+  } | null>(null)
+  const [creditsAmount, setCreditsAmount] = useState('')
+  
   // Chat search/filter state
   const [chatSearch, setChatSearch] = useState('')
   const [chatSearchDebounced, setChatSearchDebounced] = useState('')
@@ -1151,10 +1161,13 @@ export default function AdminPage() {
               {/* Give Credits */}
               <button
                 onClick={() => {
-                  const credits = prompt('Number of credits to give:')
-                  if (credits && parseInt(credits) > 0) {
-                    handleAction('giveCredits', selectedUser.id, { credits: parseInt(credits) })
-                  }
+                  setCreditsModal({
+                    show: true,
+                    userId: selectedUser.id,
+                    username: selectedUser.username,
+                    legalName: selectedUser.legalName,
+                    currentCredits: (selectedUser.bonusCredits || 0) + (selectedUser.paidUploadCredits || 0)
+                  })
                 }}
                 className="w-full bg-tank-accent hover:bg-tank-accent/80 text-black rounded-lg py-2 px-4"
               >
@@ -1338,6 +1351,64 @@ export default function AdminPage() {
                 className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg py-2 px-4"
               >
                 Send and Suspend Content
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Give Credits Modal */}
+      {creditsModal?.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setCreditsModal(null); setCreditsAmount(''); }}>
+          <div className="bg-tank-gray rounded-xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-4 text-tank-accent">🎁 Give Credits</h2>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm">User:</p>
+                <p className="font-medium">{creditsModal.legalName || creditsModal.username}</p>
+                <p className="text-sm text-gray-400">@{creditsModal.username}</p>
+              </div>
+              
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm">Current Credits:</p>
+                <p className="font-medium text-tank-accent">{creditsModal.currentCredits}</p>
+              </div>
+              
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Number of credits to give:</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={creditsAmount}
+                  onChange={(e) => setCreditsAmount(e.target.value)}
+                  placeholder="Enter number of credits..."
+                  className="input w-full"
+                  autoFocus
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setCreditsModal(null); setCreditsAmount(''); }}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-white rounded-lg py-2 px-4"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const credits = parseInt(creditsAmount)
+                  if (credits > 0) {
+                    await handleAction('giveCredits', creditsModal.userId, { credits })
+                    setCreditsModal(null)
+                    setCreditsAmount('')
+                  }
+                }}
+                disabled={!creditsAmount || parseInt(creditsAmount) <= 0}
+                className="flex-1 bg-tank-accent hover:bg-tank-accent/80 text-black rounded-lg py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Give Credits
               </button>
             </div>
           </div>
