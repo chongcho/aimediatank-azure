@@ -281,6 +281,21 @@ export async function GET(request: Request) {
                 email: true,
               },
             },
+            purchases: {
+              where: { status: 'completed' },
+              select: {
+                id: true,
+                completedAt: true,
+                buyer: {
+                  select: {
+                    id: true,
+                    username: true,
+                  },
+                },
+              },
+              orderBy: { completedAt: 'desc' },
+              take: 1,
+            },
             _count: {
               select: {
                 reports: true,
@@ -371,6 +386,17 @@ export async function POST(request: Request) {
         })
         await logAdminAction(adminId, 'REJECT_MEDIA', 'MEDIA', targetId)
         return NextResponse.json({ message: 'Media rejected' })
+
+      case 'updateMediaStatus':
+        await prisma.media.update({
+          where: { id: targetId },
+          data: { 
+            isSold: data?.isSold || false,
+            soldAt: data?.isSold ? new Date() : null,
+          },
+        })
+        await logAdminAction(adminId, 'UPDATE_MEDIA_STATUS', 'MEDIA', targetId, { isSold: data?.isSold })
+        return NextResponse.json({ message: 'Media status updated' })
 
       case 'restoreMedia':
         await prisma.media.update({

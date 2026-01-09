@@ -61,8 +61,15 @@ interface Media {
   isDeleted: boolean
   deletedAt: string | null
   deletionReason: string | null
+  isSold: boolean
+  soldAt: string | null
   createdAt: string
-  user: { username: string; name: string | null; email: string }
+  user: { id: string; username: string; name: string | null; email: string }
+  purchases: Array<{
+    id: string
+    completedAt: string | null
+    buyer: { id: string; username: string }
+  }>
   _count: { reports: number }
 }
 
@@ -611,88 +618,113 @@ export default function AdminPage() {
           {activeTab === 'media' && (
             <div className="space-y-4">
               <div className="card overflow-x-auto">
-                <table className="w-full text-sm min-w-[800px]">
+                <table className="w-full text-sm min-w-[1400px]">
                   <thead>
                     <tr className="border-b border-tank-light">
-                      <th className="text-left p-3 text-gray-400 font-medium">Media</th>
-                      <th className="text-left p-3 text-gray-400 font-medium">Type</th>
-                      <th className="text-left p-3 text-gray-400 font-medium">Creator</th>
-                      <th className="text-left p-3 text-gray-400 font-medium">Status</th>
-                      <th className="text-left p-3 text-gray-400 font-medium">Reports</th>
-                      <th className="text-left p-3 text-gray-400 font-medium">Actions</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Media Title</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Type</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Creator</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Upload Date</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">File Location</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Status</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Sold Date</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Buyer User ID</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {media.map((item) => (
-                      <tr key={item.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
-                        <td className="p-3">
-                          <Link href={`/media/${item.id}`} className="font-medium hover:text-tank-accent line-clamp-1">
-                            {item.title}
-                          </Link>
-                        </td>
-                        <td className="p-3">
-                          <span className={`badge ${
-                            item.type === 'VIDEO' ? 'badge-video' :
-                            item.type === 'IMAGE' ? 'badge-image' : 'badge-music'
-                          }`}>
-                            {item.type}
-                          </span>
-                        </td>
-                        <td className="p-3 text-gray-400">@{item.user.username}</td>
-                        <td className="p-3">
-                          {item.isDeleted ? (
-                            <span className="badge bg-red-500/20 text-red-400" title={item.deletionReason || ''}>
-                              Deleted
-                            </span>
-                          ) : (
+                    {media.map((item) => {
+                      const latestPurchase = item.purchases?.[0]
+                      return (
+                        <tr key={item.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
+                          <td className="p-3 max-w-[200px]">
+                            <Link href={`/media/${item.id}`} className="font-medium hover:text-tank-accent line-clamp-1" title={item.title}>
+                              {item.title}
+                            </Link>
+                          </td>
+                          <td className="p-3">
                             <span className={`badge ${
-                              item.isApproved ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                              item.type === 'VIDEO' ? 'badge-video' :
+                              item.type === 'IMAGE' ? 'badge-image' : 'badge-music'
                             }`}>
-                              {item.isApproved ? 'Approved' : 'Pending'}
+                              {item.type}
                             </span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {item._count.reports > 0 && (
-                            <span className="badge bg-red-500/20 text-red-400">{item._count.reports}</span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex gap-2">
+                          </td>
+                          <td className="p-3 text-gray-400 whitespace-nowrap">@{item.user.username}</td>
+                          <td className="p-3 text-gray-400 whitespace-nowrap">
+                            {new Date(item.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 max-w-[150px]">
+                            <a 
+                              href={item.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-blue-400 hover:text-blue-300 text-xs truncate block"
+                              title={item.url}
+                            >
+                              {item.url.split('/').pop()?.slice(0, 20)}...
+                            </a>
+                          </td>
+                          <td className="p-3">
                             {item.isDeleted ? (
-                              <button onClick={() => handleAction('restoreMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
-                                Restore
-                              </button>
+                              <span className="badge bg-red-500/20 text-red-400 text-xs" title={item.deletionReason || ''}>
+                                Deleted
+                              </span>
                             ) : (
-                              <>
-                                {!item.isApproved && (
-                                  <button onClick={() => handleAction('approveMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
-                                    Approve
-                                  </button>
-                                )}
-                                {item.isApproved && (
-                                  <button onClick={() => handleAction('rejectMedia', item.id)} className="text-yellow-400 hover:text-yellow-300 text-sm">
-                                    Reject
-                                  </button>
-                                )}
-                                <button 
-                                  onClick={() => setDeleteModal({
-                                    show: true,
-                                    mediaId: item.id,
-                                    mediaTitle: item.title,
-                                    creatorUsername: item.user.username,
-                                    creatorEmail: item.user.email
-                                  })} 
-                                  className="text-red-400 hover:text-red-300 text-sm"
-                                >
-                                  Delete
-                                </button>
-                              </>
+                              <select
+                                value={item.isSold ? 'sold' : 'live'}
+                                onChange={(e) => handleAction('updateMediaStatus', item.id, { isSold: e.target.value === 'sold' })}
+                                className="bg-tank-dark border border-tank-light rounded px-2 py-1 text-xs"
+                              >
+                                <option value="live">Live</option>
+                                <option value="sold">Sold</option>
+                              </select>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="p-3 text-gray-400 whitespace-nowrap">
+                            {item.soldAt ? new Date(item.soldAt).toLocaleDateString() : 
+                             latestPurchase?.completedAt ? new Date(latestPurchase.completedAt).toLocaleDateString() : '-'}
+                          </td>
+                          <td className="p-3 text-gray-400 whitespace-nowrap">
+                            {latestPurchase?.buyer ? `@${latestPurchase.buyer.username}` : '-'}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex gap-2 whitespace-nowrap">
+                              {item.isDeleted ? (
+                                <button onClick={() => handleAction('restoreMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
+                                  Restore
+                                </button>
+                              ) : (
+                                <>
+                                  {!item.isApproved && (
+                                    <button onClick={() => handleAction('approveMedia', item.id)} className="text-green-400 hover:text-green-300 text-sm">
+                                      Approve
+                                    </button>
+                                  )}
+                                  {item.isApproved && (
+                                    <button onClick={() => handleAction('rejectMedia', item.id)} className="text-yellow-400 hover:text-yellow-300 text-sm">
+                                      Reject
+                                    </button>
+                                  )}
+                                  <button 
+                                    onClick={() => setDeleteModal({
+                                      show: true,
+                                      mediaId: item.id,
+                                      mediaTitle: item.title,
+                                      creatorUsername: item.user.username,
+                                      creatorEmail: item.user.email
+                                    })} 
+                                    className="text-red-400 hover:text-red-300 text-sm"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
