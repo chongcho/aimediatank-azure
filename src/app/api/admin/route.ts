@@ -221,13 +221,24 @@ export async function GET(request: Request) {
       // Get all media for moderation
       const page = parseInt(searchParams.get('page') || '1')
       const limit = parseInt(searchParams.get('limit') || '20')
-      const status = searchParams.get('status') // approved, pending, rejected
+      const status = searchParams.get('status') // approved, pending
+      const type = searchParams.get('type') // VIDEO, IMAGE
+      const search = searchParams.get('search') || ''
       
       const where: any = {}
       if (status === 'pending') {
         where.isApproved = false
       } else if (status === 'approved') {
         where.isApproved = true
+      }
+      if (type && ['VIDEO', 'IMAGE', 'MUSIC'].includes(type)) {
+        where.type = type
+      }
+      if (search) {
+        where.OR = [
+          { title: { contains: search, mode: 'insensitive' } },
+          { user: { username: { contains: search, mode: 'insensitive' } } },
+        ]
       }
 
       const [media, total] = await Promise.all([

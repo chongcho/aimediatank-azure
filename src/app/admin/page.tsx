@@ -112,6 +112,11 @@ export default function AdminPage() {
   const [mediaPage, setMediaPage] = useState(1)
   const [mediaTotalPages, setMediaTotalPages] = useState(1)
   const [mediaTotal, setMediaTotal] = useState(0)
+  
+  // Media filter state
+  const [mediaSearch, setMediaSearch] = useState('')
+  const [mediaTypeFilter, setMediaTypeFilter] = useState('all')
+  const [mediaStatusFilter, setMediaStatusFilter] = useState('all')
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -125,7 +130,7 @@ export default function AdminPage() {
     if (session?.user?.role === 'ADMIN') {
       fetchData()
     }
-  }, [session, activeTab, userSearch, userFilter, mediaPage])
+  }, [session, activeTab, userSearch, userFilter, mediaPage, mediaSearch, mediaTypeFilter, mediaStatusFilter])
 
   const fetchData = async () => {
     setLoading(true)
@@ -146,7 +151,11 @@ export default function AdminPage() {
         const data = await res.json()
         setUsers(data.users || [])
       } else if (activeTab === 'media') {
-        const res = await fetch(`/api/admin?action=media&page=${mediaPage}&limit=20`)
+        const params = new URLSearchParams({ action: 'media', page: String(mediaPage), limit: '20' })
+        if (mediaSearch) params.set('search', mediaSearch)
+        if (mediaTypeFilter !== 'all') params.set('type', mediaTypeFilter)
+        if (mediaStatusFilter !== 'all') params.set('status', mediaStatusFilter)
+        const res = await fetch(`/api/admin?${params}`)
         const data = await res.json()
         setMedia(data.media || [])
         if (data.pagination) {
@@ -211,7 +220,12 @@ export default function AdminPage() {
             key={tab}
             onClick={() => {
               setActiveTab(tab)
-              if (tab === 'media') setMediaPage(1)
+              if (tab === 'media') {
+                setMediaPage(1)
+                setMediaSearch('')
+                setMediaTypeFilter('all')
+                setMediaStatusFilter('all')
+              }
             }}
             className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
               activeTab === tab
@@ -493,7 +507,34 @@ export default function AdminPage() {
           {/* Media */}
           {activeTab === 'media' && (
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
+              {/* Filters */}
+              <div className="flex gap-4 flex-wrap items-center">
+                <input
+                  type="text"
+                  placeholder="Search title or creator..."
+                  value={mediaSearch}
+                  onChange={(e) => { setMediaSearch(e.target.value); setMediaPage(1); }}
+                  className="input flex-1 min-w-[200px]"
+                />
+                <select
+                  value={mediaTypeFilter}
+                  onChange={(e) => { setMediaTypeFilter(e.target.value); setMediaPage(1); }}
+                  className="input w-auto"
+                >
+                  <option value="all">All Types</option>
+                  <option value="VIDEO">Video</option>
+                  <option value="IMAGE">Image</option>
+                  <option value="MUSIC">Music</option>
+                </select>
+                <select
+                  value={mediaStatusFilter}
+                  onChange={(e) => { setMediaStatusFilter(e.target.value); setMediaPage(1); }}
+                  className="input w-auto"
+                >
+                  <option value="all">All Status</option>
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                </select>
                 <p className="text-gray-400">Total: {mediaTotal} items</p>
               </div>
               <div className="card overflow-x-auto">
