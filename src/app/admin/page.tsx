@@ -32,6 +32,9 @@ interface User {
   username: string
   name: string | null
   avatar: string | null
+  phone: string | null
+  location: string | null
+  ageRange: string | null
   role: string
   membershipType: string
   isSuspended: boolean
@@ -463,55 +466,75 @@ export default function AdminPage() {
           {activeTab === 'users' && (
             <div className="space-y-4">
               <div className="card overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-tank-light">
-                      <th className="text-left p-4 text-gray-400 font-medium">User</th>
-                      <th className="text-left p-4 text-gray-400 font-medium">Status</th>
-                      <th className="text-left p-4 text-gray-400 font-medium">Warnings</th>
-                      <th className="text-left p-4 text-gray-400 font-medium">Credits</th>
-                      <th className="text-left p-4 text-gray-400 font-medium">Actions</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User ID</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User Name</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email Address</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Phone Number</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Country</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Age Range</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Subscription Date</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Status</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Credits</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.map((user) => (
-                      <tr key={user.id} className="border-b border-tank-light/50">
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-sm font-bold overflow-hidden">
+                      <tr key={user.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
+                        <td className="p-3 text-gray-400 font-mono text-xs" title={user.id}>
+                          {user.id.slice(0, 8)}...
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-xs font-bold overflow-hidden flex-shrink-0">
                               {user.avatar ? (
                                 <img src={user.avatar} alt="" className="w-full h-full object-cover" />
                               ) : (
                                 user.name?.[0]?.toUpperCase() || user.username[0].toUpperCase()
                               )}
                             </div>
-                            <div>
-                              <div className="font-medium">{user.name || user.username}</div>
-                              <div className="text-sm text-gray-500">@{user.username}</div>
-                            </div>
+                            <span className="font-medium whitespace-nowrap">@{user.username}</span>
                           </div>
                         </td>
-                        <td className="p-4">
-                          {user.isSuspended ? (
-                            <span className="badge bg-red-500/20 text-red-400">Suspended</span>
-                          ) : (
-                            <span className="badge bg-green-500/20 text-green-400">Active</span>
-                          )}
+                        <td className="p-3 text-gray-300 max-w-[180px] truncate" title={user.email}>
+                          {user.email}
                         </td>
-                        <td className="p-4">
-                          {user.warningCount > 0 && (
-                            <span className="badge bg-yellow-500/20 text-yellow-400">
-                              {user.warningCount} warning{user.warningCount > 1 ? 's' : ''}
-                            </span>
-                          )}
+                        <td className="p-3 text-gray-400 whitespace-nowrap">
+                          {user.phone || '-'}
                         </td>
-                        <td className="p-4 text-gray-400">
+                        <td className="p-3 text-gray-400 whitespace-nowrap">
+                          {user.location || '-'}
+                        </td>
+                        <td className="p-3 text-gray-400 whitespace-nowrap">
+                          {user.ageRange === '18_PLUS' ? '18+' : user.ageRange === 'UNDER_18' ? 'Under 18' : '-'}
+                        </td>
+                        <td className="p-3 text-gray-400 whitespace-nowrap">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex flex-col gap-1">
+                            {user.isSuspended ? (
+                              <span className="badge bg-red-500/20 text-red-400 text-xs">Suspended</span>
+                            ) : (
+                              <span className="badge bg-green-500/20 text-green-400 text-xs">Active</span>
+                            )}
+                            {user.warningCount > 0 && (
+                              <span className="badge bg-yellow-500/20 text-yellow-400 text-xs">
+                                {user.warningCount}⚠️
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-3 text-gray-400 whitespace-nowrap">
                           {user.bonusCredits + user.paidUploadCredits}
                         </td>
-                        <td className="p-4">
+                        <td className="p-3">
                           <button
                             onClick={() => { setSelectedUser(user); setShowUserModal(true); }}
-                            className="text-tank-accent hover:underline text-sm"
+                            className="text-tank-accent hover:underline text-sm whitespace-nowrap"
                           >
                             Manage
                           </button>
