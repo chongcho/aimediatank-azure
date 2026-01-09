@@ -1110,7 +1110,36 @@ export default function AdminPage() {
             <div className="space-y-3">
               <h3 className="font-semibold text-gray-300">Actions</h3>
               
-              {/* Suspend/Unsuspend */}
+              {/* Give Credits - Green */}
+              <button
+                onClick={() => {
+                  setCreditsModal({
+                    show: true,
+                    userId: selectedUser.id,
+                    username: selectedUser.username,
+                    legalName: selectedUser.legalName,
+                    currentCredits: (selectedUser.bonusCredits || 0) + (selectedUser.paidUploadCredits || 0)
+                  })
+                }}
+                className="w-full bg-tank-accent hover:bg-tank-accent/80 text-black rounded-lg py-2 px-4"
+              >
+                🎁 Give Credits
+              </button>
+
+              {/* Send Warning - Yellow/Gold */}
+              <button
+                onClick={() => {
+                  const reason = prompt('Reason for warning:')
+                  if (reason) {
+                    handleAction('warnUser', selectedUser.id, { reason })
+                  }
+                }}
+                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg py-2 px-4"
+              >
+                ⚠️ Send Warning
+              </button>
+
+              {/* Suspend/Unsuspend - Red */}
               {selectedUser.isSuspended ? (
                 <button
                   onClick={() => handleAction('unsuspendUser', selectedUser.id)}
@@ -1136,58 +1165,7 @@ export default function AdminPage() {
                 </button>
               )}
 
-              {/* Warn */}
-              <button
-                onClick={() => {
-                  const reason = prompt('Reason for warning:')
-                  if (reason) {
-                    handleAction('warnUser', selectedUser.id, { reason })
-                  }
-                }}
-                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg py-2 px-4"
-              >
-                ⚠️ Send Warning
-              </button>
-
-              {selectedUser.warningCount > 0 && (
-                <button
-                  onClick={() => handleAction('clearWarnings', selectedUser.id)}
-                  className="w-full bg-gray-600 hover:bg-gray-700 text-white rounded-lg py-2 px-4"
-                >
-                  🧹 Clear Warnings
-                </button>
-              )}
-
-              {/* Give Credits */}
-              <button
-                onClick={() => {
-                  setCreditsModal({
-                    show: true,
-                    userId: selectedUser.id,
-                    username: selectedUser.username,
-                    legalName: selectedUser.legalName,
-                    currentCredits: (selectedUser.bonusCredits || 0) + (selectedUser.paidUploadCredits || 0)
-                  })
-                }}
-                className="w-full bg-tank-accent hover:bg-tank-accent/80 text-black rounded-lg py-2 px-4"
-              >
-                🎁 Give Credits
-              </button>
-
-              {/* Change Role */}
-              <div className="flex gap-2">
-                <select
-                  defaultValue={selectedUser.role}
-                  onChange={(e) => handleAction('updateUserRole', selectedUser.id, { role: e.target.value })}
-                  className="flex-1 bg-tank-dark border border-tank-light rounded-lg px-3 py-2"
-                >
-                  <option value="VIEWER">VIEWER</option>
-                  <option value="SUBSCRIBER">SUBSCRIBER</option>
-                  <option value="ADMIN">ADMIN</option>
-                </select>
-              </div>
-
-              {/* Delete User */}
+              {/* Delete User - Dark Red */}
               <button
                 onClick={() => handleAction('deleteUser', selectedUser.id)}
                 className="w-full bg-red-900 hover:bg-red-800 text-white rounded-lg py-2 px-4"
@@ -1196,6 +1174,7 @@ export default function AdminPage() {
               </button>
             </div>
 
+            {/* Close button */}
             <button
               onClick={() => setShowUserModal(false)}
               className="w-full mt-4 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4"
