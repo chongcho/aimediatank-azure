@@ -1062,7 +1062,7 @@ export default function AdminPage() {
               </div>
               <div>
                 <h2 className="text-xl font-bold">{selectedUser.legalName || selectedUser.username}</h2>
-                <p className="text-gray-400">@{selectedUser.username}</p>
+                <p className="text-tank-accent font-medium">@{selectedUser.username}</p>
                 <p className="text-sm text-gray-500">{selectedUser.email}</p>
               </div>
             </div>
@@ -1121,7 +1121,7 @@ export default function AdminPage() {
                     currentCredits: (selectedUser.bonusCredits || 0) + (selectedUser.paidUploadCredits || 0)
                   })
                 }}
-                className="w-full bg-tank-accent hover:bg-tank-accent/80 text-black rounded-lg py-2 px-4"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg py-2.5 px-4 font-medium transition-colors"
               >
                 🎁 Give Credits
               </button>
@@ -1134,7 +1134,7 @@ export default function AdminPage() {
                     handleAction('warnUser', selectedUser.id, { reason })
                   }
                 }}
-                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg py-2 px-4"
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white rounded-lg py-2.5 px-4 font-medium transition-colors"
               >
                 ⚠️ Send Warning
               </button>
@@ -1143,7 +1143,7 @@ export default function AdminPage() {
               {selectedUser.isSuspended ? (
                 <button
                   onClick={() => handleAction('unsuspendUser', selectedUser.id)}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white rounded-lg py-2 px-4"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white rounded-lg py-2.5 px-4 font-medium transition-colors"
                 >
                   ✅ Unsuspend User
                 </button>
@@ -1159,16 +1159,16 @@ export default function AdminPage() {
                       })
                     }
                   }}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 px-4"
+                  className="w-full bg-red-600 hover:bg-red-700 text-white rounded-lg py-2.5 px-4 font-medium transition-colors"
                 >
                   🚫 Suspend User
                 </button>
               )}
 
-              {/* Delete User - Dark Red */}
+              {/* Delete User - Dark Maroon */}
               <button
                 onClick={() => handleAction('deleteUser', selectedUser.id)}
-                className="w-full bg-red-900 hover:bg-red-800 text-white rounded-lg py-2 px-4"
+                className="w-full bg-red-900/80 hover:bg-red-900 text-white rounded-lg py-2.5 px-4 font-medium transition-colors"
               >
                 🗑️ Delete User
               </button>
@@ -1177,7 +1177,7 @@ export default function AdminPage() {
             {/* Close button */}
             <button
               onClick={() => setShowUserModal(false)}
-              className="w-full mt-4 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4"
+              className="w-full mt-4 bg-neutral-700 hover:bg-neutral-600 text-gray-300 rounded-lg py-2.5 px-4 font-medium transition-colors"
             >
               Close
             </button>
