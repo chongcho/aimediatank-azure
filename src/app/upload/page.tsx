@@ -458,24 +458,24 @@ function UploadPageContent() {
               <div className="flex flex-col gap-2">
                 {/* Free Uploads Counter */}
                 <div className="flex items-center gap-2">
-                  <div className="text-center px-4 py-2 bg-tank-dark rounded-lg">
+                  <div className="text-center min-w-[60px] px-4 py-2 bg-tank-dark rounded-lg">
                     <p className="text-2xl font-bold text-white">{uploadQuota.freeUploadsUsed}</p>
                     <p className="text-xs text-gray-400">Used</p>
                   </div>
                   <div className="text-gray-500">/</div>
-                  <div className="text-center px-4 py-2 bg-tank-dark rounded-lg">
+                  <div className="text-center min-w-[60px] px-4 py-2 bg-tank-dark rounded-lg">
                     <p className="text-2xl font-bold text-tank-accent">{uploadQuota.freeUploads}</p>
                     <p className="text-xs text-gray-400">Free</p>
                   </div>
                 </div>
                 {/* Credits Counter */}
                 <div className="flex items-center gap-2">
-                  <div className="text-center px-4 py-2 bg-tank-dark rounded-lg border border-tank-light">
+                  <div className="text-center min-w-[60px] px-4 py-2 bg-tank-dark rounded-lg border border-tank-light">
                     <p className="text-2xl font-bold text-white">{uploadQuota.creditsUsed}</p>
                     <p className="text-xs text-gray-400">Used</p>
                   </div>
                   <div className="text-gray-500">/</div>
-                  <div className="text-center px-4 py-2 bg-tank-dark rounded-lg border border-tank-light">
+                  <div className="text-center min-w-[60px] px-4 py-2 bg-tank-dark rounded-lg border border-tank-light">
                     <p className="text-2xl font-bold text-tank-accent">{uploadQuota.totalCredits + uploadQuota.creditsUsed}</p>
                     <p className="text-xs text-gray-400">Credits</p>
                   </div>
