@@ -101,7 +101,7 @@ interface ChatMessage {
   }
 }
 
-type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'reports'
+type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales'
 
 export default function AdminPage() {
   const { data: session, status } = useSession()
@@ -272,10 +272,14 @@ export default function AdminPage() {
         const res = await fetch(`/api/admin?${params}`)
         const data = await res.json()
         setChatMessages(data.messages || [])
-      } else if (activeTab === 'reports') {
+      } else if (activeTab === 'membershipSales') {
         const res = await fetch('/api/admin?action=reports')
         const data = await res.json()
         setReports(data.reports || [])
+      } else if (activeTab === 'contentSales') {
+        const res = await fetch('/api/admin?action=contentSales')
+        const data = await res.json()
+        setReports(data.sales || [])
       }
     } catch (error) {
       console.error('Error fetching admin data:', error)
@@ -321,12 +325,20 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-8 overflow-x-auto no-scrollbar">
-        {(['dashboard', 'analytics', 'users', 'media', 'chat', 'reports'] as TabType[]).map((tab) => (
+        {([
+          { id: 'dashboard', label: 'Dashboard' },
+          { id: 'analytics', label: 'Analytics' },
+          { id: 'users', label: 'Users' },
+          { id: 'media', label: 'Media' },
+          { id: 'chat', label: 'Chat' },
+          { id: 'membershipSales', label: 'Membership Sales Reports' },
+          { id: 'contentSales', label: 'Contents Sales Reports' },
+        ] as { id: TabType; label: string }[]).map((tab) => (
           <button
-            key={tab}
+            key={tab.id}
             onClick={() => {
-              setActiveTab(tab)
-              if (tab === 'media') {
+              setActiveTab(tab.id)
+              if (tab.id === 'media') {
                 setMediaPage(1)
                 setMediaSearch('')
                 setMediaTypeFilter('all')
@@ -334,17 +346,12 @@ export default function AdminPage() {
               }
             }}
             className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
-              activeTab === tab
+              activeTab === tab.id
                 ? 'bg-tank-accent text-tank-black'
                 : 'bg-tank-gray text-gray-400 hover:text-white'
             }`}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            {tab === 'reports' && stats && stats.pendingReports > 0 && (
-              <span className="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
-                {stats.pendingReports}
-              </span>
-            )}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -896,38 +903,23 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Reports */}
-          {activeTab === 'reports' && (
+          {/* Membership Sales Reports */}
+          {activeTab === 'membershipSales' && (
             <div className="space-y-4">
-              {reports.length === 0 ? (
-                <div className="card text-center py-12 text-gray-500">No pending reports</div>
-              ) : (
-                reports.map((report) => (
-                  <div key={report.id} className="card">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="badge bg-red-500/20 text-red-400">Report</span>
-                          <span className="text-sm text-gray-500">by @{report.user.username}</span>
-                        </div>
-                        <p className="text-gray-300 mb-2">{report.reason}</p>
-                        <Link href={`/media/${report.media.id}`} className="text-sm text-tank-accent hover:underline">
-                          View: {report.media.title}
-                        </Link>
-                        <p className="text-xs text-gray-500 mt-1">Posted by @{report.media.user.username}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleAction('resolveReport', report.id, { status: 'RESOLVED' })} className="btn-secondary text-sm py-2">
-                          Resolve
-                        </button>
-                        <button onClick={() => handleAction('resolveReport', report.id, { status: 'DISMISSED' })} className="text-gray-400 hover:text-gray-300 text-sm">
-                          Dismiss
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
+              <div className="card text-center py-12 text-gray-500">
+                <h3 className="text-lg font-semibold mb-2">Membership Sales Reports</h3>
+                <p>No membership sales data available yet.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Contents Sales Reports */}
+          {activeTab === 'contentSales' && (
+            <div className="space-y-4">
+              <div className="card text-center py-12 text-gray-500">
+                <h3 className="text-lg font-semibold mb-2">Contents Sales Reports</h3>
+                <p>No content sales data available yet.</p>
+              </div>
             </div>
           )}
         </>
