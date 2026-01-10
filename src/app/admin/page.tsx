@@ -1309,7 +1309,7 @@ export default function AdminPage() {
                 <p className="text-gray-400">@{creditHistoryModal.username}</p>
               </div>
               <div className="ml-auto text-right">
-                <p className="text-2xl font-bold text-white">{creditHistoryModal.totalCredits}</p>
+                <p className="text-2xl font-bold text-tank-accent">{creditHistoryModal.totalCredits}</p>
                 <p className="text-xs text-gray-400">Total Credits</p>
               </div>
             </div>
@@ -1323,14 +1323,16 @@ export default function AdminPage() {
                 <table className="w-full">
                   <thead className="sticky top-0 bg-tank-gray">
                     <tr className="border-b border-tank-light">
-                      <th className="text-left p-3 text-gray-400 font-medium">Credits</th>
+                      <th className="text-left p-3 text-gray-400 font-medium w-12">#</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Credit</th>
                       <th className="text-left p-3 text-gray-400 font-medium">Date</th>
                       <th className="text-left p-3 text-gray-400 font-medium">Comments</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {creditHistoryModal.history.map((entry) => (
+                    {creditHistoryModal.history.map((entry, index) => (
                       <tr key={entry.id} className="border-b border-tank-light/30">
+                        <td className="p-3 text-gray-400">{index + 1}</td>
                         <td className="p-3">
                           <span className={`font-bold text-lg ${entry.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                             {entry.amount >= 0 ? '+' : ''}{entry.amount}
@@ -1340,26 +1342,11 @@ export default function AdminPage() {
                           {new Date(entry.createdAt).toLocaleDateString()}<br/>
                           <span className="text-xs text-gray-500">{new Date(entry.createdAt).toLocaleTimeString()}</span>
                         </td>
-                        <td className="p-3">
-                          <div className="flex flex-col gap-1">
-                            <span className={`inline-block w-fit px-2 py-0.5 rounded text-xs ${
-                              entry.type === 'bonus' ? 'bg-purple-500/20 text-purple-400' :
-                              entry.type === 'purchase' ? 'bg-blue-500/20 text-blue-400' :
-                              entry.type === 'used' ? 'bg-orange-500/20 text-orange-400' :
-                              'bg-gray-500/20 text-gray-400'
-                            }`}>
-                              {entry.type === 'bonus' ? '🎁 Bonus' :
-                               entry.type === 'purchase' ? '💰 Purchase' :
-                               entry.type === 'used' ? '📤 Used' :
-                               entry.type}
-                            </span>
-                            {entry.reason && (
-                              <p className="text-gray-300 text-sm">{entry.reason}</p>
-                            )}
-                            {entry.adminName && (
-                              <p className="text-gray-500 text-xs">By: @{entry.adminName}</p>
-                            )}
-                          </div>
+                        <td className="p-3 text-white text-sm">
+                          {entry.reason || (entry.type === 'bonus' ? 'Admin bonus credits' : entry.type === 'used' ? 'Credit used' : entry.type)}
+                          {entry.adminName && (
+                            <span className="text-gray-500 text-xs ml-2">by @{entry.adminName}</span>
+                          )}
                         </td>
                       </tr>
                     ))}
