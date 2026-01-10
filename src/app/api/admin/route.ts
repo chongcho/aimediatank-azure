@@ -89,6 +89,41 @@ export async function GET(request: Request) {
       })
     }
 
+    // Debug: Check recent admin actions with email status
+    if (action === 'debugEmails') {
+      const limit = parseInt(searchParams.get('limit') || '20')
+      
+      // Get recent admin actions that might have sent emails
+      const recentActions = await prisma.adminAction.findMany({
+        where: {
+          action: {
+            in: ['GIVE_CREDITS', 'WARN_USER', 'SUSPEND_USER', 'UNSUSPEND_USER', 'DELETE_USER', 'DELETE_MEDIA', 'SUSPEND_MEDIA']
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        include: {
+          admin: {
+            select: { username: true }
+          }
+        }
+      })
+      
+      return NextResponse.json({
+        totalActions: recentActions.length,
+        actions: recentActions.map(a => ({
+          id: a.id,
+          action: a.action,
+          targetType: a.targetType,
+          targetId: a.targetId,
+          adminUsername: a.admin?.username,
+          details: a.details,
+          emailSent: (a.details as any)?.emailSent,
+          createdAt: a.createdAt
+        }))
+      })
+    }
+
     if (action === 'reports') {
       // Get pending reports
       const reports = await prisma.report.findMany({
