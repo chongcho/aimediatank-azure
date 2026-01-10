@@ -362,11 +362,20 @@ export default function AdminPage() {
       })
       const data = await res.json()
       
+      // Use the corrected warningCount from the API (auto-synced with actual records)
+      const actualWarningCount = data.warningCount ?? data.warnings?.length ?? 0
+      
       setWarningModal(prev => prev ? {
         ...prev,
         history: data.warnings || [],
+        warningCount: actualWarningCount,
         loading: false
       } : null)
+      
+      // If warning count was corrected (synced), refresh the users list
+      if (actualWarningCount !== warningCount) {
+        fetchData()
+      }
     } catch (error) {
       console.error('Failed to fetch warning history:', error)
       setWarningModal(prev => prev ? { ...prev, loading: false } : null)
@@ -1191,13 +1200,17 @@ export default function AdminPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setWarningModal(null)}>
           <div className="bg-tank-gray rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">⚠️</span>
+              <span className="text-3xl">{warningModal.warningCount === 0 && !warningModal.loading ? '✅' : '⚠️'}</span>
               <div>
-                <h2 className="text-xl font-bold text-yellow-400">Warning Details</h2>
+                <h2 className={`text-xl font-bold ${warningModal.warningCount === 0 && !warningModal.loading ? 'text-green-400' : 'text-yellow-400'}`}>
+                  {warningModal.warningCount === 0 && !warningModal.loading ? 'Status: Active' : 'Warning Details'}
+                </h2>
                 <p className="text-gray-400">@{warningModal.username}</p>
               </div>
               <div className="ml-auto text-right">
-                <p className="text-2xl font-bold text-yellow-400">{warningModal.warningCount}</p>
+                <p className={`text-2xl font-bold ${warningModal.warningCount === 0 && !warningModal.loading ? 'text-green-400' : 'text-yellow-400'}`}>
+                  {warningModal.warningCount}
+                </p>
                 <p className="text-xs text-gray-400">Total Warnings</p>
               </div>
             </div>
@@ -1206,7 +1219,17 @@ export default function AdminPage() {
               {warningModal.loading ? (
                 <div className="text-center py-8 text-gray-400">Loading...</div>
               ) : warningModal.history.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">No warning history found</div>
+                <div className="text-center py-8">
+                  {warningModal.warningCount === 0 ? (
+                    <div className="space-y-2">
+                      <span className="text-4xl">✅</span>
+                      <p className="text-green-400 font-medium">All issues have been resolved!</p>
+                      <p className="text-gray-400 text-sm">User status has been updated to Active.</p>
+                    </div>
+                  ) : (
+                    <p className="text-gray-400">No warning history found</p>
+                  )}
+                </div>
               ) : (
                 <table className="w-full">
                   <thead className="sticky top-0 bg-tank-gray">

@@ -765,6 +765,7 @@ export async function POST(request: Request) {
       }
 
       case 'getWarningHistory': {
+        // Fetch actual warning records
         const warnings = await prisma.chatWarning.findMany({
           where: { userId: targetId },
           orderBy: { createdAt: 'desc' },
@@ -775,7 +776,32 @@ export async function POST(request: Request) {
             createdAt: true,
           }
         })
-        return NextResponse.json({ warnings })
+        
+        // Auto-sync: Check if user's warningCount matches actual records
+        const user = await prisma.user.findUnique({
+          where: { id: targetId },
+          select: { warningCount: true }
+        })
+        
+        const actualWarningCount = warnings.length
+        
+        // If mismatch, auto-correct the user's warningCount
+        if (user && user.warningCount !== actualWarningCount) {
+          await prisma.user.update({
+            where: { id: targetId },
+            data: {
+              warningCount: actualWarningCount,
+              // Clear warning fields if no more warnings
+              ...(actualWarningCount === 0 && {
+                lastWarningAt: null,
+                lastWarningReason: null,
+              })
+            }
+          })
+          console.log(`Auto-synced warningCount for user ${targetId}: ${user.warningCount} -> ${actualWarningCount}`)
+        }
+        
+        return NextResponse.json({ warnings, warningCount: actualWarningCount })
       }
 
       case 'clearWarnings':
