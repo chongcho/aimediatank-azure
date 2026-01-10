@@ -514,15 +514,22 @@ export default function Navbar() {
                 </button>
                 <Link
                   href="/register"
-                  className="h-9 px-3 flex items-center justify-center bg-tank-accent text-tank-black font-bold rounded-lg text-sm 
-                    hover:bg-tank-accent/90 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,255,136,0.5)] 
-                    active:scale-95 transition-all duration-200 ease-out
-                    animate-[pulse-glow_2s_ease-in-out_infinite]"
+                  className="h-9 px-4 flex items-center justify-center font-bold rounded-lg text-sm 
+                    border-2 border-transparent bg-clip-padding
+                    hover:scale-105 active:scale-95 transition-all duration-200 ease-out
+                    relative overflow-hidden group"
                   style={{
-                    animation: 'pulse-glow 2s ease-in-out infinite'
+                    background: 'linear-gradient(#0d0d1a, #0d0d1a) padding-box, linear-gradient(90deg, #00d4aa, #8b5cf6) border-box',
+                    borderColor: 'transparent',
                   }}
                 >
-                  Sign Up
+                  <span className="bg-gradient-to-r from-[#00d4aa] via-[#00b4d8] to-[#8b5cf6] bg-clip-text text-transparent font-bold
+                    group-hover:from-[#00ffcc] group-hover:via-[#00d4ff] group-hover:to-[#a78bfa]
+                    transition-all duration-300">
+                    Sign Up
+                  </span>
+                  <span className="absolute inset-0 bg-gradient-to-r from-[#00d4aa]/10 via-[#00b4d8]/10 to-[#8b5cf6]/10 
+                    opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg" />
                 </Link>
               </div>
             )}
