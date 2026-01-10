@@ -33,6 +33,11 @@ function createTransporter() {
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   const emailFrom = process.env.EMAIL_FROM || process.env.SMTP_USER || 'support@aimediatank.com'
   
+  console.log('=== EMAIL SEND ATTEMPT ===')
+  console.log('To:', options.to)
+  console.log('Subject:', options.subject)
+  console.log('From:', emailFrom)
+  
   const transporter = createTransporter()
   
   if (!transporter) {
@@ -43,6 +48,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   }
 
   try {
+    console.log('Attempting to send email via SMTP...')
     const info = await transporter.sendMail({
       from: emailFrom,
       to: options.to,
@@ -50,11 +56,17 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       html: options.html,
     })
 
-    console.log('Email sent successfully to:', options.to)
+    console.log('✅ Email sent successfully to:', options.to)
     console.log('Message ID:', info.messageId)
+    console.log('Response:', info.response)
     return true
-  } catch (error) {
-    console.error('Error sending email:', error)
+  } catch (error: unknown) {
+    console.error('❌ Error sending email to:', options.to)
+    console.error('Error details:', error)
+    if (error instanceof Error) {
+      console.error('Error message:', error.message)
+      console.error('Error stack:', error.stack)
+    }
     return false
   }
 }

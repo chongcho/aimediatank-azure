@@ -739,22 +739,31 @@ export async function POST(request: Request) {
         })
         
         // Send email notification before deletion if requested
+        let deleteEmailSent = false
         if (shouldSendDeleteEmail && recipientEmail) {
           try {
             const { sendEmail, generateAccountDeletedEmail } = await import('@/lib/email')
-            await sendEmail({
+            deleteEmailSent = await sendEmail({
               to: recipientEmail,
               subject: '🗑️ Your AI Media Tank Account Has Been Deleted',
               html: generateAccountDeletedEmail(recipientName || 'User', deleteReason)
             })
-            console.log(`Account deletion email sent to ${recipientEmail}`)
+            if (deleteEmailSent) {
+              console.log(`Account deletion email sent to ${recipientEmail}`)
+            } else {
+              console.log(`Account deletion email FAILED to send to ${recipientEmail}`)
+            }
           } catch (emailError) {
             console.error('Failed to send account deletion email:', emailError)
+            deleteEmailSent = false
           }
         }
         
-        await logAdminAction(adminId, 'DELETE_USER', 'USER', targetId, { reason: deleteReason, emailSent: shouldSendDeleteEmail })
-        return NextResponse.json({ message: `User deleted${shouldSendDeleteEmail ? ' (email sent)' : ''}` })
+        await logAdminAction(adminId, 'DELETE_USER', 'USER', targetId, { reason: deleteReason, emailSent: deleteEmailSent })
+        return NextResponse.json({ 
+          message: `User deleted${shouldSendDeleteEmail ? (deleteEmailSent ? ' (email sent)' : ' (email failed)') : ''}`,
+          emailSent: deleteEmailSent
+        })
       }
 
       case 'resolveReport':
@@ -804,23 +813,32 @@ export async function POST(request: Request) {
         })
         
         // Send email notification only if requested
+        let suspendEmailSent = false
         if (shouldSendSuspendEmail && suspendTargetUser) {
           try {
             const { sendEmail, generateSuspensionEmail } = await import('@/lib/email')
             const userName = suspendTargetUser.legalName || suspendTargetUser.username || 'User'
-            await sendEmail({
+            suspendEmailSent = await sendEmail({
               to: suspendTargetUser.email,
               subject: '🚫 Your AI Media Tank Account Has Been Suspended',
               html: generateSuspensionEmail(userName, suspendReason, suspendUntil)
             })
-            console.log(`Suspension email sent to ${suspendTargetUser.email}`)
+            if (suspendEmailSent) {
+              console.log(`Suspension email sent to ${suspendTargetUser.email}`)
+            } else {
+              console.log(`Suspension email FAILED to send to ${suspendTargetUser.email}`)
+            }
           } catch (emailError) {
             console.error('Failed to send suspension email:', emailError)
+            suspendEmailSent = false
           }
         }
         
-        await logAdminAction(adminId, 'SUSPEND_USER', 'USER', targetId, { ...data, emailSent: shouldSendSuspendEmail })
-        return NextResponse.json({ message: `User suspended${shouldSendSuspendEmail ? ' (email sent)' : ''}` })
+        await logAdminAction(adminId, 'SUSPEND_USER', 'USER', targetId, { ...data, emailSent: suspendEmailSent })
+        return NextResponse.json({ 
+          message: `User suspended${shouldSendSuspendEmail ? (suspendEmailSent ? ' (email sent)' : ' (email failed)') : ''}`,
+          emailSent: suspendEmailSent
+        })
       }
 
       case 'unsuspendUser': {
@@ -840,7 +858,7 @@ export async function POST(request: Request) {
           },
         })
         
-        // Create notification for user
+        // Create in-app notification for user
         await prisma.notification.create({
           data: {
             userId: targetId,
@@ -851,23 +869,32 @@ export async function POST(request: Request) {
         })
         
         // Send email notification
+        let unsuspendEmailSent = false
         if (unsuspendTargetUser) {
           try {
             const { sendEmail, generateUnsuspensionEmail } = await import('@/lib/email')
             const userName = unsuspendTargetUser.legalName || unsuspendTargetUser.username || 'User'
-            await sendEmail({
+            unsuspendEmailSent = await sendEmail({
               to: unsuspendTargetUser.email,
               subject: '✅ Your AI Media Tank Account Has Been Reinstated',
               html: generateUnsuspensionEmail(userName)
             })
-            console.log(`Unsuspension email sent to ${unsuspendTargetUser.email}`)
+            if (unsuspendEmailSent) {
+              console.log(`Unsuspension email sent to ${unsuspendTargetUser.email}`)
+            } else {
+              console.log(`Unsuspension email FAILED to send to ${unsuspendTargetUser.email}`)
+            }
           } catch (emailError) {
             console.error('Failed to send unsuspension email:', emailError)
+            unsuspendEmailSent = false
           }
         }
         
-        await logAdminAction(adminId, 'UNSUSPEND_USER', 'USER', targetId)
-        return NextResponse.json({ message: 'User unsuspended' })
+        await logAdminAction(adminId, 'UNSUSPEND_USER', 'USER', targetId, { emailSent: unsuspendEmailSent })
+        return NextResponse.json({ 
+          message: `User unsuspended${unsuspendEmailSent ? ' (email sent)' : ' (email failed)'}`,
+          emailSent: unsuspendEmailSent
+        })
       }
 
       case 'warnUser': {
@@ -913,23 +940,32 @@ export async function POST(request: Request) {
         })
         
         // Send email notification only if requested
+        let warningEmailSent = false
         if (shouldSendWarningEmail && warnTargetUser) {
           try {
             const { sendEmail, generateWarningEmail } = await import('@/lib/email')
             const userName = warnTargetUser.legalName || warnTargetUser.username || 'User'
-            await sendEmail({
+            warningEmailSent = await sendEmail({
               to: warnTargetUser.email,
               subject: '⚠️ Warning: Your AI Media Tank Account',
               html: generateWarningEmail(userName, warningReason, newWarningCount)
             })
-            console.log(`Warning email sent to ${warnTargetUser.email}`)
+            if (warningEmailSent) {
+              console.log(`Warning email sent to ${warnTargetUser.email}`)
+            } else {
+              console.log(`Warning email FAILED to send to ${warnTargetUser.email}`)
+            }
           } catch (emailError) {
             console.error('Failed to send warning email:', emailError)
+            warningEmailSent = false
           }
         }
         
-        await logAdminAction(adminId, 'WARN_USER', 'USER', targetId, { ...data, emailSent: shouldSendWarningEmail })
-        return NextResponse.json({ message: `User warned${shouldSendWarningEmail ? ' (email sent)' : ''}` })
+        await logAdminAction(adminId, 'WARN_USER', 'USER', targetId, { ...data, emailSent: warningEmailSent })
+        return NextResponse.json({ 
+          message: `User warned${shouldSendWarningEmail ? (warningEmailSent ? ' (email sent)' : ' (email failed)') : ''}`,
+          emailSent: warningEmailSent
+        })
       }
 
       case 'getWarningHistory': {
@@ -1140,24 +1176,32 @@ export async function POST(request: Request) {
         })
         
         // Send email notification only if requested
+        let emailActuallySent = false
         if (shouldSendEmail) {
           try {
             const { sendEmail, generateBonusCreditsEmail } = await import('@/lib/email')
             const userName = creditUser.legalName || creditUser.username || 'User'
-            await sendEmail({
+            emailActuallySent = await sendEmail({
               to: creditUser.email,
               subject: `🎁 You Received ${credits} Bonus Credits!`,
               html: generateBonusCreditsEmail(userName, credits, newTotalCredits)
             })
-            console.log(`Bonus credits email sent to ${creditUser.email}`)
+            if (emailActuallySent) {
+              console.log(`Bonus credits email sent to ${creditUser.email}`)
+            } else {
+              console.log(`Bonus credits email FAILED to send to ${creditUser.email}`)
+            }
           } catch (emailError) {
             console.error('Failed to send bonus credits email:', emailError)
-            // Don't fail the action if email fails
+            emailActuallySent = false
           }
         }
         
-        await logAdminAction(adminId, 'GIVE_CREDITS', 'USER', targetId, { credits, reason, emailSent: shouldSendEmail })
-        return NextResponse.json({ message: `${credits} credits given${shouldSendEmail ? ' (email sent)' : ''}` })
+        await logAdminAction(adminId, 'GIVE_CREDITS', 'USER', targetId, { credits, reason, emailSent: emailActuallySent })
+        return NextResponse.json({ 
+          message: `${credits} credits given${shouldSendEmail ? (emailActuallySent ? ' (email sent)' : ' (email failed)') : ''}`,
+          emailSent: emailActuallySent
+        })
       }
 
       case 'updateAdminNotes':
