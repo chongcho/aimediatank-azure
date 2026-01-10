@@ -1411,15 +1411,17 @@ export default function AdminPage() {
       {/* Credit History Modal */}
       {creditHistoryModal?.show && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setCreditHistoryModal(null)}>
-          <div className="bg-tank-gray rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">💳</span>
+          <div className="bg-[#1a1a2e] rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col border border-gray-700" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-lg flex items-center justify-center">
+                <span className="text-xl">💳</span>
+              </div>
               <div>
                 <h2 className="text-xl font-bold text-tank-accent">Credit History</h2>
-                <p className="text-gray-400">@{creditHistoryModal.username}</p>
+                <p className="text-gray-400 text-sm">@{creditHistoryModal.username}</p>
               </div>
               <div className="ml-auto text-right">
-                <p className="text-2xl font-bold text-tank-accent">{creditHistoryModal.totalCredits}</p>
+                <p className="text-3xl font-bold text-tank-accent">{creditHistoryModal.totalCredits}</p>
                 <p className="text-xs text-gray-400">Total Credits</p>
               </div>
             </div>
@@ -1428,46 +1430,42 @@ export default function AdminPage() {
               {creditHistoryModal.loading ? (
                 <div className="text-center py-8 text-gray-400">Loading...</div>
               ) : (
-                <table className="w-full">
-                  <thead className="sticky top-0 bg-tank-gray">
-                    <tr className="border-b border-tank-light">
-                      <th className="text-left p-3 text-gray-400 font-medium w-12">#</th>
-                      <th className="text-left p-3 text-gray-400 font-medium">Credits</th>
-                      <th className="text-left p-3 text-gray-400 font-medium">Date</th>
-                      <th className="text-left p-3 text-gray-400 font-medium">Comments</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {creditHistoryModal.history.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="p-8 text-center text-gray-500">
-                          No credit history found
-                        </td>
+                <div className="border border-gray-600 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-600 bg-[#252540]">
+                        <th className="text-center py-3 px-4 text-gray-400 font-medium w-16">#</th>
+                        <th className="text-center py-3 px-4 text-gray-400 font-medium w-24">Credits</th>
+                        <th className="text-center py-3 px-4 text-gray-400 font-medium w-32">Date</th>
+                        <th className="text-left py-3 px-4 text-gray-400 font-medium">Comments</th>
                       </tr>
-                    ) : (
-                      creditHistoryModal.history.map((entry, index) => (
-                        <tr key={entry.id} className="border-b border-tank-light/30">
-                          <td className="p-3 text-gray-400">{index + 1}</td>
-                          <td className="p-3">
-                            <span className={`font-bold text-lg ${entry.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                              {entry.amount >= 0 ? '+' : ''}{entry.amount}
-                            </span>
-                          </td>
-                          <td className="p-3 text-gray-300 text-sm whitespace-nowrap">
-                            {new Date(entry.createdAt).toLocaleDateString()}<br/>
-                            <span className="text-xs text-gray-500">{new Date(entry.createdAt).toLocaleTimeString()}</span>
-                          </td>
-                          <td className="p-3 text-white text-sm">
-                            {entry.reason || (entry.type === 'bonus' ? 'Admin bonus credits' : entry.type === 'used' ? 'Credit used' : entry.type)}
-                            {entry.adminName && (
-                              <span className="text-gray-500 text-xs ml-2">by @{entry.adminName}</span>
-                            )}
+                    </thead>
+                    <tbody>
+                      {creditHistoryModal.history.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="py-8 text-center text-gray-500">
+                            No credit history found
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        creditHistoryModal.history.map((entry, index) => (
+                          <tr key={entry.id} className="border-b border-gray-700/50 hover:bg-[#252540]/50">
+                            <td className="text-center py-3 px-4 text-white">{index + 1}</td>
+                            <td className="text-center py-3 px-4">
+                              <span className="text-white font-medium">{entry.amount}</span>
+                            </td>
+                            <td className="text-center py-3 px-4 text-white">
+                              {new Date(entry.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                            </td>
+                            <td className="text-left py-3 px-4 text-white font-medium">
+                              {entry.reason || (entry.type === 'bonus' ? 'Admin bonus credits' : entry.type === 'used' ? 'Credit used' : entry.type)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
             
