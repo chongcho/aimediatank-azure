@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 interface MediaPlayerProps {
   type: 'VIDEO' | 'IMAGE' | 'MUSIC'
@@ -17,6 +17,36 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   const [isFullscreen, setIsFullscreen] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+
+  // Try to autoplay with sound, fall back to muted if browser blocks it
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || type !== 'VIDEO') return
+
+    const tryAutoplayWithSound = async () => {
+      try {
+        // First try: play with sound
+        video.muted = false
+        await video.play()
+      } catch (error) {
+        // Browser blocked unmuted autoplay, fall back to muted
+        console.log('Unmuted autoplay blocked, falling back to muted')
+        video.muted = true
+        try {
+          await video.play()
+        } catch (e) {
+          console.log('Autoplay blocked entirely')
+        }
+      }
+    }
+
+    // Wait for video to be ready
+    if (video.readyState >= 3) {
+      tryAutoplayWithSound()
+    } else {
+      video.addEventListener('canplay', tryAutoplayWithSound, { once: true })
+    }
+  }, [type, url])
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60)
@@ -93,8 +123,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
           src={url}
           poster={thumbnailUrl || undefined}
           controls
-          autoPlay
-          muted
+          playsInline
           className="w-full max-h-[80vh] relative"
           style={{ zIndex: 1 }}
           onPlay={() => setIsPlaying(true)}
