@@ -254,6 +254,14 @@ export default function AdminPage() {
     username: string
     reason: string
   } | null>(null)
+  
+  // Add credit record form state
+  const [addCreditForm, setAddCreditForm] = useState({
+    show: false,
+    amount: '',
+    reason: '',
+    date: ''
+  })
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -1469,9 +1477,92 @@ export default function AdminPage() {
               )}
             </div>
             
+            {/* Add Record Form */}
+            {addCreditForm.show ? (
+              <div className="mt-4 p-4 bg-[#252540] rounded-lg border border-gray-600">
+                <h3 className="text-sm font-medium text-gray-300 mb-3">Add Credit Record</h3>
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Credits</label>
+                    <input
+                      type="number"
+                      value={addCreditForm.amount}
+                      onChange={(e) => setAddCreditForm(prev => ({ ...prev, amount: e.target.value }))}
+                      placeholder="5"
+                      className="w-full bg-tank-dark border border-gray-600 rounded px-3 py-2 text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Date</label>
+                    <input
+                      type="date"
+                      value={addCreditForm.date}
+                      onChange={(e) => setAddCreditForm(prev => ({ ...prev, date: e.target.value }))}
+                      className="w-full bg-tank-dark border border-gray-600 rounded px-3 py-2 text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Reason</label>
+                    <input
+                      type="text"
+                      value={addCreditForm.reason}
+                      onChange={(e) => setAddCreditForm(prev => ({ ...prev, reason: e.target.value }))}
+                      placeholder="Platform launch bonus"
+                      className="w-full bg-tank-dark border border-gray-600 rounded px-3 py-2 text-white text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setAddCreditForm({ show: false, amount: '', reason: '', date: '' })}
+                    className="flex-1 bg-tank-dark hover:bg-tank-light text-gray-300 rounded py-2 text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!addCreditForm.amount || !creditHistoryModal) return
+                      try {
+                        const res = await fetch('/api/admin', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            action: 'addCreditHistoryRecord',
+                            targetId: creditHistoryModal.userId,
+                            data: {
+                              amount: parseInt(addCreditForm.amount),
+                              reason: addCreditForm.reason || 'Manual credit record',
+                              date: addCreditForm.date || undefined
+                            }
+                          })
+                        })
+                        if (res.ok) {
+                          // Refresh credit history
+                          fetchCreditHistory(creditHistoryModal.userId, creditHistoryModal.username, creditHistoryModal.totalCredits)
+                          setAddCreditForm({ show: false, amount: '', reason: '', date: '' })
+                        }
+                      } catch (err) {
+                        console.error('Failed to add credit record:', err)
+                      }
+                    }}
+                    className="flex-1 bg-tank-accent hover:bg-tank-accent/80 text-black rounded py-2 text-sm font-medium"
+                  >
+                    Add Record
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setAddCreditForm(prev => ({ ...prev, show: true }))}
+                className="w-full mt-4 bg-[#252540] hover:bg-[#303050] text-gray-300 rounded-lg py-2 px-4 transition-colors text-sm border border-gray-600"
+              >
+                + Add Credit Record
+              </button>
+            )}
+            
             <button
-              onClick={() => setCreditHistoryModal(null)}
-              className="w-full mt-4 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors"
+              onClick={() => { setCreditHistoryModal(null); setAddCreditForm({ show: false, amount: '', reason: '', date: '' }); }}
+              className="w-full mt-3 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors"
             >
               Close
             </button>

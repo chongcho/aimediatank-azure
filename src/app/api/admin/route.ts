@@ -971,6 +971,37 @@ export async function POST(request: Request) {
         return NextResponse.json({ creditHistory })
       }
 
+      case 'addCreditHistoryRecord': {
+        // Manually add a credit history record for existing credits without history
+        const amount = parseInt(data?.amount) || 0
+        const reason = data?.reason || 'Initial credits'
+        const dateStr = data?.date // Optional: backdate the record
+        
+        if (amount === 0) {
+          return NextResponse.json({ error: 'Amount is required' }, { status: 400 })
+        }
+        
+        const adminUser = await prisma.user.findUnique({
+          where: { id: adminId },
+          select: { username: true }
+        })
+        
+        await prisma.creditHistory.create({
+          data: {
+            userId: targetId,
+            amount,
+            type: 'bonus',
+            reason,
+            adminId,
+            adminName: adminUser?.username || 'Admin',
+            ...(dateStr && { createdAt: new Date(dateStr) })
+          }
+        })
+        
+        await logAdminAction(adminId, 'ADD_CREDIT_HISTORY', 'USER', targetId, { amount, reason })
+        return NextResponse.json({ message: 'Credit history record added' })
+      }
+
       case 'giveCredits': {
         const credits = parseInt(data?.credits) || 0
         if (credits <= 0) {
