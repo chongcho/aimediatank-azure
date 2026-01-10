@@ -419,7 +419,8 @@ export default function AdminPage() {
   }
 
   const handleAction = async (action: string, targetId: string, data?: any) => {
-    const confirmActions = ['deleteUser', 'deleteChatMessage', 'suspendUser']
+    // Note: deleteChatMessage has its own modal confirmation, so it's not in this list
+    const confirmActions = ['deleteUser', 'suspendUser']
     if (confirmActions.includes(action) && !confirm('Are you sure?')) return
 
     try {
