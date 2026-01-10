@@ -764,6 +764,20 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'User warned' })
       }
 
+      case 'getWarningHistory': {
+        const warnings = await prisma.chatWarning.findMany({
+          where: { userId: targetId },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            messageContent: true,
+            reason: true,
+            createdAt: true,
+          }
+        })
+        return NextResponse.json({ warnings })
+      }
+
       case 'clearWarnings':
         await prisma.user.update({
           where: { id: targetId },

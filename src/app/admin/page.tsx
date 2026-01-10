@@ -122,10 +122,18 @@ export default function AdminPage() {
   // Warning details modal state
   const [warningModal, setWarningModal] = useState<{
     show: boolean
+    userId: string
     username: string
     warningCount: number
     lastWarningReason: string | null
     lastWarningAt: string | null
+    history: Array<{
+      id: string
+      messageContent: string | null
+      reason: string
+      createdAt: string
+    }>
+    loading: boolean
   } | null>(null)
   
   // Suspension details modal state
@@ -314,6 +322,37 @@ export default function AdminPage() {
       console.error('Error fetching admin data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchWarningHistory = async (userId: string, username: string, warningCount: number, lastWarningReason: string | null, lastWarningAt: string | null) => {
+    setWarningModal({
+      show: true,
+      userId,
+      username,
+      warningCount,
+      lastWarningReason,
+      lastWarningAt,
+      history: [],
+      loading: true
+    })
+    
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getWarningHistory', targetId: userId }),
+      })
+      const data = await res.json()
+      
+      setWarningModal(prev => prev ? {
+        ...prev,
+        history: data.warnings || [],
+        loading: false
+      } : null)
+    } catch (error) {
+      console.error('Failed to fetch warning history:', error)
+      setWarningModal(prev => prev ? { ...prev, loading: false } : null)
     }
   }
 
@@ -638,13 +677,13 @@ export default function AdminPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                setWarningModal({
-                                  show: true,
-                                  username: user.username,
-                                  warningCount: user.warningCount,
-                                  lastWarningReason: user.lastWarningReason,
-                                  lastWarningAt: user.lastWarningAt
-                                })
+                                fetchWarningHistory(
+                                  user.id,
+                                  user.username,
+                                  user.warningCount,
+                                  user.lastWarningReason,
+                                  user.lastWarningAt
+                                )
                               }}
                               className="badge bg-yellow-500/20 text-yellow-400 text-xs hover:bg-yellow-500/30 transition-colors cursor-pointer"
                             >
@@ -1094,39 +1133,60 @@ export default function AdminPage() {
       {/* Warning Details Modal */}
       {warningModal?.show && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setWarningModal(null)}>
-          <div className="bg-tank-gray rounded-xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+          <div className="bg-tank-gray rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <span className="text-3xl">⚠️</span>
               <div>
                 <h2 className="text-xl font-bold text-yellow-400">Warning Details</h2>
                 <p className="text-gray-400">@{warningModal.username}</p>
               </div>
+              <div className="ml-auto text-right">
+                <p className="text-2xl font-bold text-yellow-400">{warningModal.warningCount}</p>
+                <p className="text-xs text-gray-400">Total Warnings</p>
+              </div>
             </div>
             
-            <div className="space-y-4">
-              <div className="bg-tank-dark rounded-lg p-4">
-                <p className="text-gray-400 text-sm mb-1">Total Warnings</p>
-                <p className="text-2xl font-bold text-yellow-400">{warningModal.warningCount}</p>
-              </div>
-              
-              {warningModal.lastWarningReason && (
-                <div className="bg-tank-dark rounded-lg p-4">
-                  <p className="text-gray-400 text-sm mb-1">Last Warning Reason</p>
-                  <p className="text-white">{warningModal.lastWarningReason}</p>
-                </div>
-              )}
-              
-              {warningModal.lastWarningAt && (
-                <div className="bg-tank-dark rounded-lg p-4">
-                  <p className="text-gray-400 text-sm mb-1">Last Warning Date</p>
-                  <p className="text-white">{new Date(warningModal.lastWarningAt).toLocaleDateString()} at {new Date(warningModal.lastWarningAt).toLocaleTimeString()}</p>
-                </div>
+            <div className="flex-1 overflow-y-auto">
+              {warningModal.loading ? (
+                <div className="text-center py-8 text-gray-400">Loading...</div>
+              ) : warningModal.history.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">No warning history found</div>
+              ) : (
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-tank-gray">
+                    <tr className="border-b border-tank-light">
+                      <th className="text-left p-3 text-gray-400 font-medium w-12">#</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Warning Item</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Warning Reason</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Warning Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {warningModal.history.map((warning, index) => (
+                      <tr key={warning.id} className="border-b border-tank-light/30">
+                        <td className="p-3 text-gray-400">{index + 1}</td>
+                        <td className="p-3 text-gray-300 text-sm max-w-[200px]">
+                          {warning.messageContent ? (
+                            <span className="line-clamp-2">{warning.messageContent}</span>
+                          ) : (
+                            <span className="text-gray-500 italic">N/A</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-white text-sm">{warning.reason}</td>
+                        <td className="p-3 text-gray-300 text-sm whitespace-nowrap">
+                          {new Date(warning.createdAt).toLocaleDateString()}<br/>
+                          <span className="text-xs text-gray-500">{new Date(warning.createdAt).toLocaleTimeString()}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
             
             <button
               onClick={() => setWarningModal(null)}
-              className="w-full mt-6 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors"
+              className="w-full mt-4 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors"
             >
               Close
             </button>
