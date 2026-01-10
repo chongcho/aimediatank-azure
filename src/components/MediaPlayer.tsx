@@ -93,17 +93,9 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
           src={url}
           poster={thumbnailUrl || undefined}
           controls
-          autoPlay
-          muted
           className="w-full max-h-[80vh] relative"
           style={{ zIndex: 1 }}
-          onPlay={() => {
-            setIsPlaying(true)
-            // Unmute after autoplay starts (browsers require muted for autoplay)
-            if (videoRef.current && videoRef.current.muted) {
-              videoRef.current.muted = false
-            }
-          }}
+          onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
         />
       </div>
