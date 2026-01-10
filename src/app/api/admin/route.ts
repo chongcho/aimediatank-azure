@@ -1227,10 +1227,14 @@ export async function POST(request: Request) {
           try {
             const { sendEmail, generateBonusCreditsEmail } = await import('@/lib/email')
             const userName = creditUser.legalName || creditUser.username || 'User'
+            // Use the comment as email subject if provided, otherwise use default
+            const emailSubject = reason && reason !== 'Admin bonus credits' 
+              ? `🎁 ${reason}` 
+              : `🎁 You Received ${credits} Bonus Credits!`
             emailActuallySent = await sendEmail({
               to: creditUser.email,
-              subject: `🎁 You Received ${credits} Bonus Credits!`,
-              html: generateBonusCreditsEmail(userName, credits, newTotalCredits)
+              subject: emailSubject,
+              html: generateBonusCreditsEmail(userName, credits, newTotalCredits, reason)
             })
             if (emailActuallySent) {
               console.log(`Bonus credits email sent to ${creditUser.email}`)

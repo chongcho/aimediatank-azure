@@ -504,8 +504,12 @@ export function generateUnsuspensionEmail(
 export function generateBonusCreditsEmail(
   userName: string,
   credits: number,
-  totalCredits: number
+  totalCredits: number,
+  reason?: string
 ): string {
+  const hasCustomReason = reason && reason !== 'Admin bonus credits'
+  const headerTitle = hasCustomReason ? reason : 'You Received Bonus Credits!'
+  
   return `
 <!DOCTYPE html>
 <html>
@@ -515,7 +519,7 @@ export function generateBonusCreditsEmail(
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
-    <h1 style="color: #0f8; margin: 0; font-size: 24px;">🎁 You Received Bonus Credits!</h1>
+    <h1 style="color: #0f8; margin: 0; font-size: 24px;">🎁 ${headerTitle}</h1>
   </div>
   
   <p style="font-size: 16px;">Dear ${userName},</p>
@@ -536,7 +540,11 @@ export function generateBonusCreditsEmail(
       <tr>
         <td style="padding: 8px 0; color: #666;">Total Credits:</td>
         <td style="padding: 8px 0; font-weight: bold; text-align: right;">${totalCredits}</td>
-      </tr>
+      </tr>${hasCustomReason ? `
+      <tr>
+        <td style="padding: 8px 0; color: #666;">Reason:</td>
+        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${reason}</td>
+      </tr>` : ''}
     </table>
   </div>
   
