@@ -187,12 +187,12 @@ body {
 }
 
 .logo-rotate-y {
-  animation: rotate-y 30s linear infinite;
+  animation: rotate-y 60s linear infinite;
   transform-style: preserve-3d;
 }
 
 .logo-rotate-y:hover {
-  animation: rotate-y 10s linear infinite;
+  animation: rotate-y 20s linear infinite;
 }
 
 /* Sign Up button moving gradient animation */
