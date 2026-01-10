@@ -1418,39 +1418,45 @@ export default function AdminPage() {
             <div className="flex-1 overflow-y-auto">
               {creditHistoryModal.loading ? (
                 <div className="text-center py-8 text-gray-400">Loading...</div>
-              ) : creditHistoryModal.history.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">No credit history yet</div>
               ) : (
                 <table className="w-full">
                   <thead className="sticky top-0 bg-tank-gray">
                     <tr className="border-b border-tank-light">
                       <th className="text-left p-3 text-gray-400 font-medium w-12">#</th>
-                      <th className="text-left p-3 text-gray-400 font-medium">Credit</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Credits</th>
                       <th className="text-left p-3 text-gray-400 font-medium">Date</th>
                       <th className="text-left p-3 text-gray-400 font-medium">Comments</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {creditHistoryModal.history.map((entry, index) => (
-                      <tr key={entry.id} className="border-b border-tank-light/30">
-                        <td className="p-3 text-gray-400">{index + 1}</td>
-                        <td className="p-3">
-                          <span className={`font-bold text-lg ${entry.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {entry.amount >= 0 ? '+' : ''}{entry.amount}
-                          </span>
-                        </td>
-                        <td className="p-3 text-gray-300 text-sm whitespace-nowrap">
-                          {new Date(entry.createdAt).toLocaleDateString()}<br/>
-                          <span className="text-xs text-gray-500">{new Date(entry.createdAt).toLocaleTimeString()}</span>
-                        </td>
-                        <td className="p-3 text-white text-sm">
-                          {entry.reason || (entry.type === 'bonus' ? 'Admin bonus credits' : entry.type === 'used' ? 'Credit used' : entry.type)}
-                          {entry.adminName && (
-                            <span className="text-gray-500 text-xs ml-2">by @{entry.adminName}</span>
-                          )}
+                    {creditHistoryModal.history.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-8 text-center text-gray-500">
+                          No credit history found
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      creditHistoryModal.history.map((entry, index) => (
+                        <tr key={entry.id} className="border-b border-tank-light/30">
+                          <td className="p-3 text-gray-400">{index + 1}</td>
+                          <td className="p-3">
+                            <span className={`font-bold text-lg ${entry.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {entry.amount >= 0 ? '+' : ''}{entry.amount}
+                            </span>
+                          </td>
+                          <td className="p-3 text-gray-300 text-sm whitespace-nowrap">
+                            {new Date(entry.createdAt).toLocaleDateString()}<br/>
+                            <span className="text-xs text-gray-500">{new Date(entry.createdAt).toLocaleTimeString()}</span>
+                          </td>
+                          <td className="p-3 text-white text-sm">
+                            {entry.reason || (entry.type === 'bonus' ? 'Admin bonus credits' : entry.type === 'used' ? 'Credit used' : entry.type)}
+                            {entry.adminName && (
+                              <span className="text-gray-500 text-xs ml-2">by @{entry.adminName}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               )}
