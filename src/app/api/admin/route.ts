@@ -126,6 +126,45 @@ export async function GET(request: Request) {
         orderBy: { createdAt: 'desc' },
         take: 100,
       })
+      
+      // Auto-sync: For users with warningCount > 0, verify against actual ChatWarning records
+      const usersWithWarnings = users.filter(u => u.warningCount > 0)
+      if (usersWithWarnings.length > 0) {
+        // Get actual warning counts for these users
+        const actualWarningCounts = await prisma.chatWarning.groupBy({
+          by: ['userId'],
+          where: { userId: { in: usersWithWarnings.map(u => u.id) } },
+          _count: { id: true }
+        })
+        
+        const actualCountMap = new Map(actualWarningCounts.map(c => [c.userId, c._count.id]))
+        
+        // Check for mismatches and fix them
+        for (const user of usersWithWarnings) {
+          const actualCount = actualCountMap.get(user.id) || 0
+          if (user.warningCount !== actualCount) {
+            // Fix the mismatch in database
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                warningCount: actualCount,
+                ...(actualCount === 0 && {
+                  lastWarningAt: null,
+                  lastWarningReason: null,
+                })
+              }
+            })
+            // Update the user object for response
+            user.warningCount = actualCount
+            if (actualCount === 0) {
+              user.lastWarningAt = null
+              user.lastWarningReason = null
+            }
+            console.log(`Auto-synced warningCount for user ${user.username}: was ${user.warningCount}, now ${actualCount}`)
+          }
+        }
+      }
+      
       return NextResponse.json({ users })
     }
     
