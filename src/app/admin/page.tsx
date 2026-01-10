@@ -481,6 +481,28 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Chat Filters - Always visible */}
+      {activeTab === 'chat' && (
+        <div className="flex gap-4 flex-wrap items-center mb-4">
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={chatSearch}
+            onChange={(e) => setChatSearch(e.target.value)}
+            className="input flex-1 min-w-[200px]"
+          />
+          <select
+            value={chatFilter}
+            onChange={(e) => setChatFilter(e.target.value)}
+            className="input w-auto"
+          >
+            <option value="all">All Users</option>
+            <option value="warned">With Warnings</option>
+            <option value="suspended">Suspended</option>
+          </select>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="spinner" />
@@ -717,26 +739,6 @@ export default function AdminPage() {
           {/* Chat Moderation */}
           {activeTab === 'chat' && (
             <div className="space-y-4">
-              {/* Search and Filter */}
-              <div className="flex gap-4 flex-wrap items-center">
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  value={chatSearch}
-                  onChange={(e) => setChatSearch(e.target.value)}
-                  className="input flex-1 min-w-[200px]"
-                />
-                <select
-                  value={chatFilter}
-                  onChange={(e) => setChatFilter(e.target.value)}
-                  className="input w-auto"
-                >
-                  <option value="all">All Users</option>
-                  <option value="warned">With Warnings</option>
-                  <option value="suspended">Suspended</option>
-                </select>
-              </div>
-              
               <div className="card overflow-x-auto">
                 <table className="w-full text-sm min-w-[900px]">
                   <thead>
