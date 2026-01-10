@@ -963,11 +963,55 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'Warnings cleared' })
 
       case 'getCreditHistory': {
-        const creditHistory = await prisma.creditHistory.findMany({
+        // Get user's current credits
+        const creditUser = await prisma.user.findUnique({
+          where: { id: targetId },
+          select: { bonusCredits: true, paidUploadCredits: true, createdAt: true }
+        })
+        
+        // Get existing credit history
+        let creditHistory = await prisma.creditHistory.findMany({
           where: { userId: targetId },
           orderBy: { createdAt: 'desc' },
           take: 50,
         })
+        
+        // Auto-sync: If user has credits but no history, create initial record
+        const totalCredits = (creditUser?.bonusCredits || 0) + (creditUser?.paidUploadCredits || 0)
+        const historyTotal = creditHistory.reduce((sum, h) => sum + h.amount, 0)
+        
+        if (totalCredits > 0 && creditHistory.length === 0) {
+          // No history at all - create initial record for all credits
+          const newRecord = await prisma.creditHistory.create({
+            data: {
+              userId: targetId,
+              amount: totalCredits,
+              type: 'bonus',
+              reason: 'Platform launching event credit',
+              adminId: null,
+              adminName: 'System',
+              createdAt: creditUser?.createdAt || new Date() // Use user's signup date
+            }
+          })
+          creditHistory = [newRecord]
+          console.log(`Auto-created credit history for user ${targetId}: ${totalCredits} credits`)
+        } else if (totalCredits > historyTotal && historyTotal > 0) {
+          // Has some history but credits don't match - create adjustment record
+          const difference = totalCredits - historyTotal
+          const newRecord = await prisma.creditHistory.create({
+            data: {
+              userId: targetId,
+              amount: difference,
+              type: 'bonus',
+              reason: 'Credit adjustment (auto-sync)',
+              adminId: null,
+              adminName: 'System',
+            }
+          })
+          creditHistory = [newRecord, ...creditHistory]
+          console.log(`Auto-synced credit history for user ${targetId}: +${difference} credits`)
+        }
+        
         return NextResponse.json({ creditHistory })
       }
 
