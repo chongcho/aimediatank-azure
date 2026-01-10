@@ -505,16 +505,22 @@ export default function Navbar() {
                 </div>
               </>
             ) : (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setIsSignInOpen(true)}
-                  className="px-2 py-1 text-gray-300 hover:text-white transition-colors text-sm"
+                  className="h-9 px-3 flex items-center justify-center text-gray-300 hover:text-white transition-colors text-sm"
                 >
                   Sign In
                 </button>
                 <Link
                   href="/register"
-                  className="px-2 py-1 bg-tank-accent text-tank-black font-semibold rounded text-sm hover:bg-tank-accent/90 transition-all"
+                  className="h-9 px-3 flex items-center justify-center bg-tank-accent text-tank-black font-bold rounded-lg text-sm 
+                    hover:bg-tank-accent/90 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,255,136,0.5)] 
+                    active:scale-95 transition-all duration-200 ease-out
+                    animate-[pulse-glow_2s_ease-in-out_infinite]"
+                  style={{
+                    animation: 'pulse-glow 2s ease-in-out infinite'
+                  }}
                 >
                   Sign Up
                 </Link>

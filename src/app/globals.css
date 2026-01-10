@@ -180,6 +180,16 @@ body {
   animation: gradient 8s ease infinite;
 }
 
+/* Sign Up button pulse glow animation */
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 5px rgba(0, 255, 136, 0.3), 0 0 10px rgba(0, 255, 136, 0.1);
+  }
+  50% { 
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.5), 0 0 25px rgba(0, 255, 136, 0.2);
+  }
+}
+
 /* Text gradient */
 .text-gradient {
   background: linear-gradient(135deg, #00ff88 0%, #7c3aed 50%, #00ff88 100%);
