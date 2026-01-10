@@ -59,6 +59,7 @@ model User {
   chatMessages  ChatMessage[]
   pendingUploads PendingUpload[]
   conversationMemberships ConversationMember[]
+  creditHistory CreditHistory[]
 }
 
 model Media {
@@ -350,4 +351,21 @@ model PendingUpload {
   @@index([userId])
   @@index([stripeSessionId])
   @@index([expiresAt])
+}
+
+model CreditHistory {
+  id          String   @id @default(uuid())
+  amount      Int      // Positive for credits given, negative for credits used
+  type        String   // "bonus", "purchase", "used"
+  reason      String?  // Description/comments
+  adminId     String?  // Admin who gave the credits (if applicable)
+  adminName   String?  // Admin username for display
+  createdAt   DateTime @default(now())
+
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }

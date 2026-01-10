@@ -145,6 +145,23 @@ export default function AdminPage() {
     suspendedUntil: string | null
   } | null>(null)
   
+  // Credit history modal state
+  const [creditHistoryModal, setCreditHistoryModal] = useState<{
+    show: boolean
+    userId: string
+    username: string
+    totalCredits: number
+    history: Array<{
+      id: string
+      amount: number
+      type: string
+      reason: string | null
+      adminName: string | null
+      createdAt: string
+    }>
+    loading: boolean
+  } | null>(null)
+  
   // Search/filter state
   const [userSearch, setUserSearch] = useState('')
   const [userSearchDebounced, setUserSearchDebounced] = useState('')
@@ -353,6 +370,35 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Failed to fetch warning history:', error)
       setWarningModal(prev => prev ? { ...prev, loading: false } : null)
+    }
+  }
+
+  const fetchCreditHistory = async (userId: string, username: string, totalCredits: number) => {
+    setCreditHistoryModal({
+      show: true,
+      userId,
+      username,
+      totalCredits,
+      history: [],
+      loading: true
+    })
+    
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getCreditHistory', targetId: userId }),
+      })
+      const data = await res.json()
+      
+      setCreditHistoryModal(prev => prev ? {
+        ...prev,
+        history: data.creditHistory || [],
+        loading: false
+      } : null)
+    } catch (error) {
+      console.error('Failed to fetch credit history:', error)
+      setCreditHistoryModal(prev => prev ? { ...prev, loading: false } : null)
     }
   }
 
@@ -717,8 +763,16 @@ export default function AdminPage() {
                             </span>
                           )}
                         </td>
-                        <td className="p-3 text-gray-400 whitespace-nowrap">
-                          {user.bonusCredits + user.paidUploadCredits}
+                        <td className="p-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              fetchCreditHistory(user.id, user.username, user.bonusCredits + user.paidUploadCredits)
+                            }}
+                            className="text-tank-accent hover:text-tank-accent/80 hover:underline transition-colors font-medium"
+                          >
+                            {user.bonusCredits + user.paidUploadCredits}
+                          </button>
                         </td>
                         <td className="p-3">
                           <button
@@ -1237,6 +1291,86 @@ export default function AdminPage() {
             <button
               onClick={() => setSuspensionModal(null)}
               className="w-full mt-6 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Credit History Modal */}
+      {creditHistoryModal?.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setCreditHistoryModal(null)}>
+          <div className="bg-tank-gray rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">💳</span>
+              <div>
+                <h2 className="text-xl font-bold text-tank-accent">Credit History</h2>
+                <p className="text-gray-400">@{creditHistoryModal.username}</p>
+              </div>
+              <div className="ml-auto text-right">
+                <p className="text-2xl font-bold text-white">{creditHistoryModal.totalCredits}</p>
+                <p className="text-xs text-gray-400">Total Credits</p>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              {creditHistoryModal.loading ? (
+                <div className="text-center py-8 text-gray-400">Loading...</div>
+              ) : creditHistoryModal.history.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">No credit history yet</div>
+              ) : (
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-tank-gray">
+                    <tr className="border-b border-tank-light">
+                      <th className="text-left p-3 text-gray-400 font-medium">Credits</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Date</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Comments</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {creditHistoryModal.history.map((entry) => (
+                      <tr key={entry.id} className="border-b border-tank-light/30">
+                        <td className="p-3">
+                          <span className={`font-bold text-lg ${entry.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {entry.amount >= 0 ? '+' : ''}{entry.amount}
+                          </span>
+                        </td>
+                        <td className="p-3 text-gray-300 text-sm whitespace-nowrap">
+                          {new Date(entry.createdAt).toLocaleDateString()}<br/>
+                          <span className="text-xs text-gray-500">{new Date(entry.createdAt).toLocaleTimeString()}</span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex flex-col gap-1">
+                            <span className={`inline-block w-fit px-2 py-0.5 rounded text-xs ${
+                              entry.type === 'bonus' ? 'bg-purple-500/20 text-purple-400' :
+                              entry.type === 'purchase' ? 'bg-blue-500/20 text-blue-400' :
+                              entry.type === 'used' ? 'bg-orange-500/20 text-orange-400' :
+                              'bg-gray-500/20 text-gray-400'
+                            }`}>
+                              {entry.type === 'bonus' ? '🎁 Bonus' :
+                               entry.type === 'purchase' ? '💰 Purchase' :
+                               entry.type === 'used' ? '📤 Used' :
+                               entry.type}
+                            </span>
+                            {entry.reason && (
+                              <p className="text-gray-300 text-sm">{entry.reason}</p>
+                            )}
+                            {entry.adminName && (
+                              <p className="text-gray-500 text-xs">By: @{entry.adminName}</p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            
+            <button
+              onClick={() => setCreditHistoryModal(null)}
+              className="w-full mt-4 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors"
             >
               Close
             </button>

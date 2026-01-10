@@ -790,17 +790,32 @@ export async function POST(request: Request) {
         await logAdminAction(adminId, 'CLEAR_WARNINGS', 'USER', targetId)
         return NextResponse.json({ message: 'Warnings cleared' })
 
+      case 'getCreditHistory': {
+        const creditHistory = await prisma.creditHistory.findMany({
+          where: { userId: targetId },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        })
+        return NextResponse.json({ creditHistory })
+      }
+
       case 'giveCredits': {
         const credits = parseInt(data?.credits) || 0
         if (credits <= 0) {
           return NextResponse.json({ error: 'Invalid credits amount' }, { status: 400 })
         }
         
-        // Get user info for email
-        const creditUser = await prisma.user.findUnique({
-          where: { id: targetId },
-          select: { email: true, legalName: true, username: true, bonusCredits: true, paidUploadCredits: true }
-        })
+        // Get user info for email and admin info for history
+        const [creditUser, adminUser] = await Promise.all([
+          prisma.user.findUnique({
+            where: { id: targetId },
+            select: { email: true, legalName: true, username: true, bonusCredits: true, paidUploadCredits: true }
+          }),
+          prisma.user.findUnique({
+            where: { id: adminId },
+            select: { username: true }
+          })
+        ])
         
         if (!creditUser) {
           return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -815,6 +830,18 @@ export async function POST(request: Request) {
         })
         
         const newTotalCredits = (creditUser.bonusCredits || 0) + (creditUser.paidUploadCredits || 0) + credits
+        
+        // Log credit history
+        await prisma.creditHistory.create({
+          data: {
+            userId: targetId,
+            amount: credits,
+            type: 'bonus',
+            reason: data?.reason || 'Admin bonus credits',
+            adminId: adminId,
+            adminName: adminUser?.username || 'Admin',
+          }
+        })
         
         // Create notification for user
         await prisma.notification.create({
