@@ -1048,6 +1048,9 @@ export async function POST(request: Request) {
 
       case 'giveCredits': {
         const credits = parseInt(data?.credits) || 0
+        const shouldSendEmail = data?.sendEmail !== false // Default to true for backward compatibility
+        const reason = data?.reason || 'Admin bonus credits'
+        
         if (credits <= 0) {
           return NextResponse.json({ error: 'Invalid credits amount' }, { status: 400 })
         }
@@ -1084,39 +1087,41 @@ export async function POST(request: Request) {
             userId: targetId,
             amount: credits,
             type: 'bonus',
-            reason: data?.reason || 'Admin bonus credits',
+            reason: reason,
             adminId: adminId,
             adminName: adminUser?.username || 'Admin',
           }
         })
         
-        // Create notification for user
+        // Create in-app notification for user
         await prisma.notification.create({
           data: {
             userId: targetId,
             type: 'credits',
             title: 'Bonus Credits Received',
-            message: `🎁 You received ${credits} bonus upload credits! You now have ${newTotalCredits} total credits.`,
+            message: `🎁 You received ${credits} bonus upload credits! You now have ${newTotalCredits} total credits.${reason !== 'Admin bonus credits' ? ` Reason: ${reason}` : ''}`,
           },
         })
         
-        // Send email notification
-        try {
-          const { sendEmail, generateBonusCreditsEmail } = await import('@/lib/email')
-          const userName = creditUser.legalName || creditUser.username || 'User'
-          await sendEmail({
-            to: creditUser.email,
-            subject: `🎁 You Received ${credits} Bonus Credits!`,
-            html: generateBonusCreditsEmail(userName, credits, newTotalCredits)
-          })
-          console.log(`Bonus credits email sent to ${creditUser.email}`)
-        } catch (emailError) {
-          console.error('Failed to send bonus credits email:', emailError)
-          // Don't fail the action if email fails
+        // Send email notification only if requested
+        if (shouldSendEmail) {
+          try {
+            const { sendEmail, generateBonusCreditsEmail } = await import('@/lib/email')
+            const userName = creditUser.legalName || creditUser.username || 'User'
+            await sendEmail({
+              to: creditUser.email,
+              subject: `🎁 You Received ${credits} Bonus Credits!`,
+              html: generateBonusCreditsEmail(userName, credits, newTotalCredits)
+            })
+            console.log(`Bonus credits email sent to ${creditUser.email}`)
+          } catch (emailError) {
+            console.error('Failed to send bonus credits email:', emailError)
+            // Don't fail the action if email fails
+          }
         }
         
-        await logAdminAction(adminId, 'GIVE_CREDITS', 'USER', targetId, { credits })
-        return NextResponse.json({ message: `${credits} credits given` })
+        await logAdminAction(adminId, 'GIVE_CREDITS', 'USER', targetId, { credits, reason, emailSent: shouldSendEmail })
+        return NextResponse.json({ message: `${credits} credits given${shouldSendEmail ? ' (email sent)' : ''}` })
       }
 
       case 'updateAdminNotes':

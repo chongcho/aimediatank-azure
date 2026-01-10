@@ -211,8 +211,11 @@ export default function AdminPage() {
     username: string
     legalName: string | null
     currentCredits: number
+    email: string
   } | null>(null)
   const [creditsAmount, setCreditsAmount] = useState('')
+  const [creditsComment, setCreditsComment] = useState('')
+  const [creditsSendEmail, setCreditsSendEmail] = useState(true)
   
   // Chat search/filter state
   const [chatSearch, setChatSearch] = useState('')
@@ -1640,7 +1643,8 @@ export default function AdminPage() {
                     userId: selectedUser.id,
                     username: selectedUser.username,
                     legalName: selectedUser.legalName,
-                    currentCredits: (selectedUser.bonusCredits || 0) + (selectedUser.paidUploadCredits || 0)
+                    currentCredits: (selectedUser.bonusCredits || 0) + (selectedUser.paidUploadCredits || 0),
+                    email: selectedUser.email
                   })
                 }}
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg py-2.5 px-4 font-medium transition-colors"
@@ -1860,22 +1864,30 @@ export default function AdminPage() {
 
       {/* Give Credits Modal */}
       {creditsModal?.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setCreditsModal(null); setCreditsAmount(''); }}>
-          <div className="bg-tank-gray rounded-xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-4 text-tank-accent">🎁 Give Credits</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setCreditsModal(null); setCreditsAmount(''); setCreditsComment(''); setCreditsSendEmail(true); }}>
+          <div className="bg-[#1a1a2e] rounded-xl p-6 max-w-md w-full border border-gray-700" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-6 text-tank-accent">🎁 Give Credits</h2>
             
             <div className="space-y-4 mb-6">
+              {/* User Info */}
               <div className="bg-tank-dark rounded-lg p-4">
                 <p className="text-gray-400 text-sm">User:</p>
-                <p className="font-medium">{creditsModal.legalName || creditsModal.username}</p>
-                <p className="text-sm text-gray-400">@{creditsModal.username}</p>
+                <p className="font-bold text-white text-lg">{creditsModal.legalName || creditsModal.username}</p>
+                <p className="text-gray-400">@{creditsModal.username}</p>
               </div>
               
+              {/* Comments */}
               <div className="bg-tank-dark rounded-lg p-4">
-                <p className="text-gray-400 text-sm">Current Credits:</p>
-                <p className="font-medium text-tank-accent">{creditsModal.currentCredits}</p>
+                <label className="block text-white font-medium mb-2">Comments</label>
+                <textarea
+                  value={creditsComment}
+                  onChange={(e) => setCreditsComment(e.target.value)}
+                  placeholder="Enter reason for giving credits..."
+                  className="w-full bg-transparent border-none outline-none text-gray-300 resize-none h-16"
+                />
               </div>
               
+              {/* Number of Credits */}
               <div>
                 <label className="block text-gray-400 text-sm mb-2">Number of credits to give:</label>
                 <input
@@ -1884,16 +1896,27 @@ export default function AdminPage() {
                   value={creditsAmount}
                   onChange={(e) => setCreditsAmount(e.target.value)}
                   placeholder="Enter number of credits..."
-                  className="input w-full"
+                  className="w-full bg-tank-dark border-2 border-tank-accent rounded-lg px-4 py-3 text-white focus:outline-none"
                   autoFocus
                 />
               </div>
+              
+              {/* Send Email Checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={creditsSendEmail}
+                  onChange={(e) => setCreditsSendEmail(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-600 bg-tank-dark text-tank-accent focus:ring-tank-accent"
+                />
+                <span className="text-gray-300">Send notification email to creator</span>
+              </label>
             </div>
             
             <div className="flex gap-3">
               <button
-                onClick={() => { setCreditsModal(null); setCreditsAmount(''); }}
-                className="flex-1 bg-tank-dark hover:bg-tank-light text-white rounded-lg py-2 px-4"
+                onClick={() => { setCreditsModal(null); setCreditsAmount(''); setCreditsComment(''); setCreditsSendEmail(true); }}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-white rounded-lg py-3 px-4 font-medium"
               >
                 Cancel
               </button>
@@ -1901,13 +1924,20 @@ export default function AdminPage() {
                 onClick={async () => {
                   const credits = parseInt(creditsAmount)
                   if (credits > 0) {
-                    await handleAction('giveCredits', creditsModal.userId, { credits })
+                    await handleAction('giveCredits', creditsModal.userId, { 
+                      credits, 
+                      reason: creditsComment || 'Admin bonus credits',
+                      sendEmail: creditsSendEmail,
+                      email: creditsModal.email
+                    })
                     setCreditsModal(null)
                     setCreditsAmount('')
+                    setCreditsComment('')
+                    setCreditsSendEmail(true)
                   }
                 }}
                 disabled={!creditsAmount || parseInt(creditsAmount) <= 0}
-                className="flex-1 bg-tank-accent hover:bg-tank-accent/80 text-black rounded-lg py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 bg-tank-accent hover:bg-tank-accent/80 text-black rounded-lg py-3 px-4 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Give Credits
               </button>
