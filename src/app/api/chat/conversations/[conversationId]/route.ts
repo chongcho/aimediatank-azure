@@ -115,12 +115,13 @@ export async function POST(
       return NextResponse.json({ error: 'Not a member of this conversation' }, { status: 403 })
     }
 
-    // Create the message
+    // Create the message (mark as private since it's in a conversation)
     const message = await prisma.chatMessage.create({
       data: {
         content: content.trim(),
         conversationId,
         userId: session.user.id,
+        isPrivate: true, // Conversation messages are always private
       },
       include: {
         user: {

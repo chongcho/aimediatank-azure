@@ -5,9 +5,37 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
+// One-time fix: Mark messages with conversationId as private (they were incorrectly stored as public)
+let dataFixApplied = false
+async function fixPrivateMessages() {
+  if (dataFixApplied) return
+  dataFixApplied = true
+  
+  try {
+    // Fix messages that have conversationId but isPrivate=false
+    const result = await prisma.chatMessage.updateMany({
+      where: {
+        conversationId: { not: null },
+        isPrivate: false,
+      },
+      data: {
+        isPrivate: true,
+      },
+    })
+    if (result.count > 0) {
+      console.log(`Fixed ${result.count} private messages that were incorrectly marked as public`)
+    }
+  } catch (error) {
+    console.error('Error fixing private messages:', error)
+  }
+}
+
 // GET - Fetch recent chat messages
 export async function GET(request: Request) {
   try {
+    // Apply one-time data fix
+    await fixPrivateMessages()
+    
     const session = await getServerSession(authOptions)
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '50')
