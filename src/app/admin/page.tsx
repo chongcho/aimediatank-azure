@@ -258,6 +258,40 @@ export default function AdminPage() {
     reason: string
   } | null>(null)
   
+  // Send Warning to User modal state
+  const [warningUserModal, setWarningUserModal] = useState<{
+    show: boolean
+    userId: string
+    username: string
+    legalName: string | null
+    email: string
+  } | null>(null)
+  const [warningUserReason, setWarningUserReason] = useState('')
+  const [warningUserSendEmail, setWarningUserSendEmail] = useState(true)
+  
+  // Suspend User modal state
+  const [suspendUserModal, setSuspendUserModal] = useState<{
+    show: boolean
+    userId: string
+    username: string
+    legalName: string | null
+    email: string
+  } | null>(null)
+  const [suspendUserReason, setSuspendUserReason] = useState('')
+  const [suspendUserDuration, setSuspendUserDuration] = useState('')
+  const [suspendUserSendEmail, setSuspendUserSendEmail] = useState(true)
+  
+  // Delete User modal state
+  const [deleteUserModal, setDeleteUserModal] = useState<{
+    show: boolean
+    userId: string
+    username: string
+    legalName: string | null
+    email: string
+  } | null>(null)
+  const [deleteUserReason, setDeleteUserReason] = useState('')
+  const [deleteUserSendEmail, setDeleteUserSendEmail] = useState(true)
+  
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -1563,10 +1597,13 @@ export default function AdminPage() {
               {/* Send Warning - Yellow/Gold */}
               <button
                 onClick={() => {
-                  const reason = prompt('Reason for warning:')
-                  if (reason) {
-                    handleAction('warnUser', selectedUser.id, { reason })
-                  }
+                  setWarningUserModal({
+                    show: true,
+                    userId: selectedUser.id,
+                    username: selectedUser.username,
+                    legalName: selectedUser.legalName,
+                    email: selectedUser.email
+                  })
                 }}
                 className="w-full bg-amber-600 hover:bg-amber-700 text-white rounded-lg py-2.5 px-4 font-medium transition-colors"
               >
@@ -1584,14 +1621,13 @@ export default function AdminPage() {
               ) : (
                 <button
                   onClick={() => {
-                    const reason = prompt('Reason for suspension:')
-                    const days = prompt('Duration in days (leave empty for permanent):')
-                    if (reason) {
-                      handleAction('suspendUser', selectedUser.id, { 
-                        reason, 
-                        duration: days ? parseInt(days) : null 
-                      })
-                    }
+                    setSuspendUserModal({
+                      show: true,
+                      userId: selectedUser.id,
+                      username: selectedUser.username,
+                      legalName: selectedUser.legalName,
+                      email: selectedUser.email
+                    })
                   }}
                   className="w-full bg-red-600 hover:bg-red-700 text-white rounded-lg py-2.5 px-4 font-medium transition-colors"
                 >
@@ -1601,7 +1637,15 @@ export default function AdminPage() {
 
               {/* Delete User - Dark Maroon */}
               <button
-                onClick={() => handleAction('deleteUser', selectedUser.id)}
+                onClick={() => {
+                  setDeleteUserModal({
+                    show: true,
+                    userId: selectedUser.id,
+                    username: selectedUser.username,
+                    legalName: selectedUser.legalName,
+                    email: selectedUser.email
+                  })
+                }}
                 className="w-full bg-red-900/80 hover:bg-red-900 text-white rounded-lg py-2.5 px-4 font-medium transition-colors"
               >
                 🗑️ Delete User
@@ -2005,6 +2049,234 @@ export default function AdminPage() {
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-3 px-4 transition-colors font-medium"
               >
                 Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send Warning to User Modal */}
+      {warningUserModal?.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setWarningUserModal(null); setWarningUserReason(''); setWarningUserSendEmail(true); }}>
+          <div className="bg-[#1a1a2e] rounded-xl p-6 max-w-md w-full border border-gray-700" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-6 text-amber-400">⚠️ Send Warning</h2>
+            
+            <div className="space-y-4 mb-6">
+              {/* User Info */}
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm">User:</p>
+                <p className="font-bold text-white text-lg">{warningUserModal.legalName || warningUserModal.username}</p>
+                <p className="text-gray-400">@{warningUserModal.username}</p>
+              </div>
+              
+              {/* Reason */}
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Reason for Warning:</label>
+                <textarea
+                  value={warningUserReason}
+                  onChange={(e) => setWarningUserReason(e.target.value)}
+                  placeholder="Enter the reason for warning this user..."
+                  className="w-full bg-tank-dark border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500 resize-none h-24"
+                  autoFocus
+                />
+              </div>
+              
+              {/* Send Email Checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={warningUserSendEmail}
+                  onChange={(e) => setWarningUserSendEmail(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-600 bg-tank-dark text-amber-500 focus:ring-amber-500"
+                />
+                <span className="text-gray-300">Send notification email to user</span>
+              </label>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setWarningUserModal(null); setWarningUserReason(''); setWarningUserSendEmail(true); }}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-white rounded-lg py-3 px-4 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (warningUserReason.trim()) {
+                    await handleAction('warnUser', warningUserModal.userId, { 
+                      reason: warningUserReason,
+                      sendEmail: warningUserSendEmail
+                    })
+                    setWarningUserModal(null)
+                    setWarningUserReason('')
+                    setWarningUserSendEmail(true)
+                    setShowUserModal(false)
+                    fetchData()
+                  }
+                }}
+                disabled={!warningUserReason.trim()}
+                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg py-3 px-4 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Send Warning
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend User Modal */}
+      {suspendUserModal?.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setSuspendUserModal(null); setSuspendUserReason(''); setSuspendUserDuration(''); setSuspendUserSendEmail(true); }}>
+          <div className="bg-[#1a1a2e] rounded-xl p-6 max-w-md w-full border border-gray-700" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-6 text-red-400">🚫 Suspend User</h2>
+            
+            <div className="space-y-4 mb-6">
+              {/* User Info */}
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm">User:</p>
+                <p className="font-bold text-white text-lg">{suspendUserModal.legalName || suspendUserModal.username}</p>
+                <p className="text-gray-400">@{suspendUserModal.username}</p>
+              </div>
+              
+              {/* Reason */}
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Reason for Suspension:</label>
+                <textarea
+                  value={suspendUserReason}
+                  onChange={(e) => setSuspendUserReason(e.target.value)}
+                  placeholder="Enter the reason for suspending this user..."
+                  className="w-full bg-tank-dark border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 resize-none h-24"
+                  autoFocus
+                />
+              </div>
+              
+              {/* Duration */}
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Duration (days):</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={suspendUserDuration}
+                  onChange={(e) => setSuspendUserDuration(e.target.value)}
+                  placeholder="Leave empty for permanent suspension"
+                  className="w-full bg-tank-dark border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Leave empty for permanent suspension</p>
+              </div>
+              
+              {/* Send Email Checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={suspendUserSendEmail}
+                  onChange={(e) => setSuspendUserSendEmail(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-600 bg-tank-dark text-red-500 focus:ring-red-500"
+                />
+                <span className="text-gray-300">Send notification email to user</span>
+              </label>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setSuspendUserModal(null); setSuspendUserReason(''); setSuspendUserDuration(''); setSuspendUserSendEmail(true); }}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-white rounded-lg py-3 px-4 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (suspendUserReason.trim()) {
+                    await handleAction('suspendUser', suspendUserModal.userId, { 
+                      reason: suspendUserReason,
+                      duration: suspendUserDuration ? parseInt(suspendUserDuration) : null,
+                      sendEmail: suspendUserSendEmail
+                    })
+                    setSuspendUserModal(null)
+                    setSuspendUserReason('')
+                    setSuspendUserDuration('')
+                    setSuspendUserSendEmail(true)
+                    setShowUserModal(false)
+                    fetchData()
+                  }
+                }}
+                disabled={!suspendUserReason.trim()}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-3 px-4 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Suspend User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Modal */}
+      {deleteUserModal?.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setDeleteUserModal(null); setDeleteUserReason(''); setDeleteUserSendEmail(true); }}>
+          <div className="bg-[#1a1a2e] rounded-xl p-6 max-w-md w-full border border-gray-700" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-6 text-red-500">🗑️ Delete User</h2>
+            
+            <div className="space-y-4 mb-6">
+              {/* User Info */}
+              <div className="bg-tank-dark rounded-lg p-4">
+                <p className="text-gray-400 text-sm">User:</p>
+                <p className="font-bold text-white text-lg">{deleteUserModal.legalName || deleteUserModal.username}</p>
+                <p className="text-gray-400">@{deleteUserModal.username}</p>
+              </div>
+              
+              {/* Warning */}
+              <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
+                <p className="text-red-400 text-sm font-medium">⚠️ Warning: This action is permanent!</p>
+                <p className="text-red-300 text-xs mt-1">All user data, media, and content will be permanently deleted and cannot be recovered.</p>
+              </div>
+              
+              {/* Reason */}
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Reason for Deletion:</label>
+                <textarea
+                  value={deleteUserReason}
+                  onChange={(e) => setDeleteUserReason(e.target.value)}
+                  placeholder="Enter the reason for deleting this user..."
+                  className="w-full bg-tank-dark border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 resize-none h-24"
+                  autoFocus
+                />
+              </div>
+              
+              {/* Send Email Checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={deleteUserSendEmail}
+                  onChange={(e) => setDeleteUserSendEmail(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-600 bg-tank-dark text-red-500 focus:ring-red-500"
+                />
+                <span className="text-gray-300">Send notification email to user</span>
+              </label>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setDeleteUserModal(null); setDeleteUserReason(''); setDeleteUserSendEmail(true); }}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-white rounded-lg py-3 px-4 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await handleAction('deleteUser', deleteUserModal.userId, { 
+                    reason: deleteUserReason,
+                    sendEmail: deleteUserSendEmail,
+                    email: deleteUserModal.email,
+                    username: deleteUserModal.username
+                  })
+                  setDeleteUserModal(null)
+                  setDeleteUserReason('')
+                  setDeleteUserSendEmail(true)
+                  setShowUserModal(false)
+                  fetchData()
+                }}
+                className="flex-1 bg-red-700 hover:bg-red-800 text-white rounded-lg py-3 px-4 font-medium"
+              >
+                Delete User
               </button>
             </div>
           </div>

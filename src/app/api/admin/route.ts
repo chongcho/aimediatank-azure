@@ -716,12 +716,46 @@ export async function POST(request: Request) {
         await logAdminAction(adminId, 'UPDATE_USER_ROLE', 'USER', targetId, { role: data.role })
         return NextResponse.json({ message: 'User role updated' })
 
-      case 'deleteUser':
+      case 'deleteUser': {
+        const shouldSendDeleteEmail = data?.sendEmail !== false
+        const deleteReason = data?.reason || 'Account violation'
+        const deleteUserEmail = data?.email
+        const deleteUsername = data?.username
+        
+        // Get user info before deletion if we need to send email
+        let userToDelete = null
+        if (shouldSendDeleteEmail && !deleteUserEmail) {
+          userToDelete = await prisma.user.findUnique({
+            where: { id: targetId },
+            select: { email: true, legalName: true, username: true }
+          })
+        }
+        
+        const recipientEmail = deleteUserEmail || userToDelete?.email
+        const recipientName = deleteUsername || userToDelete?.username
+        
         await prisma.user.delete({
           where: { id: targetId },
         })
-        await logAdminAction(adminId, 'DELETE_USER', 'USER', targetId)
-        return NextResponse.json({ message: 'User deleted' })
+        
+        // Send email notification before deletion if requested
+        if (shouldSendDeleteEmail && recipientEmail) {
+          try {
+            const { sendEmail, generateAccountDeletedEmail } = await import('@/lib/email')
+            await sendEmail({
+              to: recipientEmail,
+              subject: '🗑️ Your AI Media Tank Account Has Been Deleted',
+              html: generateAccountDeletedEmail(recipientName || 'User', deleteReason)
+            })
+            console.log(`Account deletion email sent to ${recipientEmail}`)
+          } catch (emailError) {
+            console.error('Failed to send account deletion email:', emailError)
+          }
+        }
+        
+        await logAdminAction(adminId, 'DELETE_USER', 'USER', targetId, { reason: deleteReason, emailSent: shouldSendDeleteEmail })
+        return NextResponse.json({ message: `User deleted${shouldSendDeleteEmail ? ' (email sent)' : ''}` })
+      }
 
       case 'resolveReport':
         await prisma.report.update({
@@ -747,6 +781,7 @@ export async function POST(request: Request) {
           ? new Date(Date.now() + data.duration * 24 * 60 * 60 * 1000) // duration in days
           : null // permanent
         const suspendReason = data?.reason || 'Policy violation'
+        const shouldSendSuspendEmail = data?.sendEmail !== false // Default to true for backward compatibility
         
         await prisma.user.update({
           where: { id: targetId },
@@ -758,7 +793,7 @@ export async function POST(request: Request) {
           },
         })
         
-        // Create notification for user
+        // Create in-app notification for user
         await prisma.notification.create({
           data: {
             userId: targetId,
@@ -768,8 +803,8 @@ export async function POST(request: Request) {
           },
         })
         
-        // Send email notification
-        if (suspendTargetUser) {
+        // Send email notification only if requested
+        if (shouldSendSuspendEmail && suspendTargetUser) {
           try {
             const { sendEmail, generateSuspensionEmail } = await import('@/lib/email')
             const userName = suspendTargetUser.legalName || suspendTargetUser.username || 'User'
@@ -784,8 +819,8 @@ export async function POST(request: Request) {
           }
         }
         
-        await logAdminAction(adminId, 'SUSPEND_USER', 'USER', targetId, data)
-        return NextResponse.json({ message: 'User suspended' })
+        await logAdminAction(adminId, 'SUSPEND_USER', 'USER', targetId, { ...data, emailSent: shouldSendSuspendEmail })
+        return NextResponse.json({ message: `User suspended${shouldSendSuspendEmail ? ' (email sent)' : ''}` })
       }
 
       case 'unsuspendUser': {
@@ -844,6 +879,7 @@ export async function POST(request: Request) {
         
         const warningReason = data?.reason || 'Policy violation'
         const newWarningCount = (warnTargetUser?.warningCount || 0) + 1
+        const shouldSendWarningEmail = data?.sendEmail !== false // Default to true for backward compatibility
         
         // Create ChatWarning record (for tracking and auto-sync)
         await prisma.chatWarning.create({
@@ -866,7 +902,7 @@ export async function POST(request: Request) {
           },
         })
         
-        // Create notification for user
+        // Create in-app notification for user
         await prisma.notification.create({
           data: {
             userId: targetId,
@@ -876,8 +912,8 @@ export async function POST(request: Request) {
           },
         })
         
-        // Send email notification
-        if (warnTargetUser) {
+        // Send email notification only if requested
+        if (shouldSendWarningEmail && warnTargetUser) {
           try {
             const { sendEmail, generateWarningEmail } = await import('@/lib/email')
             const userName = warnTargetUser.legalName || warnTargetUser.username || 'User'
@@ -892,8 +928,8 @@ export async function POST(request: Request) {
           }
         }
         
-        await logAdminAction(adminId, 'WARN_USER', 'USER', targetId, data)
-        return NextResponse.json({ message: 'User warned' })
+        await logAdminAction(adminId, 'WARN_USER', 'USER', targetId, { ...data, emailSent: shouldSendWarningEmail })
+        return NextResponse.json({ message: `User warned${shouldSendWarningEmail ? ' (email sent)' : ''}` })
       }
 
       case 'getWarningHistory': {

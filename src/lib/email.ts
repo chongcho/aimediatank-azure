@@ -598,6 +598,50 @@ export function generateDownloadReminderEmail(
 `
 }
 
-
-
-
+// Generate account deleted notification email
+export function generateAccountDeletedEmail(
+  userName: string,
+  deleteReason: string
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #ff4444; margin: 0; font-size: 24px;">🗑️ Account Deleted</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Dear ${userName},</p>
+  
+  <p style="font-size: 16px;">Your AI Media Tank account has been permanently deleted.</p>
+  
+  <div style="background: #fff0f0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff4444;">
+    <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Reason:</p>
+    <p style="margin: 0; font-size: 16px; font-weight: bold; color: #333;">${deleteReason}</p>
+  </div>
+  
+  <p style="font-size: 16px;">All associated data, including:</p>
+  <ul style="font-size: 16px; color: #666;">
+    <li>Profile information</li>
+    <li>Uploaded content</li>
+    <li>Purchase history</li>
+    <li>Chat messages</li>
+  </ul>
+  <p style="font-size: 16px;">has been permanently removed from our systems.</p>
+  
+  <p style="font-size: 16px;">If you believe this deletion was in error, please contact our support team at <a href="mailto:support@aimediatank.com" style="color: #0066cc;">support@aimediatank.com</a>.</p>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+</body>
+</html>
+`
+}
