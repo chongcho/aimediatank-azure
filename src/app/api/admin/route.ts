@@ -764,6 +764,18 @@ export async function POST(request: Request) {
         const warningReason = data?.reason || 'Policy violation'
         const newWarningCount = (warnTargetUser?.warningCount || 0) + 1
         
+        // Create ChatWarning record (for tracking and auto-sync)
+        await prisma.chatWarning.create({
+          data: {
+            userId: targetId,
+            messageId: null,
+            messageContent: null,
+            reason: warningReason,
+            action: 'WARNING',
+            adminId,
+          },
+        })
+        
         await prisma.user.update({
           where: { id: targetId },
           data: {
