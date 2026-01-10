@@ -34,6 +34,35 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
 
+    // Debug: Check warning state for a user
+    if (action === 'debugWarnings') {
+      const username = searchParams.get('username') || 'admin'
+      
+      const user = await prisma.user.findFirst({
+        where: { username },
+        select: { id: true, username: true, warningCount: true, lastWarningAt: true, lastWarningReason: true }
+      })
+      
+      if (!user) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+      
+      const chatWarnings = await prisma.chatWarning.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' }
+      })
+      
+      return NextResponse.json({
+        user,
+        chatWarnings,
+        summary: {
+          userWarningCount: user.warningCount,
+          actualChatWarnings: chatWarnings.length,
+          mismatch: user.warningCount !== chatWarnings.length
+        }
+      })
+    }
+
     if (action === 'reports') {
       // Get pending reports
       const reports = await prisma.report.findMany({
