@@ -1240,12 +1240,42 @@ export default function AdminPage() {
               )}
             </div>
             
-            <button
-              onClick={() => setWarningModal(null)}
-              className="w-full mt-4 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors"
-            >
-              Close
-            </button>
+            <div className="flex gap-3 mt-4">
+              {warningModal.warningCount > 0 && (
+                <button
+                  onClick={async () => {
+                    if (confirm('Are you sure you want to clear all warnings for this user? Their status will change to Active.')) {
+                      try {
+                        const res = await fetch('/api/admin', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            action: 'clearWarnings',
+                            targetId: warningModal.userId,
+                          }),
+                        })
+                        if (res.ok) {
+                          setWarningModal(null)
+                          // Refresh users list
+                          setUserSearchDebounced(prev => prev + ' ')
+                        }
+                      } catch (err) {
+                        console.error('Failed to clear warnings:', err)
+                      }
+                    }
+                  }}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-lg py-2 px-4 transition-colors font-medium"
+                >
+                  ✅ Clear Warnings
+                </button>
+              )}
+              <button
+                onClick={() => setWarningModal(null)}
+                className={`${warningModal.warningCount > 0 ? 'flex-1' : 'w-full'} bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors`}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
