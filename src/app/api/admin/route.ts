@@ -102,25 +102,36 @@ export async function GET(request: Request) {
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
-        include: {
-          admin: {
-            select: { username: true }
-          }
-        }
       })
+      
+      // Get admin usernames
+      const adminIds = Array.from(new Set(recentActions.map(a => a.adminId)))
+      const admins = await prisma.user.findMany({
+        where: { id: { in: adminIds } },
+        select: { id: true, username: true }
+      })
+      const adminMap = new Map(admins.map(a => [a.id, a.username]))
       
       return NextResponse.json({
         totalActions: recentActions.length,
-        actions: recentActions.map(a => ({
-          id: a.id,
-          action: a.action,
-          targetType: a.targetType,
-          targetId: a.targetId,
-          adminUsername: a.admin?.username,
-          details: a.details,
-          emailSent: (a.details as any)?.emailSent,
-          createdAt: a.createdAt
-        }))
+        actions: recentActions.map(a => {
+          let details: Record<string, unknown> = {}
+          try {
+            details = a.details ? JSON.parse(a.details) : {}
+          } catch {
+            details = { raw: a.details }
+          }
+          return {
+            id: a.id,
+            action: a.action,
+            targetType: a.targetType,
+            targetId: a.targetId,
+            adminUsername: adminMap.get(a.adminId) || a.adminId,
+            details,
+            emailSent: details?.emailSent,
+            createdAt: a.createdAt
+          }
+        })
       })
     }
 
