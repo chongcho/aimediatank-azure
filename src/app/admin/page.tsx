@@ -239,6 +239,13 @@ export default function AdminPage() {
     username: string
   } | null>(null)
   const [chatDeleteReason, setChatDeleteReason] = useState('')
+  
+  // Clear warnings confirmation modal state
+  const [clearWarningsConfirm, setClearWarningsConfirm] = useState<{
+    show: boolean
+    userId: string
+    username: string
+  } | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -1266,26 +1273,12 @@ export default function AdminPage() {
             <div className="flex gap-3 mt-4">
               {warningModal.warningCount > 0 && (
                 <button
-                  onClick={async () => {
-                    if (confirm('Are you sure you want to clear all warnings for this user? Their status will change to Active.')) {
-                      try {
-                        const res = await fetch('/api/admin', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'clearWarnings',
-                            targetId: warningModal.userId,
-                          }),
-                        })
-                        if (res.ok) {
-                          setWarningModal(null)
-                          // Refresh users list to show Active status
-                          fetchData()
-                        }
-                      } catch (err) {
-                        console.error('Failed to clear warnings:', err)
-                      }
-                    }
+                  onClick={() => {
+                    setClearWarningsConfirm({
+                      show: true,
+                      userId: warningModal.userId,
+                      username: warningModal.username
+                    })
                   }}
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-lg py-2 px-4 transition-colors font-medium"
                 >
@@ -1297,6 +1290,61 @@ export default function AdminPage() {
                 className={`${warningModal.warningCount > 0 ? 'flex-1' : 'w-full'} bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4 transition-colors`}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Warnings Confirmation Modal */}
+      {clearWarningsConfirm?.show && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4" onClick={() => setClearWarningsConfirm(null)}>
+          <div className="bg-tank-gray rounded-xl p-6 max-w-md w-full shadow-2xl border border-tank-light" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+                <span className="text-2xl">✅</span>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Clear All Warnings?</h2>
+                <p className="text-gray-400">@{clearWarningsConfirm.username}</p>
+              </div>
+            </div>
+            
+            <p className="text-gray-300 mb-6">
+              Are you sure you want to clear all warnings for this user? Their status will change to <span className="text-green-400 font-medium">Active</span>.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setClearWarningsConfirm(null)}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-3 px-4 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/admin', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        action: 'clearWarnings',
+                        targetId: clearWarningsConfirm.userId,
+                      }),
+                    })
+                    if (res.ok) {
+                      setClearWarningsConfirm(null)
+                      setWarningModal(null)
+                      // Refresh users list to show Active status
+                      fetchData()
+                    }
+                  } catch (err) {
+                    console.error('Failed to clear warnings:', err)
+                  }
+                }}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-lg py-3 px-4 transition-colors font-medium"
+              >
+                Yes, Clear Warnings
               </button>
             </div>
           </div>
