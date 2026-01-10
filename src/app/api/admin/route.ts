@@ -779,12 +779,26 @@ export async function POST(request: Request) {
       }
 
       case 'clearWarnings':
+        // Delete all ChatWarning records for this user
+        await prisma.chatWarning.deleteMany({
+          where: { userId: targetId },
+        })
+        // Update user's warning fields
         await prisma.user.update({
           where: { id: targetId },
           data: {
             warningCount: 0,
             lastWarningAt: null,
             lastWarningReason: null,
+          },
+        })
+        // Notify user
+        await prisma.notification.create({
+          data: {
+            userId: targetId,
+            type: 'system',
+            title: 'Warnings Cleared',
+            message: '✅ All your warnings have been cleared by an administrator.',
           },
         })
         await logAdminAction(adminId, 'CLEAR_WARNINGS', 'USER', targetId)
@@ -882,12 +896,67 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'Admin notes updated' })
 
       // Chat moderation actions
-      case 'deleteChatMessage':
+      case 'deleteChatMessage': {
+        // First check if there's a warning associated with this message
+        const associatedWarning = await prisma.chatWarning.findFirst({
+          where: { messageId: targetId }
+        })
+        
+        // Get the message to find the user
+        const messageToDelete = await prisma.chatMessage.findUnique({
+          where: { id: targetId },
+          select: { userId: true }
+        })
+        
+        // Delete the message
         await prisma.chatMessage.delete({
           where: { id: targetId },
         })
         await logAdminAction(adminId, 'DELETE_CHAT_MESSAGE', 'CHAT_MESSAGE', targetId)
+        
+        // If there was an associated warning, clear it
+        if (associatedWarning && messageToDelete?.userId) {
+          // Delete the warning record
+          await prisma.chatWarning.delete({
+            where: { id: associatedWarning.id }
+          })
+          
+          // Decrement user's warning count
+          const warnedUser = await prisma.user.findUnique({
+            where: { id: messageToDelete.userId },
+            select: { warningCount: true }
+          })
+          
+          if (warnedUser && warnedUser.warningCount > 0) {
+            const newWarningCount = warnedUser.warningCount - 1
+            await prisma.user.update({
+              where: { id: messageToDelete.userId },
+              data: {
+                warningCount: newWarningCount,
+                // Clear warning fields if no more warnings
+                ...(newWarningCount === 0 && {
+                  lastWarningAt: null,
+                  lastWarningReason: null,
+                })
+              }
+            })
+            
+            // Notify user that warning was cleared
+            if (newWarningCount === 0) {
+              await prisma.notification.create({
+                data: {
+                  userId: messageToDelete.userId,
+                  type: 'system',
+                  title: 'Warning Cleared',
+                  message: '✅ Your warning has been cleared as the associated message was removed.',
+                },
+              })
+            }
+          }
+        }
+        
         return NextResponse.json({ message: 'Chat message deleted' })
+      }
 
       case 'warnChatUser': {
         // Create chat warning record
