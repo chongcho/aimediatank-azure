@@ -230,8 +230,10 @@ export default function AdminPage() {
     messageContent: string
     userId: string
     username: string
+    email: string
   } | null>(null)
   const [chatWarningReason, setChatWarningReason] = useState('')
+  const [chatWarningSendEmail, setChatWarningSendEmail] = useState(true)
   
   // Chat delete modal state
   const [chatDeleteModal, setChatDeleteModal] = useState<{
@@ -240,8 +242,10 @@ export default function AdminPage() {
     messageContent: string
     userId: string
     username: string
+    email: string
   } | null>(null)
   const [chatDeleteReason, setChatDeleteReason] = useState('')
+  const [chatDeleteSendEmail, setChatDeleteSendEmail] = useState(true)
   
   // Clear warnings confirmation modal state
   const [clearWarningsConfirm, setClearWarningsConfirm] = useState<{
@@ -256,6 +260,8 @@ export default function AdminPage() {
     messageId: string
     username: string
     reason: string
+    sendEmail: boolean
+    email: string
   } | null>(null)
   
   // Send Warning to User modal state
@@ -910,7 +916,8 @@ export default function AdminPage() {
                                 messageId: msg.id,
                                 messageContent: msg.content,
                                 userId: msg.user.id,
-                                username: msg.user.username
+                                username: msg.user.username,
+                                email: (msg.user as any).email || ''
                               })}
                               className="text-yellow-400 hover:text-yellow-300 text-sm"
                             >
@@ -922,7 +929,8 @@ export default function AdminPage() {
                                 messageId: msg.id,
                                 messageContent: msg.content,
                                 userId: msg.user.id,
-                                username: msg.user.username
+                                username: msg.user.username,
+                                email: (msg.user as any).email || ''
                               })}
                               className="text-red-400 hover:text-red-300 text-sm"
                             >
@@ -1900,9 +1908,9 @@ export default function AdminPage() {
 
       {/* Chat Warning Modal */}
       {chatWarningModal?.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setChatWarningModal(null); setChatWarningReason(''); }}>
-          <div className="bg-tank-gray rounded-xl p-6 max-w-lg w-full" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-4 text-yellow-400">⚠️ Warning Chat User</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setChatWarningModal(null); setChatWarningReason(''); setChatWarningSendEmail(true); }}>
+          <div className="bg-[#1a1a2e] rounded-xl p-6 max-w-lg w-full border border-gray-700" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-6 text-yellow-400">⚠️ Warning Chat User</h2>
             
             <div className="space-y-4 mb-6">
               <div className="bg-tank-dark rounded-lg p-4">
@@ -1921,15 +1929,26 @@ export default function AdminPage() {
                   value={chatWarningReason}
                   onChange={(e) => setChatWarningReason(e.target.value)}
                   placeholder="Enter the reason for warning this user..."
-                  className="input w-full h-24 resize-none"
+                  className="w-full bg-tank-dark border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 resize-none h-24"
                 />
               </div>
+              
+              {/* Send Email Checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={chatWarningSendEmail}
+                  onChange={(e) => setChatWarningSendEmail(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-600 bg-tank-dark text-yellow-500 focus:ring-yellow-500"
+                />
+                <span className="text-gray-300">Send notification email to creator</span>
+              </label>
             </div>
             
             <div className="flex gap-3">
               <button
-                onClick={() => { setChatWarningModal(null); setChatWarningReason(''); }}
-                className="flex-1 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4"
+                onClick={() => { setChatWarningModal(null); setChatWarningReason(''); setChatWarningSendEmail(true); }}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-3 px-4 font-medium"
               >
                 Cancel
               </button>
@@ -1938,12 +1957,15 @@ export default function AdminPage() {
                   await handleAction('warnChatUser', chatWarningModal.userId, {
                     messageId: chatWarningModal.messageId,
                     messageContent: chatWarningModal.messageContent,
-                    reason: chatWarningReason
+                    reason: chatWarningReason,
+                    sendEmail: chatWarningSendEmail,
+                    email: chatWarningModal.email
                   })
                   setChatWarningModal(null)
                   setChatWarningReason('')
+                  setChatWarningSendEmail(true)
                 }}
-                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg py-2 px-4"
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg py-3 px-4 font-medium"
               >
                 Send Warning
               </button>
@@ -1954,9 +1976,9 @@ export default function AdminPage() {
 
       {/* Chat Delete Modal */}
       {chatDeleteModal?.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setChatDeleteModal(null); setChatDeleteReason(''); }}>
-          <div className="bg-tank-gray rounded-xl p-6 max-w-lg w-full" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-4 text-red-400">🗑️ Delete Chat Message</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setChatDeleteModal(null); setChatDeleteReason(''); setChatDeleteSendEmail(true); }}>
+          <div className="bg-[#1a1a2e] rounded-xl p-6 max-w-lg w-full border border-gray-700" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-6 text-red-400">🗑️ Delete Chat Message</h2>
             
             <div className="space-y-4 mb-6">
               <div className="bg-tank-dark rounded-lg p-4">
@@ -1975,15 +1997,26 @@ export default function AdminPage() {
                   value={chatDeleteReason}
                   onChange={(e) => setChatDeleteReason(e.target.value)}
                   placeholder="Enter the reason for deleting this message..."
-                  className="input w-full h-24 resize-none"
+                  className="w-full bg-tank-dark border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 resize-none h-24"
                 />
               </div>
+              
+              {/* Send Email Checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={chatDeleteSendEmail}
+                  onChange={(e) => setChatDeleteSendEmail(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-600 bg-tank-dark text-red-500 focus:ring-red-500"
+                />
+                <span className="text-gray-300">Send notification email to creator</span>
+              </label>
             </div>
             
             <div className="flex gap-3">
               <button
-                onClick={() => { setChatDeleteModal(null); setChatDeleteReason(''); }}
-                className="flex-1 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-2 px-4"
+                onClick={() => { setChatDeleteModal(null); setChatDeleteReason(''); setChatDeleteSendEmail(true); }}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-3 px-4 font-medium"
               >
                 Cancel
               </button>
@@ -1993,10 +2026,12 @@ export default function AdminPage() {
                     show: true,
                     messageId: chatDeleteModal.messageId,
                     username: chatDeleteModal.username,
-                    reason: chatDeleteReason
+                    reason: chatDeleteReason,
+                    sendEmail: chatDeleteSendEmail,
+                    email: chatDeleteModal.email
                   })
                 }}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 px-4"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-3 px-4 font-medium"
               >
                 Delete Message
               </button>
@@ -2039,12 +2074,15 @@ export default function AdminPage() {
                     await handleAction('deleteChatMessage', deleteChatConfirm.messageId, {
                       reason: deleteChatConfirm.reason,
                       userId: chatDeleteModal.userId,
-                      username: deleteChatConfirm.username
+                      username: deleteChatConfirm.username,
+                      sendEmail: deleteChatConfirm.sendEmail,
+                      email: deleteChatConfirm.email
                     })
                   }
                   setDeleteChatConfirm(null)
                   setChatDeleteModal(null)
                   setChatDeleteReason('')
+                  setChatDeleteSendEmail(true)
                 }}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-3 px-4 transition-colors font-medium"
               >

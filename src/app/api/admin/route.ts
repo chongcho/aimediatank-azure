@@ -330,6 +330,7 @@ export async function GET(request: Request) {
                 id: true,
                 username: true,
                 name: true,
+                email: true,
                 avatar: true,
                 isSuspended: true,
                 warningCount: true,
@@ -1265,22 +1266,73 @@ export async function POST(request: Request) {
 
       // Chat moderation actions
       case 'deleteChatMessage': {
+        const deleteMessageReason = data?.reason || 'Message violated community guidelines'
+        const shouldSendDeleteMessageEmail = data?.sendEmail !== false
+        const deleteMessageUserEmail = data?.email
+        
         // First check if there's a warning associated with this message
         const associatedWarning = await prisma.chatWarning.findFirst({
           where: { messageId: targetId }
         })
         
-        // Get the message to find the user
+        // Get the message to find the user and content
         const messageToDelete = await prisma.chatMessage.findUnique({
           where: { id: targetId },
-          select: { userId: true }
+          select: { userId: true, content: true }
         })
+        
+        // Get user info for email if needed
+        let deleteMessageUser = null
+        if (shouldSendDeleteMessageEmail && messageToDelete?.userId) {
+          deleteMessageUser = await prisma.user.findUnique({
+            where: { id: messageToDelete.userId },
+            select: { email: true, legalName: true, username: true }
+          })
+        }
+        
+        const userEmail = deleteMessageUserEmail || deleteMessageUser?.email
+        const userName = deleteMessageUser?.legalName || deleteMessageUser?.username || data?.username || 'User'
+        const messageContent = messageToDelete?.content || 'Message content unavailable'
         
         // Delete the message
         await prisma.chatMessage.delete({
           where: { id: targetId },
         })
-        await logAdminAction(adminId, 'DELETE_CHAT_MESSAGE', 'CHAT_MESSAGE', targetId)
+        
+        // Create in-app notification
+        if (messageToDelete?.userId) {
+          await prisma.notification.create({
+            data: {
+              userId: messageToDelete.userId,
+              type: 'system',
+              title: 'Chat Message Deleted',
+              message: `🗑️ Your chat message was deleted. Reason: ${deleteMessageReason}`,
+            },
+          })
+        }
+        
+        // Send email notification if requested
+        let deleteMessageEmailSent = false
+        if (shouldSendDeleteMessageEmail && userEmail) {
+          try {
+            const { sendEmail, generateChatMessageDeletedEmail } = await import('@/lib/email')
+            deleteMessageEmailSent = await sendEmail({
+              to: userEmail,
+              subject: `🗑️ Chat Message Deleted`,
+              html: generateChatMessageDeletedEmail(userName, deleteMessageReason, messageContent)
+            })
+            if (deleteMessageEmailSent) {
+              console.log(`Chat message deleted email sent to ${userEmail}`)
+            } else {
+              console.log(`Chat message deleted email FAILED to send to ${userEmail}`)
+            }
+          } catch (emailError) {
+            console.error('Failed to send chat message deleted email:', emailError)
+            deleteMessageEmailSent = false
+          }
+        }
+        
+        await logAdminAction(adminId, 'DELETE_CHAT_MESSAGE', 'CHAT_MESSAGE', targetId, { reason: deleteMessageReason, emailSent: deleteMessageEmailSent })
         
         // If there was an associated warning, clear it
         if (associatedWarning && messageToDelete?.userId) {
@@ -1323,42 +1375,87 @@ export async function POST(request: Request) {
           }
         }
         
-        return NextResponse.json({ message: 'Chat message deleted' })
+        return NextResponse.json({ 
+          message: `Chat message deleted${shouldSendDeleteMessageEmail ? (deleteMessageEmailSent ? ' (email sent)' : ' (email failed)') : ''}`,
+          emailSent: deleteMessageEmailSent
+        })
       }
 
       case 'warnChatUser': {
+        const chatWarningReason = data?.reason || 'Inappropriate message'
+        const shouldSendChatWarningEmail = data?.sendEmail !== false
+        
+        // Get user info for email if needed
+        let chatWarnUser = null
+        if (shouldSendChatWarningEmail) {
+          chatWarnUser = await prisma.user.findUnique({
+            where: { id: targetId },
+            select: { email: true, legalName: true, username: true, warningCount: true }
+          })
+        }
+        
         // Create chat warning record
         await prisma.chatWarning.create({
           data: {
             userId: targetId,
             messageId: data?.messageId,
             messageContent: data?.messageContent,
-            reason: data?.reason || 'Inappropriate message',
+            reason: chatWarningReason,
             action: data?.action || 'WARNING', // WARNING, MUTE, BAN
             duration: data?.duration, // minutes for mute
             adminId,
           },
         })
+        
         // Update user warning count
-        await prisma.user.update({
+        const updatedUser = await prisma.user.update({
           where: { id: targetId },
           data: {
             warningCount: { increment: 1 },
             lastWarningAt: new Date(),
-            lastWarningReason: `Chat: ${data?.reason || 'Inappropriate message'}`,
+            lastWarningReason: `Chat: ${chatWarningReason}`,
           },
         })
-        // Notify user
+        
+        const newWarningCount = updatedUser.warningCount
+        
+        // Create in-app notification
         await prisma.notification.create({
           data: {
             userId: targetId,
             type: 'chat_warning',
             title: 'Chat Warning',
-            message: `⚠️ Chat Warning: ${data?.reason || 'Inappropriate message'}`,
+            message: `⚠️ Chat Warning: ${chatWarningReason}`,
           },
         })
-        await logAdminAction(adminId, 'WARN_CHAT_USER', 'USER', targetId, data)
-        return NextResponse.json({ message: 'Chat user warned' })
+        
+        // Send email notification if requested
+        let chatWarningEmailSent = false
+        if (shouldSendChatWarningEmail && chatWarnUser) {
+          try {
+            const { sendEmail, generateChatWarningEmail } = await import('@/lib/email')
+            const userName = chatWarnUser.legalName || chatWarnUser.username || 'User'
+            chatWarningEmailSent = await sendEmail({
+              to: chatWarnUser.email,
+              subject: `⚠️ Chat Warning: ${chatWarningReason}`,
+              html: generateChatWarningEmail(userName, chatWarningReason, data?.messageContent, newWarningCount)
+            })
+            if (chatWarningEmailSent) {
+              console.log(`Chat warning email sent to ${chatWarnUser.email}`)
+            } else {
+              console.log(`Chat warning email FAILED to send to ${chatWarnUser.email}`)
+            }
+          } catch (emailError) {
+            console.error('Failed to send chat warning email:', emailError)
+            chatWarningEmailSent = false
+          }
+        }
+        
+        await logAdminAction(adminId, 'WARN_CHAT_USER', 'USER', targetId, { ...data, emailSent: chatWarningEmailSent })
+        return NextResponse.json({ 
+          message: `Chat user warned${shouldSendChatWarningEmail ? (chatWarningEmailSent ? ' (email sent)' : ' (email failed)') : ''}`,
+          emailSent: chatWarningEmailSent
+        })
       }
 
       default:

@@ -679,3 +679,106 @@ export function generateAccountDeletedEmail(
 </html>
 `
 }
+
+// Generate chat warning notification email
+export function generateChatWarningEmail(
+  userName: string,
+  reason: string,
+  messageContent?: string,
+  warningCount?: number
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #ffa500; margin: 0; font-size: 24px;">⚠️ Chat Warning</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Dear ${userName},</p>
+  
+  <p style="font-size: 16px;">You have received a warning for your chat message on AI Media Tank.</p>
+  
+  <div style="background: #fff8e0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffa500;">
+    <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Reason:</p>
+    <p style="margin: 0; font-size: 16px; font-weight: bold; color: #333;">${reason}</p>
+  </div>
+  
+  ${messageContent ? `
+  <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Message in question:</p>
+    <p style="margin: 0; font-size: 14px; color: #666; font-style: italic;">"${messageContent.substring(0, 200)}${messageContent.length > 200 ? '...' : ''}"</p>
+  </div>
+  ` : ''}
+  
+  ${warningCount ? `
+  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+    <p style="margin: 0; font-size: 14px;">
+      <strong>Total Warnings:</strong> ${warningCount}
+    </p>
+  </div>
+  ` : ''}
+  
+  <p style="font-size: 16px;">Please review our <a href="https://www.aimediatank.com/policy" style="color: #0066cc;">Community Guidelines</a> to avoid future warnings. Multiple warnings may result in suspension of your account.</p>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+</body>
+</html>
+`
+}
+
+// Generate chat message deleted notification email
+export function generateChatMessageDeletedEmail(
+  userName: string,
+  reason: string,
+  messageContent?: string
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #ff4444; margin: 0; font-size: 24px;">🗑️ Chat Message Deleted</h1>
+  </div>
+  
+  <p style="font-size: 16px;">Dear ${userName},</p>
+  
+  <p style="font-size: 16px;">Your chat message on AI Media Tank has been deleted by a moderator.</p>
+  
+  <div style="background: #fff0f0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff4444;">
+    <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Reason:</p>
+    <p style="margin: 0; font-size: 16px; font-weight: bold; color: #333;">${reason}</p>
+  </div>
+  
+  ${messageContent ? `
+  <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Deleted message:</p>
+    <p style="margin: 0; font-size: 14px; color: #666; font-style: italic;">"${messageContent.substring(0, 200)}${messageContent.length > 200 ? '...' : ''}"</p>
+  </div>
+  ` : ''}
+  
+  <p style="font-size: 16px;">Please ensure your future messages comply with our <a href="https://www.aimediatank.com/policy" style="color: #0066cc;">Community Guidelines</a>.</p>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 14px; color: #666;">
+    Sincerely,<br>
+    <strong>AI Media Tank Team</strong>
+  </p>
+</body>
+</html>
+`
+}
