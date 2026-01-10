@@ -32,7 +32,7 @@ jobs:
       - name: Push database schema changes
         run: npx prisma db push --skip-generate --accept-data-loss
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Clean previous build
         run: rm -rf .next deploy
@@ -40,7 +40,7 @@ jobs:
       - name: Build application
         run: npm run build
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Copy standalone files
         run: |
