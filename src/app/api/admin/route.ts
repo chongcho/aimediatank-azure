@@ -34,6 +34,32 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
 
+    // Debug: Check credit history for a user
+    if (action === 'debugCredits') {
+      const username = searchParams.get('username') || 'admin'
+      
+      const user = await prisma.user.findFirst({
+        where: { username },
+        select: { id: true, username: true, bonusCredits: true, paidUploadCredits: true }
+      })
+      
+      if (!user) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+      
+      const creditHistory = await prisma.creditHistory.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' }
+      })
+      
+      return NextResponse.json({
+        user,
+        totalCredits: (user.bonusCredits || 0) + (user.paidUploadCredits || 0),
+        creditHistory,
+        historyCount: creditHistory.length
+      })
+    }
+
     // Debug: Check warning state for a user
     if (action === 'debugWarnings') {
       const username = searchParams.get('username') || 'admin'
