@@ -300,9 +300,13 @@ export default function Navbar() {
                 {/* Upload Button - redirects based on subscription status */}
                 <Link
                   href={isSubscriber ? "/upload" : "/pricing"}
-                  className="hidden sm:flex items-center justify-center h-9 px-3 bg-tank-accent text-tank-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
+                  className="upload-btn hidden sm:flex items-center justify-center h-9 px-4 font-bold rounded-lg text-sm
+                    hover:scale-105 active:scale-95 transition-transform duration-200 ease-out
+                    relative overflow-hidden"
                 >
-                  Upload
+                  <span className="upload-text font-bold">
+                    Upload
+                  </span>
                 </Link>
 
                 {/* User ID Dropdown */}
