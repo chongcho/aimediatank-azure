@@ -159,7 +159,33 @@ export async function GET(request: Request) {
       // Auto-sync: For users with warningCount > 0, verify against actual ChatWarning records
       const usersWithWarnings = users.filter(u => u.warningCount > 0)
       if (usersWithWarnings.length > 0) {
-        // Get actual warning counts for these users
+        // First, clean up orphaned warnings (where messageId points to deleted messages)
+        const allWarnings = await prisma.chatWarning.findMany({
+          where: { userId: { in: usersWithWarnings.map(u => u.id) } },
+          select: { id: true, userId: true, messageId: true }
+        })
+        
+        // Find warnings with messageId that no longer exists
+        const warningsWithMessageId = allWarnings.filter(w => w.messageId)
+        if (warningsWithMessageId.length > 0) {
+          const messageIds = warningsWithMessageId.map(w => w.messageId).filter(Boolean) as string[]
+          const existingMessages = await prisma.chatMessage.findMany({
+            where: { id: { in: messageIds } },
+            select: { id: true }
+          })
+          const existingMessageIds = new Set(existingMessages.map(m => m.id))
+          
+          // Delete orphaned warnings (messageId doesn't exist anymore)
+          const orphanedWarnings = warningsWithMessageId.filter(w => w.messageId && !existingMessageIds.has(w.messageId))
+          if (orphanedWarnings.length > 0) {
+            await prisma.chatWarning.deleteMany({
+              where: { id: { in: orphanedWarnings.map(w => w.id) } }
+            })
+            console.log(`Cleaned up ${orphanedWarnings.length} orphaned warnings`)
+          }
+        }
+        
+        // Now get actual warning counts (after cleanup)
         const actualWarningCounts = await prisma.chatWarning.groupBy({
           by: ['userId'],
           where: { userId: { in: usersWithWarnings.map(u => u.id) } },
