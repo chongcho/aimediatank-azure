@@ -9,7 +9,7 @@ interface EmailOptions {
 
 // Gmail credentials
 const GMAIL_USER = process.env.EMAIL_USER || process.env.SMTP_USER || 'support@aimediatank.com'
-const GMAIL_PASS = process.env.EMAIL_PASS || process.env.SMTP_PASS || 'ftjppnyzanybatwn'
+const GMAIL_PASS = process.env.EMAIL_PASS || process.env.SMTP_PASS || 'axkjmfgrmcvagzrs'
 
 // Create reusable transporter using Gmail service
 let cachedTransporter: nodemailer.Transporter | null = null
