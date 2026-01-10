@@ -1256,8 +1256,8 @@ export default function AdminPage() {
                         })
                         if (res.ok) {
                           setWarningModal(null)
-                          // Refresh users list
-                          setUserSearchDebounced(prev => prev + ' ')
+                          // Refresh users list to show Active status
+                          fetchData()
                         }
                       } catch (err) {
                         console.error('Failed to clear warnings:', err)
