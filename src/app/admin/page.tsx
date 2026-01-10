@@ -246,6 +246,14 @@ export default function AdminPage() {
     userId: string
     username: string
   } | null>(null)
+  
+  // Delete chat message confirmation modal state
+  const [deleteChatConfirm, setDeleteChatConfirm] = useState<{
+    show: boolean
+    messageId: string
+    username: string
+    reason: string
+  } | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -1909,18 +1917,67 @@ export default function AdminPage() {
                 Cancel
               </button>
               <button
-                onClick={async () => {
-                  await handleAction('deleteChatMessage', chatDeleteModal.messageId, {
-                    reason: chatDeleteReason,
-                    userId: chatDeleteModal.userId,
-                    username: chatDeleteModal.username
+                onClick={() => {
+                  setDeleteChatConfirm({
+                    show: true,
+                    messageId: chatDeleteModal.messageId,
+                    username: chatDeleteModal.username,
+                    reason: chatDeleteReason
                   })
-                  setChatDeleteModal(null)
-                  setChatDeleteReason('')
                 }}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 px-4"
               >
                 Delete Message
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Chat Message Confirmation Modal */}
+      {deleteChatConfirm?.show && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4" onClick={() => setDeleteChatConfirm(null)}>
+          <div className="bg-tank-gray rounded-xl p-6 max-w-md w-full shadow-2xl border border-tank-light" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
+                <span className="text-2xl">🗑️</span>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Delete Message?</h2>
+                <p className="text-gray-400">@{deleteChatConfirm.username}</p>
+              </div>
+            </div>
+            
+            <p className="text-gray-300 mb-6">
+              Are you sure you want to delete this message? This action cannot be undone.
+              {chatDeleteModal && chatDeleteModal.messageContent && (
+                <span className="block mt-2 text-gray-500 text-sm italic">"{chatDeleteModal.messageContent.substring(0, 50)}{chatDeleteModal.messageContent.length > 50 ? '...' : ''}"</span>
+              )}
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteChatConfirm(null)}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-3 px-4 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (chatDeleteModal) {
+                    await handleAction('deleteChatMessage', deleteChatConfirm.messageId, {
+                      reason: deleteChatConfirm.reason,
+                      userId: chatDeleteModal.userId,
+                      username: deleteChatConfirm.username
+                    })
+                  }
+                  setDeleteChatConfirm(null)
+                  setChatDeleteModal(null)
+                  setChatDeleteReason('')
+                }}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-3 px-4 transition-colors font-medium"
+              >
+                Yes, Delete
               </button>
             </div>
           </div>
