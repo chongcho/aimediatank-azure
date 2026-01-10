@@ -249,7 +249,7 @@ export default function Navbar() {
             <img 
               src="/logo.png" 
               alt="AiMediaTank" 
-                className="h-10 w-auto"
+              className="h-10 w-auto animate-[spin_8s_linear_infinite] hover:animate-[spin_2s_linear_infinite]"
             />
             </Link>
             {/* Home Icon - wireframe only */}
