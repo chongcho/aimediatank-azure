@@ -180,14 +180,36 @@ body {
   animation: gradient 8s ease infinite;
 }
 
-/* Sign Up button pulse glow animation */
-@keyframes pulse-glow {
-  0%, 100% { 
-    box-shadow: 0 0 5px rgba(0, 255, 136, 0.3), 0 0 10px rgba(0, 255, 136, 0.1);
-  }
-  50% { 
-    box-shadow: 0 0 15px rgba(0, 255, 136, 0.5), 0 0 25px rgba(0, 255, 136, 0.2);
-  }
+/* Sign Up button moving gradient animation */
+@keyframes gradient-move {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.signup-btn {
+  background: linear-gradient(90deg, #0d0d1a, #0d0d1a) padding-box,
+              linear-gradient(90deg, #00d4aa, #00b4d8, #8b5cf6, #00d4aa) border-box;
+  border: 2px solid transparent;
+  background-size: 100% 100%, 200% 100%;
+  animation: gradient-move 3s linear infinite;
+}
+
+.signup-btn:hover {
+  animation: gradient-move 1.5s linear infinite;
+  box-shadow: 0 0 20px rgba(0, 212, 170, 0.3), 0 0 30px rgba(139, 92, 246, 0.2);
+}
+
+.signup-text {
+  background: linear-gradient(90deg, #00d4aa, #00b4d8, #8b5cf6, #00d4aa);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradient-move 3s linear infinite;
+}
+
+.signup-btn:hover .signup-text {
+  animation: gradient-move 1.5s linear infinite;
 }
 
 /* Text gradient */
