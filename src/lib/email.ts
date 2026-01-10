@@ -7,48 +7,57 @@ interface EmailOptions {
   html: string
 }
 
-// Create reusable transporter using SMTP
-function createTransporter() {
-  // Try environment variables first, then fall back to hardcoded values
-  // TODO: Fix Vercel env vars and remove hardcoded fallback
-  const host = process.env.EMAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com'
-  const port = parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || '587')
-  const user = process.env.EMAIL_USER || process.env.SMTP_USER || 'support@aimediatank.com'
-  const pass = process.env.EMAIL_PASS || process.env.SMTP_PASS || 'ftjppnyzanybatwn'
-  
-  console.log('SMTP Config: Using', host, 'with user', user)
+// Gmail credentials
+const GMAIL_USER = process.env.EMAIL_USER || process.env.SMTP_USER || 'support@aimediatank.com'
+const GMAIL_PASS = process.env.EMAIL_PASS || process.env.SMTP_PASS || 'ftjppnyzanybatwn'
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
+// Create reusable transporter using Gmail service
+let cachedTransporter: nodemailer.Transporter | null = null
+
+function getTransporter(): nodemailer.Transporter {
+  if (cachedTransporter) {
+    return cachedTransporter
+  }
+  
+  console.log('Creating Gmail transporter for:', GMAIL_USER)
+  
+  // Use Gmail service for better compatibility
+  cachedTransporter = nodemailer.createTransport({
+    service: 'gmail',
     auth: {
-      user,
-      pass,
+      user: GMAIL_USER,
+      pass: GMAIL_PASS,
     },
+    // Connection settings for reliability
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 100,
+    rateDelta: 1000,
+    rateLimit: 5, // 5 emails per second max
   })
+  
+  return cachedTransporter
 }
 
 // Send email using SMTP
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
-  const emailFrom = process.env.EMAIL_FROM || process.env.SMTP_USER || 'support@aimediatank.com'
+  const emailFrom = `"AI Media Tank" <${GMAIL_USER}>`
   
   console.log('=== EMAIL SEND ATTEMPT ===')
   console.log('To:', options.to)
   console.log('Subject:', options.subject)
   console.log('From:', emailFrom)
+  console.log('Time:', new Date().toISOString())
   
-  const transporter = createTransporter()
-  
-  if (!transporter) {
-    console.log('SMTP not configured. Would send email to:', options.to)
-    console.log('Subject:', options.subject)
-    console.log('Please set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in environment variables')
-    return false
-  }
+  const transporter = getTransporter()
 
   try {
-    console.log('Attempting to send email via SMTP...')
+    // Verify connection before sending
+    console.log('Verifying SMTP connection...')
+    await transporter.verify()
+    console.log('SMTP connection verified ✓')
+    
+    console.log('Sending email via Gmail...')
     const info = await transporter.sendMail({
       from: emailFrom,
       to: options.to,
@@ -65,7 +74,12 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     console.error('Error details:', error)
     if (error instanceof Error) {
       console.error('Error message:', error.message)
-      console.error('Error stack:', error.stack)
+      console.error('Error name:', error.name)
+      // If connection failed, reset the cached transporter
+      if (error.message.includes('connect') || error.message.includes('auth') || error.message.includes('ECONNREFUSED')) {
+        console.log('Resetting cached transporter due to connection error')
+        cachedTransporter = null
+      }
     }
     return false
   }
