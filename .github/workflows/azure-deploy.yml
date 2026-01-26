@@ -1,7 +1,9 @@
 name: Deploy to Azure Production
 
 on:
-  # Manual trigger only - deploy when staging is tested and ready
+  # Auto-deploy on main pushes, plus manual trigger option
+  push:
+    branches: [main]
   workflow_dispatch:
 
 env:
