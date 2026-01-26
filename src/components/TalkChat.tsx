@@ -264,6 +264,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     priority?: boolean  // Priority flag for this conversation
   }>>([])
   const [loadingChatRecords, setLoadingChatRecords] = useState(false)
+  const didAutoOpenLastChatRef = useRef(false)
   
   // Context menu state for chat records
   const [contextMenu, setContextMenu] = useState<{
@@ -937,6 +938,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const selectChatRecord = async (record: { conversationId?: string; isGroup?: boolean; user: UserSuggestion | null; members?: UserSuggestion[] }) => {
     // If this is a conversation (new system)
     if (record.conversationId) {
+      try {
+        localStorage.setItem('talkChatLastConversationId', record.conversationId)
+      } catch {
+        // ignore
+      }
       // Clear any invites from members
       for (const member of (record.members || [])) {
         const hasInvite = chatInvites.some(invite => invite.sender.id === member.id)
@@ -1008,6 +1014,54 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       setMessages([])
     }
   }
+
+  // When entering Private chat, automatically open the most recent conversation (or the last one you opened)
+  useEffect(() => {
+    if (!isSignedIn) return
+
+    if (chatMode !== 'private') {
+      didAutoOpenLastChatRef.current = false
+      return
+    }
+
+    if (didAutoOpenLastChatRef.current) return
+    if (showUserPicker) return
+    if (loadingChatRecords) return
+    if (activeConversation) {
+      didAutoOpenLastChatRef.current = true
+      return
+    }
+    if (selectedRecipients.length !== 0) return
+    if (chatRecords.length === 0) return
+
+    let preferredId: string | null = null
+    try {
+      preferredId = localStorage.getItem('talkChatLastConversationId')
+    } catch {
+      // ignore
+    }
+
+    const preferred = preferredId ? chatRecords.find((r) => r.conversationId === preferredId) : undefined
+    const newest = preferred || chatRecords.find((r) => r.conversationId) || chatRecords[0]
+    if (!newest?.conversationId) return
+
+    didAutoOpenLastChatRef.current = true
+    // Fire and forget
+    selectChatRecord({
+      conversationId: newest.conversationId,
+      isGroup: newest.isGroup,
+      user: newest.user,
+      members: newest.members,
+    })
+  }, [
+    isSignedIn,
+    chatMode,
+    chatRecords,
+    loadingChatRecords,
+    activeConversation,
+    selectedRecipients.length,
+    showUserPicker,
+  ])
 
   // Context menu handlers for chat records
   const handleContextMenu = (e: React.MouseEvent, record: typeof chatRecords[0]) => {
