@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       results.push({ step: 'add_soldAt_column', status: 'skipped_or_error', message: err.message })
     }
 
-    // Step 3: Try to add deleteAfter column if it doesn't exist
+    // Step 3: Try to add deleteAfter column if it doesn't exist (legacy field)
     try {
       await prisma.$executeRaw`ALTER TABLE "Media" ADD COLUMN IF NOT EXISTS "deleteAfter" TIMESTAMP(3)`
       results.push({ step: 'add_deleteAfter_column', status: 'success' })
@@ -48,14 +48,12 @@ export async function POST(request: Request) {
     let updatedCount = 0
     for (const purchase of completedPurchases) {
       const soldAt = purchase.completedAt || new Date()
-      const deleteAfter = new Date(soldAt.getTime() + 10 * 24 * 60 * 60 * 1000)
 
       try {
         await prisma.$executeRaw`
           UPDATE "Media" 
           SET "isSold" = true, 
-              "soldAt" = ${soldAt}::timestamp, 
-              "deleteAfter" = ${deleteAfter}::timestamp
+              "soldAt" = ${soldAt}::timestamp
           WHERE "id" = ${purchase.mediaId}
         `
         updatedCount++

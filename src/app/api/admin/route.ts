@@ -34,107 +34,6 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
 
-    // Debug: Check credit history for a user
-    if (action === 'debugCredits') {
-      const username = searchParams.get('username') || 'admin'
-      
-      const user = await prisma.user.findFirst({
-        where: { username },
-        select: { id: true, username: true, bonusCredits: true, paidUploadCredits: true }
-      })
-      
-      if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
-      }
-      
-      const creditHistory = await prisma.creditHistory.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: 'desc' }
-      })
-      
-      return NextResponse.json({
-        user,
-        totalCredits: (user.bonusCredits || 0) + (user.paidUploadCredits || 0),
-        creditHistory,
-        historyCount: creditHistory.length
-      })
-    }
-
-    // Debug: Check warning state for a user
-    if (action === 'debugWarnings') {
-      const username = searchParams.get('username') || 'admin'
-      
-      const user = await prisma.user.findFirst({
-        where: { username },
-        select: { id: true, username: true, warningCount: true, lastWarningAt: true, lastWarningReason: true }
-      })
-      
-      if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
-      }
-      
-      const chatWarnings = await prisma.chatWarning.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: 'desc' }
-      })
-      
-      return NextResponse.json({
-        user,
-        chatWarnings,
-        summary: {
-          userWarningCount: user.warningCount,
-          actualChatWarnings: chatWarnings.length,
-          mismatch: user.warningCount !== chatWarnings.length
-        }
-      })
-    }
-
-    // Debug: Check recent admin actions with email status
-    if (action === 'debugEmails') {
-      const limit = parseInt(searchParams.get('limit') || '20')
-      
-      // Get recent admin actions that might have sent emails
-      const recentActions = await prisma.adminAction.findMany({
-        where: {
-          action: {
-            in: ['GIVE_CREDITS', 'WARN_USER', 'SUSPEND_USER', 'UNSUSPEND_USER', 'DELETE_USER', 'DELETE_MEDIA', 'SUSPEND_MEDIA']
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-      })
-      
-      // Get admin usernames
-      const adminIds = Array.from(new Set(recentActions.map(a => a.adminId)))
-      const admins = await prisma.user.findMany({
-        where: { id: { in: adminIds } },
-        select: { id: true, username: true }
-      })
-      const adminMap = new Map(admins.map(a => [a.id, a.username]))
-      
-      return NextResponse.json({
-        totalActions: recentActions.length,
-        actions: recentActions.map(a => {
-          let details: Record<string, unknown> = {}
-          try {
-            details = a.details ? JSON.parse(a.details) : {}
-          } catch {
-            details = { raw: a.details }
-          }
-          return {
-            id: a.id,
-            action: a.action,
-            targetType: a.targetType,
-            targetId: a.targetId,
-            adminUsername: adminMap.get(a.adminId) || a.adminId,
-            details,
-            emailSent: details?.emailSent,
-            createdAt: a.createdAt
-          }
-        })
-      })
-    }
-
     if (action === 'reports') {
       // Get pending reports
       const reports = await prisma.report.findMany({
@@ -533,6 +432,152 @@ export async function GET(request: Request) {
       })
     }
 
+    // Get membership plans for admin management
+    if (action === 'membershipPlans') {
+      let plans = await prisma.membershipPlan.findMany({
+        orderBy: { sortOrder: 'asc' },
+      })
+      
+      // If no plans exist, create default ones
+      if (plans.length === 0) {
+        const defaultPlans = [
+          { planId: 'viewer', name: 'Viewer', monthlyPrice: 0, yearlyPrice: 0, freeUploads: 5, pricePerUpload: null, viewContents: true, buyContents: true, sellContents: true, sortOrder: 0 },
+          { planId: 'basic', name: 'Basic', monthlyPrice: 2, yearlyPrice: 20, freeUploads: 10, pricePerUpload: 1, viewContents: true, buyContents: true, sellContents: true, sortOrder: 1 },
+          { planId: 'advanced', name: 'Advanced', monthlyPrice: 5, yearlyPrice: 50, freeUploads: 20, pricePerUpload: 0.5, viewContents: true, buyContents: true, sellContents: true, sortOrder: 2 },
+          { planId: 'premium', name: 'Premium', monthlyPrice: 8, yearlyPrice: 80, freeUploads: 30, pricePerUpload: null, viewContents: true, buyContents: true, sellContents: true, sortOrder: 3 },
+        ]
+        
+        for (const plan of defaultPlans) {
+          await prisma.membershipPlan.create({ data: plan })
+        }
+        
+        plans = await prisma.membershipPlan.findMany({
+          orderBy: { sortOrder: 'asc' },
+        })
+      }
+      
+      return NextResponse.json({ plans })
+    }
+
+    // Get promotions for admin management
+    if (action === 'promotions') {
+      const promotions = await prisma.promotion.findMany({
+        orderBy: { createdAt: 'desc' },
+      })
+      return NextResponse.json({ promotions })
+    }
+
+    // Get game settings for admin management
+    if (action === 'gameSettings') {
+      let games = await prisma.gameSetting.findMany({
+        orderBy: { sortOrder: 'asc' },
+      })
+      
+      // If no game settings exist, create defaults
+      if (games.length === 0) {
+        const defaultGames = [
+          { gameId: 'tetris', name: 'Tetris', isEnabled: true, sortOrder: 0 },
+          { gameId: 'minesweeper', name: 'Minesweeper', isEnabled: true, sortOrder: 1 },
+          { gameId: 'donkeykong', name: 'Donkey Kong', isEnabled: true, sortOrder: 2 },
+          { gameId: 'pacman', name: 'Pac-Man', isEnabled: true, sortOrder: 3 },
+          { gameId: 'breakout', name: 'Block Breaker', isEnabled: true, sortOrder: 4 },
+          { gameId: 'pong', name: 'Pong', isEnabled: true, sortOrder: 5 },
+        ]
+        
+        for (const game of defaultGames) {
+          await prisma.gameSetting.create({ data: game })
+        }
+        
+        games = await prisma.gameSetting.findMany({
+          orderBy: { sortOrder: 'asc' },
+        })
+      }
+      
+      return NextResponse.json({ games })
+    }
+
+    // Get navbar menu settings for admin management
+    if (action === 'navbarSettings') {
+      const defaultItems = [
+        { itemKey: 'home', label: 'Home', isEnabled: true, sortOrder: 0 },
+        { itemKey: 'videos', label: 'Videos', isEnabled: true, sortOrder: 1 },
+        { itemKey: 'images', label: 'Images', isEnabled: true, sortOrder: 2 },
+        { itemKey: 'about', label: 'About', isEnabled: true, sortOrder: 3 },
+        { itemKey: 'play', label: 'Play', isEnabled: true, sortOrder: 4 },
+        { itemKey: 'chat', label: 'Chat', isEnabled: true, sortOrder: 5 },
+        { itemKey: 'mediaMessage', label: 'Message', isEnabled: true, sortOrder: 6 },
+        { itemKey: 'upload', label: 'Upload', isEnabled: true, sortOrder: 7 },
+        { itemKey: 'signIn', label: 'Sign In', isEnabled: true, sortOrder: 8 },
+        { itemKey: 'signUp', label: 'Sign Up', isEnabled: true, sortOrder: 9 },
+      ]
+
+      try {
+        let items = await prisma.navbarMenuSetting.findMany({
+          orderBy: { sortOrder: 'asc' },
+        })
+
+        if (items.length === 0) {
+          for (const item of defaultItems) {
+            await prisma.navbarMenuSetting.create({ data: item })
+          }
+        } else {
+          const existingKeys = new Set(items.map((item) => item.itemKey))
+          const missingItems = defaultItems.filter((item) => !existingKeys.has(item.itemKey))
+          for (const item of missingItems) {
+            await prisma.navbarMenuSetting.create({ data: item })
+          }
+        }
+
+        items = await prisma.navbarMenuSetting.findMany({
+          orderBy: { sortOrder: 'asc' },
+        })
+
+        const filteredItems = items.filter((item) => item.itemKey !== 'marketing')
+        return NextResponse.json({ items: filteredItems })
+      } catch (error) {
+        console.error('Navbar settings unavailable, returning defaults:', error)
+        return NextResponse.json({ items: defaultItems, warning: 'NAVBAR_SETTINGS_UNAVAILABLE' })
+      }
+    }
+
+    // Get media badge settings for admin management
+    if (action === 'badgeSettings') {
+      const defaultItems = [
+        { itemKey: 'ai', label: 'AI', isEnabled: true, sortOrder: 0 },
+        { itemKey: 'price', label: 'Price', isEnabled: true, sortOrder: 1 },
+        { itemKey: 'sold', label: 'Times Sold', isEnabled: true, sortOrder: 2 },
+        { itemKey: 'views', label: 'View', isEnabled: true, sortOrder: 3 },
+        { itemKey: 'postDate', label: 'Post Date', isEnabled: true, sortOrder: 4 },
+        { itemKey: 'smileRate', label: 'Smile Rate', isEnabled: true, sortOrder: 5 },
+      ]
+
+      try {
+        let items = await prisma.mediaBadgeSetting.findMany({
+          orderBy: { sortOrder: 'asc' },
+        })
+
+        if (items.length === 0) {
+          for (const item of defaultItems) {
+            await prisma.mediaBadgeSetting.create({ data: item })
+          }
+        } else {
+          const existingKeys = new Set(items.map((item) => item.itemKey))
+          const missingItems = defaultItems.filter((item) => !existingKeys.has(item.itemKey))
+          for (const item of missingItems) {
+            await prisma.mediaBadgeSetting.create({ data: item })
+          }
+        }
+
+        items = await prisma.mediaBadgeSetting.findMany({
+          orderBy: { sortOrder: 'asc' },
+        })
+
+        return NextResponse.json({ items })
+      } catch (error) {
+        console.error('Badge settings unavailable, returning defaults:', error)
+        return NextResponse.json({ items: defaultItems, warning: 'MEDIA_BADGE_SETTINGS_UNAVAILABLE' })
+      }
+    }
     // Default: return dashboard stats
     const [totalUsers, totalMedia, totalComments, pendingReports] =
       await Promise.all([
@@ -738,9 +783,8 @@ export async function POST(request: Request) {
                 <p>Best regards,<br>AiMediaTank Team</p>
               `,
             })
-            console.log(`Delete notification email ${emailSent ? 'sent successfully' : 'failed'} to:`, data.creatorEmail)
-          } catch (emailError) {
-            console.error('Failed to send deletion notification email:', emailError)
+          } catch (err) {
+            console.error('Failed to send deletion notification email:', err)
           }
         }
         
@@ -997,21 +1041,16 @@ export async function POST(request: Request) {
               subject: '⚠️ Warning: Your AI Media Tank Account',
               html: generateWarningEmail(userName, warningReason, newWarningCount)
             })
-            if (warningEmailSent) {
-              console.log(`Warning email sent to ${warnTargetUser.email}`)
-            } else {
-              console.log(`Warning email FAILED to send to ${warnTargetUser.email}`)
-            }
-          } catch (emailError) {
-            console.error('Failed to send warning email:', emailError)
-            warningEmailSent = false
+          } catch (err) {
+            console.error('Failed to send warning email:', err)
           }
         }
         
         await logAdminAction(adminId, 'WARN_USER', 'USER', targetId, { ...data, emailSent: warningEmailSent })
         return NextResponse.json({ 
-          message: `User warned${shouldSendWarningEmail ? (warningEmailSent ? ' (email sent)' : ' (email failed)') : ''}`,
-          emailSent: warningEmailSent
+          message: 'User warned',
+          emailSent: warningEmailSent,
+          notificationSent: true
         })
       }
 
@@ -1456,6 +1495,223 @@ export async function POST(request: Request) {
           message: `Chat user warned${shouldSendChatWarningEmail ? (chatWarningEmailSent ? ' (email sent)' : ' (email failed)') : ''}`,
           emailSent: chatWarningEmailSent
         })
+      }
+
+      case 'updateMembershipPlan': {
+        // Update a single membership plan field
+        const { planId, field, value } = data || {}
+        
+        if (!planId || !field) {
+          return NextResponse.json({ error: 'Missing planId or field' }, { status: 400 })
+        }
+        
+        // Validate field name to prevent arbitrary updates
+        const allowedFields = ['monthlyPrice', 'yearlyPrice', 'freeUploads', 'pricePerUpload', 'viewContents', 'buyContents', 'sellContents']
+        if (!allowedFields.includes(field)) {
+          return NextResponse.json({ error: 'Invalid field' }, { status: 400 })
+        }
+        
+        const plan = await prisma.membershipPlan.findUnique({
+          where: { planId },
+        })
+        
+        if (!plan) {
+          return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
+        }
+        
+        // Parse value based on field type
+        let parsedValue: any = value
+        if (['monthlyPrice', 'yearlyPrice', 'pricePerUpload'].includes(field)) {
+          parsedValue = value === null || value === '' ? null : parseFloat(value)
+        } else if (field === 'freeUploads') {
+          parsedValue = parseInt(value) || 0
+        } else if (['viewContents', 'buyContents', 'sellContents'].includes(field)) {
+          parsedValue = Boolean(value)
+        }
+        
+        const updatedPlan = await prisma.membershipPlan.update({
+          where: { planId },
+          data: { [field]: parsedValue },
+        })
+        
+        await logAdminAction(adminId, 'UPDATE_MEMBERSHIP_PLAN', 'MEMBERSHIP_PLAN', planId, { field, value: parsedValue })
+        return NextResponse.json({ message: 'Plan updated', plan: updatedPlan })
+      }
+
+      case 'resetMembershipPlans': {
+        // Reset plans to default values (from the image)
+        const defaultPlans = [
+          { planId: 'viewer', name: 'Viewer', monthlyPrice: 0, yearlyPrice: 0, freeUploads: 5, pricePerUpload: null, viewContents: true, buyContents: true, sellContents: true, sortOrder: 0 },
+          { planId: 'basic', name: 'Basic', monthlyPrice: 2, yearlyPrice: 20, freeUploads: 10, pricePerUpload: 1, viewContents: true, buyContents: true, sellContents: true, sortOrder: 1 },
+          { planId: 'advanced', name: 'Advanced', monthlyPrice: 5, yearlyPrice: 50, freeUploads: 20, pricePerUpload: 0.5, viewContents: true, buyContents: true, sellContents: true, sortOrder: 2 },
+          { planId: 'premium', name: 'Premium', monthlyPrice: 8, yearlyPrice: 80, freeUploads: 30, pricePerUpload: null, viewContents: true, buyContents: true, sellContents: true, sortOrder: 3 },
+        ]
+        
+        // Delete all existing plans and recreate
+        await prisma.membershipPlan.deleteMany({})
+        
+        for (const plan of defaultPlans) {
+          await prisma.membershipPlan.create({ data: plan })
+        }
+        
+        const plans = await prisma.membershipPlan.findMany({
+          orderBy: { sortOrder: 'asc' },
+        })
+        
+        await logAdminAction(adminId, 'RESET_MEMBERSHIP_PLANS', 'MEMBERSHIP_PLAN', 'all', {})
+        return NextResponse.json({ message: 'Plans reset to default', plans })
+      }
+
+      case 'createPromotion': {
+        const promotionData = data
+        
+        // Validate required fields
+        if (!promotionData?.name || !promotionData?.type) {
+          return NextResponse.json({ error: 'Name and type are required' }, { status: 400 })
+        }
+        
+        const promotion = await prisma.promotion.create({
+          data: {
+            name: promotionData.name,
+            description: promotionData.description || null,
+            type: promotionData.type,
+            discountType: promotionData.discountType || null,
+            discountValue: promotionData.discountValue ? parseFloat(promotionData.discountValue) : null,
+            bonusUploads: promotionData.bonusUploads ? parseInt(promotionData.bonusUploads) : null,
+            freeTrialDays: promotionData.freeTrialDays ? parseInt(promotionData.freeTrialDays) : null,
+            applicablePlans: promotionData.applicablePlans || 'all',
+            promoCode: promotionData.promoCode || null,
+            startDate: promotionData.startDate ? new Date(promotionData.startDate) : new Date(),
+            endDate: promotionData.endDate ? new Date(promotionData.endDate) : null,
+            usageLimit: promotionData.usageLimit ? parseInt(promotionData.usageLimit) : null,
+            isActive: promotionData.isActive ?? true,
+            showPopup: promotionData.showPopup ?? false,
+            popupTitle: promotionData.popupTitle || null,
+            popupMessage: promotionData.popupMessage || null,
+            popupButtonText: promotionData.popupButtonText || 'Get Offer',
+            popupImageUrl: promotionData.popupImageUrl || null,
+          },
+        })
+        
+        await logAdminAction(adminId, 'CREATE_PROMOTION', 'PROMOTION', promotion.id, { name: promotionData.name })
+        return NextResponse.json({ message: 'Promotion created', promotion })
+      }
+
+      case 'updatePromotion': {
+        const { promotionId, ...updateData } = data || {}
+        
+        if (!promotionId) {
+          return NextResponse.json({ error: 'Promotion ID is required' }, { status: 400 })
+        }
+        
+        // Build update object
+        const updateObj: any = {}
+        if (updateData.name !== undefined) updateObj.name = updateData.name
+        if (updateData.description !== undefined) updateObj.description = updateData.description
+        if (updateData.type !== undefined) updateObj.type = updateData.type
+        if (updateData.discountType !== undefined) updateObj.discountType = updateData.discountType
+        if (updateData.discountValue !== undefined) updateObj.discountValue = updateData.discountValue ? parseFloat(updateData.discountValue) : null
+        if (updateData.bonusUploads !== undefined) updateObj.bonusUploads = updateData.bonusUploads ? parseInt(updateData.bonusUploads) : null
+        if (updateData.freeTrialDays !== undefined) updateObj.freeTrialDays = updateData.freeTrialDays ? parseInt(updateData.freeTrialDays) : null
+        if (updateData.applicablePlans !== undefined) updateObj.applicablePlans = updateData.applicablePlans
+        if (updateData.promoCode !== undefined) updateObj.promoCode = updateData.promoCode || null
+        if (updateData.startDate !== undefined) updateObj.startDate = updateData.startDate ? new Date(updateData.startDate) : new Date()
+        if (updateData.endDate !== undefined) updateObj.endDate = updateData.endDate ? new Date(updateData.endDate) : null
+        if (updateData.usageLimit !== undefined) updateObj.usageLimit = updateData.usageLimit ? parseInt(updateData.usageLimit) : null
+        if (updateData.isActive !== undefined) updateObj.isActive = updateData.isActive
+        if (updateData.showPopup !== undefined) updateObj.showPopup = updateData.showPopup
+        if (updateData.popupTitle !== undefined) updateObj.popupTitle = updateData.popupTitle
+        if (updateData.popupMessage !== undefined) updateObj.popupMessage = updateData.popupMessage
+        if (updateData.popupButtonText !== undefined) updateObj.popupButtonText = updateData.popupButtonText
+        if (updateData.popupImageUrl !== undefined) updateObj.popupImageUrl = updateData.popupImageUrl
+        
+        const promotion = await prisma.promotion.update({
+          where: { id: promotionId },
+          data: updateObj,
+        })
+        
+        await logAdminAction(adminId, 'UPDATE_PROMOTION', 'PROMOTION', promotionId, updateObj)
+        return NextResponse.json({ message: 'Promotion updated', promotion })
+      }
+
+      case 'deletePromotion': {
+        const promotionId = targetId
+        
+        if (!promotionId) {
+          return NextResponse.json({ error: 'Promotion ID is required' }, { status: 400 })
+        }
+        
+        await prisma.promotion.delete({
+          where: { id: promotionId },
+        })
+        
+        await logAdminAction(adminId, 'DELETE_PROMOTION', 'PROMOTION', promotionId, {})
+        return NextResponse.json({ message: 'Promotion deleted' })
+      }
+
+      case 'togglePromotion': {
+        const promotionId = targetId
+        const { isActive } = data || {}
+        
+        if (!promotionId) {
+          return NextResponse.json({ error: 'Promotion ID is required' }, { status: 400 })
+        }
+        
+        const promotion = await prisma.promotion.update({
+          where: { id: promotionId },
+          data: { isActive: isActive ?? false },
+        })
+        
+        await logAdminAction(adminId, 'TOGGLE_PROMOTION', 'PROMOTION', promotionId, { isActive })
+        return NextResponse.json({ message: `Promotion ${isActive ? 'activated' : 'deactivated'}`, promotion })
+      }
+
+      case 'toggleGame': {
+        const { gameId, isEnabled } = data || {}
+        
+        if (!gameId) {
+          return NextResponse.json({ error: 'Game ID is required' }, { status: 400 })
+        }
+        
+        const game = await prisma.gameSetting.update({
+          where: { gameId },
+          data: { isEnabled: isEnabled ?? false },
+        })
+        
+        await logAdminAction(adminId, 'TOGGLE_GAME', 'GAME', gameId, { isEnabled })
+        return NextResponse.json({ message: `Game ${isEnabled ? 'enabled' : 'disabled'}`, game })
+      }
+
+      case 'toggleNavbarItem': {
+        const { itemKey, isEnabled } = data || {}
+
+        if (!itemKey) {
+          return NextResponse.json({ error: 'Item key is required' }, { status: 400 })
+        }
+
+        const item = await prisma.navbarMenuSetting.update({
+          where: { itemKey },
+          data: { isEnabled: isEnabled ?? false },
+        })
+
+        await logAdminAction(adminId, 'TOGGLE_NAVBAR_ITEM', 'NAVBAR', itemKey, { isEnabled })
+        return NextResponse.json({ message: `Navbar item ${isEnabled ? 'enabled' : 'disabled'}`, item })
+      }
+
+      case 'toggleBadge': {
+        const { itemKey, isEnabled } = data || {}
+
+        if (!itemKey) {
+          return NextResponse.json({ error: 'Item key is required' }, { status: 400 })
+        }
+
+        const item = await prisma.mediaBadgeSetting.update({
+          where: { itemKey },
+          data: { isEnabled: isEnabled ?? false },
+        })
+
+        await logAdminAction(adminId, 'TOGGLE_MEDIA_BADGE', 'MEDIA_BADGE', itemKey, { isEnabled })
+        return NextResponse.json({ message: `Badge ${isEnabled ? 'enabled' : 'disabled'}`, item })
       }
 
       default:

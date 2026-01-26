@@ -100,7 +100,72 @@ interface ChatMessage {
   }
 }
 
-type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales'
+type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'navbar' | 'badges'
+
+// Membership Plan type
+interface MembershipPlan {
+  id: string
+  planId: string
+  name: string
+  monthlyPrice: number
+  yearlyPrice: number
+  freeUploads: number
+  pricePerUpload: number | null
+  viewContents: boolean
+  buyContents: boolean
+  sellContents: boolean
+  sortOrder: number
+}
+
+// Promotion type
+interface Promotion {
+  id: string
+  name: string
+  description: string | null
+  type: string
+  discountType: string | null
+  discountValue: number | null
+  bonusUploads: number | null
+  freeTrialDays: number | null
+  applicablePlans: string
+  promoCode: string | null
+  startDate: string
+  endDate: string | null
+  usageLimit: number | null
+  usageCount: number
+  isActive: boolean
+  showPopup: boolean
+  popupTitle: string | null
+  popupMessage: string | null
+  popupButtonText: string | null
+  popupImageUrl: string | null
+  createdAt: string
+}
+
+// Game Setting type
+interface GameSetting {
+  id: string
+  gameId: string
+  name: string
+  isEnabled: boolean
+  sortOrder: number
+}
+
+interface NavbarMenuItem {
+  id: string
+  itemKey: string
+  label: string
+  isEnabled: boolean
+  sortOrder: number
+}
+
+interface MediaBadgeItem {
+  id: string
+  itemKey: string
+  label: string
+  isEnabled: boolean
+  sortOrder: number
+}
 
 export default function AdminPage() {
   const { data: session, status } = useSession()
@@ -113,6 +178,38 @@ export default function AdminPage() {
   const [reports, setReports] = useState<Report[]>([])
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [contentSales, setContentSales] = useState<any[]>([])
+  const [membershipPlans, setMembershipPlans] = useState<MembershipPlan[]>([])
+  const [membershipLoading, setMembershipLoading] = useState(false)
+  const [promotions, setPromotions] = useState<Promotion[]>([])
+  const [promotionsLoading, setPromotionsLoading] = useState(false)
+  const [gameSettings, setGameSettings] = useState<GameSetting[]>([])
+  const [gamesLoading, setGamesLoading] = useState(false)
+  const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
+  const [navbarLoading, setNavbarLoading] = useState(false)
+  const [mediaBadgeItems, setMediaBadgeItems] = useState<MediaBadgeItem[]>([])
+  const [mediaBadgeLoading, setMediaBadgeLoading] = useState(false)
+  const [showPromotionModal, setShowPromotionModal] = useState(false)
+  const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null)
+  const [promotionForm, setPromotionForm] = useState({
+    name: '',
+    description: '',
+    type: 'subscription_discount',
+    discountType: 'percentage',
+    discountValue: '',
+    bonusUploads: '',
+    freeTrialDays: '',
+    applicablePlans: 'all',
+    promoCode: '',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: '',
+    usageLimit: '',
+    isActive: true,
+    showPopup: false,
+    popupTitle: '',
+    popupMessage: '',
+    popupButtonText: 'Get Offer',
+    popupImageUrl: '',
+  })
   const [loading, setLoading] = useState(true)
   
   // User modal state
@@ -298,6 +395,16 @@ export default function AdminPage() {
   const [deleteUserReason, setDeleteUserReason] = useState('')
   const [deleteUserSendEmail, setDeleteUserSendEmail] = useState(true)
   
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  
+  // Auto-hide toast after 3 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [toast])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -393,11 +500,271 @@ export default function AdminPage() {
         const res = await fetch('/api/admin?action=contentSales')
         const data = await res.json()
         setContentSales(data.sales || [])
+      } else if (activeTab === 'membership') {
+        const res = await fetch('/api/admin?action=membershipPlans')
+        const data = await res.json()
+        setMembershipPlans(data.plans || [])
+      } else if (activeTab === 'promotions') {
+        const res = await fetch('/api/admin?action=promotions')
+        const data = await res.json()
+        setPromotions(data.promotions || [])
+      } else if (activeTab === 'games') {
+        const res = await fetch('/api/admin?action=gameSettings')
+        const data = await res.json()
+        setGameSettings(data.games || [])
+      } else if (activeTab === 'navbar') {
+        const res = await fetch('/api/admin?action=navbarSettings')
+        const data = await res.json()
+        setNavbarMenuItems(data.items || [])
+      } else if (activeTab === 'badges') {
+        const res = await fetch('/api/admin?action=badgeSettings')
+        const data = await res.json()
+        setMediaBadgeItems(data.items || [])
       }
     } catch (error) {
       console.error('Error fetching admin data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+  
+  // Function to update membership plan field
+  const updateMembershipPlan = async (planId: string, field: string, value: any) => {
+    setMembershipLoading(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'updateMembershipPlan',
+          data: { planId, field, value }
+        })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        // Refresh plans
+        const refreshRes = await fetch('/api/admin?action=membershipPlans')
+        const refreshData = await refreshRes.json()
+        setMembershipPlans(refreshData.plans || [])
+      } else {
+        alert(data.error || 'Failed to update plan')
+      }
+    } catch (error) {
+      console.error('Error updating plan:', error)
+      alert('Failed to update plan')
+    } finally {
+      setMembershipLoading(false)
+    }
+  }
+  
+  // Function to reset membership plans to default
+  const resetMembershipPlans = async () => {
+    if (!confirm('Reset all membership plans to default values? This cannot be undone.')) return
+    
+    setMembershipLoading(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resetMembershipPlans' })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setMembershipPlans(data.plans || [])
+      } else {
+        alert(data.error || 'Failed to reset plans')
+      }
+    } catch (error) {
+      console.error('Error resetting plans:', error)
+      alert('Failed to reset plans')
+    } finally {
+      setMembershipLoading(false)
+    }
+  }
+  
+  // Promotion management functions
+  const openCreatePromotion = () => {
+    setEditingPromotion(null)
+    setPromotionForm({
+      name: '',
+      description: '',
+      type: 'subscription_discount',
+      discountType: 'percentage',
+      discountValue: '',
+      bonusUploads: '',
+      freeTrialDays: '',
+      applicablePlans: 'all',
+      promoCode: '',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: '',
+      usageLimit: '',
+      isActive: true,
+      showPopup: false,
+      popupTitle: '',
+      popupMessage: '',
+      popupButtonText: 'Get Offer',
+      popupImageUrl: '',
+    })
+    setShowPromotionModal(true)
+  }
+  
+  const openEditPromotion = (promo: Promotion) => {
+    setEditingPromotion(promo)
+    setPromotionForm({
+      name: promo.name,
+      description: promo.description || '',
+      type: promo.type,
+      discountType: promo.discountType || 'percentage',
+      discountValue: promo.discountValue?.toString() || '',
+      bonusUploads: promo.bonusUploads?.toString() || '',
+      freeTrialDays: promo.freeTrialDays?.toString() || '',
+      applicablePlans: promo.applicablePlans,
+      promoCode: promo.promoCode || '',
+      startDate: promo.startDate.split('T')[0],
+      endDate: promo.endDate?.split('T')[0] || '',
+      usageLimit: promo.usageLimit?.toString() || '',
+      isActive: promo.isActive,
+      showPopup: promo.showPopup,
+      popupTitle: promo.popupTitle || '',
+      popupMessage: promo.popupMessage || '',
+      popupButtonText: promo.popupButtonText || 'Get Offer',
+      popupImageUrl: promo.popupImageUrl || '',
+    })
+    setShowPromotionModal(true)
+  }
+  
+  const savePromotion = async () => {
+    setPromotionsLoading(true)
+    try {
+      const action = editingPromotion ? 'updatePromotion' : 'createPromotion'
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          data: editingPromotion 
+            ? { promotionId: editingPromotion.id, ...promotionForm }
+            : promotionForm
+        })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setShowPromotionModal(false)
+        // Refresh promotions
+        const refreshRes = await fetch('/api/admin?action=promotions')
+        const refreshData = await refreshRes.json()
+        setPromotions(refreshData.promotions || [])
+      } else {
+        alert(data.error || 'Failed to save promotion')
+      }
+    } catch (error) {
+      console.error('Error saving promotion:', error)
+      alert('Failed to save promotion')
+    } finally {
+      setPromotionsLoading(false)
+    }
+  }
+  
+  const togglePromotion = async (promoId: string, isActive: boolean) => {
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'togglePromotion',
+          targetId: promoId,
+          data: { isActive }
+        })
+      })
+      if (res.ok) {
+        setPromotions(prev => prev.map(p => p.id === promoId ? { ...p, isActive } : p))
+      }
+    } catch (error) {
+      console.error('Error toggling promotion:', error)
+    }
+  }
+  
+  const deletePromotion = async (promoId: string) => {
+    if (!confirm('Are you sure you want to delete this promotion?')) return
+    
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'deletePromotion',
+          targetId: promoId
+        })
+      })
+      if (res.ok) {
+        setPromotions(prev => prev.filter(p => p.id !== promoId))
+      }
+    } catch (error) {
+      console.error('Error deleting promotion:', error)
+    }
+  }
+  
+  // Toggle game on/off
+  const toggleGame = async (gameId: string, isEnabled: boolean) => {
+    setGamesLoading(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggleGame',
+          data: { gameId, isEnabled }
+        })
+      })
+      if (res.ok) {
+        setGameSettings(prev => prev.map(g => g.gameId === gameId ? { ...g, isEnabled } : g))
+      }
+    } catch (error) {
+      console.error('Error toggling game:', error)
+    } finally {
+      setGamesLoading(false)
+    }
+  }
+
+  const toggleNavbarItem = async (itemKey: string, isEnabled: boolean) => {
+    setNavbarLoading(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggleNavbarItem',
+          data: { itemKey, isEnabled }
+        })
+      })
+      if (res.ok) {
+        setNavbarMenuItems(prev => prev.map(item => item.itemKey === itemKey ? { ...item, isEnabled } : item))
+      }
+    } catch (error) {
+      console.error('Error toggling navbar item:', error)
+    } finally {
+      setNavbarLoading(false)
+    }
+  }
+
+  const toggleBadgeItem = async (itemKey: string, isEnabled: boolean) => {
+    setMediaBadgeLoading(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggleBadge',
+          data: { itemKey, isEnabled }
+        })
+      })
+      if (res.ok) {
+        setMediaBadgeItems(prev => prev.map(item => item.itemKey === itemKey ? { ...item, isEnabled } : item))
+      }
+    } catch (error) {
+      console.error('Error toggling badge:', error)
+    } finally {
+      setMediaBadgeLoading(false)
     }
   }
 
@@ -503,6 +870,29 @@ export default function AdminPage() {
 
   return (
     <div className="w-full px-4 lg:px-8 pb-[500px]">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-[99999] px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in ${
+          toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+        }`}>
+          {toast.type === 'success' ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          )}
+          <span>{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-2 hover:opacity-70">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+      
       <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
       <p className="text-gray-400 mb-8">Manage users, content, chat, and reports</p>
 
@@ -514,6 +904,11 @@ export default function AdminPage() {
           { id: 'users', label: 'Users' },
           { id: 'media', label: 'Media' },
           { id: 'chat', label: 'Chat' },
+          { id: 'membership', label: 'Membership Management' },
+          { id: 'promotions', label: 'Promotions' },
+          { id: 'games', label: 'Game Control' },
+          { id: 'navbar', label: 'Navbar Control' },
+          { id: 'badges', label: 'Media Badge Control' },
           { id: 'membershipSales', label: 'Membership Sales Reports' },
           { id: 'contentSales', label: 'Contents Sales Reports' },
           { id: 'adSales', label: 'Ad Sales Reports' },
@@ -1230,6 +1625,550 @@ export default function AdminPage() {
             </div>
           )}
 
+          {/* Membership Management */}
+          {activeTab === 'membership' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">Membership Plans Configuration</h2>
+                <button
+                  onClick={resetMembershipPlans}
+                  disabled={membershipLoading}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {membershipLoading ? 'Loading...' : '🔄 Reset to Default'}
+                </button>
+              </div>
+              
+              <div className="card overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-tank-light bg-[#2a7b9b]">
+                      <th className="text-left p-4 text-white font-bold whitespace-nowrap min-w-[180px]">Feature</th>
+                      {membershipPlans.map((plan) => (
+                        <th key={plan.planId} className="text-center p-4 text-white font-bold whitespace-nowrap min-w-[120px]">
+                          {plan.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-[#b8c5cd]">
+                    {/* Monthly Price */}
+                    <tr className="border-b border-gray-400">
+                      <td className="p-4 text-gray-800 font-medium">Monthly Price</td>
+                      {membershipPlans.map((plan) => (
+                        <td key={plan.planId} className="text-center p-3">
+                          {plan.planId === 'viewer' ? (
+                            <span className="text-gray-700 font-medium">Free</span>
+                          ) : (
+                            <div className="flex items-center justify-center gap-1">
+                              <span className="text-gray-700">$</span>
+                              <input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                value={plan.monthlyPrice}
+                                onChange={(e) => updateMembershipPlan(plan.planId, 'monthlyPrice', e.target.value)}
+                                disabled={membershipLoading}
+                                className="w-16 px-2 py-1 text-center bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    
+                    {/* Yearly Price */}
+                    <tr className="border-b border-gray-400">
+                      <td className="p-4 text-gray-800 font-medium">Yearly Price</td>
+                      {membershipPlans.map((plan) => (
+                        <td key={plan.planId} className="text-center p-3">
+                          {plan.planId === 'viewer' ? (
+                            <span className="text-gray-700 font-medium">Free</span>
+                          ) : (
+                            <div className="flex items-center justify-center gap-1">
+                              <span className="text-gray-700">$</span>
+                              <input
+                                type="number"
+                                step="1"
+                                min="0"
+                                value={plan.yearlyPrice}
+                                onChange={(e) => updateMembershipPlan(plan.planId, 'yearlyPrice', e.target.value)}
+                                disabled={membershipLoading}
+                                className="w-16 px-2 py-1 text-center bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    
+                    {/* Free Uploads */}
+                    <tr className="border-b border-gray-400">
+                      <td className="p-4 text-gray-800 font-medium">Free Uploads</td>
+                      {membershipPlans.map((plan) => (
+                        <td key={plan.planId} className="text-center p-3">
+                          {plan.planId === 'premium' ? (
+                            <span className="text-gray-700 font-medium">Unlimited</span>
+                          ) : (
+                            <input
+                              type="number"
+                              min="0"
+                              value={plan.freeUploads}
+                              onChange={(e) => updateMembershipPlan(plan.planId, 'freeUploads', e.target.value)}
+                              disabled={membershipLoading}
+                              className="w-16 px-2 py-1 text-center bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500"
+                            />
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    
+                    {/* Price per Upload */}
+                    <tr className="border-b border-gray-400">
+                      <td className="p-4 text-gray-800 font-medium">Price per Upload</td>
+                      {membershipPlans.map((plan) => (
+                        <td key={plan.planId} className="text-center p-3">
+                          {plan.planId === 'viewer' ? (
+                            <span className="text-gray-500">—</span>
+                          ) : plan.planId === 'premium' ? (
+                            <span className="text-gray-700 font-medium">Free</span>
+                          ) : (
+                            <div className="flex items-center justify-center gap-1">
+                              <span className="text-gray-700">$</span>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                value={plan.pricePerUpload ?? ''}
+                                onChange={(e) => updateMembershipPlan(plan.planId, 'pricePerUpload', e.target.value || null)}
+                                disabled={membershipLoading}
+                                className="w-16 px-2 py-1 text-center bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    
+                    {/* View Contents */}
+                    <tr className="border-b border-gray-400">
+                      <td className="p-4 text-gray-800 font-medium">View Contents</td>
+                      {membershipPlans.map((plan) => (
+                        <td key={plan.planId} className="text-center p-3">
+                          <select
+                            value={plan.viewContents ? 'yes' : 'no'}
+                            onChange={(e) => updateMembershipPlan(plan.planId, 'viewContents', e.target.value === 'yes')}
+                            disabled={membershipLoading}
+                            className="px-3 py-1 bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                          >
+                            <option value="yes">✓ Yes</option>
+                            <option value="no">✗ No</option>
+                          </select>
+                        </td>
+                      ))}
+                    </tr>
+                    
+                    {/* Buy Contents */}
+                    <tr className="border-b border-gray-400">
+                      <td className="p-4 text-gray-800 font-medium">Buy Contents</td>
+                      {membershipPlans.map((plan) => (
+                        <td key={plan.planId} className="text-center p-3">
+                          <select
+                            value={plan.buyContents ? 'yes' : 'no'}
+                            onChange={(e) => updateMembershipPlan(plan.planId, 'buyContents', e.target.value === 'yes')}
+                            disabled={membershipLoading}
+                            className="px-3 py-1 bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                          >
+                            <option value="yes">✓ Yes</option>
+                            <option value="no">✗ No</option>
+                          </select>
+                        </td>
+                      ))}
+                    </tr>
+                    
+                    {/* Sell Contents */}
+                    <tr>
+                      <td className="p-4 text-gray-800 font-medium">Sell Contents</td>
+                      {membershipPlans.map((plan) => (
+                        <td key={plan.planId} className="text-center p-3">
+                          <select
+                            value={plan.sellContents ? 'yes' : 'no'}
+                            onChange={(e) => updateMembershipPlan(plan.planId, 'sellContents', e.target.value === 'yes')}
+                            disabled={membershipLoading}
+                            className="px-3 py-1 bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                          >
+                            <option value="yes">✓ Yes</option>
+                            <option value="no">✗ No</option>
+                          </select>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              
+              <p className="text-gray-400 text-sm mt-4">
+                💡 Changes are saved automatically. Updates will be reflected immediately in the Pricing page.
+              </p>
+            </div>
+          )}
+
+          {/* Promotions Management */}
+          {activeTab === 'promotions' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">Promotional Campaigns</h2>
+                <button
+                  onClick={openCreatePromotion}
+                  className="px-4 py-2 bg-tank-accent hover:bg-tank-accent/80 text-black rounded-lg font-medium transition-colors"
+                >
+                  + Create Promotion
+                </button>
+              </div>
+              
+              {promotions.length === 0 ? (
+                <div className="card p-8 text-center text-gray-400">
+                  <p className="text-4xl mb-4">🎉</p>
+                  <p className="text-lg">No promotions yet</p>
+                  <p className="text-sm">Create your first promotional campaign to attract new users!</p>
+                </div>
+              ) : (
+                <div className="card overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-tank-light bg-[#2a7b9b]">
+                        <th className="text-left p-3 text-white font-medium">Name</th>
+                        <th className="text-left p-3 text-white font-medium">Type</th>
+                        <th className="text-left p-3 text-white font-medium">Value</th>
+                        <th className="text-left p-3 text-white font-medium">Code</th>
+                        <th className="text-left p-3 text-white font-medium">Validity</th>
+                        <th className="text-left p-3 text-white font-medium">Usage</th>
+                        <th className="text-left p-3 text-white font-medium">Popup</th>
+                        <th className="text-center p-3 text-white font-medium">Status</th>
+                        <th className="text-center p-3 text-white font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {promotions.map((promo) => (
+                        <tr key={promo.id} className="border-b border-tank-light/30 hover:bg-tank-light/10">
+                          <td className="p-3">
+                            <p className="font-medium text-white">{promo.name}</p>
+                            {promo.description && (
+                              <p className="text-xs text-gray-400 truncate max-w-[200px]">{promo.description}</p>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              promo.type === 'subscription_discount' ? 'bg-blue-500/20 text-blue-400' :
+                              promo.type === 'bonus_uploads' ? 'bg-green-500/20 text-green-400' :
+                              'bg-purple-500/20 text-purple-400'
+                            }`}>
+                              {promo.type === 'subscription_discount' ? '💰 Discount' :
+                               promo.type === 'bonus_uploads' ? '📤 Bonus Uploads' :
+                               '🎁 Free Trial'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-gray-300">
+                            {promo.type === 'subscription_discount' && promo.discountValue && (
+                              <span>
+                                {promo.discountType === 'percentage' ? `${promo.discountValue}% off` :
+                                 promo.discountType === 'fixed_amount' ? `$${promo.discountValue} off` :
+                                 `${promo.discountValue} free month(s)`}
+                              </span>
+                            )}
+                            {promo.type === 'bonus_uploads' && promo.bonusUploads && (
+                              <span>{promo.bonusUploads} uploads</span>
+                            )}
+                            {promo.type === 'free_trial' && promo.freeTrialDays && (
+                              <span>{promo.freeTrialDays} days</span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {promo.promoCode ? (
+                              <code className="px-2 py-1 bg-tank-dark rounded text-tank-accent text-xs">{promo.promoCode}</code>
+                            ) : (
+                              <span className="text-gray-500 text-xs">Auto-apply</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-xs text-gray-400">
+                            <div>{new Date(promo.startDate).toLocaleDateString()}</div>
+                            <div className="text-gray-500">
+                              {promo.endDate ? `to ${new Date(promo.endDate).toLocaleDateString()}` : 'No end date'}
+                            </div>
+                          </td>
+                          <td className="p-3 text-gray-300">
+                            {promo.usageCount}{promo.usageLimit ? ` / ${promo.usageLimit}` : ' / ∞'}
+                          </td>
+                          <td className="p-3">
+                            {promo.showPopup ? (
+                              <span className="text-green-400">✓ Yes</span>
+                            ) : (
+                              <span className="text-gray-500">No</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => togglePromotion(promo.id, !promo.isActive)}
+                              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                promo.isActive 
+                                  ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
+                                  : 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30'
+                              }`}
+                            >
+                              {promo.isActive ? 'Active' : 'Inactive'}
+                            </button>
+                          </td>
+                          <td className="p-3 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => openEditPromotion(promo)}
+                                className="text-blue-400 hover:text-blue-300"
+                                title="Edit"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => deletePromotion(promo.id)}
+                                className="text-red-400 hover:text-red-300"
+                                title="Delete"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              
+              <p className="text-gray-400 text-sm mt-4">
+                💡 Promotions with &quot;Popup&quot; enabled will show a marketing popup on the Home page.
+              </p>
+            </div>
+          )}
+
+          {/* Game Control */}
+          {activeTab === 'games' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">🎮 Game Control</h2>
+                <p className="text-gray-400 text-sm">Toggle games ON/OFF to show or hide them from the Play page</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {gameSettings.map((game) => (
+                  <div
+                    key={game.gameId}
+                    className={`rounded-xl p-4 border-2 transition-all ${
+                      game.isEnabled 
+                        ? 'bg-tank-gray border-green-500/50' 
+                        : 'bg-tank-dark border-gray-700 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">
+                          {game.gameId === 'tetris' ? '🧱' :
+                           game.gameId === 'minesweeper' ? '💣' :
+                           game.gameId === 'donkeykong' ? '🦍' :
+                           game.gameId === 'pacman' ? '👻' :
+                           game.gameId === 'breakout' ? '🏓' :
+                           game.gameId === 'pong' ? '🎾' : '🎮'}
+                        </span>
+                        <div>
+                          <h3 className="font-bold text-white">{game.name}</h3>
+                          <p className="text-xs text-gray-400">/game/{game.gameId}</p>
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={() => toggleGame(game.gameId, !game.isEnabled)}
+                        disabled={gamesLoading}
+                        className={`relative w-14 h-7 rounded-full transition-colors ${
+                          game.isEnabled ? 'bg-green-500' : 'bg-gray-600'
+                        } ${gamesLoading ? 'opacity-50' : ''}`}
+                      >
+                        <div
+                          className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow ${
+                            game.isEnabled ? 'translate-x-8' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        game.isEnabled 
+                          ? 'bg-green-500/20 text-green-400' 
+                          : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {game.isEnabled ? '✓ Visible' : '✗ Hidden'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-6 p-4 bg-tank-dark rounded-lg border border-tank-light">
+                <h4 className="font-medium text-white mb-2">📋 Quick Stats</h4>
+                <div className="flex gap-6 text-sm">
+                  <div>
+                    <span className="text-green-400 font-bold">{gameSettings.filter(g => g.isEnabled).length}</span>
+                    <span className="text-gray-400 ml-1">Active Games</span>
+                  </div>
+                  <div>
+                    <span className="text-red-400 font-bold">{gameSettings.filter(g => !g.isEnabled).length}</span>
+                    <span className="text-gray-400 ml-1">Hidden Games</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Navbar Control */}
+          {activeTab === 'navbar' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">🧭 Navbar Control</h2>
+                <p className="text-gray-400 text-sm">Toggle navbar items ON/OFF to show or hide them in the menu</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {navbarMenuItems.map((item) => (
+                  <div
+                    key={item.itemKey}
+                    className={`rounded-xl p-4 border-2 transition-all ${
+                      item.isEnabled
+                        ? 'bg-tank-gray border-green-500/50'
+                        : 'bg-tank-dark border-gray-700 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">🧩</span>
+                        <div>
+                          <h3 className="font-bold text-white">{item.label}</h3>
+                          <p className="text-xs text-gray-400">{item.itemKey}</p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => toggleNavbarItem(item.itemKey, !item.isEnabled)}
+                        disabled={navbarLoading}
+                        className={`relative w-14 h-7 rounded-full transition-colors ${
+                          item.isEnabled ? 'bg-green-500' : 'bg-gray-600'
+                        } ${navbarLoading ? 'opacity-50' : ''}`}
+                      >
+                        <div
+                          className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow ${
+                            item.isEnabled ? 'translate-x-8' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        item.isEnabled
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {item.isEnabled ? '✓ Visible' : '✗ Hidden'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 p-4 bg-tank-dark rounded-lg border border-tank-light">
+                <h4 className="font-medium text-white mb-2">📋 Quick Stats</h4>
+                <div className="flex gap-6 text-sm">
+                  <div>
+                    <span className="text-green-400 font-bold">{navbarMenuItems.filter(i => i.isEnabled).length}</span>
+                    <span className="text-gray-400 ml-1">Visible Items</span>
+                  </div>
+                  <div>
+                    <span className="text-red-400 font-bold">{navbarMenuItems.filter(i => !i.isEnabled).length}</span>
+                    <span className="text-gray-400 ml-1">Hidden Items</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Media Badge Control */}
+          {activeTab === 'badges' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">🏷️ Media Badge Control</h2>
+                <p className="text-gray-400 text-sm">Toggle badge items ON/OFF to show or hide them on media tiles</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {mediaBadgeItems.map((item) => (
+                  <div
+                    key={item.itemKey}
+                    className={`rounded-xl p-4 border-2 transition-all ${
+                      item.isEnabled
+                        ? 'bg-tank-gray border-green-500/50'
+                        : 'bg-tank-dark border-gray-700 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">🏷️</span>
+                        <div>
+                          <h3 className="font-bold text-white">{item.label}</h3>
+                          <p className="text-xs text-gray-400">{item.itemKey}</p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => toggleBadgeItem(item.itemKey, !item.isEnabled)}
+                        disabled={mediaBadgeLoading}
+                        className={`relative w-14 h-7 rounded-full transition-colors ${
+                          item.isEnabled ? 'bg-green-500' : 'bg-gray-600'
+                        } ${mediaBadgeLoading ? 'opacity-50' : ''}`}
+                      >
+                        <div
+                          className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow ${
+                            item.isEnabled ? 'translate-x-8' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        item.isEnabled
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {item.isEnabled ? '✓ Visible' : '✗ Hidden'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 p-4 bg-tank-dark rounded-lg border border-tank-light">
+                <h4 className="font-medium text-white mb-2">📋 Quick Stats</h4>
+                <div className="flex gap-6 text-sm">
+                  <div>
+                    <span className="text-green-400 font-bold">{mediaBadgeItems.filter(i => i.isEnabled).length}</span>
+                    <span className="text-gray-400 ml-1">Visible Badges</span>
+                  </div>
+                  <div>
+                    <span className="text-red-400 font-bold">{mediaBadgeItems.filter(i => !i.isEnabled).length}</span>
+                    <span className="text-gray-400 ml-1">Hidden Badges</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Ad Sales Reports */}
           {activeTab === 'adSales' && (
             <div className="space-y-4">
@@ -1733,16 +2672,11 @@ export default function AdminPage() {
                       }
                     }),
                   })
-                  const result = await res.json()
                   if (res.ok) {
-                    if (sendNotification) {
-                      alert(result.emailSent 
-                        ? '✅ Content deleted. Notification and email sent to creator.' 
-                        : '⚠️ Content deleted. Notification sent, but email failed to send.')
-                    } else {
-                      alert('✅ Content deleted. Notification sent to creator.')
-                    }
+                    setToast({ message: 'Content deleted successfully', type: 'success' })
                     fetchData()
+                  } else {
+                    setToast({ message: 'Failed to delete content', type: 'error' })
                   }
                   setDeleteModal(null)
                   setDeleteReason('')
@@ -2141,15 +3075,28 @@ export default function AdminPage() {
               <button
                 onClick={async () => {
                   if (warningUserReason.trim()) {
-                    await handleAction('warnUser', warningUserModal.userId, { 
-                      reason: warningUserReason,
-                      sendEmail: warningUserSendEmail
+                    const res = await fetch('/api/admin', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ 
+                        action: 'warnUser', 
+                        targetId: warningUserModal.userId, 
+                        data: { 
+                          reason: warningUserReason,
+                          sendEmail: warningUserSendEmail
+                        }
+                      }),
                     })
+                    if (res.ok) {
+                      setToast({ message: 'Warning sent successfully', type: 'success' })
+                      fetchData()
+                    } else {
+                      setToast({ message: 'Failed to send warning', type: 'error' })
+                    }
                     setWarningUserModal(null)
                     setWarningUserReason('')
                     setWarningUserSendEmail(true)
                     setShowUserModal(false)
-                    fetchData()
                   }
                 }}
                 disabled={!warningUserReason.trim()}
@@ -2315,6 +3262,273 @@ export default function AdminPage() {
                 className="flex-1 bg-red-700 hover:bg-red-800 text-white rounded-lg py-3 px-4 font-medium"
               >
                 Delete User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Promotion Create/Edit Modal */}
+      {showPromotionModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowPromotionModal(false)}>
+          <div className="bg-[#1a1a2e] rounded-xl p-6 max-w-2xl w-full border border-gray-700 my-8" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-6 text-tank-accent">
+              {editingPromotion ? '✏️ Edit Promotion' : '🎉 Create Promotion'}
+            </h2>
+            
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-400 text-sm mb-1">Name *</label>
+                  <input
+                    type="text"
+                    value={promotionForm.name}
+                    onChange={(e) => setPromotionForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g., New Year Sale"
+                    className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-sm mb-1">Promo Code (optional)</label>
+                  <input
+                    type="text"
+                    value={promotionForm.promoCode}
+                    onChange={(e) => setPromotionForm(prev => ({ ...prev, promoCode: e.target.value.toUpperCase() }))}
+                    placeholder="e.g., NEWYEAR2026"
+                    className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent uppercase"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-gray-400 text-sm mb-1">Description</label>
+                <textarea
+                  value={promotionForm.description}
+                  onChange={(e) => setPromotionForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Brief description of the promotion..."
+                  className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent resize-none h-16"
+                />
+              </div>
+              
+              {/* Promotion Type */}
+              <div className="bg-tank-dark rounded-lg p-4">
+                <label className="block text-gray-400 text-sm mb-2">Promotion Type *</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'subscription_discount', label: '💰 Subscription Discount', desc: 'Discount on subscription fees' },
+                    { value: 'bonus_uploads', label: '📤 Bonus Uploads', desc: 'Free upload credits' },
+                    { value: 'free_trial', label: '🎁 Free Trial', desc: 'Extended free trial' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setPromotionForm(prev => ({ ...prev, type: opt.value }))}
+                      className={`flex-1 p-3 rounded-lg border transition-colors ${
+                        promotionForm.type === opt.value 
+                          ? 'border-tank-accent bg-tank-accent/10' 
+                          : 'border-gray-600 hover:border-gray-500'
+                      }`}
+                    >
+                      <div className="text-sm font-medium">{opt.label}</div>
+                      <div className="text-xs text-gray-500 mt-1">{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Type-specific fields */}
+              {promotionForm.type === 'subscription_discount' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-1">Discount Type</label>
+                    <select
+                      value={promotionForm.discountType}
+                      onChange={(e) => setPromotionForm(prev => ({ ...prev, discountType: e.target.value }))}
+                      className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                    >
+                      <option value="percentage">Percentage Off</option>
+                      <option value="fixed_amount">Fixed Amount Off</option>
+                      <option value="free_months">Free Month(s)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-1">
+                      {promotionForm.discountType === 'percentage' ? 'Discount %' : 
+                       promotionForm.discountType === 'fixed_amount' ? 'Amount ($)' : 
+                       'Free Months'}
+                    </label>
+                    <input
+                      type="number"
+                      value={promotionForm.discountValue}
+                      onChange={(e) => setPromotionForm(prev => ({ ...prev, discountValue: e.target.value }))}
+                      placeholder={promotionForm.discountType === 'percentage' ? 'e.g., 50' : 'e.g., 2'}
+                      className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {promotionForm.type === 'bonus_uploads' && (
+                <div>
+                  <label className="block text-gray-400 text-sm mb-1">Bonus Uploads</label>
+                  <input
+                    type="number"
+                    value={promotionForm.bonusUploads}
+                    onChange={(e) => setPromotionForm(prev => ({ ...prev, bonusUploads: e.target.value }))}
+                    placeholder="e.g., 20"
+                    className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                  />
+                </div>
+              )}
+              
+              {promotionForm.type === 'free_trial' && (
+                <div>
+                  <label className="block text-gray-400 text-sm mb-1">Free Trial Days</label>
+                  <input
+                    type="number"
+                    value={promotionForm.freeTrialDays}
+                    onChange={(e) => setPromotionForm(prev => ({ ...prev, freeTrialDays: e.target.value }))}
+                    placeholder="e.g., 30"
+                    className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                  />
+                </div>
+              )}
+              
+              {/* Applicable Plans */}
+              <div>
+                <label className="block text-gray-400 text-sm mb-1">Applicable Plans</label>
+                <select
+                  value={promotionForm.applicablePlans}
+                  onChange={(e) => setPromotionForm(prev => ({ ...prev, applicablePlans: e.target.value }))}
+                  className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                >
+                  <option value="all">All Plans</option>
+                  <option value="basic">Basic Only</option>
+                  <option value="advanced">Advanced Only</option>
+                  <option value="premium">Premium Only</option>
+                  <option value="basic,advanced">Basic & Advanced</option>
+                  <option value="advanced,premium">Advanced & Premium</option>
+                </select>
+              </div>
+              
+              {/* Validity Period */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-400 text-sm mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={promotionForm.startDate}
+                    onChange={(e) => setPromotionForm(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-sm mb-1">End Date (optional)</label>
+                  <input
+                    type="date"
+                    value={promotionForm.endDate}
+                    onChange={(e) => setPromotionForm(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                  />
+                </div>
+              </div>
+              
+              {/* Usage Limit */}
+              <div>
+                <label className="block text-gray-400 text-sm mb-1">Usage Limit (optional)</label>
+                <input
+                  type="number"
+                  value={promotionForm.usageLimit}
+                  onChange={(e) => setPromotionForm(prev => ({ ...prev, usageLimit: e.target.value }))}
+                  placeholder="Leave empty for unlimited"
+                  className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                />
+              </div>
+              
+              {/* Popup Settings */}
+              <div className="bg-tank-dark rounded-lg p-4 space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={promotionForm.showPopup}
+                    onChange={(e) => setPromotionForm(prev => ({ ...prev, showPopup: e.target.checked }))}
+                    className="w-5 h-5 rounded border-gray-600 bg-tank-dark text-tank-accent focus:ring-tank-accent"
+                  />
+                  <span className="text-white font-medium">Show Marketing Popup on Home Page</span>
+                </label>
+                
+                {promotionForm.showPopup && (
+                  <div className="space-y-3 pt-3 border-t border-gray-700">
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-1">Popup Title</label>
+                      <input
+                        type="text"
+                        value={promotionForm.popupTitle}
+                        onChange={(e) => setPromotionForm(prev => ({ ...prev, popupTitle: e.target.value }))}
+                        placeholder="e.g., 🎉 Special Offer!"
+                        className="w-full bg-tank-gray border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-1">Popup Message</label>
+                      <textarea
+                        value={promotionForm.popupMessage}
+                        onChange={(e) => setPromotionForm(prev => ({ ...prev, popupMessage: e.target.value }))}
+                        placeholder="Describe your offer..."
+                        className="w-full bg-tank-gray border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent resize-none h-20"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Button Text</label>
+                        <input
+                          type="text"
+                          value={promotionForm.popupButtonText}
+                          onChange={(e) => setPromotionForm(prev => ({ ...prev, popupButtonText: e.target.value }))}
+                          placeholder="Get Offer"
+                          className="w-full bg-tank-gray border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Image URL (optional)</label>
+                        <input
+                          type="text"
+                          value={promotionForm.popupImageUrl}
+                          onChange={(e) => setPromotionForm(prev => ({ ...prev, popupImageUrl: e.target.value }))}
+                          placeholder="https://..."
+                          className="w-full bg-tank-gray border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Active Status */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={promotionForm.isActive}
+                  onChange={(e) => setPromotionForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                  className="w-5 h-5 rounded border-gray-600 bg-tank-dark text-tank-accent focus:ring-tank-accent"
+                />
+                <span className="text-white">Active (promotion is live)</span>
+              </label>
+            </div>
+            
+            <div className="flex gap-3 mt-6 pt-4 border-t border-gray-700">
+              <button
+                onClick={() => setShowPromotionModal(false)}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-gray-300 rounded-lg py-3 px-4 font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={savePromotion}
+                disabled={promotionsLoading || !promotionForm.name}
+                className="flex-1 bg-tank-accent hover:bg-tank-accent/80 text-black rounded-lg py-3 px-4 font-medium transition-colors disabled:opacity-50"
+              >
+                {promotionsLoading ? 'Saving...' : editingPromotion ? 'Update Promotion' : 'Create Promotion'}
               </button>
             </div>
           </div>

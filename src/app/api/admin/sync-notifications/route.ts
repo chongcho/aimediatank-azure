@@ -77,7 +77,7 @@ export async function POST(request: Request) {
               ${notificationId},
               'purchase',
               'Purchase Confirmed! 🎉',
-              ${'Your purchase of "' + purchase.media.title + '" is complete. Download within 10 days before it expires.'},
+              ${'Your purchase of "' + purchase.media.title + '" is complete. You can access it from your profile.'},
               ${'/profile/' + purchase.buyer.username},
               false,
               ${purchase.completedAt || new Date()},

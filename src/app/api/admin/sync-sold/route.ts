@@ -37,9 +37,7 @@ export async function POST(request: Request) {
         continue
       }
 
-      // Calculate delete date (10 days from purchase completion or now)
       const soldAt = purchase.completedAt || new Date()
-      const deleteAfter = new Date(soldAt.getTime() + 10 * 24 * 60 * 60 * 1000)
 
       try {
         await prisma.media.update({
@@ -47,7 +45,6 @@ export async function POST(request: Request) {
           data: {
             isSold: true,
             soldAt: soldAt,
-            deleteAfter: deleteAfter,
           },
         })
 
@@ -55,7 +52,6 @@ export async function POST(request: Request) {
           mediaId: purchase.mediaId,
           title: purchase.media.title,
           status: 'marked_sold',
-          deleteAfter: deleteAfter.toISOString()
         })
       } catch (err) {
         results.push({

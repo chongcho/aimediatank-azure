@@ -7,11 +7,31 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
   username      String    @unique
-  password      String
+  password      String    @default("")  // Empty for OAuth users
   name          String?   // Nickname (display name)
   legalName     String?   // Legal/full name
   avatar        String?
@@ -47,6 +67,7 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   // Relations
+  accounts      Account[]
   media         Media[]
   comments      Comment[]
   ratings       Rating[]
@@ -70,6 +91,7 @@ model Media {
   url           String
   thumbnailUrl  String?
   aiTool        String?
+  realDevice    String?
   aiPrompt      String?
   price         Float?    // null = free, otherwise price in USD
   views         Int       @default(0)
@@ -138,6 +160,20 @@ model Rating {
 
   @@unique([userId, mediaId])
   @@index([mediaId])
+}
+
+// Anonymous ratings for non-logged-in users
+model AnonymousRating {
+  id            String    @id @default(uuid())
+  visitorId     String    // Browser fingerprint/localStorage ID
+  score         Int       // 3=happy, 1=sad
+  mediaId       String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([visitorId, mediaId])
+  @@index([mediaId])
+  @@index([visitorId])
 }
 
 model Message {
@@ -337,6 +373,7 @@ model PendingUpload {
   url           String    // Already uploaded to Azure Blob Storage
   thumbnailUrl  String?
   aiTool        String?
+  realDevice    String?
   aiPrompt      String?
   price         Float?
   isPublic      Boolean   @default(true)
@@ -368,4 +405,131 @@ model CreditHistory {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+// Membership Plan configuration (managed by admin)
+model MembershipPlan {
+  id              String    @id @default(uuid())
+  planId          String    @unique  // "viewer", "basic", "advanced", "premium"
+  name            String              // "Viewer Plan", "Basic Plan", etc.
+  monthlyPrice    Float     @default(0)    // Monthly price in USD
+  yearlyPrice     Float     @default(0)    // Yearly price in USD
+  freeUploads     Int       @default(5)    // Number of free uploads
+  pricePerUpload  Float?                   // Price per upload after free (null = Free/NA)
+  viewContents    Boolean   @default(true)
+  buyContents     Boolean   @default(true)
+  sellContents    Boolean   @default(true)
+  isActive        Boolean   @default(true)
+  sortOrder       Int       @default(0)    // Display order
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([planId])
+  @@index([sortOrder])
+}
+
+// Promotional Campaign (managed by admin)
+model Promotion {
+  id              String    @id @default(uuid())
+  name            String              // Internal name for the promotion
+  description     String?             // Description of the promotion
+  
+  // Promotion type and value
+  type            String              // "subscription_discount", "bonus_uploads", "free_trial"
+  discountType    String?             // "percentage", "fixed_amount", "free_months" (for subscription_discount)
+  discountValue   Float?              // e.g., 100 for 100%, 2 for $2 off, 1 for 1 free month
+  bonusUploads    Int?                // Number of bonus uploads (for bonus_uploads type)
+  freeTrialDays   Int?                // Free trial duration (for free_trial type)
+  
+  // Applicable plans (comma-separated: "basic,advanced,premium" or "all")
+  applicablePlans String    @default("all")
+  
+  // Promo code (optional - leave empty for automatic application)
+  promoCode       String?   @unique
+  
+  // Validity period
+  startDate       DateTime  @default(now())
+  endDate         DateTime?           // null = no end date
+  
+  // Usage limits
+  usageLimit      Int?                // null = unlimited
+  usageCount      Int       @default(0)
+  
+  // Status
+  isActive        Boolean   @default(true)
+  
+  // Popup configuration
+  showPopup       Boolean   @default(false)
+  popupTitle      String?
+  popupMessage    String?
+  popupButtonText String?   @default("Get Offer")
+  popupImageUrl   String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([promoCode])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+// Track promotion usage per user
+model PromotionUsage {
+  id            String    @id @default(uuid())
+  
+  promotionId   String
+  userId        String
+  
+  appliedAt     DateTime  @default(now())
+  
+  // What was applied
+  discountAmount Float?    // Actual discount given
+  bonusUploads   Int?      // Bonus uploads given
+  
+  @@unique([promotionId, userId])
+  @@index([promotionId])
+  @@index([userId])
+}
+
+// Game settings (managed by admin)
+model GameSetting {
+  id          String    @id @default(uuid())
+  gameId      String    @unique  // "tetris", "minesweeper", "donkeykong", "pacman", "breakout", "pong"
+  name        String              // Display name
+  isEnabled   Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([gameId])
+  @@index([isEnabled])
+}
+
+// Navbar menu settings (managed by admin)
+model NavbarMenuSetting {
+  id        String   @id @default(uuid())
+  itemKey   String   @unique // "home", "play", "chat", "mediaMessage", "upload", "signIn", "signUp"
+  label     String
+  isEnabled Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([itemKey])
+  @@index([isEnabled])
+}
+
+// Media badge settings (managed by admin)
+model MediaBadgeSetting {
+  id        String   @id @default(uuid())
+  itemKey   String   @unique // "ai", "price", "sold", "views", "postDate", "smileRate"
+  label     String
+  isEnabled Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([itemKey])
+  @@index([isEnabled])
 }
