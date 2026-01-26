@@ -113,6 +113,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [mentionIndex, setMentionIndex] = useState(0)
   // Chat size state: 'max' (40vh) | 'medium' (30vh) | 'min' (hidden)
   const [chatSize, setChatSize] = useState<'max' | 'medium' | 'min'>('medium')
+  const [isPageVisible, setIsPageVisible] = useState(true)
   // Inline notification message (replaces browser alerts)
   const [inlineNotice, setInlineNotice] = useState<string | null>(null)
   
@@ -134,6 +135,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     localStorage.setItem('talkChatSize', chatSize)
   }, [chatSize])
+
+  // Pause polling when tab is hidden (major perf win)
+  useEffect(() => {
+    const update = () => setIsPageVisible(!document.hidden)
+    update()
+    document.addEventListener('visibilitychange', update)
+    return () => document.removeEventListener('visibilitychange', update)
+  }, [])
   
   // Auto-dismiss inline notice after 3 seconds
   useEffect(() => {
@@ -1431,7 +1440,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const ids = new Set<string>()
-    messages.forEach((msg) => {
+    messages.slice(-50).forEach((msg) => {
       extractMediaIds(msg.content).forEach((id) => ids.add(id))
     })
     const missing = Array.from(ids).filter((id) => !mediaPreviews[id] && !missingPreviewIds[id])
@@ -1439,39 +1448,49 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
     let isActive = true
     const fetchPreviews = async () => {
-      const results = await Promise.all(
-        missing.map(async (id) => {
-          try {
-            const res = await fetch(`/api/media/preview/${id}`, { cache: 'no-store' })
-            if (!res.ok) {
-              if (res.status === 404) {
-                setMissingPreviewIds((prev) => ({ ...prev, [id]: true }))
-              }
-              return null
-            }
-            const preview = (await res.json()) as MediaPreview
-            if (preview.missing) {
-              setMissingPreviewIds((prev) => ({ ...prev, [id]: true }))
-              return null
-            }
-            return preview
-          } catch (error) {
-            console.error('Error fetching media preview:', error)
-            return null
-          }
+      // Cap batch size to keep payloads small and avoid a big burst of work.
+      const batchIds = missing.slice(0, 25)
+      try {
+        const res = await fetch('/api/media/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ ids: batchIds }),
         })
-      )
 
-      if (!isActive) return
-      setMediaPreviews((prev) => {
-        const next = { ...prev }
-        results.forEach((preview) => {
-          if (preview?.id) {
-            next[preview.id] = preview
-          }
-        })
-        return next
-      })
+        // If auth/session isn't ready, don't permanently mark previews as missing.
+        if (!res.ok) {
+          return
+        }
+
+        const data = (await res.json()) as { previews?: MediaPreview[]; missing?: string[] }
+        const previews = Array.isArray(data.previews) ? data.previews : []
+        const missingIds = Array.isArray(data.missing) ? data.missing : []
+
+        if (!isActive) return
+
+        if (previews.length) {
+          setMediaPreviews((prev) => {
+            const next = { ...prev }
+            previews.forEach((p) => {
+              if (p?.id) next[p.id] = p
+            })
+            return next
+          })
+        }
+
+        if (missingIds.length) {
+          setMissingPreviewIds((prev) => {
+            const next = { ...prev }
+            missingIds.forEach((id) => {
+              next[id] = true
+            })
+            return next
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching media previews:', error)
+      }
     }
 
     fetchPreviews()
@@ -1556,6 +1575,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Only fetch when component is mounted and initialized
   const fetchMessages = useCallback(async () => {
     if (!isInitialized) return
+    if (!isPageVisible) return
+    if (chatSize === 'min') return
     
     try {
       // If we have an active conversation, use the conversation API
@@ -1594,7 +1615,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     } catch (error) {
       console.error('Error fetching messages:', error)
     }
-  }, [isInitialized, chatMode, selectedRecipients, activeConversation, session?.user?.id])
+  }, [isInitialized, chatMode, selectedRecipients, activeConversation, session?.user?.id, isPageVisible, chatSize])
 
   // Initialize after mount
   useEffect(() => {
@@ -1605,7 +1626,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!isInitialized) return
     fetchMessages()
-    const interval = setInterval(fetchMessages, 5000)
+    const interval = setInterval(fetchMessages, 15000)
     return () => clearInterval(interval)
   }, [isInitialized, fetchMessages])
 
@@ -1619,18 +1640,20 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Fetch chat invites periodically
   useEffect(() => {
     if (!isInitialized || !session?.user?.id) return
+    if (!isPageVisible || chatSize === 'min') return
     fetchChatInvites()
-    const interval = setInterval(fetchChatInvites, 10000) // Check every 10 seconds
+    const interval = setInterval(fetchChatInvites, 30000) // Check every 30 seconds
     return () => clearInterval(interval)
-  }, [isInitialized, session?.user?.id, fetchChatInvites])
+  }, [isInitialized, session?.user?.id, fetchChatInvites, isPageVisible, chatSize])
 
   // Fetch unread count periodically
   useEffect(() => {
     if (!isInitialized || !session?.user?.id) return
+    if (!isPageVisible || chatSize === 'min') return
     fetchUnreadCount()
-    const interval = setInterval(fetchUnreadCount, 10000) // Check every 10 seconds
+    const interval = setInterval(fetchUnreadCount, 30000) // Check every 30 seconds
     return () => clearInterval(interval)
-  }, [isInitialized, session?.user?.id, fetchUnreadCount])
+  }, [isInitialized, session?.user?.id, fetchUnreadCount, isPageVisible, chatSize])
 
   // Fetch chat records when in private mode without any recipients
   useEffect(() => {
@@ -3758,6 +3781,7 @@ export default function TalkChat({ isOpen, onClose }: TalkChatProps) {
   }, [])
 
   useEffect(() => {
+    if (!mounted || !isOpen) return
     const updateFullscreenState = () => {
       const isNativeFullscreen = Boolean(document.fullscreenElement)
       const isMediaFullscreen = document.body.dataset.mediaFullscreen === 'true'
@@ -3772,7 +3796,7 @@ export default function TalkChat({ isOpen, onClose }: TalkChatProps) {
       document.removeEventListener('fullscreenchange', updateFullscreenState)
       observer.disconnect()
     }
-  }, [])
+  }, [mounted, isOpen])
 
   // Check isOpen to allow toggling visibility
   if (!mounted || !isOpen || isFullscreenActive) {

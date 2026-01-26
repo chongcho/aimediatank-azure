@@ -25,7 +25,9 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
-  const [isTalkChatOpen, setIsTalkChatOpen] = useState(true) // Always show chat
+  // IMPORTANT: keep chat closed by default to avoid background polling slowing the app.
+  const [isTalkChatOpen, setIsTalkChatOpen] = useState(false)
+  const [isPageVisible, setIsPageVisible] = useState(true)
   const [isSignInOpen, setIsSignInOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -68,6 +70,14 @@ export default function Navbar() {
     }
   }, [])
 
+  // Pause background polling when tab is hidden
+  useEffect(() => {
+    const update = () => setIsPageVisible(!document.hidden)
+    update()
+    document.addEventListener('visibilitychange', update)
+    return () => document.removeEventListener('visibilitychange', update)
+  }, [])
+
   // Fetch user data for updated name/avatar
   useEffect(() => {
     if (session?.user) {
@@ -96,11 +106,12 @@ export default function Navbar() {
   // Fetch chat invites count
   useEffect(() => {
     if (session?.user) {
+      if (!isPageVisible) return
       fetchChatInvites()
-      const interval = setInterval(fetchChatInvites, 10000) // Check every 10 seconds
+      const interval = setInterval(fetchChatInvites, 30000) // Check every 30 seconds
       return () => clearInterval(interval)
     }
-  }, [session])
+  }, [session, isPageVisible])
 
   // Request notification permission when user is signed in (helps with badge support)
   useEffect(() => {
@@ -117,10 +128,6 @@ export default function Navbar() {
   // Update app badge when notification counts change
   useEffect(() => {
     const totalCount = calculateTotalNotifications(unreadCount, chatInviteCount)
-    
-    // Log for debugging
-    console.log(`Updating app badge: unread=${unreadCount}, invites=${chatInviteCount}, total=${totalCount}, isPWA=${isInstalledPWA()}`)
-    
     setAppBadge(totalCount)
   }, [unreadCount, chatInviteCount])
 
@@ -563,10 +570,12 @@ export default function Navbar() {
       </div>
 
       {/* Talk Chat */}
-      <TalkChat
-        isOpen={isTalkChatOpen}
-        onClose={() => setIsTalkChatOpen(false)}
-      />
+      {isTalkChatOpen && (
+        <TalkChat
+          isOpen={isTalkChatOpen}
+          onClose={() => setIsTalkChatOpen(false)}
+        />
+      )}
 
       {/* Sign In Modal */}
       <SignInModal
