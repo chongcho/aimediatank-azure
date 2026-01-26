@@ -1,9 +1,7 @@
 name: Deploy to Azure Production
 
 on:
-  # Auto-deploy on main pushes, plus manual trigger option
-  push:
-    branches: [main]
+  # Manual-only deploy (avoid duplicate runs on push)
   workflow_dispatch:
 
 env:
