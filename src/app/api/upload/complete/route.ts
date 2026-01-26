@@ -208,22 +208,55 @@ function getAzureBlobClient() {
   return BlobServiceClient.fromConnectionString(connectionString)
 }
 
-function parseAzureUrl(url: string): { containerName: string; blobName: string } | null {
+async function tryGetSizeViaHead(url: string): Promise<number | null> {
+  const raw = (url || '').trim()
+  if (!raw) return null
   try {
-    const u = new URL(url)
-    const parts = u.pathname.replace(/^\/+/, '').split('/')
-    const containerFromEnv = process.env.AZURE_STORAGE_CONTAINER_NAME || 'media'
-    if (parts.length < 2) {
-      const blobName = parts.join('/')
-      if (!blobName) return null
-      return { containerName: containerFromEnv, blobName }
-    }
-    const containerName = parts[0] || containerFromEnv
-    const blobName = parts.slice(1).join('/')
-    return { containerName, blobName }
+    const res = await fetch(raw, { method: 'HEAD', redirect: 'follow' })
+    if (!res.ok) return null
+    const cl = res.headers.get('content-length')
+    if (!cl) return null
+    const n = Number(cl)
+    if (!Number.isFinite(n) || n < 0) return null
+    return n
   } catch {
     return null
   }
+}
+
+function parseAzureUrl(input: string): { containerName: string; blobName: string } | null {
+  const containerFromEnv = process.env.AZURE_STORAGE_CONTAINER_NAME || 'media'
+  const raw = (input || '').trim()
+  if (!raw) return null
+
+  // 1) Full URL (typical): https://<acct>.blob.core.windows.net/<container>/<blob>
+  // 2) CDN/custom domain URL (sometimes): https://cdn.example.com/<blob> (no container segment)
+  try {
+    const u = new URL(raw)
+    const parts = u.pathname.replace(/^\/+/, '').split('/').filter(Boolean)
+    if (parts.length >= 2) {
+      return { containerName: parts[0], blobName: parts.slice(1).join('/') }
+    }
+    if (parts.length === 1) {
+      return { containerName: containerFromEnv, blobName: parts[0] }
+    }
+    return null
+  } catch {
+    // Not a URL: fall through
+  }
+
+  // Allow passing a blob name or path (e.g. "uuid.mp4", "/media/uuid.mp4", "media/uuid.mp4", "uploads/uuid.mp4")
+  const noQuery = raw.split('?')[0]
+  const path = noQuery.replace(/^\/+/, '')
+  if (!path) return null
+  const parts = path.split('/').filter(Boolean)
+
+  // Only treat first segment as container if it matches our expected container name.
+  if (parts.length >= 2 && parts[0] && parts[0].toLowerCase() === containerFromEnv.toLowerCase()) {
+    return { containerName: parts[0], blobName: parts.slice(1).join('/') }
+  }
+
+  return { containerName: containerFromEnv, blobName: parts.join('/') }
 }
 
 // Complete the upload by creating the database record
@@ -345,21 +378,37 @@ export async function POST(request: Request) {
 
     // Best-effort: persist fileSize once at upload time (do not block upload if Azure is unavailable)
     try {
-      const parsed = parseAzureUrl(url)
-      if (parsed) {
-        const blobServiceClient = getAzureBlobClient()
-        const containerClient = blobServiceClient.getContainerClient(parsed.containerName)
-        const blobClient = containerClient.getBlobClient(parsed.blobName)
-        const props = await blobClient.getProperties()
-        const size = props.contentLength
-        if (typeof size === 'number' && Number.isFinite(size) && size >= 0) {
-          // Use raw SQL to avoid Prisma client type drift in some environments
-          await prisma.$executeRaw`
-            UPDATE "Media"
-            SET "fileSize" = ${BigInt(Math.trunc(size))}
-            WHERE "id" = ${media.id}
-          `
+      let size: number | null = null
+
+      // Prefer Azure SDK when available.
+      try {
+        const parsed = parseAzureUrl(url)
+        if (parsed) {
+          const blobServiceClient = getAzureBlobClient()
+          const containerClient = blobServiceClient.getContainerClient(parsed.containerName)
+          const blobClient = containerClient.getBlobClient(parsed.blobName)
+          const props = await blobClient.getProperties()
+          if (typeof props.contentLength === 'number' && Number.isFinite(props.contentLength) && props.contentLength >= 0) {
+            size = props.contentLength
+          }
         }
+      } catch (e) {
+        // Fall through to HEAD-based approach
+        console.error('Azure SDK getProperties failed:', e)
+      }
+
+      // Fallback: HEAD request against the stored URL (works if URL is publicly reachable).
+      if (size === null) {
+        size = await tryGetSizeViaHead(url)
+      }
+
+      if (typeof size === 'number' && Number.isFinite(size) && size >= 0) {
+        // Use raw SQL to avoid Prisma client type drift in some environments
+        await prisma.$executeRaw`
+          UPDATE "Media"
+          SET "fileSize" = ${BigInt(Math.trunc(size))}
+          WHERE "id" = ${media.id}
+        `
       }
     } catch (e) {
       console.error('Failed to persist fileSize on upload:', e)

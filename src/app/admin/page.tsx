@@ -1439,9 +1439,29 @@ export default function AdminPage() {
                     </span>
                   </div>
                   {fileSizeBackfillResult && (
-                    <div className="text-xs text-gray-400">
-                      Updated {fileSizeBackfillResult.updated}/{fileSizeBackfillResult.scanned}
-                      {fileSizeBackfillResult.errors?.length ? ` (errors: ${fileSizeBackfillResult.errors.length})` : ''}
+                    <div className="flex flex-col gap-1 text-xs text-gray-400">
+                      <div>
+                        Updated {fileSizeBackfillResult.updated}/{fileSizeBackfillResult.scanned}
+                      </div>
+                      {!!fileSizeBackfillResult.errors?.length && (
+                        <details className="max-w-[900px]">
+                          <summary className="cursor-pointer hover:text-gray-200">
+                            Show errors ({fileSizeBackfillResult.errors.length})
+                          </summary>
+                          <ul className="mt-2 space-y-1 max-h-40 overflow-auto rounded bg-tank-dark/40 border border-tank-light/20 p-2">
+                            {fileSizeBackfillResult.errors.slice(0, 20).map((err, idx) => (
+                              <li key={idx} className="font-mono break-all">
+                                {err}
+                              </li>
+                            ))}
+                          </ul>
+                          {fileSizeBackfillResult.errors.length > 20 && (
+                            <div className="mt-1 text-gray-500">
+                              Showing first 20 errors.
+                            </div>
+                          )}
+                        </details>
+                      )}
                     </div>
                   )}
                 </div>
