@@ -89,7 +89,7 @@ model Media {
   description   String?
   type          String
   url           String
-  fileSize      Int?      // bytes (from blob properties)
+  fileSize      BigInt?   // bytes (from blob properties)
   thumbnailUrl  String?
   aiTool        String?
   realDevice    String?

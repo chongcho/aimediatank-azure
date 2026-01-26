@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/email'
+import { BlobServiceClient } from '@azure/storage-blob'
 
 export const dynamic = 'force-dynamic'
 
@@ -199,6 +200,32 @@ function generatePaidUploadEmail(
   `
 }
 
+function getAzureBlobClient() {
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+  if (!connectionString) {
+    throw new Error('AZURE_STORAGE_CONNECTION_STRING is not defined')
+  }
+  return BlobServiceClient.fromConnectionString(connectionString)
+}
+
+function parseAzureUrl(url: string): { containerName: string; blobName: string } | null {
+  try {
+    const u = new URL(url)
+    const parts = u.pathname.replace(/^\/+/, '').split('/')
+    const containerFromEnv = process.env.AZURE_STORAGE_CONTAINER_NAME || 'media'
+    if (parts.length < 2) {
+      const blobName = parts.join('/')
+      if (!blobName) return null
+      return { containerName: containerFromEnv, blobName }
+    }
+    const containerName = parts[0] || containerFromEnv
+    const blobName = parts.slice(1).join('/')
+    return { containerName, blobName }
+  } catch {
+    return null
+  }
+}
+
 // Complete the upload by creating the database record
 export async function POST(request: Request) {
   try {
@@ -315,6 +342,28 @@ export async function POST(request: Request) {
         },
       },
     })
+
+    // Best-effort: persist fileSize once at upload time (do not block upload if Azure is unavailable)
+    try {
+      const parsed = parseAzureUrl(url)
+      if (parsed) {
+        const blobServiceClient = getAzureBlobClient()
+        const containerClient = blobServiceClient.getContainerClient(parsed.containerName)
+        const blobClient = containerClient.getBlobClient(parsed.blobName)
+        const props = await blobClient.getProperties()
+        const size = props.contentLength
+        if (typeof size === 'number' && Number.isFinite(size) && size >= 0) {
+          // Use raw SQL to avoid Prisma client type drift in some environments
+          await prisma.$executeRaw`
+            UPDATE "Media"
+            SET "fileSize" = ${BigInt(Math.trunc(size))}
+            WHERE "id" = ${media.id}
+          `
+        }
+      }
+    } catch (e) {
+      console.error('Failed to persist fileSize on upload:', e)
+    }
 
     // Update free uploads used (for non-Premium plans) or consume paid credit
     let newFreeUploadsUsed = freeUploadsUsed

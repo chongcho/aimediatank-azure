@@ -421,8 +421,14 @@ export async function GET(request: Request) {
         prisma.media.count({ where }),
       ])
 
+      // BigInt fields (eg fileSize) must be JSON-serialized explicitly
+      const mediaJson = media.map((m: any) => ({
+        ...m,
+        fileSize: m.fileSize === null || m.fileSize === undefined ? null : m.fileSize.toString(),
+      }))
+
       return NextResponse.json({
-        media,
+        media: mediaJson,
         pagination: {
           page,
           limit,

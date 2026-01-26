@@ -56,7 +56,7 @@ interface Media {
   title: string
   type: string
   url: string
-  fileSize?: number | null
+  fileSize?: string | number | null
   isApproved: boolean
   isDeleted: boolean
   deletedAt: string | null
@@ -537,8 +537,34 @@ export default function AdminPage() {
     }
   }
 
-  const formatBytes = (bytes?: number | null) => {
-    if (bytes === null || bytes === undefined) return '-'
+  const formatBytes = (bytes?: number | string | null) => {
+    if (bytes === null || bytes === undefined || bytes === '') return '-'
+
+    // API may return fileSize as string (BigInt serialized)
+    if (typeof bytes === 'string') {
+      try {
+        const b = BigInt(bytes)
+        const KB = BigInt(1024)
+        const MB = KB * BigInt(1024)
+        const GB = MB * BigInt(1024)
+        if (b < KB) return `${b.toString()} B`
+        if (b < MB) {
+          const q10 = (b * BigInt(10)) / KB
+          return `${q10 / BigInt(10)}.${q10 % BigInt(10)} KB`
+        }
+        if (b < GB) {
+          const q10 = (b * BigInt(10)) / MB
+          return `${q10 / BigInt(10)}.${q10 % BigInt(10)} MB`
+        }
+        const q100 = (b * BigInt(100)) / GB
+        const whole = q100 / BigInt(100)
+        const frac = (q100 % BigInt(100)).toString().padStart(2, '0')
+        return `${whole.toString()}.${frac} GB`
+      } catch {
+        return '-'
+      }
+    }
+
     if (bytes < 1024) return `${bytes} B`
     const kb = bytes / 1024
     if (kb < 1024) return `${kb.toFixed(1)} KB`

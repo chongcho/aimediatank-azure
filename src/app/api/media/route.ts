@@ -116,6 +116,8 @@ export async function GET(request: Request) {
       
       return {
         ...m,
+        // BigInt fields (eg fileSize) must be JSON-serialized explicitly
+        fileSize: m.fileSize === null || m.fileSize === undefined ? null : m.fileSize.toString(),
         avgRating: Math.round(avgRating * 10) / 10,
         reactions: { happy: happyCount, sad: sadCount },
         ratings: undefined, // Remove individual ratings from response

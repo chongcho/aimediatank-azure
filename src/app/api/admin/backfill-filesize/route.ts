@@ -18,8 +18,14 @@ function parseAzureUrl(url: string): { containerName: string; blobName: string }
   try {
     const u = new URL(url)
     const parts = u.pathname.replace(/^\/+/, '').split('/')
-    if (parts.length < 2) return null
-    const containerName = parts[0]
+    const containerFromEnv = process.env.AZURE_STORAGE_CONTAINER_NAME || 'media'
+    if (parts.length < 2) {
+      // Some deployments store URLs without container path (eg. CDN/custom domain). Fallback to env container.
+      const blobName = parts.join('/')
+      if (!blobName) return null
+      return { containerName: containerFromEnv, blobName }
+    }
+    const containerName = parts[0] || containerFromEnv
     const blobName = parts.slice(1).join('/')
     return { containerName, blobName }
   } catch {
@@ -94,10 +100,12 @@ export async function POST(request: Request) {
         const size = props.contentLength
 
         if (typeof size === 'number' && Number.isFinite(size) && size >= 0) {
-          await prisma.media.update({
-            where: { id: row.id },
-            data: { fileSize: Math.trunc(size) },
-          })
+          // Use raw SQL to avoid Prisma client type drift in some environments
+          await prisma.$executeRaw`
+            UPDATE "Media"
+            SET "fileSize" = ${BigInt(Math.trunc(size))}
+            WHERE "id" = ${row.id}
+          `
           updated++
         } else {
           errors.push(`${row.id}: missing contentLength`)

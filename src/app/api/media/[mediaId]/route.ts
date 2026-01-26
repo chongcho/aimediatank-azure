@@ -85,6 +85,8 @@ export async function GET(
 
     return NextResponse.json({
       ...media,
+      // BigInt fields (eg fileSize) must be JSON-serialized explicitly
+      fileSize: (media as any).fileSize === null || (media as any).fileSize === undefined ? null : (media as any).fileSize.toString(),
       avgRating: Math.round(avgRating * 10) / 10,
       views: media.views + 1,
     })
