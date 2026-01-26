@@ -56,6 +56,7 @@ interface Media {
   title: string
   type: string
   url: string
+  fileSize?: number | null
   isApproved: boolean
   isDeleted: boolean
   deletedAt: string | null
@@ -278,6 +279,12 @@ export default function AdminPage() {
   const [mediaSearchDebounced, setMediaSearchDebounced] = useState('')
   const [mediaTypeFilter, setMediaTypeFilter] = useState('all')
   const [mediaStatusFilter, setMediaStatusFilter] = useState('all')
+
+  // File size backfill status (Media tab)
+  const [fileSizeStatus, setFileSizeStatus] = useState<{ missing: number } | null>(null)
+  const [fileSizeStatusLoading, setFileSizeStatusLoading] = useState(false)
+  const [fileSizeBackfillRunning, setFileSizeBackfillRunning] = useState(false)
+  const [fileSizeBackfillResult, setFileSizeBackfillResult] = useState<{ scanned: number; updated: number; errors?: string[] } | null>(null)
   
   // Delete media modal state
   const [deleteModal, setDeleteModal] = useState<{
@@ -484,6 +491,8 @@ export default function AdminPage() {
           setMediaTotalPages(data.pagination.totalPages)
           setMediaTotal(data.pagination.total)
         }
+        // Best-effort: refresh file size status for the Media tab
+        fetchFileSizeStatus()
       } else if (activeTab === 'chat') {
         const params = new URLSearchParams({ action: 'chatMessages' })
         if (chatSearchDebounced) params.set('search', chatSearchDebounced)
@@ -525,6 +534,57 @@ export default function AdminPage() {
       console.error('Error fetching admin data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const formatBytes = (bytes?: number | null) => {
+    if (bytes === null || bytes === undefined) return '-'
+    if (bytes < 1024) return `${bytes} B`
+    const kb = bytes / 1024
+    if (kb < 1024) return `${kb.toFixed(1)} KB`
+    const mb = kb / 1024
+    if (mb < 1024) return `${mb.toFixed(1)} MB`
+    const gb = mb / 1024
+    return `${gb.toFixed(2)} GB`
+  }
+
+  const fetchFileSizeStatus = async () => {
+    setFileSizeStatusLoading(true)
+    try {
+      const res = await fetch('/api/admin/backfill-filesize', { method: 'GET' })
+      const data = await res.json()
+      if (res.ok) {
+        setFileSizeStatus({ missing: data.missing ?? 0 })
+      }
+    } catch (e) {
+      console.error('Failed to fetch file size status:', e)
+    } finally {
+      setFileSizeStatusLoading(false)
+    }
+  }
+
+  const runFileSizeBackfill = async () => {
+    if (!confirm('Backfill missing file sizes from Azure Blob Storage now?')) return
+    setFileSizeBackfillRunning(true)
+    setFileSizeBackfillResult(null)
+    try {
+      const res = await fetch('/api/admin/backfill-filesize', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setFileSizeBackfillResult({ scanned: data.scanned, updated: data.updated, errors: data.errors })
+        await fetchFileSizeStatus()
+        // refresh the media list so the File Size column updates
+        if (activeTab === 'media') {
+          await fetchData()
+        }
+      } else {
+        alert(data.error || 'Backfill failed')
+      }
+    } catch (e) {
+      console.error('Backfill failed:', e)
+      alert('Backfill failed')
+    } finally {
+      setFileSizeBackfillRunning(false)
     }
   }
   
@@ -1344,6 +1404,38 @@ export default function AdminPage() {
           {/* Media */}
           {activeTab === 'media' && (
             <div className="space-y-4">
+              <div className="card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="text-sm text-gray-300">
+                    <span className="text-gray-500">File sizes missing:</span>{' '}
+                    <span className="font-medium">
+                      {fileSizeStatusLoading ? '...' : (fileSizeStatus?.missing ?? '-')}
+                    </span>
+                  </div>
+                  {fileSizeBackfillResult && (
+                    <div className="text-xs text-gray-400">
+                      Updated {fileSizeBackfillResult.updated}/{fileSizeBackfillResult.scanned}
+                      {fileSizeBackfillResult.errors?.length ? ` (errors: ${fileSizeBackfillResult.errors.length})` : ''}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={fetchFileSizeStatus}
+                    className="px-3 py-2 rounded-lg bg-tank-light/20 hover:bg-tank-light/30 text-sm"
+                    disabled={fileSizeStatusLoading}
+                  >
+                    Refresh
+                  </button>
+                  <button
+                    onClick={runFileSizeBackfill}
+                    className="px-3 py-2 rounded-lg bg-tank-accent/20 hover:bg-tank-accent/30 text-tank-accent text-sm"
+                    disabled={fileSizeBackfillRunning}
+                  >
+                    {fileSizeBackfillRunning ? 'Backfilling...' : 'Backfill file sizes'}
+                  </button>
+                </div>
+              </div>
               <div className="card overflow-x-auto">
                 <table className="w-full text-sm min-w-[1500px]">
                   <thead>
@@ -1353,6 +1445,7 @@ export default function AdminPage() {
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Creator</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Upload Date</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">File Location</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">File Size</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Age Filter</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Status</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Sold Date</th>
@@ -1392,6 +1485,9 @@ export default function AdminPage() {
                             >
                               {item.url.split('/').pop()?.slice(0, 20)}...
                             </a>
+                          </td>
+                          <td className="p-3 text-gray-400 whitespace-nowrap">
+                            {formatBytes(item.fileSize ?? null)}
                           </td>
                           <td className="p-3">
                             <select
