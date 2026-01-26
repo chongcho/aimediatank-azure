@@ -288,6 +288,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const isAutoScrollEnabledRef = useRef(true)
   const autoScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastAutoScrolledMessageIdRef = useRef<string | null>(null)
   const [didInitialScroll, setDidInitialScroll] = useState(false)
   const hasUserScrollIntentRef = useRef(false)
   const ignoreInitialScrollRef = useRef(true)
@@ -1718,8 +1719,26 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }, [isInitialized, session?.user?.id, chatMode, selectedRecipients.length, fetchChatRecords])
 
   useEffect(() => {
-    if (!isAutoScrollEnabledRef.current) return
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const lastId = messages.length ? (messages[messages.length - 1] as any)?.id : null
+    if (!lastId) return
+
+    // Track latest message id even when auto-scroll is disabled.
+    if (!isAutoScrollEnabledRef.current) {
+      lastAutoScrolledMessageIdRef.current = lastId
+      return
+    }
+
+    // Only scroll when the *last message* changes (prevents polling refresh from yanking you).
+    if (lastAutoScrolledMessageIdRef.current === null) {
+      lastAutoScrolledMessageIdRef.current = lastId
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+      return
+    }
+
+    if (lastAutoScrolledMessageIdRef.current !== lastId) {
+      lastAutoScrolledMessageIdRef.current = lastId
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages])
 
   useLayoutEffect(() => {
@@ -2547,7 +2566,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           onScroll={() => {
             const el = messagesContainerRef.current
             if (!el) return
-            if (ignoreInitialScrollRef.current || !hasUserScrollIntentRef.current) return
+            if (ignoreInitialScrollRef.current) return
             const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
             isAutoScrollEnabledRef.current = distanceFromBottom < 80
             if (!isAutoScrollEnabledRef.current) {
