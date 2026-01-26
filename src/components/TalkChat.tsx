@@ -2554,11 +2554,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               if (autoScrollTimeoutRef.current) {
                 clearTimeout(autoScrollTimeoutRef.current)
               }
-              autoScrollTimeoutRef.current = setTimeout(() => {
-                isAutoScrollEnabledRef.current = true
-                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-                hasUserScrollIntentRef.current = false
-              }, 30000)
+              // IMPORTANT: do not auto-jump back to bottom after a timeout.
+              // Keep the user's scroll position until they scroll back near the bottom.
+              autoScrollTimeoutRef.current = null
             }
           }}
           style={{
