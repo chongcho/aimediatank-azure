@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
+import { stripHashtags } from '@/lib/text'
 
 interface ChatMessage {
   id: string
@@ -24,6 +25,15 @@ interface MediaItem {
   thumbnailUrl: string | null
   type: string
   source?: 'uploads' | 'purchased' | 'saved'
+}
+
+interface MediaPreview {
+  id: string
+  title: string
+  url: string
+  thumbnailUrl: string | null
+  type: string
+  missing?: boolean
 }
 
 interface TalkChatProps {
@@ -89,6 +99,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const [userMedia, setUserMedia] = useState<MediaItem[]>([])
   const [loadingMedia, setLoadingMedia] = useState(false)
+  const [mediaPreviews, setMediaPreviews] = useState<Record<string, MediaPreview>>({})
+  const [missingPreviewIds, setMissingPreviewIds] = useState<Record<string, true>>({})
+  const [attachedMediaIds, setAttachedMediaIds] = useState<string[]>([])
+  const [attachedMediaInfo, setAttachedMediaInfo] = useState<Record<string, { title: string; thumbnailUrl?: string | null }>>({})
   // Current user avatar and username (fetched fresh from API)
   const [userAvatar, setUserAvatar] = useState<string | null>(null)
   const [currentUsername, setCurrentUsername] = useState<string | null>(null)
@@ -102,6 +116,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Inline notification message (replaces browser alerts)
   const [inlineNotice, setInlineNotice] = useState<string | null>(null)
   
+  // Return username as-is (trimmed) for display
+  const formatDisplayUsername = (username?: string | null) => {
+    if (!username) return ''
+    return username.trim()
+  }
+
   // Load chat size from localStorage on mount
   useEffect(() => {
     const savedSize = localStorage.getItem('talkChatSize')
@@ -255,6 +275,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }>({ show: false, title: '', message: '', onConfirm: () => {} })
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const isAutoScrollEnabledRef = useRef(true)
+  const autoScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [didInitialScroll, setDidInitialScroll] = useState(false)
+  const hasUserScrollIntentRef = useRef(false)
+  const ignoreInitialScrollRef = useRef(true)
   const inputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const mediaPickerRef = useRef<HTMLDivElement>(null)
@@ -262,6 +288,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const userPickerRef = useRef<HTMLDivElement>(null)
   const chatRecordsRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottomInstant = useCallback(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    container.scrollTop = container.scrollHeight
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+  }, [])
 
   const isSignedIn = !!session?.user
 
@@ -1218,19 +1251,38 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setShowMentionPicker(false)
   }
 
-  // Insert media link into message (markdown format for clickable link)
+  // Attach media without injecting file URLs into the message text
   const insertMediaLink = (media: MediaItem) => {
-    const mediaUrl = `${window.location.origin}/media/${media.id}`
-    // Insert as [title](url) markdown format
-    setNewMessage(prev => prev + (prev ? ' ' : '') + `[📎${media.title}](${mediaUrl})`)
+    setAttachedMediaIds((prev) => (prev.includes(media.id) ? prev : [...prev, media.id]))
+    setAttachedMediaInfo((prev) => ({
+      ...prev,
+      [media.id]: {
+        title: media.title,
+        thumbnailUrl: media.thumbnailUrl || null,
+      },
+    }))
     setShowMediaPicker(false)
     inputRef.current?.focus()
+  }
+
+  const removeAttachedMedia = (mediaId: string) => {
+    setAttachedMediaIds((prev) => prev.filter((id) => id !== mediaId))
+    setAttachedMediaInfo((prev) => {
+      const next = { ...prev }
+      delete next[mediaId]
+      return next
+    })
   }
 
   // Render message content with clickable links
   const renderMessageContent = (content: string) => {
     // Remove hashtags (e.g., #dog, #hashtag) from display
-    const contentWithoutHashtags = content.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim()
+    const contentWithoutHashtags = content.replace(/#\w+/g, '')
+    const contentWithoutMediaTokens = contentWithoutHashtags
+      .replace(/\[\[media:[^\]]+\]\]/g, '')
+      .replace(/\[[^\]]+\]\([^)]*\/media\/[^)]+\)/g, '')
+      .replace(/https?:\/\/[^\s]*\/media\/[^\s]+/g, '')
+    const normalizedContent = contentWithoutMediaTokens.replace(/\s+/g, ' ').trim()
     
     // Match markdown links [text](url) and plain URLs
     const linkRegex = /\[([^\]]+)\]\(([^)]+)\)|(https?:\/\/[^\s]+)/g
@@ -1238,14 +1290,18 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     let lastIndex = 0
     let match
 
-    while ((match = linkRegex.exec(contentWithoutHashtags)) !== null) {
+    while ((match = linkRegex.exec(normalizedContent)) !== null) {
       // Add text before the match
       if (match.index > lastIndex) {
-        parts.push(contentWithoutHashtags.slice(lastIndex, match.index))
+        parts.push(normalizedContent.slice(lastIndex, match.index))
       }
 
       if (match[1] && match[2]) {
         // Markdown link [text](url)
+        if (match[2].includes('/media/')) {
+          lastIndex = match.index + match[0].length
+          continue
+        }
         parts.push(
           <a
             key={match.index}
@@ -1262,6 +1318,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         )
       } else if (match[3]) {
         // Plain URL
+        if (match[3].includes('/media/')) {
+          lastIndex = match.index + match[0].length
+          continue
+        }
         parts.push(
           <a
             key={match.index}
@@ -1281,12 +1341,144 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
 
     // Add remaining text
-    if (lastIndex < contentWithoutHashtags.length) {
-      parts.push(contentWithoutHashtags.slice(lastIndex))
+    if (lastIndex < normalizedContent.length) {
+      parts.push(normalizedContent.slice(lastIndex))
     }
 
-    return parts.length > 0 ? parts : contentWithoutHashtags
+    if (!normalizedContent) {
+      return null
+    }
+
+    return parts.length > 0 ? parts : normalizedContent
   }
+
+  const extractMediaIds = (content: string) => {
+    const ids: string[] = []
+    const regex = /\/media\/([a-zA-Z0-9_-]+)|\[\[media:([a-zA-Z0-9_-]+)\]\]/g
+    let match
+    while ((match = regex.exec(content)) !== null) {
+      ids.push(match[1] || match[2])
+    }
+    return Array.from(new Set(ids))
+  }
+
+  const renderMediaPreviews = (content: string) => {
+    const ids = extractMediaIds(content)
+    const previews = ids
+      .map((id) => mediaPreviews[id])
+      .filter((preview) => preview && !preview.missing)
+    if (previews.length === 0) return null
+
+    return (
+      <div style={{ marginTop: '6px', display: 'grid', gap: '6px' }}>
+        {previews.map((preview) => (
+          <a
+            key={preview.id}
+            href={`/media/${preview.id}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 8px',
+              borderRadius: '8px',
+              background: '#0f172a',
+              color: 'white',
+              textDecoration: 'none',
+              overflow: 'hidden',
+              maxWidth: '100%',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(preview.thumbnailUrl || (preview.type === 'IMAGE' && preview.url)) ? (
+              <img
+                src={preview.thumbnailUrl || preview.url}
+                alt={preview.title}
+                style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }}
+              />
+            ) : (
+              <div style={{
+                width: '52px',
+                height: '52px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: preview.type === 'VIDEO'
+                  ? 'linear-gradient(135deg, #ef4444, #f97316)'
+                  : 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                color: 'white',
+                fontSize: '10px',
+                fontWeight: '600',
+                flexShrink: 0,
+              }}>
+                {preview.type}
+              </div>
+            )}
+            <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+              <div
+                style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                title={stripHashtags(preview.title)}
+              >
+                {stripHashtags(preview.title)}
+              </div>
+              <div style={{ fontSize: '10px', color: '#94a3b8' }}>View media</div>
+            </div>
+          </a>
+        ))}
+      </div>
+    )
+  }
+
+  useEffect(() => {
+    const ids = new Set<string>()
+    messages.forEach((msg) => {
+      extractMediaIds(msg.content).forEach((id) => ids.add(id))
+    })
+    const missing = Array.from(ids).filter((id) => !mediaPreviews[id] && !missingPreviewIds[id])
+    if (missing.length === 0) return
+
+    let isActive = true
+    const fetchPreviews = async () => {
+      const results = await Promise.all(
+        missing.map(async (id) => {
+          try {
+            const res = await fetch(`/api/media/preview/${id}`, { cache: 'no-store' })
+            if (!res.ok) {
+              if (res.status === 404) {
+                setMissingPreviewIds((prev) => ({ ...prev, [id]: true }))
+              }
+              return null
+            }
+            const preview = (await res.json()) as MediaPreview
+            if (preview.missing) {
+              setMissingPreviewIds((prev) => ({ ...prev, [id]: true }))
+              return null
+            }
+            return preview
+          } catch (error) {
+            console.error('Error fetching media preview:', error)
+            return null
+          }
+        })
+      )
+
+      if (!isActive) return
+      setMediaPreviews((prev) => {
+        const next = { ...prev }
+        results.forEach((preview) => {
+          if (preview?.id) {
+            next[preview.id] = preview
+          }
+        })
+        return next
+      })
+    }
+
+    fetchPreviews()
+    return () => {
+      isActive = false
+    }
+  }, [messages, mediaPreviews, missingPreviewIds])
 
   // Search users for @mention
   const searchMentionUsers = async (query: string) => {
@@ -1417,6 +1609,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return () => clearInterval(interval)
   }, [isInitialized, fetchMessages])
 
+  useEffect(() => {
+    setDidInitialScroll(false)
+    isAutoScrollEnabledRef.current = true
+    hasUserScrollIntentRef.current = false
+    ignoreInitialScrollRef.current = true
+  }, [chatMode, activeConversation?.id, selectedRecipients.length])
+
   // Fetch chat invites periodically
   useEffect(() => {
     if (!isInitialized || !session?.user?.id) return
@@ -1442,8 +1641,22 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }, [isInitialized, session?.user?.id, chatMode, selectedRecipients.length, fetchChatRecords])
 
   useEffect(() => {
+    if (!isAutoScrollEnabledRef.current) return
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useLayoutEffect(() => {
+    if (didInitialScroll || messages.length === 0) return
+    if (showUserPicker || chatSize === 'min') return
+    ignoreInitialScrollRef.current = true
+    scrollToBottomInstant()
+    const raf = requestAnimationFrame(() => {
+      scrollToBottomInstant()
+      ignoreInitialScrollRef.current = false
+      setDidInitialScroll(true)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [messages.length, didInitialScroll, showUserPicker, chatSize, scrollToBottomInstant])
 
   useEffect(() => {
     if (isInitialized) {
@@ -1455,7 +1668,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     e.preventDefault()
     console.log('sendMessage called, message:', newMessage, 'loading:', loading)
     
-    if (!newMessage.trim() || loading) {
+    if ((!newMessage.trim() && attachedMediaIds.length === 0) || loading) {
       console.log('Message empty or loading, returning')
       return
     }
@@ -1472,8 +1685,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
 
     setLoading(true)
+    // Return to last message immediately when user sends a new message
+    isAutoScrollEnabledRef.current = true
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     try {
-      const messageContent = newMessage.trim()
+      const textContent = newMessage.trim()
+      const mediaMarkers = attachedMediaIds.map((id) => `[[media:${id}]]`).join(' ')
+      const messageContent = [textContent, mediaMarkers].filter(Boolean).join(' ').trim()
       
       // If we have an active conversation, use the conversation API
       if (chatMode === 'private' && activeConversation) {
@@ -1594,6 +1812,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       }
       
       setNewMessage('')
+      setAttachedMediaIds([])
+      setAttachedMediaInfo({})
       fetchMessages()
     } catch (error) {
       console.error('Error sending message:', error)
@@ -2002,7 +2222,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       }}
                       title="Click to remove"
                     >
-                      @{u.username}
+                      @{formatDisplayUsername(u.username)}
                     </span>
                   ))}
                 <input
@@ -2095,7 +2315,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           </svg>
                         )}
                       </div>
-                      <span style={{ fontSize: '14px', color: '#333' }}>@{user.username}</span>
+                      <span style={{ fontSize: '14px', color: '#333' }}>@{formatDisplayUsername(user.username)}</span>
                       {user.name && <span style={{ fontSize: '12px', color: '#888' }}>({user.name})</span>}
                     </button>
                   )
@@ -2174,7 +2394,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: '600', fontSize: '13px', color: '#333' }}>
-                      @{invite.sender.username}
+                      @{formatDisplayUsername(invite.sender.username)}
                     </div>
                     <div style={{ fontSize: '11px', color: '#666' }}>
                       wants to chat with you
@@ -2235,8 +2455,35 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         {/* Messages Area - Hidden when minimized or when New Chat is open */}
         {!showUserPicker && chatSize !== 'min' && (
         <div 
+          ref={messagesContainerRef}
           className="chat-messages-scroll"
           onTouchMove={(e) => e.stopPropagation()}
+          onWheel={() => {
+            hasUserScrollIntentRef.current = true
+          }}
+          onTouchStart={() => {
+            hasUserScrollIntentRef.current = true
+          }}
+          onMouseDown={() => {
+            hasUserScrollIntentRef.current = true
+          }}
+          onScroll={() => {
+            const el = messagesContainerRef.current
+            if (!el) return
+            if (ignoreInitialScrollRef.current || !hasUserScrollIntentRef.current) return
+            const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+            isAutoScrollEnabledRef.current = distanceFromBottom < 80
+            if (!isAutoScrollEnabledRef.current) {
+              if (autoScrollTimeoutRef.current) {
+                clearTimeout(autoScrollTimeoutRef.current)
+              }
+              autoScrollTimeoutRef.current = setTimeout(() => {
+                isAutoScrollEnabledRef.current = true
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+                hasUserScrollIntentRef.current = false
+              }, 30000)
+            }
+          }}
           style={{
             flex: 1,
             overflowY: 'auto',
@@ -2323,10 +2570,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     const displayUser = record.user || (record.members && record.members[0])
                     // Use chat title if available, otherwise show user names
                     const displayName = record.name 
-                      ? record.name 
+                      ? (record.isGroup ? record.name : formatDisplayUsername(record.name))
                       : (isGroup && record.members
-                          ? record.members.map(m => `@${m.username}`).join(', ')
-                          : displayUser ? `@${displayUser.username}` : 'Unknown')
+                          ? record.members.map(m => `@${formatDisplayUsername(m.username)}`).join(', ')
+                          : displayUser ? `@${formatDisplayUsername(displayUser.username)}` : 'Unknown')
                     
                     return (
                       <button
@@ -2752,7 +2999,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <p style={{ fontSize: '14px', textAlign: 'center' }}>
                 {chatMode === 'private' 
                   ? selectedRecipients.length === 1
-                    ? `Start a private conversation with @${selectedRecipients[0]?.username}`
+                    ? `Start a private conversation with @${formatDisplayUsername(selectedRecipients[0]?.username)}`
                     : selectedRecipients.length > 1
                       ? `Send a group message to ${selectedRecipients.length} users`
                       : 'Select a user to chat with'
@@ -2775,7 +3022,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       fontSize: '12px',
                       fontWeight: '500',
                     }}>
-                      @{r.username}
+                      @{formatDisplayUsername(r.username)}
                     </span>
                   ))}
                 </div>
@@ -2825,8 +3072,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     alignItems: isOwn ? 'flex-end' : 'flex-start',
                   }}>
                     <p style={{ fontSize: '10px', color: '#666', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {msg.user.username}
-                      {msg.user.warningCount && msg.user.warningCount > 0 && (
+                      {formatDisplayUsername(msg.user.username)}
+                      {typeof msg.user.warningCount === 'number' && msg.user.warningCount > 0 && (
                         <span style={{
                           backgroundColor: '#fef3c7',
                           color: '#d97706',
@@ -2846,9 +3093,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       color: '#1a1a1a',
                       border: 'none',
                     }}>
-                      <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                        {renderMessageContent(msg.content)}
-                      </p>
+                      {(() => {
+                        const renderedContent = renderMessageContent(msg.content)
+                        return renderedContent ? (
+                          <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            {renderedContent}
+                          </p>
+                        ) : null
+                      })()}
+                      {renderMediaPreviews(msg.content)}
                     </div>
                     <p style={{ fontSize: '9px', color: '#888', marginTop: '2px' }}>
                       {formatTime(msg.createdAt)}
@@ -2961,7 +3214,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     )}
                   </div>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: '500', color: '#333' }}>@{user.username}</div>
+                    <div style={{ fontSize: '13px', fontWeight: '500', color: '#333' }}>@{formatDisplayUsername(user.username)}</div>
                     {user.name && <div style={{ fontSize: '11px', color: '#888' }}>{user.name}</div>}
                   </div>
                 </button>
@@ -3237,6 +3490,89 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
+          {attachedMediaIds.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '6px',
+                marginBottom: '6px',
+              }}
+            >
+              {attachedMediaIds.map((id) => {
+                const info = attachedMediaInfo[id]
+                return (
+                  <div
+                    key={id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      background: '#f3f4f6',
+                      border: '1px solid #e5e7eb',
+                      maxWidth: '100%',
+                    }}
+                  >
+                    {info?.thumbnailUrl ? (
+                      <img
+                        src={info.thumbnailUrl}
+                        alt=""
+                        style={{ width: '20px', height: '20px', borderRadius: '4px', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '4px',
+                          background: '#dbeafe',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#1e3a8a',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        M
+                      </div>
+                    )}
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        color: '#111827',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '180px',
+                      }}
+                      title={info?.title ? stripHashtags(info.title) : 'Selected media'}
+                    >
+                      {info?.title ? stripHashtags(info.title) : 'Selected media'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachedMedia(id)}
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#6b7280',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        lineHeight: 1,
+                      }}
+                      aria-label="Remove media"
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {/* Media Attach Button */}
             <button
@@ -3276,7 +3612,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     ? "Select a user first..."
                     : chatMode === 'private'
                       ? selectedRecipients.length === 1
-                        ? `Message @${selectedRecipients[0]?.username}...`
+                      ? `Message @${formatDisplayUsername(selectedRecipients[0]?.username)}...`
                         : `Message ${selectedRecipients.length} users...`
                       : "Type @ to mention..."
               }
@@ -3296,7 +3632,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             />
             <button
               type="submit"
-              disabled={!newMessage.trim() || loading || !isSignedIn}
+              disabled={
+                loading ||
+                !isSignedIn ||
+                (chatMode === 'private' && selectedRecipients.length === 0) ||
+                (!newMessage.trim() && attachedMediaIds.length === 0)
+              }
               onClick={(e) => {
                 console.log('Send button clicked')
                 // Form submit will handle it, but log for debugging
@@ -3306,9 +3647,27 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 height: '32px',
                 borderRadius: '6px',
                 border: 'none',
-                backgroundColor: newMessage.trim() && !loading && isSignedIn ? '#1e3a8a' : '#ddd',
-                color: newMessage.trim() && !loading && isSignedIn ? '#fff' : '#999',
-                cursor: newMessage.trim() && !loading && isSignedIn ? 'pointer' : 'default',
+                backgroundColor:
+                  (newMessage.trim() || attachedMediaIds.length > 0) &&
+                  !loading &&
+                  isSignedIn &&
+                  !(chatMode === 'private' && selectedRecipients.length === 0)
+                    ? '#1e3a8a'
+                    : '#ddd',
+                color:
+                  (newMessage.trim() || attachedMediaIds.length > 0) &&
+                  !loading &&
+                  isSignedIn &&
+                  !(chatMode === 'private' && selectedRecipients.length === 0)
+                    ? '#fff'
+                    : '#999',
+                cursor:
+                  (newMessage.trim() || attachedMediaIds.length > 0) &&
+                  !loading &&
+                  isSignedIn &&
+                  !(chatMode === 'private' && selectedRecipients.length === 0)
+                    ? 'pointer'
+                    : 'default',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -3391,14 +3750,32 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
 export default function TalkChat({ isOpen, onClose }: TalkChatProps) {
   const [mounted, setMounted] = useState(false)
+  const [isFullscreenActive, setIsFullscreenActive] = useState(false)
 
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
   }, [])
 
+  useEffect(() => {
+    const updateFullscreenState = () => {
+      const isNativeFullscreen = Boolean(document.fullscreenElement)
+      const isMediaFullscreen = document.body.dataset.mediaFullscreen === 'true'
+      setIsFullscreenActive(isNativeFullscreen || isMediaFullscreen)
+    }
+
+    updateFullscreenState()
+    document.addEventListener('fullscreenchange', updateFullscreenState)
+    const observer = new MutationObserver(updateFullscreenState)
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-media-fullscreen'] })
+    return () => {
+      document.removeEventListener('fullscreenchange', updateFullscreenState)
+      observer.disconnect()
+    }
+  }, [])
+
   // Check isOpen to allow toggling visibility
-  if (!mounted || !isOpen) {
+  if (!mounted || !isOpen || isFullscreenActive) {
     return null
   }
 
