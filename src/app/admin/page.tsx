@@ -825,6 +825,8 @@ export default function AdminPage() {
       })
       if (res.ok) {
         setNavbarMenuItems(prev => prev.map(item => item.itemKey === itemKey ? { ...item, isEnabled } : item))
+        // Let the Navbar refresh itself immediately (no full reload).
+        window.dispatchEvent(new Event('navbarMenuUpdated'))
       }
     } catch (error) {
       console.error('Error toggling navbar item:', error)

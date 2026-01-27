@@ -21,6 +21,13 @@ interface Notification {
   link?: string
 }
 
+interface NavbarMenuItem {
+  itemKey: string
+  label: string
+  isEnabled: boolean
+  sortOrder: number
+}
+
 export default function Navbar() {
   const { data: session, status } = useSession()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -35,11 +42,47 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [chatInviteCount, setChatInviteCount] = useState(0)
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
+  const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
 
   const profileRef = useRef<HTMLDivElement>(null)
   const alertsRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
+
+  const fetchNavbarMenuSettings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ui/navbar', { cache: 'no-store' })
+      if (res.ok) {
+        const data = await res.json()
+        setNavbarMenuItems(data.items || [])
+      }
+    } catch (error) {
+      console.error('Error fetching navbar settings:', error)
+    }
+  }, [])
+
+  const isNavbarItemEnabled = useCallback(
+    (key: string) => {
+      if (navbarMenuItems.length === 0) return true
+      return navbarMenuItems.find((item) => item.itemKey === key)?.isEnabled !== false
+    },
+    [navbarMenuItems]
+  )
+
+  // Load navbar settings + respond to admin updates.
+  useEffect(() => {
+    fetchNavbarMenuSettings()
+    const handler = () => fetchNavbarMenuSettings()
+    window.addEventListener('navbarMenuUpdated', handler as EventListener)
+    return () => window.removeEventListener('navbarMenuUpdated', handler as EventListener)
+  }, [fetchNavbarMenuSettings])
+
+  // If chat is disabled via Navbar Control, force-close it.
+  useEffect(() => {
+    if (!isNavbarItemEnabled('chat')) {
+      setIsTalkChatOpen(false)
+    }
+  }, [isNavbarItemEnabled])
 
   // Check subscriber status from fetched data (more reliable than session)
   const isSubscriber = userData?.role === 'SUBSCRIBER' || userData?.role === 'ADMIN' || 
@@ -276,17 +319,17 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
-            <NavLink href="/">All</NavLink>
-            <NavLink href="/?type=VIDEO">Videos</NavLink>
-            <NavLink href="/?type=IMAGE">Images</NavLink>
-            <NavLink href="/about">About</NavLink>
-            <NavLink href="/game">Play</NavLink>
+            {isNavbarItemEnabled('home') && <NavLink href="/">All</NavLink>}
+            {isNavbarItemEnabled('videos') && <NavLink href="/?type=VIDEO">Videos</NavLink>}
+            {isNavbarItemEnabled('images') && <NavLink href="/?type=IMAGE">Images</NavLink>}
+            {isNavbarItemEnabled('about') && <NavLink href="/about">About</NavLink>}
+            {isNavbarItemEnabled('play') && <NavLink href="/game">Play</NavLink>}
           </div>
 
           {/* Right Side */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Media Message Button - signed-in users */}
-            {session && (
+            {session && isNavbarItemEnabled('mediaMessage') && (
               <button
                 type="button"
                 onClick={() => setIsMediaMessageOpen(true)}
@@ -300,39 +343,43 @@ export default function Navbar() {
               </button>
             )}
 
-            {/* Chat Button - Always visible for all users */}
-            <div className="relative">
-              <button
-                onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
-                className="h-9 px-3 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
-                aria-label="Toggle Chat"
-                title="Toggle Chat"
-              >
-                <span className="text-sm font-bold text-gray-900">Chat</span>
-              </button>
-              {/* Chat invite notification badge */}
-              {chatInviteCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                  {chatInviteCount > 9 ? '9+' : chatInviteCount}
-                </span>
-              )}
-            </div>
+            {/* Chat Button */}
+            {isNavbarItemEnabled('chat') && (
+              <div className="relative">
+                <button
+                  onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
+                  className="h-9 px-3 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
+                  aria-label="Toggle Chat"
+                  title="Toggle Chat"
+                >
+                  <span className="text-sm font-bold text-gray-900">Chat</span>
+                </button>
+                {/* Chat invite notification badge */}
+                {chatInviteCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                    {chatInviteCount > 9 ? '9+' : chatInviteCount}
+                  </span>
+                )}
+              </div>
+            )}
 
             {status === 'loading' ? (
               <div className="w-8 h-8 rounded-full bg-tank-light animate-pulse" />
             ) : session ? (
               <>
                 {/* Upload Button - redirects based on subscription status */}
-                <Link
-                  href={isSubscriber ? "/upload" : "/pricing"}
-                  className="upload-btn hidden sm:flex items-center justify-center h-9 px-4 font-bold rounded-lg text-sm
-                    hover:scale-105 active:scale-95 transition-transform duration-200 ease-out
-                    relative overflow-hidden"
-                >
-                  <span className="upload-text font-bold">
-                    Upload
-                  </span>
-                </Link>
+                {isNavbarItemEnabled('upload') && (
+                  <Link
+                    href={isSubscriber ? "/upload" : "/pricing"}
+                    className="upload-btn hidden sm:flex items-center justify-center h-9 px-4 font-bold rounded-lg text-sm
+                      hover:scale-105 active:scale-95 transition-transform duration-200 ease-out
+                      relative overflow-hidden"
+                  >
+                    <span className="upload-text font-bold">
+                      Upload
+                    </span>
+                  </Link>
+                )}
 
                 {/* User ID Dropdown */}
                 <div className="relative" ref={profileRef}>
@@ -464,16 +511,18 @@ export default function Navbar() {
                         </svg>
                         Profile
                       </Link>
-                      <Link
-                        href="/messages"
-                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.8L3 20l1.2-3A7.87 7.87 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                        Messages
-                      </Link>
+                      {isNavbarItemEnabled('mediaMessage') && (
+                        <Link
+                          href="/messages"
+                          className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
+                          onClick={() => setIsProfileOpen(false)}
+                        >
+                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.8L3 20l1.2-3A7.87 7.87 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                          Messages
+                        </Link>
+                      )}
                       <Link
                         href={`/profile/${userData?.username || session.user?.username}`}
                         className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
@@ -545,22 +594,26 @@ export default function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsSignInOpen(true)}
-                  className="h-9 px-3 flex items-center justify-center text-gray-300 hover:text-white transition-colors text-sm"
-                >
-                  Sign In
-                </button>
-                <Link
-                  href="/register"
-                  className="signup-btn h-9 px-4 flex items-center justify-center font-bold rounded-lg text-sm 
-                    hover:scale-105 active:scale-95 transition-transform duration-200 ease-out
-                    relative overflow-hidden"
-                >
-                  <span className="signup-text font-bold">
-                    Sign Up
-                  </span>
-                </Link>
+                {isNavbarItemEnabled('signIn') && (
+                  <button
+                    onClick={() => setIsSignInOpen(true)}
+                    className="h-9 px-3 flex items-center justify-center text-gray-300 hover:text-white transition-colors text-sm"
+                  >
+                    Sign In
+                  </button>
+                )}
+                {isNavbarItemEnabled('signUp') && (
+                  <Link
+                    href="/register"
+                    className="signup-btn h-9 px-4 flex items-center justify-center font-bold rounded-lg text-sm 
+                      hover:scale-105 active:scale-95 transition-transform duration-200 ease-out
+                      relative overflow-hidden"
+                  >
+                    <span className="signup-text font-bold">
+                      Sign Up
+                    </span>
+                  </Link>
+                )}
               </div>
             )}
 
@@ -587,22 +640,34 @@ export default function Navbar() {
         {isMenuOpen && (
           <div ref={mobileMenuRef} className="md:hidden py-1 border-t border-tank-light">
             <div className="flex flex-col gap-[1px] items-end">
-              <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>All</MobileNavLink>
-              <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
-              <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
-              <MobileNavLink href="/about" onClick={() => setIsMenuOpen(false)}>About</MobileNavLink>
-              <MobileNavLink href="/game" onClick={() => setIsMenuOpen(false)}>Play</MobileNavLink>
-              {session && (
+              {isNavbarItemEnabled('home') && (
+                <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>All</MobileNavLink>
+              )}
+              {isNavbarItemEnabled('videos') && (
+                <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
+              )}
+              {isNavbarItemEnabled('images') && (
+                <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
+              )}
+              {isNavbarItemEnabled('about') && (
+                <MobileNavLink href="/about" onClick={() => setIsMenuOpen(false)}>About</MobileNavLink>
+              )}
+              {isNavbarItemEnabled('play') && (
+                <MobileNavLink href="/game" onClick={() => setIsMenuOpen(false)}>Play</MobileNavLink>
+              )}
+              {session && isNavbarItemEnabled('mediaMessage') && (
                 <MobileNavLink href="/messages" onClick={() => setIsMenuOpen(false)}>Messages</MobileNavLink>
               )}
-              <MobileNavLink href={isSubscriber ? "/upload" : "/pricing"} onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
+              {isNavbarItemEnabled('upload') && (
+                <MobileNavLink href={isSubscriber ? "/upload" : "/pricing"} onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
+              )}
             </div>
           </div>
         )}
       </div>
 
       {/* Talk Chat */}
-      {isTalkChatOpen && (
+      {isNavbarItemEnabled('chat') && isTalkChatOpen && (
         <TalkChat
           isOpen={isTalkChatOpen}
           onClose={() => setIsTalkChatOpen(false)}
@@ -615,12 +680,14 @@ export default function Navbar() {
         onClose={() => setIsSignInOpen(false)}
       />
 
-      <MediaMessageModal
-        isOpen={isMediaMessageOpen}
-        onClose={() => setIsMediaMessageOpen(false)}
-        defaultRecipient="@aidog"
-        myContentsHref={`/profile/${userData?.username || session?.user?.username || 'me'}`}
-      />
+      {session && isNavbarItemEnabled('mediaMessage') && (
+        <MediaMessageModal
+          isOpen={isMediaMessageOpen}
+          onClose={() => setIsMediaMessageOpen(false)}
+          defaultRecipient="@aidog"
+          myContentsHref={`/profile/${userData?.username || session?.user?.username || 'me'}`}
+        />
+      )}
     </nav>
   )
 }
