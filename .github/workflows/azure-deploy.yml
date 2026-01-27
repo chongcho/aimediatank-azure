@@ -1,8 +1,9 @@
 name: Deploy to Azure Production
 
 on:
-  # Manual-only deploy (avoid duplicate runs on push)
-  workflow_dispatch:
+  push:
+    branches: [main]  # Deploy to production on main
+  workflow_dispatch:  # Manual trigger option
 
 env:
   AZURE_WEBAPP_NAME: aimediatank-azure
