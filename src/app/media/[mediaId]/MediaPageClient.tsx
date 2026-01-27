@@ -262,12 +262,12 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
       </div>
 
       {/* Content below media */}
-      <div className="max-w-4xl mx-auto px-4 mt-6 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 pt-5 space-y-6">
         {/* Info Card - Two Column Layout */}
         <div className="card">
-          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-8">
             {/* Left Column: Title, Metadata, Reactions */}
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 lg:flex-1">
               {/* Title Row */}
               <div className="flex items-center gap-2 mb-2 overflow-hidden">
                 <h1
