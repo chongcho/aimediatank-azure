@@ -288,6 +288,13 @@ select {
          transition-all duration-200;
 }
 
+/* Number input spinner spacing - add gap between number and arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  margin-left: 10px;
+  opacity: 1;
+}
+
 /* Button styles */
 .btn {
   @apply px-3 py-1.5 font-semibold rounded-xl transition-all duration-200
