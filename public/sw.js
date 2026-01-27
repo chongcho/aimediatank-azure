@@ -1,4 +1,5 @@
-const CACHE_NAME = 'aimediatank-v8';
+// Bump this when changing caching behavior to force refresh.
+const CACHE_NAME = 'aimediatank-v9';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install
@@ -6,6 +7,7 @@ const PRECACHE_ASSETS = [
   '/',
   '/offline',
   '/manifest.json',
+  '/logo.png',
 ];
 
 // Install event - cache essential assets
@@ -44,32 +46,51 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const isNavigation = event.request.mode === 'navigate';
+  const isNextAsset = url.pathname.startsWith('/_next/');
+
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Clone response and cache it
-        if (response.status === 200) {
+    (async () => {
+      // For navigations, bypass HTTP cache to avoid stale HTML keeping old bundles.
+      if (isNavigation) {
+        try {
+          const response = await fetch(event.request, { cache: 'no-store' });
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          }
+          return response;
+        } catch (e) {
+          const cachedResponse = await caches.match(event.request);
+          return cachedResponse || (await caches.match(OFFLINE_URL));
+        }
+      }
+
+      // Next.js assets are content-hashed; cache-first is safe and reduces network chatter.
+      if (isNextAsset) {
+        const cachedResponse = await caches.match(event.request);
+        if (cachedResponse) return cachedResponse;
+        const response = await fetch(event.request);
+        if (response && response.status === 200) {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
         }
         return response;
-      })
-      .catch(async () => {
-        // Try to get from cache
+      }
+
+      // Default: network-first, cache fallback.
+      try {
+        const response = await fetch(event.request);
+        if (response && response.status === 200) {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+        }
+        return response;
+      } catch (e) {
         const cachedResponse = await caches.match(event.request);
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        
-        // Return offline page for navigation requests
-        if (event.request.mode === 'navigate') {
-          return caches.match(OFFLINE_URL);
-        }
-        
-        return new Response('Offline', { status: 503 });
-      })
+        return cachedResponse || new Response('Offline', { status: 503 });
+      }
+    })()
   );
 });
 
@@ -102,6 +123,10 @@ self.addEventListener('notificationclick', (event) => {
 
 // Handle messages from client for badge updates
 self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+    return;
+  }
   if (event.data && event.data.type === 'SET_BADGE') {
     const count = event.data.count;
     if ('setAppBadge' in self.navigator) {

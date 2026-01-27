@@ -63,14 +63,40 @@ export default function RootLayout({
           {`
             if ('serviceWorker' in navigator) {
               window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js').then(
-                  function(registration) {
-                    console.log('PWA: Service Worker registered with scope:', registration.scope);
-                  },
-                  function(err) {
-                    console.log('PWA: Service Worker registration failed:', err);
+                navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                  console.log('PWA: Service Worker registered with scope:', registration.scope);
+
+                  // Prompt SW to check for updates immediately (don’t wait 24h).
+                  registration.update().catch(function() {});
+
+                  // If there is already a waiting worker, activate it.
+                  if (registration.waiting) {
+                    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
                   }
-                );
+
+                  // When a new worker is found, ask it to skip waiting once installed.
+                  registration.addEventListener('updatefound', function() {
+                    var newWorker = registration.installing;
+                    if (!newWorker) return;
+
+                    newWorker.addEventListener('statechange', function() {
+                      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        newWorker.postMessage({ type: 'SKIP_WAITING' });
+                      }
+                    });
+                  });
+
+                  // Reload once when controller changes so UI updates (guarded to avoid loops).
+                  navigator.serviceWorker.addEventListener('controllerchange', function() {
+                    try {
+                      if (sessionStorage.getItem('swReloaded') === '1') return;
+                      sessionStorage.setItem('swReloaded', '1');
+                    } catch (e) {}
+                    window.location.reload();
+                  });
+                }).catch(function(err) {
+                  console.log('PWA: Service Worker registration failed:', err);
+                });
               });
             }
           `}
