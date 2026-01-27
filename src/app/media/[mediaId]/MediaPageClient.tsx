@@ -2,10 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaPlayer from '@/components/MediaPlayer'
-import { formatMediaTitle, stripHashtags } from '@/lib/text'
+
+// Return username as-is (trimmed) for display
+const formatDisplayUsername = (username?: string | null) => {
+  if (!username) return ''
+  return username.trim()
+}
 
 interface MediaDetail {
   id: string
@@ -15,11 +20,14 @@ interface MediaDetail {
   url: string
   thumbnailUrl: string | null
   aiTool: string | null
+  realDevice?: string | null
   aiPrompt: string | null
   views: number
   avgRating: number
   createdAt: string
   price: number | null
+  isSold?: boolean
+  soldCount?: number
   user: {
     id: string
     username: string
@@ -54,7 +62,13 @@ interface MediaDetail {
   }
 }
 
-export default function MediaPageClient({ mediaId }: { mediaId: string }) {
+interface MediaPageClientProps {
+  mediaId?: string
+}
+
+export default function MediaPageClient({ mediaId: mediaIdProp }: MediaPageClientProps) {
+  const params = useParams()
+  const mediaId = mediaIdProp ?? (params?.mediaId as string | undefined)
   const { data: session } = useSession()
   const router = useRouter()
   const [media, setMedia] = useState<MediaDetail | null>(null)
@@ -71,14 +85,21 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const isOwner = session?.user?.id === media?.user?.id
   const isAdmin = session?.user?.role === 'ADMIN'
   const canManage = isOwner || isAdmin
+  // Show 'Free' for null/undefined or zero price, otherwise show the price
+  const priceLabel =
+    media?.price == null || media.price === 0
+      ? 'Free'
+      : `$${media.price.toFixed(2)}`
+  const soldCount = media?.soldCount ?? (media?.isSold ? 1 : 0)
+  const showSoldBadge = soldCount > 0
 
   useEffect(() => {
+    if (!mediaId) return
     fetchMedia()
     fetchReactions()
     if (session) {
       fetchSavedStatus()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, session])
 
   const fetchSavedStatus = async () => {
@@ -93,7 +114,13 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
 
   const fetchReactions = async () => {
     try {
-      const res = await fetch(`/api/media/${mediaId}/reactions`)
+      // Include visitor ID for anonymous users to get their reaction status
+      const visitorId = typeof window !== 'undefined' ? localStorage.getItem('visitor_id') : null
+      const url = visitorId 
+        ? `/api/media/${mediaId}/reactions?visitorId=${encodeURIComponent(visitorId)}`
+        : `/api/media/${mediaId}/reactions`
+      
+      const res = await fetch(url)
       const data = await res.json()
       if (res.ok) {
         setReactions(data.counts)
@@ -104,19 +131,28 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     }
   }
 
-  const handleReaction = async (type: 'happy' | 'sad') => {
-    if (!session) {
-      router.push('/login')
-      return
+  // Get or create visitor ID for anonymous users
+  const getVisitorId = () => {
+    if (typeof window === 'undefined') return null
+    let visitorId = localStorage.getItem('visitor_id')
+    if (!visitorId) {
+      visitorId = 'anon_' + Math.random().toString(36).substring(2) + Date.now().toString(36)
+      localStorage.setItem('visitor_id', visitorId)
     }
+    return visitorId
+  }
 
+  const handleReaction = async (type: 'happy' | 'sad') => {
     try {
+      // Get visitor ID for anonymous users
+      const visitorId = !session ? getVisitorId() : null
+      
       const res = await fetch(`/api/media/${mediaId}/reactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({ type, visitorId }),
       })
-
+      
       if (res.ok) {
         fetchReactions()
       }
@@ -136,7 +172,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
       const res = await fetch(`/api/media/${mediaId}/save`, {
         method: isSaved ? 'DELETE' : 'POST',
       })
-      await res.json()
+      const data = await res.json()
       if (res.ok) {
         setIsSaved(!isSaved)
       }
@@ -180,8 +216,8 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
 
   const fetchMedia = async () => {
     try {
-      // Add timestamp to prevent caching and get fresh user data
-      const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { cache: 'no-store' })
+      // Avoid cache-busting on every view; it hurts mobile performance on slow networks.
+      const res = await fetch(`/api/media/${mediaId}`)
       const data = await res.json()
       if (res.ok) {
         setMedia(data)
@@ -250,212 +286,171 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   }
 
   return (
-    <div className="pb-[500px]">
-      {/* Media Player - Full Width with top padding, content aligned to top */}
-      <div className="w-full bg-black pt-5">
-        <MediaPlayer
-          type={media.type}
-          url={media.url}
-          title={media.title}
-          thumbnailUrl={media.thumbnailUrl}
-        />
-      </div>
+    <div className="max-w-7xl mx-auto p-0 m-0 pb-[500px]">
+      <div className="grid lg:grid-cols-3 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Media Player */}
+          <div className="pt-[20px]">
+            <MediaPlayer
+              type={media.type}
+              url={media.url}
+              title={media.title}
+              thumbnailUrl={media.thumbnailUrl}
+            />
+          </div>
 
-      {/* Content below media */}
-      <div className="max-w-4xl mx-auto px-4 pt-5 space-y-6">
-        {/* Info Card - Two Column Layout */}
-        <div className="card">
-          <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-8">
-            {/* Left Column: Title, Metadata, Reactions */}
-            <div className="min-w-0 lg:flex-1">
-              {/* Title Row */}
-              <div className="flex items-center gap-2 mb-2 overflow-hidden">
-                <h1
-                  className="font-semibold text-white truncate min-w-0"
-                  title={stripHashtags(media.title)}
-                >
-                  {formatMediaTitle(media.title, 60)}
-                </h1>
-
-                {/* Edit Button - for owners */}
-                {canManage && (
+          {/* Info */}
+          <div className="card">
+            <div className="flex items-center gap-2 mb-2 overflow-hidden">
+              <h1 className="font-semibold text-white truncate min-w-0" title={media.title.replace(/#\w+/g, '').trim()}>{media.title.replace(/#\w+/g, '').trim()}</h1>
+              
+              {/* Edit Button - for owners */}
+              {canManage && (
                   <Link
                     href={`/media/${mediaId}/edit`}
-                    className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold"
+                  className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold"
                   >
                     Edit
                   </Link>
-                )}
-              </div>
-
-              {/* Metadata Row */}
-              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 mb-4">
-                <span>{formatDate(media.createdAt)}</span>
-                <span
-                  className={`badge ${
-                    media.type === 'VIDEO'
-                      ? 'badge-video'
-                      : media.type === 'IMAGE'
-                        ? 'badge-image'
-                        : 'badge-music'
-                  }`}
-                >
-                  {media.type}
-                </span>
-                {media.price && media.price > 0 && (
-                  <span className="text-pink-500">💎</span>
-                )}
-              </div>
-
-              {/* Views + Reactions Row */}
-              <div className="flex items-center gap-6">
-                {/* Views */}
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  <span>{media.views.toLocaleString()} views</span>
-                </div>
-
-                {/* Reactions */}
-                <button
-                  onClick={() => handleReaction('happy')}
-                  className={`flex items-center gap-1 transition-transform hover:scale-110 ${
-                    userReaction === 'happy' ? 'scale-110' : ''
-                  }`}
-                >
-                  <span
-                    className={`text-2xl ${
-                      userReaction === 'happy' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
-                    }`}
-                  >
-                    😄
-                  </span>
-                  <span
-                    className={`text-sm font-medium ${
-                      userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'
-                    }`}
-                  >
-                    {reactions.happy}
-                  </span>
-                </button>
-                <button
-                  onClick={() => handleReaction('sad')}
-                  className={`flex items-center gap-1 transition-transform hover:scale-110 ${
-                    userReaction === 'sad' ? 'scale-110' : ''
-                  }`}
-                >
-                  <span
-                    className={`text-2xl ${
-                      userReaction === 'sad' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
-                    }`}
-                  >
-                    😞
-                  </span>
-                  <span
-                    className={`text-sm font-medium ${
-                      userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'
-                    }`}
-                  >
-                    {reactions.sad}
-                  </span>
-                </button>
-              </div>
+              )}
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400 mb-4">
+              <span>{formatDate(media.createdAt)}</span>
+              <span className={`badge ${
+                media.type === 'VIDEO' ? 'badge-video' :
+                media.type === 'IMAGE' ? 'badge-image' : 'badge-music'
+              }`}>
+                {media.type}
+              </span>
             </div>
 
-            {/* Right Column: Save, Creator, AI Tool */}
-            <div className="flex flex-col gap-3 lg:items-start">
-              {/* Save Button */}
-              <button
-                onClick={handleToggleSave}
-                disabled={savingMedia}
-                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap ${
-                  isSaved
-                    ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
-                    : 'bg-tank-gray border border-tank-light text-white hover:bg-tank-light'
-                }`}
-              >
-                {savingMedia ? (
-                  <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                ) : (
-                  <svg
-                    className="w-5 h-5"
-                    fill={isSaved ? 'currentColor' : 'none'}
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
+            {media.description && (
+              <p className="text-gray-300 mb-4">{media.description}</p>
+            )}
+
+            {priceLabel && (
+              <div className="flex flex-wrap items-center gap-6 mb-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold bg-tank-dark border border-tank-light text-white">
+                  {priceLabel}
+                </div>
+                {showSoldBadge && (
+                  <svg className="w-6 h-6 text-red-500 drop-shadow-[0_0_6px_rgba(239,68,68,0.9)]" viewBox="0 0 24 24" aria-hidden="true">
                     <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                      d="M12 2l4 4.5 6 1.5-6 9.5-4 4.5-4-4.5-6-9.5 6-1.5L12 2z"
+                      fill="currentColor"
                     />
                   </svg>
                 )}
-                {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
+                <div className="flex items-center gap-6">
+                  <span className="text-sm text-gray-400">{media.views.toLocaleString()} views</span>
+                  <button
+                    onClick={() => handleReaction('happy')}
+                    className={`flex items-center gap-1.5 transition-transform hover:scale-105 ${userReaction === 'happy' ? 'scale-105' : ''}`}
+                  >
+                    <span className={`text-2xl ${userReaction === 'happy' ? 'drop-shadow-[0_0_6px_rgba(234,179,8,0.8)]' : ''}`}>😄</span>
+                    <span className={`text-sm font-medium ${userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.happy}</span>
+                  </button>
+                  <button
+                    onClick={() => handleReaction('sad')}
+                    className={`flex items-center gap-1.5 transition-transform hover:scale-105 ${userReaction === 'sad' ? 'scale-105' : ''}`}
+                  >
+                    <span className={`text-2xl ${userReaction === 'sad' ? 'drop-shadow-[0_0_6px_rgba(234,179,8,0.8)]' : ''}`}>😞</span>
+                    <span className={`text-sm font-medium ${userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'}`}>{reactions.sad}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Buy Now Button - Only show for paid content that user doesn't own */}
+            {media.price && media.price > 0 && !isOwner && (
+              <button
+                onClick={handleBuyNow}
+                disabled={buyingMedia}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 mb-4 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/25"
+              >
+                {buyingMedia ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                )}
+                {buyingMedia ? 'Processing...' : `Buy Now - $${media.price.toFixed(2)}`}
               </button>
+            )}
 
-              {/* Creator Info */}
-              <p className="text-sm text-gray-400">
-                Created by{' '}
-                <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
-                  {media.user.username}
-                </Link>
-              </p>
-
-              {/* AI Tool Info */}
-              {media.aiTool && (
-                <p className="text-sm text-gray-400">
-                  <span className="text-gray-500">AI Tool:</span>
-                  <span className="ml-2 text-tank-accent">{media.aiTool}</span>
-                </p>
-              )}
-            </div>
+            {/* Price Display for Owner */}
+            {media.price && media.price > 0 && isOwner && (
+              <div className="w-full flex items-center justify-center gap-2 px-4 py-3 mb-4 rounded-xl font-semibold bg-tank-gray border border-tank-light text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Your Price: ${media.price.toFixed(2)}
+              </div>
+            )}
           </div>
 
-          {/* Description - Full Width Below */}
-          {media.description && (
-            <p className="text-gray-300 mt-4 pt-4 border-t border-tank-light">{media.description}</p>
-          )}
+        </div>
 
-          {/* Buy Now Button - Only show for paid content that user doesn't own */}
-          {media.price && media.price > 0 && !isOwner && (
-            <button
-              onClick={handleBuyNow}
-              disabled={buyingMedia}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-4 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/25"
-            >
-              {buyingMedia ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-              )}
-              {buyingMedia ? 'Processing...' : `Buy Now - $${media.price.toFixed(2)}`}
-            </button>
-          )}
-
-          {/* Price Display for Owner */}
-          {media.price && media.price > 0 && isOwner && (
-            <div className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-4 rounded-xl font-semibold bg-tank-gray border border-tank-light text-gray-400">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* Sidebar */}
+        <div className="space-y-6 pt-[20px]">
+          {/* Save Button */}
+          <button
+            onClick={handleToggleSave}
+            disabled={savingMedia}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${
+              isSaved
+                ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
+                : 'bg-tank-gray border border-tank-light text-white hover:bg-tank-light'
+            }`}
+          >
+            {savingMedia ? (
+              <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+            ) : (
+              <svg
+                className="w-5 h-5"
+                fill={isSaved ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
                 />
               </svg>
-              Your Price: ${media.price.toFixed(2)}
-            </div>
-          )}
+            )}
+            {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
+          </button>
+
+          {/* Creator & AI Info */}
+          <div className="card space-y-2">
+            <p className="text-gray-400">
+              Created by{' '}
+            <Link
+              href={`/profile/${media.user.username}`}
+                className="text-tank-accent hover:underline font-medium"
+              >
+                {formatDisplayUsername(media.user.username)}
+              </Link>
+            </p>
+            {media.aiTool && (
+              <p className="text-gray-400">
+                <span className="text-gray-500">AI-generation Tool:</span>
+                <span className="ml-2 text-tank-accent">{media.aiTool}</span>
+              </p>
+            )}
+            {media.realDevice && (
+              <p className="text-gray-400">
+                <span className="text-gray-500">Real Media Device:</span>
+                <span className="ml-2 text-tank-accent">{media.realDevice}</span>
+              </p>
+            )}
+          </div>
+
         </div>
       </div>
 
@@ -466,12 +461,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
                 <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
               <div>
@@ -480,10 +470,15 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               </div>
             </div>
             <p className="text-gray-300 mb-6">
-              Are you sure you want to delete "<span className="font-semibold">{stripHashtags(media.title)}</span>"? This will permanently remove the media file and all associated comments and ratings.
+              Are you sure you want to delete "<span className="font-semibold">{media.title}</span>"? 
+              This will permanently remove the media file and all associated comments and ratings.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setShowDeleteModal(false)} className="btn-secondary flex-1" disabled={deleting}>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="btn-secondary flex-1"
+                disabled={deleting}
+              >
                 Cancel
               </button>
               <button
@@ -499,7 +494,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
       )}
 
       {/* Back Button at bottom left */}
-      <div className="max-w-4xl mx-auto px-4 mt-8">
+      <div className="flex justify-start mt-8">
         <button
           type="button"
           onClick={() => router.back()}
@@ -511,4 +506,3 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     </div>
   )
 }
-
