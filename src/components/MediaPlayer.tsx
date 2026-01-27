@@ -112,7 +112,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
           <img
             src={url}
             alt={title}
-            className="w-full h-auto max-h-[90vh] object-contain mx-auto cursor-pointer"
+            className="w-full h-auto max-h-[90vh] lg:max-h-[65vh] object-contain mx-auto cursor-pointer"
             onClick={() => setIsFullscreen(true)}
           />
           {/* Fullscreen button */}
@@ -219,7 +219,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
           loop
           // Always bind to state so the mobile mute toggle works.
           muted={isMuted}
-          className="w-full max-h-[90vh] mx-auto relative"
+          className="w-full max-h-[90vh] lg:max-h-[65vh] mx-auto relative"
           style={{ zIndex: 1 }}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
