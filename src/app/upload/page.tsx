@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { compressMedia } from '@/lib/mediaCompression'
@@ -71,7 +72,13 @@ function UploadPageContent() {
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [uploadPaid, setUploadPaid] = useState(false)
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false)
+  const [portalMounted, setPortalMounted] = useState(false)
   const descriptionRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Enable portal rendering after mount (SSR safety)
+  useEffect(() => {
+    setPortalMounted(true)
+  }, [])
 
   // Check for payment success on mount - redirect to home since upload is complete
   useEffect(() => {
@@ -812,7 +819,7 @@ function UploadPageContent() {
             />
           </div>
 
-          {showCropper && cropSource && cropMediaType && (
+          {showCropper && cropSource && cropMediaType && portalMounted && createPortal(
             <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[99999] p-4 overscroll-contain touch-none">
               <div className="bg-tank-dark border border-tank-light rounded-2xl w-full max-w-2xl p-6">
                 <div className="relative flex items-center mb-4">
@@ -1074,7 +1081,8 @@ function UploadPageContent() {
                   </button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
 
           {/* Thumbnail (for video/music) */}
