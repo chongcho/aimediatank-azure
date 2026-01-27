@@ -108,23 +108,25 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   if (type === 'IMAGE') {
     return (
       <>
-        <div className="relative w-full bg-black group flex items-start justify-center">
-          <img
-            src={url}
-            alt={title}
-            className="w-auto h-auto max-w-full max-h-[90vh] lg:max-h-[65vh] object-contain cursor-pointer"
-            onClick={() => setIsFullscreen(true)}
-          />
-          {/* Fullscreen button */}
-          <button
-            onClick={() => setIsFullscreen(true)}
-            className="absolute bottom-3 right-3 w-10 h-10 rounded-lg bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
-            title="View fullscreen"
-          >
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-            </svg>
-          </button>
+        <div className="relative w-full bg-black group flex justify-center">
+          <div className="relative max-h-[90vh] lg:max-h-[65vh]">
+            <img
+              src={url}
+              alt={title}
+              className="block max-w-full max-h-[90vh] lg:max-h-[65vh] object-contain cursor-pointer"
+              onClick={() => setIsFullscreen(true)}
+            />
+            {/* Fullscreen button */}
+            <button
+              onClick={() => setIsFullscreen(true)}
+              className="absolute bottom-3 right-3 w-10 h-10 rounded-lg bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+              title="View fullscreen"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Fullscreen overlay */}
