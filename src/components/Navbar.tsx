@@ -343,12 +343,87 @@ export default function Navbar() {
               </button>
             )}
 
+            {/* Notification Bell - signed-in users */}
+            {session && (
+              <div className="relative" ref={alertsRef}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsAlertsOpen(!isAlertsOpen)
+                    setIsProfileOpen(false)
+                  }}
+                  className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-200 hover:text-white hover:bg-tank-light transition-colors"
+                  aria-label="Notifications"
+                  title="Notifications"
+                >
+                  <div className="relative">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </div>
+                </button>
+                {/* Notifications Dropdown */}
+                {isAlertsOpen && (
+                  <div className="absolute right-0 mt-2 w-80 bg-tank-gray border border-tank-light rounded-lg shadow-xl overflow-hidden z-50">
+                    <div className="px-3 py-2 border-b border-tank-light flex items-center justify-between bg-tank-dark">
+                      <h3 className="font-semibold text-sm">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            markAllAsRead()
+                          }}
+                          className="text-xs text-tank-accent hover:underline"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <p className="px-3 py-4 text-xs text-gray-500 text-center">No notifications</p>
+                      ) : (
+                        notifications.slice(0, 5).map((notification) => (
+                          <Link
+                            key={notification.id}
+                            href={notification.link || '#'}
+                            className={`block px-3 py-2 hover:bg-tank-dark transition-colors border-b border-tank-light/50 last:border-b-0 ${!notification.read ? 'bg-tank-accent/5' : ''}`}
+                            onClick={() => {
+                              markAsRead(notification.id)
+                              setIsAlertsOpen(false)
+                            }}
+                          >
+                            <div className="flex gap-2">
+                              {getNotificationIcon(notification.type)}
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-xs font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
+                                  {notification.title}
+                                </p>
+                                <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">
+                                  {notification.message}
+                                </p>
+                              </div>
+                            </div>
+                          </Link>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Chat Button */}
             {isNavbarItemEnabled('chat') && (
               <div className="relative">
                 <button
                   onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
-                  className="h-9 px-3 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
+                  className="h-9 px-1 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
                   aria-label="Toggle Chat"
                   title="Toggle Chat"
                 >
@@ -371,7 +446,7 @@ export default function Navbar() {
                 {isNavbarItemEnabled('upload') && (
                   <Link
                     href={isSubscriber ? "/upload" : "/pricing"}
-                    className="upload-btn hidden sm:flex items-center justify-center h-9 px-4 font-bold rounded-lg text-sm
+                    className="upload-btn hidden sm:flex items-center justify-center h-9 px-0.5 font-bold rounded-lg text-sm
                       hover:scale-105 active:scale-95 transition-transform duration-200 ease-out
                       relative overflow-hidden"
                   >
@@ -416,90 +491,6 @@ export default function Navbar() {
                         }`}>
                           {session.user?.role}
                         </span>
-                      </div>
-                      {/* Notifications */}
-                      <div className="relative" ref={alertsRef}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setIsAlertsOpen(!isAlertsOpen)
-                          }}
-                          className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors w-full text-left"
-                        >
-                          <div className="relative">
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            {unreadCount > 0 && (
-                              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                                {unreadCount > 9 ? '9+' : unreadCount}
-                              </span>
-                            )}
-                          </div>
-                          <span>Notifications</span>
-                          {unreadCount > 0 && (
-                            <span className="ml-auto text-xs text-red-400">{unreadCount} new</span>
-                          )}
-                        </button>
-                        {/* Notifications Dropdown */}
-                        {isAlertsOpen && (
-                          <div className="absolute right-0 left-0 mt-1 mx-2 bg-tank-gray border border-tank-light rounded-lg shadow-xl overflow-hidden z-50">
-                            <div className="px-3 py-2 border-b border-tank-light flex items-center justify-between bg-tank-dark">
-                              <h3 className="font-semibold text-sm">Notifications</h3>
-                              {unreadCount > 0 && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    markAllAsRead()
-                                  }}
-                                  className="text-xs text-tank-accent hover:underline"
-                                >
-                                  Mark all read
-                                </button>
-                              )}
-                            </div>
-                            <div className="max-h-64 overflow-y-auto">
-                              {notifications.length > 0 ? (
-                                notifications.slice(0, 5).map((notification) => (
-                                  <div
-                                    key={notification.id}
-                                    className={`px-3 py-2 hover:bg-tank-light transition-colors border-b border-tank-light/50 cursor-pointer ${
-                                      !notification.read ? 'bg-tank-accent/5' : ''
-                                    }`}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      markAsRead(notification.id)
-                                      if (notification.link) {
-                                        window.location.href = notification.link
-                                      }
-                                      setIsAlertsOpen(false)
-                                      setIsProfileOpen(false)
-                                    }}
-                                  >
-                                    <div className="flex gap-2">
-                                      {getNotificationIcon(notification.type)}
-                                      <div className="flex-1 min-w-0">
-                                        <p className={`text-xs font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
-                                          {notification.title}
-                                        </p>
-                                        <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">
-                                          {notification.message}
-                                        </p>
-                                      </div>
-                                      {!notification.read && (
-                                        <div className="w-1.5 h-1.5 bg-tank-accent rounded-full mt-1" />
-                                      )}
-                                    </div>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="px-3 py-4 text-center text-gray-500">
-                                  <p className="text-xs">No notifications</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
                       </div>
                       <Link
                         href="/profile/edit"
