@@ -822,7 +822,7 @@ function UploadPageContent() {
                 </div>
                 <div
                   ref={cropContainerRef}
-                  className="relative w-full h-[360px] bg-black rounded-xl overflow-hidden"
+                  className="relative w-full h-[240px] sm:h-[360px] bg-black rounded-xl overflow-hidden"
                 >
                   <img
                     src={cropSource}
@@ -887,28 +887,9 @@ function UploadPageContent() {
                   )}
                 </div>
                 {mediaSize && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 text-sm text-gray-300">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <span>Top</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={Math.max(0, mediaSize.height - minCropSize - cropInsets.bottom)}
-                          value={cropInsets.top}
-                          onChange={(e) => {
-                            const nextTop = Number(e.target.value) || 0
-                            setCropInsets((prev) => ({
-                              ...prev,
-                              top: Math.min(
-                                Math.max(0, nextTop),
-                                Math.max(0, mediaSize.height - minCropSize - prev.bottom)
-                              ),
-                            }))
-                          }}
-                          className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
-                        />
-                      </div>
+                  <div className="grid grid-cols-1 gap-2 mt-4 text-sm text-gray-300">
+                    <div className="flex items-center gap-3">
+                      <span className="w-16 shrink-0">Top</span>
                       <input
                         type="range"
                         min={0}
@@ -924,29 +905,29 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
+                        className="flex-1"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={Math.max(0, mediaSize.height - minCropSize - cropInsets.bottom)}
+                        value={cropInsets.top}
+                        onChange={(e) => {
+                          const nextTop = Number(e.target.value) || 0
+                          setCropInsets((prev) => ({
+                            ...prev,
+                            top: Math.min(
+                              Math.max(0, nextTop),
+                              Math.max(0, mediaSize.height - minCropSize - prev.bottom)
+                            ),
+                          }))
+                        }}
+                        className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
                       />
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <span>Bottom</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={Math.max(0, mediaSize.height - minCropSize - cropInsets.top)}
-                          value={cropInsets.bottom}
-                          onChange={(e) => {
-                            const nextBottom = Number(e.target.value) || 0
-                            setCropInsets((prev) => ({
-                              ...prev,
-                              bottom: Math.min(
-                                Math.max(0, nextBottom),
-                                Math.max(0, mediaSize.height - minCropSize - prev.top)
-                              ),
-                            }))
-                          }}
-                          className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
-                        />
-                      </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="w-16 shrink-0">Bottom</span>
                       <input
                         type="range"
                         min={0}
@@ -962,29 +943,29 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
+                        className="flex-1"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={Math.max(0, mediaSize.height - minCropSize - cropInsets.top)}
+                        value={cropInsets.bottom}
+                        onChange={(e) => {
+                          const nextBottom = Number(e.target.value) || 0
+                          setCropInsets((prev) => ({
+                            ...prev,
+                            bottom: Math.min(
+                              Math.max(0, nextBottom),
+                              Math.max(0, mediaSize.height - minCropSize - prev.top)
+                            ),
+                          }))
+                        }}
+                        className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
                       />
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <span>Left</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={Math.max(0, mediaSize.width - minCropSize - cropInsets.right)}
-                          value={cropInsets.left}
-                          onChange={(e) => {
-                            const nextLeft = Number(e.target.value) || 0
-                            setCropInsets((prev) => ({
-                              ...prev,
-                              left: Math.min(
-                                Math.max(0, nextLeft),
-                                Math.max(0, mediaSize.width - minCropSize - prev.right)
-                              ),
-                            }))
-                          }}
-                          className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
-                        />
-                      </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="w-16 shrink-0">Left</span>
                       <input
                         type="range"
                         min={0}
@@ -1000,29 +981,29 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
+                        className="flex-1"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={Math.max(0, mediaSize.width - minCropSize - cropInsets.right)}
+                        value={cropInsets.left}
+                        onChange={(e) => {
+                          const nextLeft = Number(e.target.value) || 0
+                          setCropInsets((prev) => ({
+                            ...prev,
+                            left: Math.min(
+                              Math.max(0, nextLeft),
+                              Math.max(0, mediaSize.width - minCropSize - prev.right)
+                            ),
+                          }))
+                        }}
+                        className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
                       />
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <span>Right</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={Math.max(0, mediaSize.width - minCropSize - cropInsets.left)}
-                          value={cropInsets.right}
-                          onChange={(e) => {
-                            const nextRight = Number(e.target.value) || 0
-                            setCropInsets((prev) => ({
-                              ...prev,
-                              right: Math.min(
-                                Math.max(0, nextRight),
-                                Math.max(0, mediaSize.width - minCropSize - prev.left)
-                              ),
-                            }))
-                          }}
-                          className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
-                        />
-                      </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="w-16 shrink-0">Right</span>
                       <input
                         type="range"
                         min={0}
@@ -1038,6 +1019,24 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
+                        className="flex-1"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={Math.max(0, mediaSize.width - minCropSize - cropInsets.left)}
+                        value={cropInsets.right}
+                        onChange={(e) => {
+                          const nextRight = Number(e.target.value) || 0
+                          setCropInsets((prev) => ({
+                            ...prev,
+                            right: Math.min(
+                              Math.max(0, nextRight),
+                              Math.max(0, mediaSize.width - minCropSize - prev.left)
+                            ),
+                          }))
+                        }}
+                        className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
                       />
                     </div>
                   </div>
