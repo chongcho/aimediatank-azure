@@ -290,6 +290,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const autoScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastAutoScrolledMessageIdRef = useRef<string | null>(null)
   const shouldScrollToBottomOnNextMessagesRef = useRef(true)
+  const scrollSettleTimersRef = useRef<number[]>([])
+  const resizeScrollRafRef = useRef<number | null>(null)
   const [didInitialScroll, setDidInitialScroll] = useState(false)
   const hasUserScrollIntentRef = useRef(false)
   const ignoreInitialScrollRef = useRef(true)
@@ -307,6 +309,64 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     container.scrollTop = container.scrollHeight
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
   }, [])
+
+  const clearScrollSettleTimers = useCallback(() => {
+    scrollSettleTimersRef.current.forEach((t) => window.clearTimeout(t))
+    scrollSettleTimersRef.current = []
+    if (resizeScrollRafRef.current !== null) {
+      cancelAnimationFrame(resizeScrollRafRef.current)
+      resizeScrollRafRef.current = null
+    }
+  }, [])
+
+  const settleScrollToBottom = useCallback(
+    (behavior: ScrollBehavior) => {
+      clearScrollSettleTimers()
+
+      const tryScroll = (b: ScrollBehavior) => {
+        if (chatSize === 'min') return
+        if (showUserPicker) return
+        if (!isAutoScrollEnabledRef.current) return
+        messagesEndRef.current?.scrollIntoView({ behavior: b })
+      }
+
+      // Do an immediate scroll + a few delayed retries to account for
+      // late image/thumbnail loading changing scrollHeight.
+      tryScroll(behavior)
+      scrollSettleTimersRef.current.push(
+        window.setTimeout(() => tryScroll('auto'), 50),
+        window.setTimeout(() => tryScroll('auto'), 250),
+        window.setTimeout(() => tryScroll('auto'), 900)
+      )
+    },
+    [chatSize, showUserPicker, clearScrollSettleTimers]
+  )
+
+  // Keep bottom pinned while auto-scroll is enabled, even when thumbnails/images load later.
+  useEffect(() => {
+    const el = messagesContainerRef.current
+    if (!el) return
+
+    const obs = new ResizeObserver(() => {
+      if (!isAutoScrollEnabledRef.current) return
+      if (chatSize === 'min' || showUserPicker) return
+      if (resizeScrollRafRef.current !== null) return
+      resizeScrollRafRef.current = requestAnimationFrame(() => {
+        resizeScrollRafRef.current = null
+        // Use auto so we don't animate/jank during layout changes.
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+      })
+    })
+
+    obs.observe(el)
+    return () => {
+      obs.disconnect()
+      if (resizeScrollRafRef.current !== null) {
+        cancelAnimationFrame(resizeScrollRafRef.current)
+        resizeScrollRafRef.current = null
+      }
+    }
+  }, [chatSize, showUserPicker])
 
   const isSignedIn = !!session?.user
 
@@ -1699,6 +1759,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (chatSize !== 'min') {
       shouldScrollToBottomOnNextMessagesRef.current = true
+      isAutoScrollEnabledRef.current = true
     }
   }, [chatSize])
 
@@ -1738,8 +1799,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         shouldScrollToBottomOnNextMessagesRef.current = false
         isAutoScrollEnabledRef.current = true
         lastAutoScrolledMessageIdRef.current = lastId
-        // Use the existing helper so the endpoint lands at the last message.
-        scrollToBottomInstant()
+        // Ensure we hit the true bottom even if thumbnails load a moment later.
+        settleScrollToBottom('auto')
       }
       return
     }
@@ -1761,7 +1822,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       lastAutoScrolledMessageIdRef.current = lastId
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [messages, chatSize, showUserPicker, scrollToBottomInstant])
+  }, [messages, chatSize, showUserPicker, settleScrollToBottom])
 
   useLayoutEffect(() => {
     if (didInitialScroll || messages.length === 0) return
@@ -2603,7 +2664,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '4px 12px',
+            padding: '4px 12px 16px',
             background: '#f5f5f5',
             overscrollBehavior: 'contain',
           }}
