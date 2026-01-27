@@ -33,18 +33,21 @@ export async function POST(request: Request) {
 
     // Validate file type
     const allowedTypes: Record<string, string[]> = {
-      VIDEO: ['video/mp4', 'video/webm', 'video/quicktime'],
+      VIDEO: ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'],
       IMAGE: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-      MUSIC: ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3'],
+      MUSIC: ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3', 'audio/mp4', 'audio/aac'],
     }
 
     if (!['VIDEO', 'IMAGE', 'MUSIC'].includes(fileType)) {
       return NextResponse.json({ error: 'Invalid file type' }, { status: 400 })
     }
 
-    if (!allowedTypes[fileType].includes(contentType)) {
+    // Extract base content type (without codec parameters like ";codecs=vp9,opus")
+    const baseContentType = contentType.split(';')[0].trim()
+    
+    if (!allowedTypes[fileType].includes(baseContentType)) {
       return NextResponse.json(
-        { error: `Invalid content type for ${fileType}` },
+        { error: `Invalid content type for ${fileType}: ${baseContentType}` },
         { status: 400 }
       )
     }

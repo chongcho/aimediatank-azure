@@ -474,6 +474,8 @@ function UploadPageContent() {
   const uploadToAzure = async (fileToUpload: File, fileType: string): Promise<string> => {
     // Step 1: Get SAS token
     setUploadStatus('Getting upload URL...')
+    console.log(`Getting SAS URL for: ${fileToUpload.name}, type: ${fileToUpload.type}, size: ${fileToUpload.size}`)
+    
     const sasResponse = await fetch('/api/upload/sas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -486,26 +488,33 @@ function UploadPageContent() {
 
     if (!sasResponse.ok) {
       const error = await sasResponse.json()
+      console.error('SAS token error:', error)
       throw new Error(error.error || 'Failed to get upload URL')
     }
 
     const { uploadUrl, blobUrl } = await sasResponse.json()
+    console.log('Got SAS URL, uploading to Azure...')
 
     // Step 2: Upload to Azure Blob Storage
     setUploadStatus('Uploading to cloud storage...')
+    
+    // Use base content type (without codec params) for the upload header
+    const baseContentType = fileToUpload.type.split(';')[0].trim()
     
     const uploadResponse = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
         'x-ms-blob-type': 'BlockBlob',
-        'Content-Type': fileToUpload.type,
+        'Content-Type': baseContentType,
         'x-ms-blob-cache-control': 'public, max-age=31536000', // Cache for 1 year
       },
       body: fileToUpload,
     })
 
     if (!uploadResponse.ok) {
-      throw new Error('Failed to upload file to storage')
+      const errorText = await uploadResponse.text()
+      console.error('Azure upload error:', uploadResponse.status, errorText)
+      throw new Error(`Failed to upload file to storage: ${uploadResponse.status}`)
     }
 
     return blobUrl
@@ -552,11 +561,18 @@ function UploadPageContent() {
         formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined
       )
       
-      console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB, Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`)
+      console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB, Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB, Type: ${compressedFile.type}`)
       setUploadProgress(30)
+      
+      // Validate compressed file
+      if (!compressedFile || compressedFile.size === 0) {
+        throw new Error('Compression failed - file is empty')
+      }
 
       // Step 2: Upload main file to Azure
+      console.log('Starting Azure upload...')
       const fileUrl = await uploadToAzure(compressedFile, formData.type)
+      console.log('Azure upload complete:', fileUrl)
       setUploadProgress(70)
 
       // Upload thumbnail if provided (compress it too)
