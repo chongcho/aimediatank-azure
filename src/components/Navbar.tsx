@@ -34,7 +34,6 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [chatInviteCount, setChatInviteCount] = useState(0)
-  const [messageUnreadCount, setMessageUnreadCount] = useState(0)
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
 
   const profileRef = useRef<HTMLDivElement>(null)
@@ -114,31 +113,6 @@ export default function Navbar() {
       const interval = setInterval(fetchChatInvites, 30000) // Check every 30 seconds
       return () => clearInterval(interval)
     }
-  }, [session, isPageVisible])
-
-  // Fetch unread message count (light polling)
-  useEffect(() => {
-    if (!session?.user) {
-      setMessageUnreadCount(0)
-      return
-    }
-    if (!isPageVisible) return
-
-    const fetchUnreadMessages = async () => {
-      try {
-        const res = await fetch('/api/messages?type=inbox', { cache: 'no-store' })
-        if (res.ok) {
-          const data = await res.json()
-          setMessageUnreadCount(data.unreadCount || 0)
-        }
-      } catch (error) {
-        console.error('Error fetching unread message count:', error)
-      }
-    }
-
-    fetchUnreadMessages()
-    const interval = setInterval(fetchUnreadMessages, 60000) // 60s cadence to avoid extra load
-    return () => clearInterval(interval)
   }, [session, isPageVisible])
 
   // Request notification permission when user is signed in (helps with badge support)
@@ -324,25 +298,6 @@ export default function Navbar() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.8L3 20l1.2-3A7.87 7.87 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </button>
-            )}
-
-            {/* Messages Icon - signed-in users */}
-            {session && (
-              <Link
-                href="/messages"
-                className="relative h-9 w-9 flex items-center justify-center rounded-lg border border-tank-light text-gray-200 hover:text-white hover:border-tank-accent transition-colors"
-                aria-label="Messages"
-                title="Messages"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-18 0v10a2 2 0 002 2h14a2 2 0 002-2V8m-18 0l9 6 9-6" />
-                </svg>
-                {messageUnreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {messageUnreadCount > 9 ? '9+' : messageUnreadCount}
-                  </span>
-                )}
-              </Link>
             )}
 
             {/* Chat Button - Always visible for all users */}
