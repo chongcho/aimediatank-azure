@@ -15,23 +15,45 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+  // Start muted by default; we can unmute on desktop after user intent.
+  const [isMuted, setIsMuted] = useState(true)
+  const [showMobileControls, setShowMobileControls] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const fullscreenRef = useRef<HTMLDivElement>(null)
+  const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
 
-  // Try to autoplay with sound, fall back to muted if browser blocks it
+  // Detect mobile screens on mount
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    setIsMounted(true)
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Try to autoplay with sound, fall back to muted autoplay if blocked
   useEffect(() => {
     const video = videoRef.current
-    if (!video || type !== 'VIDEO') return
+    if (!video || type !== 'VIDEO' || !isMounted) return
+    // Mobile autoplay (especially with sound) is often blocked and can cause extra work/jank.
+    // On mobile, we rely on user tap to start playback.
+    if (isMobile) return
 
     const tryAutoplayWithSound = async () => {
       try {
-        // First try: play with sound
         video.muted = false
+        setIsMuted(false)
         await video.play()
       } catch (error) {
         // Browser blocked unmuted autoplay, fall back to muted
         console.log('Unmuted autoplay blocked, falling back to muted')
         video.muted = true
+        setIsMuted(true)
         try {
           await video.play()
         } catch (e) {
@@ -40,13 +62,42 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       }
     }
 
-    // Wait for video to be ready
-    if (video.readyState >= 3) {
-      tryAutoplayWithSound()
+    // Small delay to ensure component is fully rendered after mobile detection
+    const timeoutId = setTimeout(() => {
+      if (video.readyState >= 3) {
+        tryAutoplayWithSound()
+      } else {
+        video.addEventListener('canplay', tryAutoplayWithSound, { once: true })
+      }
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [type, url, isMounted, isMobile])
+
+  useEffect(() => {
+    if (!isFullscreen) return
+    const element = fullscreenRef.current
+    if (!element) return
+    if (document.fullscreenElement) return
+    element.requestFullscreen?.().catch(() => {
+      // If fullscreen API is unavailable or blocked, fallback to overlay only.
+    })
+  }, [isFullscreen])
+
+  useEffect(() => {
+    if (isFullscreen) {
+      document.body.dataset.mediaFullscreen = 'true'
+      document.documentElement.dataset.mediaFullscreen = 'true'
     } else {
-      video.addEventListener('canplay', tryAutoplayWithSound, { once: true })
+      delete document.body.dataset.mediaFullscreen
+      delete document.documentElement.dataset.mediaFullscreen
     }
-  }, [type, url])
+
+    return () => {
+      delete document.body.dataset.mediaFullscreen
+      delete document.documentElement.dataset.mediaFullscreen
+    }
+  }, [isFullscreen])
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60)
@@ -79,11 +130,18 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
         {/* Fullscreen overlay */}
         {isFullscreen && (
           <div
+            ref={fullscreenRef}
             className="fixed inset-0 z-[99999] bg-black flex items-center justify-center"
+            style={{ width: '100vw', height: '100vh', transform: 'translateY(-22px)' }}
             onClick={() => setIsFullscreen(false)}
           >
             <button
-              onClick={() => setIsFullscreen(false)}
+              onClick={() => {
+                setIsFullscreen(false)
+                if (document.fullscreenElement) {
+                  document.exitFullscreen?.()
+                }
+              }}
               className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors"
             >
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,7 +151,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             <img
               src={url}
               alt={title}
-              className="max-w-full max-h-full object-contain"
+              className="w-screen h-screen object-contain"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -103,6 +161,36 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   }
 
   if (type === 'VIDEO') {
+    const handleVideoTap = () => {
+      if (!isMobile) return
+      const video = videoRef.current
+      if (!video) return
+
+      setShowMobileControls(true)
+      if (hideControlsTimeout.current) {
+        clearTimeout(hideControlsTimeout.current)
+      }
+      hideControlsTimeout.current = setTimeout(() => {
+        setShowMobileControls(false)
+      }, 2000)
+
+      if (video.paused) {
+        video.play()
+      } else {
+        video.pause()
+      }
+    }
+
+    const toggleMute = (e: React.MouseEvent) => {
+      e.stopPropagation()
+      const video = videoRef.current
+      if (video) {
+        const nextMuted = !isMuted
+        video.muted = nextMuted
+        setIsMuted(nextMuted)
+      }
+    }
+
     return (
       <div className="relative w-full rounded-2xl overflow-hidden bg-tank-black">
         {/* Gradient placeholder shown behind video when no thumbnail */}
@@ -122,13 +210,48 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
           ref={videoRef}
           src={url}
           poster={thumbnailUrl || undefined}
-          controls
+          controls={!isMobile || showMobileControls}
           playsInline
+          preload={isMobile ? 'metadata' : 'auto'}
+          // Avoid heavy auto playback on mobile; let user tap to play.
+          autoPlay={!isMobile}
+          loop={!isMobile}
+          // Always bind to state so the mobile mute toggle works.
+          muted={isMuted}
           className="w-full max-h-[80vh] relative"
           style={{ zIndex: 1 }}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
+          onClick={handleVideoTap}
+          onTouchStart={() => {
+            if (!isMobile) return
+            setShowMobileControls(true)
+            if (hideControlsTimeout.current) {
+              clearTimeout(hideControlsTimeout.current)
+            }
+            hideControlsTimeout.current = setTimeout(() => {
+              setShowMobileControls(false)
+            }, 2000)
+          }}
         />
+        {/* Mobile-only volume button */}
+        {isMobile && isMounted && (
+          <button
+            onClick={toggleMute}
+            className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/70 transition-colors"
+          >
+            {isMuted ? (
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
     )
   }
