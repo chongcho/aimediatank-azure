@@ -108,11 +108,11 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   if (type === 'IMAGE') {
     return (
       <>
-        <div className="relative w-full overflow-hidden bg-black group">
+        <div className="relative w-full bg-black group flex items-start justify-center">
           <img
             src={url}
             alt={title}
-            className="w-full h-auto max-h-[90vh] lg:max-h-[65vh] object-contain mx-auto cursor-pointer"
+            className="w-auto h-auto max-w-full max-h-[90vh] lg:max-h-[65vh] object-contain cursor-pointer"
             onClick={() => setIsFullscreen(true)}
           />
           {/* Fullscreen button */}
