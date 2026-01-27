@@ -25,7 +25,8 @@ const DEFAULT_VIDEO_OPTIONS: CompressionOptions = {
  */
 export async function compressImage(
   file: File,
-  options: CompressionOptions = {}
+  options: CompressionOptions = {},
+  crop?: { x: number; y: number; width: number; height: number }
 ): Promise<File> {
   const opts = { ...DEFAULT_IMAGE_OPTIONS, ...options }
   
@@ -40,8 +41,17 @@ export async function compressImage(
     }
 
     img.onload = () => {
-      // Calculate new dimensions while maintaining aspect ratio
-      let { width, height } = img
+      // Compute source crop (defaults to full image)
+      const sourceWidth = img.width
+      const sourceHeight = img.height
+      const sourceX = crop ? Math.max(0, Math.min(Math.round(crop.x), sourceWidth - 1)) : 0
+      const sourceY = crop ? Math.max(0, Math.min(Math.round(crop.y), sourceHeight - 1)) : 0
+      const sourceW = crop ? Math.max(1, Math.min(Math.round(crop.width), sourceWidth - sourceX)) : sourceWidth
+      const sourceH = crop ? Math.max(1, Math.min(Math.round(crop.height), sourceHeight - sourceY)) : sourceHeight
+
+      // Calculate new dimensions while maintaining aspect ratio (based on cropped region)
+      let width = sourceW
+      let height = sourceH
       const maxW = opts.maxWidth || 1920
       const maxH = opts.maxHeight || 1080
 
@@ -58,7 +68,7 @@ export async function compressImage(
       canvas.height = height
 
       // Draw and compress
-      ctx.drawImage(img, 0, 0, width, height)
+      ctx.drawImage(img, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
 
       canvas.toBlob(
         (blob) => {
@@ -96,19 +106,69 @@ export async function compressImage(
 export async function compressVideo(
   file: File,
   options: CompressionOptions = {},
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  crop?: { x: number; y: number; width: number; height: number }
 ): Promise<File> {
   const opts = { ...DEFAULT_VIDEO_OPTIONS, ...options }
-  
+
+  // Validate file before processing
+  if (!file || file.size === 0) {
+    return Promise.reject(new Error('Invalid or empty video file'))
+  }
+
   return new Promise((resolve, reject) => {
+    let objectUrl: string
+    try {
+      objectUrl = URL.createObjectURL(file)
+    } catch (e) {
+      reject(new Error(`Failed to create blob URL: ${e instanceof Error ? e.message : 'Unknown error'}`))
+      return
+    }
+
+    // Cleanup function to ensure blob URL is revoked on error
+    const cleanup = () => {
+      try {
+        URL.revokeObjectURL(objectUrl)
+      } catch {
+        // ignore
+      }
+    }
+
     const video = document.createElement('video')
+    // Start muted to satisfy autoplay policies.
+    // We'll route audio through WebAudio (no audible playback) for recording.
     video.muted = true
+    video.volume = 0
     video.playsInline = true
+    video.preload = 'auto'
+    // Note: Do NOT set crossOrigin for blob URLs - it can cause loading failures
+
+    // IMPORTANT: Set src IMMEDIATELY before any handlers to prevent race conditions
+    video.src = objectUrl
 
     video.onloadedmetadata = async () => {
       try {
-        // Calculate new dimensions
-        let { videoWidth: width, videoHeight: height } = video
+        // Calculate source crop and output dimensions
+        const sourceVideoWidth = video?.videoWidth || video?.clientWidth
+        const sourceVideoHeight = video?.videoHeight || video?.clientHeight
+        if (!sourceVideoWidth || !sourceVideoHeight) {
+          cleanup()
+          reject(new Error('Failed to read video dimensions'))
+          return
+        }
+
+        const cropX = crop ? Math.max(0, Math.min(crop.x, sourceVideoWidth - 2)) : 0
+        const cropY = crop ? Math.max(0, Math.min(crop.y, sourceVideoHeight - 2)) : 0
+        const cropW = crop ? Math.max(2, Math.min(crop.width, sourceVideoWidth - cropX)) : sourceVideoWidth
+        const cropH = crop ? Math.max(2, Math.min(crop.height, sourceVideoHeight - cropY)) : sourceVideoHeight
+
+        let width = cropW
+        let height = cropH
+        if (!width || !height) {
+          cleanup()
+          reject(new Error('Failed to read video dimensions'))
+          return
+        }
         const maxW = opts.maxWidth || 1920
         const maxH = opts.maxHeight || 1080
 
@@ -125,6 +185,12 @@ export async function compressVideo(
         width = Math.round(width / 2) * 2
         height = Math.round(height / 2) * 2
 
+        // Round crop values to even pixels as well (safer for yuv)
+        const sourceX = Math.round(cropX / 2) * 2
+        const sourceY = Math.round(cropY / 2) * 2
+        const sourceW = Math.round(Math.min(cropW, sourceVideoWidth - sourceX) / 2) * 2
+        const sourceH = Math.round(Math.min(cropH, sourceVideoHeight - sourceY) / 2) * 2
+
         // Create canvas for drawing frames
         const canvas = document.createElement('canvas')
         canvas.width = width
@@ -132,33 +198,125 @@ export async function compressVideo(
         const ctx = canvas.getContext('2d')
 
         if (!ctx) {
+          cleanup()
           reject(new Error('Could not get canvas context'))
           return
         }
 
-        // Create media stream from canvas
-        const stream = canvas.captureStream(30) // 30 fps
+        // Create media stream from canvas (video track).
+        // Keep FPS modest to avoid pegging the main thread during long encodes.
+        const TARGET_FPS = 24
+        const stream = canvas.captureStream(TARGET_FPS)
 
-        // Add audio track if video has audio
+        // Briefly start playback (muted) to satisfy autoplay policies, then immediately pause.
+        // This allows us to set up audio routing before the video actually advances.
+        video.currentTime = 0
         try {
-          const audioCtx = new AudioContext()
-          const source = audioCtx.createMediaElementSource(video)
-          const destination = audioCtx.createMediaStreamDestination()
-          source.connect(destination)
-          source.connect(audioCtx.destination)
-          
-          destination.stream.getAudioTracks().forEach(track => {
-            stream.addTrack(track)
-          })
+          await video.play()
+          video.pause()
         } catch (e) {
-          // Video might not have audio, continue without it
-          console.log('No audio track or audio context unavailable')
+          cleanup()
+          reject(new Error('Failed to start video playback for re-encoding (autoplay policy?)'))
+          return
         }
 
-        // Setup MediaRecorder with lower bitrate
+        // Attach audio tracks while video is paused.
+        // Important: some browsers capture "post-volume" audio, so volume=0 can yield silent recordings.
+        // We avoid audible playback by routing via WebAudio without connecting to speakers.
+        // Use only ONE method to avoid duplicated/echoed audio.
+        let audioCtx: AudioContext | null = null
+        let audioTracksAdded = false
+        try {
+          // Prefer WebAudio routing (works even when captureStream audio is missing/unreliable).
+          const AudioContextCtor = (window.AudioContext || (window as any).webkitAudioContext) as
+            | (new () => AudioContext)
+            | undefined
+
+          if (AudioContextCtor) {
+            audioCtx = new AudioContextCtor()
+            if (audioCtx.state === 'suspended') {
+              await audioCtx.resume().catch(() => {})
+            }
+
+            // Route the element into a MediaStreamDestination.
+            const sourceNode = audioCtx.createMediaElementSource(video)
+            const dest = audioCtx.createMediaStreamDestination()
+            sourceNode.connect(dest)
+            // Do NOT connect to audioCtx.destination (avoid audible playback)
+
+            // Unmute and set a non-zero volume so decoded audio flows through WebAudio graph.
+            video.muted = false
+            video.volume = 1
+
+            const destTracks = dest.stream.getAudioTracks()
+            if (destTracks.length > 0) {
+              destTracks.forEach((track) => stream.addTrack(track))
+              console.log(`Added ${destTracks.length} audio track(s) via WebAudio`)
+              audioTracksAdded = true
+            } else {
+              console.log('No audio tracks found via WebAudio (video may be silent)')
+            }
+          }
+
+          // Only use captureStream as fallback if WebAudio didn't add any tracks
+          if (!audioTracksAdded) {
+            video.muted = false
+            video.volume = 1
+            const videoStream =
+              (video as any).captureStream?.() || (video as any).mozCaptureStream?.()
+            const captureTracks: MediaStreamTrack[] = videoStream ? videoStream.getAudioTracks() : []
+            if (captureTracks.length > 0) {
+              captureTracks.forEach((track) => stream.addTrack(track))
+              console.log(`Added ${captureTracks.length} audio track(s) via captureStream() fallback`)
+              audioTracksAdded = true
+            }
+          }
+
+          if (!audioTracksAdded) {
+            console.log('No audio tracks found (video may be silent)')
+          }
+        } catch (e) {
+          console.log('Audio capture failed, continuing without audio:', e)
+        }
+
+        // Setup MediaRecorder.
+        // IMPORTANT: We prefer MP4 when supported (best compatibility with mobile Safari).
+        // If the browser can't record MP4, do NOT force-label the output as WebM.
+        const preferredTypes = [
+          // MP4 (Safari typically supports this)
+          'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+          'video/mp4;codecs="avc1.4D401E,mp4a.40.2"',
+          'video/mp4',
+          // WebM (Chromium typically supports this)
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm;codecs=vp9',
+          'video/webm',
+        ]
+        const requestedMimeType = preferredTypes.find((t) => MediaRecorder.isTypeSupported(t)) || ''
+
+        // Calculate target bitrate based on original file to avoid making it larger
+        // Original bitrate = file size (bits) / duration (seconds)
+        const originalBitrate = (file.size * 8) / (video.duration || 1)
+        // Use 80% of original bitrate (to account for WebM overhead), capped at 2.5 Mbps max
+        const targetVideoBitrate = Math.min(Math.round(originalBitrate * 0.8), 2500000)
+        // Ensure minimum bitrate of 500 kbps for quality
+        const videoBitrate = Math.max(targetVideoBitrate, 500000)
+
+        console.log(`Original bitrate: ${(originalBitrate / 1000000).toFixed(2)} Mbps, using: ${(videoBitrate / 1000000).toFixed(2)} Mbps`)
+
+        // If we cannot record any known type, fall back to original file.
+        if (!requestedMimeType) {
+          console.warn('No supported MediaRecorder mimeType found; skipping video re-encode.')
+          onProgress?.(100)
+          resolve(file)
+          return
+        }
+
         const mediaRecorder = new MediaRecorder(stream, {
-          mimeType: 'video/webm;codecs=vp9',
-          videoBitsPerSecond: 2500000, // 2.5 Mbps
+          ...(requestedMimeType ? { mimeType: requestedMimeType } : {}),
+          videoBitsPerSecond: videoBitrate,
+          audioBitsPerSecond: 128000, // 128 kbps
         })
 
         const chunks: Blob[] = []
@@ -169,58 +327,134 @@ export async function compressVideo(
         }
 
         mediaRecorder.onstop = () => {
-          const blob = new Blob(chunks, { type: 'video/webm' })
-          const compressedFile = new File(
-            [blob],
-            file.name.replace(/\.[^.]+$/, '.webm'),
-            { type: 'video/webm', lastModified: Date.now() }
-          )
+          const recordedMimeType =
+            (mediaRecorder.mimeType && mediaRecorder.mimeType.trim()) ||
+            (chunks[0]?.type && chunks[0].type.trim()) ||
+            requestedMimeType
+
+          const outputExt =
+            recordedMimeType.includes('mp4') ? '.mp4' :
+            recordedMimeType.includes('webm') ? '.webm' :
+            file.name.match(/\.[^.]+$/)?.[0] || ''
+
+          const blob = new Blob(chunks, { type: recordedMimeType })
+          const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, outputExt), {
+            type: recordedMimeType,
+            lastModified: Date.now(),
+          })
 
           console.log(
             `Video compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`
           )
+
+          // Cleanup: remove error handler first to prevent false errors, then cleanup
+          video.onerror = null
+          try {
+            video.pause()
+            // Don't set video.src = '' - it triggers onerror with "Empty src"
+            URL.revokeObjectURL(objectUrl)
+          } catch {
+            // ignore
+          }
 
           resolve(compressedFile)
         }
 
         mediaRecorder.onerror = (e) => reject(e)
 
-        // Start recording
-        mediaRecorder.start(100) // Collect data every 100ms
-
-        // Play video and draw frames
+        // Reset to beginning, start recording FIRST, then start playback.
+        // This ensures we capture the full video from the start.
         video.currentTime = 0
-        await video.play()
+        // Larger timeslice reduces overhead from extremely frequent events.
+        mediaRecorder.start(500)
+
+        // Throttle drawing + progress reporting to avoid UI jank.
+        const frameIntervalMs = 1000 / TARGET_FPS
+        // Use an accumulator (vs `now - lastDrawAt`) so on 60Hz displays we
+        // naturally alternate 2/3 rAF ticks and average to ~24fps (instead of ~20fps).
+        let lastTickAt = (typeof performance !== 'undefined' ? performance.now() : Date.now())
+        let frameAccumulatorMs = 0
+        let hasDrawnFirstFrame = false
+        let lastProgressPct = -1
+        let lastProgressAt = 0
 
         const drawFrame = () => {
-          if (video.ended || video.paused) {
+          if (video.ended) {
             mediaRecorder.stop()
             return
           }
 
-          ctx.drawImage(video, 0, 0, width, height)
-          
-          if (onProgress) {
-            const progress = (video.currentTime / video.duration) * 100
-            onProgress(Math.round(progress))
+          // Only stop on pause if we've actually started playing (currentTime > 0)
+          // This prevents stopping immediately before playback begins
+          if (video.paused && video.currentTime > 0) {
+            mediaRecorder.stop()
+            return
+          }
+
+          const now = (typeof performance !== 'undefined' ? performance.now() : Date.now())
+          const dt = Math.max(0, Math.min(250, now - lastTickAt))
+          lastTickAt = now
+          frameAccumulatorMs += dt
+
+          if (!hasDrawnFirstFrame) {
+            hasDrawnFirstFrame = true
+            frameAccumulatorMs = 0
+            ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
+          } else if (frameAccumulatorMs >= frameIntervalMs) {
+            // Drop excess accumulated time to avoid bursty catch-up draws after tab throttling.
+            frameAccumulatorMs = frameAccumulatorMs % frameIntervalMs
+            ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
+          }
+
+          if (onProgress && video.duration > 0) {
+            const pct = Math.round((video.currentTime / video.duration) * 100)
+            // Only notify when it actually changes, and at most ~4x/sec.
+            if (pct !== lastProgressPct && now - lastProgressAt >= 250) {
+              lastProgressPct = pct
+              lastProgressAt = now
+              onProgress(pct)
+            }
           }
 
           requestAnimationFrame(drawFrame)
         }
 
-        drawFrame()
+        // Start playback, then begin drawing frames
+        video.play().then(() => {
+          drawFrame()
+        }).catch(() => {
+          mediaRecorder.stop()
+          cleanup()
+          reject(new Error('Failed to resume video playback'))
+        })
 
         // Stop when video ends
         video.onended = () => {
           mediaRecorder.stop()
         }
+
+        // Cleanup audio context when recording stops
+        const originalOnStop = mediaRecorder.onstop
+        mediaRecorder.onstop = (ev) => {
+          try {
+            audioCtx?.close().catch(() => {})
+          } catch {
+            // ignore
+          }
+          originalOnStop?.call(mediaRecorder as any, ev)
+        }
       } catch (error) {
+        cleanup()
         reject(error)
       }
     }
 
-    video.onerror = () => reject(new Error('Failed to load video'))
-    video.src = URL.createObjectURL(file)
+    video.onerror = () => {
+      const mediaError = video.error
+      const errorMsg = mediaError?.message || 'Unknown error'
+      cleanup()
+      reject(new Error(`Failed to load video: ${errorMsg}`))
+    }
   })
 }
 
@@ -230,20 +464,23 @@ export async function compressVideo(
 export async function compressMedia(
   file: File,
   type: 'IMAGE' | 'VIDEO' | 'MUSIC',
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  crop?: { x: number; y: number; width: number; height: number }
 ): Promise<File> {
-  // Skip compression for small files
-  const skipSizeMB = type === 'IMAGE' ? 1 : 10
-  if (file.size < skipSizeMB * 1024 * 1024) {
-    console.log(`File is small (${(file.size / 1024 / 1024).toFixed(2)}MB), skipping compression`)
-    return file
+  // Skip compression for small files (but NEVER skip if we need to crop)
+  if (!crop) {
+    const skipSizeMB = type === 'IMAGE' ? 1 : 10
+    if (file.size < skipSizeMB * 1024 * 1024) {
+      console.log(`File is small (${(file.size / 1024 / 1024).toFixed(2)}MB), skipping compression`)
+      return file
+    }
   }
 
   switch (type) {
     case 'IMAGE':
-      return compressImage(file)
+      return compressImage(file, {}, crop)
     case 'VIDEO':
-      return compressVideo(file, {}, onProgress)
+      return compressVideo(file, {}, onProgress, crop)
     case 'MUSIC':
       // Audio compression is complex and usually not needed
       // Return original file

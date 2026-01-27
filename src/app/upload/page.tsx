@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { compressMedia } from '@/lib/mediaCompression'
+
+type Area = { x: number; y: number; width: number; height: number }
 
 interface UploadQuota {
   membershipType: string
@@ -31,13 +33,34 @@ function UploadPageContent() {
     description: '',
     type: 'IMAGE',
     aiTool: '',
+    realDevice: '',
     hashtags: '',
     price: '',
     isPublic: true,
   })
   const [file, setFile] = useState<File | null>(null)
+  const [originalFile, setOriginalFile] = useState<File | null>(null)
   const [thumbnail, setThumbnail] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
+  const [showCropper, setShowCropper] = useState(false)
+  const [cropSource, setCropSource] = useState<string | null>(null)
+  const [cropMediaType, setCropMediaType] = useState<'image' | 'video' | null>(null)
+  const [cropAreaPixels, setCropAreaPixels] = useState<Area | null>(null)
+  const [cropInsets, setCropInsets] = useState({ top: 0, right: 0, bottom: 0, left: 0 })
+  const [mediaSize, setMediaSize] = useState<{ width: number; height: number } | null>(null)
+  const [renderBox, setRenderBox] = useState<{
+    containerWidth: number
+    containerHeight: number
+    width: number
+    height: number
+    offsetX: number
+    offsetY: number
+  } | null>(null)
+  const cropContainerRef = useRef<HTMLDivElement | null>(null)
+  const minCropSize = 120
+  const fileChangeTokenRef = useRef(0)
+  const [videoSize, setVideoSize] = useState<{ width: number; height: number } | null>(null)
+  const [videoCrop, setVideoCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -48,6 +71,7 @@ function UploadPageContent() {
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [uploadPaid, setUploadPaid] = useState(false)
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false)
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null)
 
   // Check for payment success on mount - redirect to home since upload is complete
   useEffect(() => {
@@ -73,6 +97,29 @@ function UploadPageContent() {
       fetchUploadQuota()
     }
   }, [session])
+
+  useEffect(() => {
+    if (!descriptionRef.current) return
+    descriptionRef.current.style.height = 'auto'
+    descriptionRef.current.style.height = `${descriptionRef.current.scrollHeight}px`
+  }, [formData.description])
+
+  // Keep crop box in sync with inset sliders.
+  // IMPORTANT: must be declared before any early returns to keep hooks order stable.
+  useEffect(() => {
+    if (!mediaSize || !renderBox) return
+
+    // Clamp each edge independently (no auto-adjusting other edges)
+    const left = Math.min(Math.max(0, cropInsets.left), Math.max(0, mediaSize.width - minCropSize - cropInsets.right))
+    const right = Math.min(Math.max(0, cropInsets.right), Math.max(0, mediaSize.width - minCropSize - left))
+    const top = Math.min(Math.max(0, cropInsets.top), Math.max(0, mediaSize.height - minCropSize - cropInsets.bottom))
+    const bottom = Math.min(Math.max(0, cropInsets.bottom), Math.max(0, mediaSize.height - minCropSize - top))
+
+    const width = Math.max(minCropSize, mediaSize.width - left - right)
+    const height = Math.max(minCropSize, mediaSize.height - top - bottom)
+
+    setCropAreaPixels({ x: left, y: top, width, height })
+  }, [cropInsets, mediaSize, renderBox])
 
   const fetchUploadQuota = async () => {
     try {
@@ -108,7 +155,8 @@ function UploadPageContent() {
         formData.type as 'IMAGE' | 'VIDEO' | 'MUSIC',
         (progress) => {
           setUploadStatus(`Compressing... ${progress}%`)
-        }
+        },
+        formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined
       )
       
       // Step 2: Upload to Azure Blob Storage
@@ -135,6 +183,7 @@ function UploadPageContent() {
           url: fileUrl,
           thumbnailUrl,
           aiTool: formData.aiTool,
+          realDevice: formData.realDevice,
           price: formData.price || null,
           isPublic: formData.isPublic,
         }),
@@ -188,26 +237,154 @@ function UploadPageContent() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
+      fileChangeTokenRef.current += 1
+      const changeToken = fileChangeTokenRef.current
+      setOriginalFile(selectedFile)
       setFile(selectedFile)
+      setThumbnail(null)
+      setCropAreaPixels(null)
+      setCropInsets({ top: 0, right: 0, bottom: 0, left: 0 })
+      setMediaSize(null)
+      setRenderBox(null)
+      setVideoSize(null)
+      setVideoCrop(null)
       
       // Generate preview
       if (selectedFile.type.startsWith('image/')) {
         const reader = new FileReader()
-        reader.onload = () => setPreview(reader.result as string)
+        reader.onload = () => {
+          const src = reader.result as string
+          setPreview(src)
+          setCropSource(src)
+          setCropMediaType('image')
+          setShowCropper(true)
+        }
         reader.readAsDataURL(selectedFile)
       } else if (selectedFile.type.startsWith('video/')) {
-        setPreview(URL.createObjectURL(selectedFile))
-        
-        // Auto-generate thumbnail from video
-        generateVideoThumbnail(selectedFile)
+        const src = URL.createObjectURL(selectedFile)
+        setPreview(src)
+        setCropMediaType('video')
+
+        // Auto-generate thumbnail from video and use it for cropping
+        generateVideoThumbnail(selectedFile).then(async (thumbFile) => {
+          if (fileChangeTokenRef.current !== changeToken) return
+          if (!thumbFile) {
+            setCropSource(null)
+            setShowCropper(false)
+            return
+          }
+          try {
+            const thumbSrc = await readFileAsDataUrl(thumbFile)
+            if (fileChangeTokenRef.current !== changeToken) return
+            setCropSource(thumbSrc)
+            setShowCropper(true)
+          } catch (err) {
+            console.error('Failed to load thumbnail for crop:', err)
+            setCropSource(null)
+            setShowCropper(false)
+          }
+        })
       } else {
         setPreview(null)
+        setCropSource(null)
+        setCropMediaType(null)
       }
     }
   }
 
+  const createImage = (url: string): Promise<HTMLImageElement> =>
+    new Promise((resolve, reject) => {
+      const image = new Image()
+      image.onload = () => resolve(image)
+      image.onerror = (error) => reject(error)
+      image.src = url
+    })
+
+  const getCroppedImageFile = async (imageSrc: string, cropArea: Area) => {
+    const image = await createImage(imageSrc)
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+
+    canvas.width = cropArea.width
+    canvas.height = cropArea.height
+    ctx.drawImage(
+      image,
+      cropArea.x,
+      cropArea.y,
+      cropArea.width,
+      cropArea.height,
+      0,
+      0,
+      cropArea.width,
+      cropArea.height
+    )
+
+    return new Promise<File | null>((resolve) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return resolve(null)
+          resolve(new File([blob], 'cropped-image.jpg', { type: 'image/jpeg' }))
+        },
+        'image/jpeg',
+        0.9
+      )
+    })
+  }
+
+  const readFileAsDataUrl = (fileToRead: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsDataURL(fileToRead)
+    })
+
+  const handleUseOriginal = () => {
+    setFile(originalFile)
+    setShowCropper(false)
+    setVideoCrop(null)
+  }
+
+  const handleUseEdited = async () => {
+    if (!cropAreaPixels || !cropSource) {
+      setShowCropper(false)
+      return
+    }
+
+    if (cropMediaType === 'image') {
+      const croppedFile = await getCroppedImageFile(cropSource, cropAreaPixels)
+      if (croppedFile) {
+        setFile(croppedFile)
+        setPreview(URL.createObjectURL(croppedFile))
+      }
+    }
+
+    if (cropMediaType === 'video') {
+      const croppedThumb = await getCroppedImageFile(cropSource, cropAreaPixels)
+      if (croppedThumb) {
+        setThumbnail(croppedThumb)
+      }
+      // Store crop for actual video (client-side re-encode during upload)
+      if (mediaSize && videoSize) {
+        const ratioX = cropAreaPixels.x / mediaSize.width
+        const ratioY = cropAreaPixels.y / mediaSize.height
+        const ratioW = cropAreaPixels.width / mediaSize.width
+        const ratioH = cropAreaPixels.height / mediaSize.height
+
+        const x = Math.round(ratioX * videoSize.width)
+        const y = Math.round(ratioY * videoSize.height)
+        const width = Math.round(ratioW * videoSize.width)
+        const height = Math.round(ratioH * videoSize.height)
+        setVideoCrop({ x, y, width, height })
+      }
+    }
+
+    setShowCropper(false)
+  }
+
   // Generate thumbnail from video file
-  const generateVideoThumbnail = async (videoFile: File) => {
+  const generateVideoThumbnail = async (videoFile: File): Promise<File | null> => {
     try {
       const video = document.createElement('video')
       video.preload = 'metadata'
@@ -215,52 +392,75 @@ function UploadPageContent() {
       video.playsInline = true
       
       const videoUrl = URL.createObjectURL(videoFile)
-      
-      video.onloadeddata = () => {
-        // Seek to 1 second or 10% of video duration
-        video.currentTime = Math.min(1, video.duration * 0.1)
-      }
-      
-      video.onseeked = () => {
-        try {
-          const canvas = document.createElement('canvas')
-          // Use reasonable thumbnail size
-          const maxWidth = 640
-          const scale = Math.min(1, maxWidth / video.videoWidth)
-          canvas.width = video.videoWidth * scale
-          canvas.height = video.videoHeight * scale
-          
-          const ctx = canvas.getContext('2d')
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-            canvas.toBlob(
-              (blob) => {
-                if (blob) {
-                  const thumbnailFile = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' })
-                  setThumbnail(thumbnailFile)
-                  console.log('Auto-generated video thumbnail')
-                }
-                URL.revokeObjectURL(videoUrl)
-              },
-              'image/jpeg',
-              0.8
-            )
+
+      const thumbnailFile = await new Promise<File | null>((resolve) => {
+        video.onloadeddata = () => {
+          // Seek to 1 second or 10% of video duration
+          video.currentTime = Math.min(1, video.duration * 0.1)
+        }
+
+        video.onseeked = () => {
+          try {
+            const sourceWidth = video?.videoWidth || video?.clientWidth
+            const sourceHeight = video?.videoHeight || video?.clientHeight
+            if (!sourceWidth || !sourceHeight) {
+              console.log('Video dimensions unavailable for thumbnail')
+              URL.revokeObjectURL(videoUrl)
+              return
+            }
+            setVideoSize({ width: Math.round(sourceWidth), height: Math.round(sourceHeight) })
+            const canvas = document.createElement('canvas')
+            // Use reasonable thumbnail size
+            const maxWidth = 640
+            const scale = Math.min(1, maxWidth / sourceWidth)
+            canvas.width = sourceWidth * scale
+            canvas.height = sourceHeight * scale
+
+            const ctx = canvas.getContext('2d')
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+              canvas.toBlob(
+                (blob) => {
+                  if (blob) {
+                    resolve(new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' }))
+                  } else {
+                    resolve(null)
+                  }
+                  URL.revokeObjectURL(videoUrl)
+                },
+                'image/jpeg',
+                0.8
+              )
+            } else {
+              resolve(null)
+              URL.revokeObjectURL(videoUrl)
+            }
+          } catch (err) {
+            console.log('Could not generate video thumbnail:', err)
+            resolve(null)
+            URL.revokeObjectURL(videoUrl)
           }
-        } catch (err) {
-          console.log('Could not generate video thumbnail:', err)
+        }
+
+        video.onerror = () => {
+          console.log('Video thumbnail generation failed')
+          resolve(null)
           URL.revokeObjectURL(videoUrl)
         }
+
+        video.src = videoUrl
+      })
+
+      if (thumbnailFile) {
+        setThumbnail(thumbnailFile)
+        console.log('Auto-generated video thumbnail')
       }
-      
-      video.onerror = () => {
-        console.log('Video thumbnail generation failed')
-        URL.revokeObjectURL(videoUrl)
-      }
-      
-      video.src = videoUrl
+
+      return thumbnailFile
     } catch (err) {
       console.log('Error generating video thumbnail:', err)
     }
+    return null
   }
 
   // Upload file to Azure Blob Storage using SAS token
@@ -341,7 +541,8 @@ function UploadPageContent() {
           // Map compression progress to 5-30%
           setUploadProgress(5 + Math.round(progress * 0.25))
           setUploadStatus(`Compressing... ${progress}%`)
-        }
+        },
+        formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined
       )
       
       console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB, Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`)
@@ -373,6 +574,7 @@ function UploadPageContent() {
           url: fileUrl,
           thumbnailUrl,
           aiTool: formData.aiTool,
+          realDevice: formData.realDevice,
           price: formData.price || null,
           isPublic: formData.isPublic,
         }),
@@ -610,6 +812,261 @@ function UploadPageContent() {
             />
           </div>
 
+          {showCropper && cropSource && cropMediaType && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+              <div className="bg-tank-dark border border-tank-light rounded-2xl w-full max-w-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-semibold text-white">
+                    Crop {cropMediaType === 'video' ? 'Video' : 'Image'}
+                  </h3>
+                </div>
+                <div
+                  ref={cropContainerRef}
+                  className="relative w-full h-[360px] bg-black rounded-xl overflow-hidden"
+                >
+                  <img
+                    src={cropSource}
+                    alt="Crop preview"
+                    className="w-full h-full object-contain select-none"
+                    draggable={false}
+                    onLoad={(e) => {
+                      const img = e.currentTarget
+                      const container = cropContainerRef.current?.getBoundingClientRect()
+                      if (!container) return
+
+                      const naturalWidth = img.naturalWidth
+                      const naturalHeight = img.naturalHeight
+                      if (!naturalWidth || !naturalHeight) return
+
+                      const scale = Math.min(container.width / naturalWidth, container.height / naturalHeight)
+                      const width = naturalWidth * scale
+                      const height = naturalHeight * scale
+                      const offsetX = (container.width - width) / 2
+                      const offsetY = (container.height - height) / 2
+
+                      setMediaSize({ width: naturalWidth, height: naturalHeight })
+                      setRenderBox({
+                        containerWidth: container.width,
+                        containerHeight: container.height,
+                        width,
+                        height,
+                        offsetX,
+                        offsetY,
+                      })
+                    }}
+                  />
+
+                  {cropAreaPixels && mediaSize && renderBox && (
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{ zIndex: 5 }}
+                    >
+                      {(() => {
+                        const scaleX = renderBox.width / mediaSize.width
+                        const scaleY = renderBox.height / mediaSize.height
+                        const left = renderBox.offsetX + cropAreaPixels.x * scaleX
+                        const top = renderBox.offsetY + cropAreaPixels.y * scaleY
+                        const width = cropAreaPixels.width * scaleX
+                        const height = cropAreaPixels.height * scaleY
+                        return (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left,
+                              top,
+                              width,
+                              height,
+                              border: '2px solid rgba(0, 255, 136, 0.95)',
+                              boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)',
+                              borderRadius: '6px',
+                            }}
+                          />
+                        )
+                      })()}
+                    </div>
+                  )}
+                </div>
+                {mediaSize && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 text-sm text-gray-300">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span>Top</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={Math.max(0, mediaSize.height - minCropSize - cropInsets.bottom)}
+                          value={cropInsets.top}
+                          onChange={(e) => {
+                            const nextTop = Number(e.target.value) || 0
+                            setCropInsets((prev) => ({
+                              ...prev,
+                              top: Math.min(
+                                Math.max(0, nextTop),
+                                Math.max(0, mediaSize.height - minCropSize - prev.bottom)
+                              ),
+                            }))
+                          }}
+                          className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        />
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={Math.max(0, mediaSize.height - minCropSize - cropInsets.bottom)}
+                        value={cropInsets.top}
+                        onChange={(e) => {
+                          const nextTop = Number(e.target.value)
+                          setCropInsets((prev) => ({
+                            ...prev,
+                            top: Math.min(
+                              Math.max(0, nextTop),
+                              Math.max(0, mediaSize.height - minCropSize - prev.bottom)
+                            ),
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span>Bottom</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={Math.max(0, mediaSize.height - minCropSize - cropInsets.top)}
+                          value={cropInsets.bottom}
+                          onChange={(e) => {
+                            const nextBottom = Number(e.target.value) || 0
+                            setCropInsets((prev) => ({
+                              ...prev,
+                              bottom: Math.min(
+                                Math.max(0, nextBottom),
+                                Math.max(0, mediaSize.height - minCropSize - prev.top)
+                              ),
+                            }))
+                          }}
+                          className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        />
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={Math.max(0, mediaSize.height - minCropSize - cropInsets.top)}
+                        value={cropInsets.bottom}
+                        onChange={(e) => {
+                          const nextBottom = Number(e.target.value)
+                          setCropInsets((prev) => ({
+                            ...prev,
+                            bottom: Math.min(
+                              Math.max(0, nextBottom),
+                              Math.max(0, mediaSize.height - minCropSize - prev.top)
+                            ),
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span>Left</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={Math.max(0, mediaSize.width - minCropSize - cropInsets.right)}
+                          value={cropInsets.left}
+                          onChange={(e) => {
+                            const nextLeft = Number(e.target.value) || 0
+                            setCropInsets((prev) => ({
+                              ...prev,
+                              left: Math.min(
+                                Math.max(0, nextLeft),
+                                Math.max(0, mediaSize.width - minCropSize - prev.right)
+                              ),
+                            }))
+                          }}
+                          className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        />
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={Math.max(0, mediaSize.width - minCropSize - cropInsets.right)}
+                        value={cropInsets.left}
+                        onChange={(e) => {
+                          const nextLeft = Number(e.target.value)
+                          setCropInsets((prev) => ({
+                            ...prev,
+                            left: Math.min(
+                              Math.max(0, nextLeft),
+                              Math.max(0, mediaSize.width - minCropSize - prev.right)
+                            ),
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span>Right</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={Math.max(0, mediaSize.width - minCropSize - cropInsets.left)}
+                          value={cropInsets.right}
+                          onChange={(e) => {
+                            const nextRight = Number(e.target.value) || 0
+                            setCropInsets((prev) => ({
+                              ...prev,
+                              right: Math.min(
+                                Math.max(0, nextRight),
+                                Math.max(0, mediaSize.width - minCropSize - prev.left)
+                              ),
+                            }))
+                          }}
+                          className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        />
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={Math.max(0, mediaSize.width - minCropSize - cropInsets.left)}
+                        value={cropInsets.right}
+                        onChange={(e) => {
+                          const nextRight = Number(e.target.value)
+                          setCropInsets((prev) => ({
+                            ...prev,
+                            right: Math.min(
+                              Math.max(0, nextRight),
+                              Math.max(0, mediaSize.width - minCropSize - prev.left)
+                            ),
+                          }))
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {cropMediaType === 'video' && (
+                  <p className="text-xs text-gray-400 mt-2">
+                    Upload Edit applies this crop to the uploaded video (re-encoded) and thumbnail.
+                  </p>
+                )}
+                <div className="flex flex-col sm:flex-row gap-3 justify-end mt-6">
+                  <button
+                    type="button"
+                    onClick={handleUseOriginal}
+                    className="px-6 py-2 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all"
+                  >
+                    Upload Original
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUseEdited}
+                    className="px-6 py-2 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all"
+                  >
+                    Upload Edit
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Thumbnail (for video/music) */}
           {formData.type === 'VIDEO' && (
             <div>
@@ -629,10 +1086,12 @@ function UploadPageContent() {
                 </div>
               )}
               <input
+                id="thumbnail-input"
                 type="file"
                 accept="image/*"
                 onChange={(e) => setThumbnail(e.target.files?.[0] || null)}
                 className="text-sm"
+                aria-label="Upload a thumbnail image"
               />
               <p className="text-xs text-gray-500 mt-1">
                 {formData.type === 'VIDEO' 
@@ -666,15 +1125,18 @@ function UploadPageContent() {
               Description
             </label>
             <textarea
+              ref={descriptionRef}
               id="upload-description"
               name="description"
               value={formData.description}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, description: e.target.value }))
-              }
-              placeholder="Describe your AI-generated media..."
-              rows={4}
-              className="resize-none"
+              onChange={(e) => {
+                const value = e.target.value.slice(0, 500)
+                setFormData((prev) => ({ ...prev, description: value }))
+              }}
+              placeholder="Decribe your created media ..."
+              maxLength={500}
+              rows={3}
+              className="resize-none overflow-hidden"
             />
           </div>
 
@@ -688,19 +1150,19 @@ function UploadPageContent() {
               id="upload-price"
               name="price"
               step="0.01"
-              min="0"
+              min="0.5"
               value={formData.price}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, price: e.target.value }))
               }
-              placeholder="e.g., 1.99 (leave empty for free content)"
+              placeholder="e.g., 0.5 or higher (leave empty for free)"
             />
           </div>
 
           {/* AI Tool */}
           <div>
             <label htmlFor="upload-ai-tool" className="block text-sm font-medium text-gray-300 mb-2">
-              AI Tool Used
+              AI-generation Tool Used
             </label>
             <input
               type="text"
@@ -710,7 +1172,25 @@ function UploadPageContent() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, aiTool: e.target.value }))
               }
-              placeholder="e.g., Midjourney, DALL-E, Suno, Runway..."
+              placeholder="e.g., Veo, Nano Banana, Runway, Sora, DALL-E, ..."
+            />
+          </div>
+
+          {/* Real Media Device Used */}
+          <div>
+            <label htmlFor="upload-real-device" className="block text-sm font-medium text-gray-300 mb-2">
+              Real Media Device Used
+            </label>
+            <input
+              type="text"
+              id="upload-real-device"
+              name="realDevice"
+              value={formData.realDevice}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, realDevice: e.target.value }))
+              }
+              placeholder="e.g., iPhone 17 Pro, Galaxy S25 Ultra, Pixel 10 Pro, Canon EOS R5, Nikon Z6 III, ..."
+              className="w-full"
             />
           </div>
 
@@ -750,18 +1230,44 @@ function UploadPageContent() {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading || !file || !!(uploadQuota && !uploadQuota.canUpload)}
-            className="btn-primary w-full"
-          >
-            {loading ? 'Uploading...' : 
-              uploadQuota?.statusType === 'paid' && !uploadPaid && !((uploadQuota?.paidUploadCredits ?? 0) > 0) 
-                ? `Pay & Upload ($${uploadQuota.costPerUpload.toFixed(2)})` 
-                : (uploadQuota?.paidUploadCredits ?? 0) > 0 
-                  ? `Upload (Using Paid Credit)` 
-                  : 'Upload Media'}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => router.push('/')}
+              className="w-full sm:w-auto px-6 py-3 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !file || !!(uploadQuota && !uploadQuota.canUpload)}
+              className="btn-primary w-full"
+            >
+              {loading ? 'Uploading...' : 
+                uploadQuota?.statusType === 'paid' && !uploadPaid && !((uploadQuota?.paidUploadCredits ?? 0) > 0) 
+                  ? `Pay & Upload ($${uploadQuota.costPerUpload.toFixed(2)})` 
+                  : (uploadQuota?.paidUploadCredits ?? 0) > 0 
+                    ? `Upload (Using Paid Credit)` 
+                    : 'Upload Media'}
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-tank-light bg-tank-gray/40 p-4 text-sm text-gray-300">
+            <div className="font-semibold text-white mb-1">No Returns on Purchased Media</div>
+            <p className="mb-4">
+              All digital media purchases are final. Due to the nature of digital assets, returns,
+              refunds, cancellations, or exchanges are not permitted once payment has been
+              successfully processed.
+            </p>
+            <div className="font-semibold text-white mb-1">License and Usage Rights</div>
+            <p>
+              Upon successful upload to aimediatank.com, the media shall be designated as
+              license-free between the Seller and the Buyer. The Seller, as the original creator,
+              and the Buyer, upon lawful download, are each granted a non-exclusive, perpetual,
+              royalty-free license to use, reproduce, display, and distribute the media for both
+              personal and commercial purposes.
+            </p>
+          </div>
         </form>
       </div>
       )}
