@@ -1,7 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { formatMediaTitle, stripHashtags } from '@/lib/text'
 
 interface MediaCardProps {
   media: {
@@ -11,10 +13,11 @@ interface MediaCardProps {
     url: string
     thumbnailUrl?: string | null
     aiTool?: string | null
+    realDevice?: string | null
     price?: number | null
     isSold?: boolean
     soldAt?: string | null
-    daysRemaining?: number | null
+    soldCount?: number
     views: number
     avgRating: number
     createdAt: string
@@ -33,22 +36,69 @@ interface MediaCardProps {
       ratings: number
     }
   }
+  homeScrollContext?: {
+    page: number
+    sort: string
+    type: string | null
+    search: string
+  }
 }
 
-export default function MediaCard({ media }: MediaCardProps) {
+type BadgeItem = { itemKey: string; isEnabled: boolean }
+
+let badgeItemsCache: BadgeItem[] | null = null
+let badgeItemsPromise: Promise<BadgeItem[] | null> | null = null
+
+async function getBadgeItems(): Promise<BadgeItem[] | null> {
+  if (badgeItemsCache) return badgeItemsCache
+  if (badgeItemsPromise) return badgeItemsPromise
+
+  badgeItemsPromise = (async () => {
+    try {
+      const res = await fetch('/api/ui/badges', { cache: 'no-store' })
+      if (!res.ok) return null
+      const data = await res.json()
+      const items = (data.items || []) as BadgeItem[]
+      badgeItemsCache = items
+      return items
+    } catch (error) {
+      console.error('Error fetching badge settings:', error)
+      return null
+    } finally {
+      badgeItemsPromise = null
+    }
+  })()
+
+  return badgeItemsPromise
+}
+
+export default function MediaCard({ media, homeScrollContext }: MediaCardProps) {
   const router = useRouter()
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false)
   const [thumbnailError, setThumbnailError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [badgeItems, setBadgeItems] = useState<BadgeItem[] | null>(badgeItemsCache)
 
-  const handleClick = () => {
-    router.push(`/media/${media.id}`)
+  useEffect(() => {
+    let isMounted = true
+    const loadBadges = async () => {
+      if (badgeItemsCache) return
+      const items = await getBadgeItems()
+      if (isMounted) setBadgeItems(items)
+    }
+    loadBadges()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const isBadgeEnabled = (key: string) => {
+    if (!badgeItems || badgeItems.length === 0) return true
+    return badgeItems.find((item) => item.itemKey === key)?.isEnabled !== false
   }
 
-  // Remove hashtags from title for display (hashtags are only used for search)
-  const renderTitle = (title: string) => {
-    return title.replace(/#\w+/g, '').trim()
-  }
+  // Remove hashtags and limit to 35 characters for display
+  const renderTitle = (title: string) => formatMediaTitle(title, 35)
 
   const getTypeIcon = () => {
     switch (media.type) {
@@ -146,11 +196,75 @@ export default function MediaCard({ media }: MediaCardProps) {
   // For videos without thumbnail, we'll show the video element directly
   const showVideoElement = media.type === 'VIDEO' && !thumbnailSrc && !thumbnailError
 
+  const isAiGenerated = Boolean(media.aiTool && media.aiTool.trim())
+  const isRealGenerated = Boolean(media.realDevice && media.realDevice.trim())
+  const aiLabel = isAiGenerated ? 'AI' : isRealGenerated ? 'Real' : 'Real'
+
+  // Show 'Free' for null/undefined or zero price, otherwise show the price
+  const priceLabel =
+    media.price == null || media.price === 0 ? 'Free' : `$${media.price.toFixed(2)}`
+  const soldCount = media.soldCount ?? (media.isSold ? 1 : 0)
+  const showSoldBadge = soldCount > 0
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    // Only save scroll target when on the home page (not on profile or other pages)
+    if (homeScrollContext) {
+      sessionStorage.setItem(
+        'homeScrollState',
+        JSON.stringify({
+          targetId: media.id,
+          page: homeScrollContext.page,
+          sort: homeScrollContext.sort,
+          type: homeScrollContext.type,
+          search: homeScrollContext.search,
+        })
+      )
+    }
+    router.push(`/media/${media.id}`)
+  }
+
   return (
-    <div onClick={handleClick} className="group cursor-pointer">
-      <div className="bg-tank-gray rounded-2xl overflow-hidden border border-tank-light hover:border-tank-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-tank-accent/10">
+    <Link
+      href={`/media/${media.id}`}
+      onClick={handleClick}
+      data-media-id={media.id}
+      className="group cursor-pointer block"
+    >
+      <div className="bg-tank-gray rounded-xl overflow-hidden border border-tank-light hover:border-tank-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-tank-accent/10">
         {/* Thumbnail */}
         <div className="relative aspect-video bg-tank-dark overflow-hidden">
+          {isBadgeEnabled('ai') && (
+            <div className="absolute top-2 left-2 z-10 px-2 py-1 rounded-md text-[11px] font-bold uppercase bg-black/70 text-white backdrop-blur-sm">
+              {aiLabel}
+            </div>
+          )}
+
+          {/* Price and Sold badges - render independently based on their own settings */}
+          {(priceLabel && isBadgeEnabled('price')) || (showSoldBadge && isBadgeEnabled('sold')) ? (
+            <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
+              {priceLabel && isBadgeEnabled('price') && (
+                <div className="px-2 py-1 rounded-md text-[11px] font-bold bg-black/70 text-white backdrop-blur-sm">
+                  {priceLabel}
+                </div>
+              )}
+              {showSoldBadge && isBadgeEnabled('sold') && (
+                <div className="flex justify-end">
+                  <svg
+                    className="w-3.5 h-3.5 text-red-500 drop-shadow-[0_0_3px_rgba(239,68,68,0.9)]"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 2l4 4.5 6 1.5-6 9.5-4 4.5-4-4.5-6-9.5 6-1.5L12 2z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </div>
+              )}
+            </div>
+          ) : null}
+
           {thumbnailSrc && !thumbnailError ? (
             <img
               src={thumbnailSrc}
@@ -230,7 +344,10 @@ export default function MediaCard({ media }: MediaCardProps) {
         <div className="p-4">
           {/* Title and Type Badge */}
           <div className="flex items-center gap-2 mb-2">
-            <h3 className="font-semibold text-white group-hover:text-tank-accent transition-colors truncate flex-1" title={media.title}>
+            <h3
+              className="font-semibold text-white group-hover:text-tank-accent transition-colors truncate flex-1 min-w-0"
+              title={stripHashtags(media.title)}
+            >
               {renderTitle(media.title)}
             </h3>
             {/* Media Type Badge */}
@@ -244,19 +361,34 @@ export default function MediaCard({ media }: MediaCardProps) {
           <div className="flex items-center justify-between text-sm text-gray-300">
             <div className="flex items-center gap-3">
               {/* Views */}
-              <span className="flex items-center gap-1">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                {formatViews(media.views)}
-              </span>
+              {isBadgeEnabled('views') && (
+                <span className="flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  {formatViews(media.views)}
+                </span>
+              )}
+
+              {isBadgeEnabled('smileRate') && (
+                <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-1">
+                    <span>😄</span>
+                    <span>{media.reactions?.happy ?? 0}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span>😞</span>
+                    <span>{media.reactions?.sad ?? 0}</span>
+                  </span>
+                </span>
+              )}
             </div>
 
-            <span>{formatDate(media.createdAt)}</span>
+            {isBadgeEnabled('postDate') && <span>{formatDate(media.createdAt)}</span>}
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }

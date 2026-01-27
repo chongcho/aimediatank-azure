@@ -13,7 +13,11 @@ interface Media {
   url: string
   thumbnailUrl: string | null
   aiTool: string | null
+  realDevice?: string | null
   price?: number | null
+  isSold?: boolean
+  soldAt?: string | null
+  soldCount?: number
   views: number
   avgRating: number
   createdAt: string
@@ -47,6 +51,14 @@ interface UserSuggestion {
   role: string
 }
 
+interface HomeScrollState {
+  targetId: string
+  page: number
+  sort: string
+  type: string | null
+  search: string
+}
+
 function HomeContent() {
   const searchParams = useSearchParams()
   const [media, setMedia] = useState<Media[]>([])
@@ -65,6 +77,25 @@ function HomeContent() {
   const searchRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
+  const scrollRestoredRef = useRef(false)
+  const restoreStateRef = useRef<HomeScrollState | null>(null)
+  const isRestoringRef = useRef(false)
+  const restoreRunIdRef = useRef(0)
+  const activeRestoreRunIdRef = useRef<number | null>(null)
+
+  // Check for pending scroll restoration on mount
+  useEffect(() => {
+    const rawState = sessionStorage.getItem('homeScrollState')
+    if (rawState) {
+      try {
+        const parsed = JSON.parse(rawState) as HomeScrollState
+        restoreStateRef.current = parsed
+      } catch {
+        restoreStateRef.current = null
+      }
+      sessionStorage.removeItem('homeScrollState')
+    }
+  }, [])
 
   // Load sort preference from localStorage on mount (client-side only)
   useEffect(() => {
@@ -100,6 +131,72 @@ function HomeContent() {
   // Reset and fetch when filters change (only after sort is initialized)
   useEffect(() => {
     if (!sortInitialized) return
+    restoreRunIdRef.current += 1
+    const runId = restoreRunIdRef.current
+
+    const restoreState = restoreStateRef.current
+    const canRestore =
+      restoreState &&
+      restoreState.sort === sort &&
+      restoreState.type === type &&
+      restoreState.search === search
+
+    if (canRestore) {
+      isRestoringRef.current = true
+      activeRestoreRunIdRef.current = runId
+      scrollRestoredRef.current = false
+      setMedia([])
+      setHasMore(true)
+      setPage(restoreState.page)
+
+      const restorePages = async () => {
+        for (let p = 1; p <= restoreState.page; p += 1) {
+          if (restoreRunIdRef.current !== runId) {
+            if (activeRestoreRunIdRef.current === runId) {
+              isRestoringRef.current = false
+              activeRestoreRunIdRef.current = null
+            }
+            return
+          }
+          await fetchMedia(p, p === 1)
+          if (restoreRunIdRef.current !== runId) {
+            if (activeRestoreRunIdRef.current === runId) {
+              isRestoringRef.current = false
+              activeRestoreRunIdRef.current = null
+            }
+            return
+          }
+        }
+        if (activeRestoreRunIdRef.current === runId) {
+          isRestoringRef.current = false
+          activeRestoreRunIdRef.current = null
+        }
+
+        const attemptScrollToTarget = (attempts: number) => {
+          if (attempts <= 0) return
+          if (restoreRunIdRef.current !== runId) return
+          const target = document.querySelector(`[data-media-id="${restoreState.targetId}"]`)
+          if (target) {
+            const rect = (target as HTMLElement).getBoundingClientRect()
+            const headerOffset = 80
+            const top = window.scrollY + rect.top - headerOffset
+            window.scrollTo({ top, behavior: 'auto' })
+            scrollRestoredRef.current = true
+            return
+          }
+          setTimeout(() => attemptScrollToTarget(attempts - 1), 100)
+        }
+
+        setTimeout(() => attemptScrollToTarget(20), 50)
+        restoreStateRef.current = null
+      }
+
+      restorePages()
+      return
+    }
+
+    isRestoringRef.current = false
+    activeRestoreRunIdRef.current = null
     setMedia([])
     setPage(1)
     setHasMore(true)
@@ -110,6 +207,7 @@ function HomeContent() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
+        if (isRestoringRef.current) return
         if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
           setPage((prev) => prev + 1)
         }
@@ -126,7 +224,7 @@ function HomeContent() {
 
   // Load more when page increases
   useEffect(() => {
-    if (page > 1) {
+    if (page > 1 && !isRestoringRef.current) {
       fetchMedia(page, false)
     }
   }, [page])
@@ -455,7 +553,11 @@ function HomeContent() {
         <>
           <div className="grid gap-5 media-grid">
             {media.map((item) => (
-              <MediaCard key={item.id} media={item} />
+              <MediaCard
+                key={item.id}
+                media={item}
+                homeScrollContext={{ page, sort, type, search }}
+              />
             ))}
           </div>
 
