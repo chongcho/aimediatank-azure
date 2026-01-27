@@ -180,21 +180,6 @@ body {
   animation: gradient 8s ease infinite;
 }
 
-/* Logo horizontal rotation (Y-axis flip) */
-@keyframes rotate-y {
-  0% { transform: rotateY(0deg); }
-  100% { transform: rotateY(360deg); }
-}
-
-.logo-rotate-y {
-  animation: rotate-y 60s linear infinite;
-  transform-style: preserve-3d;
-}
-
-.logo-rotate-y:hover {
-  animation: rotate-y 20s linear infinite;
-}
-
 /* Sign Up button moving gradient animation */
 @keyframes gradient-move {
   0% { background-position: 0% 50%; }

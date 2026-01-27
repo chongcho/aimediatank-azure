@@ -301,7 +301,7 @@ export default function Navbar() {
             <img 
               src="/logo.png" 
               alt="AiMediaTank" 
-              className="h-10 w-auto logo-rotate-y"
+              className="h-10 w-auto"
             />
             </Link>
             {/* Home Icon - wireframe only */}
