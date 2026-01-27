@@ -289,6 +289,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const isAutoScrollEnabledRef = useRef(true)
   const autoScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastAutoScrolledMessageIdRef = useRef<string | null>(null)
+  const shouldScrollToBottomOnNextMessagesRef = useRef(true)
   const [didInitialScroll, setDidInitialScroll] = useState(false)
   const hasUserScrollIntentRef = useRef(false)
   const ignoreInitialScrollRef = useRef(true)
@@ -1690,7 +1691,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     isAutoScrollEnabledRef.current = true
     hasUserScrollIntentRef.current = false
     ignoreInitialScrollRef.current = true
+    shouldScrollToBottomOnNextMessagesRef.current = true
+    lastAutoScrolledMessageIdRef.current = null
   }, [chatMode, activeConversation?.id, selectedRecipients.length])
+
+  // If user un-minimizes chat, ensure we scroll to bottom once when messages are visible again
+  useEffect(() => {
+    if (chatSize !== 'min') {
+      shouldScrollToBottomOnNextMessagesRef.current = true
+    }
+  }, [chatSize])
 
   // Fetch chat invites periodically
   useEffect(() => {
@@ -1722,6 +1732,18 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     const lastId = messages.length ? (messages[messages.length - 1] as any)?.id : null
     if (!lastId) return
 
+    // On open / chat switch: force one scroll-to-bottom once we have messages rendered.
+    if (shouldScrollToBottomOnNextMessagesRef.current) {
+      if (chatSize !== 'min' && !showUserPicker) {
+        shouldScrollToBottomOnNextMessagesRef.current = false
+        isAutoScrollEnabledRef.current = true
+        lastAutoScrolledMessageIdRef.current = lastId
+        // Use the existing helper so the endpoint lands at the last message.
+        scrollToBottomInstant()
+      }
+      return
+    }
+
     // Track latest message id even when auto-scroll is disabled.
     if (!isAutoScrollEnabledRef.current) {
       lastAutoScrolledMessageIdRef.current = lastId
@@ -1739,7 +1761,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       lastAutoScrolledMessageIdRef.current = lastId
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [messages])
+  }, [messages, chatSize, showUserPicker, scrollToBottomInstant])
 
   useLayoutEffect(() => {
     if (didInitialScroll || messages.length === 0) return
