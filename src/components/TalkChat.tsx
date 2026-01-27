@@ -2664,9 +2664,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           style={{
             flex: 1,
             overflowY: 'auto',
-            // Bottom spacing is handled by the end spacer so the last message isn't clipped.
+            // Keep only a small bottom gap so the last message sits at the bottom.
             padding: '4px 12px 8px',
-            scrollPaddingBottom: '84px',
+            scrollPaddingBottom: '12px',
             background: '#f5f5f5',
             overscrollBehavior: 'contain',
           }}
@@ -3313,8 +3313,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               )
             })
           )}
-          {/* Spacer ensures the last message isn't clipped at the bottom */}
-          <div ref={messagesEndRef} style={{ height: 84, flexShrink: 0 }} />
+          {/* Tiny spacer so scrollIntoView doesn't clip last message */}
+          <div ref={messagesEndRef} style={{ height: 12, flexShrink: 0 }} />
         </div>
         )}
 
