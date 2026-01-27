@@ -193,7 +193,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
 
     return (
       <div className="w-full flex justify-center bg-black">
-        <div className="relative inline-block max-w-full">
+        <div className="relative w-full max-w-fit">
           {/* Gradient placeholder shown behind video when no thumbnail */}
           {!thumbnailUrl && (
             <div 
@@ -220,7 +220,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             loop
             // Always bind to state so the mobile mute toggle works.
             muted={isMuted}
-            className="block max-w-full max-h-[90vh] lg:max-h-[65vh]"
+            className="w-full max-h-[90vh] lg:max-h-[65vh]"
             style={{ zIndex: 1 }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
