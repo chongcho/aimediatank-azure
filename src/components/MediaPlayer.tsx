@@ -215,7 +215,8 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
           preload={isMobile ? 'metadata' : 'auto'}
           // Avoid heavy auto playback on mobile; let user tap to play.
           autoPlay={!isMobile}
-          loop={!isMobile}
+          // Repeat playback once started (including on mobile).
+          loop
           // Always bind to state so the mobile mute toggle works.
           muted={isMuted}
           className="w-full max-h-[80vh] relative"
