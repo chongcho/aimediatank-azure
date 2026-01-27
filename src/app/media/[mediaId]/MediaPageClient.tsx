@@ -458,6 +458,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
             </div>
           )}
         </div>
+      </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
