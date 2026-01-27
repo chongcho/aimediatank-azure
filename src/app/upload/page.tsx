@@ -813,12 +813,23 @@ function UploadPageContent() {
           </div>
 
           {showCropper && cropSource && cropMediaType && (
-            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[99999] p-4 overscroll-contain touch-none">
               <div className="bg-tank-dark border border-tank-light rounded-2xl w-full max-w-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-semibold text-white">
+                <div className="relative flex items-center mb-4">
+                  <h3 className="text-xl font-semibold text-white pr-12">
                     Crop {cropMediaType === 'video' ? 'Video' : 'Image'}
                   </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowCropper(false)}
+                    className="absolute right-0 top-0 w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 transition-colors flex items-center justify-center"
+                    aria-label="Close crop tool"
+                    title="Close"
+                  >
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
                 <div
                   ref={cropContainerRef}
@@ -922,7 +933,7 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
-                        className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        className="w-28 pl-2 pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
                       />
                     </div>
 
@@ -960,7 +971,7 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
-                        className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        className="w-28 pl-2 pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
                       />
                     </div>
 
@@ -998,7 +1009,7 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
-                        className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        className="w-28 pl-2 pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
                       />
                     </div>
 
@@ -1036,7 +1047,7 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
-                        className="w-20 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        className="w-28 pl-2 pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
                       />
                     </div>
                   </div>
