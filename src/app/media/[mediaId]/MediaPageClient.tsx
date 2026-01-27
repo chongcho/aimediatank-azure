@@ -340,108 +340,105 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               </div>
             )}
 
-            {/* Reaction Buttons + Save + Creator Info - Horizontal Layout */}
-            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 mt-4 pt-4 border-t border-tank-light">
-              {/* Left: Reactions */}
-              <div className="flex items-center gap-6">
-                <span className="text-sm text-gray-400">Click one you feel</span>
-                <div className="flex gap-8">
-                  <button
-                    onClick={() => handleReaction('happy')}
-                    className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${
-                      userReaction === 'happy' ? 'scale-110' : ''
-                    }`}
-                  >
-                    <span
-                      className={`text-4xl ${
-                        userReaction === 'happy' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
-                      }`}
-                    >
-                      😄
-                    </span>
-                    <span
-                      className={`text-sm font-medium ${
-                        userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'
-                      }`}
-                    >
-                      {reactions.happy}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => handleReaction('sad')}
-                    className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${
-                      userReaction === 'sad' ? 'scale-110' : ''
-                    }`}
-                  >
-                    <span
-                      className={`text-4xl ${
-                        userReaction === 'sad' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
-                      }`}
-                    >
-                      😞
-                    </span>
-                    <span
-                      className={`text-sm font-medium ${
-                        userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'
-                      }`}
-                    >
-                      {reactions.sad}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Right: Save Button + Creator Info */}
-              <div className="flex flex-col sm:flex-row lg:flex-row items-stretch sm:items-center gap-4">
-                {/* Save Button */}
+            {/* Reaction Buttons */}
+            <div className="flex items-center gap-6 mt-4 pt-4 border-t border-tank-light">
+              <span className="text-sm text-gray-400">Click one you feel</span>
+              <div className="flex gap-8">
                 <button
-                  onClick={handleToggleSave}
-                  disabled={savingMedia}
-                  className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap ${
-                    isSaved
-                      ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
-                      : 'bg-tank-gray border border-tank-light text-white hover:bg-tank-light'
+                  onClick={() => handleReaction('happy')}
+                  className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${
+                    userReaction === 'happy' ? 'scale-110' : ''
                   }`}
                 >
-                  {savingMedia ? (
-                    <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                  ) : (
-                    <svg
-                      className="w-5 h-5"
-                      fill={isSaved ? 'currentColor' : 'none'}
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                      />
-                    </svg>
-                  )}
-                  {isSaved ? 'Saved' : 'Save'}
+                  <span
+                    className={`text-4xl ${
+                      userReaction === 'happy' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
+                    }`}
+                  >
+                    😄
+                  </span>
+                  <span
+                    className={`text-sm font-medium ${
+                      userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'
+                    }`}
+                  >
+                    {reactions.happy}
+                  </span>
                 </button>
-
-                {/* Creator & AI Info */}
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm">
-                  <p className="text-gray-400">
-                    Created by{' '}
-                    <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
-                      {media.user.username}
-                    </Link>
-                  </p>
-                  {media.aiTool && (
-                    <p className="text-gray-400">
-                      <span className="text-gray-500">AI Tool:</span>
-                      <span className="ml-1 text-tank-accent">{media.aiTool}</span>
-                    </p>
-                  )}
-                </div>
+                <button
+                  onClick={() => handleReaction('sad')}
+                  className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${
+                    userReaction === 'sad' ? 'scale-110' : ''
+                  }`}
+                >
+                  <span
+                    className={`text-4xl ${
+                      userReaction === 'sad' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
+                    }`}
+                  >
+                    😞
+                  </span>
+                  <span
+                    className={`text-sm font-medium ${
+                      userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'
+                    }`}
+                  >
+                    {reactions.sad}
+                  </span>
+                </button>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Save Button */}
+          <button
+            onClick={handleToggleSave}
+            disabled={savingMedia}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${
+              isSaved
+                ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
+                : 'bg-tank-gray border border-tank-light text-white hover:bg-tank-light'
+            }`}
+          >
+            {savingMedia ? (
+              <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+            ) : (
+              <svg
+                className="w-5 h-5"
+                fill={isSaved ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                />
+              </svg>
+            )}
+            {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
+          </button>
+
+        {/* Creator & AI Info */}
+        <div className="card space-y-2">
+          <p className="text-gray-400">
+            Created by{' '}
+            <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
+              {media.user.username}
+            </Link>
+          </p>
+          {media.aiTool && (
+            <p className="text-gray-400">
+              <span className="text-gray-500">AI Tool:</span>
+              <span className="ml-2 text-tank-accent">{media.aiTool}</span>
+            </p>
+          )}
+        </div>
+      </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
