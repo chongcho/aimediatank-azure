@@ -288,15 +288,11 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 )}
               </div>
 
-              {/* Metadata Row - Date, Creator, Type Badge */}
+              {/* Metadata Row - Diamond, Type, Date, Creator, AI Tool */}
               <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 mb-4">
-                <span>{formatDate(media.createdAt)}</span>
-                <span>
-                  Created by{' '}
-                  <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
-                    {media.user.username}
-                  </Link>
-                </span>
+                {media.price && media.price > 0 && (
+                  <span className="text-pink-500">💎</span>
+                )}
                 <span
                   className={`badge ${
                     media.type === 'VIDEO'
@@ -308,8 +304,18 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 >
                   {media.type}
                 </span>
-                {media.price && media.price > 0 && (
-                  <span className="text-pink-500">💎</span>
+                <span>{formatDate(media.createdAt)}</span>
+                <span>
+                  Created by{' '}
+                  <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
+                    {media.user.username}
+                  </Link>
+                </span>
+                {media.aiTool && (
+                  <span>
+                    <span className="text-gray-500">AI Tool:</span>
+                    <span className="ml-1 text-tank-accent">{media.aiTool}</span>
+                  </span>
                 )}
               </div>
 
@@ -406,14 +412,6 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 )}
                 {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
               </button>
-
-              {/* AI Tool Info */}
-              {media.aiTool && (
-                <p className="text-sm text-gray-400">
-                  <span className="text-gray-500">AI Tool:</span>
-                  <span className="ml-2 text-tank-accent">{media.aiTool}</span>
-                </p>
-              )}
             </div>
           </div>
 
