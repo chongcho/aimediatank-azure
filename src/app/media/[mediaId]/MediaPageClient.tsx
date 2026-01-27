@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaPlayer from '@/components/MediaPlayer'
+import { formatMediaTitle, stripHashtags } from '@/lib/text'
 
 interface MediaDetail {
   id: string
@@ -266,9 +267,9 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
             <div className="flex items-center gap-2 mb-2 overflow-hidden">
               <h1
                 className="font-semibold text-white truncate min-w-0"
-                title={media.title.replace(/#\w+/g, '').trim()}
+                title={stripHashtags(media.title)}
               >
-                {media.title.replace(/#\w+/g, '').trim()}
+                {formatMediaTitle(media.title, 60)}
               </h1>
 
               {/* Edit Button - for owners */}
@@ -460,7 +461,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               </div>
             </div>
             <p className="text-gray-300 mb-6">
-              Are you sure you want to delete "<span className="font-semibold">{media.title}</span>"? This will permanently remove the media file and all associated comments and ratings.
+              Are you sure you want to delete "<span className="font-semibold">{stripHashtags(media.title)}</span>"? This will permanently remove the media file and all associated comments and ratings.
             </p>
             <div className="flex gap-3">
               <button onClick={() => setShowDeleteModal(false)} className="btn-secondary flex-1" disabled={deleting}>
