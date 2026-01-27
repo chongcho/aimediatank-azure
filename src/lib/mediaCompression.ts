@@ -8,16 +8,16 @@ interface CompressionOptions {
 }
 
 const DEFAULT_IMAGE_OPTIONS: CompressionOptions = {
-  maxWidth: 1920,
-  maxHeight: 1080,
-  quality: 0.8,
-  maxSizeMB: 5,
+  maxWidth: 4096,
+  maxHeight: 4096,
+  quality: 0.95, // High quality - compression done on Azure backend
+  maxSizeMB: 50,
 }
 
 const DEFAULT_VIDEO_OPTIONS: CompressionOptions = {
-  maxWidth: 1920,
-  maxHeight: 1080,
-  maxSizeMB: 100,
+  maxWidth: 4096,
+  maxHeight: 4096,
+  maxSizeMB: 500,
 }
 
 /**
@@ -204,8 +204,8 @@ export async function compressVideo(
         }
 
         // Create media stream from canvas (video track).
-        // Keep FPS modest to avoid pegging the main thread during long encodes.
-        const TARGET_FPS = 24
+        // Use 30 FPS for good quality - compression handled on Azure backend.
+        const TARGET_FPS = 30
         const stream = canvas.captureStream(TARGET_FPS)
 
         // Briefly start playback (muted) to satisfy autoplay policies, then immediately pause.
@@ -295,15 +295,15 @@ export async function compressVideo(
         ]
         const requestedMimeType = preferredTypes.find((t) => MediaRecorder.isTypeSupported(t)) || ''
 
-        // Calculate target bitrate based on original file to avoid making it larger
+        // Calculate target bitrate - preserve original quality (compression done on Azure)
         // Original bitrate = file size (bits) / duration (seconds)
         const originalBitrate = (file.size * 8) / (video.duration || 1)
-        // Use 80% of original bitrate (to account for WebM overhead), capped at 2.5 Mbps max
-        const targetVideoBitrate = Math.min(Math.round(originalBitrate * 0.8), 2500000)
-        // Ensure minimum bitrate of 500 kbps for quality
-        const videoBitrate = Math.max(targetVideoBitrate, 500000)
+        // Use original bitrate (or slightly higher to avoid quality loss), capped at 20 Mbps
+        const targetVideoBitrate = Math.min(Math.round(originalBitrate * 1.1), 20000000)
+        // Ensure minimum bitrate of 2 Mbps for quality
+        const videoBitrate = Math.max(targetVideoBitrate, 2000000)
 
-        console.log(`Original bitrate: ${(originalBitrate / 1000000).toFixed(2)} Mbps, using: ${(videoBitrate / 1000000).toFixed(2)} Mbps`)
+        console.log(`Original bitrate: ${(originalBitrate / 1000000).toFixed(2)} Mbps, using: ${(videoBitrate / 1000000).toFixed(2)} Mbps (high quality for Azure compression)`)
 
         // If we cannot record any known type, fall back to original file.
         if (!requestedMimeType) {
@@ -316,7 +316,7 @@ export async function compressVideo(
         const mediaRecorder = new MediaRecorder(stream, {
           ...(requestedMimeType ? { mimeType: requestedMimeType } : {}),
           videoBitsPerSecond: videoBitrate,
-          audioBitsPerSecond: 128000, // 128 kbps
+          audioBitsPerSecond: 256000, // 256 kbps - high quality audio
         })
 
         const chunks: Blob[] = []
