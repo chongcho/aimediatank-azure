@@ -263,182 +263,201 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
 
       {/* Content below media */}
       <div className="max-w-4xl mx-auto px-4 mt-6 space-y-6">
-        {/* Info */}
+        {/* Info Card - Two Column Layout */}
         <div className="card">
-            <div className="flex items-center gap-2 mb-2 overflow-hidden">
-              <h1
-                className="font-semibold text-white truncate min-w-0"
-                title={stripHashtags(media.title)}
-              >
-                {formatMediaTitle(media.title, 60)}
-              </h1>
-
-              {/* Edit Button - for owners */}
-              {canManage && (
-                <Link
-                  href={`/media/${mediaId}/edit`}
-                  className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold"
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
+            {/* Left Column: Title, Metadata, Reactions */}
+            <div className="flex-1 min-w-0">
+              {/* Title Row */}
+              <div className="flex items-center gap-2 mb-2 overflow-hidden">
+                <h1
+                  className="font-semibold text-white truncate min-w-0"
+                  title={stripHashtags(media.title)}
                 >
-                  Edit
-                </Link>
-              )}
+                  {formatMediaTitle(media.title, 60)}
+                </h1>
+
+                {/* Edit Button - for owners */}
+                {canManage && (
+                  <Link
+                    href={`/media/${mediaId}/edit`}
+                    className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold"
+                  >
+                    Edit
+                  </Link>
+                )}
+              </div>
+
+              {/* Metadata Row */}
+              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 mb-4">
+                <span>{formatDate(media.createdAt)}</span>
+                <span
+                  className={`badge ${
+                    media.type === 'VIDEO'
+                      ? 'badge-video'
+                      : media.type === 'IMAGE'
+                        ? 'badge-image'
+                        : 'badge-music'
+                  }`}
+                >
+                  {media.type}
+                </span>
+                {media.price && media.price > 0 && (
+                  <span className="text-pink-500">💎</span>
+                )}
+              </div>
+
+              {/* Views Row */}
+              <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span>{media.views.toLocaleString()} views</span>
+              </div>
+
+              {/* Reaction Buttons */}
+              <div className="flex items-center gap-6">
+                <div className="flex gap-6">
+                  <button
+                    onClick={() => handleReaction('happy')}
+                    className={`flex items-center gap-2 transition-transform hover:scale-110 ${
+                      userReaction === 'happy' ? 'scale-110' : ''
+                    }`}
+                  >
+                    <span
+                      className={`text-3xl ${
+                        userReaction === 'happy' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
+                      }`}
+                    >
+                      😄
+                    </span>
+                    <span
+                      className={`text-sm font-medium ${
+                        userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'
+                      }`}
+                    >
+                      {reactions.happy}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => handleReaction('sad')}
+                    className={`flex items-center gap-2 transition-transform hover:scale-110 ${
+                      userReaction === 'sad' ? 'scale-110' : ''
+                    }`}
+                  >
+                    <span
+                      className={`text-3xl ${
+                        userReaction === 'sad' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
+                      }`}
+                    >
+                      😞
+                    </span>
+                    <span
+                      className={`text-sm font-medium ${
+                        userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'
+                      }`}
+                    >
+                      {reactions.sad}
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400 mb-4">
-              <span>{media.views.toLocaleString()} views</span>
-              <span>{formatDate(media.createdAt)}</span>
-              <span
-                className={`badge ${
-                  media.type === 'VIDEO'
-                    ? 'badge-video'
-                    : media.type === 'IMAGE'
-                      ? 'badge-image'
-                      : 'badge-music'
+            {/* Right Column: Save, Creator, AI Tool */}
+            <div className="flex flex-col gap-3 lg:items-end lg:text-right">
+              {/* Save Button */}
+              <button
+                onClick={handleToggleSave}
+                disabled={savingMedia}
+                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap ${
+                  isSaved
+                    ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
+                    : 'bg-tank-gray border border-tank-light text-white hover:bg-tank-light'
                 }`}
               >
-                {media.type}
-              </span>
-            </div>
-
-            {media.description && <p className="text-gray-300 mb-4">{media.description}</p>}
-
-            {/* Buy Now Button - Only show for paid content that user doesn't own */}
-            {media.price && media.price > 0 && !isOwner && (
-              <button
-                onClick={handleBuyNow}
-                disabled={buyingMedia}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 mb-4 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/25"
-              >
-                {buyingMedia ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                {savingMedia ? (
+                  <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                 ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg
+                    className="w-5 h-5"
+                    fill={isSaved ? 'currentColor' : 'none'}
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
                     />
                   </svg>
                 )}
-                {buyingMedia ? 'Processing...' : `Buy Now - $${media.price.toFixed(2)}`}
+                {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
               </button>
-            )}
 
-            {/* Price Display for Owner */}
-            {media.price && media.price > 0 && isOwner && (
-              <div className="w-full flex items-center justify-center gap-2 px-4 py-3 mb-4 rounded-xl font-semibold bg-tank-gray border border-tank-light text-gray-400">
+              {/* Creator Info */}
+              <p className="text-sm text-gray-400">
+                Created by{' '}
+                <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
+                  {media.user.username}
+                </Link>
+              </p>
+
+              {/* AI Tool Info */}
+              {media.aiTool && (
+                <p className="text-sm text-gray-400">
+                  <span className="text-gray-500">AI Tool:</span>
+                  <span className="ml-2 text-tank-accent">{media.aiTool}</span>
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Description - Full Width Below */}
+          {media.description && (
+            <p className="text-gray-300 mt-4 pt-4 border-t border-tank-light">{media.description}</p>
+          )}
+
+          {/* Buy Now Button - Only show for paid content that user doesn't own */}
+          {media.price && media.price > 0 && !isOwner && (
+            <button
+              onClick={handleBuyNow}
+              disabled={buyingMedia}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-4 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/25"
+            >
+              {buyingMedia ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
                   />
                 </svg>
-                Your Price: ${media.price.toFixed(2)}
-              </div>
-            )}
+              )}
+              {buyingMedia ? 'Processing...' : `Buy Now - $${media.price.toFixed(2)}`}
+            </button>
+          )}
 
-            {/* Reaction Buttons */}
-            <div className="flex items-center gap-6 mt-4 pt-4 border-t border-tank-light">
-              <span className="text-sm text-gray-400">Click one you feel</span>
-              <div className="flex gap-8">
-                <button
-                  onClick={() => handleReaction('happy')}
-                  className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${
-                    userReaction === 'happy' ? 'scale-110' : ''
-                  }`}
-                >
-                  <span
-                    className={`text-4xl ${
-                      userReaction === 'happy' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
-                    }`}
-                  >
-                    😄
-                  </span>
-                  <span
-                    className={`text-sm font-medium ${
-                      userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'
-                    }`}
-                  >
-                    {reactions.happy}
-                  </span>
-                </button>
-                <button
-                  onClick={() => handleReaction('sad')}
-                  className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${
-                    userReaction === 'sad' ? 'scale-110' : ''
-                  }`}
-                >
-                  <span
-                    className={`text-4xl ${
-                      userReaction === 'sad' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
-                    }`}
-                  >
-                    😞
-                  </span>
-                  <span
-                    className={`text-sm font-medium ${
-                      userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'
-                    }`}
-                  >
-                    {reactions.sad}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Save Button */}
-          <button
-            onClick={handleToggleSave}
-            disabled={savingMedia}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${
-              isSaved
-                ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
-                : 'bg-tank-gray border border-tank-light text-white hover:bg-tank-light'
-            }`}
-          >
-            {savingMedia ? (
-              <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-            ) : (
-              <svg
-                className="w-5 h-5"
-                fill={isSaved ? 'currentColor' : 'none'}
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+          {/* Price Display for Owner */}
+          {media.price && media.price > 0 && isOwner && (
+            <div className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-4 rounded-xl font-semibold bg-tank-gray border border-tank-light text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-            )}
-            {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
-          </button>
-
-        {/* Creator & AI Info */}
-        <div className="card space-y-2">
-          <p className="text-gray-400">
-            Created by{' '}
-            <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
-              {media.user.username}
-            </Link>
-          </p>
-          {media.aiTool && (
-            <p className="text-gray-400">
-              <span className="text-gray-500">AI Tool:</span>
-              <span className="ml-2 text-tank-accent">{media.aiTool}</span>
-            </p>
+              Your Price: ${media.price.toFixed(2)}
+            </div>
           )}
         </div>
-      </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
