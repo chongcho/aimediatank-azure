@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import SignInModal from './SignInModal'
+import MediaMessageModal from './MediaMessageModal'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
 
 // Dynamic import TalkChat to prevent SSR issues
@@ -29,6 +30,7 @@ export default function Navbar() {
   const [isTalkChatOpen, setIsTalkChatOpen] = useState(false)
   const [isPageVisible, setIsPageVisible] = useState(true)
   const [isSignInOpen, setIsSignInOpen] = useState(false)
+  const [isMediaMessageOpen, setIsMediaMessageOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [chatInviteCount, setChatInviteCount] = useState(0)
@@ -283,6 +285,21 @@ export default function Navbar() {
 
           {/* Right Side */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Media Message Button - signed-in users */}
+            {session && (
+              <button
+                type="button"
+                onClick={() => setIsMediaMessageOpen(true)}
+                className="h-9 w-9 flex items-center justify-center rounded-lg border border-tank-light text-gray-200 hover:text-white hover:border-tank-accent transition-colors"
+                aria-label="Media Message"
+                title="Media Message"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.8L3 20l1.2-3A7.87 7.87 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </button>
+            )}
+
             {/* Chat Button - Always visible for all users */}
             <div className="relative">
               <button
@@ -448,6 +465,16 @@ export default function Navbar() {
                         Profile
                       </Link>
                       <Link
+                        href="/messages"
+                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
+                        onClick={() => setIsProfileOpen(false)}
+                      >
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.8L3 20l1.2-3A7.87 7.87 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        Messages
+                      </Link>
+                      <Link
                         href={`/profile/${userData?.username || session.user?.username}`}
                         className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
                         onClick={() => setIsProfileOpen(false)}
@@ -565,6 +592,9 @@ export default function Navbar() {
               <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
               <MobileNavLink href="/about" onClick={() => setIsMenuOpen(false)}>About</MobileNavLink>
               <MobileNavLink href="/game" onClick={() => setIsMenuOpen(false)}>Play</MobileNavLink>
+              {session && (
+                <MobileNavLink href="/messages" onClick={() => setIsMenuOpen(false)}>Messages</MobileNavLink>
+              )}
               <MobileNavLink href={isSubscriber ? "/upload" : "/pricing"} onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
             </div>
           </div>
@@ -583,6 +613,13 @@ export default function Navbar() {
       <SignInModal
         isOpen={isSignInOpen}
         onClose={() => setIsSignInOpen(false)}
+      />
+
+      <MediaMessageModal
+        isOpen={isMediaMessageOpen}
+        onClose={() => setIsMediaMessageOpen(false)}
+        defaultRecipient="@aidog"
+        myContentsHref={`/profile/${userData?.username || session?.user?.username || 'me'}`}
       />
     </nav>
   )
