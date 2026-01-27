@@ -1,9 +1,8 @@
-name: Sync main <-> staging
+name: Sync main from staging
 
 on:
   push:
     branches:
-      - main
       - staging
   workflow_dispatch:
 
@@ -32,20 +31,12 @@ jobs:
         run: |
           git fetch origin main staging --prune
 
-      - name: Sync other branch
+      - name: Sync main from staging
         shell: bash
         run: |
           set -euo pipefail
-
-          if [ "${GITHUB_REF_NAME}" = "staging" ]; then
-            echo "Syncing main from staging..."
-            git checkout main
-            git merge --no-edit origin/staging
-            git push origin main
-          else
-            echo "Syncing staging from main..."
-            git checkout staging
-            git merge --no-edit origin/main
-            git push origin staging
-          fi
+          echo "Syncing main from staging..."
+          git checkout main
+          git merge --no-edit origin/staging
+          git push origin main
 
