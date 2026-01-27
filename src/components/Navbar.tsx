@@ -278,6 +278,7 @@ export default function Navbar() {
             <NavLink href="/?type=VIDEO">Videos</NavLink>
             <NavLink href="/?type=IMAGE">Images</NavLink>
             <NavLink href="/about">About</NavLink>
+            <NavLink href="/game">Play</NavLink>
           </div>
 
           {/* Right Side */}
@@ -563,6 +564,7 @@ export default function Navbar() {
               <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
               <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
               <MobileNavLink href="/about" onClick={() => setIsMenuOpen(false)}>About</MobileNavLink>
+              <MobileNavLink href="/game" onClick={() => setIsMenuOpen(false)}>Play</MobileNavLink>
               <MobileNavLink href={isSubscriber ? "/upload" : "/pricing"} onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
             </div>
           </div>
