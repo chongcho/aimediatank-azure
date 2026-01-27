@@ -192,67 +192,69 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     }
 
     return (
-      <div className="relative w-full overflow-hidden bg-black">
-        {/* Gradient placeholder shown behind video when no thumbnail */}
-        {!thumbnailUrl && (
-          <div 
-            className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center pointer-events-none"
-            style={{ zIndex: 0 }}
-          >
-            <div className="text-white/30">
-              <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
+      <div className="w-full flex justify-center bg-black">
+        <div className="relative inline-block max-w-full">
+          {/* Gradient placeholder shown behind video when no thumbnail */}
+          {!thumbnailUrl && (
+            <div 
+              className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center pointer-events-none"
+              style={{ zIndex: 0 }}
+            >
+              <div className="text-white/30">
+                <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
             </div>
-          </div>
-        )}
-        <video
-          ref={videoRef}
-          src={url}
-          poster={thumbnailUrl || undefined}
-          controls={!isMobile || showMobileControls}
-          playsInline
-          preload={isMobile ? 'metadata' : 'auto'}
-          // Avoid heavy auto playback on mobile; let user tap to play.
-          autoPlay={!isMobile}
-          // Repeat playback once started (including on mobile).
-          loop
-          // Always bind to state so the mobile mute toggle works.
-          muted={isMuted}
-          className="w-full max-h-[90vh] lg:max-h-[65vh] mx-auto relative"
-          style={{ zIndex: 1 }}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onClick={handleVideoTap}
-          onTouchStart={() => {
-            if (!isMobile) return
-            setShowMobileControls(true)
-            if (hideControlsTimeout.current) {
-              clearTimeout(hideControlsTimeout.current)
-            }
-            hideControlsTimeout.current = setTimeout(() => {
-              setShowMobileControls(false)
-            }, 2000)
-          }}
-        />
-        {/* Mobile-only volume button */}
-        {isMobile && isMounted && (
-          <button
-            onClick={toggleMute}
-            className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/70 transition-colors"
-          >
-            {isMuted ? (
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-              </svg>
-            )}
-          </button>
-        )}
+          )}
+          <video
+            ref={videoRef}
+            src={url}
+            poster={thumbnailUrl || undefined}
+            controls={!isMobile || showMobileControls}
+            playsInline
+            preload={isMobile ? 'metadata' : 'auto'}
+            // Avoid heavy auto playback on mobile; let user tap to play.
+            autoPlay={!isMobile}
+            // Repeat playback once started (including on mobile).
+            loop
+            // Always bind to state so the mobile mute toggle works.
+            muted={isMuted}
+            className="block max-w-full max-h-[90vh] lg:max-h-[65vh]"
+            style={{ zIndex: 1 }}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onClick={handleVideoTap}
+            onTouchStart={() => {
+              if (!isMobile) return
+              setShowMobileControls(true)
+              if (hideControlsTimeout.current) {
+                clearTimeout(hideControlsTimeout.current)
+              }
+              hideControlsTimeout.current = setTimeout(() => {
+                setShowMobileControls(false)
+              }, 2000)
+            }}
+          />
+          {/* Mobile-only volume button */}
+          {isMobile && isMounted && (
+            <button
+              onClick={toggleMute}
+              className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/70 transition-colors"
+            >
+              {isMuted ? (
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+              )}
+            </button>
+          )}
+        </div>
       </div>
     )
   }
