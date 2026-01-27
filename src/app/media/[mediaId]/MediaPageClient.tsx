@@ -250,20 +250,21 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-0 m-0 pb-[500px]">
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Media Player */}
-          <MediaPlayer
-            type={media.type}
-            url={media.url}
-            title={media.title}
-            thumbnailUrl={media.thumbnailUrl}
-          />
+    <div className="pb-[500px]">
+      {/* Media Player - Full Width */}
+      <div className="w-full bg-black">
+        <MediaPlayer
+          type={media.type}
+          url={media.url}
+          title={media.title}
+          thumbnailUrl={media.thumbnailUrl}
+        />
+      </div>
 
-          {/* Info */}
-          <div className="card">
+      {/* Content below media */}
+      <div className="max-w-4xl mx-auto px-4 mt-6 space-y-6">
+        {/* Info */}
+        <div className="card">
             <div className="flex items-center gap-2 mb-2 overflow-hidden">
               <h1
                 className="font-semibold text-white truncate min-w-0"
@@ -422,21 +423,20 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
             {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
           </button>
 
-          {/* Creator & AI Info */}
-          <div className="card space-y-2">
+        {/* Creator & AI Info */}
+        <div className="card space-y-2">
+          <p className="text-gray-400">
+            Created by{' '}
+            <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
+              {media.user.username}
+            </Link>
+          </p>
+          {media.aiTool && (
             <p className="text-gray-400">
-              Created by{' '}
-              <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
-                {media.user.username}
-              </Link>
+              <span className="text-gray-500">AI Tool:</span>
+              <span className="ml-2 text-tank-accent">{media.aiTool}</span>
             </p>
-            {media.aiTool && (
-              <p className="text-gray-400">
-                <span className="text-gray-500">AI Tool:</span>
-                <span className="ml-2 text-tank-accent">{media.aiTool}</span>
-              </p>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
@@ -480,7 +480,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
       )}
 
       {/* Back Button at bottom left */}
-      <div className="flex justify-start mt-8">
+      <div className="max-w-4xl mx-auto px-4 mt-8">
         <button
           type="button"
           onClick={() => router.back()}

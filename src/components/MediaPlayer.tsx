@@ -108,11 +108,11 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   if (type === 'IMAGE') {
     return (
       <>
-        <div className="relative w-full rounded-2xl overflow-hidden bg-tank-dark group">
+        <div className="relative w-full overflow-hidden bg-black group">
           <img
             src={url}
             alt={title}
-            className="w-full h-auto max-h-[80vh] object-contain cursor-pointer"
+            className="w-full h-auto max-h-[90vh] object-contain mx-auto cursor-pointer"
             onClick={() => setIsFullscreen(true)}
           />
           {/* Fullscreen button */}
@@ -192,7 +192,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     }
 
     return (
-      <div className="relative w-full rounded-2xl overflow-hidden bg-tank-black">
+      <div className="relative w-full overflow-hidden bg-black">
         {/* Gradient placeholder shown behind video when no thumbnail */}
         {!thumbnailUrl && (
           <div 
@@ -219,7 +219,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
           loop
           // Always bind to state so the mobile mute toggle works.
           muted={isMuted}
-          className="w-full max-h-[80vh] relative"
+          className="w-full max-h-[90vh] mx-auto relative"
           style={{ zIndex: 1 }}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
