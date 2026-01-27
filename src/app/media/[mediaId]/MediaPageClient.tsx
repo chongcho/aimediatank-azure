@@ -251,8 +251,8 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
 
   return (
     <div className="pb-[500px]">
-      {/* Media Player - Full Width */}
-      <div className="w-full bg-black pt-5">
+      {/* Media Player - Full Width, starts at top */}
+      <div className="w-full bg-black">
         <MediaPlayer
           type={media.type}
           url={media.url}
