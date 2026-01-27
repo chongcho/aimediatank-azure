@@ -288,9 +288,15 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 )}
               </div>
 
-              {/* Metadata Row */}
+              {/* Metadata Row - Date, Creator, Type Badge */}
               <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 mb-4">
                 <span>{formatDate(media.createdAt)}</span>
+                <span>
+                  Created by{' '}
+                  <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
+                    {media.user.username}
+                  </Link>
+                </span>
                 <span
                   className={`badge ${
                     media.type === 'VIDEO'
@@ -306,6 +312,11 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                   <span className="text-pink-500">💎</span>
                 )}
               </div>
+
+              {/* Description Row */}
+              {media.description && (
+                <p className="text-gray-300 mb-4">{media.description}</p>
+              )}
 
               {/* Views + Reactions Row */}
               <div className="flex items-center gap-6">
@@ -364,7 +375,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               </div>
             </div>
 
-            {/* Right Column: Save, Creator, AI Tool */}
+            {/* Right Column: Save, AI Tool */}
             <div className="flex flex-col gap-3 lg:items-start">
               {/* Save Button */}
               <button
@@ -396,14 +407,6 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
               </button>
 
-              {/* Creator Info */}
-              <p className="text-sm text-gray-400">
-                Created by{' '}
-                <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
-                  {media.user.username}
-                </Link>
-              </p>
-
               {/* AI Tool Info */}
               {media.aiTool && (
                 <p className="text-sm text-gray-400">
@@ -413,11 +416,6 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               )}
             </div>
           </div>
-
-          {/* Description - Full Width Below */}
-          {media.description && (
-            <p className="text-gray-300 mt-4 pt-4 border-t border-tank-light">{media.description}</p>
-          )}
 
           {/* Buy Now Button - Only show for paid content that user doesn't own */}
           {media.price && media.price > 0 && !isOwner && (
