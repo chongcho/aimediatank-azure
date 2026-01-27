@@ -1,0 +1,51 @@
+name: Sync main <-> staging
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    # Prevent infinite loop: when this workflow pushes, actor is github-actions[bot]
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch branches
+        run: |
+          git fetch origin main staging --prune
+
+      - name: Sync other branch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${GITHUB_REF_NAME}" = "staging" ]; then
+            echo "Syncing main from staging..."
+            git checkout main
+            git merge --no-edit origin/staging
+            git push origin main
+          else
+            echo "Syncing staging from main..."
+            git checkout staging
+            git merge --no-edit origin/main
+            git push origin staging
+          fi
+
