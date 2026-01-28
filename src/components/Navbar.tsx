@@ -316,7 +316,7 @@ export default function Navbar() {
             {/* Home Icon - wireframe only */}
             <Link 
               href="/" 
-              className="ml-[30px] text-gray-400 hover:text-white transition-colors"
+              className="ml-[20px] text-gray-400 hover:text-white transition-colors"
               onClick={(e) => { 
                 e.preventDefault();
                 // Clear scroll restoration state so home page scrolls to top
@@ -464,7 +464,7 @@ export default function Navbar() {
                 {isNavbarItemEnabled('upload') && (
                   <Link
                     href={isSubscriber ? "/upload" : "/pricing"}
-                    className="upload-btn hidden sm:flex items-center justify-center h-9 px-0.5 font-bold rounded-lg text-sm
+                    className="upload-btn flex items-center justify-center h-9 px-0.5 font-bold rounded-lg text-sm
                       hover:scale-105 active:scale-95 transition-transform duration-200 ease-out
                       relative overflow-hidden"
                   >
