@@ -17,8 +17,8 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
-  // Start muted by default; we can unmute on desktop after user intent.
-  const [isMuted, setIsMuted] = useState(true)
+  // Start unmuted by default; will fall back to muted if autoplay is blocked.
+  const [isMuted, setIsMuted] = useState(false)
   const [showMobileControls, setShowMobileControls] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -42,31 +42,20 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     if (!video || type !== 'VIDEO' || !isMounted) return
 
     const tryAutoplay = async () => {
-      if (isMobile) {
-        // Mobile: always start muted (browsers block unmuted autoplay)
+      // Both mobile and desktop: try with sound first, fall back to muted
+      try {
+        video.muted = false
+        setIsMuted(false)
+        await video.play()
+      } catch (error) {
+        // Browser blocked unmuted autoplay, fall back to muted
+        console.log('Unmuted autoplay blocked, falling back to muted')
         video.muted = true
         setIsMuted(true)
         try {
           await video.play()
         } catch (e) {
-          console.log('Mobile autoplay blocked')
-        }
-      } else {
-        // Desktop: try with sound first, fall back to muted
-        try {
-          video.muted = false
-          setIsMuted(false)
-          await video.play()
-        } catch (error) {
-          // Browser blocked unmuted autoplay, fall back to muted
-          console.log('Unmuted autoplay blocked, falling back to muted')
-          video.muted = true
-          setIsMuted(true)
-          try {
-            await video.play()
-          } catch (e) {
-            console.log('Autoplay blocked entirely')
-          }
+          console.log('Autoplay blocked entirely')
         }
       }
     }
