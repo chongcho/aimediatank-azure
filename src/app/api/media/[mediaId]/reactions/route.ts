@@ -19,10 +19,10 @@ const scoreToReaction: Record<number, 'happy' | 'neutral' | 'sad'> = {
 // GET - Get reaction counts and user's reaction
 export async function GET(
   request: NextRequest,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
-    const { mediaId } = params
+    const { mediaId } = await params
     const session = await getServerSession(authOptions)
 
     // Get all ratings for this media
@@ -60,7 +60,7 @@ export async function GET(
 // POST - Set or update user's reaction
 export async function POST(
   request: NextRequest,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -71,7 +71,7 @@ export async function POST(
       )
     }
 
-    const { mediaId } = params
+    const { mediaId } = await params
     const { type } = await request.json()
 
     if (!['happy', 'neutral', 'sad'].includes(type)) {
@@ -126,4 +126,3 @@ export async function POST(
     )
   }
 }
-

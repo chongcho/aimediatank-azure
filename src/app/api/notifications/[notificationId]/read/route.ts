@@ -8,9 +8,10 @@ export const dynamic = 'force-dynamic'
 // POST - Mark a notification as read
 export async function POST(
   request: Request,
-  { params }: { params: { notificationId: string } }
+  { params }: { params: Promise<{ notificationId: string }> }
 ) {
   try {
+    const { notificationId } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
@@ -19,7 +20,7 @@ export async function POST(
 
     await prisma.notification.update({
       where: { 
-        id: params.notificationId,
+        id: notificationId,
         userId: session.user.id, // Ensure user owns this notification
       },
       data: { read: true },
@@ -34,7 +35,3 @@ export async function POST(
     )
   }
 }
-
-
-
-

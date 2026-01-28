@@ -7,11 +7,12 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(
   _request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
+    const { mediaId } = await params
     const media = await prisma.media.findUnique({
-      where: { id: params.mediaId },
+      where: { id: mediaId },
       select: {
         id: true,
         title: true,

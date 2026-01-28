@@ -8,16 +8,15 @@ export const dynamic = 'force-dynamic'
 // GET - Fetch conversation messages
 export async function GET(
   request: Request,
-  { params }: { params: { conversationId: string } }
+  { params }: { params: Promise<{ conversationId: string }> }
 ) {
   try {
+    const { conversationId } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const { conversationId } = params
 
     // Verify user is a member of this conversation
     const membership = await prisma.conversationMember.findFirst({
@@ -86,16 +85,16 @@ export async function GET(
 // POST - Send a message to the conversation
 export async function POST(
   request: Request,
-  { params }: { params: { conversationId: string } }
+  { params }: { params: Promise<{ conversationId: string }> }
 ) {
   try {
+    const { conversationId } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { conversationId } = params
     const body = await request.json()
     const { content } = body
 
@@ -160,16 +159,16 @@ export async function POST(
 // PATCH - Update conversation (e.g., rename, priority)
 export async function PATCH(
   request: Request,
-  { params }: { params: { conversationId: string } }
+  { params }: { params: Promise<{ conversationId: string }> }
 ) {
   try {
+    const { conversationId } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { conversationId } = params
     const body = await request.json()
     const { name, priority } = body
 
@@ -214,16 +213,15 @@ export async function PATCH(
 // DELETE - Leave conversation (remove membership)
 export async function DELETE(
   request: Request,
-  { params }: { params: { conversationId: string } }
+  { params }: { params: Promise<{ conversationId: string }> }
 ) {
   try {
+    const { conversationId } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const { conversationId } = params
 
     // Verify user is a member of this conversation
     const membership = await prisma.conversationMember.findFirst({

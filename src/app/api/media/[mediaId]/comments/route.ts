@@ -6,9 +6,10 @@ import { prisma } from '@/lib/prisma'
 // POST - Add comment to media
 export async function POST(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
+    const { mediaId } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
@@ -26,7 +27,7 @@ export async function POST(
 
     // Check if media exists
     const media = await prisma.media.findUnique({
-      where: { id: params.mediaId },
+      where: { id: mediaId },
     })
 
     if (!media) {
@@ -37,7 +38,7 @@ export async function POST(
       data: {
         content: content.trim(),
         userId: session.user.id,
-        mediaId: params.mediaId,
+        mediaId: mediaId,
       },
       include: {
         user: {
@@ -64,9 +65,10 @@ export async function POST(
 // PATCH - Edit comment (owner only)
 export async function PATCH(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
+    await params // mediaId not used in PATCH but still need to await
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
@@ -130,9 +132,10 @@ export async function PATCH(
 // DELETE - Delete comment (owner or admin only)
 export async function DELETE(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
+    await params // mediaId not used in DELETE but still need to await
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
@@ -175,4 +178,3 @@ export async function DELETE(
     )
   }
 }
-

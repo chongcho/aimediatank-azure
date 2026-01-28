@@ -6,9 +6,10 @@ import { prisma } from '@/lib/prisma'
 // POST - Add or update rating
 export async function POST(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
+    const { mediaId } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
@@ -26,7 +27,7 @@ export async function POST(
 
     // Check if media exists
     const media = await prisma.media.findUnique({
-      where: { id: params.mediaId },
+      where: { id: mediaId },
     })
 
     if (!media) {
@@ -46,7 +47,7 @@ export async function POST(
       where: {
         userId_mediaId: {
           userId: session.user.id,
-          mediaId: params.mediaId,
+          mediaId: mediaId,
         },
       },
       update: {
@@ -57,7 +58,7 @@ export async function POST(
         score,
         review: review || null,
         userId: session.user.id,
-        mediaId: params.mediaId,
+        mediaId: mediaId,
       },
       include: {
         user: {
@@ -73,7 +74,7 @@ export async function POST(
 
     // Get updated average rating
     const ratings = await prisma.rating.findMany({
-      where: { mediaId: params.mediaId },
+      where: { mediaId: mediaId },
       select: { score: true },
     })
 
@@ -97,9 +98,10 @@ export async function POST(
 // GET - Get user's rating for media
 export async function GET(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
+    const { mediaId } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
@@ -110,7 +112,7 @@ export async function GET(
       where: {
         userId_mediaId: {
           userId: session.user.id,
-          mediaId: params.mediaId,
+          mediaId: mediaId,
         },
       },
     })
@@ -124,5 +126,3 @@ export async function GET(
     )
   }
 }
-
-

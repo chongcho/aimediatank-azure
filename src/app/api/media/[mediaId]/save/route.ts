@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 // POST - Save media (bookmark)
 export async function POST(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -17,7 +17,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { mediaId } = params
+    const { mediaId } = await params
 
     // Check if media exists
     const media = await prisma.media.findUnique({
@@ -65,7 +65,7 @@ export async function POST(
 // DELETE - Unsave media (remove bookmark)
 export async function DELETE(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -74,7 +74,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { mediaId } = params
+    const { mediaId } = await params
 
     // Delete save record
     await prisma.savedMedia.deleteMany({
@@ -97,7 +97,7 @@ export async function DELETE(
 // GET - Check if media is saved
 export async function GET(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -106,7 +106,7 @@ export async function GET(
       return NextResponse.json({ saved: false })
     }
 
-    const { mediaId } = params
+    const { mediaId } = await params
 
     const savedMedia = await prisma.savedMedia.findUnique({
       where: {
@@ -123,9 +123,3 @@ export async function GET(
     return NextResponse.json({ saved: false })
   }
 }
-
-
-
-
-
-

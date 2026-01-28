@@ -8,16 +8,15 @@ export const dynamic = 'force-dynamic'
 // GET - Download purchased media
 export async function GET(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
+    const { mediaId } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
-
-    const mediaId = params.mediaId
 
     // Check if user has purchased this media
     const purchase = await prisma.purchase.findFirst({
@@ -75,9 +74,3 @@ export async function GET(
     )
   }
 }
-
-
-
-
-
-
