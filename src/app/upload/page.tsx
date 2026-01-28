@@ -283,9 +283,11 @@ function UploadPageContent() {
         generateVideoThumbnail(selectedFile).then(async (thumbFile) => {
           if (fileChangeTokenRef.current !== changeToken) return
           if (!thumbFile) {
-            console.log('No thumbnail generated for video')
+            console.log('No thumbnail generated for video - skipping crop tool')
             setCropSource(null)
             setShowCropper(false)
+            // Show a notice that crop is not available
+            alert('Video crop tool is not available on this device. You can still upload the video as-is.')
             return
           }
           try {
@@ -298,6 +300,7 @@ function UploadPageContent() {
             console.error('Failed to load thumbnail for crop:', err)
             setCropSource(null)
             setShowCropper(false)
+            alert('Video crop tool is not available on this device. You can still upload the video as-is.')
           }
         })
       } else {
@@ -404,25 +407,42 @@ function UploadPageContent() {
   const generateVideoThumbnail = async (videoFile: File): Promise<File | null> => {
     try {
       const video = document.createElement('video')
-      video.preload = 'metadata'
+      video.preload = 'auto'
       video.muted = true
       video.playsInline = true
+      video.setAttribute('playsinline', '')
+      video.setAttribute('webkit-playsinline', '')
       
       const videoUrl = URL.createObjectURL(videoFile)
 
       const thumbnailFile = await new Promise<File | null>((resolve) => {
-        video.onloadeddata = () => {
-          // Seek to 1 second or 10% of video duration
-          video.currentTime = Math.min(1, video.duration * 0.1)
+        let resolved = false
+        
+        // Timeout for mobile browsers where events may not fire
+        const timeout = setTimeout(() => {
+          if (!resolved) {
+            resolved = true
+            console.log('Video thumbnail generation timed out')
+            URL.revokeObjectURL(videoUrl)
+            resolve(null)
+          }
+        }, 10000) // 10 second timeout
+
+        const cleanup = () => {
+          clearTimeout(timeout)
+          URL.revokeObjectURL(videoUrl)
         }
 
-        video.onseeked = () => {
+        const captureFrame = () => {
+          if (resolved) return
           try {
-            const sourceWidth = video?.videoWidth || video?.clientWidth
-            const sourceHeight = video?.videoHeight || video?.clientHeight
+            const sourceWidth = video.videoWidth
+            const sourceHeight = video.videoHeight
             if (!sourceWidth || !sourceHeight) {
               console.log('Video dimensions unavailable for thumbnail')
-              URL.revokeObjectURL(videoUrl)
+              cleanup()
+              resolved = true
+              resolve(null)
               return
             }
             setVideoSize({ width: Math.round(sourceWidth), height: Math.round(sourceHeight) })
@@ -438,34 +458,78 @@ function UploadPageContent() {
               ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
               canvas.toBlob(
                 (blob) => {
+                  if (resolved) return
+                  resolved = true
+                  cleanup()
                   if (blob) {
                     resolve(new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' }))
                   } else {
                     resolve(null)
                   }
-                  URL.revokeObjectURL(videoUrl)
                 },
                 'image/jpeg',
                 0.8
               )
             } else {
+              resolved = true
+              cleanup()
               resolve(null)
-              URL.revokeObjectURL(videoUrl)
             }
           } catch (err) {
             console.log('Could not generate video thumbnail:', err)
-            resolve(null)
-            URL.revokeObjectURL(videoUrl)
+            if (!resolved) {
+              resolved = true
+              cleanup()
+              resolve(null)
+            }
           }
         }
 
-        video.onerror = () => {
-          console.log('Video thumbnail generation failed')
-          resolve(null)
-          URL.revokeObjectURL(videoUrl)
+        video.onloadedmetadata = () => {
+          console.log('Video metadata loaded, duration:', video.duration)
+          // Try to seek to a frame
+          if (video.duration > 0) {
+            video.currentTime = Math.min(1, video.duration * 0.1)
+          }
+        }
+
+        video.onloadeddata = () => {
+          console.log('Video data loaded')
+          // On some mobile browsers, onseeked may not fire, so try capturing after loadeddata
+          if (video.currentTime === 0 && video.duration > 0) {
+            video.currentTime = Math.min(1, video.duration * 0.1)
+          }
+        }
+
+        video.onseeked = () => {
+          console.log('Video seeked to:', video.currentTime)
+          captureFrame()
+        }
+
+        // Fallback: if video can play, try to capture frame
+        video.oncanplay = () => {
+          console.log('Video can play')
+          // Give a small delay then try to capture if not already done
+          setTimeout(() => {
+            if (!resolved && video.videoWidth > 0) {
+              console.log('Capturing frame from canplay event')
+              captureFrame()
+            }
+          }, 500)
+        }
+
+        video.onerror = (e) => {
+          console.log('Video thumbnail generation failed:', e)
+          if (!resolved) {
+            resolved = true
+            cleanup()
+            resolve(null)
+          }
         }
 
         video.src = videoUrl
+        // Try to load the video
+        video.load()
       })
 
       if (thumbnailFile) {
