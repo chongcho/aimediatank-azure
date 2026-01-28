@@ -781,13 +781,13 @@ function UploadPageContent() {
             <label className="block text-sm font-medium text-gray-300 mb-2">
               File *
             </label>
-            <div
-              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+            <label
+              htmlFor="file-input"
+              className={`block border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
                 file
                   ? 'border-tank-accent bg-tank-accent/5'
                   : 'border-tank-light hover:border-gray-600'
               }`}
-              onClick={() => document.getElementById('file-input')?.click()}
             >
               {preview ? (
                 <div className="space-y-4">
@@ -819,7 +819,7 @@ function UploadPageContent() {
                   </p>
                 </>
               )}
-            </div>
+            </label>
             <input
               id="file-input"
               type="file"
