@@ -158,7 +158,15 @@ export async function PATCH(
       },
     })
 
-    return NextResponse.json({ media: updatedMedia })
+    // Handle BigInt serialization for fileSize
+    return NextResponse.json({ 
+      media: {
+        ...updatedMedia,
+        fileSize: (updatedMedia as any).fileSize === null || (updatedMedia as any).fileSize === undefined 
+          ? null 
+          : (updatedMedia as any).fileSize.toString(),
+      }
+    })
   } catch (error) {
     console.error('Error updating media:', error)
     return NextResponse.json(
