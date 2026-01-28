@@ -84,7 +84,7 @@ export default function PolicyPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold mb-2">Policy Book</h1>
-          <p className="text-gray-400">Last Updated: December 20, 2024</p>
+          <p className="text-gray-400">Last Updated: January 21, 2026</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -165,7 +165,7 @@ export default function PolicyPage() {
 
               <h3 className="text-lg font-semibold mt-6 mb-3">1.4 Description of Service</h3>
               <p className="text-gray-300 mb-4">
-                AiMediaTank is a community platform for sharing, discovering, and purchasing AI-generated media content including Videos, Images, and Music.
+                AiMediaTank is a community platform for sharing, discovering, and purchasing AI-generated and real media content including videos, images, and music, with built-in tools to publish, showcase, and monetize work.
               </p>
 
               <h3 className="text-lg font-semibold mt-6 mb-3">1.5 Modifications to Terms</h3>
@@ -226,10 +226,11 @@ export default function PolicyPage() {
               
               <h3 className="text-lg font-semibold mt-6 mb-3">3.1 Acceptable Content</h3>
               <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>AI-generated or AI-assisted content</li>
+                <li>AI-generated, AI-assisted, or real-world original content</li>
                 <li>Original or properly licensed content</li>
                 <li>Appropriate for a general audience</li>
                 <li>Compliant with all applicable laws</li>
+                <li>Accurately labeled with AI tools used or real device details when applicable</li>
               </ul>
 
               <h3 className="text-lg font-semibold mt-6 mb-3">3.2 Prohibited Content</h3>
@@ -243,6 +244,7 @@ export default function PolicyPage() {
                 <li>Spam or misleading content</li>
                 <li>Content depicting illegal activities</li>
                 <li>Deepfakes of real individuals without consent</li>
+                <li>Misleading or false AI/real attribution</li>
               </ul>
 
               <h3 className="text-lg font-semibold mt-6 mb-3">3.3 Content Moderation</h3>
@@ -262,8 +264,9 @@ export default function PolicyPage() {
 
               <h3 className="text-lg font-semibold mt-6 mb-3">4.2 Disclosure Requirements</h3>
               <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>All content must be identified as AI-generated</li>
+                <li>AI-generated content must be identified as AI-generated</li>
                 <li>Users should specify the AI tool used when uploading</li>
+                <li>Real-world content should include capture device details when available</li>
                 <li>Misrepresenting AI content as human-created is prohibited</li>
               </ul>
 
@@ -362,7 +365,7 @@ export default function PolicyPage() {
 
               <h3 className="text-lg font-semibold mt-6 mb-3">7.3 Refund Policy</h3>
               <p className="text-gray-300 mb-4">
-                Due to the nature of digital content, all sales are final. Refunds may be issued for technical issues preventing access. Refund requests must be submitted within 7 days of purchase.
+                Due to the nature of digital content, all sales are final. Refunds may be issued for technical issues preventing access. Refund requests must be submitted within 7 days of purchase. Purchased media remains available in your account while it is hosted on the Platform.
               </p>
 
               <h3 className="text-lg font-semibold mt-6 mb-3">7.4 Creator Payouts</h3>
@@ -396,7 +399,9 @@ export default function PolicyPage() {
               <h3 className="text-lg font-semibold mt-6 mb-3">9.1 Content Retention</h3>
               <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
                 <li>Uploaded content: Retained while account is active</li>
-                <li>Purchased content: Available for download for 10 days after purchase</li>
+                <li>Purchased content: Remains available in your account while hosted on the Platform</li>
+                <li>Sold status: Displayed as a sales count and retained on the Platform</li>
+                <li>Inactive media: Removed after 60 days of no activity</li>
                 <li>Deleted content: Permanently removed within 30 days</li>
               </ul>
 
@@ -441,7 +446,7 @@ export default function PolicyPage() {
             </section>
 
             <div className="text-center text-gray-500 text-sm pt-8 border-t border-tank-light">
-              © 2024 AiMediaTank. All Rights Reserved.
+              © 2026 AiMediaTank. All Rights Reserved.
             </div>
 
             {/* Back Button at bottom left */}
