@@ -203,36 +203,10 @@ export async function compressVideo(
           return
         }
 
+        // Create media stream from canvas (video track).
         // Use 30 FPS for good quality - compression handled on Azure backend.
         const TARGET_FPS = 30
-        
-        // Check for WebCodecs API support FIRST (VideoFrame + MediaStreamTrackGenerator)
-        // This gives precise timestamp control and avoids playback speed issues
-        const hasVideoFrame = typeof VideoFrame !== 'undefined'
-        const hasTrackGenerator = typeof (window as any).MediaStreamTrackGenerator !== 'undefined'
-        const hasVideoFrameCallback = 'requestVideoFrameCallback' in HTMLVideoElement.prototype
-        const useWebCodecs = hasVideoFrame && hasTrackGenerator && hasVideoFrameCallback
-        
-        // Create media stream - either from WebCodecs track generator or canvas.captureStream
-        let stream: MediaStream
-        let trackGenerator: any = null
-        let trackWriter: WritableStreamDefaultWriter<any> | null = null
-        
-        if (useWebCodecs) {
-          // Use MediaStreamTrackGenerator for precise frame timing
-          console.log('Setting up WebCodecs (VideoFrame + MediaStreamTrackGenerator) for precise timing')
-          try {
-            trackGenerator = new (window as any).MediaStreamTrackGenerator({ kind: 'video' })
-            trackWriter = trackGenerator.writable.getWriter()
-            stream = new MediaStream([trackGenerator])
-          } catch (e) {
-            console.warn('WebCodecs setup failed, falling back to canvas.captureStream:', e)
-            stream = canvas.captureStream(TARGET_FPS)
-          }
-        } else {
-          // Fallback: Use canvas.captureStream
-          stream = canvas.captureStream(TARGET_FPS)
-        }
+        const stream = canvas.captureStream(TARGET_FPS)
 
         // Briefly start playback (muted) to satisfy autoplay policies, then immediately pause.
         // This allows us to set up audio routing before the video actually advances.
@@ -417,8 +391,14 @@ export async function compressVideo(
           }
         }
 
-        // Fallback function using canvas.captureStream with requestVideoFrameCallback
-        const useCanvasCaptureStreamFallback = () => {
+        // Check if requestVideoFrameCallback is available (better frame timing)
+        const hasVideoFrameCallback = 'requestVideoFrameCallback' in HTMLVideoElement.prototype
+
+        if (hasVideoFrameCallback) {
+          // Use requestVideoFrameCallback for precise frame-by-frame drawing
+          // This syncs perfectly with the video's actual frames
+          console.log('Using requestVideoFrameCallback for precise frame timing')
+          
           const drawVideoFrame = () => {
             if (recordingStopped || video.ended || (video.paused && video.currentTime > 0)) {
               stopRecording()
@@ -441,14 +421,11 @@ export async function compressVideo(
             cleanup()
             reject(new Error('Failed to resume video playback'))
           })
+        } else {
+          // Fallback: Use setInterval for more consistent timing than rAF
+          // setInterval is not throttled like rAF when system is under load
+          console.log('Using setInterval fallback for frame drawing')
           
-          video.onended = () => {
-            stopRecording()
-          }
-        }
-
-        // Fallback function using setInterval
-        const useSetIntervalFallback = () => {
           const frameIntervalMs = 1000 / TARGET_FPS
           let intervalId: ReturnType<typeof setInterval> | null = null
           
@@ -490,77 +467,11 @@ export async function compressVideo(
           }
         }
 
-        // Choose the appropriate frame processing method based on available APIs
-        if (useWebCodecs && trackWriter) {
-          // Best approach: Use WebCodecs API with explicit timestamps
-          // This ensures frames have correct timing regardless of CPU load
-          console.log('Using WebCodecs API for frame processing')
-          
-          // Track start time for calculating timestamps
-          let startTime: number | null = null
-          let frameCount = 0
-          
-          const processVideoFrame = async (now: number, metadata: any) => {
-            if (recordingStopped || video.ended || (video.paused && video.currentTime > 0)) {
-              await trackWriter!.close().catch(() => {})
-              stopRecording()
-              return
-            }
-            
-            if (startTime === null) {
-              startTime = metadata.mediaTime * 1000000 // Convert to microseconds
-            }
-            
-            // Draw frame to canvas with crop
-            ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
-            
-            // Create VideoFrame with explicit timestamp based on video's media time
-            // This ensures correct playback speed regardless of CPU load
-            const timestamp = (metadata.mediaTime * 1000000) - startTime
-            
-            try {
-              const frame = new VideoFrame(canvas, {
-                timestamp: timestamp,
-                alpha: 'discard'
-              })
-              
-              await trackWriter!.write(frame)
-              frame.close()
-              frameCount++
-            } catch (frameError) {
-              console.warn('Error creating/writing VideoFrame:', frameError)
-            }
-            
-            updateProgress()
-            
-            // Request next frame
-            ;(video as any).requestVideoFrameCallback(processVideoFrame)
-          }
-          
-          // Start playback and begin processing frames
-          video.play().then(() => {
-            ;(video as any).requestVideoFrameCallback(processVideoFrame)
-          }).catch(async () => {
-            await trackWriter!.close().catch(() => {})
-            stopRecording()
-            cleanup()
-            reject(new Error('Failed to resume video playback'))
-          })
-          
-          video.onended = async () => {
-            console.log(`WebCodecs: processed ${frameCount} frames`)
-            await trackWriter!.close().catch(() => {})
+        // For requestVideoFrameCallback path, also handle onended
+        if (hasVideoFrameCallback) {
+          video.onended = () => {
             stopRecording()
           }
-        } else if (hasVideoFrameCallback) {
-          // Fallback 1: requestVideoFrameCallback with canvas.captureStream
-          // Better than setInterval but timestamps may drift under load
-          console.log('Using requestVideoFrameCallback with canvas.captureStream (fallback 1)')
-          useCanvasCaptureStreamFallback()
-        } else {
-          // Fallback 2: setInterval with canvas.captureStream
-          console.log('Using setInterval with canvas.captureStream (fallback 2)')
-          useSetIntervalFallback()
         }
 
         // Cleanup audio context when recording stops
