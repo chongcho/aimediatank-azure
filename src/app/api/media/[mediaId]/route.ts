@@ -11,11 +11,12 @@ export const dynamic = 'force-dynamic'
 // GET - Fetch single media with details
 export async function GET(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
+    const { mediaId } = await params
     const media = await prisma.media.findUnique({
-      where: { id: params.mediaId },
+      where: { id: mediaId },
       include: {
         user: {
           select: {
@@ -73,7 +74,7 @@ export async function GET(
 
     // Increment view count
     await prisma.media.update({
-      where: { id: params.mediaId },
+      where: { id: mediaId },
       data: { views: { increment: 1 } },
     })
 
@@ -102,9 +103,10 @@ export async function GET(
 // PATCH - Update media (owner or admin only)
 export async function PATCH(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
+    const { mediaId } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
@@ -112,7 +114,7 @@ export async function PATCH(
     }
 
     const media = await prisma.media.findUnique({
-      where: { id: params.mediaId },
+      where: { id: mediaId },
     })
 
     if (!media) {
@@ -142,7 +144,7 @@ export async function PATCH(
     }
 
     const updatedMedia = await prisma.media.update({
-      where: { id: params.mediaId },
+      where: { id: mediaId },
       data: updateData,
       include: {
         user: {
@@ -169,9 +171,10 @@ export async function PATCH(
 // DELETE - Delete media (owner or admin only)
 export async function DELETE(
   request: Request,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
+    const { mediaId } = await params
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
@@ -179,7 +182,7 @@ export async function DELETE(
     }
 
     const media = await prisma.media.findUnique({
-      where: { id: params.mediaId },
+      where: { id: mediaId },
     })
 
     if (!media) {
@@ -205,7 +208,7 @@ export async function DELETE(
 
     // Delete from database
     await prisma.media.delete({
-      where: { id: params.mediaId },
+      where: { id: mediaId },
     })
 
     return NextResponse.json({ message: 'Media deleted successfully' })
