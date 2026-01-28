@@ -667,9 +667,6 @@ export default function Navbar() {
               {session && isNavbarItemEnabled('mediaMessage') && (
                 <MobileNavLink href="/messages" onClick={() => setIsMenuOpen(false)}>Messages</MobileNavLink>
               )}
-              {isNavbarItemEnabled('upload') && (
-                <MobileNavLink href={isSubscriber ? "/upload" : "/pricing"} onClick={() => setIsMenuOpen(false)}>Upload</MobileNavLink>
-              )}
             </div>
           </div>
         )}
