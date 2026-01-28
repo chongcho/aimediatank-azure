@@ -111,6 +111,11 @@ export default function RootLayout({
           <main className="pt-16 m-0 p-0">
             {children}
           </main>
+          <footer className="w-full py-6 mt-8 border-t border-tank-light">
+            <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
+              © {new Date().getFullYear()} AiMediaTank. All Rights Reserved.
+            </div>
+          </footer>
           <InstallPrompt />
         </Providers>
       </body>
