@@ -297,7 +297,14 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo and Home Icon */}
           <div className="flex items-center flex-shrink-0">
-            <Link href="/" className="flex items-center" onClick={(e) => { e.preventDefault(); window.scrollTo(0, 0); window.location.href = '/'; }}>
+            <Link href="/" className="flex items-center" onClick={(e) => { 
+              e.preventDefault(); 
+              if (window.location.pathname === '/') {
+                window.scrollTo({ top: 0, behavior: 'instant' });
+              } else {
+                window.location.href = '/';
+              }
+            }}>
             <img 
               src="/logo.png" 
               alt="AiMediaTank" 
@@ -308,7 +315,14 @@ export default function Navbar() {
             <Link 
               href="/" 
               className="ml-[30px] text-gray-400 hover:text-white transition-colors"
-              onClick={(e) => { e.preventDefault(); window.scrollTo(0, 0); window.location.href = '/'; }}
+              onClick={(e) => { 
+                e.preventDefault(); 
+                if (window.location.pathname === '/') {
+                  window.scrollTo({ top: 0, behavior: 'instant' });
+                } else {
+                  window.location.href = '/';
+                }
+              }}
               title="Home"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
@@ -685,11 +699,14 @@ export default function Navbar() {
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const handleClick = (e: React.MouseEvent) => {
-    // For Home link, force a full page reload to clear filters and scroll to top
+    // For Home link, scroll to top if already on home, otherwise navigate
     if (href === '/') {
       e.preventDefault()
-      window.scrollTo(0, 0)
-      window.location.href = '/'
+      if (window.location.pathname === '/') {
+        window.scrollTo({ top: 0, behavior: 'instant' })
+      } else {
+        window.location.href = '/'
+      }
     }
   }
 

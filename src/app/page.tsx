@@ -83,7 +83,7 @@ function HomeContent() {
   const restoreRunIdRef = useRef(0)
   const activeRestoreRunIdRef = useRef<number | null>(null)
 
-  // Check for pending scroll restoration on mount
+  // Check for pending scroll restoration on mount, or scroll to top
   useEffect(() => {
     const rawState = sessionStorage.getItem('homeScrollState')
     if (rawState) {
@@ -94,6 +94,9 @@ function HomeContent() {
         restoreStateRef.current = null
       }
       sessionStorage.removeItem('homeScrollState')
+    } else {
+      // No scroll restoration - scroll to top
+      window.scrollTo({ top: 0, behavior: 'instant' })
     }
   }, [])
 
