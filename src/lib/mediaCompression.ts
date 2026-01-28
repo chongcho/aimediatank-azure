@@ -368,110 +368,69 @@ export async function compressVideo(
         // Larger timeslice reduces overhead from extremely frequent events.
         mediaRecorder.start(500)
 
+        // Throttle drawing + progress reporting to avoid UI jank.
+        const frameIntervalMs = 1000 / TARGET_FPS
+        // Use an accumulator (vs `now - lastDrawAt`) so on 60Hz displays we
+        // naturally alternate 2/3 rAF ticks and average to ~24fps (instead of ~20fps).
+        let lastTickAt = (typeof performance !== 'undefined' ? performance.now() : Date.now())
+        let frameAccumulatorMs = 0
+        let hasDrawnFirstFrame = false
         let lastProgressPct = -1
         let lastProgressAt = 0
-        let recordingStopped = false
 
-        const updateProgress = () => {
+        const drawFrame = () => {
+          if (video.ended) {
+            mediaRecorder.stop()
+            return
+          }
+
+          // Only stop on pause if we've actually started playing (currentTime > 0)
+          // This prevents stopping immediately before playback begins
+          if (video.paused && video.currentTime > 0) {
+            mediaRecorder.stop()
+            return
+          }
+
+          const now = (typeof performance !== 'undefined' ? performance.now() : Date.now())
+          const dt = Math.max(0, Math.min(250, now - lastTickAt))
+          lastTickAt = now
+          frameAccumulatorMs += dt
+
+          if (!hasDrawnFirstFrame) {
+            hasDrawnFirstFrame = true
+            frameAccumulatorMs = 0
+            ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
+          } else if (frameAccumulatorMs >= frameIntervalMs) {
+            // Drop excess accumulated time to avoid bursty catch-up draws after tab throttling.
+            frameAccumulatorMs = frameAccumulatorMs % frameIntervalMs
+            ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
+          }
+
           if (onProgress && video.duration > 0) {
-            const now = performance.now()
             const pct = Math.round((video.currentTime / video.duration) * 100)
+            // Only notify when it actually changes, and at most ~4x/sec.
             if (pct !== lastProgressPct && now - lastProgressAt >= 250) {
               lastProgressPct = pct
               lastProgressAt = now
               onProgress(pct)
             }
           }
+
+          requestAnimationFrame(drawFrame)
         }
 
-        const stopRecording = () => {
-          if (!recordingStopped) {
-            recordingStopped = true
-            mediaRecorder.stop()
-          }
-        }
+        // Start playback, then begin drawing frames
+        video.play().then(() => {
+          drawFrame()
+        }).catch(() => {
+          mediaRecorder.stop()
+          cleanup()
+          reject(new Error('Failed to resume video playback'))
+        })
 
-        // Check if requestVideoFrameCallback is available (better frame timing)
-        const hasVideoFrameCallback = 'requestVideoFrameCallback' in HTMLVideoElement.prototype
-
-        if (hasVideoFrameCallback) {
-          // Use requestVideoFrameCallback for precise frame-by-frame drawing
-          // This syncs perfectly with the video's actual frames
-          console.log('Using requestVideoFrameCallback for precise frame timing')
-          
-          const drawVideoFrame = () => {
-            if (recordingStopped || video.ended || (video.paused && video.currentTime > 0)) {
-              stopRecording()
-              return
-            }
-            
-            // Draw the current video frame to canvas
-            ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
-            updateProgress()
-            
-            // Request next frame callback
-            ;(video as any).requestVideoFrameCallback(drawVideoFrame)
-          }
-          
-          // Start playback, then begin frame callbacks
-          video.play().then(() => {
-            ;(video as any).requestVideoFrameCallback(drawVideoFrame)
-          }).catch(() => {
-            stopRecording()
-            cleanup()
-            reject(new Error('Failed to resume video playback'))
-          })
-        } else {
-          // Fallback: Use setInterval for more consistent timing than rAF
-          // setInterval is not throttled like rAF when system is under load
-          console.log('Using setInterval fallback for frame drawing')
-          
-          const frameIntervalMs = 1000 / TARGET_FPS
-          let intervalId: ReturnType<typeof setInterval> | null = null
-          
-          const drawFrame = () => {
-            if (recordingStopped || video.ended || (video.paused && video.currentTime > 0)) {
-              if (intervalId) {
-                clearInterval(intervalId)
-                intervalId = null
-              }
-              stopRecording()
-              return
-            }
-            
-            // Draw current frame
-            ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
-            updateProgress()
-          }
-          
-          // Start playback
-          video.play().then(() => {
-            // Draw first frame immediately
-            drawFrame()
-            // Then draw at fixed interval
-            intervalId = setInterval(drawFrame, frameIntervalMs)
-          }).catch(() => {
-            if (intervalId) clearInterval(intervalId)
-            stopRecording()
-            cleanup()
-            reject(new Error('Failed to resume video playback'))
-          })
-          
-          // Cleanup interval when video ends
-          video.onended = () => {
-            if (intervalId) {
-              clearInterval(intervalId)
-              intervalId = null
-            }
-            stopRecording()
-          }
-        }
-
-        // For requestVideoFrameCallback path, also handle onended
-        if (hasVideoFrameCallback) {
-          video.onended = () => {
-            stopRecording()
-          }
+        // Stop when video ends
+        video.onended = () => {
+          mediaRecorder.stop()
         }
 
         // Cleanup audio context when recording stops
