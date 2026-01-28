@@ -40,24 +40,33 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   useEffect(() => {
     const video = videoRef.current
     if (!video || type !== 'VIDEO' || !isMounted) return
-    // Mobile autoplay (especially with sound) is often blocked and can cause extra work/jank.
-    // On mobile, we rely on user tap to start playback.
-    if (isMobile) return
 
-    const tryAutoplayWithSound = async () => {
-      try {
-        video.muted = false
-        setIsMuted(false)
-        await video.play()
-      } catch (error) {
-        // Browser blocked unmuted autoplay, fall back to muted
-        console.log('Unmuted autoplay blocked, falling back to muted')
+    const tryAutoplay = async () => {
+      if (isMobile) {
+        // Mobile: always start muted (browsers block unmuted autoplay)
         video.muted = true
         setIsMuted(true)
         try {
           await video.play()
         } catch (e) {
-          console.log('Autoplay blocked entirely')
+          console.log('Mobile autoplay blocked')
+        }
+      } else {
+        // Desktop: try with sound first, fall back to muted
+        try {
+          video.muted = false
+          setIsMuted(false)
+          await video.play()
+        } catch (error) {
+          // Browser blocked unmuted autoplay, fall back to muted
+          console.log('Unmuted autoplay blocked, falling back to muted')
+          video.muted = true
+          setIsMuted(true)
+          try {
+            await video.play()
+          } catch (e) {
+            console.log('Autoplay blocked entirely')
+          }
         }
       }
     }
@@ -65,9 +74,9 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     // Small delay to ensure component is fully rendered after mobile detection
     const timeoutId = setTimeout(() => {
       if (video.readyState >= 3) {
-        tryAutoplayWithSound()
+        tryAutoplay()
       } else {
-        video.addEventListener('canplay', tryAutoplayWithSound, { once: true })
+        video.addEventListener('canplay', tryAutoplay, { once: true })
       }
     }, 100)
 
@@ -216,8 +225,8 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             controls={!isMobile || showMobileControls}
             playsInline
             preload={isMobile ? 'metadata' : 'auto'}
-            // Avoid heavy auto playback on mobile; let user tap to play.
-            autoPlay={!isMobile}
+            // Autoplay on both desktop and mobile (mobile starts muted)
+            autoPlay
             // Repeat playback once started (including on mobile).
             loop
             // Always bind to state so the mobile mute toggle works.
