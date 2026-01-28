@@ -391,6 +391,79 @@ export async function compressVideo(
           }
         }
 
+        // Fallback function using canvas.captureStream with requestVideoFrameCallback
+        const useCanvasCaptureStreamFallback = () => {
+          const drawVideoFrame = () => {
+            if (recordingStopped || video.ended || (video.paused && video.currentTime > 0)) {
+              stopRecording()
+              return
+            }
+            
+            // Draw the current video frame to canvas
+            ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
+            updateProgress()
+            
+            // Request next frame callback
+            ;(video as any).requestVideoFrameCallback(drawVideoFrame)
+          }
+          
+          // Start playback, then begin frame callbacks
+          video.play().then(() => {
+            ;(video as any).requestVideoFrameCallback(drawVideoFrame)
+          }).catch(() => {
+            stopRecording()
+            cleanup()
+            reject(new Error('Failed to resume video playback'))
+          })
+          
+          video.onended = () => {
+            stopRecording()
+          }
+        }
+
+        // Fallback function using setInterval
+        const useSetIntervalFallback = () => {
+          const frameIntervalMs = 1000 / TARGET_FPS
+          let intervalId: ReturnType<typeof setInterval> | null = null
+          
+          const drawFrame = () => {
+            if (recordingStopped || video.ended || (video.paused && video.currentTime > 0)) {
+              if (intervalId) {
+                clearInterval(intervalId)
+                intervalId = null
+              }
+              stopRecording()
+              return
+            }
+            
+            // Draw current frame
+            ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
+            updateProgress()
+          }
+          
+          // Start playback
+          video.play().then(() => {
+            // Draw first frame immediately
+            drawFrame()
+            // Then draw at fixed interval
+            intervalId = setInterval(drawFrame, frameIntervalMs)
+          }).catch(() => {
+            if (intervalId) clearInterval(intervalId)
+            stopRecording()
+            cleanup()
+            reject(new Error('Failed to resume video playback'))
+          })
+          
+          // Cleanup interval when video ends
+          video.onended = () => {
+            if (intervalId) {
+              clearInterval(intervalId)
+              intervalId = null
+            }
+            stopRecording()
+          }
+        }
+
         // Check for WebCodecs API support (VideoFrame + MediaStreamTrackGenerator)
         // This gives precise timestamp control and avoids playback speed issues
         const hasVideoFrame = typeof VideoFrame !== 'undefined'
@@ -482,79 +555,6 @@ export async function compressVideo(
           // Fallback 2: setInterval with canvas.captureStream
           console.log('Using setInterval with canvas.captureStream (fallback 2)')
           useSetIntervalFallback()
-        }
-
-        // Fallback function using canvas.captureStream with requestVideoFrameCallback
-        function useCanvasCaptureStreamFallback() {
-          const drawVideoFrame = () => {
-            if (recordingStopped || video.ended || (video.paused && video.currentTime > 0)) {
-              stopRecording()
-              return
-            }
-            
-            // Draw the current video frame to canvas
-            ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
-            updateProgress()
-            
-            // Request next frame callback
-            ;(video as any).requestVideoFrameCallback(drawVideoFrame)
-          }
-          
-          // Start playback, then begin frame callbacks
-          video.play().then(() => {
-            ;(video as any).requestVideoFrameCallback(drawVideoFrame)
-          }).catch(() => {
-            stopRecording()
-            cleanup()
-            reject(new Error('Failed to resume video playback'))
-          })
-          
-          video.onended = () => {
-            stopRecording()
-          }
-        }
-
-        // Fallback function using setInterval
-        function useSetIntervalFallback() {
-          const frameIntervalMs = 1000 / TARGET_FPS
-          let intervalId: ReturnType<typeof setInterval> | null = null
-          
-          const drawFrame = () => {
-            if (recordingStopped || video.ended || (video.paused && video.currentTime > 0)) {
-              if (intervalId) {
-                clearInterval(intervalId)
-                intervalId = null
-              }
-              stopRecording()
-              return
-            }
-            
-            // Draw current frame
-            ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
-            updateProgress()
-          }
-          
-          // Start playback
-          video.play().then(() => {
-            // Draw first frame immediately
-            drawFrame()
-            // Then draw at fixed interval
-            intervalId = setInterval(drawFrame, frameIntervalMs)
-          }).catch(() => {
-            if (intervalId) clearInterval(intervalId)
-            stopRecording()
-            cleanup()
-            reject(new Error('Failed to resume video playback'))
-          })
-          
-          // Cleanup interval when video ends
-          video.onended = () => {
-            if (intervalId) {
-              clearInterval(intervalId)
-              intervalId = null
-            }
-            stopRecording()
-          }
         }
 
         // Cleanup audio context when recording stops
