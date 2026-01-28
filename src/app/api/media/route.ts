@@ -9,13 +9,17 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') // VIDEO, IMAGE, MUSIC
-    const sort = searchParams.get('sort') || 'popular' // popular, recent, rated
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const sortParam = searchParams.get('sort') || 'popular'
+    // Validate sort param - default to 'popular' if invalid
+    const sort = ['popular', 'recent', 'rated'].includes(sortParam) ? sortParam : 'popular'
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20') || 20))
     const search = searchParams.get('search')
     const user = searchParams.get('user') // Filter by username
 
     const skip = (page - 1) * limit
+    
+    console.log('Media API request:', { sort, page, limit, type, search, user })
 
     // Build where clause
     // Show all public, approved, non-deleted items
@@ -97,31 +101,58 @@ export async function GET(request: Request) {
     // Calculate average rating for each media and add sold info
     const now = new Date()
     const mediaWithRating = media.map((m: any) => {
-      const avgRating =
-        m.ratings.length > 0
-          ? m.ratings.reduce((acc: number, r: any) => acc + r.score, 0) / m.ratings.length
-          : 0
-      
-      // Calculate reaction counts (happy = score 3, sad = score 1)
-      const happyCount = m.ratings.filter((r: any) => r.score === 3).length
-      const sadCount = m.ratings.filter((r: any) => r.score === 1).length
-      
-      // Calculate days remaining before deletion for sold items
-      let daysRemaining = null
-      if (m.isSold && m.deleteAfter) {
-        const deleteDate = new Date(m.deleteAfter)
-        const diffTime = deleteDate.getTime() - now.getTime()
-        daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      }
-      
-      return {
-        ...m,
-        // BigInt fields (eg fileSize) must be JSON-serialized explicitly
-        fileSize: m.fileSize === null || m.fileSize === undefined ? null : m.fileSize.toString(),
-        avgRating: Math.round(avgRating * 10) / 10,
-        reactions: { happy: happyCount, sad: sadCount },
-        ratings: undefined, // Remove individual ratings from response
-        daysRemaining, // Days until removal (for sold items)
+      try {
+        const avgRating =
+          m.ratings && m.ratings.length > 0
+            ? m.ratings.reduce((acc: number, r: any) => acc + (r.score || 0), 0) / m.ratings.length
+            : 0
+        
+        // Calculate reaction counts (happy = score 3, sad = score 1)
+        const happyCount = m.ratings ? m.ratings.filter((r: any) => r.score === 3).length : 0
+        const sadCount = m.ratings ? m.ratings.filter((r: any) => r.score === 1).length : 0
+        
+        // Calculate days remaining before deletion for sold items
+        let daysRemaining = null
+        if (m.isSold && m.deleteAfter) {
+          const deleteDate = new Date(m.deleteAfter)
+          const diffTime = deleteDate.getTime() - now.getTime()
+          daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        }
+        
+        // Safely convert BigInt fields
+        let fileSize = null
+        if (m.fileSize !== null && m.fileSize !== undefined) {
+          try {
+            fileSize = typeof m.fileSize === 'bigint' ? m.fileSize.toString() : String(m.fileSize)
+          } catch {
+            fileSize = null
+          }
+        }
+        
+        return {
+          ...m,
+          fileSize,
+          avgRating: Math.round(avgRating * 10) / 10,
+          reactions: { happy: happyCount, sad: sadCount },
+          ratings: undefined, // Remove individual ratings from response
+          daysRemaining, // Days until removal (for sold items)
+        }
+      } catch (itemError) {
+        console.error('Error processing media item:', m.id, itemError)
+        // Return a minimal safe object
+        return {
+          id: m.id,
+          title: m.title || 'Unknown',
+          type: m.type || 'IMAGE',
+          url: m.url || '',
+          thumbnailUrl: m.thumbnailUrl || null,
+          views: m.views || 0,
+          createdAt: m.createdAt,
+          user: m.user,
+          avgRating: 0,
+          reactions: { happy: 0, sad: 0 },
+          fileSize: null,
+        }
       }
     })
 
@@ -141,8 +172,15 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error('Error fetching media:', error)
+    // Return detailed error in development
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to fetch media' },
+      { 
+        error: 'Failed to fetch media',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+        media: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 }
+      },
       { status: 500 }
     )
   }
