@@ -391,14 +391,101 @@ export async function compressVideo(
           }
         }
 
-        // Check if requestVideoFrameCallback is available (better frame timing)
+        // Check for WebCodecs API support (VideoFrame + MediaStreamTrackGenerator)
+        // This gives precise timestamp control and avoids playback speed issues
+        const hasVideoFrame = typeof VideoFrame !== 'undefined'
+        const hasTrackGenerator = typeof (window as any).MediaStreamTrackGenerator !== 'undefined'
         const hasVideoFrameCallback = 'requestVideoFrameCallback' in HTMLVideoElement.prototype
 
-        if (hasVideoFrameCallback) {
-          // Use requestVideoFrameCallback for precise frame-by-frame drawing
-          // This syncs perfectly with the video's actual frames
-          console.log('Using requestVideoFrameCallback for precise frame timing')
+        if (hasVideoFrame && hasTrackGenerator && hasVideoFrameCallback) {
+          // Best approach: Use WebCodecs API with explicit timestamps
+          // This ensures frames have correct timing regardless of CPU load
+          console.log('Using WebCodecs API (VideoFrame + MediaStreamTrackGenerator) for precise timing')
           
+          try {
+            // Create a video track with explicit frame timing
+            const trackGenerator = new (window as any).MediaStreamTrackGenerator({ kind: 'video' })
+            const writer = trackGenerator.writable.getWriter()
+            
+            // Replace the canvas video track with our generator track
+            const canvasVideoTracks = stream.getVideoTracks()
+            canvasVideoTracks.forEach(track => stream.removeTrack(track))
+            stream.addTrack(trackGenerator)
+            
+            // Track start time for calculating timestamps
+            let startTime: number | null = null
+            let frameCount = 0
+            
+            const processVideoFrame = async (now: number, metadata: any) => {
+              if (recordingStopped || video.ended || (video.paused && video.currentTime > 0)) {
+                await writer.close().catch(() => {})
+                stopRecording()
+                return
+              }
+              
+              if (startTime === null) {
+                startTime = metadata.mediaTime * 1000000 // Convert to microseconds
+              }
+              
+              // Draw frame to canvas with crop
+              ctx.drawImage(video, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
+              
+              // Create VideoFrame with explicit timestamp based on video's media time
+              // This ensures correct playback speed regardless of CPU load
+              const timestamp = (metadata.mediaTime * 1000000) - startTime
+              
+              try {
+                const frame = new VideoFrame(canvas, {
+                  timestamp: timestamp,
+                  alpha: 'discard'
+                })
+                
+                await writer.write(frame)
+                frame.close()
+                frameCount++
+              } catch (frameError) {
+                console.warn('Error creating/writing VideoFrame:', frameError)
+              }
+              
+              updateProgress()
+              
+              // Request next frame
+              ;(video as any).requestVideoFrameCallback(processVideoFrame)
+            }
+            
+            // Start playback and begin processing frames
+            video.play().then(() => {
+              ;(video as any).requestVideoFrameCallback(processVideoFrame)
+            }).catch(async () => {
+              await writer.close().catch(() => {})
+              stopRecording()
+              cleanup()
+              reject(new Error('Failed to resume video playback'))
+            })
+            
+            video.onended = async () => {
+              console.log(`WebCodecs: processed ${frameCount} frames`)
+              await writer.close().catch(() => {})
+              stopRecording()
+            }
+          } catch (webCodecsError) {
+            console.warn('WebCodecs setup failed, falling back:', webCodecsError)
+            // Fall through to fallback method below
+            useCanvasCaptureStreamFallback()
+          }
+        } else if (hasVideoFrameCallback) {
+          // Fallback 1: requestVideoFrameCallback with canvas.captureStream
+          // Better than setInterval but timestamps may drift under load
+          console.log('Using requestVideoFrameCallback with canvas.captureStream (fallback 1)')
+          useCanvasCaptureStreamFallback()
+        } else {
+          // Fallback 2: setInterval with canvas.captureStream
+          console.log('Using setInterval with canvas.captureStream (fallback 2)')
+          useSetIntervalFallback()
+        }
+
+        // Fallback function using canvas.captureStream with requestVideoFrameCallback
+        function useCanvasCaptureStreamFallback() {
           const drawVideoFrame = () => {
             if (recordingStopped || video.ended || (video.paused && video.currentTime > 0)) {
               stopRecording()
@@ -421,11 +508,14 @@ export async function compressVideo(
             cleanup()
             reject(new Error('Failed to resume video playback'))
           })
-        } else {
-          // Fallback: Use setInterval for more consistent timing than rAF
-          // setInterval is not throttled like rAF when system is under load
-          console.log('Using setInterval fallback for frame drawing')
           
+          video.onended = () => {
+            stopRecording()
+          }
+        }
+
+        // Fallback function using setInterval
+        function useSetIntervalFallback() {
           const frameIntervalMs = 1000 / TARGET_FPS
           let intervalId: ReturnType<typeof setInterval> | null = null
           
@@ -463,13 +553,6 @@ export async function compressVideo(
               clearInterval(intervalId)
               intervalId = null
             }
-            stopRecording()
-          }
-        }
-
-        // For requestVideoFrameCallback path, also handle onended
-        if (hasVideoFrameCallback) {
-          video.onended = () => {
             stopRecording()
           }
         }
