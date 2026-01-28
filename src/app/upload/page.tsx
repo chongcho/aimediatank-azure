@@ -243,6 +243,7 @@ function UploadPageContent() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
+    console.log('handleFileChange called, file:', selectedFile?.name, selectedFile?.type)
     if (selectedFile) {
       fileChangeTokenRef.current += 1
       const changeToken = fileChangeTokenRef.current
@@ -258,16 +259,22 @@ function UploadPageContent() {
       
       // Generate preview
       if (selectedFile.type.startsWith('image/')) {
+        console.log('Processing image file for crop')
         const reader = new FileReader()
         reader.onload = () => {
           const src = reader.result as string
+          console.log('Image loaded, showing cropper')
           setPreview(src)
           setCropSource(src)
           setCropMediaType('image')
           setShowCropper(true)
         }
+        reader.onerror = (err) => {
+          console.error('FileReader error:', err)
+        }
         reader.readAsDataURL(selectedFile)
       } else if (selectedFile.type.startsWith('video/')) {
+        console.log('Processing video file for crop')
         const src = URL.createObjectURL(selectedFile)
         setPreview(src)
         setCropMediaType('video')
@@ -276,6 +283,7 @@ function UploadPageContent() {
         generateVideoThumbnail(selectedFile).then(async (thumbFile) => {
           if (fileChangeTokenRef.current !== changeToken) return
           if (!thumbFile) {
+            console.log('No thumbnail generated for video')
             setCropSource(null)
             setShowCropper(false)
             return
@@ -283,6 +291,7 @@ function UploadPageContent() {
           try {
             const thumbSrc = await readFileAsDataUrl(thumbFile)
             if (fileChangeTokenRef.current !== changeToken) return
+            console.log('Video thumbnail loaded, showing cropper')
             setCropSource(thumbSrc)
             setShowCropper(true)
           } catch (err) {
@@ -292,6 +301,7 @@ function UploadPageContent() {
           }
         })
       } else {
+        console.log('Unknown file type:', selectedFile.type)
         setPreview(null)
         setCropSource(null)
         setCropMediaType(null)
@@ -830,7 +840,15 @@ function UploadPageContent() {
                   ? 'image/*'
                   : 'audio/*'
               }
-              onChange={handleFileChange}
+              onChange={(e) => {
+                handleFileChange(e)
+                // Reset input value to allow re-selecting the same file
+                e.target.value = ''
+              }}
+              onClick={(e) => {
+                // Clear value before opening picker (iOS fix)
+                (e.target as HTMLInputElement).value = ''
+              }}
               className="hidden"
             />
           </div>
