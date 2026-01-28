@@ -2026,6 +2026,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           left: position.x,
           bottom: 'auto',
           right: 'auto',
+        } : chatSize === 'fullscreen' ? {
+          // Fullscreen mode: cover entire viewport from top
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
         } : {
         bottom: 'env(safe-area-inset-bottom, 0px)',
         left: 0,
