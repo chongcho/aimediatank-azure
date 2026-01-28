@@ -298,7 +298,9 @@ export default function Navbar() {
           {/* Logo and Home Icon */}
           <div className="flex items-center flex-shrink-0">
             <Link href="/" className="flex items-center" onClick={(e) => { 
-              e.preventDefault(); 
+              e.preventDefault();
+              // Clear scroll restoration state so home page scrolls to top
+              sessionStorage.removeItem('homeScrollState');
               if (window.location.pathname === '/') {
                 window.scrollTo({ top: 0, behavior: 'instant' });
               } else {
@@ -316,7 +318,9 @@ export default function Navbar() {
               href="/" 
               className="ml-[30px] text-gray-400 hover:text-white transition-colors"
               onClick={(e) => { 
-                e.preventDefault(); 
+                e.preventDefault();
+                // Clear scroll restoration state so home page scrolls to top
+                sessionStorage.removeItem('homeScrollState');
                 if (window.location.pathname === '/') {
                   window.scrollTo({ top: 0, behavior: 'instant' });
                 } else {
@@ -702,6 +706,8 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
     // For Home link, scroll to top if already on home, otherwise navigate
     if (href === '/') {
       e.preventDefault()
+      // Clear scroll restoration state so home page scrolls to top
+      sessionStorage.removeItem('homeScrollState')
       if (window.location.pathname === '/') {
         window.scrollTo({ top: 0, behavior: 'instant' })
       } else {
@@ -725,7 +731,10 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     onClick()
-    window.scrollTo(0, 0)
+    // Clear scroll restoration state for home navigation
+    if (href === '/') {
+      sessionStorage.removeItem('homeScrollState')
+    }
     window.location.href = href
   }
   
