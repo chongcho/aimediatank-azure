@@ -16,7 +16,7 @@ const scoreToReaction: Record<number, 'happy' | 'neutral' | 'sad'> = {
   1: 'sad',
 }
 
-// GET - Get reaction counts and user's reaction
+// GET - Get reaction counts and user's/visitor's reaction
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ mediaId: string }> }
@@ -24,26 +24,39 @@ export async function GET(
   try {
     const { mediaId } = await params
     const session = await getServerSession(authOptions)
+    const visitorId = request.headers.get('x-visitor-id')
 
-    // Get all ratings for this media
-    const ratings = await prisma.rating.findMany({
+    // Get all ratings from signed-in users
+    const userRatings = await prisma.rating.findMany({
       where: { mediaId },
       select: { score: true, userId: true },
     })
 
-    // Count reactions
+    // Get all anonymous ratings
+    const anonymousRatings = await prisma.anonymousRating.findMany({
+      where: { mediaId },
+      select: { score: true, visitorId: true },
+    })
+
+    // Count reactions from both sources
     const counts = {
-      happy: ratings.filter(r => r.score === 3).length,
-      neutral: ratings.filter(r => r.score === 2).length,
-      sad: ratings.filter(r => r.score === 1).length,
+      happy: userRatings.filter(r => r.score === 3).length + anonymousRatings.filter(r => r.score === 3).length,
+      neutral: userRatings.filter(r => r.score === 2).length + anonymousRatings.filter(r => r.score === 2).length,
+      sad: userRatings.filter(r => r.score === 1).length + anonymousRatings.filter(r => r.score === 1).length,
     }
 
     // Get user's reaction if logged in
     let userReaction: 'happy' | 'neutral' | 'sad' | null = null
     if (session?.user?.id) {
-      const userRating = ratings.find(r => r.userId === session.user.id)
+      const userRating = userRatings.find(r => r.userId === session.user.id)
       if (userRating && userRating.score >= 1 && userRating.score <= 3) {
         userReaction = scoreToReaction[userRating.score]
+      }
+    } else if (visitorId) {
+      // Check anonymous reaction
+      const anonRating = anonymousRatings.find(r => r.visitorId === visitorId)
+      if (anonRating && anonRating.score >= 1 && anonRating.score <= 3) {
+        userReaction = scoreToReaction[anonRating.score]
       }
     }
 
@@ -57,22 +70,15 @@ export async function GET(
   }
 }
 
-// POST - Set or update user's reaction
+// POST - Set or update user's/visitor's reaction
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
     const { mediaId } = await params
-    const { type } = await request.json()
+    const session = await getServerSession(authOptions)
+    const { type, visitorId } = await request.json()
 
     if (!['happy', 'neutral', 'sad'].includes(type)) {
       return NextResponse.json(
@@ -83,38 +89,79 @@ export async function POST(
 
     const score = reactionToScore[type]
 
-    // Check if user already has a reaction
-    const existingRating = await prisma.rating.findUnique({
-      where: {
-        userId_mediaId: {
-          userId: session.user.id,
-          mediaId,
+    if (session?.user?.id) {
+      // Signed-in user - use Rating table
+      const existingRating = await prisma.rating.findUnique({
+        where: {
+          userId_mediaId: {
+            userId: session.user.id,
+            mediaId,
+          },
         },
-      },
-    })
+      })
 
-    if (existingRating) {
-      // If clicking same reaction, remove it
-      if (existingRating.score === score) {
-        await prisma.rating.delete({
-          where: { id: existingRating.id },
-        })
+      if (existingRating) {
+        if (existingRating.score === score) {
+          // Clicking same reaction removes it
+          await prisma.rating.delete({
+            where: { id: existingRating.id },
+          })
+        } else {
+          // Update to new reaction
+          await prisma.rating.update({
+            where: { id: existingRating.id },
+            data: { score },
+          })
+        }
       } else {
-        // Update to new reaction
-        await prisma.rating.update({
-          where: { id: existingRating.id },
-          data: { score },
+        // Create new reaction
+        await prisma.rating.create({
+          data: {
+            userId: session.user.id,
+            mediaId,
+            score,
+          },
+        })
+      }
+    } else if (visitorId) {
+      // Anonymous user - use AnonymousRating table
+      const existingRating = await prisma.anonymousRating.findUnique({
+        where: {
+          visitorId_mediaId: {
+            visitorId,
+            mediaId,
+          },
+        },
+      })
+
+      if (existingRating) {
+        if (existingRating.score === score) {
+          // Clicking same reaction removes it
+          await prisma.anonymousRating.delete({
+            where: { id: existingRating.id },
+          })
+        } else {
+          // Update to new reaction
+          await prisma.anonymousRating.update({
+            where: { id: existingRating.id },
+            data: { score },
+          })
+        }
+      } else {
+        // Create new reaction
+        await prisma.anonymousRating.create({
+          data: {
+            visitorId,
+            mediaId,
+            score,
+          },
         })
       }
     } else {
-      // Create new reaction
-      await prisma.rating.create({
-        data: {
-          userId: session.user.id,
-          mediaId,
-          score,
-        },
-      })
+      return NextResponse.json(
+        { error: 'Visitor ID required for anonymous reactions' },
+        { status: 400 }
+      )
     }
 
     return NextResponse.json({ success: true })

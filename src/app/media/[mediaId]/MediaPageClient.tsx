@@ -91,9 +91,25 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     }
   }
 
+  // Get or create visitor ID for anonymous reactions
+  const getVisitorId = () => {
+    if (typeof window === 'undefined') return null
+    let visitorId = localStorage.getItem('visitorId')
+    if (!visitorId) {
+      visitorId = 'anon_' + Math.random().toString(36).substring(2) + Date.now().toString(36)
+      localStorage.setItem('visitorId', visitorId)
+    }
+    return visitorId
+  }
+
   const fetchReactions = async () => {
     try {
-      const res = await fetch(`/api/media/${mediaId}/reactions`)
+      const visitorId = getVisitorId()
+      const headers: HeadersInit = {}
+      if (visitorId) {
+        headers['x-visitor-id'] = visitorId
+      }
+      const res = await fetch(`/api/media/${mediaId}/reactions`, { headers })
       const data = await res.json()
       if (res.ok) {
         setReactions(data.counts)
@@ -105,16 +121,14 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   }
 
   const handleReaction = async (type: 'happy' | 'sad') => {
-    if (!session) {
-      router.push('/login')
-      return
-    }
+    // Allow reactions without sign-in using visitorId
+    const visitorId = getVisitorId()
 
     try {
       const res = await fetch(`/api/media/${mediaId}/reactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({ type, visitorId }),
       })
 
       if (res.ok) {
