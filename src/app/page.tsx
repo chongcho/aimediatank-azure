@@ -369,10 +369,10 @@ function HomeContent() {
             <h1 className="text-2xl md:text-3xl font-bold" style={{ paddingRight: '20px' }}>
               <span className="text-gradient">AiMediaTank</span>
           </h1>
-            <span className="font-bold italic text-gray-400" style={{ fontSize: '16px' }}>AI-Generated</span>
+            <span className="font-bold italic text-gray-400" style={{ fontSize: '16px' }}>AI-Generated and Real</span>
           </div>
           <p className="text-gray-400 text-sm italic">
-            Community for AI Contents Creators and Enthusiasts
+            Community for AI Contents Creators and Digital Enthusiasts
           </p>
         </div>
 
@@ -730,10 +730,10 @@ export default function Home() {
               <h1 className="text-2xl md:text-3xl font-bold" style={{ paddingRight: '20px' }}>
                 <span className="text-gradient">AiMediaTank</span>
             </h1>
-              <span className="font-bold italic text-gray-400" style={{ fontSize: '16px' }}>AI-Generated</span>
+              <span className="font-bold italic text-gray-400" style={{ fontSize: '16px' }}>AI-Generated and Real</span>
             </div>
             <p className="text-gray-400 text-sm italic">
-              Community for AI Contents Creators and Enthusiasts
+              Community for AI Contents Creators and Digital Enthusiasts
             </p>
           </div>
         </div>
