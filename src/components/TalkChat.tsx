@@ -2049,6 +2049,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         display: isDesktop && hasCustomPosition ? 'block' : 'flex',
         justifyContent: 'center',
         background: 'transparent',
+        // In fullscreen mode on mobile, add padding-top for navbar
+        ...(chatSize === 'fullscreen' && !isDesktop ? {
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 64px)',
+          height: '100%',
+          boxSizing: 'border-box',
+        } : {}),
       }}>
         <style>{`
           .chat-wrapper-responsive {
@@ -2087,7 +2093,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           <style>{`
             @media (max-width: 767px) {
               .chat-container-responsive {
-                height: ${getMobileChatHeight()} !important;
+                height: ${chatSize === 'fullscreen' ? '100%' : getMobileChatHeight()} !important;
                 border-radius: 0 !important;
                 max-width: 100% !important;
               }
