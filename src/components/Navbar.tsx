@@ -606,7 +606,7 @@ export default function Navbar() {
                 {isNavbarItemEnabled('signIn') && (
                   <button
                     onClick={() => setIsSignInOpen(true)}
-                    className="h-9 px-3 flex items-center justify-center text-gray-300 hover:text-white transition-colors text-sm"
+                    className="h-9 px-0.5 flex items-center justify-center text-blue-400 hover:text-blue-300 font-bold transition-colors text-sm"
                   >
                     Sign In
                   </button>
@@ -614,7 +614,7 @@ export default function Navbar() {
                 {isNavbarItemEnabled('signUp') && (
                   <Link
                     href="/register"
-                    className="signup-btn h-9 px-4 flex items-center justify-center font-bold rounded-lg text-sm 
+                    className="signup-btn h-9 px-0.5 flex items-center justify-center font-bold rounded-lg text-sm 
                       hover:scale-105 active:scale-95 transition-transform duration-200 ease-out
                       relative overflow-hidden"
                   >
