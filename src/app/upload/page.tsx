@@ -876,7 +876,15 @@ function UploadPageContent() {
                     <video
                       src={preview}
                       controls
+                      playsInline
+                      muted
+                      preload="metadata"
                       className="max-h-64 mx-auto rounded-lg"
+                      onLoadedMetadata={(e) => {
+                        // Show first frame on mobile
+                        const video = e.currentTarget
+                        video.currentTime = 0.1
+                      }}
                     />
                   )}
                   <p className="text-sm text-gray-400">{file?.name}</p>
