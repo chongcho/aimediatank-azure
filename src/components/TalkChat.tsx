@@ -213,7 +213,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   
   const getMobileChatHeight = () => {
     switch (chatSize) {
-      case 'tall': return 'calc(100dvh - 120px)' // Align with navbar (64px navbar + safe areas + margin)
+      case 'tall': return 'calc(100dvh - 70px)' // Align with navbar
       case 'max': return '50vh'
       case 'medium': return '35vh'
       case 'min': return 'auto'
