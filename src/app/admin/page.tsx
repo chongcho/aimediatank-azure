@@ -1441,8 +1441,8 @@ export default function AdminPage() {
           {/* Media */}
           {activeTab === 'media' && (
             <div className="space-y-4">
-              <div className="card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-3">
+              <div className="card flex items-start justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3 min-w-0">
                   <div className="text-sm text-gray-300">
                     <span className="text-gray-500">File sizes missing:</span>{' '}
                     <span className="font-medium">
@@ -1476,17 +1476,17 @@ export default function AdminPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0 ml-auto">
                   <button
                     onClick={fetchFileSizeStatus}
-                    className="px-3 py-2 rounded-lg bg-tank-light/20 hover:bg-tank-light/30 text-sm"
+                    className="px-3 py-1.5 rounded-lg bg-tank-light/20 hover:bg-tank-light/30 text-sm"
                     disabled={fileSizeStatusLoading}
                   >
                     Refresh
                   </button>
                   <button
                     onClick={runFileSizeBackfill}
-                    className="px-3 py-2 rounded-lg bg-tank-accent/20 hover:bg-tank-accent/30 text-tank-accent text-sm"
+                    className="px-3 py-1.5 rounded-lg bg-tank-accent/20 hover:bg-tank-accent/30 text-tank-accent text-sm whitespace-nowrap"
                     disabled={fileSizeBackfillRunning}
                   >
                     {fileSizeBackfillRunning ? 'Backfilling...' : 'Backfill file sizes'}
