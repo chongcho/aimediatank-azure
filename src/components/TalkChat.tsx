@@ -192,7 +192,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Get height based on chat size
   const getChatHeight = () => {
     switch (chatSize) {
-      case 'fullscreen': return '100vh'
+      case 'fullscreen': return '100dvh' // Use dvh for mobile browser compatibility
       case 'max': return '40vh'
       case 'medium': return '30vh'
       case 'min': return 'auto'
@@ -201,7 +201,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   
   const getChatMinHeight = () => {
     switch (chatSize) {
-      case 'fullscreen': return '100vh'
+      case 'fullscreen': return '100dvh'
       case 'max': return '250px'
       case 'medium': return '200px'
       case 'min': return 'auto'
@@ -210,7 +210,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   
   const getMobileChatHeight = () => {
     switch (chatSize) {
-      case 'fullscreen': return '100vh'
+      case 'fullscreen': return '100dvh' // Use dvh for mobile browser compatibility
       case 'max': return '50vh'
       case 'medium': return '35vh'
       case 'min': return 'auto'
@@ -2049,10 +2049,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         display: isDesktop && hasCustomPosition ? 'block' : 'flex',
         justifyContent: 'center',
         background: 'transparent',
-        // In fullscreen mode on mobile, add padding-top for navbar
+        // In fullscreen mode on mobile, add padding for navbar and safe areas
         ...(chatSize === 'fullscreen' && !isDesktop ? {
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 64px)',
-          height: '100%',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          height: '100dvh', // Use dvh for proper mobile viewport
           boxSizing: 'border-box',
         } : {}),
       }}>
@@ -2093,7 +2094,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           <style>{`
             @media (max-width: 767px) {
               .chat-container-responsive {
-                height: ${chatSize === 'fullscreen' ? '100%' : getMobileChatHeight()} !important;
+                height: ${chatSize === 'fullscreen' ? 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 64px)' : getMobileChatHeight()} !important;
                 border-radius: 0 !important;
                 max-width: 100% !important;
               }
