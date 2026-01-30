@@ -222,7 +222,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   
   const getMobileChatHeight = () => {
     switch (chatSize) {
-      case 'tall': return isPWA ? 'calc(100dvh - 85px)' : 'calc(100dvh - 65px)' // PWA: 20px shorter
+      case 'tall': return isPWA ? 'calc(100dvh - 88px)' : 'calc(100dvh - 65px)' // PWA: 23px shorter
       case 'max': return '50vh'
       case 'medium': return '35vh'
       case 'min': return 'auto'
