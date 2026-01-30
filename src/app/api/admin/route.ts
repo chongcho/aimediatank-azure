@@ -195,14 +195,16 @@ export async function GET(request: Request) {
     }
     
     if (action === 'chatMessages') {
-      // Get recent chat messages for moderation
+      // Get recent chat messages for moderation (Open Chat only - public messages)
       const page = parseInt(searchParams.get('page') || '1')
       const limit = parseInt(searchParams.get('limit') || '50')
       const userId = searchParams.get('userId')
       const search = searchParams.get('search') || ''
       const filter = searchParams.get('filter') // 'warned', 'suspended', 'all'
       
-      const where: any = {}
+      const where: any = {
+        isPrivate: false, // Only show public (open chat) messages
+      }
       if (userId) {
         where.userId = userId
       }
