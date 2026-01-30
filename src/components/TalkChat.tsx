@@ -2102,7 +2102,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           <style>{`
             @media (max-width: 767px) {
               .chat-container-responsive {
-                height: ${chatSize === 'fullscreen' ? '100%' : getMobileChatHeight()} !important;
+                height: ${chatSize === 'fullscreen' ? 'calc(100dvh - 160px)' : getMobileChatHeight()} !important;
+                max-height: ${chatSize === 'fullscreen' ? 'calc(100dvh - 160px)' : 'none'} !important;
                 border-radius: 0 !important;
                 max-width: 100% !important;
               }
