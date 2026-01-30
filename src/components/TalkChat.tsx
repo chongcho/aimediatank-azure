@@ -2041,7 +2041,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         pointerEvents: 'none',
       }}>
       {/* Wrapper to center chat - 2 tile width */}
-      <div className={`chat-wrapper-responsive ${chatSize === 'fullscreen' && !isDesktop ? 'fullscreen-mobile' : ''}`} style={{ 
+      <div className="chat-wrapper-responsive" style={{ 
         position: 'relative',
         bottom: 0,
         left: 0,
@@ -2052,8 +2052,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         // In fullscreen mode on mobile, add padding for navbar and safe areas
         ...(chatSize === 'fullscreen' && !isDesktop ? {
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 64px)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)', // Large padding to ensure input visibility
-          height: '100%', // Fill the fixed parent container
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          height: '100dvh', // Use dvh for proper mobile viewport
           boxSizing: 'border-box',
         } : {}),
       }}>
@@ -2064,14 +2064,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           @media (max-width: 640px) {
             .chat-wrapper-responsive {
               padding: 0;
-            }
-          }
-          @media (max-width: 767px) {
-            .chat-wrapper-responsive.fullscreen-mobile {
-              padding-top: calc(env(safe-area-inset-top, 0px) + 64px) !important;
-              padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px) !important;
-              height: 100% !important;
-              box-sizing: border-box !important;
             }
           }
         `}</style>
@@ -2102,8 +2094,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           <style>{`
             @media (max-width: 767px) {
               .chat-container-responsive {
-                height: ${chatSize === 'fullscreen' ? 'calc(100dvh - 160px)' : getMobileChatHeight()} !important;
-                max-height: ${chatSize === 'fullscreen' ? 'calc(100dvh - 160px)' : 'none'} !important;
+                height: ${chatSize === 'fullscreen' ? 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 64px)' : getMobileChatHeight()} !important;
                 border-radius: 0 !important;
                 max-width: 100% !important;
               }
@@ -3359,12 +3350,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           onSubmit={sendMessage} 
           onClick={(e) => e.stopPropagation()}
           style={{
-            padding: '8px 12px',
-            paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))', // Extra padding for mobile safe area
+            padding: '4px 12px',
             backgroundColor: '#e8e8e8',
             borderTop: '1px solid #ccc',
             position: 'relative',
-            flexShrink: 0, // Prevent compression in flex layout
           }}
         >
           {/* @Mention Picker */}
