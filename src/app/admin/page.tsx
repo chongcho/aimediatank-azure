@@ -982,42 +982,73 @@ export default function AdminPage() {
       <p className="text-gray-400 mb-8">Manage users, content, chat, and reports</p>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-8 overflow-x-auto no-scrollbar">
-        {([
-          { id: 'dashboard', label: 'Dashboard' },
-          { id: 'analytics', label: 'Analytics' },
-          { id: 'users', label: 'Users' },
-          { id: 'media', label: 'Media' },
-          { id: 'chat', label: 'Chat' },
-          { id: 'membership', label: 'Membership Management' },
-          { id: 'promotions', label: 'Promotions' },
-          { id: 'games', label: 'Game Control' },
-          { id: 'navbar', label: 'Navbar Control' },
-          { id: 'badges', label: 'Media Badge Control' },
-          { id: 'membershipSales', label: 'Membership Sales Reports' },
-          { id: 'contentSales', label: 'Contents Sales Reports' },
-          { id: 'adSales', label: 'Ad Sales Reports' },
-        ] as { id: TabType; label: string }[]).map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => {
-              setActiveTab(tab.id)
-              if (tab.id === 'media') {
-                setMediaPage(1)
-                setMediaSearch('')
-                setMediaTypeFilter('all')
-                setMediaStatusFilter('all')
-              }
-            }}
-            className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'bg-tank-accent text-tank-black'
-                : 'bg-tank-gray text-gray-400 hover:text-white'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar min-w-0">
+          {([
+            { id: 'dashboard', label: 'Dashboard' },
+            { id: 'analytics', label: 'Analytics' },
+            { id: 'users', label: 'Users' },
+            { id: 'media', label: 'Media' },
+            { id: 'chat', label: 'Chat' },
+            { id: 'membership', label: 'Membership Management' },
+            { id: 'promotions', label: 'Promotions' },
+            { id: 'games', label: 'Game Control' },
+            { id: 'navbar', label: 'Navbar Control' },
+            { id: 'badges', label: 'Media Badge Control' },
+            { id: 'membershipSales', label: 'Membership Sales Reports' },
+            { id: 'contentSales', label: 'Contents Sales Reports' },
+            { id: 'adSales', label: 'Ad Sales Reports' },
+          ] as { id: TabType; label: string }[]).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id)
+                if (tab.id === 'media') {
+                  setMediaPage(1)
+                  setMediaSearch('')
+                  setMediaTypeFilter('all')
+                  setMediaStatusFilter('all')
+                }
+              }}
+              className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'bg-tank-accent text-tank-black'
+                  : 'bg-tank-gray text-gray-400 hover:text-white'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'media' && (
+          <div className="hidden lg:block shrink-0">
+            <div className="bg-tank-gray/50 border border-tank-light/30 rounded-xl px-4 py-2 inline-flex items-center gap-4">
+              <div className="text-sm text-gray-300 whitespace-nowrap">
+                <span className="text-gray-500">File sizes missing:</span>{' '}
+                <span className="font-medium">
+                  {fileSizeStatusLoading ? '...' : (fileSizeStatus?.missing ?? '-')}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchFileSizeStatus}
+                  className="px-3 py-1.5 rounded-lg bg-tank-light/20 hover:bg-tank-light/30 text-sm"
+                  disabled={fileSizeStatusLoading}
+                >
+                  Refresh
+                </button>
+                <button
+                  onClick={runFileSizeBackfill}
+                  className="px-3 py-1.5 rounded-lg bg-tank-accent/20 hover:bg-tank-accent/30 text-tank-accent text-sm whitespace-nowrap"
+                  disabled={fileSizeBackfillRunning}
+                >
+                  {fileSizeBackfillRunning ? 'Backfilling...' : 'Backfill file sizes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filter Bar - styled as menu bar */}
@@ -1441,63 +1472,23 @@ export default function AdminPage() {
           {/* Media */}
           {activeTab === 'media' && (
             <div className="space-y-4">
-              {/* File size tools - compact, top-right (per mock) */}
-              <div className="flex justify-end">
-                <div className="card inline-flex items-center gap-4 px-4 py-2 rounded-xl">
-                  <div className="text-sm text-gray-300 whitespace-nowrap">
-                    <span className="text-gray-500">File sizes missing:</span>{' '}
-                    <span className="font-medium">
-                      {fileSizeStatusLoading ? '...' : (fileSizeStatus?.missing ?? '-')}
-                    </span>
-                  </div>
-
-                  {fileSizeBackfillResult && (
-                    <div className="text-xs text-gray-400 whitespace-nowrap">
-                      Updated {fileSizeBackfillResult.updated}/{fileSizeBackfillResult.scanned}
-                      {!!fileSizeBackfillResult.errors?.length && (
-                        <span className="text-gray-500"> (errors: {fileSizeBackfillResult.errors.length})</span>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={fetchFileSizeStatus}
-                      className="px-3 py-1.5 rounded-lg bg-tank-light/20 hover:bg-tank-light/30 text-sm"
-                      disabled={fileSizeStatusLoading}
-                    >
-                      Refresh
-                    </button>
-                    <button
-                      onClick={runFileSizeBackfill}
-                      className="px-3 py-1.5 rounded-lg bg-tank-accent/20 hover:bg-tank-accent/30 text-tank-accent text-sm whitespace-nowrap"
-                      disabled={fileSizeBackfillRunning}
-                    >
-                      {fileSizeBackfillRunning ? 'Backfilling...' : 'Backfill file sizes'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Optional error details (kept, but no longer takes full row space) */}
+              {/* Optional error details */}
               {!!fileSizeBackfillResult?.errors?.length && (
-                <div className="flex justify-end">
-                  <details className="max-w-[900px] text-xs text-gray-400">
-                    <summary className="cursor-pointer hover:text-gray-200">
-                      Show backfill errors ({fileSizeBackfillResult.errors.length})
-                    </summary>
-                    <ul className="mt-2 space-y-1 max-h-40 overflow-auto rounded bg-tank-dark/40 border border-tank-light/20 p-2">
-                      {fileSizeBackfillResult.errors.slice(0, 20).map((err, idx) => (
-                        <li key={idx} className="font-mono break-all">
-                          {err}
-                        </li>
-                      ))}
-                    </ul>
-                    {fileSizeBackfillResult.errors.length > 20 && (
-                      <div className="mt-1 text-gray-500">Showing first 20 errors.</div>
-                    )}
-                  </details>
-                </div>
+                <details className="max-w-[900px] text-xs text-gray-400">
+                  <summary className="cursor-pointer hover:text-gray-200">
+                    Show backfill errors ({fileSizeBackfillResult.errors.length})
+                  </summary>
+                  <ul className="mt-2 space-y-1 max-h-40 overflow-auto rounded bg-tank-dark/40 border border-tank-light/20 p-2">
+                    {fileSizeBackfillResult.errors.slice(0, 20).map((err, idx) => (
+                      <li key={idx} className="font-mono break-all">
+                        {err}
+                      </li>
+                    ))}
+                  </ul>
+                  {fileSizeBackfillResult.errors.length > 20 && (
+                    <div className="mt-1 text-gray-500">Showing first 20 errors.</div>
+                  )}
+                </details>
               )}
               <div className="card overflow-x-auto max-h-[70vh] overflow-y-auto">
                 <table className="w-full text-sm min-w-[1600px]">
