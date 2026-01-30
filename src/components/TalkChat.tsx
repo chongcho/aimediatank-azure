@@ -114,6 +114,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Chat size state: 'tall' (align with navbar) | 'max' (40vh) | 'medium' (30vh) | 'min' (hidden)
   const [chatSize, setChatSize] = useState<'tall' | 'max' | 'medium' | 'min'>('medium')
   const [isPageVisible, setIsPageVisible] = useState(true)
+  // Detect if running as PWA (standalone mode)
+  const [isPWA, setIsPWA] = useState(false)
+  
+  useEffect(() => {
+    // Check for PWA standalone mode
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
+      || (window.navigator as any).standalone === true // iOS Safari
+    setIsPWA(isStandalone)
+  }, [])
   // Inline notification message (replaces browser alerts)
   const [inlineNotice, setInlineNotice] = useState<string | null>(null)
   
@@ -213,7 +222,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   
   const getMobileChatHeight = () => {
     switch (chatSize) {
-      case 'tall': return 'calc(100dvh - 65px)' // Align with navbar
+      case 'tall': return isPWA ? 'calc(100dvh - 85px)' : 'calc(100dvh - 65px)' // PWA: 20px shorter
       case 'max': return '50vh'
       case 'medium': return '35vh'
       case 'min': return 'auto'
