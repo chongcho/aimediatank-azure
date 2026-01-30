@@ -1020,81 +1020,89 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {/* Media Filters - Always visible to prevent losing focus */}
-      {activeTab === 'media' && (
-        <div className="flex gap-4 flex-wrap items-center mb-4">
-          <input
-            type="text"
-            placeholder="Search title or creator..."
-            value={mediaSearch}
-            onChange={(e) => setMediaSearch(e.target.value)}
-            className="input flex-1 min-w-[200px]"
-          />
-          <select
-            value={mediaTypeFilter}
-            onChange={(e) => { setMediaTypeFilter(e.target.value); setMediaPage(1); }}
-            className="input w-auto"
-          >
-            <option value="all">All Types</option>
-            <option value="VIDEO">Video</option>
-            <option value="IMAGE">Image</option>
-            <option value="MUSIC">Music</option>
-          </select>
-          <select
-            value={mediaStatusFilter}
-            onChange={(e) => { setMediaStatusFilter(e.target.value); setMediaPage(1); }}
-            className="input w-auto"
-          >
-            <option value="all">All Status</option>
-            <option value="approved">Approved</option>
-            <option value="pending">Pending</option>
-            <option value="deleted">Deleted</option>
-          </select>
-          <p className="text-gray-400">Total: {mediaTotal} items</p>
-        </div>
-      )}
+      {/* Filter Bar - styled as menu bar */}
+      {(activeTab === 'media' || activeTab === 'users' || activeTab === 'chat') && (
+        <div className="bg-tank-gray/50 rounded-xl p-3 mb-4 border border-tank-light/30">
+          <div className="flex gap-3 flex-wrap items-center">
+            <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">Filters:</span>
+            
+            {activeTab === 'media' && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Search title or creator..."
+                  value={mediaSearch}
+                  onChange={(e) => setMediaSearch(e.target.value)}
+                  className="input flex-1 min-w-[200px] h-9 text-sm"
+                />
+                <select
+                  value={mediaTypeFilter}
+                  onChange={(e) => { setMediaTypeFilter(e.target.value); }}
+                  className="input w-auto h-9 text-sm"
+                >
+                  <option value="all">All Types</option>
+                  <option value="VIDEO">Video</option>
+                  <option value="IMAGE">Image</option>
+                  <option value="MUSIC">Music</option>
+                </select>
+                <select
+                  value={mediaStatusFilter}
+                  onChange={(e) => { setMediaStatusFilter(e.target.value); }}
+                  className="input w-auto h-9 text-sm"
+                >
+                  <option value="all">All Status</option>
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                  <option value="deleted">Deleted</option>
+                </select>
+                <span className="text-sm text-gray-400 ml-auto">Total: {mediaTotal} items</span>
+              </>
+            )}
 
-      {/* Users Filters - Always visible */}
-      {activeTab === 'users' && (
-        <div className="flex gap-4 flex-wrap mb-4">
-          <input
-            type="text"
-            placeholder="Search users..."
-            value={userSearch}
-            onChange={(e) => setUserSearch(e.target.value)}
-            className="input flex-1 min-w-[200px]"
-          />
-          <select
-            value={userFilter}
-            onChange={(e) => setUserFilter(e.target.value)}
-            className="input w-auto"
-          >
-            <option value="all">All Users</option>
-            <option value="suspended">Suspended</option>
-            <option value="warned">With Warnings</option>
-          </select>
-        </div>
-      )}
+            {activeTab === 'users' && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Search username or email..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="input flex-1 min-w-[200px] h-9 text-sm"
+                />
+                <select
+                  value={userFilter}
+                  onChange={(e) => setUserFilter(e.target.value)}
+                  className="input w-auto h-9 text-sm"
+                >
+                  <option value="all">All Users</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="warned">With Warnings</option>
+                </select>
+                <span className="text-sm text-gray-400 ml-auto">Total: {users.length} users</span>
+              </>
+            )}
 
-      {/* Chat Filters - Always visible */}
-      {activeTab === 'chat' && (
-        <div className="flex gap-4 flex-wrap items-center mb-4">
-          <input
-            type="text"
-            placeholder="Search users..."
-            value={chatSearch}
-            onChange={(e) => setChatSearch(e.target.value)}
-            className="input flex-1 min-w-[200px]"
-          />
-          <select
-            value={chatFilter}
-            onChange={(e) => setChatFilter(e.target.value)}
-            className="input w-auto"
-          >
-            <option value="all">All Users</option>
-            <option value="warned">With Warnings</option>
-            <option value="suspended">Suspended</option>
-          </select>
+            {activeTab === 'chat' && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Search username..."
+                  value={chatSearch}
+                  onChange={(e) => setChatSearch(e.target.value)}
+                  className="input flex-1 min-w-[200px] h-9 text-sm"
+                />
+                <select
+                  value={chatFilter}
+                  onChange={(e) => setChatFilter(e.target.value)}
+                  className="input w-auto h-9 text-sm"
+                >
+                  <option value="all">All Users</option>
+                  <option value="warned">With Warnings</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+                <span className="text-sm text-gray-400 ml-auto">Total: {chatMessages.length} messages</span>
+              </>
+            )}
+          </div>
         </div>
       )}
 
