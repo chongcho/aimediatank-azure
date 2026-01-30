@@ -926,10 +926,10 @@ function UploadPageContent() {
           </div>
 
           {showCropper && cropSource && cropMediaType && portalMounted && createPortal(
-            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[99999] p-4 overscroll-contain touch-none">
-              <div className="bg-tank-dark border border-tank-light rounded-2xl w-full max-w-2xl p-6">
-                <div className="relative flex items-center mb-4">
-                  <h3 className="text-xl font-semibold text-white pr-12">
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[99999] p-2 sm:p-4 overscroll-contain touch-none overflow-y-auto">
+              <div className="bg-tank-dark border border-tank-light rounded-2xl w-full max-w-2xl p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto">
+                <div className="relative flex items-center mb-2 sm:mb-4">
+                  <h3 className="text-lg sm:text-xl font-semibold text-white pr-12">
                     Crop {cropMediaType === 'video' ? 'Video' : 'Image'}
                   </h3>
                   <button
@@ -946,7 +946,7 @@ function UploadPageContent() {
                 </div>
                 <div
                   ref={cropContainerRef}
-                  className="relative w-full h-[240px] sm:h-[360px] bg-black rounded-xl overflow-hidden"
+                  className="relative w-full h-[180px] sm:h-[280px] md:h-[360px] bg-black rounded-xl overflow-hidden"
                 >
                   <img
                     src={cropSource}
@@ -1011,9 +1011,9 @@ function UploadPageContent() {
                   )}
                 </div>
                 {mediaSize && (
-                  <div className="grid grid-cols-1 gap-2 mt-4 text-sm text-gray-300">
-                    <div className="flex items-center gap-3">
-                      <span className="w-16 shrink-0">Top</span>
+                  <div className="grid grid-cols-1 gap-1.5 sm:gap-2 mt-3 sm:mt-4 text-sm text-gray-300">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <span className="w-14 sm:w-16 shrink-0 text-xs sm:text-sm">Top</span>
                       <input
                         type="range"
                         min={0}
@@ -1046,12 +1046,12 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
-                        className="w-28 pl-2 pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        className="w-20 sm:w-28 pl-2 pr-8 sm:pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white text-xs sm:text-sm"
                       />
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className="w-16 shrink-0">Bottom</span>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <span className="w-14 sm:w-16 shrink-0 text-xs sm:text-sm">Bottom</span>
                       <input
                         type="range"
                         min={0}
@@ -1084,12 +1084,12 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
-                        className="w-28 pl-2 pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        className="w-20 sm:w-28 pl-2 pr-8 sm:pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white text-xs sm:text-sm"
                       />
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className="w-16 shrink-0">Left</span>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <span className="w-14 sm:w-16 shrink-0 text-xs sm:text-sm">Left</span>
                       <input
                         type="range"
                         min={0}
@@ -1122,12 +1122,12 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
-                        className="w-28 pl-2 pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        className="w-20 sm:w-28 pl-2 pr-8 sm:pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white text-xs sm:text-sm"
                       />
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className="w-16 shrink-0">Right</span>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <span className="w-14 sm:w-16 shrink-0 text-xs sm:text-sm">Right</span>
                       <input
                         type="range"
                         min={0}
@@ -1160,7 +1160,7 @@ function UploadPageContent() {
                             ),
                           }))
                         }}
-                        className="w-28 pl-2 pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white"
+                        className="w-20 sm:w-28 pl-2 pr-8 sm:pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white text-xs sm:text-sm"
                       />
                     </div>
                   </div>
