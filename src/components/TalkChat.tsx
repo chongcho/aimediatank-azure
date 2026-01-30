@@ -111,8 +111,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [mentionQuery, setMentionQuery] = useState('')
   const [mentionUsers, setMentionUsers] = useState<UserSuggestion[]>([])
   const [mentionIndex, setMentionIndex] = useState(0)
-  // Chat size state: 'fullscreen' (100vh) | 'max' (40vh) | 'medium' (30vh) | 'min' (hidden)
-  const [chatSize, setChatSize] = useState<'fullscreen' | 'max' | 'medium' | 'min'>('medium')
+  // Chat size state: 'tall' (align with navbar) | 'max' (40vh) | 'medium' (30vh) | 'min' (hidden)
+  const [chatSize, setChatSize] = useState<'tall' | 'max' | 'medium' | 'min'>('medium')
   const [isPageVisible, setIsPageVisible] = useState(true)
   // Inline notification message (replaces browser alerts)
   const [inlineNotice, setInlineNotice] = useState<string | null>(null)
@@ -126,11 +126,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Load chat size from localStorage on mount
   useEffect(() => {
     const savedSize = localStorage.getItem('talkChatSize')
-    if (savedSize === 'max' || savedSize === 'medium' || savedSize === 'min') {
+    if (savedSize === 'tall' || savedSize === 'max' || savedSize === 'medium' || savedSize === 'min') {
       setChatSize(savedSize)
     } else if (savedSize === 'fullscreen') {
-      // Convert old fullscreen setting to max
-      setChatSize('max')
+      // Convert old fullscreen setting to tall
+      setChatSize('tall')
     }
   }, [])
   
@@ -179,22 +179,23 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener('profileUpdated', handleProfileUpdate)
   }, [session?.user])
   
-  // Size control functions (max is the largest size, no fullscreen on mobile)
+  // Size control functions (tall aligns with navbar, max is 40vh/50vh)
   const pushDown = () => {
-    if (chatSize === 'max') setChatSize('medium')
+    if (chatSize === 'tall') setChatSize('max')
+    else if (chatSize === 'max') setChatSize('medium')
     else if (chatSize === 'medium') setChatSize('min')
   }
   
   const pushUp = () => {
     if (chatSize === 'min') setChatSize('medium')
     else if (chatSize === 'medium') setChatSize('max')
-    // Stop at max - no fullscreen mode
+    else if (chatSize === 'max') setChatSize('tall')
   }
   
   // Get height based on chat size
   const getChatHeight = () => {
     switch (chatSize) {
-      case 'fullscreen': return '100dvh' // Use dvh for mobile browser compatibility
+      case 'tall': return '70vh' // Desktop tall
       case 'max': return '40vh'
       case 'medium': return '30vh'
       case 'min': return 'auto'
@@ -203,7 +204,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   
   const getChatMinHeight = () => {
     switch (chatSize) {
-      case 'fullscreen': return '100dvh'
+      case 'tall': return '400px'
       case 'max': return '250px'
       case 'medium': return '200px'
       case 'min': return 'auto'
@@ -212,7 +213,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   
   const getMobileChatHeight = () => {
     switch (chatSize) {
-      case 'fullscreen': return '100dvh' // Use dvh for mobile browser compatibility
+      case 'tall': return 'calc(100dvh - 120px)' // Align with navbar (64px navbar + safe areas + margin)
       case 'max': return '50vh'
       case 'medium': return '35vh'
       case 'min': return 'auto'
@@ -2028,16 +2029,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           left: position.x,
           bottom: 'auto',
           right: 'auto',
-        } : chatSize === 'fullscreen' ? {
-          // Fullscreen mode: cover entire viewport from top
-          top: 0,
+        } : {
+          // Normal positioning from bottom
+          bottom: 'env(safe-area-inset-bottom, 0px)',
           left: 0,
           right: 0,
-          bottom: 0,
-        } : {
-        bottom: 'env(safe-area-inset-bottom, 0px)',
-        left: 0,
-        right: 0,
         }),
         zIndex: 99999,
         pointerEvents: 'none',
@@ -2051,13 +2047,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         display: isDesktop && hasCustomPosition ? 'block' : 'flex',
         justifyContent: 'center',
         background: 'transparent',
-        // In fullscreen mode on mobile, add padding for navbar and safe areas
-        ...(chatSize === 'fullscreen' && !isDesktop ? {
-          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 64px)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          height: '100dvh', // Use dvh for proper mobile viewport
-          boxSizing: 'border-box',
-        } : {}),
       }}>
         <style>{`
           .chat-wrapper-responsive {
@@ -2096,7 +2085,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           <style>{`
             @media (max-width: 767px) {
               .chat-container-responsive {
-                height: ${chatSize === 'fullscreen' ? 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 64px)' : getMobileChatHeight()} !important;
+                height: ${getMobileChatHeight()} !important;
                 border-radius: 0 !important;
                 max-width: 100% !important;
               }
@@ -2293,20 +2282,20 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <>
             <button
               onClick={pushUp}
-              disabled={chatSize === 'max'}
+              disabled={chatSize === 'tall'}
                   className="w-6 h-6"
               style={{
                 borderRadius: '3px 0 0 3px',
                 border: 'none',
-                background: chatSize === 'max' ? '#94a3b8' : '#2563eb',
+                background: chatSize === 'tall' ? '#94a3b8' : '#2563eb',
                 color: 'white',
-                cursor: chatSize === 'max' ? 'not-allowed' : 'pointer',
+                cursor: chatSize === 'tall' ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: chatSize === 'max' ? 0.5 : 1,
+                opacity: chatSize === 'tall' ? 0.5 : 1,
               }}
-              title={chatSize === 'min' ? 'Medium size' : chatSize === 'medium' ? 'Max size' : 'Already at max size'}
+              title={chatSize === 'min' ? 'Medium size' : chatSize === 'medium' ? 'Max size' : chatSize === 'max' ? 'Tall (align with navbar)' : 'Already at tallest'}
             >
               {/* Up arrow */}
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2328,7 +2317,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 justifyContent: 'center',
                 opacity: chatSize === 'min' ? 0.5 : 1,
               }}
-              title={chatSize === 'max' ? 'Medium size' : chatSize === 'medium' ? 'Minimize' : 'Already minimized'}
+              title={chatSize === 'tall' ? 'Max size' : chatSize === 'max' ? 'Medium size' : chatSize === 'medium' ? 'Minimize' : 'Already minimized'}
             >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
