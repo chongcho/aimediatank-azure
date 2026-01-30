@@ -2052,7 +2052,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         // In fullscreen mode on mobile, add padding for navbar and safe areas
         ...(chatSize === 'fullscreen' && !isDesktop ? {
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 64px)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)', // Extra padding for input visibility
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)', // Large padding to ensure input visibility
           height: '100%', // Fill the fixed parent container
           boxSizing: 'border-box',
         } : {}),
