@@ -459,7 +459,7 @@ export default function AdminPage() {
     if (session?.user?.role === 'ADMIN') {
       fetchData()
     }
-  }, [session, activeTab, userSearchDebounced, userFilter, mediaPage, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter])
+  }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter])
 
   const fetchData = async () => {
     setLoading(true)
@@ -480,17 +480,14 @@ export default function AdminPage() {
         const data = await res.json()
         setUsers(data.users || [])
       } else if (activeTab === 'media') {
-        const params = new URLSearchParams({ action: 'media', page: String(mediaPage), limit: '20' })
+        const params = new URLSearchParams({ action: 'media', limit: '9999' })
         if (mediaSearchDebounced) params.set('search', mediaSearchDebounced)
         if (mediaTypeFilter !== 'all') params.set('type', mediaTypeFilter)
         if (mediaStatusFilter !== 'all') params.set('status', mediaStatusFilter)
         const res = await fetch(`/api/admin?${params}`)
         const data = await res.json()
         setMedia(data.media || [])
-        if (data.pagination) {
-          setMediaTotalPages(data.pagination.totalPages)
-          setMediaTotal(data.pagination.total)
-        }
+        setMediaTotal(data.media?.length || 0)
         // Best-effort: refresh file size status for the Media tab
         fetchFileSizeStatus()
       } else if (activeTab === 'chat') {
@@ -1221,10 +1218,11 @@ export default function AdminPage() {
           {/* Users */}
           {activeTab === 'users' && (
             <div className="space-y-4">
-              <div className="card overflow-x-auto">
-                <table className="w-full text-sm min-w-[1300px]">
-                  <thead>
+              <div className="card overflow-x-auto max-h-[70vh] overflow-y-auto">
+                <table className="w-full text-sm min-w-[1350px]">
+                  <thead className="sticky top-0 bg-tank-dark z-10">
                     <tr className="border-b border-tank-light">
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">#</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User ID</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User Name</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email Address</th>
@@ -1238,8 +1236,9 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user) => (
+                    {users.map((user, index) => (
                       <tr key={user.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
+                        <td className="p-3 text-gray-500 text-xs">{index + 1}</td>
                         <td className="p-3">
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-xs font-bold overflow-hidden flex-shrink-0">
@@ -1345,10 +1344,11 @@ export default function AdminPage() {
           {/* Chat Moderation */}
           {activeTab === 'chat' && (
             <div className="space-y-4">
-              <div className="card overflow-x-auto">
-                <table className="w-full text-sm min-w-[900px]">
-                  <thead>
+              <div className="card overflow-x-auto max-h-[70vh] overflow-y-auto">
+                <table className="w-full text-sm min-w-[950px]">
+                  <thead className="sticky top-0 bg-tank-dark z-10">
                     <tr className="border-b border-tank-light">
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">#</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Date</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User ID</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Open Chat Messages</th>
@@ -1356,8 +1356,9 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {chatMessages.map((msg) => (
+                    {chatMessages.map((msg, index) => (
                       <tr key={msg.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
+                        <td className="p-3 text-gray-500 text-xs">{index + 1}</td>
                         <td className="p-3 text-gray-400 whitespace-nowrap">
                           {new Date(msg.createdAt).toLocaleDateString()}<br/>
                           <span className="text-xs text-gray-500">{new Date(msg.createdAt).toLocaleTimeString()}</span>
@@ -1484,13 +1485,15 @@ export default function AdminPage() {
                   </button>
                 </div>
               </div>
-              <div className="card overflow-x-auto">
-                <table className="w-full text-sm min-w-[1500px]">
-                  <thead>
+              <div className="card overflow-x-auto max-h-[70vh] overflow-y-auto">
+                <table className="w-full text-sm min-w-[1600px]">
+                  <thead className="sticky top-0 bg-tank-dark z-10">
                     <tr className="border-b border-tank-light">
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">#</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Media Title</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Type</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Creator</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Upload Date</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">File Location</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">File Size</th>
@@ -1502,10 +1505,11 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {media.map((item) => {
+                    {media.map((item, index) => {
                       const latestPurchase = item.purchases?.[0]
                       return (
                         <tr key={item.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
+                          <td className="p-3 text-gray-500 text-xs">{index + 1}</td>
                           <td className="p-3 max-w-[200px]">
                             <Link href={`/media/${item.id}`} className="font-medium hover:text-tank-accent line-clamp-1" title={item.title}>
                               {item.title.split('#')[0].trim()}
@@ -1520,6 +1524,9 @@ export default function AdminPage() {
                             </span>
                           </td>
                           <td className="p-3 text-gray-400 whitespace-nowrap">@{item.user.username}</td>
+                          <td className="p-3 text-gray-400 whitespace-nowrap max-w-[150px] truncate" title={item.user.email}>
+                            {item.user.email}
+                          </td>
                           <td className="p-3 text-gray-400 whitespace-nowrap">
                             {new Date(item.createdAt).toLocaleDateString()}
                           </td>
@@ -1619,43 +1626,6 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
-              
-              {/* Pagination */}
-              {mediaTotalPages > 1 && (
-                <div className="flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => setMediaPage(1)}
-                    disabled={mediaPage === 1}
-                    className="px-3 py-1 rounded bg-tank-gray text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    ««
-                  </button>
-                  <button
-                    onClick={() => setMediaPage(p => Math.max(1, p - 1))}
-                    disabled={mediaPage === 1}
-                    className="px-3 py-1 rounded bg-tank-gray text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    «
-                  </button>
-                  <span className="px-4 py-1 text-gray-300">
-                    Page {mediaPage} of {mediaTotalPages}
-                  </span>
-                  <button
-                    onClick={() => setMediaPage(p => Math.min(mediaTotalPages, p + 1))}
-                    disabled={mediaPage === mediaTotalPages}
-                    className="px-3 py-1 rounded bg-tank-gray text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    »
-                  </button>
-                  <button
-                    onClick={() => setMediaPage(mediaTotalPages)}
-                    disabled={mediaPage === mediaTotalPages}
-                    className="px-3 py-1 rounded bg-tank-gray text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    »»
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
