@@ -1045,17 +1045,35 @@ export default function AdminPage() {
                   <option value="IMAGE">Image</option>
                   <option value="MUSIC">Music</option>
                 </select>
-                <select
-                  value={mediaStatusFilter}
-                  onChange={(e) => { setMediaStatusFilter(e.target.value); }}
-                  className="input w-auto h-9 text-sm"
-                >
-                  <option value="all">All Status</option>
-                  <option value="approved">Approved</option>
-                  <option value="pending">Pending</option>
-                  <option value="deleted">Deleted</option>
-                </select>
-                <span className="text-sm text-gray-400 ml-auto">Total: {mediaTotal} items</span>
+                
+                {/* File size tools - inline with filters */}
+                <div className="ml-auto flex items-center gap-3 bg-tank-dark/50 px-3 py-1.5 rounded-lg border border-tank-light/20">
+                  <span className="text-sm text-gray-500 whitespace-nowrap">
+                    File sizes missing:{' '}
+                    <span className="text-gray-300 font-medium">
+                      {fileSizeStatusLoading ? '...' : (fileSizeStatus?.missing ?? '-')}
+                    </span>
+                  </span>
+                  {fileSizeBackfillResult && (
+                    <span className="text-xs text-gray-400 whitespace-nowrap">
+                      Updated {fileSizeBackfillResult.updated}/{fileSizeBackfillResult.scanned}
+                    </span>
+                  )}
+                  <button
+                    onClick={fetchFileSizeStatus}
+                    className="px-2 py-1 rounded bg-tank-light/20 hover:bg-tank-light/30 text-sm"
+                    disabled={fileSizeStatusLoading}
+                  >
+                    Refresh
+                  </button>
+                  <button
+                    onClick={runFileSizeBackfill}
+                    className="px-2 py-1 rounded bg-tank-accent/20 hover:bg-tank-accent/30 text-tank-accent text-sm whitespace-nowrap"
+                    disabled={fileSizeBackfillRunning}
+                  >
+                    {fileSizeBackfillRunning ? 'Backfilling...' : 'Backfill file sizes'}
+                  </button>
+                </div>
               </>
             )}
 
@@ -1441,45 +1459,7 @@ export default function AdminPage() {
           {/* Media */}
           {activeTab === 'media' && (
             <div className="space-y-4">
-              {/* File size tools - compact, top-right (per mock) */}
-              <div className="flex justify-end">
-                <div className="card inline-flex items-center gap-4 px-4 py-2 rounded-xl">
-                  <div className="text-sm text-gray-300 whitespace-nowrap">
-                    <span className="text-gray-500">File sizes missing:</span>{' '}
-                    <span className="font-medium">
-                      {fileSizeStatusLoading ? '...' : (fileSizeStatus?.missing ?? '-')}
-                    </span>
-                  </div>
-
-                  {fileSizeBackfillResult && (
-                    <div className="text-xs text-gray-400 whitespace-nowrap">
-                      Updated {fileSizeBackfillResult.updated}/{fileSizeBackfillResult.scanned}
-                      {!!fileSizeBackfillResult.errors?.length && (
-                        <span className="text-gray-500"> (errors: {fileSizeBackfillResult.errors.length})</span>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={fetchFileSizeStatus}
-                      className="px-3 py-1.5 rounded-lg bg-tank-light/20 hover:bg-tank-light/30 text-sm"
-                      disabled={fileSizeStatusLoading}
-                    >
-                      Refresh
-                    </button>
-                    <button
-                      onClick={runFileSizeBackfill}
-                      className="px-3 py-1.5 rounded-lg bg-tank-accent/20 hover:bg-tank-accent/30 text-tank-accent text-sm whitespace-nowrap"
-                      disabled={fileSizeBackfillRunning}
-                    >
-                      {fileSizeBackfillRunning ? 'Backfilling...' : 'Backfill file sizes'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Optional error details (kept, but no longer takes full row space) */}
+              {/* Optional error details for backfill */}
               {!!fileSizeBackfillResult?.errors?.length && (
                 <div className="flex justify-end">
                   <details className="max-w-[900px] text-xs text-gray-400">
