@@ -2041,7 +2041,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         pointerEvents: 'none',
       }}>
       {/* Wrapper to center chat - 2 tile width */}
-      <div className="chat-wrapper-responsive" style={{ 
+      <div className={`chat-wrapper-responsive ${chatSize === 'fullscreen' && !isDesktop ? 'fullscreen-mobile' : ''}`} style={{ 
         position: 'relative',
         bottom: 0,
         left: 0,
@@ -2064,6 +2064,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           @media (max-width: 640px) {
             .chat-wrapper-responsive {
               padding: 0;
+            }
+          }
+          @media (max-width: 767px) {
+            .chat-wrapper-responsive.fullscreen-mobile {
+              padding-top: calc(env(safe-area-inset-top, 0px) + 64px) !important;
+              padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px) !important;
+              height: 100% !important;
+              box-sizing: border-box !important;
             }
           }
         `}</style>
