@@ -161,36 +161,6 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   }
 
   if (type === 'VIDEO') {
-    const handleVideoTap = () => {
-      if (!isMobile) return
-      const video = videoRef.current
-      if (!video) return
-
-      setShowMobileControls(true)
-      if (hideControlsTimeout.current) {
-        clearTimeout(hideControlsTimeout.current)
-      }
-      hideControlsTimeout.current = setTimeout(() => {
-        setShowMobileControls(false)
-      }, 2000)
-
-      if (video.paused) {
-        video.play()
-      } else {
-        video.pause()
-      }
-    }
-
-    const toggleMute = (e: React.MouseEvent) => {
-      e.stopPropagation()
-      const video = videoRef.current
-      if (video) {
-        const nextMuted = !isMuted
-        video.muted = nextMuted
-        setIsMuted(nextMuted)
-      }
-    }
-
     return (
       <div className="w-full flex justify-center bg-black">
         <div className="relative w-full max-w-fit">
@@ -224,17 +194,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             style={{ zIndex: 1 }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
-            onClick={handleVideoTap}
-            onTouchStart={() => {
-              if (!isMobile) return
-              setShowMobileControls(true)
-              if (hideControlsTimeout.current) {
-                clearTimeout(hideControlsTimeout.current)
-              }
-              hideControlsTimeout.current = setTimeout(() => {
-                setShowMobileControls(false)
-              }, 2000)
-            }}
+            // No custom tap handlers - use HTML5 controls only
           />
           {/* Mobile uses iOS native controls only - no custom overlay needed */}
         </div>
