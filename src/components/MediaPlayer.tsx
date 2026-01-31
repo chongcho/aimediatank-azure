@@ -161,6 +161,17 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   }
 
   if (type === 'VIDEO') {
+    const handleVideoTap = () => {
+      // Show controls on tap, hide after 3 seconds
+      setShowMobileControls(true)
+      if (hideControlsTimeout.current) {
+        clearTimeout(hideControlsTimeout.current)
+      }
+      hideControlsTimeout.current = setTimeout(() => {
+        setShowMobileControls(false)
+      }, 3000)
+    }
+
     return (
       <div className="w-full flex justify-center bg-black">
         <div className="relative w-full max-w-fit">
@@ -181,7 +192,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             ref={videoRef}
             src={url}
             poster={thumbnailUrl || undefined}
-            controls
+            controls={showMobileControls}
             playsInline
             preload="auto"
             autoPlay
@@ -191,6 +202,8 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             style={{ zIndex: 1 }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
+            onClick={handleVideoTap}
+            onTouchStart={handleVideoTap}
           />
         </div>
       </div>
