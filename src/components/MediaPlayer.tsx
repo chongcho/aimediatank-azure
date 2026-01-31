@@ -183,20 +183,15 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             poster={thumbnailUrl || undefined}
             controls
             playsInline
-            preload={isMobile ? 'metadata' : 'auto'}
-            // Autoplay on both desktop and mobile (mobile starts muted)
+            preload="auto"
             autoPlay
-            // Repeat playback once started (including on mobile).
             loop
-            // Always bind to state so the mobile mute toggle works.
             muted={isMuted}
             className="w-full max-h-[90vh] lg:max-h-[65vh]"
             style={{ zIndex: 1 }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
-            // No custom tap handlers - use HTML5 controls only
           />
-          {/* Mobile uses iOS native controls only - no custom overlay needed */}
         </div>
       </div>
     )
