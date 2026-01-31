@@ -177,15 +177,6 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
               </div>
             </div>
           )}
-          <style>{`
-              /* Hide iOS native overlay controls (skip buttons) */
-              video::-webkit-media-controls-overlay-enclosure {
-                display: none !important;
-              }
-              video::-webkit-media-controls-start-playback-button {
-                display: none !important;
-              }
-            `}</style>
           <video
             ref={videoRef}
             src={url}
