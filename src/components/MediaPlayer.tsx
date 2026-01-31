@@ -211,7 +211,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             ref={videoRef}
             src={url}
             poster={thumbnailUrl || undefined}
-            controls={!isMobile}
+            controls={!isMobile || showMobileControls}
             playsInline
             preload={isMobile ? 'metadata' : 'auto'}
             // Autoplay on both desktop and mobile (mobile starts muted)
