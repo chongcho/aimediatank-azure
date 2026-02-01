@@ -98,6 +98,23 @@ export async function GET(request: Request) {
       prisma.media.count({ where }),
     ])
 
+    // Fetch anonymous ratings for all media items in one query
+    const mediaIds = media.map((m: any) => m.id)
+    const anonymousRatings = await prisma.anonymousRating.findMany({
+      where: { mediaId: { in: mediaIds } },
+      select: { mediaId: true, score: true },
+    })
+    
+    // Group anonymous ratings by mediaId
+    const anonRatingsByMedia: Record<string, { happy: number; sad: number }> = {}
+    for (const rating of anonymousRatings) {
+      if (!anonRatingsByMedia[rating.mediaId]) {
+        anonRatingsByMedia[rating.mediaId] = { happy: 0, sad: 0 }
+      }
+      if (rating.score === 3) anonRatingsByMedia[rating.mediaId].happy++
+      if (rating.score === 1) anonRatingsByMedia[rating.mediaId].sad++
+    }
+
     // Calculate average rating for each media and add sold info
     const now = new Date()
     const mediaWithRating = media.map((m: any) => {
@@ -107,9 +124,12 @@ export async function GET(request: Request) {
             ? m.ratings.reduce((acc: number, r: any) => acc + (r.score || 0), 0) / m.ratings.length
             : 0
         
-        // Calculate reaction counts (happy = score 3, sad = score 1)
-        const happyCount = m.ratings ? m.ratings.filter((r: any) => r.score === 3).length : 0
-        const sadCount = m.ratings ? m.ratings.filter((r: any) => r.score === 1).length : 0
+        // Calculate reaction counts (happy = score 3, sad = score 1) - include both user and anonymous ratings
+        const userHappy = m.ratings ? m.ratings.filter((r: any) => r.score === 3).length : 0
+        const userSad = m.ratings ? m.ratings.filter((r: any) => r.score === 1).length : 0
+        const anonCounts = anonRatingsByMedia[m.id] || { happy: 0, sad: 0 }
+        const happyCount = userHappy + anonCounts.happy
+        const sadCount = userSad + anonCounts.sad
         
         // Calculate days remaining before deletion for sold items
         let daysRemaining = null
