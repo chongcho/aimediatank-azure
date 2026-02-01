@@ -243,6 +243,18 @@ function HomeContent() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Refetch media on window focus to sync reaction counts from detail page
+  useEffect(() => {
+    const handleFocus = () => {
+      // Only refetch if we have data and not currently loading
+      if (media.length > 0 && !loading && !loadingMore && !isRestoringRef.current) {
+        fetchMedia(1, true)
+      }
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [media.length, loading, loadingMore, sort, type, search])
+
   // Fetch suggestions as user types
   const fetchSuggestions = useCallback(async (query: string) => {
     if (query.length < 2) {
