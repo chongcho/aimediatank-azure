@@ -243,16 +243,23 @@ function HomeContent() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Refetch media on window focus to sync reaction counts from detail page
+  // Refetch media when user returns to the tab (focus or visibility) to avoid stale list after idling
   useEffect(() => {
-    const handleFocus = () => {
-      // Only refetch if we have data and not currently loading
+    const refetchIfNeeded = () => {
       if (media.length > 0 && !loading && !loadingMore && !isRestoringRef.current) {
         fetchMedia(1, true)
       }
     }
+    const handleFocus = refetchIfNeeded
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refetchIfNeeded()
+    }
     window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [media.length, loading, loadingMore, sort, type, search])
 
   // Fetch suggestions as user types
@@ -342,21 +349,25 @@ function HomeContent() {
         params.set('search', search)
       }
 
-      const res = await fetch(`/api/media?${params}`)
+      const res = await fetch(`/api/media?${params}`, { cache: 'no-store' })
       const data = await res.json()
+      // Only update state on success so we don't wipe the list on 4xx/5xx or network errors after idle
+      if (!res.ok) {
+        if (isReset) setHasMore(false)
+        return
+      }
       const newMedia = data.media || []
       const totalPages = data.pagination?.totalPages || 1
-      
+
       if (isReset) {
         setMedia(newMedia)
       } else {
         setMedia((prev) => [...prev, ...newMedia])
       }
-      
-      // Check if there's more to load
       setHasMore(pageNum < totalPages)
     } catch (error) {
       console.error('Error fetching media:', error)
+      // Keep existing media on network error; don't wipe the list
     } finally {
       setLoading(false)
       setLoadingMore(false)
