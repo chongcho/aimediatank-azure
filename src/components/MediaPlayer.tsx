@@ -25,21 +25,42 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   const fullscreenRef = useRef<HTMLDivElement>(null)
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
 
-  // Stop video/audio on unmount so playback does not continue in background when navigating away
+  // Stop all video/audio playback when navigating away.
+  // Uses multiple strategies because Next.js client-side navigation (router.back, Link)
+  // can leave refs null during React cleanup, so we also use a global DOM approach.
   useEffect(() => {
+    // Strategy 1: Global function that stops ALL playing video/audio on the page.
+    // Called by route change, popstate, and cleanup.
+    const stopAllMedia = () => {
+      document.querySelectorAll('video, audio').forEach((el) => {
+        const media = el as HTMLVideoElement | HTMLAudioElement
+        if (!media.paused) {
+          media.pause()
+        }
+        media.removeAttribute('src')
+        media.load()
+      })
+    }
+
+    // Strategy 2: Listen for browser back/forward (popstate)
+    window.addEventListener('popstate', stopAllMedia)
+
+    // Strategy 3: Listen for Next.js-style client navigations via a MutationObserver
+    // that fires when the main content area changes (component swap)
+    const observer = new MutationObserver(() => {
+      // If our video ref is gone (component replaced), stop everything
+      if (!videoRef.current?.isConnected && !audioRef.current?.isConnected) {
+        stopAllMedia()
+        observer.disconnect()
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+
     return () => {
-      const video = videoRef.current
-      if (video) {
-        video.pause()
-        video.removeAttribute('src')
-        video.load()
-      }
-      const audio = audioRef.current
-      if (audio) {
-        audio.pause()
-        audio.removeAttribute('src')
-        audio.load()
-      }
+      window.removeEventListener('popstate', stopAllMedia)
+      observer.disconnect()
+      // Strategy 4: Normal React cleanup (works for full navigations)
+      stopAllMedia()
     }
   }, [])
 
