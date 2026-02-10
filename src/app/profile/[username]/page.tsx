@@ -531,7 +531,7 @@ export default function ProfilePage() {
                   )}
 
                   {/* Thumbnail */}
-                  <Link href={`/media/${purchase.media.id}`}>
+                  <Link href={`/media/${purchase.media.id}`} className="no-touch-callout" onContextMenu={(e) => e.preventDefault()}>
                     <div className="relative aspect-video bg-tank-gray rounded-lg overflow-hidden mb-3">
                       {purchase.media.thumbnailUrl ? (
                         <img
@@ -703,7 +703,7 @@ export default function ProfilePage() {
                     )}
 
                     {/* Thumbnail */}
-                    <Link href={`/media/${item.media.id}`}>
+                    <Link href={`/media/${item.media.id}`} className="no-touch-callout" onContextMenu={(e) => e.preventDefault()}>
                       <div className="relative aspect-video bg-tank-gray rounded-lg overflow-hidden mb-3">
                         {(item.media.thumbnailUrl || (item.media.type === 'IMAGE' && item.media.url)) ? (
                           <img

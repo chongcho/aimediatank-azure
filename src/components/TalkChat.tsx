@@ -1517,6 +1517,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           <a
             key={preview.id}
             href={`/media/${preview.id}`}
+            className="no-touch-callout"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -1530,6 +1531,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               maxWidth: '100%',
             }}
             onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
           >
             {(preview.thumbnailUrl || (preview.type === 'IMAGE' && preview.url)) ? (
               <img

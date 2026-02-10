@@ -189,7 +189,8 @@ export default function EditMediaPage() {
       <div className="flex items-center gap-4 mb-4">
         <Link
           href={`/media/${mediaId}`}
-          className="w-10 h-10 rounded-full bg-tank-gray hover:bg-tank-light flex items-center justify-center transition-colors"
+          className="w-10 h-10 rounded-full bg-tank-gray hover:bg-tank-light flex items-center justify-center transition-colors no-touch-callout"
+          onContextMenu={(e) => e.preventDefault()}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -373,7 +374,8 @@ export default function EditMediaPage() {
         <div className="flex gap-4 pt-4 border-t border-tank-light">
           <Link
             href={`/media/${mediaId}`}
-            className="btn-secondary flex-1 text-center"
+            className="btn-secondary flex-1 text-center no-touch-callout"
+            onContextMenu={(e) => e.preventDefault()}
           >
             Cancel
           </Link>

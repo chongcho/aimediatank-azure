@@ -1505,7 +1505,7 @@ export default function AdminPage() {
                         <tr key={item.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
                           <td className="p-3 text-gray-500 text-xs">{index + 1}</td>
                           <td className="p-3 max-w-[200px]">
-                            <Link href={`/media/${item.id}`} className="font-medium hover:text-tank-accent line-clamp-1" title={item.title}>
+                            <Link href={`/media/${item.id}`} className="font-medium hover:text-tank-accent line-clamp-1 no-touch-callout" title={item.title} onContextMenu={(e) => e.preventDefault()}>
                               {item.title.split('#')[0].trim()}
                             </Link>
                           </td>

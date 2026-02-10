@@ -316,9 +316,12 @@ input[type="number"]::-webkit-outer-spin-button {
          hover:bg-red-500/30;
 }
 
-/* Prevent long-press context menu / callout on mobile (media cards, etc.) */
+/* Block long-press on media: no context menu, no callout, no green tap highlight */
 .no-touch-callout {
   -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* Card styles */
