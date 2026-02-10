@@ -25,6 +25,24 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   const fullscreenRef = useRef<HTMLDivElement>(null)
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
 
+  // Stop video/audio on unmount so playback does not continue in background (fixes two-audio when opening new media)
+  useEffect(() => {
+    return () => {
+      const video = videoRef.current
+      if (video) {
+        video.pause()
+        video.removeAttribute('src')
+        video.load()
+      }
+      const audio = audioRef.current
+      if (audio) {
+        audio.pause()
+        audio.removeAttribute('src')
+        audio.load()
+      }
+    }
+  }, [])
+
   // Detect mobile screens on mount
   useEffect(() => {
     const checkMobile = () => {
@@ -69,7 +87,12 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       }
     }, 100)
 
-    return () => clearTimeout(timeoutId)
+    return () => {
+      clearTimeout(timeoutId)
+      video.pause()
+      video.removeAttribute('src')
+      video.load()
+    }
   }, [type, url, isMounted, isMobile])
 
   useEffect(() => {

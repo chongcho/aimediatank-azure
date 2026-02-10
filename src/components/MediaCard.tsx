@@ -92,6 +92,18 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
     }
   }, [])
 
+  // Stop thumbnail video on unmount so it does not keep loading/playing in background
+  useEffect(() => {
+    return () => {
+      const video = videoRef.current
+      if (video) {
+        video.pause()
+        video.removeAttribute('src')
+        video.load()
+      }
+    }
+  }, [])
+
   const isBadgeEnabled = (key: string) => {
     if (!badgeItems || badgeItems.length === 0) return true
     return badgeItems.find((item) => item.itemKey === key)?.isEnabled !== false
