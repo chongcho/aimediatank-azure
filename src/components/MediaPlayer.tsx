@@ -78,17 +78,20 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       }
     }
 
-    // Small delay to ensure component is fully rendered after mobile detection
-    const timeoutId = setTimeout(() => {
-      if (video.readyState >= 3) {
+    // Start as soon as first frame is available (loadeddata), not after full buffer (canplay).
+    // For large files this makes playback start similar to small files; browser buffers as it plays.
+    const startWhenReady = () => {
+      if (video.readyState >= 2) {
         tryAutoplay()
       } else {
-        video.addEventListener('canplay', tryAutoplay, { once: true })
+        video.addEventListener('loadeddata', tryAutoplay, { once: true })
       }
-    }, 100)
+    }
+    const timeoutId = setTimeout(startWhenReady, 0)
 
     return () => {
       clearTimeout(timeoutId)
+      video.removeEventListener('loadeddata', tryAutoplay)
       video.pause()
       video.removeAttribute('src')
       video.load()
@@ -217,7 +220,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             poster={thumbnailUrl || undefined}
             controls={showMobileControls}
             playsInline
-            preload="auto"
+            preload="metadata"
             autoPlay
             loop
             muted={isMuted}
