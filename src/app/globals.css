@@ -316,12 +316,30 @@ input[type="number"]::-webkit-outer-spin-button {
          hover:bg-red-500/30;
 }
 
-/* Block long-press on media: no context menu, no callout, no green tap highlight */
-.no-touch-callout {
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-  tap-highlight-color: transparent;
+/* Block long-press on media: no context menu, no callout, no green tap highlight.
+   Apply to element and all descendants so no child (img, video, div) shows highlight. */
+.no-touch-callout,
+.no-touch-callout * {
+  -webkit-touch-callout: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  tap-highlight-color: transparent !important;
   touch-action: manipulation;
+}
+.no-touch-callout {
+  -webkit-user-select: none;
+  user-select: none;
+  outline: none;
+}
+.no-touch-callout:focus,
+.no-touch-callout:active {
+  outline: none !important;
+}
+/* On touch, prevent green hover/active glow (tank-accent) so card doesn’t turn green on tap */
+.no-touch-callout:hover .border-tank-light,
+.no-touch-callout:active .border-tank-light,
+.no-touch-callout:focus .border-tank-light {
+  border-color: rgb(42 42 50) !important;
+  box-shadow: none !important;
 }
 
 /* Card styles */
