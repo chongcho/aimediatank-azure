@@ -22,6 +22,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     () => typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0
   )
   const [showMobileControls, setShowMobileControls] = useState(false)
+  const [videoLoading, setVideoLoading] = useState(true)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const fullscreenRef = useRef<HTMLDivElement>(null)
@@ -61,6 +62,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     const video = videoRef.current
     if (!video || type !== 'VIDEO' || !isMounted) return
 
+    setVideoLoading(true)
     const isMobileOrTouch =
       window.innerWidth < 768 || navigator.maxTouchPoints > 0
 
@@ -222,18 +224,33 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     return (
       <div className="w-full flex justify-center bg-black">
         <div className="relative w-full max-w-fit">
-          {/* Gradient placeholder shown behind video when no thumbnail */}
-          {!thumbnailUrl && (
-            <div 
-              className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center pointer-events-none"
-              style={{ zIndex: 0 }}
-            >
-              <div className="text-white/30">
-                <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
+          {/* Poster or gradient behind video - visible until playback starts (avoids long black screen for large files) */}
+          {videoLoading && (
+            <>
+              {thumbnailUrl ? (
+                <img
+                  src={thumbnailUrl}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-contain max-h-[90vh] lg:max-h-[65vh]"
+                  style={{ zIndex: 1 }}
+                />
+              ) : (
+                <div
+                  className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center pointer-events-none"
+                  style={{ zIndex: 1 }}
+                >
+                  <div className="text-white/30">
+                    <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
+              )}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40" style={{ zIndex: 2 }}>
+                <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="text-sm text-white/80">Loading video...</span>
               </div>
-            </div>
+            </>
           )}
           <video
             ref={videoRef}
@@ -246,8 +263,12 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             loop
             muted={isMuted}
             className="w-full max-h-[90vh] lg:max-h-[65vh]"
-            style={{ zIndex: 1 }}
-            onPlay={() => setIsPlaying(true)}
+            style={{ zIndex: videoLoading ? 0 : 1 }}
+            onPlaying={() => {
+              setIsPlaying(true)
+              setVideoLoading(false)
+            }}
+            onLoadedData={() => setVideoLoading(false)}
             onPause={() => setIsPlaying(false)}
             onClick={handleVideoTap}
             onTouchStart={handleVideoTap}
