@@ -4,6 +4,9 @@ import { useState, useRef, useEffect } from 'react'
 import { stopAllMedia } from '@/lib/mediaStop'
 import { isInstalledPWA } from '@/lib/appBadge'
 
+/** Minimum buffered duration (seconds) before starting playback. ~8s at 500kbps ≈ 4MB. */
+const INITIAL_BUFFER_SECONDS = 8
+
 interface MediaPlayerProps {
   type: 'VIDEO' | 'IMAGE' | 'MUSIC'
   url: string
@@ -27,10 +30,12 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       !isInstalledPWA()
   )
   const [showMobileControls, setShowMobileControls] = useState(false)
+  const [isBuffering, setIsBuffering] = useState(true)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const fullscreenRef = useRef<HTMLDivElement>(null)
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
+  const initialPlayStartedRef = useRef(false)
 
   // Stop all video/audio when navigating away (popstate, observer, cleanup).
   // Back button and other nav call stopAllMedia() before navigation - see MediaPageClient and @/lib/mediaStop.
@@ -68,17 +73,19 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Try to autoplay with sound, fall back to muted autoplay if blocked
+  // Block buffering: wait for initial buffer (~4MB proxy) before starting play, then browser keeps buffering in background
   useEffect(() => {
     const video = videoRef.current
     if (!video || type !== 'VIDEO' || !isMounted) return
+
+    initialPlayStartedRef.current = false
+    setIsBuffering(true)
+
     const isMobileBrowser =
       (window.innerWidth < 768 || navigator.maxTouchPoints > 0) &&
       !isInstalledPWA()
 
     const tryAutoplay = async () => {
-      // Mobile browser only: force muted autoplay path for reliability.
-      // PWA and desktop keep existing behavior.
       if (isMobileBrowser) {
         video.muted = true
         setIsMuted(true)
@@ -89,14 +96,11 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
         }
         return
       }
-
-      // PWA + desktop: try with sound first, then fall back to muted
       try {
         video.muted = false
         setIsMuted(false)
         await video.play()
       } catch (error) {
-        // Browser blocked unmuted autoplay, fall back to muted
         console.log('Unmuted autoplay blocked, falling back to muted')
         video.muted = true
         setIsMuted(true)
@@ -108,21 +112,47 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       }
     }
 
-    // Mobile browser: start autoplay as soon as possible.
-    // PWA + desktop: keep existing canplay strategy.
-    const timeoutId = setTimeout(() => {
-      if (isMobileBrowser) {
+    const checkBufferAndPlay = () => {
+      if (initialPlayStartedRef.current) return
+      const buffered = video.buffered
+      if (buffered.length === 0) return
+      const bufferedEnd = buffered.end(0)
+      const bufferedAhead = bufferedEnd - video.currentTime
+      const duration = video.duration
+      const enoughBuffer =
+        bufferedAhead >= INITIAL_BUFFER_SECONDS ||
+        (Number.isFinite(duration) && duration < INITIAL_BUFFER_SECONDS && bufferedAhead >= 1)
+      if (enoughBuffer) {
+        initialPlayStartedRef.current = true
+        setIsBuffering(false)
         tryAutoplay()
-        return
       }
-      if (video.readyState >= 3) {
-        tryAutoplay()
-      } else {
-        video.addEventListener('canplay', tryAutoplay, { once: true })
-      }
-    }, isMobileBrowser ? 0 : 100)
+    }
 
-    return () => clearTimeout(timeoutId)
+    const onProgress = () => checkBufferAndPlay()
+    const onCanPlay = () => checkBufferAndPlay()
+    const onPlaying = () => setIsBuffering(false)
+
+    video.addEventListener('progress', onProgress)
+    video.addEventListener('canplay', onCanPlay)
+    video.addEventListener('playing', onPlaying)
+
+    const timeoutId = setTimeout(() => checkBufferAndPlay(), 500)
+    const maxWaitId = setTimeout(() => {
+      if (!initialPlayStartedRef.current) {
+        initialPlayStartedRef.current = true
+        setIsBuffering(false)
+        tryAutoplay()
+      }
+    }, 20000)
+
+    return () => {
+      clearTimeout(timeoutId)
+      clearTimeout(maxWaitId)
+      video.removeEventListener('progress', onProgress)
+      video.removeEventListener('canplay', onCanPlay)
+      video.removeEventListener('playing', onPlaying)
+    }
   }, [type, url, isMounted, isMobile])
 
   useEffect(() => {
@@ -241,6 +271,14 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
               </div>
             </div>
           )}
+          {isBuffering && (
+            <div
+              className="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-sm z-10"
+              style={{ zIndex: 2 }}
+            >
+              Buffering…
+            </div>
+          )}
           <video
             ref={videoRef}
             src={url}
@@ -248,7 +286,6 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             controls={showMobileControls}
             playsInline
             preload="auto"
-            autoPlay
             loop
             muted={isMuted}
             className="w-full max-h-[90vh] lg:max-h-[65vh]"
