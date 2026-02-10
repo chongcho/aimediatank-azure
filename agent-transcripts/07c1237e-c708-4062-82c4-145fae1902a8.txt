@@ -1,0 +1,10 @@
+user:
+<user_query>
+push to staging and main
+</user_query>
+
+assistant:
+[Thinking] **Confirming repository presence**
+
+I need to verify whether this is a git repository, as it currently says no. I'll ask for clarification next.
+It looks like this workspace isn’t a git repo yet. Do you want me to initialize git here and then push to `origin` on `staging` and `main`, or is the repo located in a different folder? Please share the repo path and remote URL if needed.
