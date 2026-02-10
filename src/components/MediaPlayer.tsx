@@ -17,34 +17,13 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
-  // On touch devices (mobile/PWA) start muted so autoplay is allowed; desktop starts unmuted.
-  const [isMuted, setIsMuted] = useState(
-    () => typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0
-  )
+  // Start unmuted by default; will fall back to muted if autoplay is blocked.
+  const [isMuted, setIsMuted] = useState(false)
   const [showMobileControls, setShowMobileControls] = useState(false)
-  const [videoLoading, setVideoLoading] = useState(true)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const fullscreenRef = useRef<HTMLDivElement>(null)
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
-
-  // Stop video/audio on unmount so playback does not continue in background (fixes two-audio when opening new media)
-  useEffect(() => {
-    return () => {
-      const video = videoRef.current
-      if (video) {
-        video.pause()
-        video.removeAttribute('src')
-        video.load()
-      }
-      const audio = audioRef.current
-      if (audio) {
-        audio.pause()
-        audio.removeAttribute('src')
-        audio.load()
-      }
-    }
-  }, [])
 
   // Detect mobile screens on mount
   useEffect(() => {
@@ -57,68 +36,40 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Autoplay: on mobile call play() immediately (muted); on desktop wait for loadeddata then try unmuted.
+  // Try to autoplay with sound, fall back to muted autoplay if blocked
   useEffect(() => {
     const video = videoRef.current
     if (!video || type !== 'VIDEO' || !isMounted) return
 
-    setVideoLoading(true)
-    const isMobileOrTouch =
-      window.innerWidth < 768 || navigator.maxTouchPoints > 0
-
     const tryAutoplay = async () => {
-      if (isMobileOrTouch) {
-        video.muted = true
-        setIsMuted(true)
-        try {
-          await video.play()
-        } catch (e) {
-          console.log('Mobile autoplay failed:', e)
-        }
-        return
-      }
+      // Both mobile and desktop: try with sound first, fall back to muted
       try {
         video.muted = false
         setIsMuted(false)
         await video.play()
       } catch (error) {
+        // Browser blocked unmuted autoplay, fall back to muted
+        console.log('Unmuted autoplay blocked, falling back to muted')
         video.muted = true
         setIsMuted(true)
         try {
           await video.play()
         } catch (e) {
-          console.log('Autoplay blocked, falling back to muted')
+          console.log('Autoplay blocked entirely')
         }
       }
     }
 
-    let timeoutId: ReturnType<typeof setTimeout>
-    if (isMobileOrTouch) {
-      // Mobile: call play() soon so we don't depend on loadeddata; retry once when enough data loads.
-      const attempt = () => {
+    // Small delay to ensure component is fully rendered after mobile detection
+    const timeoutId = setTimeout(() => {
+      if (video.readyState >= 3) {
         tryAutoplay()
-        video.addEventListener('loadeddata', tryAutoplay, { once: true })
+      } else {
+        video.addEventListener('canplay', tryAutoplay, { once: true })
       }
-      timeoutId = setTimeout(attempt, 50)
-    } else {
-      // Desktop: start when first frame is available (large files start faster).
-      const startWhenReady = () => {
-        if (video.readyState >= 2) {
-          tryAutoplay()
-        } else {
-          video.addEventListener('loadeddata', tryAutoplay, { once: true })
-        }
-      }
-      timeoutId = setTimeout(startWhenReady, 0)
-    }
+    }, 100)
 
-    return () => {
-      clearTimeout(timeoutId)
-      video.removeEventListener('loadeddata', tryAutoplay)
-      video.pause()
-      video.removeAttribute('src')
-      video.load()
-    }
+    return () => clearTimeout(timeoutId)
   }, [type, url, isMounted, isMobile])
 
   useEffect(() => {
@@ -224,33 +175,18 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     return (
       <div className="w-full flex justify-center bg-black">
         <div className="relative w-full max-w-fit">
-          {/* Poster or gradient behind video - visible until playback starts (avoids long black screen for large files) */}
-          {videoLoading && (
-            <>
-              {thumbnailUrl ? (
-                <img
-                  src={thumbnailUrl}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-contain max-h-[90vh] lg:max-h-[65vh]"
-                  style={{ zIndex: 1 }}
-                />
-              ) : (
-                <div
-                  className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center pointer-events-none"
-                  style={{ zIndex: 1 }}
-                >
-                  <div className="text-white/30">
-                    <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                </div>
-              )}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40" style={{ zIndex: 2 }}>
-                <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span className="text-sm text-white/80">Loading video...</span>
+          {/* Gradient placeholder shown behind video when no thumbnail */}
+          {!thumbnailUrl && (
+            <div 
+              className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center pointer-events-none"
+              style={{ zIndex: 0 }}
+            >
+              <div className="text-white/30">
+                <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
               </div>
-            </>
+            </div>
           )}
           <video
             ref={videoRef}
@@ -258,17 +194,13 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             poster={thumbnailUrl || undefined}
             controls={showMobileControls}
             playsInline
-            preload={typeof window !== 'undefined' && (window.innerWidth < 768 || navigator.maxTouchPoints > 0) ? 'auto' : 'metadata'}
+            preload="auto"
             autoPlay
             loop
             muted={isMuted}
             className="w-full max-h-[90vh] lg:max-h-[65vh]"
-            style={{ zIndex: videoLoading ? 0 : 1 }}
-            onPlaying={() => {
-              setIsPlaying(true)
-              setVideoLoading(false)
-            }}
-            onLoadedData={() => setVideoLoading(false)}
+            style={{ zIndex: 1 }}
+            onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onClick={handleVideoTap}
             onTouchStart={handleVideoTap}

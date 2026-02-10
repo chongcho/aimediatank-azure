@@ -92,18 +92,6 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
     }
   }, [])
 
-  // Stop thumbnail video on unmount so it does not keep loading/playing in background
-  useEffect(() => {
-    return () => {
-      const video = videoRef.current
-      if (video) {
-        video.pause()
-        video.removeAttribute('src')
-        video.load()
-      }
-    }
-  }, [])
-
   const isBadgeEnabled = (key: string) => {
     if (!badgeItems || badgeItems.length === 0) return true
     return badgeItems.find((item) => item.itemKey === key)?.isEnabled !== false
@@ -240,9 +228,8 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
     <Link
       href={`/media/${media.id}`}
       onClick={handleClick}
-      onContextMenu={(e) => e.preventDefault()}
       data-media-id={media.id}
-      className="group cursor-pointer block no-touch-callout"
+      className="group cursor-pointer block"
     >
       <div className="bg-tank-gray rounded-xl overflow-hidden border border-tank-light hover:border-tank-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-tank-accent/10">
         {/* Thumbnail */}
