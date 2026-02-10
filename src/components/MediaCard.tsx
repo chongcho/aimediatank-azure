@@ -228,8 +228,9 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
     <Link
       href={`/media/${media.id}`}
       onClick={handleClick}
+      onContextMenu={(e) => e.preventDefault()}
       data-media-id={media.id}
-      className="group cursor-pointer block"
+      className="group cursor-pointer block no-touch-callout"
     >
       <div className="bg-tank-gray rounded-xl overflow-hidden border border-tank-light hover:border-tank-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-tank-accent/10">
         {/* Thumbnail */}
