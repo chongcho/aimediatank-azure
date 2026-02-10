@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { stopAllMedia } from '@/lib/mediaStop'
+import { isInstalledPWA } from '@/lib/appBadge'
 
 interface MediaPlayerProps {
   type: 'VIDEO' | 'IMAGE' | 'MUSIC'
@@ -18,8 +19,13 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
-  // Start unmuted by default; will fall back to muted if autoplay is blocked.
-  const [isMuted, setIsMuted] = useState(false)
+  // Mobile browser only: start muted so autoplay is allowed. PWA and desktop: start unmuted.
+  const [isMuted, setIsMuted] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      (window.innerWidth < 768 || navigator.maxTouchPoints > 0) &&
+      !isInstalledPWA()
+  )
   const [showMobileControls, setShowMobileControls] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -66,9 +72,25 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   useEffect(() => {
     const video = videoRef.current
     if (!video || type !== 'VIDEO' || !isMounted) return
+    const isMobileBrowser =
+      (window.innerWidth < 768 || navigator.maxTouchPoints > 0) &&
+      !isInstalledPWA()
 
     const tryAutoplay = async () => {
-      // Both mobile and desktop: try with sound first, fall back to muted
+      // Mobile browser only: force muted autoplay path for reliability.
+      // PWA and desktop keep existing behavior.
+      if (isMobileBrowser) {
+        video.muted = true
+        setIsMuted(true)
+        try {
+          await video.play()
+        } catch (e) {
+          console.log('Mobile browser autoplay blocked')
+        }
+        return
+      }
+
+      // PWA + desktop: try with sound first, then fall back to muted
       try {
         video.muted = false
         setIsMuted(false)
@@ -86,14 +108,19 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       }
     }
 
-    // Small delay to ensure component is fully rendered after mobile detection
+    // Mobile browser: start autoplay as soon as possible.
+    // PWA + desktop: keep existing canplay strategy.
     const timeoutId = setTimeout(() => {
+      if (isMobileBrowser) {
+        tryAutoplay()
+        return
+      }
       if (video.readyState >= 3) {
         tryAutoplay()
       } else {
         video.addEventListener('canplay', tryAutoplay, { once: true })
       }
-    }, 100)
+    }, isMobileBrowser ? 0 : 100)
 
     return () => clearTimeout(timeoutId)
   }, [type, url, isMounted, isMobile])
