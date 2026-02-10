@@ -17,8 +17,10 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
-  // Start unmuted by default; will fall back to muted if autoplay is blocked.
-  const [isMuted, setIsMuted] = useState(false)
+  // On touch devices (mobile/PWA) start muted so autoplay is allowed; desktop starts unmuted.
+  const [isMuted, setIsMuted] = useState(
+    () => typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0
+  )
   const [showMobileControls, setShowMobileControls] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -60,20 +62,30 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     if (!video || type !== 'VIDEO' || !isMounted) return
 
     const tryAutoplay = async () => {
-      // Both mobile and desktop: try with sound first, fall back to muted
-      try {
-        video.muted = false
-        setIsMuted(false)
-        await video.play()
-      } catch (error) {
-        // Browser blocked unmuted autoplay, fall back to muted
-        console.log('Unmuted autoplay blocked, falling back to muted')
+      // Mobile/touch: autoplay only works when muted (iOS Safari, Chrome Android, PWA). Desktop: try unmuted first.
+      const isMobileOrTouch =
+        window.innerWidth < 768 || navigator.maxTouchPoints > 0
+      if (isMobileOrTouch) {
         video.muted = true
         setIsMuted(true)
         try {
           await video.play()
         } catch (e) {
-          console.log('Autoplay blocked entirely')
+          console.log('Mobile autoplay failed:', e)
+        }
+        return
+      }
+      try {
+        video.muted = false
+        setIsMuted(false)
+        await video.play()
+      } catch (error) {
+        video.muted = true
+        setIsMuted(true)
+        try {
+          await video.play()
+        } catch (e) {
+          console.log('Autoplay blocked, falling back to muted')
         }
       }
     }
