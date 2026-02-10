@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { stopAllMedia } from '@/lib/mediaStop'
 
 interface MediaPlayerProps {
   type: 'VIDEO' | 'IMAGE' | 'MUSIC'
@@ -25,24 +26,10 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   const fullscreenRef = useRef<HTMLDivElement>(null)
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
 
-  // Stop all video/audio playback when navigating away.
-  // Uses multiple strategies because Next.js client-side navigation (router.back, Link)
-  // can leave refs null during React cleanup, so we also use a global DOM approach.
+  // Stop all video/audio when navigating away (popstate, observer, cleanup).
+  // Back button and other nav call stopAllMedia() before navigation - see MediaPageClient and @/lib/mediaStop.
   useEffect(() => {
-    // Strategy 1: Global function that stops ALL playing video/audio on the page.
-    // Called by route change, popstate, and cleanup.
-    const stopAllMedia = () => {
-      document.querySelectorAll('video, audio').forEach((el) => {
-        const media = el as HTMLVideoElement | HTMLAudioElement
-        if (!media.paused) {
-          media.pause()
-        }
-        media.removeAttribute('src')
-        media.load()
-      })
-    }
-
-    // Strategy 2: Listen for browser back/forward (popstate)
+    // Strategy 1: Listen for browser back/forward (popstate)
     window.addEventListener('popstate', stopAllMedia)
 
     // Strategy 3: Listen for Next.js-style client navigations via a MutationObserver

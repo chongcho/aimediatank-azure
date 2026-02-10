@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaPlayer from '@/components/MediaPlayer'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
+import { stopAllMedia } from '@/lib/mediaStop'
 
 interface MediaDetail {
   id: string
@@ -255,7 +256,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-2">Media Not Found</h1>
           <p className="text-gray-400 mb-4">This media may have been removed.</p>
-          <Link href="/" className="btn-primary">
+          <Link href="/" className="btn-primary" onClick={() => stopAllMedia()}>
             Go Home
           </Link>
         </div>
@@ -509,11 +510,14 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
         </div>
       )}
 
-      {/* Back Button at bottom left */}
+      {/* Back Button at bottom left - stop media before navigating so audio does not continue on homepage */}
       <div className="max-w-4xl mx-auto px-4 mt-8">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => {
+            stopAllMedia()
+            router.back()
+          }}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
           ← Back
