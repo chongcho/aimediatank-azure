@@ -4,8 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { stopAllMedia } from '@/lib/mediaStop'
 import { isInstalledPWA } from '@/lib/appBadge'
 
-/** Minimum buffered duration (seconds) before starting playback. ~8s at 500kbps ≈ 4MB. */
-const INITIAL_BUFFER_SECONDS = 8
+/** Minimum buffered duration (seconds) before starting playback. ~4s at ~500kbps ≈ 2MB. */
+const INITIAL_BUFFER_SECONDS = 4
 
 interface MediaPlayerProps {
   type: 'VIDEO' | 'IMAGE' | 'MUSIC'
@@ -144,7 +144,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
         setIsBuffering(false)
         tryAutoplay()
       }
-    }, 20000)
+    }, 5000)
 
     return () => {
       clearTimeout(timeoutId)
