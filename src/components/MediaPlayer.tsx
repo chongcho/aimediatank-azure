@@ -56,15 +56,15 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Try to autoplay with sound, fall back to muted autoplay if blocked
+  // Autoplay: on mobile call play() immediately (muted); on desktop wait for loadeddata then try unmuted.
   useEffect(() => {
     const video = videoRef.current
     if (!video || type !== 'VIDEO' || !isMounted) return
 
+    const isMobileOrTouch =
+      window.innerWidth < 768 || navigator.maxTouchPoints > 0
+
     const tryAutoplay = async () => {
-      // Mobile/touch: autoplay only works when muted (iOS Safari, Chrome Android, PWA). Desktop: try unmuted first.
-      const isMobileOrTouch =
-        window.innerWidth < 768 || navigator.maxTouchPoints > 0
       if (isMobileOrTouch) {
         video.muted = true
         setIsMuted(true)
@@ -90,16 +90,25 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       }
     }
 
-    // Start as soon as first frame is available (loadeddata), not after full buffer (canplay).
-    // For large files this makes playback start similar to small files; browser buffers as it plays.
-    const startWhenReady = () => {
-      if (video.readyState >= 2) {
+    let timeoutId: ReturnType<typeof setTimeout>
+    if (isMobileOrTouch) {
+      // Mobile: call play() soon so we don't depend on loadeddata; retry once when enough data loads.
+      const attempt = () => {
         tryAutoplay()
-      } else {
         video.addEventListener('loadeddata', tryAutoplay, { once: true })
       }
+      timeoutId = setTimeout(attempt, 50)
+    } else {
+      // Desktop: start when first frame is available (large files start faster).
+      const startWhenReady = () => {
+        if (video.readyState >= 2) {
+          tryAutoplay()
+        } else {
+          video.addEventListener('loadeddata', tryAutoplay, { once: true })
+        }
+      }
+      timeoutId = setTimeout(startWhenReady, 0)
     }
-    const timeoutId = setTimeout(startWhenReady, 0)
 
     return () => {
       clearTimeout(timeoutId)
@@ -232,7 +241,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             poster={thumbnailUrl || undefined}
             controls={showMobileControls}
             playsInline
-            preload="metadata"
+            preload={typeof window !== 'undefined' && (window.innerWidth < 768 || navigator.maxTouchPoints > 0) ? 'auto' : 'metadata'}
             autoPlay
             loop
             muted={isMuted}
