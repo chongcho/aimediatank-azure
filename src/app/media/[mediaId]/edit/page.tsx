@@ -13,6 +13,7 @@ interface MediaData {
   url: string
   thumbnailUrl: string | null
   aiTool: string | null
+  realDevice: string | null
   aiPrompt: string | null
   price: number | null
   isPublic: boolean
@@ -37,6 +38,7 @@ export default function EditMediaPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [aiTool, setAiTool] = useState('')
+  const [realDevice, setRealDevice] = useState('')
   const [hashtags, setHashtags] = useState('')
   const [price, setPrice] = useState('')
   const [isPublic, setIsPublic] = useState(true)
@@ -81,6 +83,7 @@ export default function EditMediaPage() {
       }
       setDescription(data.description || '')
       setAiTool(data.aiTool || '')
+      setRealDevice(data.realDevice || '')
       setPrice(data.price ? data.price.toString() : '')
       setIsPublic(data.isPublic)
     } catch (error) {
@@ -114,6 +117,7 @@ export default function EditMediaPage() {
           title: fullTitle,
           description: description.trim() || null,
           aiTool: aiTool.trim() || null,
+          realDevice: realDevice.trim() || null,
           price: price ? parseFloat(price) : null,
           isPublic,
         }),
@@ -281,14 +285,32 @@ export default function EditMediaPage() {
 
         {/* AI Tool */}
         <div>
-          <label htmlFor="edit-ai-tool" className="block text-sm font-medium mb-2">AI Tool Used</label>
+          <label htmlFor="edit-ai-tool" className="block text-sm font-medium text-gray-300 mb-2">
+            AI-generation Tool Used
+          </label>
           <input
             type="text"
             id="edit-ai-tool"
             name="aiTool"
             value={aiTool}
             onChange={(e) => setAiTool(e.target.value)}
-            placeholder="e.g., Midjourney, DALL-E, Sora, Suno"
+            placeholder="e.g., Veo, Nano Banana, Runway, Sora, DALL-E, ..."
+            className="w-full"
+          />
+        </div>
+
+        {/* Real Media Device */}
+        <div>
+          <label htmlFor="edit-real-device" className="block text-sm font-medium text-gray-300 mb-2">
+            Real Media Device Used
+          </label>
+          <input
+            type="text"
+            id="edit-real-device"
+            name="realDevice"
+            value={realDevice}
+            onChange={(e) => setRealDevice(e.target.value)}
+            placeholder="e.g., iPhone 17 Pro, Galaxy S25 Ultra, Pixel 10 Pro, Canon EOS R5, Nikon Z6 III, ..."
             className="w-full"
           />
         </div>

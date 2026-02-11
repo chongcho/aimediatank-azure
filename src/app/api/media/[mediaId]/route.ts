@@ -127,7 +127,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { title, description, aiTool, aiPrompt, price, isPublic, isApproved } = body
+    const { title, description, aiTool, aiPrompt, realDevice, price, isPublic, isApproved } = body
 
     // Regular users can only update certain fields
     const updateData: any = {}
@@ -135,6 +135,7 @@ export async function PATCH(
     if (description !== undefined) updateData.description = description
     if (aiTool !== undefined) updateData.aiTool = aiTool
     if (aiPrompt !== undefined) updateData.aiPrompt = aiPrompt
+    if (realDevice !== undefined) updateData.realDevice = realDevice
     if (price !== undefined) updateData.price = price
     if (isPublic !== undefined) updateData.isPublic = isPublic
 
