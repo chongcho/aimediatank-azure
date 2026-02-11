@@ -60,8 +60,10 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       subject: options.subject,
       html: options.html,
     })
+    console.log(`Email sent to ${options.to}: ${options.subject}`)
     return true
   } catch (error: unknown) {
+    console.error('Email send failed:', error instanceof Error ? error.message : error)
     if (error instanceof Error) {
       // If connection failed, reset the cached transporter
       if (error.message.includes('connect') || error.message.includes('auth') || error.message.includes('ECONNREFUSED')) {
