@@ -232,8 +232,13 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
       className="group cursor-pointer block"
     >
       <div className="bg-tank-gray rounded-xl overflow-hidden border border-tank-light hover:border-tank-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-tank-accent/10">
-        {/* Thumbnail */}
-        <div className="relative aspect-video bg-tank-dark overflow-hidden">
+        {/* Thumbnail — natural aspect ratio for masonry layout */}
+        <div className="relative bg-tank-dark overflow-hidden">
+          {/* Skeleton placeholder while thumbnail loads */}
+          {thumbnailSrc && !thumbnailLoaded && !thumbnailError && (
+            <div className="aspect-video skeleton" />
+          )}
+
           {isBadgeEnabled('ai') && (
             <div className="absolute top-2 left-2 z-10 px-2 py-1 rounded-md text-[11px] font-bold uppercase bg-black/70 text-white backdrop-blur-sm">
               {aiLabel}
@@ -269,7 +274,7 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
             <img
               src={thumbnailSrc}
               alt={media.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              className={`w-full h-auto block group-hover:scale-105 transition-transform duration-500${thumbnailLoaded ? '' : ' invisible absolute'}`}
               onLoad={() => setThumbnailLoaded(true)}
               onError={() => setThumbnailError(true)}
             />
@@ -278,7 +283,7 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
             <video
               ref={videoRef}
               src={media.url}
-              className="w-full h-full object-cover"
+              className="w-full aspect-video object-cover"
               muted
               playsInline
               preload="metadata"
@@ -294,14 +299,14 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
             />
           ) : media.type === 'VIDEO' ? (
             // Video gradient placeholder when video fails to load
-            <div className={`w-full h-full bg-gradient-to-br ${typeStyle.gradient} flex items-center justify-center`}>
+            <div className={`w-full aspect-video bg-gradient-to-br ${typeStyle.gradient} flex items-center justify-center`}>
               <div className="text-white/80 scale-[3]">
                 {getTypeIcon()}
               </div>
             </div>
           ) : (
             // Gradient placeholder for music or failed loads
-            <div className={`w-full h-full bg-gradient-to-br ${typeStyle.gradient} flex items-center justify-center`}>
+            <div className={`w-full aspect-video bg-gradient-to-br ${typeStyle.gradient} flex items-center justify-center`}>
               <div className="text-white/80 scale-[3]">
                 {getTypeIcon()}
               </div>

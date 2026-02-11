@@ -579,16 +579,21 @@ function HomeContent() {
 
       {/* Media Grid — min-h-screen during loading keeps the about section below the fold */}
       {loading ? (
-        <div className="grid gap-5 media-grid min-h-screen">
-          {[...Array(12)].map((_, i) => (
-            <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
-              <div className="aspect-video skeleton" />
-              <div className="p-4">
-                <div className="h-5 skeleton mb-2 w-3/4" />
-                <div className="h-4 skeleton w-1/2" />
+        <div className="media-grid min-h-screen">
+          {[...Array(12)].map((_, i) => {
+            // Varied skeleton heights to preview the masonry layout
+            const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
+              'aspect-square', 'aspect-video', 'aspect-[4/5]', 'aspect-video', 'aspect-square', 'aspect-[3/4]']
+            return (
+              <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
+                <div className={`${ratios[i]} skeleton`} />
+                <div className="p-4">
+                  <div className="h-5 skeleton mb-2 w-3/4" />
+                  <div className="h-4 skeleton w-1/2" />
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       ) : media.length === 0 ? (
         <div className="text-center py-20">
@@ -600,7 +605,7 @@ function HomeContent() {
         </div>
       ) : (
         <>
-          <div className="grid gap-5 media-grid">
+          <div className="media-grid">
             {media.map((item) => (
               <MediaCard
                 key={item.id}
@@ -785,16 +790,20 @@ export default function Home() {
             </p>
           </div>
         </div>
-        <div className="grid gap-5 media-grid min-h-screen">
-          {[...Array(12)].map((_, i) => (
-            <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
-              <div className="aspect-video skeleton" />
-              <div className="p-4">
-                <div className="h-5 skeleton mb-2 w-3/4" />
-                <div className="h-4 skeleton w-1/2" />
+        <div className="media-grid min-h-screen">
+          {[...Array(12)].map((_, i) => {
+            const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
+              'aspect-square', 'aspect-video', 'aspect-[4/5]', 'aspect-video', 'aspect-square', 'aspect-[3/4]']
+            return (
+              <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
+                <div className={`${ratios[i]} skeleton`} />
+                <div className="p-4">
+                  <div className="h-5 skeleton mb-2 w-3/4" />
+                  <div className="h-4 skeleton w-1/2" />
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     }>
