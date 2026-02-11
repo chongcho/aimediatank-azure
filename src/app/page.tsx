@@ -326,13 +326,13 @@ function HomeContent() {
     window.location.href = `/media/${suggestion.id}`
   }
 
-  const fetchMedia = async (pageNum: number = 1, isReset: boolean = false) => {
+  const fetchMedia = async (pageNum: number = 1, isReset: boolean = false, isRetry: boolean = false) => {
     if (isReset) {
       setLoading(true)
     } else {
       setLoadingMore(true)
     }
-    
+
     try {
       const params = new URLSearchParams({
         sort,
@@ -340,7 +340,7 @@ function HomeContent() {
         limit: '20',
       })
       if (type) params.set('type', type)
-      
+
       // Handle @username search - filter by user
       if (search && search.startsWith('@')) {
         const username = search.slice(1)
@@ -353,7 +353,12 @@ function HomeContent() {
       const data = await res.json()
       // Only update state on success so we don't wipe the list on 4xx/5xx or network errors after idle
       if (!res.ok) {
-        if (isReset) setHasMore(false)
+        if (isReset && !isRetry) {
+          // Retry initial load once (avoids partial/missing list when API or prefetch glitches)
+          setTimeout(() => fetchMedia(1, true, true), 800)
+        } else if (isReset) {
+          setHasMore(false)
+        }
         return
       }
       const newMedia = data.media || []
@@ -367,7 +372,9 @@ function HomeContent() {
       setHasMore(pageNum < totalPages)
     } catch (error) {
       console.error('Error fetching media:', error)
-      // Keep existing media on network error; don't wipe the list
+      if (isReset && !isRetry) {
+        setTimeout(() => fetchMedia(1, true, true), 800)
+      }
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -727,7 +734,7 @@ function HomeContent() {
             <li><Link href="/?type=IMAGE" className="hover:text-white">Images</Link></li>
             <li><Link href="/notifications" className="hover:text-white">Notification</Link></li>
             <li><Link href="/?openChat=1" className="hover:text-white">Chat</Link></li>
-            <li><Link href="/signin" className="hover:text-white">Sign-In</Link></li>
+            <li><Link href="/login" className="hover:text-white">Sign-In</Link></li>
             <li><Link href="/register" className="hover:text-white">Sign-Up</Link></li>
             <li><Link href="/pricing" className="hover:text-white">Membership</Link></li>
             <li><Link href="/about" className="hover:text-white">About</Link></li>
