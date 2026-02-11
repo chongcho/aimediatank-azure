@@ -35,6 +35,7 @@ interface Media {
     comments: number
     ratings: number
   }
+  _page?: number  // tracks which page this item was loaded on (for scroll restoration)
 }
 
 interface SearchSuggestion {
@@ -178,17 +179,47 @@ function HomeContent() {
           activeRestoreRunIdRef.current = null
         }
 
+        const scrollToTarget = (el: HTMLElement) => {
+          const rect = el.getBoundingClientRect()
+          const headerOffset = 80
+          const top = window.scrollY + rect.top - headerOffset
+          window.scrollTo({ top, behavior: 'auto' })
+        }
+
         const attemptScrollToTarget = (attempts: number) => {
           if (attempts <= 0) { setContentReady(true); return }
           if (restoreRunIdRef.current !== runId) { setContentReady(true); return }
-          const target = document.querySelector(`[data-media-id="${restoreState.targetId}"]`)
+          const target = document.querySelector(`[data-media-id="${restoreState.targetId}"]`) as HTMLElement | null
           if (target) {
-            const rect = (target as HTMLElement).getBoundingClientRect()
-            const headerOffset = 80
-            const top = window.scrollY + rect.top - headerOffset
-            window.scrollTo({ top, behavior: 'auto' })
+            scrollToTarget(target)
             scrollRestoredRef.current = true
             setContentReady(true)
+
+            // Keep correcting scroll position as images load and shift the layout.
+            // This is especially important on mobile where a single column means every
+            // image above the target affects its vertical position.
+            let correctionCount = 0
+            const maxCorrections = 15          // check for up to ~3 seconds
+            const correctionInterval = 200     // every 200ms
+            let lastTop = window.scrollY
+
+            const correctScroll = () => {
+              correctionCount++
+              if (correctionCount > maxCorrections) return
+              if (restoreRunIdRef.current !== runId) return
+              const el = document.querySelector(`[data-media-id="${restoreState.targetId}"]`) as HTMLElement | null
+              if (!el) return
+              const rect = el.getBoundingClientRect()
+              const headerOffset = 80
+              const idealTop = window.scrollY + rect.top - headerOffset
+              // Only re-scroll if the position drifted by more than 5px
+              if (Math.abs(idealTop - lastTop) > 5) {
+                window.scrollTo({ top: idealTop, behavior: 'auto' })
+                lastTop = idealTop
+              }
+              setTimeout(correctScroll, correctionInterval)
+            }
+            setTimeout(correctScroll, correctionInterval)
             return
           }
           setTimeout(() => attemptScrollToTarget(attempts - 1), 100)
@@ -372,7 +403,7 @@ function HomeContent() {
         }
         return
       }
-      const newMedia = data.media || []
+      const newMedia = (data.media || []).map((m: Media) => ({ ...m, _page: pageNum }))
       const totalPages = data.pagination?.totalPages || 1
 
       if (isReset) {
@@ -610,7 +641,7 @@ function HomeContent() {
               <MediaCard
                 key={item.id}
                 media={item}
-                homeScrollContext={{ page, sort, type, search }}
+                homeScrollContext={{ page: item._page || page, sort, type, search }}
               />
             ))}
           </div>
