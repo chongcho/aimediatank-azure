@@ -4,8 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { stopAllMedia } from '@/lib/mediaStop'
 import { isInstalledPWA } from '@/lib/appBadge'
 
-/** Minimum buffered duration (seconds) before starting playback. ~4s at ~500kbps ≈ 2MB. */
-const INITIAL_BUFFER_SECONDS = 4
+/** Mobile only: min buffered duration (seconds) before starting playback. Desktop uses canplay (no block buffering). */
+const INITIAL_BUFFER_SECONDS_MOBILE = 1.5
 
 interface MediaPlayerProps {
   type: 'VIDEO' | 'IMAGE' | 'MUSIC'
@@ -30,7 +30,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       !isInstalledPWA()
   )
   const [showMobileControls, setShowMobileControls] = useState(false)
-  const [isBuffering, setIsBuffering] = useState(true)
+  const [isBuffering, setIsBuffering] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const fullscreenRef = useRef<HTMLDivElement>(null)
@@ -73,13 +73,10 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Block buffering: wait for initial buffer (~4MB proxy) before starting play, then browser keeps buffering in background
+  // PC: restore 085ac6d — start on canplay (or 100ms). Mobile: block buffering — wait for 1.5s buffer then play.
   useEffect(() => {
     const video = videoRef.current
     if (!video || type !== 'VIDEO' || !isMounted) return
-
-    initialPlayStartedRef.current = false
-    setIsBuffering(true)
 
     const isMobileBrowser =
       (window.innerWidth < 768 || navigator.maxTouchPoints > 0) &&
@@ -112,48 +109,63 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       }
     }
 
-    const checkBufferAndPlay = () => {
-      if (initialPlayStartedRef.current) return
-      const buffered = video.buffered
-      if (buffered.length === 0) return
-      const bufferedEnd = buffered.end(0)
-      const bufferedAhead = bufferedEnd - video.currentTime
-      const duration = video.duration
-      const enoughBuffer =
-        bufferedAhead >= INITIAL_BUFFER_SECONDS ||
-        (Number.isFinite(duration) && duration < INITIAL_BUFFER_SECONDS && bufferedAhead >= 1)
-      if (enoughBuffer) {
-        initialPlayStartedRef.current = true
-        setIsBuffering(false)
-        tryAutoplay()
+    if (isMobileBrowser) {
+      initialPlayStartedRef.current = false
+      setIsBuffering(true)
+
+      const checkBufferAndPlay = () => {
+        if (initialPlayStartedRef.current) return
+        const buffered = video.buffered
+        if (buffered.length === 0) return
+        const bufferedEnd = buffered.end(0)
+        const bufferedAhead = bufferedEnd - video.currentTime
+        const duration = video.duration
+        const required = INITIAL_BUFFER_SECONDS_MOBILE
+        const enoughBuffer =
+          bufferedAhead >= required ||
+          (Number.isFinite(duration) && duration < required && bufferedAhead >= 0.5)
+        if (enoughBuffer) {
+          initialPlayStartedRef.current = true
+          setIsBuffering(false)
+          tryAutoplay()
+        }
+      }
+
+      const onProgress = () => checkBufferAndPlay()
+      const onCanPlay = () => checkBufferAndPlay()
+      const onPlaying = () => setIsBuffering(false)
+
+      video.addEventListener('progress', onProgress)
+      video.addEventListener('canplay', onCanPlay)
+      video.addEventListener('playing', onPlaying)
+      checkBufferAndPlay()
+      const maxWaitId = setTimeout(() => {
+        if (!initialPlayStartedRef.current) {
+          initialPlayStartedRef.current = true
+          setIsBuffering(false)
+          tryAutoplay()
+        }
+      }, 5000)
+
+      return () => {
+        clearTimeout(maxWaitId)
+        video.removeEventListener('progress', onProgress)
+        video.removeEventListener('canplay', onCanPlay)
+        video.removeEventListener('playing', onPlaying)
       }
     }
 
-    const onProgress = () => checkBufferAndPlay()
-    const onCanPlay = () => checkBufferAndPlay()
-    const onPlaying = () => setIsBuffering(false)
-
-    video.addEventListener('progress', onProgress)
-    video.addEventListener('canplay', onCanPlay)
-    video.addEventListener('playing', onPlaying)
-
-    const timeoutId = setTimeout(() => checkBufferAndPlay(), 500)
-    const maxWaitId = setTimeout(() => {
-      if (!initialPlayStartedRef.current) {
-        initialPlayStartedRef.current = true
-        setIsBuffering(false)
+    // Desktop (and PWA): 085ac6d — start as soon as canplay or after 100ms if already ready
+    setIsBuffering(false)
+    const timeoutId = setTimeout(() => {
+      if (video.readyState >= 3) {
         tryAutoplay()
+      } else {
+        video.addEventListener('canplay', tryAutoplay, { once: true })
       }
-    }, 5000)
-
-    return () => {
-      clearTimeout(timeoutId)
-      clearTimeout(maxWaitId)
-      video.removeEventListener('progress', onProgress)
-      video.removeEventListener('canplay', onCanPlay)
-      video.removeEventListener('playing', onPlaying)
-    }
-  }, [type, url, isMounted, isMobile])
+    }, 100)
+    return () => clearTimeout(timeoutId)
+  }, [type, url, isMounted])
 
   useEffect(() => {
     if (!isFullscreen) return
@@ -286,6 +298,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             controls={showMobileControls}
             playsInline
             preload="auto"
+            autoPlay={!isMobile}
             loop
             muted={isMuted}
             className="w-full max-h-[90vh] lg:max-h-[65vh]"
