@@ -7,6 +7,14 @@ interface CompressionOptions {
   maxSizeMB?: number
 }
 
+/** Admin-configurable quality settings for crop/re-encoding */
+export interface QualitySettings {
+  imageQuality?: number       // 0.0–1.0
+  videoBitrateMbps?: number   // Mbps
+  videoFps?: number           // Frames per second
+  audioBitrateKbps?: number   // kbps
+}
+
 const DEFAULT_IMAGE_OPTIONS: CompressionOptions = {
   maxWidth: 4096,
   maxHeight: 4096,
@@ -26,9 +34,14 @@ const DEFAULT_VIDEO_OPTIONS: CompressionOptions = {
 export async function compressImage(
   file: File,
   options: CompressionOptions = {},
-  crop?: { x: number; y: number; width: number; height: number }
+  crop?: { x: number; y: number; width: number; height: number },
+  qualitySettings?: QualitySettings
 ): Promise<File> {
   const opts = { ...DEFAULT_IMAGE_OPTIONS, ...options }
+  // Apply admin quality setting if provided
+  if (qualitySettings?.imageQuality !== undefined) {
+    opts.quality = qualitySettings.imageQuality
+  }
   
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -107,7 +120,8 @@ export async function compressVideo(
   file: File,
   options: CompressionOptions = {},
   onProgress?: (progress: number) => void,
-  crop?: { x: number; y: number; width: number; height: number }
+  crop?: { x: number; y: number; width: number; height: number },
+  qualitySettings?: QualitySettings
 ): Promise<File> {
   const opts = { ...DEFAULT_VIDEO_OPTIONS, ...options }
 
@@ -204,8 +218,8 @@ export async function compressVideo(
         }
 
         // Create media stream from canvas (video track).
-        // Use 30 FPS for good quality - compression handled on Azure backend.
-        const TARGET_FPS = 30
+        // Use admin-configured FPS or default to 30.
+        const TARGET_FPS = qualitySettings?.videoFps ?? 30
         const stream = canvas.captureStream(TARGET_FPS)
 
         // Briefly start playback (muted) to satisfy autoplay policies, then immediately pause.
@@ -295,15 +309,22 @@ export async function compressVideo(
         ]
         const requestedMimeType = preferredTypes.find((t) => MediaRecorder.isTypeSupported(t)) || ''
 
-        // Calculate target bitrate - preserve original quality (compression done on Azure)
-        // Original bitrate = file size (bits) / duration (seconds)
+        // Calculate target bitrate using admin setting or preserving original quality
+        const adminBitrateBps = qualitySettings?.videoBitrateMbps
+          ? qualitySettings.videoBitrateMbps * 1_000_000
+          : undefined
         const originalBitrate = (file.size * 8) / (video.duration || 1)
-        // Use original bitrate (or slightly higher to avoid quality loss), capped at 20 Mbps
-        const targetVideoBitrate = Math.min(Math.round(originalBitrate * 1.1), 20000000)
-        // Ensure minimum bitrate of 2 Mbps for quality
-        const videoBitrate = Math.max(targetVideoBitrate, 2000000)
 
-        console.log(`Original bitrate: ${(originalBitrate / 1000000).toFixed(2)} Mbps, using: ${(videoBitrate / 1000000).toFixed(2)} Mbps (high quality for Azure compression)`)
+        let videoBitrate: number
+        if (adminBitrateBps) {
+          // Use admin-configured bitrate as the cap
+          videoBitrate = Math.max(Math.min(Math.round(originalBitrate * 1.1), adminBitrateBps), 2_000_000)
+        } else {
+          // Default: preserve original quality, capped at 20 Mbps, minimum 2 Mbps
+          videoBitrate = Math.max(Math.min(Math.round(originalBitrate * 1.1), 20_000_000), 2_000_000)
+        }
+
+        console.log(`Original bitrate: ${(originalBitrate / 1_000_000).toFixed(2)} Mbps, using: ${(videoBitrate / 1_000_000).toFixed(2)} Mbps`)
 
         // If we cannot record any known type, fall back to original file.
         if (!requestedMimeType) {
@@ -316,7 +337,7 @@ export async function compressVideo(
         const mediaRecorder = new MediaRecorder(stream, {
           ...(requestedMimeType ? { mimeType: requestedMimeType } : {}),
           videoBitsPerSecond: videoBitrate,
-          audioBitsPerSecond: 256000, // 256 kbps - high quality audio
+          audioBitsPerSecond: (qualitySettings?.audioBitrateKbps ?? 256) * 1000,
         })
 
         const chunks: Blob[] = []
@@ -465,7 +486,8 @@ export async function compressMedia(
   file: File,
   type: 'IMAGE' | 'VIDEO' | 'MUSIC',
   onProgress?: (progress: number) => void,
-  crop?: { x: number; y: number; width: number; height: number }
+  crop?: { x: number; y: number; width: number; height: number },
+  qualitySettings?: QualitySettings
 ): Promise<File> {
   // Skip compression for small files (but NEVER skip if we need to crop)
   if (!crop) {
@@ -478,9 +500,9 @@ export async function compressMedia(
 
   switch (type) {
     case 'IMAGE':
-      return compressImage(file, {}, crop)
+      return compressImage(file, {}, crop, qualitySettings)
     case 'VIDEO':
-      return compressVideo(file, {}, onProgress, crop)
+      return compressVideo(file, {}, onProgress, crop, qualitySettings)
     case 'MUSIC':
       // Audio compression is complex and usually not needed
       // Return original file

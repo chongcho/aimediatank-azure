@@ -534,3 +534,15 @@ model MediaBadgeSetting {
   @@index([itemKey])
   @@index([isEnabled])
 }
+
+// Crop tool settings (managed by admin) — single-row config table
+model CropToolSetting {
+  id               String   @id @default(uuid())
+  isEnabled        Boolean  @default(true)
+  imageQuality     Float    @default(0.92)   // 0.0–1.0 (JPEG/WebP quality)
+  videoBitrateMbps Float    @default(8.0)    // Video bitrate in Mbps
+  videoFps         Int      @default(30)     // Target frames per second
+  audioBitrateKbps Int      @default(256)    // Audio bitrate in kbps
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}

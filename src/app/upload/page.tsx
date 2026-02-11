@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { compressMedia } from '@/lib/mediaCompression'
+import { compressMedia, type QualitySettings } from '@/lib/mediaCompression'
 
 type Area = { x: number; y: number; width: number; height: number }
 
@@ -74,10 +74,30 @@ function UploadPageContent() {
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false)
   const [portalMounted, setPortalMounted] = useState(false)
   const descriptionRef = useRef<HTMLTextAreaElement | null>(null)
+  const [cropEnabled, setCropEnabled] = useState(true)
+  const [qualitySettings, setQualitySettings] = useState<QualitySettings>({})
 
   // Enable portal rendering after mount (SSR safety)
   useEffect(() => {
     setPortalMounted(true)
+  }, [])
+
+  // Fetch admin crop tool settings on mount
+  useEffect(() => {
+    fetch('/api/ui/crop-settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data.settings) {
+          setCropEnabled(data.settings.isEnabled !== false)
+          setQualitySettings({
+            imageQuality: data.settings.imageQuality,
+            videoBitrateMbps: data.settings.videoBitrateMbps,
+            videoFps: data.settings.videoFps,
+            audioBitrateKbps: data.settings.audioBitrateKbps,
+          })
+        }
+      })
+      .catch(() => { /* use defaults */ })
   }, [])
 
   // Check for payment success on mount - redirect to home since upload is complete
@@ -163,7 +183,8 @@ function UploadPageContent() {
         (progress) => {
           setUploadStatus(`Compressing... ${progress}%`)
         },
-        formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined
+        formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined,
+        qualitySettings
       )
       
       // Step 2: Upload to Azure Blob Storage
@@ -174,7 +195,7 @@ function UploadPageContent() {
       let thumbnailUrl = null
       if (thumbnail) {
         setUploadStatus('Uploading thumbnail...')
-        const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE')
+        const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE', undefined, undefined, qualitySettings)
         thumbnailUrl = await uploadToAzure(compressedThumbnail, 'IMAGE')
       }
       
@@ -257,17 +278,19 @@ function UploadPageContent() {
       setVideoSize(null)
       setVideoCrop(null)
       
-      // Generate preview
+      // Generate preview (show crop tool only if admin has enabled it)
       if (selectedFile.type.startsWith('image/')) {
         console.log('Processing image file for crop')
         const reader = new FileReader()
         reader.onload = () => {
           const src = reader.result as string
-          console.log('Image loaded, showing cropper')
           setPreview(src)
-          setCropSource(src)
-          setCropMediaType('image')
-          setShowCropper(true)
+          if (cropEnabled) {
+            console.log('Image loaded, showing cropper')
+            setCropSource(src)
+            setCropMediaType('image')
+            setShowCropper(true)
+          }
         }
         reader.onerror = (err) => {
           console.error('FileReader error:', err)
@@ -279,6 +302,13 @@ function UploadPageContent() {
         setPreview(src)
         setCropMediaType('video')
 
+        if (!cropEnabled) {
+          // Crop disabled — still generate thumbnail for upload but skip crop UI
+          generateVideoThumbnail(selectedFile).then(async (thumbFile) => {
+            if (fileChangeTokenRef.current !== changeToken) return
+            if (thumbFile) setThumbnail(thumbFile)
+          })
+        } else {
         // Auto-generate thumbnail from video and use it for cropping
         generateVideoThumbnail(selectedFile).then(async (thumbFile) => {
           if (fileChangeTokenRef.current !== changeToken) return
@@ -303,6 +333,7 @@ function UploadPageContent() {
             alert('Video crop tool is not available on this device. You can still upload the video as-is.')
           }
         })
+        } // end cropEnabled else
       } else {
         console.log('Unknown file type:', selectedFile.type)
         setPreview(null)
@@ -632,7 +663,8 @@ function UploadPageContent() {
           setUploadProgress(5 + Math.round(progress * 0.25))
           setUploadStatus(`Compressing... ${progress}%`)
         },
-        formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined
+        formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined,
+        qualitySettings
       )
       
       console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB, Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB, Type: ${compressedFile.type}`)
@@ -653,7 +685,7 @@ function UploadPageContent() {
       let thumbnailUrl = null
       if (thumbnail) {
         setUploadStatus('Compressing thumbnail...')
-        const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE')
+        const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE', undefined, undefined, qualitySettings)
         setUploadStatus('Uploading thumbnail...')
         thumbnailUrl = await uploadToAzure(compressedThumbnail, 'IMAGE')
       }

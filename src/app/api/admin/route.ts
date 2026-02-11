@@ -586,6 +586,39 @@ export async function GET(request: Request) {
         return NextResponse.json({ items: defaultItems, warning: 'MEDIA_BADGE_SETTINGS_UNAVAILABLE' })
       }
     }
+    // Get crop tool settings for admin management
+    if (action === 'cropToolSettings') {
+      try {
+        let settings = await prisma.cropToolSetting.findFirst()
+
+        if (!settings) {
+          settings = await prisma.cropToolSetting.create({
+            data: {
+              isEnabled: true,
+              imageQuality: 0.92,
+              videoBitrateMbps: 8.0,
+              videoFps: 30,
+              audioBitrateKbps: 256,
+            },
+          })
+        }
+
+        return NextResponse.json({ settings })
+      } catch (error) {
+        console.error('Crop tool settings unavailable:', error)
+        return NextResponse.json({
+          settings: {
+            isEnabled: true,
+            imageQuality: 0.92,
+            videoBitrateMbps: 8.0,
+            videoFps: 30,
+            audioBitrateKbps: 256,
+          },
+          warning: 'CROP_TOOL_SETTINGS_UNAVAILABLE',
+        })
+      }
+    }
+
     // Default: return dashboard stats
     const [totalUsers, totalMedia, totalComments, pendingReports] =
       await Promise.all([
@@ -1720,6 +1753,39 @@ export async function POST(request: Request) {
 
         await logAdminAction(adminId, 'TOGGLE_MEDIA_BADGE', 'MEDIA_BADGE', itemKey, { isEnabled })
         return NextResponse.json({ message: `Badge ${isEnabled ? 'enabled' : 'disabled'}`, item })
+      }
+
+      case 'updateCropToolSettings': {
+        const { isEnabled, imageQuality, videoBitrateMbps, videoFps, audioBitrateKbps } = data || {}
+
+        // Find existing row or create one
+        let existing = await prisma.cropToolSetting.findFirst()
+        if (!existing) {
+          existing = await prisma.cropToolSetting.create({
+            data: {
+              isEnabled: true,
+              imageQuality: 0.92,
+              videoBitrateMbps: 8.0,
+              videoFps: 30,
+              audioBitrateKbps: 256,
+            },
+          })
+        }
+
+        const updateData: Record<string, unknown> = {}
+        if (isEnabled !== undefined) updateData.isEnabled = Boolean(isEnabled)
+        if (imageQuality !== undefined) updateData.imageQuality = Math.min(1, Math.max(0.1, Number(imageQuality)))
+        if (videoBitrateMbps !== undefined) updateData.videoBitrateMbps = Math.min(50, Math.max(1, Number(videoBitrateMbps)))
+        if (videoFps !== undefined) updateData.videoFps = Math.min(60, Math.max(15, Math.round(Number(videoFps))))
+        if (audioBitrateKbps !== undefined) updateData.audioBitrateKbps = Math.min(512, Math.max(64, Math.round(Number(audioBitrateKbps))))
+
+        const settings = await prisma.cropToolSetting.update({
+          where: { id: existing.id },
+          data: updateData,
+        })
+
+        await logAdminAction(adminId, 'UPDATE_CROP_TOOL_SETTINGS', 'CROP_TOOL', existing.id, updateData)
+        return NextResponse.json({ message: 'Crop tool settings updated', settings })
       }
 
       default:
