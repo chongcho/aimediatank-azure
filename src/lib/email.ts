@@ -9,7 +9,7 @@ interface EmailOptions {
 
 // Gmail credentials
 const GMAIL_USER = process.env.EMAIL_USER || process.env.SMTP_USER || 'support@aimediatank.com'
-const GMAIL_PASS = process.env.EMAIL_PASS || process.env.SMTP_PASS || 'axkjmfgrmcvagzrs'
+const GMAIL_PASS = process.env.EMAIL_PASS || process.env.SMTP_PASS || 'hryzdxlqgnxhknrs'
 
 // Create reusable transporter using Gmail service
 let cachedTransporter: nodemailer.Transporter | null = null
@@ -18,8 +18,6 @@ function getTransporter(): nodemailer.Transporter {
   if (cachedTransporter) {
     return cachedTransporter
   }
-  
-  console.log('Creating Gmail transporter for:', GMAIL_USER)
   
   // Use Gmail service for better compatibility
   cachedTransporter = nodemailer.createTransport({
@@ -42,42 +40,21 @@ function getTransporter(): nodemailer.Transporter {
 // Send email using SMTP
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   const emailFrom = `"AI Media Tank" <${GMAIL_USER}>`
-  
-  console.log('=== EMAIL SEND ATTEMPT ===')
-  console.log('To:', options.to)
-  console.log('Subject:', options.subject)
-  console.log('From:', emailFrom)
-  console.log('Time:', new Date().toISOString())
-  
   const transporter = getTransporter()
 
   try {
-    // Verify connection before sending
-    console.log('Verifying SMTP connection...')
     await transporter.verify()
-    console.log('SMTP connection verified ✓')
-    
-    console.log('Sending email via Gmail...')
-    const info = await transporter.sendMail({
+    await transporter.sendMail({
       from: emailFrom,
       to: options.to,
       subject: options.subject,
       html: options.html,
     })
-
-    console.log('✅ Email sent successfully to:', options.to)
-    console.log('Message ID:', info.messageId)
-    console.log('Response:', info.response)
     return true
   } catch (error: unknown) {
-    console.error('❌ Error sending email to:', options.to)
-    console.error('Error details:', error)
     if (error instanceof Error) {
-      console.error('Error message:', error.message)
-      console.error('Error name:', error.name)
       // If connection failed, reset the cached transporter
       if (error.message.includes('connect') || error.message.includes('auth') || error.message.includes('ECONNREFUSED')) {
-        console.log('Resetting cached transporter due to connection error')
         cachedTransporter = null
       }
     }
