@@ -69,6 +69,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const [savingMedia, setSavingMedia] = useState(false)
   const [buyingMedia, setBuyingMedia] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
 
   const isOwner = session?.user?.id === media?.user?.id
   const isAdmin = session?.user?.role === 'ADMIN'
@@ -207,6 +208,31 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     } finally {
       // Small delay before resetting so the button doesn't flash
       setTimeout(() => setDownloading(false), 1500)
+    }
+  }
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/media/${mediaId}`
+    const shareTitle = media ? stripHashtags(media.title) : 'Check this out'
+
+    // Use native Web Share API if available (mobile devices)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareTitle, url: shareUrl })
+      } catch (e) {
+        // User cancelled or share failed — ignore
+      }
+      return
+    }
+
+    // Fallback: copy link to clipboard
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setShareStatus('copied')
+      setTimeout(() => setShareStatus('idle'), 2000)
+    } catch {
+      // Clipboard API unavailable — prompt manually
+      window.prompt('Copy this link:', shareUrl)
     }
   }
 
@@ -446,28 +472,53 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
               </button>
 
-              {/* Download Button — shown for free content (any logged-in user) and owners */}
-              {(isOwner || !media.price || media.price === 0) && (
+              {/* Download & Share row */}
+              <div className="flex items-center gap-2">
+                {/* Download Button — shown for free content (any logged-in user) and owners */}
+                {(isOwner || !media.price || media.price === 0) && (
+                  <button
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
+                  >
+                    {downloading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        />
+                      </svg>
+                    )}
+                    {downloading ? 'Preparing...' : 'Download'}
+                  </button>
+                )}
+
+                {/* Share Button */}
                 <button
-                  onClick={handleDownload}
-                  disabled={downloading}
+                  onClick={handleShare}
                   className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
                 >
-                  {downloading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  {shareStatus === 'copied' ? (
+                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
                   ) : (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
                       />
                     </svg>
                   )}
-                  {downloading ? 'Preparing...' : 'Download'}
+                  {shareStatus === 'copied' ? 'Copied!' : 'Share'}
                 </button>
-              )}
+              </div>
             </div>
           </div>
 
