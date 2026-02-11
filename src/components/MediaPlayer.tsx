@@ -27,6 +27,8 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       !isInstalledPWA()
   )
   const [showMobileControls, setShowMobileControls] = useState(false)
+  // Buffering state — true while waiting for enough data to play (initial load + mid-stream stalls)
+  const [isBuffering, setIsBuffering] = useState(type === 'VIDEO')
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const fullscreenRef = useRef<HTMLDivElement>(null)
@@ -81,7 +83,9 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // YouTube-style: start as soon as the browser can play (canplay). No custom buffer wait — minimal latency on mobile and desktop.
+  // Autoplay + buffering detection.
+  // Call play() immediately so the browser knows we want data NOW (triggers aggressive buffering).
+  // Track waiting/playing events to show a YouTube-style loading spinner.
   useEffect(() => {
     const video = videoRef.current
     if (!video || type !== 'VIDEO' || !isMounted) return
@@ -92,8 +96,25 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       (window.innerWidth < 768 || navigator.maxTouchPoints > 0) &&
       !isInstalledPWA()
 
+    // Buffering event handlers
+    const onWaiting = () => { if (!cancelled) setIsBuffering(true) }
+    const onPlaying = () => { if (!cancelled) setIsBuffering(false) }
+    const onCanPlay = () => { if (!cancelled) setIsBuffering(false) }
+    const onSeeking = () => { if (!cancelled) setIsBuffering(true) }
+    const onSeeked = () => { if (!cancelled && !video.paused) setIsBuffering(false) }
+
+    video.addEventListener('waiting', onWaiting)
+    video.addEventListener('playing', onPlaying)
+    video.addEventListener('canplaythrough', onCanPlay)
+    video.addEventListener('seeking', onSeeking)
+    video.addEventListener('seeked', onSeeked)
+
+    // Try to play immediately — don't wait for canplay.
+    // The browser will buffer internally and start as soon as it has enough data.
+    // This is faster because play() signals "I need data NOW" to the browser's
+    // preload heuristic, whereas canplay waits for the browser's conservative threshold.
     const tryAutoplay = async () => {
-      if (cancelled) return // Don't play if component unmounted or effect cleaned up
+      if (cancelled) return
       if (isMobileBrowser) {
         video.muted = true
         setIsMuted(true)
@@ -120,21 +141,28 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       }
     }
 
-    const timeoutId = setTimeout(() => {
-      if (cancelled) return
-      if (video.readyState >= 3) {
-        tryAutoplay()
-      } else {
-        video.addEventListener('canplay', tryAutoplay, { once: true })
-      }
-    }, 0)
+    // Use loadedmetadata instead of canplay — metadata loads much faster (just the
+    // header, not video data). Once metadata is loaded, play() will trigger the
+    // browser to prioritize buffering and start playback ASAP.
+    const onMetadataLoaded = () => {
+      if (!cancelled) tryAutoplay()
+    }
+
+    if (video.readyState >= 1) {
+      // Metadata already available
+      tryAutoplay()
+    } else {
+      video.addEventListener('loadedmetadata', onMetadataLoaded, { once: true })
+    }
+
     return () => {
       cancelled = true
-      clearTimeout(timeoutId)
-      // Remove canplay listener in case it was added but hasn't fired yet —
-      // without this, the listener can fire after unmount and restart playback
-      // on a detached element, causing audio to leak in the background.
-      video.removeEventListener('canplay', tryAutoplay)
+      video.removeEventListener('waiting', onWaiting)
+      video.removeEventListener('playing', onPlaying)
+      video.removeEventListener('canplaythrough', onCanPlay)
+      video.removeEventListener('seeking', onSeeking)
+      video.removeEventListener('seeked', onSeeked)
+      video.removeEventListener('loadedmetadata', onMetadataLoaded)
     }
   }, [type, url, isMounted])
 
@@ -271,6 +299,33 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
             onClick={handleVideoTap}
             onTouchStart={handleVideoTap}
           />
+          {/* YouTube-style loading spinner — shown during initial load and mid-stream buffering */}
+          {isBuffering && (
+            <div
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+              style={{ zIndex: 2 }}
+            >
+              <div className="w-16 h-16 relative">
+                <svg className="animate-spin w-full h-full" viewBox="0 0 50 50">
+                  <circle
+                    cx="25" cy="25" r="20"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.2)"
+                    strokeWidth="4"
+                  />
+                  <circle
+                    cx="25" cy="25" r="20"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeDasharray="80, 200"
+                    strokeDashoffset="0"
+                  />
+                </svg>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )
