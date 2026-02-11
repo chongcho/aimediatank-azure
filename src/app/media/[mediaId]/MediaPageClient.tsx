@@ -215,6 +215,9 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     const shareUrl = `${window.location.origin}/media/${mediaId}`
     const shareTitle = media ? stripHashtags(media.title) : 'Check this out'
 
+    // Increment share counter (fire-and-forget)
+    fetch(`/api/media/${mediaId}/share`, { method: 'POST' }).catch(() => {})
+
     // Use native Web Share API if available (mobile devices)
     if (navigator.share) {
       try {

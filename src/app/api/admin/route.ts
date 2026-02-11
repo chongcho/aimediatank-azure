@@ -413,6 +413,7 @@ export async function GET(request: Request) {
             _count: {
               select: {
                 reports: true,
+                purchases: true,
               },
             },
           },

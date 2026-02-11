@@ -63,6 +63,8 @@ interface Media {
   deletionReason: string | null
   isSold: boolean
   soldAt: string | null
+  downloadCount: number
+  shareCount: number
   ageRestriction: string
   createdAt: string
   user: { id: string; username: string; name: string | null; email: string }
@@ -71,7 +73,7 @@ interface Media {
     completedAt: string | null
     buyer: { id: string; username: string }
   }>
-  _count: { reports: number }
+  _count: { reports: number; purchases: number }
 }
 
 interface Report {
@@ -1532,7 +1534,7 @@ export default function AdminPage() {
                 </div>
               )}
               <div className="card overflow-x-auto max-h-[70vh] overflow-y-auto">
-                <table className="w-full text-sm min-w-[1600px]">
+                <table className="w-full text-sm min-w-[1400px]">
                   <thead className="sticky top-0 bg-tank-dark z-10">
                     <tr className="border-b border-tank-light">
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">#</th>
@@ -1541,18 +1543,16 @@ export default function AdminPage() {
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Creator</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Upload Date</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">File Location</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">File Size</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Age Filter</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Status</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Sold Date</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Buyer User ID</th>
+                      <th className="text-right p-3 text-gray-400 font-medium whitespace-nowrap">Downloads</th>
+                      <th className="text-right p-3 text-gray-400 font-medium whitespace-nowrap">Shares</th>
+                      <th className="text-right p-3 text-gray-400 font-medium whitespace-nowrap">Sold</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {media.map((item, index) => {
-                      const latestPurchase = item.purchases?.[0]
                       return (
                         <tr key={item.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
                           <td className="p-3 text-gray-500 text-xs">{index + 1}</td>
@@ -1576,17 +1576,6 @@ export default function AdminPage() {
                           <td className="p-3 text-gray-400 whitespace-nowrap">
                             {new Date(item.createdAt).toLocaleDateString()}
                           </td>
-                          <td className="p-3 max-w-[150px]">
-                            <a 
-                              href={item.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="text-blue-400 hover:text-blue-300 text-xs truncate block"
-                              title={item.url}
-                            >
-                              {item.url.split('/').pop()?.slice(0, 20)}...
-                            </a>
-                          </td>
                           <td className="p-3 text-gray-400 whitespace-nowrap">
                             {formatBytes(item.fileSize ?? null)}
                           </td>
@@ -1600,28 +1589,14 @@ export default function AdminPage() {
                               <option value="18+">18+</option>
                             </select>
                           </td>
-                          <td className="p-3">
-                            {item.isDeleted ? (
-                              <span className="badge bg-red-500/20 text-red-400 text-xs" title={item.deletionReason || ''}>
-                                Deleted
-                              </span>
-                            ) : (
-                              <select
-                                value={item.isSold ? 'sold' : 'live'}
-                                onChange={(e) => handleAction('updateMediaStatus', item.id, { isSold: e.target.value === 'sold' })}
-                                className="bg-tank-dark border border-tank-light rounded px-2 py-1 text-xs"
-                              >
-                                <option value="live">Live</option>
-                                <option value="sold">Sold</option>
-                              </select>
-                            )}
+                          <td className="p-3 text-right text-gray-400 whitespace-nowrap">
+                            {item.downloadCount || 0}
                           </td>
-                          <td className="p-3 text-gray-400 whitespace-nowrap">
-                            {item.soldAt ? new Date(item.soldAt).toLocaleDateString() : 
-                             latestPurchase?.completedAt ? new Date(latestPurchase.completedAt).toLocaleDateString() : '-'}
+                          <td className="p-3 text-right text-gray-400 whitespace-nowrap">
+                            {item.shareCount || 0}
                           </td>
-                          <td className="p-3 text-gray-400 whitespace-nowrap">
-                            {latestPurchase?.buyer ? `@${latestPurchase.buyer.username}` : '-'}
+                          <td className="p-3 text-right text-gray-400 whitespace-nowrap">
+                            {item._count?.purchases || 0}
                           </td>
                           <td className="p-3">
                             <div className="flex gap-2 whitespace-nowrap">

@@ -127,6 +127,12 @@ export async function GET(
       })
     }
 
+    // Increment download counter
+    await prisma.media.update({
+      where: { id: mediaId },
+      data: { downloadCount: { increment: 1 } },
+    }).catch(() => {}) // non-blocking — don't fail the download if counter update fails
+
     // Build a friendly file name from the title
     const ext = media.url.split('.').pop()?.split('?')[0] || 'mp4'
     const safeTitle = (media.title || 'download')

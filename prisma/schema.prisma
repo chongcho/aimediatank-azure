@@ -96,6 +96,8 @@ model Media {
   aiPrompt      String?
   price         Float?    // null = free, otherwise price in USD
   views         Int       @default(0)
+  downloadCount Int       @default(0)
+  shareCount    Int       @default(0)
   isPublic      Boolean   @default(true)
   isApproved    Boolean   @default(true)
   isSold        Boolean   @default(false)  // true after purchased & downloaded
