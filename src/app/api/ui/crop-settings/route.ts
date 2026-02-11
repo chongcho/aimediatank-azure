@@ -5,10 +5,8 @@ export const dynamic = 'force-dynamic'
 
 const defaultSettings = {
   isEnabled: true,
-  imageQuality: 0.92,
-  videoBitrateMbps: 8.0,
-  videoFps: 30,
-  audioBitrateKbps: 256,
+  imageQuality: 0.92, videoBitrateMbps: 8.0, videoFps: 30, audioBitrateKbps: 256,
+  freeImageQuality: 0.75, freeVideoBitrateMbps: 4.0, freeVideoFps: 24, freeAudioBitrateKbps: 128,
 }
 
 export async function GET() {

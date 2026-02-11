@@ -588,34 +588,22 @@ export async function GET(request: Request) {
     }
     // Get crop tool settings for admin management
     if (action === 'cropToolSettings') {
+      const defaults = {
+        isEnabled: true,
+        imageQuality: 0.92, videoBitrateMbps: 8.0, videoFps: 30, audioBitrateKbps: 256,
+        freeImageQuality: 0.75, freeVideoBitrateMbps: 4.0, freeVideoFps: 24, freeAudioBitrateKbps: 128,
+      }
       try {
         let settings = await prisma.cropToolSetting.findFirst()
 
         if (!settings) {
-          settings = await prisma.cropToolSetting.create({
-            data: {
-              isEnabled: true,
-              imageQuality: 0.92,
-              videoBitrateMbps: 8.0,
-              videoFps: 30,
-              audioBitrateKbps: 256,
-            },
-          })
+          settings = await prisma.cropToolSetting.create({ data: defaults })
         }
 
         return NextResponse.json({ settings })
       } catch (error) {
         console.error('Crop tool settings unavailable:', error)
-        return NextResponse.json({
-          settings: {
-            isEnabled: true,
-            imageQuality: 0.92,
-            videoBitrateMbps: 8.0,
-            videoFps: 30,
-            audioBitrateKbps: 256,
-          },
-          warning: 'CROP_TOOL_SETTINGS_UNAVAILABLE',
-        })
+        return NextResponse.json({ settings: defaults, warning: 'CROP_TOOL_SETTINGS_UNAVAILABLE' })
       }
     }
 
@@ -1756,7 +1744,10 @@ export async function POST(request: Request) {
       }
 
       case 'updateCropToolSettings': {
-        const { isEnabled, imageQuality, videoBitrateMbps, videoFps, audioBitrateKbps } = data || {}
+        const {
+          isEnabled, imageQuality, videoBitrateMbps, videoFps, audioBitrateKbps,
+          freeImageQuality, freeVideoBitrateMbps, freeVideoFps, freeAudioBitrateKbps,
+        } = data || {}
 
         // Find existing row or create one
         let existing = await prisma.cropToolSetting.findFirst()
@@ -1764,20 +1755,25 @@ export async function POST(request: Request) {
           existing = await prisma.cropToolSetting.create({
             data: {
               isEnabled: true,
-              imageQuality: 0.92,
-              videoBitrateMbps: 8.0,
-              videoFps: 30,
-              audioBitrateKbps: 256,
+              imageQuality: 0.92, videoBitrateMbps: 8.0, videoFps: 30, audioBitrateKbps: 256,
+              freeImageQuality: 0.75, freeVideoBitrateMbps: 4.0, freeVideoFps: 24, freeAudioBitrateKbps: 128,
             },
           })
         }
 
+        const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, Number(v)))
         const updateData: Record<string, unknown> = {}
         if (isEnabled !== undefined) updateData.isEnabled = Boolean(isEnabled)
-        if (imageQuality !== undefined) updateData.imageQuality = Math.min(1, Math.max(0.1, Number(imageQuality)))
-        if (videoBitrateMbps !== undefined) updateData.videoBitrateMbps = Math.min(50, Math.max(1, Number(videoBitrateMbps)))
-        if (videoFps !== undefined) updateData.videoFps = Math.min(60, Math.max(15, Math.round(Number(videoFps))))
-        if (audioBitrateKbps !== undefined) updateData.audioBitrateKbps = Math.min(512, Math.max(64, Math.round(Number(audioBitrateKbps))))
+        // Paid / Selling quality
+        if (imageQuality !== undefined) updateData.imageQuality = clamp(imageQuality, 0.1, 1)
+        if (videoBitrateMbps !== undefined) updateData.videoBitrateMbps = clamp(videoBitrateMbps, 1, 50)
+        if (videoFps !== undefined) updateData.videoFps = Math.round(clamp(videoFps, 15, 60))
+        if (audioBitrateKbps !== undefined) updateData.audioBitrateKbps = Math.round(clamp(audioBitrateKbps, 64, 512))
+        // Free quality
+        if (freeImageQuality !== undefined) updateData.freeImageQuality = clamp(freeImageQuality, 0.1, 1)
+        if (freeVideoBitrateMbps !== undefined) updateData.freeVideoBitrateMbps = clamp(freeVideoBitrateMbps, 1, 50)
+        if (freeVideoFps !== undefined) updateData.freeVideoFps = Math.round(clamp(freeVideoFps, 15, 60))
+        if (freeAudioBitrateKbps !== undefined) updateData.freeAudioBitrateKbps = Math.round(clamp(freeAudioBitrateKbps, 64, 512))
 
         const settings = await prisma.cropToolSetting.update({
           where: { id: existing.id },

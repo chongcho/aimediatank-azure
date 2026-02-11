@@ -110,6 +110,10 @@ interface CropToolSettings {
   videoBitrateMbps: number
   videoFps: number
   audioBitrateKbps: number
+  freeImageQuality: number
+  freeVideoBitrateMbps: number
+  freeVideoFps: number
+  freeAudioBitrateKbps: number
 }
 
 // Membership Plan type
@@ -199,7 +203,9 @@ export default function AdminPage() {
   const [mediaBadgeItems, setMediaBadgeItems] = useState<MediaBadgeItem[]>([])
   const [mediaBadgeLoading, setMediaBadgeLoading] = useState(false)
   const [cropToolSettings, setCropToolSettings] = useState<CropToolSettings>({
-    isEnabled: true, imageQuality: 0.92, videoBitrateMbps: 8.0, videoFps: 30, audioBitrateKbps: 256,
+    isEnabled: true,
+    imageQuality: 0.92, videoBitrateMbps: 8.0, videoFps: 30, audioBitrateKbps: 256,
+    freeImageQuality: 0.75, freeVideoBitrateMbps: 4.0, freeVideoFps: 24, freeAudioBitrateKbps: 128,
   })
   const [cropToolLoading, setCropToolLoading] = useState(false)
   const [cropToolSaving, setCropToolSaving] = useState(false)
@@ -2369,111 +2375,144 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* Re-encoding Quality Settings */}
-                  <div className="card">
-                    <h3 className="font-bold text-white text-lg mb-1">Re-encoding Quality</h3>
-                    <p className="text-sm text-gray-400 mb-6">
-                      These settings control the output quality when media is cropped or re-encoded during upload.
-                    </p>
+                  {/* Quality Settings — two panels side by side */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* ── Free Content Quality ── */}
+                    <div className="card border-2 border-blue-500/30">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xl">🆓</span>
+                        <h3 className="font-bold text-white text-lg">Free Content Quality</h3>
+                      </div>
+                      <p className="text-sm text-gray-400 mb-6">
+                        Reduced quality for free media to save storage and bandwidth.
+                      </p>
 
-                    <div className="space-y-8">
-                      {/* Image Quality */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-sm font-medium text-gray-300">Image Quality</label>
-                          <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">
-                            {Math.round(cropToolSettings.imageQuality * 100)}%
-                          </span>
+                      <div className="space-y-6">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-300">Image Quality</label>
+                            <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">{Math.round(cropToolSettings.freeImageQuality * 100)}%</span>
+                          </div>
+                          <input type="range" min="10" max="100" step="1"
+                            value={Math.round(cropToolSettings.freeImageQuality * 100)}
+                            onChange={(e) => setCropToolSettings(prev => ({ ...prev, freeImageQuality: Number(e.target.value) / 100 }))}
+                            onMouseUp={(e) => saveCropToolSettings({ freeImageQuality: Number((e.target as HTMLInputElement).value) / 100 })}
+                            onTouchEnd={(e) => saveCropToolSettings({ freeImageQuality: Number((e.target as HTMLInputElement).value) / 100 })}
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1"><span>10%</span><span>100%</span></div>
                         </div>
-                        <input
-                          type="range"
-                          min="10"
-                          max="100"
-                          step="1"
-                          value={Math.round(cropToolSettings.imageQuality * 100)}
-                          onChange={(e) => setCropToolSettings(prev => ({ ...prev, imageQuality: Number(e.target.value) / 100 }))}
-                          onMouseUp={(e) => saveCropToolSettings({ imageQuality: Number((e.target as HTMLInputElement).value) / 100 })}
-                          onTouchEnd={(e) => saveCropToolSettings({ imageQuality: Number((e.target as HTMLInputElement).value) / 100 })}
-                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-tank-accent"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>10% (Small file)</span>
-                          <span>100% (Lossless)</span>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-300">Video Bitrate</label>
+                            <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">{cropToolSettings.freeVideoBitrateMbps} Mbps</span>
+                          </div>
+                          <input type="range" min="1" max="50" step="0.5"
+                            value={cropToolSettings.freeVideoBitrateMbps}
+                            onChange={(e) => setCropToolSettings(prev => ({ ...prev, freeVideoBitrateMbps: Number(e.target.value) }))}
+                            onMouseUp={(e) => saveCropToolSettings({ freeVideoBitrateMbps: Number((e.target as HTMLInputElement).value) })}
+                            onTouchEnd={(e) => saveCropToolSettings({ freeVideoBitrateMbps: Number((e.target as HTMLInputElement).value) })}
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1"><span>1 Mbps</span><span>50 Mbps</span></div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-300">Video Frame Rate</label>
+                            <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">{cropToolSettings.freeVideoFps} fps</span>
+                          </div>
+                          <input type="range" min="15" max="60" step="1"
+                            value={cropToolSettings.freeVideoFps}
+                            onChange={(e) => setCropToolSettings(prev => ({ ...prev, freeVideoFps: Number(e.target.value) }))}
+                            onMouseUp={(e) => saveCropToolSettings({ freeVideoFps: Number((e.target as HTMLInputElement).value) })}
+                            onTouchEnd={(e) => saveCropToolSettings({ freeVideoFps: Number((e.target as HTMLInputElement).value) })}
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1"><span>15 fps</span><span>60 fps</span></div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-300">Audio Bitrate</label>
+                            <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">{cropToolSettings.freeAudioBitrateKbps} kbps</span>
+                          </div>
+                          <input type="range" min="64" max="512" step="32"
+                            value={cropToolSettings.freeAudioBitrateKbps}
+                            onChange={(e) => setCropToolSettings(prev => ({ ...prev, freeAudioBitrateKbps: Number(e.target.value) }))}
+                            onMouseUp={(e) => saveCropToolSettings({ freeAudioBitrateKbps: Number((e.target as HTMLInputElement).value) })}
+                            onTouchEnd={(e) => saveCropToolSettings({ freeAudioBitrateKbps: Number((e.target as HTMLInputElement).value) })}
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1"><span>64 kbps</span><span>512 kbps</span></div>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Video Bitrate */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-sm font-medium text-gray-300">Video Bitrate</label>
-                          <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">
-                            {cropToolSettings.videoBitrateMbps} Mbps
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min="1"
-                          max="50"
-                          step="0.5"
-                          value={cropToolSettings.videoBitrateMbps}
-                          onChange={(e) => setCropToolSettings(prev => ({ ...prev, videoBitrateMbps: Number(e.target.value) }))}
-                          onMouseUp={(e) => saveCropToolSettings({ videoBitrateMbps: Number((e.target as HTMLInputElement).value) })}
-                          onTouchEnd={(e) => saveCropToolSettings({ videoBitrateMbps: Number((e.target as HTMLInputElement).value) })}
-                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-tank-accent"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>1 Mbps (Low)</span>
-                          <span>50 Mbps (Ultra)</span>
-                        </div>
+                    {/* ── Selling Content Quality ── */}
+                    <div className="card border-2 border-green-500/30">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xl">💰</span>
+                        <h3 className="font-bold text-white text-lg">Selling Content Quality</h3>
                       </div>
+                      <p className="text-sm text-gray-400 mb-6">
+                        Maximum quality for paid media — preserves original fidelity.
+                      </p>
 
-                      {/* Video FPS */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-sm font-medium text-gray-300">Video Frame Rate</label>
-                          <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">
-                            {cropToolSettings.videoFps} fps
-                          </span>
+                      <div className="space-y-6">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-300">Image Quality</label>
+                            <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">{Math.round(cropToolSettings.imageQuality * 100)}%</span>
+                          </div>
+                          <input type="range" min="10" max="100" step="1"
+                            value={Math.round(cropToolSettings.imageQuality * 100)}
+                            onChange={(e) => setCropToolSettings(prev => ({ ...prev, imageQuality: Number(e.target.value) / 100 }))}
+                            onMouseUp={(e) => saveCropToolSettings({ imageQuality: Number((e.target as HTMLInputElement).value) / 100 })}
+                            onTouchEnd={(e) => saveCropToolSettings({ imageQuality: Number((e.target as HTMLInputElement).value) / 100 })}
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1"><span>10%</span><span>100%</span></div>
                         </div>
-                        <input
-                          type="range"
-                          min="15"
-                          max="60"
-                          step="1"
-                          value={cropToolSettings.videoFps}
-                          onChange={(e) => setCropToolSettings(prev => ({ ...prev, videoFps: Number(e.target.value) }))}
-                          onMouseUp={(e) => saveCropToolSettings({ videoFps: Number((e.target as HTMLInputElement).value) })}
-                          onTouchEnd={(e) => saveCropToolSettings({ videoFps: Number((e.target as HTMLInputElement).value) })}
-                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-tank-accent"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>15 fps</span>
-                          <span>60 fps</span>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-300">Video Bitrate</label>
+                            <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">{cropToolSettings.videoBitrateMbps} Mbps</span>
+                          </div>
+                          <input type="range" min="1" max="50" step="0.5"
+                            value={cropToolSettings.videoBitrateMbps}
+                            onChange={(e) => setCropToolSettings(prev => ({ ...prev, videoBitrateMbps: Number(e.target.value) }))}
+                            onMouseUp={(e) => saveCropToolSettings({ videoBitrateMbps: Number((e.target as HTMLInputElement).value) })}
+                            onTouchEnd={(e) => saveCropToolSettings({ videoBitrateMbps: Number((e.target as HTMLInputElement).value) })}
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1"><span>1 Mbps</span><span>50 Mbps</span></div>
                         </div>
-                      </div>
-
-                      {/* Audio Bitrate */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-sm font-medium text-gray-300">Audio Bitrate</label>
-                          <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">
-                            {cropToolSettings.audioBitrateKbps} kbps
-                          </span>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-300">Video Frame Rate</label>
+                            <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">{cropToolSettings.videoFps} fps</span>
+                          </div>
+                          <input type="range" min="15" max="60" step="1"
+                            value={cropToolSettings.videoFps}
+                            onChange={(e) => setCropToolSettings(prev => ({ ...prev, videoFps: Number(e.target.value) }))}
+                            onMouseUp={(e) => saveCropToolSettings({ videoFps: Number((e.target as HTMLInputElement).value) })}
+                            onTouchEnd={(e) => saveCropToolSettings({ videoFps: Number((e.target as HTMLInputElement).value) })}
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1"><span>15 fps</span><span>60 fps</span></div>
                         </div>
-                        <input
-                          type="range"
-                          min="64"
-                          max="512"
-                          step="32"
-                          value={cropToolSettings.audioBitrateKbps}
-                          onChange={(e) => setCropToolSettings(prev => ({ ...prev, audioBitrateKbps: Number(e.target.value) }))}
-                          onMouseUp={(e) => saveCropToolSettings({ audioBitrateKbps: Number((e.target as HTMLInputElement).value) })}
-                          onTouchEnd={(e) => saveCropToolSettings({ audioBitrateKbps: Number((e.target as HTMLInputElement).value) })}
-                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-tank-accent"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>64 kbps (Low)</span>
-                          <span>512 kbps (Studio)</span>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-300">Audio Bitrate</label>
+                            <span className="text-sm font-bold text-white bg-tank-dark px-3 py-1 rounded-lg">{cropToolSettings.audioBitrateKbps} kbps</span>
+                          </div>
+                          <input type="range" min="64" max="512" step="32"
+                            value={cropToolSettings.audioBitrateKbps}
+                            onChange={(e) => setCropToolSettings(prev => ({ ...prev, audioBitrateKbps: Number(e.target.value) }))}
+                            onMouseUp={(e) => saveCropToolSettings({ audioBitrateKbps: Number((e.target as HTMLInputElement).value) })}
+                            onTouchEnd={(e) => saveCropToolSettings({ audioBitrateKbps: Number((e.target as HTMLInputElement).value) })}
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1"><span>64 kbps</span><span>512 kbps</span></div>
                         </div>
                       </div>
                     </div>
@@ -2482,28 +2521,31 @@ export default function AdminPage() {
                   {/* Current Settings Summary */}
                   <div className="p-4 bg-tank-dark rounded-lg border border-tank-light">
                     <h4 className="font-medium text-white mb-3">📋 Current Settings Summary</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-400 block">Status</span>
+                        <span className="text-gray-400 block mb-1">Status</span>
                         <span className={`font-bold ${cropToolSettings.isEnabled ? 'text-green-400' : 'text-red-400'}`}>
                           {cropToolSettings.isEnabled ? 'ON' : 'OFF'}
                         </span>
                       </div>
+                      <div />
                       <div>
-                        <span className="text-gray-400 block">Image Quality</span>
-                        <span className="font-bold text-white">{Math.round(cropToolSettings.imageQuality * 100)}%</span>
+                        <span className="text-blue-400 font-semibold block mb-2">🆓 Free Content</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><span className="text-gray-400">Image</span> <span className="font-bold text-white ml-1">{Math.round(cropToolSettings.freeImageQuality * 100)}%</span></div>
+                          <div><span className="text-gray-400">Video</span> <span className="font-bold text-white ml-1">{cropToolSettings.freeVideoBitrateMbps} Mbps</span></div>
+                          <div><span className="text-gray-400">FPS</span> <span className="font-bold text-white ml-1">{cropToolSettings.freeVideoFps}</span></div>
+                          <div><span className="text-gray-400">Audio</span> <span className="font-bold text-white ml-1">{cropToolSettings.freeAudioBitrateKbps} kbps</span></div>
+                        </div>
                       </div>
                       <div>
-                        <span className="text-gray-400 block">Video Bitrate</span>
-                        <span className="font-bold text-white">{cropToolSettings.videoBitrateMbps} Mbps</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-400 block">Frame Rate</span>
-                        <span className="font-bold text-white">{cropToolSettings.videoFps} fps</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-400 block">Audio Bitrate</span>
-                        <span className="font-bold text-white">{cropToolSettings.audioBitrateKbps} kbps</span>
+                        <span className="text-green-400 font-semibold block mb-2">💰 Selling Content</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><span className="text-gray-400">Image</span> <span className="font-bold text-white ml-1">{Math.round(cropToolSettings.imageQuality * 100)}%</span></div>
+                          <div><span className="text-gray-400">Video</span> <span className="font-bold text-white ml-1">{cropToolSettings.videoBitrateMbps} Mbps</span></div>
+                          <div><span className="text-gray-400">FPS</span> <span className="font-bold text-white ml-1">{cropToolSettings.videoFps}</span></div>
+                          <div><span className="text-gray-400">Audio</span> <span className="font-bold text-white ml-1">{cropToolSettings.audioBitrateKbps} kbps</span></div>
+                        </div>
                       </div>
                     </div>
                   </div>

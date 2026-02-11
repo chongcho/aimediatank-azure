@@ -75,7 +75,12 @@ function UploadPageContent() {
   const [portalMounted, setPortalMounted] = useState(false)
   const descriptionRef = useRef<HTMLTextAreaElement | null>(null)
   const [cropEnabled, setCropEnabled] = useState(true)
-  const [qualitySettings, setQualitySettings] = useState<QualitySettings>({})
+  const [paidQuality, setPaidQuality] = useState<QualitySettings>({})
+  const [freeQuality, setFreeQuality] = useState<QualitySettings>({})
+
+  // Pick quality based on whether the media has a price (selling) or not (free)
+  const isFreeContent = !formData.price || parseFloat(formData.price) <= 0
+  const qualitySettings = isFreeContent ? freeQuality : paidQuality
 
   // Enable portal rendering after mount (SSR safety)
   useEffect(() => {
@@ -89,11 +94,17 @@ function UploadPageContent() {
       .then(data => {
         if (data.settings) {
           setCropEnabled(data.settings.isEnabled !== false)
-          setQualitySettings({
+          setPaidQuality({
             imageQuality: data.settings.imageQuality,
             videoBitrateMbps: data.settings.videoBitrateMbps,
             videoFps: data.settings.videoFps,
             audioBitrateKbps: data.settings.audioBitrateKbps,
+          })
+          setFreeQuality({
+            imageQuality: data.settings.freeImageQuality,
+            videoBitrateMbps: data.settings.freeVideoBitrateMbps,
+            videoFps: data.settings.freeVideoFps,
+            audioBitrateKbps: data.settings.freeAudioBitrateKbps,
           })
         }
       })

@@ -539,10 +539,19 @@ model MediaBadgeSetting {
 model CropToolSetting {
   id               String   @id @default(uuid())
   isEnabled        Boolean  @default(true)
+
+  // Paid / Selling content quality (keep original quality)
   imageQuality     Float    @default(0.92)   // 0.0–1.0 (JPEG/WebP quality)
   videoBitrateMbps Float    @default(8.0)    // Video bitrate in Mbps
   videoFps         Int      @default(30)     // Target frames per second
   audioBitrateKbps Int      @default(256)    // Audio bitrate in kbps
+
+  // Free content quality (reduced to save storage / bandwidth)
+  freeImageQuality     Float @default(0.75)
+  freeVideoBitrateMbps Float @default(4.0)
+  freeVideoFps         Int   @default(24)
+  freeAudioBitrateKbps Int   @default(128)
+
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
