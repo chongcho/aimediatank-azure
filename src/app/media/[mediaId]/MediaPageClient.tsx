@@ -607,14 +607,17 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
           type="button"
           onClick={() => {
             stopAllMedia()
-            const stillOnMediaPage = () => typeof window !== 'undefined' && window.location.pathname.startsWith('/media/')
-            requestAnimationFrame(() => {
+            // Navigate back if there's history, otherwise go home.
+            // Do NOT use a timer-based fallback with router.push('/') because
+            // Next.js App Router transitions can be slower than the timeout,
+            // which fires router.push('/') while router.back() is still in
+            // flight — creating a duplicate history entry and requiring two
+            // Back clicks to return home.
+            if (window.history.length > 1) {
               router.back()
-              // If Back fails (e.g. JS chunk 404 on target route), fallback to home so screen is not stuck
-              setTimeout(() => {
-                if (stillOnMediaPage()) router.push('/')
-              }, 2500)
-            })
+            } else {
+              router.replace('/')
+            }
           }}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
