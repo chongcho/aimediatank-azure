@@ -17,11 +17,9 @@ STRIPE_SECRET_KEY="sk_live_xxx"
 STRIPE_PUBLISHABLE_KEY="pk_live_xxx"
 STRIPE_WEBHOOK_SECRET="whsec_xxx"
 
-# Email (SMTP)
-SMTP_HOST="smtp.gmail.com"
-SMTP_PORT="587"
-SMTP_USER="your-email@gmail.com"
-SMTP_PASS="your-app-password"
+# Email (Gmail SMTP — requires a Google App Password, not the account password)
+EMAIL_USER="your-email@gmail.com"
+EMAIL_PASS="your-google-app-password"
 
 # Optional: Cron Secret (for securing cron endpoints)
 CRON_SECRET="your-cron-secret"

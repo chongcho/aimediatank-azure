@@ -7,14 +7,19 @@ interface EmailOptions {
   html: string
 }
 
-// Gmail credentials
-const GMAIL_USER = process.env.EMAIL_USER || process.env.SMTP_USER || 'support@aimediatank.com'
-const GMAIL_PASS = process.env.EMAIL_PASS || process.env.SMTP_PASS || 'hryzdxlqgnxhknrs'
+// Gmail credentials — must be provided via environment variables
+const GMAIL_USER = process.env.EMAIL_USER || process.env.SMTP_USER || ''
+const GMAIL_PASS = process.env.EMAIL_PASS || process.env.SMTP_PASS || ''
 
 // Create reusable transporter using Gmail service
 let cachedTransporter: nodemailer.Transporter | null = null
 
-function getTransporter(): nodemailer.Transporter {
+function getTransporter(): nodemailer.Transporter | null {
+  if (!GMAIL_USER || !GMAIL_PASS) {
+    console.error('Email credentials not configured. Set EMAIL_USER/EMAIL_PASS or SMTP_USER/SMTP_PASS environment variables.')
+    return null
+  }
+
   if (cachedTransporter) {
     return cachedTransporter
   }
@@ -39,8 +44,13 @@ function getTransporter(): nodemailer.Transporter {
 
 // Send email using SMTP
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
-  const emailFrom = `"AI Media Tank" <${GMAIL_USER}>`
   const transporter = getTransporter()
+
+  if (!transporter) {
+    return false
+  }
+
+  const emailFrom = `"AI Media Tank" <${GMAIL_USER}>`
 
   try {
     await transporter.verify()
