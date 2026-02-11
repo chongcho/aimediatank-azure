@@ -516,7 +516,10 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
           type="button"
           onClick={() => {
             stopAllMedia()
-            router.back()
+            // Defer navigation so stopAllMedia (and any popstate) can complete; avoids stuck screen with large video
+            requestAnimationFrame(() => {
+              router.back()
+            })
           }}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
