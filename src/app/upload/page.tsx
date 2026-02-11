@@ -60,6 +60,7 @@ function UploadPageContent() {
   const cropContainerRef = useRef<HTMLDivElement | null>(null)
   const minCropSize = 120
   const fileChangeTokenRef = useRef(0)
+  const skipCompressionRef = useRef(false)
   const [videoSize, setVideoSize] = useState<{ width: number; height: number } | null>(null)
   const [videoCrop, setVideoCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [loading, setLoading] = useState(false)
@@ -186,17 +187,23 @@ function UploadPageContent() {
     setError('')
     
     try {
-      // Step 1: Compress the file
-      setUploadStatus('Compressing file...')
-      const compressedFile = await compressMedia(
-        file,
-        formData.type as 'IMAGE' | 'VIDEO' | 'MUSIC',
-        (progress) => {
-          setUploadStatus(`Compressing... ${progress}%`)
-        },
-        formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined,
-        qualitySettings
-      )
+      // Step 1: Compress the file (skip if user chose "Upload Original")
+      let compressedFile: File
+      if (skipCompressionRef.current) {
+        setUploadStatus('Preparing file...')
+        compressedFile = file
+      } else {
+        setUploadStatus('Compressing file...')
+        compressedFile = await compressMedia(
+          file,
+          formData.type as 'IMAGE' | 'VIDEO' | 'MUSIC',
+          (progress) => {
+            setUploadStatus(`Compressing... ${progress}%`)
+          },
+          formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined,
+          qualitySettings
+        )
+      }
       
       // Step 2: Upload to Azure Blob Storage
       setUploadStatus('Uploading to cloud storage...')
@@ -279,6 +286,7 @@ function UploadPageContent() {
     if (selectedFile) {
       fileChangeTokenRef.current += 1
       const changeToken = fileChangeTokenRef.current
+      skipCompressionRef.current = false // reset for new file
       setOriginalFile(selectedFile)
       setFile(selectedFile)
       setThumbnail(null)
@@ -406,9 +414,11 @@ function UploadPageContent() {
     setFile(originalFile)
     setShowCropper(false)
     setVideoCrop(null)
+    skipCompressionRef.current = true // bypass re-encoding, upload raw file
   }
 
   const handleUseEdited = async () => {
+    skipCompressionRef.current = false
     if (!cropAreaPixels || !cropSource) {
       setShowCropper(false)
       return
@@ -662,23 +672,29 @@ function UploadPageContent() {
     setUploadProgress(0)
 
     try {
-      // Step 1: Compress the file
-      setUploadStatus('Compressing file...')
-      setUploadProgress(5)
-      
-      const compressedFile = await compressMedia(
-        file,
-        formData.type as 'IMAGE' | 'VIDEO' | 'MUSIC',
-        (progress) => {
-          // Map compression progress to 5-30%
-          setUploadProgress(5 + Math.round(progress * 0.25))
-          setUploadStatus(`Compressing... ${progress}%`)
-        },
-        formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined,
-        qualitySettings
-      )
-      
-      console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB, Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB, Type: ${compressedFile.type}`)
+      // Step 1: Compress the file (skip if user chose "Upload Original")
+      let compressedFile: File
+      if (skipCompressionRef.current) {
+        setUploadStatus('Preparing file...')
+        setUploadProgress(5)
+        compressedFile = file
+        console.log(`Upload Original: bypassing re-encoding, using raw file (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
+      } else {
+        setUploadStatus('Compressing file...')
+        setUploadProgress(5)
+        compressedFile = await compressMedia(
+          file,
+          formData.type as 'IMAGE' | 'VIDEO' | 'MUSIC',
+          (progress) => {
+            // Map compression progress to 5-30%
+            setUploadProgress(5 + Math.round(progress * 0.25))
+            setUploadStatus(`Compressing... ${progress}%`)
+          },
+          formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined,
+          qualitySettings
+        )
+        console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB, Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB, Type: ${compressedFile.type}`)
+      }
       setUploadProgress(30)
       
       // Validate compressed file
