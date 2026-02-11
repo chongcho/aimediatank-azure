@@ -243,21 +243,28 @@ function HomeContent() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Refetch media when user returns to the tab (focus or visibility) to avoid stale list after idling
+  // Refetch media when user returns to the tab after being away for a while.
+  // Only use visibilitychange (NOT window focus — focus fires when clicking the
+  // address bar and back, wiping all infinite-scroll pages).  Only refetch if the
+  // tab was hidden for at least 5 minutes so brief tab switches don't reset the list.
   useEffect(() => {
-    const refetchIfNeeded = () => {
-      if (media.length > 0 && !loading && !loadingMore && !isRestoringRef.current) {
-        fetchMedia(1, true)
+    let hiddenAt: number | null = null
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now()
+      } else if (document.visibilityState === 'visible' && hiddenAt) {
+        const awayMs = Date.now() - hiddenAt
+        hiddenAt = null
+        // Only refetch if away for 5+ minutes
+        if (awayMs >= 5 * 60 * 1000 && media.length > 0 && !loading && !loadingMore && !isRestoringRef.current) {
+          fetchMedia(1, true)
+        }
       }
     }
-    const handleFocus = refetchIfNeeded
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') refetchIfNeeded()
-    }
-    window.addEventListener('focus', handleFocus)
+
     document.addEventListener('visibilitychange', handleVisibility)
     return () => {
-      window.removeEventListener('focus', handleFocus)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [media.length, loading, loadingMore, sort, type, search])
