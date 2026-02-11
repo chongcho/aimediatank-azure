@@ -68,6 +68,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const [isSaved, setIsSaved] = useState(false)
   const [savingMedia, setSavingMedia] = useState(false)
   const [buyingMedia, setBuyingMedia] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   const isOwner = session?.user?.id === media?.user?.id
   const isAdmin = session?.user?.role === 'ADMIN'
@@ -190,6 +191,22 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
       alert('Failed to start checkout. Please try again.')
     } finally {
       setBuyingMedia(false)
+    }
+  }
+
+  const handleDownload = async () => {
+    if (!session) {
+      router.push('/login')
+      return
+    }
+    setDownloading(true)
+    try {
+      // Open download in a new tab — the API generates a SAS URL with
+      // Content-Disposition: attachment so the browser triggers a file save dialog.
+      window.open(`/api/download/${mediaId}`, '_blank')
+    } finally {
+      // Small delay before resetting so the button doesn't flash
+      setTimeout(() => setDownloading(false), 1500)
     }
   }
 
@@ -397,7 +414,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               </div>
             </div>
 
-            {/* Right Column: Save, AI Tool */}
+            {/* Right Column: Save, Download */}
             <div className="flex flex-col gap-3 lg:items-start">
               {/* Save Button */}
               <button
@@ -428,6 +445,29 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 )}
                 {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
               </button>
+
+              {/* Download Button — shown for free content (any logged-in user) and owners */}
+              {(isOwner || !media.price || media.price === 0) && (
+                <button
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
+                >
+                  {downloading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                  )}
+                  {downloading ? 'Preparing...' : 'Download'}
+                </button>
+              )}
             </div>
           </div>
 

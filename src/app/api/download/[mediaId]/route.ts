@@ -2,10 +2,73 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import {
+  StorageSharedKeyCredential,
+  generateBlobSASQueryParameters,
+  BlobSASPermissions,
+} from '@azure/storage-blob'
 
 export const dynamic = 'force-dynamic'
 
-// GET - Download purchased media
+/**
+ * Parse Azure Storage connection string into its parts.
+ */
+function parseConnectionString(connectionString: string) {
+  const parts = connectionString.split(';').reduce((acc, part) => {
+    const [key, ...values] = part.split('=')
+    acc[key] = values.join('=')
+    return acc
+  }, {} as Record<string, string>)
+  return {
+    accountName: parts['AccountName'] || '',
+    accountKey: parts['AccountKey'] || '',
+  }
+}
+
+/**
+ * Generate a short-lived SAS URL with Content-Disposition: attachment so the
+ * browser triggers a file save dialog instead of playing/displaying the file.
+ */
+function generateDownloadSasUrl(
+  blobUrl: string,
+  accountName: string,
+  accountKey: string,
+  fileName: string
+): string | null {
+  try {
+    // Extract container and blob name from the URL
+    // Format: https://<account>.blob.core.windows.net/<container>/<blobName>
+    const url = new URL(blobUrl)
+    const pathParts = url.pathname.split('/').filter(Boolean) // ['container', 'blobName']
+    if (pathParts.length < 2) return null
+
+    const containerName = pathParts[0]
+    const blobName = pathParts.slice(1).join('/')
+
+    const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey)
+    const startsOn = new Date()
+    const expiresOn = new Date(startsOn.getTime() + 15 * 60 * 1000) // 15 minutes
+
+    const sasToken = generateBlobSASQueryParameters(
+      {
+        containerName,
+        blobName,
+        permissions: BlobSASPermissions.parse('r'), // read only
+        startsOn,
+        expiresOn,
+        contentDisposition: `attachment; filename="${fileName}"`,
+      },
+      sharedKeyCredential
+    ).toString()
+
+    return `${blobUrl}?${sasToken}`
+  } catch (e) {
+    console.error('Failed to generate download SAS URL:', e)
+    return null
+  }
+}
+
+// GET - Download media (free content, owner, or purchased)
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ mediaId: string }> }
@@ -64,7 +127,29 @@ export async function GET(
       })
     }
 
-    // Redirect to the actual file URL for download
+    // Build a friendly file name from the title
+    const ext = media.url.split('.').pop()?.split('?')[0] || 'mp4'
+    const safeTitle = (media.title || 'download')
+      .replace(/[^a-zA-Z0-9 _-]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .substring(0, 80)
+    const fileName = `${safeTitle}.${ext}`
+
+    // Generate a SAS URL with Content-Disposition: attachment so the browser
+    // triggers a file download instead of playing/displaying the file inline.
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+    if (connectionString) {
+      const { accountName, accountKey } = parseConnectionString(connectionString)
+      if (accountName && accountKey) {
+        const downloadUrl = generateDownloadSasUrl(media.url, accountName, accountKey, fileName)
+        if (downloadUrl) {
+          return NextResponse.redirect(downloadUrl)
+        }
+      }
+    }
+
+    // Fallback: redirect to the raw blob URL (may play inline instead of downloading)
     return NextResponse.redirect(media.url)
   } catch (error) {
     console.error('Download error:', error)
