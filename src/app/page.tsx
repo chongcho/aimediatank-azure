@@ -82,6 +82,9 @@ function HomeContent() {
   const isRestoringRef = useRef(false)
   const restoreRunIdRef = useRef(0)
   const activeRestoreRunIdRef = useRef<number | null>(null)
+  // True once the first meaningful paint is done (media loaded + scroll positioned).
+  // While false the SEO "about" section is hidden so it doesn't flash during transitions.
+  const [contentReady, setContentReady] = useState(false)
 
   // Check for pending scroll restoration on mount, or scroll to top
   useEffect(() => {
@@ -176,8 +179,8 @@ function HomeContent() {
         }
 
         const attemptScrollToTarget = (attempts: number) => {
-          if (attempts <= 0) return
-          if (restoreRunIdRef.current !== runId) return
+          if (attempts <= 0) { setContentReady(true); return }
+          if (restoreRunIdRef.current !== runId) { setContentReady(true); return }
           const target = document.querySelector(`[data-media-id="${restoreState.targetId}"]`)
           if (target) {
             const rect = (target as HTMLElement).getBoundingClientRect()
@@ -185,6 +188,7 @@ function HomeContent() {
             const top = window.scrollY + rect.top - headerOffset
             window.scrollTo({ top, behavior: 'auto' })
             scrollRestoredRef.current = true
+            setContentReady(true)
             return
           }
           setTimeout(() => attemptScrollToTarget(attempts - 1), 100)
@@ -385,6 +389,11 @@ function HomeContent() {
     } finally {
       setLoading(false)
       setLoadingMore(false)
+      // Mark content ready after initial load (not during scroll restoration —
+      // the restore path sets contentReady after scroll position is restored).
+      if (isReset && !isRestoringRef.current) {
+        setContentReady(true)
+      }
     }
   }
 
@@ -616,7 +625,9 @@ function HomeContent() {
         </>
       )}
 
-      <section className="mt-12 border-t border-tank-light pt-10 px-[10px]">
+      {/* About & footer links — hidden until media is loaded and scroll is positioned
+           so the text doesn't flash during back-navigation transitions */}
+      <section className={`mt-12 border-t border-tank-light pt-10 px-[10px]${contentReady ? '' : ' hidden'}`}>
         <div className="w-full max-w-none">
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
             The Home of AI Generated and Real Media
@@ -732,7 +743,7 @@ function HomeContent() {
         </div>
       </section>
 
-      <section className="mt-10 border-t border-tank-light pt-6 px-[10px]">
+      <section className={`mt-10 border-t border-tank-light pt-6 px-[10px]${contentReady ? '' : ' hidden'}`}>
         <div className="max-w-6xl">
           <ul className="space-y-1 text-sm text-gray-300">
             <li><Link href="/" className="hover:text-white">Home</Link></li>
