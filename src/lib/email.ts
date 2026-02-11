@@ -11,9 +11,6 @@ interface EmailOptions {
 const GMAIL_USER = process.env.EMAIL_USER || process.env.SMTP_USER || ''
 const GMAIL_PASS = process.env.EMAIL_PASS || process.env.SMTP_PASS || ''
 
-// Temporary debug — remove after verifying credentials
-console.log(`[EMAIL CONFIG] USER="${GMAIL_USER}" PASS_LENGTH=${GMAIL_PASS.length} PASS_FIRST4="${GMAIL_PASS.substring(0, 4)}..." ENV_KEYS: EMAIL_USER=${!!process.env.EMAIL_USER} SMTP_USER=${!!process.env.SMTP_USER} EMAIL_PASS=${!!process.env.EMAIL_PASS} SMTP_PASS=${!!process.env.SMTP_PASS}`)
-
 // Create reusable transporter using Gmail service
 let cachedTransporter: nodemailer.Transporter | null = null
 
