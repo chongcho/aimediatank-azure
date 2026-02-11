@@ -39,10 +39,12 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
         if (videoRef.current) {
           videoRef.current.pause()
           videoRef.current.removeAttribute('src')
+          videoRef.current.load() // Reset internal state so buffered data cannot restart playback
         }
         if (audioRef.current) {
           audioRef.current.pause()
           audioRef.current.removeAttribute('src')
+          audioRef.current.load()
         }
       } catch {
         // ignore
@@ -84,16 +86,19 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     const video = videoRef.current
     if (!video || type !== 'VIDEO' || !isMounted) return
 
+    let cancelled = false
+
     const isMobileBrowser =
       (window.innerWidth < 768 || navigator.maxTouchPoints > 0) &&
       !isInstalledPWA()
 
     const tryAutoplay = async () => {
+      if (cancelled) return // Don't play if component unmounted or effect cleaned up
       if (isMobileBrowser) {
         video.muted = true
         setIsMuted(true)
         try {
-          await video.play()
+          if (!cancelled) await video.play()
         } catch (e) {
           console.log('Mobile browser autoplay blocked')
         }
@@ -102,13 +107,13 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       try {
         video.muted = false
         setIsMuted(false)
-        await video.play()
+        if (!cancelled) await video.play()
       } catch (error) {
         console.log('Unmuted autoplay blocked, falling back to muted')
         video.muted = true
         setIsMuted(true)
         try {
-          await video.play()
+          if (!cancelled) await video.play()
         } catch (e) {
           console.log('Autoplay blocked entirely')
         }
@@ -116,13 +121,21 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     }
 
     const timeoutId = setTimeout(() => {
+      if (cancelled) return
       if (video.readyState >= 3) {
         tryAutoplay()
       } else {
         video.addEventListener('canplay', tryAutoplay, { once: true })
       }
     }, 0)
-    return () => clearTimeout(timeoutId)
+    return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
+      // Remove canplay listener in case it was added but hasn't fired yet —
+      // without this, the listener can fire after unmount and restart playback
+      // on a detached element, causing audio to leak in the background.
+      video.removeEventListener('canplay', tryAutoplay)
+    }
   }, [type, url, isMounted])
 
   useEffect(() => {

@@ -1,8 +1,10 @@
 /**
  * Stop all video and audio playback on the page.
  * Call this before navigating away (e.g. Back button) so media does not continue in background.
- * We only pause and clear src; we do not call load() so that 50MB+ buffered video does not block the main thread on teardown.
- * When the page unmounts, the elements are removed and the browser releases the buffer.
+ * We pause, clear src, AND call load() to fully reset the element's internal state machine.
+ * Without load(), already-buffered data can fire pending events (canplay, etc.) that restart
+ * playback on detached elements, causing audio to leak in the background.
+ * Calling load() with no src is lightweight — it simply resets to HAVE_NOTHING state.
  */
 export function stopAllMedia(): void {
   if (typeof document === 'undefined') return
@@ -11,6 +13,7 @@ export function stopAllMedia(): void {
     try {
       if (!media.paused) media.pause()
       media.removeAttribute('src')
+      media.load() // Reset internal state — cancels buffered data and pending events
     } catch {
       // ignore
     }
