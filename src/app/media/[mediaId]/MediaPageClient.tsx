@@ -516,9 +516,13 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
           type="button"
           onClick={() => {
             stopAllMedia()
-            // Defer navigation so stopAllMedia (and any popstate) can complete; avoids stuck screen with large video
+            const stillOnMediaPage = () => typeof window !== 'undefined' && window.location.pathname.startsWith('/media/')
             requestAnimationFrame(() => {
               router.back()
+              // If Back fails (e.g. JS chunk 404 on target route), fallback to home so screen is not stuck
+              setTimeout(() => {
+                if (stillOnMediaPage()) router.push('/')
+              }, 2500)
             })
           }}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
