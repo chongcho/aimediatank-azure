@@ -568,10 +568,10 @@ function HomeContent() {
         </div>
       )}
 
-      {/* Media Grid */}
+      {/* Media Grid — min-h-screen during loading keeps the about section below the fold */}
       {loading ? (
-        <div className="grid gap-5 media-grid">
-          {[...Array(8)].map((_, i) => (
+        <div className="grid gap-5 media-grid min-h-screen">
+          {[...Array(12)].map((_, i) => (
             <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
               <div className="aspect-video skeleton" />
               <div className="p-4">
@@ -774,8 +774,8 @@ export default function Home() {
             </p>
           </div>
         </div>
-        <div className="grid gap-5 media-grid">
-          {[...Array(8)].map((_, i) => (
+        <div className="grid gap-5 media-grid min-h-screen">
+          {[...Array(12)].map((_, i) => (
             <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
               <div className="aspect-video skeleton" />
               <div className="p-4">
