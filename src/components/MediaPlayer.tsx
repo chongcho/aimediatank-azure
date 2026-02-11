@@ -4,9 +4,6 @@ import { useState, useRef, useEffect } from 'react'
 import { stopAllMedia } from '@/lib/mediaStop'
 import { isInstalledPWA } from '@/lib/appBadge'
 
-/** Mobile only: min buffered duration (seconds) before starting playback. Desktop uses canplay (no block buffering). */
-const INITIAL_BUFFER_SECONDS_MOBILE = 1.5
-
 interface MediaPlayerProps {
   type: 'VIDEO' | 'IMAGE' | 'MUSIC'
   url: string
@@ -30,12 +27,10 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       !isInstalledPWA()
   )
   const [showMobileControls, setShowMobileControls] = useState(false)
-  const [isBuffering, setIsBuffering] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const fullscreenRef = useRef<HTMLDivElement>(null)
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
-  const initialPlayStartedRef = useRef(false)
 
   // Stop all video/audio when navigating away (popstate, observer, cleanup).
   // Back button and other nav call stopAllMedia() before navigation - see MediaPageClient and @/lib/mediaStop.
@@ -73,7 +68,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // PC: restore 085ac6d — start on canplay (or 100ms). Mobile: block buffering — wait for 1.5s buffer then play.
+  // YouTube-style: start as soon as the browser can play (canplay). No custom buffer wait — minimal latency on mobile and desktop.
   useEffect(() => {
     const video = videoRef.current
     if (!video || type !== 'VIDEO' || !isMounted) return
@@ -109,61 +104,13 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       }
     }
 
-    if (isMobileBrowser) {
-      initialPlayStartedRef.current = false
-      setIsBuffering(true)
-
-      const checkBufferAndPlay = () => {
-        if (initialPlayStartedRef.current) return
-        const buffered = video.buffered
-        if (buffered.length === 0) return
-        const bufferedEnd = buffered.end(0)
-        const bufferedAhead = bufferedEnd - video.currentTime
-        const duration = video.duration
-        const required = INITIAL_BUFFER_SECONDS_MOBILE
-        const enoughBuffer =
-          bufferedAhead >= required ||
-          (Number.isFinite(duration) && duration < required && bufferedAhead >= 0.5)
-        if (enoughBuffer) {
-          initialPlayStartedRef.current = true
-          setIsBuffering(false)
-          tryAutoplay()
-        }
-      }
-
-      const onProgress = () => checkBufferAndPlay()
-      const onCanPlay = () => checkBufferAndPlay()
-      const onPlaying = () => setIsBuffering(false)
-
-      video.addEventListener('progress', onProgress)
-      video.addEventListener('canplay', onCanPlay)
-      video.addEventListener('playing', onPlaying)
-      checkBufferAndPlay()
-      const maxWaitId = setTimeout(() => {
-        if (!initialPlayStartedRef.current) {
-          initialPlayStartedRef.current = true
-          setIsBuffering(false)
-          tryAutoplay()
-        }
-      }, 5000)
-
-      return () => {
-        clearTimeout(maxWaitId)
-        video.removeEventListener('progress', onProgress)
-        video.removeEventListener('canplay', onCanPlay)
-        video.removeEventListener('playing', onPlaying)
-      }
-    }
-
-    // Desktop (and PWA): 085ac6d — start as soon as canplay or after 100ms if already ready
-    setIsBuffering(false)
     const timeoutId = setTimeout(() => {
       if (video.readyState >= 3) {
         tryAutoplay()
       } else {
         video.addEventListener('canplay', tryAutoplay, { once: true })
       }
-    }, 100)
+    }, 0)
     return () => clearTimeout(timeoutId)
   }, [type, url, isMounted])
 
@@ -281,14 +228,6 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
                   <path d="M8 5v14l11-7z" />
                 </svg>
               </div>
-            </div>
-          )}
-          {isBuffering && (
-            <div
-              className="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-sm z-10"
-              style={{ zIndex: 2 }}
-            >
-              Buffering…
             </div>
           )}
           <video
