@@ -192,12 +192,11 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error('Error fetching media:', error)
-    // Return detailed error in development
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
       { 
         error: 'Failed to fetch media',
-        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+        details: errorMessage, // Temporarily expose error details for debugging
         media: [],
         pagination: { page: 1, limit: 20, total: 0, totalPages: 0 }
       },
