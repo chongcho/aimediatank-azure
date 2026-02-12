@@ -23,7 +23,7 @@ export async function GET(request: Request) {
         processingStatus: 'pending',
       },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, title: true, createdAt: true, cropData: true },
+      select: { id: true, title: true, createdAt: true, cropData: true, trimStart: true, trimEnd: true },
     })
 
     if (!pendingMedia) {
@@ -61,11 +61,16 @@ export async function GET(request: Request) {
 
     console.log(`[ProcessVideos] Starting processing for "${pendingMedia.title}" (${pendingMedia.id})`)
 
-    // Parse optional crop data stored at upload time
+    // Parse optional crop and trim stored at upload time
     const cropData = pendingMedia.cropData as { x: number; y: number; width: number; height: number } | null
+    const trimStart = pendingMedia.trimStart != null ? Number(pendingMedia.trimStart) : undefined
+    const trimEnd = pendingMedia.trimEnd != null ? Number(pendingMedia.trimEnd) : undefined
+    const trimData = trimStart != null && trimEnd != null && trimEnd > trimStart
+      ? { start: trimStart, end: trimEnd }
+      : undefined
 
     // Process the video (this will update status to 'processing' → 'completed' or 'failed')
-    await processMedia(pendingMedia.id, cropData || undefined)
+    await processMedia(pendingMedia.id, cropData || undefined, trimData)
 
     return NextResponse.json({
       status: 'processed',

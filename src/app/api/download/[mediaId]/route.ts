@@ -145,8 +145,11 @@ export async function GET(
     let downloadBlobUrl: string
     if (media.type === 'VIDEO' && versions.length > 0) {
       if (isOwner || hasPurchased) {
-        if (paidQuality === 'hq' && (media as any).urlHq) downloadBlobUrl = (media as any).urlHq
-        else if (paidQuality === '1080p') {
+        if (paidQuality === 'hq') {
+          // Prefer urlHq when present; otherwise use best available version (versions ordered by height asc)
+          const bestVersion = versions[versions.length - 1]
+          downloadBlobUrl = (media as any).urlHq ?? bestVersion?.url ?? media.url
+        } else if (paidQuality === '1080p') {
           const v = versions.find((v: any) => v.height === 1080)
           downloadBlobUrl = v?.url ?? (media as any).urlHq ?? media.url
         } else {

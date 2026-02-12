@@ -41,6 +41,8 @@ export async function POST(request: Request) {
       price,
       isPublic = true,
       cropData,   // { x, y, width, height } from crop tool — applied server-side by FFmpeg
+      trimStart,
+      trimEnd,
     } = body
 
     // Validate required fields
@@ -133,8 +135,9 @@ export async function POST(request: Request) {
         type: 'upload_fee',
         pendingUploadId: pendingUpload.id,
         mediaTitle: title,
-        // Store crop data as JSON string in metadata for server-side FFmpeg processing
+        // Store crop and trim in metadata for server-side FFmpeg processing
         ...(type === 'VIDEO' && cropData ? { cropData: JSON.stringify(cropData) } : {}),
+        ...(type === 'VIDEO' && typeof trimStart === 'number' && typeof trimEnd === 'number' ? { trimStart: String(trimStart), trimEnd: String(trimEnd) } : {}),
       },
     })
 

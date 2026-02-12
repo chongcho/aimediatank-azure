@@ -237,12 +237,14 @@ interface TranscodeResult {
 /**
  * Transcode a video into multiple resolutions (YouTube-style) + HQ.
  * If cropData is provided, it is applied before scaling.
+ * If trimData is provided, only the segment [start, end] is encoded (-ss before -i for fast seek).
  */
 async function transcodeVideo(
   rawLocalPath: string,
   baseBlobName: string,
   existingThumbnail: string | null,
   cropData?: { x: number; y: number; width: number; height: number },
+  trimData?: { start: number; end: number },
 ): Promise<TranscodeResult> {
   const probe = await probeVideo(rawLocalPath)
   const effectiveHeight = cropData
@@ -251,6 +253,13 @@ async function transcodeVideo(
   console.log(`[MediaProcessor] Probe: ${probe.width}x${probe.height}, effective=${effectiveHeight}, audio=${probe.hasAudio}`)
   if (cropData) {
     console.log(`[MediaProcessor] Crop: x=${cropData.x}, y=${cropData.y}, w=${cropData.width}, h=${cropData.height}`)
+  }
+  const trimDuration = trimData && trimData.end > trimData.start ? trimData.end - trimData.start : 0
+  const trimArgs = trimDuration > 0
+    ? ['-ss', String(trimData!.start), '-t', String(trimDuration)]
+    : []
+  if (trimDuration > 0) {
+    console.log(`[MediaProcessor] Trim: ${trimData!.start}s–${trimData!.end}s (${trimDuration.toFixed(1)}s)`)
   }
 
   const dir = join(tmpdir(), 'media-processor')
@@ -281,6 +290,7 @@ async function transcodeVideo(
     const label = height === 1080 ? '1080p' : `${height}p`
     const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
     const args = [
+      ...trimArgs,
       '-i', rawLocalPath, '-y',
       ...buildVideoFilter(effectiveHeight > height ? height : undefined),
       '-c:v', 'libx264', '-preset', height <= 480 ? 'fast' : 'medium',
@@ -302,6 +312,7 @@ async function transcodeVideo(
   const hqLabel = hqHeight >= 2160 ? '4K' : hqHeight >= 1080 ? '1080p' : hqHeight >= 720 ? '720p' : 'HQ'
   const hqPath = join(dir, `${baseBlobName}-hq.mp4`)
   const argsHq = [
+    ...trimArgs,
     '-i', rawLocalPath, '-y', ...buildVideoFilter(),
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '18',
     ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '256k'] : ['-an']),
@@ -320,7 +331,9 @@ async function transcodeVideo(
   let thumbnailUrl = existingThumbnail
   if (!existingThumbnail) {
     const thumbPath = join(dir, `${baseBlobName}-thumb.jpg`)
-    const seekTime = Math.min(probe.duration * 0.1, 5)
+    const seekTime = trimDuration > 0
+      ? trimData!.start + Math.min(trimDuration * 0.1, 2)
+      : Math.min(probe.duration * 0.1, 5)
     const thumbFilters: string[] = []
     if (cropData) {
       const cx = Math.max(0, Math.round(cropData.x))
@@ -368,6 +381,7 @@ async function safeUnlink(p: string) {
 export async function processMedia(
   mediaId: string,
   cropData?: { x: number; y: number; width: number; height: number },
+  trimData?: { start: number; end: number },
 ): Promise<void> {
   console.log(`[MediaProcessor] Starting processing for media ${mediaId}`)
 
@@ -406,8 +420,8 @@ export async function processMedia(
     const rawLocalPath = await downloadBlob(rawUrl)
 
     try {
-      // Transcode (with optional crop) — multiple resolutions + HQ
-      const result = await transcodeVideo(rawLocalPath, baseName, media.thumbnailUrl, cropData)
+      // Transcode (with optional crop and trim) — multiple resolutions + HQ
+      const result = await transcodeVideo(rawLocalPath, baseName, media.thumbnailUrl, cropData, trimData)
 
       // Replace any existing variants (e.g. from older pipeline) and create new ones
       await prisma.mediaVersion.deleteMany({ where: { mediaId } })

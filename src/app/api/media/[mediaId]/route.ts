@@ -105,8 +105,11 @@ export async function GET(
       const versions = (media as any).versions || []
 
       if (isOwner || hasPurchased) {
-        if (paidQuality === 'hq' && (media as any).urlHq) streamUrl = (media as any).urlHq
-        else if (paidQuality === '1080p') {
+        if (paidQuality === 'hq') {
+          // Prefer urlHq when present; otherwise use best available version (versions ordered by height asc)
+          const bestVersion = versions[versions.length - 1]
+          streamUrl = (media as any).urlHq ?? bestVersion?.url ?? media.url
+        } else if (paidQuality === '1080p') {
           const v = versions.find((v: any) => v.height === 1080)
           streamUrl = v?.url ?? (media as any).urlHq ?? media.url
         } else {

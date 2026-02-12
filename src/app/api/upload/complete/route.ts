@@ -335,6 +335,8 @@ export async function POST(request: Request) {
       price,
       isPublic = true,
       cropData,   // { x, y, width, height } from crop tool — applied server-side by FFmpeg
+      trimStart,  // video trim start (seconds)
+      trimEnd,    // video trim end (seconds)
     } = body
 
     if (!title || !type || !url) {
@@ -374,6 +376,8 @@ export async function POST(request: Request) {
         userId: session.user.id,
         processingStatus: isVideoUpload ? 'pending' : 'completed',
         cropData: isVideoUpload && cropData ? cropData : undefined,
+        trimStart: isVideoUpload && (typeof trimStart === 'number' || typeof trimStart === 'string') && !Number.isNaN(Number(trimStart)) && Number(trimStart) >= 0 ? Number(trimStart) : undefined,
+        trimEnd: isVideoUpload && (typeof trimEnd === 'number' || typeof trimEnd === 'string') && !Number.isNaN(Number(trimEnd)) && Number(trimEnd) > 0 ? Number(trimEnd) : undefined,
       },
       include: {
         user: {

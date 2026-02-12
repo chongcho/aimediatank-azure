@@ -131,6 +131,10 @@ export async function POST(request: Request) {
             cropData = JSON.parse(session.metadata.cropData)
           }
         } catch { /* ignore parse errors */ }
+        const trimStartVal = session.metadata.trimStart != null && session.metadata.trimStart !== '' ? parseFloat(String(session.metadata.trimStart)) : NaN
+        const trimEndVal = session.metadata.trimEnd != null && session.metadata.trimEnd !== '' ? parseFloat(String(session.metadata.trimEnd)) : NaN
+        const trimStart = Number.isNaN(trimStartVal) ? undefined : trimStartVal
+        const trimEnd = Number.isNaN(trimEndVal) ? undefined : trimEndVal
         
         console.log(`Processing upload_fee payment for userId: ${userId}, pendingUploadId: ${pendingUploadId}`)
         
@@ -163,6 +167,8 @@ export async function POST(request: Request) {
               userId: pendingUpload.userId,
               processingStatus: isVideoUpload ? 'pending' : 'completed',
               cropData: isVideoUpload && cropData ? cropData : undefined,
+              trimStart: isVideoUpload && typeof trimStart === 'number' && trimStart >= 0 ? trimStart : undefined,
+              trimEnd: isVideoUpload && typeof trimEnd === 'number' && trimEnd > 0 ? trimEnd : undefined,
             },
           })
           

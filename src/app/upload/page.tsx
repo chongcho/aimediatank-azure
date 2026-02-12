@@ -63,6 +63,10 @@ function UploadPageContent() {
   const skipCompressionRef = useRef(false)
   const [videoSize, setVideoSize] = useState<{ width: number; height: number } | null>(null)
   const [videoCrop, setVideoCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  const [cropAspectRatio, setCropAspectRatio] = useState<string | null>(null) // e.g. '16:9', '9:16', null = free
+  const [videoDuration, setVideoDuration] = useState<number | null>(null) // seconds, for trim
+  const [videoTrimStart, setVideoTrimStart] = useState(0)
+  const [videoTrimEnd, setVideoTrimEnd] = useState(0) // set from duration when video loads
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -160,6 +164,34 @@ function UploadPageContent() {
     setCropAreaPixels({ x: left, y: top, width, height })
   }, [cropInsets, mediaSize, renderBox])
 
+  // Apply aspect ratio preset: set a centered crop with the selected ratio.
+  const applyCropAspectRatio = (ratioKey: string | null) => {
+    if (!mediaSize || !ratioKey) return
+    const [num, den] = ratioKey.split(':').map(Number)
+    if (!num || !den) return
+    const R = num / den
+    const maxW = mediaSize.width
+    const maxH = mediaSize.height
+    let width: number
+    let height: number
+    if (maxW / maxH > R) {
+      height = maxH
+      width = Math.min(maxW, Math.round(height * R))
+      height = Math.round(width / R)
+    } else {
+      width = maxW
+      height = Math.min(maxH, Math.round(width / R))
+      width = Math.round(height * R)
+    }
+    width = Math.max(minCropSize, Math.min(width, maxW))
+    height = Math.max(minCropSize, Math.min(height, maxH))
+    const left = Math.round((maxW - width) / 2)
+    const right = maxW - width - left
+    const top = Math.round((maxH - height) / 2)
+    const bottom = maxH - height - top
+    setCropInsets({ left, right, top, bottom })
+  }
+
   const fetchUploadQuota = async () => {
     try {
       setQuotaLoading(true)
@@ -237,6 +269,9 @@ function UploadPageContent() {
           isPublic: formData.isPublic,
           // Pass crop coordinates for server-side FFmpeg processing (video only)
           ...(formData.type === 'VIDEO' && videoCrop ? { cropData: videoCrop } : {}),
+          ...(formData.type === 'VIDEO' && videoDuration != null && (videoTrimStart > 0 || videoTrimEnd < videoDuration)
+            ? { trimStart: videoTrimStart, trimEnd: videoTrimEnd }
+            : {}),
         }),
       })
       
@@ -311,6 +346,7 @@ function UploadPageContent() {
           setPreview(src)
           if (cropEnabled) {
             console.log('Image loaded, showing cropper')
+            setCropAspectRatio(null)
             setCropSource(src)
             setCropMediaType('image')
             setShowCropper(true)
@@ -330,25 +366,36 @@ function UploadPageContent() {
 
         if (!cropEnabled) {
           // Crop disabled — just generate thumbnail for upload preview
-          generateVideoThumbnail(selectedFile).then(async (thumbFile) => {
+          generateVideoThumbnail(selectedFile).then(async (result) => {
             if (fileChangeTokenRef.current !== changeToken) return
-            if (thumbFile) setThumbnail(thumbFile)
+            if (result.file) setThumbnail(result.file)
+            if (result.duration > 0) {
+              setVideoDuration(result.duration)
+              setVideoTrimStart(0)
+              setVideoTrimEnd(result.duration)
+            }
           })
         } else {
           // Crop enabled — generate thumbnail and show crop tool
-          generateVideoThumbnail(selectedFile).then(async (thumbFile) => {
+          generateVideoThumbnail(selectedFile).then(async (result) => {
             if (fileChangeTokenRef.current !== changeToken) return
-            if (!thumbFile) {
+            if (!result.file) {
               console.log('No thumbnail generated for video - skipping crop tool')
               setCropSource(null)
               setShowCropper(false)
               return
             }
-            setThumbnail(thumbFile)
+            setThumbnail(result.file)
+            if (result.duration > 0) {
+              setVideoDuration(result.duration)
+              setVideoTrimStart(0)
+              setVideoTrimEnd(result.duration)
+            }
             try {
-              const thumbSrc = await readFileAsDataUrl(thumbFile)
+              const thumbSrc = await readFileAsDataUrl(result.file)
               if (fileChangeTokenRef.current !== changeToken) return
               console.log('Video thumbnail loaded, showing cropper')
+              setCropAspectRatio(null)
               setCropSource(thumbSrc)
               setShowCropper(true)
             } catch (err) {
@@ -419,6 +466,11 @@ function UploadPageContent() {
     setFile(originalFile)
     setShowCropper(false)
     setVideoCrop(null)
+    setCropAspectRatio(null)
+    if (videoDuration != null) {
+      setVideoTrimStart(0)
+      setVideoTrimEnd(videoDuration)
+    }
     skipCompressionRef.current = true // bypass re-encoding, upload raw file
   }
 
@@ -460,8 +512,8 @@ function UploadPageContent() {
     setShowCropper(false)
   }
 
-  // Generate thumbnail from video file
-  const generateVideoThumbnail = async (videoFile: File): Promise<File | null> => {
+  // Generate thumbnail from video file; returns file and duration for crop/trim UI
+  const generateVideoThumbnail = async (videoFile: File): Promise<{ file: File | null; duration: number }> => {
     try {
       const video = document.createElement('video')
       video.preload = 'auto'
@@ -475,15 +527,16 @@ function UploadPageContent() {
       // Scale timeout by file size: base 15s + 1s per 10MB, capped at 60s
       const timeoutMs = Math.min(60000, 15000 + Math.round((videoFile.size / (10 * 1024 * 1024)) * 1000))
 
-      const thumbnailFile = await new Promise<File | null>((resolve) => {
+      const result = await new Promise<{ file: File | null; duration: number }>((resolve) => {
         let resolved = false
-        
+        let duration = 0
+
         const timeout = setTimeout(() => {
           if (!resolved) {
             resolved = true
             console.log('Video thumbnail generation timed out')
             URL.revokeObjectURL(videoUrl)
-            resolve(null)
+            resolve({ file: null, duration: 0 })
           }
         }, timeoutMs)
 
@@ -535,9 +588,10 @@ function UploadPageContent() {
               console.log('Video dimensions unavailable for thumbnail')
               cleanup()
               resolved = true
-              resolve(null)
+              resolve({ file: null, duration: 0 })
               return
             }
+            duration = video.duration
             setVideoSize({ width: Math.round(sourceWidth), height: Math.round(sourceHeight) })
             const canvas = document.createElement('canvas')
             const maxWidth = 640
@@ -562,9 +616,9 @@ function UploadPageContent() {
                   resolved = true
                   cleanup()
                   if (blob) {
-                    resolve(new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' }))
+                    resolve({ file: new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' }), duration })
                   } else {
-                    resolve(null)
+                    resolve({ file: null, duration: 0 })
                   }
                 },
                 'image/jpeg',
@@ -573,14 +627,14 @@ function UploadPageContent() {
             } else {
               resolved = true
               cleanup()
-              resolve(null)
+              resolve({ file: null, duration: 0 })
             }
           } catch (err) {
             console.log('Could not generate video thumbnail:', err)
             if (!resolved) {
               resolved = true
               cleanup()
-              resolve(null)
+              resolve({ file: null, duration: 0 })
             }
           }
         }
@@ -671,7 +725,7 @@ function UploadPageContent() {
           if (!resolved) {
             resolved = true
             cleanup()
-            resolve(null)
+            resolve({ file: null, duration: 0 })
           }
         }
 
@@ -679,16 +733,21 @@ function UploadPageContent() {
         video.load()
       })
 
-      if (thumbnailFile) {
-        setThumbnail(thumbnailFile)
+      if (result.file) {
+        setThumbnail(result.file)
         console.log('Auto-generated video thumbnail')
       }
+      if (result.duration > 0) {
+        setVideoDuration(result.duration)
+        setVideoTrimStart(0)
+        setVideoTrimEnd(result.duration)
+      }
 
-      return thumbnailFile
+      return result
     } catch (err) {
       console.log('Error generating video thumbnail:', err)
     }
-    return null
+    return { file: null, duration: 0 }
   }
 
   // Upload file to Azure Blob Storage using SAS token
@@ -836,8 +895,11 @@ function UploadPageContent() {
           realDevice: formData.realDevice,
           price: formData.price || null,
           isPublic: formData.isPublic,
-          // Pass crop coordinates for server-side FFmpeg processing (video only)
+          // Pass crop and trim for server-side FFmpeg processing (video only)
           ...(formData.type === 'VIDEO' && videoCrop ? { cropData: videoCrop } : {}),
+          ...(formData.type === 'VIDEO' && videoDuration != null && (videoTrimStart > 0 || videoTrimEnd < videoDuration)
+            ? { trimStart: videoTrimStart, trimEnd: videoTrimEnd }
+            : {}),
         }),
       })
 
@@ -1174,6 +1236,70 @@ function UploadPageContent() {
                     </div>
                   )}
                 </div>
+                {/* Aspect ratio preset (crop to common ratios) */}
+                {mediaSize && (
+                  <div className="mt-3 sm:mt-4">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1.5">Ratio</label>
+                    <select
+                      value={cropAspectRatio ?? 'free'}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        const key = v === 'free' ? null : v
+                        setCropAspectRatio(key)
+                        if (key) applyCropAspectRatio(key)
+                      }}
+                      className="w-full sm:max-w-xs bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white text-sm"
+                    >
+                      <option value="free">Free (no constraint)</option>
+                      <option value="16:9">Wide 16:9 — YouTube and streaming</option>
+                      <option value="9:16">Vertical 9:16 — Reels and TikTok</option>
+                      <option value="1:1">Square 1:1 — Instagram posts</option>
+                      <option value="4:3">Classic 4:3</option>
+                      <option value="4:5">Social 4:5</option>
+                      <option value="21:9">Cinema 21:9</option>
+                      <option value="2:3">Portrait 2:3</option>
+                    </select>
+                  </div>
+                )}
+                {/* Trim (video only) */}
+                {cropMediaType === 'video' && videoDuration != null && videoDuration > 0 && (
+                  <div className="mt-3 sm:mt-4 space-y-2">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-300">Trim</label>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-400 text-xs">Start</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={Math.max(0, videoDuration - 0.1)}
+                          step={0.1}
+                          value={videoTrimStart}
+                          onChange={(e) => {
+                            const v = Number(e.target.value)
+                            setVideoTrimStart(v)
+                            if (videoTrimEnd < v) setVideoTrimEnd(v)
+                          }}
+                          className="w-full mt-1"
+                        />
+                        <span className="text-white text-xs tabular-nums">{Math.floor(videoTrimStart / 60)}:{String(Math.floor(videoTrimStart % 60)).padStart(2, '0')}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 text-xs">End</span>
+                        <input
+                          type="range"
+                          min={videoTrimStart}
+                          max={videoDuration}
+                          step={0.1}
+                          value={videoTrimEnd}
+                          onChange={(e) => setVideoTrimEnd(Number(e.target.value))}
+                          className="w-full mt-1"
+                        />
+                        <span className="text-white text-xs tabular-nums">{Math.floor(videoTrimEnd / 60)}:{String(Math.floor(videoTrimEnd % 60)).padStart(2, '0')}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500">Only this segment will be kept (re-encoded).</p>
+                  </div>
+                )}
                 {mediaSize && (
                   <div className="grid grid-cols-1 gap-1.5 sm:gap-2 mt-3 sm:mt-4 text-sm text-gray-300">
                     <div className="flex items-center gap-2 sm:gap-3">
@@ -1331,7 +1457,7 @@ function UploadPageContent() {
                 )}
                 {cropMediaType === 'video' && (
                   <p className="text-xs text-gray-400 mt-2">
-                    Upload Edit applies this crop to the uploaded video (re-encoded) and thumbnail.
+                    Upload applies this crop to the uploaded video (re-encoded) and thumbnail.
                   </p>
                 )}
                 <div className="flex flex-col sm:flex-row gap-3 justify-end mt-6">
@@ -1340,14 +1466,14 @@ function UploadPageContent() {
                     onClick={handleUseOriginal}
                     className="px-6 py-2 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all"
                   >
-                    Upload Original
+                    Reset to Original
                   </button>
                   <button
                     type="button"
                     onClick={handleUseEdited}
                     className="px-6 py-2 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all"
                   >
-                    Upload Edit
+                    Upload
                   </button>
                 </div>
               </div>
