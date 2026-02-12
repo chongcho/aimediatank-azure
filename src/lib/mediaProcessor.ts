@@ -4,11 +4,10 @@
  * Lifecycle (YouTube-style):
  *   1. Client uploads raw file → Azure Blob Storage
  *   2. DB record created with processingStatus = 'pending'
- *   3. This module downloads the raw blob, transcodes via FFmpeg:
- *        - 720p  (free streaming)   → stored as  <uuid>-720p.mp4
- *        - HQ    (paid / original)  → stored as  <uuid>-hq.mp4
- *        - Thumbnail (if video)     → stored as  <uuid>-thumb.jpg
- *   4. DB record updated: url → 720p, urlHq → HQ, processingStatus → 'completed'
+ *   3. This module downloads the raw blob, transcodes via FFmpeg into multiple resolutions:
+ *        - 144p, 240p, 360p, 480p, 720p, 1080p (when source is tall enough) + HQ (source)
+ *        - Thumbnail (if video) → <uuid>-thumb.jpg
+ *   4. MediaVersion rows created per resolution with url + fileSize; media.url = 720p, media.urlHq = HQ
  *   5. Raw blob deleted
  */
 
@@ -218,17 +217,26 @@ async function probeVideo(filePath: string): Promise<ProbeResult> {
 // Core transcoding
 // ---------------------------------------------------------------------------
 
+// YouTube-style: 144p up to 1080p + HQ (source). Only encode heights <= source (no upscale).
+const TARGET_HEIGHTS = [144, 240, 360, 480, 720, 1080] as const
+
+export interface VariantResult {
+  label: string
+  height: number
+  url: string
+  fileSize: number
+}
+
 interface TranscodeResult {
-  url720p: string    // blob URL for 720p version
-  urlHq: string      // blob URL for HQ version
+  variants: VariantResult[]
+  url720p: string
+  urlHq: string
   thumbnailUrl: string | null
-  fileSize720p: number
-  fileSizeHq: number
 }
 
 /**
- * Transcode a video file into 720p (free) and HQ (paid) versions.
- * If cropData is provided, it will be applied as a crop filter before scaling.
+ * Transcode a video into multiple resolutions (YouTube-style) + HQ.
+ * If cropData is provided, it is applied before scaling.
  */
 async function transcodeVideo(
   rawLocalPath: string,
@@ -237,138 +245,99 @@ async function transcodeVideo(
   cropData?: { x: number; y: number; width: number; height: number },
 ): Promise<TranscodeResult> {
   const probe = await probeVideo(rawLocalPath)
-  console.log(`[MediaProcessor] Probe: ${probe.width}x${probe.height}, ${probe.duration}s, audio=${probe.hasAudio}`)
+  const effectiveHeight = cropData
+    ? Math.min(Math.round(cropData.height), probe.height - Math.max(0, Math.round(cropData.y)))
+    : probe.height
+  console.log(`[MediaProcessor] Probe: ${probe.width}x${probe.height}, effective=${effectiveHeight}, audio=${probe.hasAudio}`)
   if (cropData) {
     console.log(`[MediaProcessor] Crop: x=${cropData.x}, y=${cropData.y}, w=${cropData.width}, h=${cropData.height}`)
   }
 
   const dir = join(tmpdir(), 'media-processor')
 
-  // Build video filter chain: crop (if set) → scale (if needed)
-  // FFmpeg crop filter: crop=out_w:out_h:x:y
   const buildVideoFilter = (scaleHeight?: number): string[] => {
     const filters: string[] = []
-
     if (cropData) {
-      // Clamp crop values to video dimensions
       const cx = Math.max(0, Math.round(cropData.x))
       const cy = Math.max(0, Math.round(cropData.y))
       const cw = Math.min(Math.round(cropData.width), probe.width - cx)
       const ch = Math.min(Math.round(cropData.height), probe.height - cy)
-      if (cw > 0 && ch > 0) {
-        filters.push(`crop=${cw}:${ch}:${cx}:${cy}`)
-      }
+      if (cw > 0 && ch > 0) filters.push(`crop=${cw}:${ch}:${cx}:${cy}`)
     }
-
-    if (scaleHeight) {
-      filters.push(`scale=-2:${scaleHeight}`)
-    }
-
+    if (scaleHeight) filters.push(`scale=-2:${scaleHeight}`)
     return filters.length > 0 ? ['-vf', filters.join(',')] : []
   }
 
-  // --- 720p version (free streaming) ---
-  const path720p = join(dir, `${baseBlobName}-720p.mp4`)
-  // For 720p, check the effective height after crop (clamped the same way as buildVideoFilter)
-  const effectiveHeight = cropData
-    ? Math.min(Math.round(cropData.height), probe.height - Math.max(0, Math.round(cropData.y)))
-    : probe.height
-  const needs720pScale = effectiveHeight > 720
+  const variants: VariantResult[] = []
 
-  const args720p: string[] = [
-    '-i', rawLocalPath,
-    '-y', // overwrite
-    ...buildVideoFilter(needs720pScale ? 720 : undefined),
-    '-c:v', 'libx264',
-    '-preset', 'medium',
-    '-crf', '23',
-    ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '128k'] : ['-an']),
-    '-movflags', '+faststart',
-    '-max_muxing_queue_size', '1024',
-    path720p,
-  ]
+  // 1) Encoded resolutions: only where source height >= target (no upscale)
+  for (const height of TARGET_HEIGHTS) {
+    if (effectiveHeight < height) continue
+    const label = height === 1080 ? '1080p' : `${height}p`
+    const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
+    const args = [
+      '-i', rawLocalPath, '-y',
+      ...buildVideoFilter(effectiveHeight > height ? height : undefined),
+      '-c:v', 'libx264', '-preset', height <= 480 ? 'fast' : 'medium',
+      '-crf', height <= 360 ? '26' : '23',
+      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', height <= 360 ? '96k' : '128k'] : ['-an']),
+      '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
+      outPath,
+    ]
+    await runFfmpeg(args)
+    const url = await uploadBlob(outPath, `${baseBlobName}-${label}.mp4`, 'video/mp4')
+    const fileSize = (await readFile(outPath)).length
+    await safeUnlink(outPath)
+    variants.push({ label, height, url, fileSize })
+    console.log(`[MediaProcessor] ${label}: ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
+  }
 
-  await runFfmpeg(args720p)
-
-  // --- HQ version (paid download / source quality) ---
-  const path4k = join(dir, `${baseBlobName}-hq.mp4`)
-
-  // Never upscale: keep source resolution (or cropped resolution), encode with high quality H.264
-  const args4k: string[] = [
-    '-i', rawLocalPath,
-    '-y',
-    ...buildVideoFilter(), // crop only (no scale) for HQ
-    '-c:v', 'libx264',
-    '-preset', 'slow',
-    '-crf', '18',
+  // 2) HQ (source resolution, high quality)
+  const hqHeight = effectiveHeight
+  const hqLabel = hqHeight >= 2160 ? '4K' : hqHeight >= 1080 ? '1080p' : hqHeight >= 720 ? '720p' : 'HQ'
+  const hqPath = join(dir, `${baseBlobName}-hq.mp4`)
+  const argsHq = [
+    '-i', rawLocalPath, '-y', ...buildVideoFilter(),
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', '18',
     ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '256k'] : ['-an']),
-    '-movflags', '+faststart',
-    '-max_muxing_queue_size', '1024',
-    path4k,
+    '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
+    hqPath,
   ]
+  await runFfmpeg(argsHq)
+  const urlHq = await uploadBlob(hqPath, `${baseBlobName}-hq.mp4`, 'video/mp4')
+  const fileSizeHq = (await readFile(hqPath)).length
+  await safeUnlink(hqPath)
+  variants.push({ label: 'HQ', height: hqHeight, url: urlHq, fileSize: fileSizeHq })
 
-  await runFfmpeg(args4k)
+  const url720p = variants.find(v => v.height === 720)?.url ?? variants[0]?.url ?? urlHq
 
-  // --- Thumbnail (only if one doesn't already exist) ---
+  // 3) Thumbnail
   let thumbnailUrl = existingThumbnail
-  let thumbBlobUrl: string | null = null
-
   if (!existingThumbnail) {
     const thumbPath = join(dir, `${baseBlobName}-thumb.jpg`)
-    const seekTime = Math.min(probe.duration * 0.1, 5) // 10% into video, max 5s
-
-    // Build thumbnail filter: crop (if set) + scale to 640px wide
+    const seekTime = Math.min(probe.duration * 0.1, 5)
     const thumbFilters: string[] = []
     if (cropData) {
       const cx = Math.max(0, Math.round(cropData.x))
       const cy = Math.max(0, Math.round(cropData.y))
       const cw = Math.min(Math.round(cropData.width), probe.width - cx)
       const ch = Math.min(Math.round(cropData.height), probe.height - cy)
-      if (cw > 0 && ch > 0) {
-        thumbFilters.push(`crop=${cw}:${ch}:${cx}:${cy}`)
-      }
+      if (cw > 0 && ch > 0) thumbFilters.push(`crop=${cw}:${ch}:${cx}:${cy}`)
     }
     thumbFilters.push('scale=640:-2')
-
-    const argsThumb: string[] = [
-      '-i', rawLocalPath,
-      '-y',
-      '-ss', seekTime.toString(),
-      '-frames:v', '1',
-      '-vf', thumbFilters.join(','),
-      '-q:v', '3',
-      thumbPath,
-    ]
-
     try {
-      await runFfmpeg(argsThumb)
-      thumbBlobUrl = await uploadBlob(thumbPath, `${baseBlobName}-thumb.jpg`, 'image/jpeg')
-      thumbnailUrl = thumbBlobUrl
+      await runFfmpeg([
+        '-i', rawLocalPath, '-y', '-ss', seekTime.toString(), '-frames:v', '1',
+        '-vf', thumbFilters.join(','), '-q:v', '3', thumbPath,
+      ])
+      thumbnailUrl = await uploadBlob(thumbPath, `${baseBlobName}-thumb.jpg`, 'image/jpeg')
       await safeUnlink(thumbPath)
     } catch (e) {
       console.error('[MediaProcessor] Thumbnail generation failed (non-fatal):', e)
     }
   }
 
-  // Upload transcoded files
-  const url720p = await uploadBlob(path720p, `${baseBlobName}-720p.mp4`, 'video/mp4')
-  const urlHq = await uploadBlob(path4k, `${baseBlobName}-hq.mp4`, 'video/mp4')
-
-  // Get file sizes
-  const data720p = await readFile(path720p)
-  const dataHq = await readFile(path4k)
-
-  // Clean up temp files
-  await safeUnlink(path720p)
-  await safeUnlink(path4k)
-
-  return {
-    url720p,
-    urlHq,
-    thumbnailUrl,
-    fileSize720p: data720p.length,
-    fileSizeHq: dataHq.length,
-  }
+  return { variants, url720p, urlHq, thumbnailUrl }
 }
 
 async function safeUnlink(p: string) {
@@ -432,38 +401,41 @@ export async function processMedia(
     const rawLocalPath = await downloadBlob(rawUrl)
 
     try {
-      // Transcode (with optional crop)
+      // Transcode (with optional crop) — multiple resolutions + HQ
       const result = await transcodeVideo(rawLocalPath, baseName, media.thumbnailUrl, cropData)
 
-      // Update DB: url → 720p (free), urlHq → HQ (paid), status → completed
+      // Replace any existing variants (e.g. from older pipeline) and create new ones
+      await prisma.mediaVersion.deleteMany({ where: { mediaId } })
+      for (const v of result.variants) {
+        await prisma.mediaVersion.create({
+          data: {
+            mediaId,
+            label: v.label,
+            height: v.height,
+            url: v.url,
+            fileSize: BigInt(v.fileSize),
+          },
+        })
+      }
+
+      const hqVariant = result.variants.find(v => v.label === 'HQ')
       const updateData: any = {
         url: result.url720p,
         urlHq: result.urlHq,
         processingStatus: 'completed',
         processingError: null,
       }
-
-      // Update thumbnail if we generated one
-      if (result.thumbnailUrl && !media.thumbnailUrl) {
-        updateData.thumbnailUrl = result.thumbnailUrl
-      }
-
-      // Store HQ file size (the higher quality one is more representative)
-      if (result.fileSizeHq > 0) {
-        updateData.fileSize = BigInt(result.fileSizeHq)
-      }
+      if (result.thumbnailUrl && !media.thumbnailUrl) updateData.thumbnailUrl = result.thumbnailUrl
+      if (hqVariant && hqVariant.fileSize > 0) updateData.fileSize = BigInt(hqVariant.fileSize)
 
       await prisma.media.update({
         where: { id: mediaId },
         data: updateData,
       })
 
-      // Delete raw blob (YouTube lifecycle: raw is no longer needed)
       await deleteBlob(rawUrl)
 
-      console.log(`[MediaProcessor] ✅ Media ${mediaId} processed successfully`)
-      console.log(`  720p: ${(result.fileSize720p / 1024 / 1024).toFixed(1)} MB`)
-      console.log(`  HQ:   ${(result.fileSizeHq / 1024 / 1024).toFixed(1)} MB`)
+      console.log(`[MediaProcessor] ✅ Media ${mediaId} processed: ${result.variants.length} versions`)
     } finally {
       // Always clean up the local raw file
       await safeUnlink(rawLocalPath)

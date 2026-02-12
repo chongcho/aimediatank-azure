@@ -125,6 +125,7 @@ model Media {
   reports       Report[]
   purchases     Purchase[]
   savedBy       SavedMedia[]
+  versions      MediaVersion[]  // per-resolution variants (YouTube-style)
 
   @@index([userId])
   @@index([type])
@@ -133,6 +134,20 @@ model Media {
   @@index([isSold])
   @@index([deleteAfter])
   @@index([isDeleted])
+}
+
+// Per-resolution video variant (YouTube-style: 144p–1080p + HQ)
+model MediaVersion {
+  id        String   @id @default(uuid())
+  mediaId   String
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  label     String   // "144p", "240p", "360p", "480p", "720p", "1080p", "HQ"
+  height    Int      // pixel height (for ordering); HQ uses source height
+  url       String   // blob URL for this variant
+  fileSize  BigInt?  // bytes
+  createdAt DateTime @default(now())
+
+  @@index([mediaId])
 }
 
 model Comment {

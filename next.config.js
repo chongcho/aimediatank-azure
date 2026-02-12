@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone', // Required for Azure App Service
+  experimental: {
+    serverComponentsExternalPackages: ['ffmpeg-static'],
+  },
   images: {
     remotePatterns: [
       {

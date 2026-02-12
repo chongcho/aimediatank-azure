@@ -416,6 +416,9 @@ export async function GET(request: Request) {
                 purchases: true,
               },
             },
+            versions: {
+              orderBy: { height: 'asc' },
+            },
           },
           orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit,
@@ -424,10 +427,14 @@ export async function GET(request: Request) {
         prisma.media.count({ where }),
       ])
 
-      // BigInt fields (eg fileSize) must be JSON-serialized explicitly
+      // BigInt fields (fileSize, versions[].fileSize) must be JSON-serialized explicitly
       const mediaJson = media.map((m: any) => ({
         ...m,
         fileSize: m.fileSize === null || m.fileSize === undefined ? null : m.fileSize.toString(),
+        versions: (m.versions || []).map((v: any) => ({
+          ...v,
+          fileSize: v.fileSize === null || v.fileSize === undefined ? null : v.fileSize.toString(),
+        })),
       }))
 
       return NextResponse.json({

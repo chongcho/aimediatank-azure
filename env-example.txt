@@ -4,9 +4,10 @@
 # Database (Azure PostgreSQL Flexible Server)
 DATABASE_URL="postgresql://USERNAME:PASSWORD@SERVER.postgres.database.azure.com:5432/DATABASE?sslmode=require"
 
-# NextAuth
+# NextAuth (required for sign-in)
+# Production: use your public URL so callbacks and cookies work (e.g. https://aimediatank.com)
 NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
-NEXTAUTH_URL="https://your-app.azurewebsites.net"
+NEXTAUTH_URL="https://aimediatank.com"
 
 # Azure Blob Storage
 AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=xxx;AccountKey=xxx;EndpointSuffix=core.windows.net"

@@ -77,6 +77,7 @@ interface Media {
     buyer: { id: string; username: string }
   }>
   _count: { reports: number; purchases: number }
+  versions?: Array<{ id: string; label: string; height: number; url: string; fileSize: string | null }>
 }
 
 interface Report {
@@ -1610,16 +1611,31 @@ export default function AdminPage() {
                           </td>
                           <td className="p-3 whitespace-nowrap">
                             {item.type === 'VIDEO' ? (
-                              <div className="text-xs space-y-0.5">
-                                <div className="flex items-center gap-1">
-                                  <span className={item.url ? 'text-green-400' : 'text-gray-600'}>720p</span>
-                                  <span className="text-gray-600">{item.url ? '✓' : '—'}</span>
+                              item.versions && item.versions.length > 0 ? (
+                                <div className="text-xs space-y-0.5 max-w-[180px]">
+                                  {item.versions.map((v) => (
+                                    <div key={v.id} className="flex items-center justify-between gap-2">
+                                      <span className={v.label === '720p' ? 'text-green-400' : v.label === 'HQ' ? 'text-blue-400' : 'text-gray-400'}>
+                                        {v.label}
+                                      </span>
+                                      <span className="text-gray-500 tabular-nums">
+                                        {v.fileSize != null ? formatBytes(v.fileSize) : '—'}
+                                      </span>
+                                    </div>
+                                  ))}
                                 </div>
-                                <div className="flex items-center gap-1">
-                                  <span className={item.urlHq ? 'text-blue-400' : 'text-gray-600'}>HQ</span>
-                                  <span className="text-gray-600">{item.urlHq ? '✓' : '—'}</span>
+                              ) : (
+                                <div className="text-xs space-y-0.5">
+                                  <div className="flex items-center gap-1">
+                                    <span className={item.url ? 'text-green-400' : 'text-gray-600'}>720p</span>
+                                    <span className="text-gray-600">{item.url ? '✓' : '—'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className={item.urlHq ? 'text-blue-400' : 'text-gray-600'}>HQ</span>
+                                    <span className="text-gray-600">{item.urlHq ? '✓' : '—'}</span>
+                                  </div>
                                 </div>
-                              </div>
+                              )
                             ) : (
                               <div className="text-xs">
                                 <span className={item.url ? 'text-green-400' : 'text-gray-600'}>
