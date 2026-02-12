@@ -467,10 +467,12 @@ function UploadPageContent() {
       
       const videoUrl = URL.createObjectURL(videoFile)
 
+      // Scale timeout by file size: base 15s + 1s per 10MB, capped at 60s
+      const timeoutMs = Math.min(60000, 15000 + Math.round((videoFile.size / (10 * 1024 * 1024)) * 1000))
+
       const thumbnailFile = await new Promise<File | null>((resolve) => {
         let resolved = false
         
-        // Timeout for mobile browsers where events may not fire
         const timeout = setTimeout(() => {
           if (!resolved) {
             resolved = true
@@ -478,12 +480,46 @@ function UploadPageContent() {
             URL.revokeObjectURL(videoUrl)
             resolve(null)
           }
-        }, 10000) // 10 second timeout
+        }, timeoutMs)
 
         const cleanup = () => {
           clearTimeout(timeout)
           URL.revokeObjectURL(videoUrl)
         }
+
+        // Check if a canvas is mostly black (< 5% non-black pixels)
+        const isBlackFrame = (canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): boolean => {
+          try {
+            const sampleW = Math.min(canvas.width, 100)
+            const sampleH = Math.min(canvas.height, 100)
+            const data = ctx.getImageData(
+              Math.floor((canvas.width - sampleW) / 2),
+              Math.floor((canvas.height - sampleH) / 2),
+              sampleW, sampleH
+            ).data
+            let nonBlack = 0
+            const total = data.length / 4
+            for (let i = 0; i < data.length; i += 4) {
+              if (data[i] > 10 || data[i + 1] > 10 || data[i + 2] > 10) nonBlack++
+            }
+            return nonBlack / total < 0.05
+          } catch {
+            return false
+          }
+        }
+
+        // Timestamps to try, in order (seconds)
+        const seekTargets = (duration: number): number[] => {
+          const targets = [
+            Math.min(1, duration * 0.1),   // 10% of duration
+            Math.min(3, duration * 0.2),   // 20%
+            Math.min(5, duration * 0.3),   // 30%
+            0.01,                          // very start
+          ]
+          return targets.filter(t => t < duration)
+        }
+        let seekIndex = 0
+        let seekList: number[] = []
 
         const captureFrame = () => {
           if (resolved) return
@@ -499,7 +535,6 @@ function UploadPageContent() {
             }
             setVideoSize({ width: Math.round(sourceWidth), height: Math.round(sourceHeight) })
             const canvas = document.createElement('canvas')
-            // Use reasonable thumbnail size
             const maxWidth = 640
             const scale = Math.min(1, maxWidth / sourceWidth)
             canvas.width = sourceWidth * scale
@@ -508,6 +543,14 @@ function UploadPageContent() {
             const ctx = canvas.getContext('2d')
             if (ctx) {
               ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+              // If frame is mostly black, retry at next timestamp
+              if (isBlackFrame(canvas, ctx) && seekIndex < seekList.length) {
+                console.log(`Frame at ${video.currentTime}s is black, trying next timestamp...`)
+                video.currentTime = seekList[seekIndex++]
+                return // onseeked will fire again
+              }
+
               canvas.toBlob(
                 (blob) => {
                   if (resolved) return
@@ -537,35 +580,83 @@ function UploadPageContent() {
           }
         }
 
+        // Wait for the decoded frame to be ready before capturing.
+        // For large files the decoder can lag behind the seeked event, so we
+        // poll until we get a non-empty frame (up to ~2s per seek position).
+        const captureWhenReady = () => {
+          if (resolved) return
+          let polls = 0
+          const maxPolls = 10
+          const pollInterval = 200 // ms
+
+          const tryCapture = () => {
+            if (resolved) return
+            polls++
+            // Quick pixel check: draw and test before committing
+            const sw = video.videoWidth
+            const sh = video.videoHeight
+            if (sw && sh) {
+              const testCanvas = document.createElement('canvas')
+              testCanvas.width = Math.min(sw, 64)
+              testCanvas.height = Math.min(sh, 64)
+              const testCtx = testCanvas.getContext('2d')
+              if (testCtx) {
+                testCtx.drawImage(video, 0, 0, testCanvas.width, testCanvas.height)
+                const data = testCtx.getImageData(0, 0, testCanvas.width, testCanvas.height).data
+                let anyNonBlack = false
+                for (let i = 0; i < data.length; i += 16) { // sample every 4th pixel
+                  if (data[i] > 10 || data[i + 1] > 10 || data[i + 2] > 10) {
+                    anyNonBlack = true
+                    break
+                  }
+                }
+                if (anyNonBlack || polls >= maxPolls) {
+                  captureFrame()
+                  return
+                }
+              }
+            }
+            if (polls < maxPolls) {
+              setTimeout(tryCapture, pollInterval)
+            } else {
+              captureFrame() // give up waiting, capture whatever we have
+            }
+          }
+
+          // Initial delay to let the decoder start rendering
+          setTimeout(tryCapture, 200)
+        }
+
         video.onloadedmetadata = () => {
           console.log('Video metadata loaded, duration:', video.duration)
-          // Try to seek to a frame
           if (video.duration > 0) {
-            video.currentTime = Math.min(1, video.duration * 0.1)
+            seekList = seekTargets(video.duration)
+            seekIndex = 1 // first entry used below
+            video.currentTime = seekList[0] ?? 0.01
           }
         }
 
         video.onloadeddata = () => {
           console.log('Video data loaded')
-          // On some mobile browsers, onseeked may not fire, so try capturing after loadeddata
           if (video.currentTime === 0 && video.duration > 0) {
-            video.currentTime = Math.min(1, video.duration * 0.1)
+            seekList = seekTargets(video.duration)
+            seekIndex = 1
+            video.currentTime = seekList[0] ?? 0.01
           }
         }
 
         video.onseeked = () => {
           console.log('Video seeked to:', video.currentTime)
-          captureFrame()
+          captureWhenReady()
         }
 
         // Fallback: if video can play, try to capture frame
         video.oncanplay = () => {
           console.log('Video can play')
-          // Give a small delay then try to capture if not already done
           setTimeout(() => {
             if (!resolved && video.videoWidth > 0) {
               console.log('Capturing frame from canplay event')
-              captureFrame()
+              captureWhenReady()
             }
           }, 500)
         }
@@ -580,7 +671,6 @@ function UploadPageContent() {
         }
 
         video.src = videoUrl
-        // Try to load the video
         video.load()
       })
 
