@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import Stripe from 'stripe'
 import { sendEmail, generatePurchaseEmail, generateMembershipPurchaseEmail } from '@/lib/email'
-import { processMedia } from '@/lib/mediaProcessor'
+// Video processing is now handled by Azure Function cron (process-videos)
+// import { processMedia } from '@/lib/mediaProcessor'
 
 // Plan upload conditions for emails
 const PLAN_CONDITIONS: Record<string, { name: string; uploadCondition: string }> = {
@@ -161,17 +162,14 @@ export async function POST(request: Request) {
               isApproved: true,
               userId: pendingUpload.userId,
               processingStatus: isVideoUpload ? 'pending' : 'completed',
+              cropData: isVideoUpload && cropData ? cropData : undefined,
             },
           })
           
           console.log(`Created media ${media.id} from pending upload ${pendingUploadId}`)
           
-          // Fire-and-forget: start server-side video processing (FFmpeg 720p + HQ transcode)
-          if (isVideoUpload) {
-            processMedia(media.id, cropData).catch((err) =>
-              console.error(`[Webhook] Background video processing failed for ${media.id}:`, err)
-            )
-          }
+          // Video processing is now handled by Azure Function cron (process-videos)
+          // Media is created with processingStatus='pending', cron picks it up automatically
           
           // Delete the pending upload
           await prisma.pendingUpload.delete({

@@ -101,6 +101,7 @@ model Media {
   shareCount    Int       @default(0)
   processingStatus String @default("completed") // "pending", "processing", "completed", "failed"
   processingError  String?                      // Error message if processing failed
+  cropData         Json?                        // { x, y, width, height } from crop tool — used by cron processor
   isPublic      Boolean   @default(true)
   isApproved    Boolean   @default(true)
   isSold        Boolean   @default(false)  // true after purchased & downloaded
