@@ -365,7 +365,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
         ) : (
           <MediaPlayer
             type={media.type}
-            url={media.url}
+            url={(media as any).streamUrl ?? media.url}
             title={media.title}
             thumbnailUrl={media.thumbnailUrl}
           />

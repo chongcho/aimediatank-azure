@@ -600,6 +600,7 @@ export async function GET(request: Request) {
         isEnabled: true,
         imageQuality: 0.92, videoBitrateMbps: 8.0, videoFps: 30, audioBitrateKbps: 256,
         freeImageQuality: 0.75, freeVideoBitrateMbps: 4.0, freeVideoFps: 24, freeAudioBitrateKbps: 128,
+        freeStreamMaxHeight: 720, freeDownloadMaxHeight: 720, paidDownloadQuality: 'hq' as const,
       }
       try {
         let settings = await prisma.cropToolSetting.findFirst()
@@ -1755,6 +1756,7 @@ export async function POST(request: Request) {
         const {
           isEnabled, imageQuality, videoBitrateMbps, videoFps, audioBitrateKbps,
           freeImageQuality, freeVideoBitrateMbps, freeVideoFps, freeAudioBitrateKbps,
+          freeStreamMaxHeight, freeDownloadMaxHeight, paidDownloadQuality,
         } = data || {}
 
         // Find existing row or create one
@@ -1765,6 +1767,7 @@ export async function POST(request: Request) {
               isEnabled: true,
               imageQuality: 0.92, videoBitrateMbps: 8.0, videoFps: 30, audioBitrateKbps: 256,
               freeImageQuality: 0.75, freeVideoBitrateMbps: 4.0, freeVideoFps: 24, freeAudioBitrateKbps: 128,
+              freeStreamMaxHeight: 720, freeDownloadMaxHeight: 720, paidDownloadQuality: 'hq',
             },
           })
         }
@@ -1782,6 +1785,12 @@ export async function POST(request: Request) {
         if (freeVideoBitrateMbps !== undefined) updateData.freeVideoBitrateMbps = clamp(freeVideoBitrateMbps, 1, 50)
         if (freeVideoFps !== undefined) updateData.freeVideoFps = Math.round(clamp(freeVideoFps, 15, 60))
         if (freeAudioBitrateKbps !== undefined) updateData.freeAudioBitrateKbps = Math.round(clamp(freeAudioBitrateKbps, 64, 512))
+        // Download & streaming (resolution caps)
+        if (freeStreamMaxHeight !== undefined) updateData.freeStreamMaxHeight = Math.round(clamp(freeStreamMaxHeight, 144, 1080))
+        if (freeDownloadMaxHeight !== undefined) updateData.freeDownloadMaxHeight = Math.round(clamp(freeDownloadMaxHeight, 144, 1080))
+        if (paidDownloadQuality !== undefined && ['hq', '1080p', '720p'].includes(String(paidDownloadQuality))) {
+          updateData.paidDownloadQuality = String(paidDownloadQuality)
+        }
 
         const settings = await prisma.cropToolSetting.update({
           where: { id: existing.id },

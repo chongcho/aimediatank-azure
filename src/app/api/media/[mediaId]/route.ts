@@ -60,7 +60,10 @@ export async function GET(
             ratings: true,
           },
         },
-      },
+        versions: {
+          orderBy: { height: 'asc' },
+        },
+      } as any,
     })
 
     if (!media) {
@@ -79,18 +82,58 @@ export async function GET(
     })
 
     // Calculate average rating
+    const ratings = (media as any).ratings || []
     const avgRating =
-      media.ratings.length > 0
-        ? media.ratings.reduce((acc, r) => acc + r.score, 0) / media.ratings.length
+      ratings.length > 0
+        ? ratings.reduce((acc: number, r: any) => acc + r.score, 0) / ratings.length
         : 0
 
-    return NextResponse.json({
+    // Resolve stream URL for video from admin download/stream settings
+    let streamUrl: string | null = null
+    if (media.type === 'VIDEO' && media.url) {
+      const session = await getServerSession(authOptions)
+      const purchase = session?.user
+        ? await prisma.purchase.findFirst({
+            where: { mediaId, buyerId: session.user.id, status: 'completed' },
+          })
+        : null
+      const isOwner = media.userId === session?.user?.id
+      const hasPurchased = !!purchase
+      const cropSettings = await prisma.cropToolSetting.findFirst() as { freeStreamMaxHeight?: number; paidDownloadQuality?: string } | null
+      const freeStreamMaxHeight = cropSettings?.freeStreamMaxHeight ?? 720
+      const paidQuality = cropSettings?.paidDownloadQuality ?? 'hq'
+      const versions = (media as any).versions || []
+
+      if (isOwner || hasPurchased) {
+        if (paidQuality === 'hq' && (media as any).urlHq) streamUrl = (media as any).urlHq
+        else if (paidQuality === '1080p') {
+          const v = versions.find((v: any) => v.height === 1080)
+          streamUrl = v?.url ?? (media as any).urlHq ?? media.url
+        } else {
+          const v = versions.find((v: any) => v.height === 720)
+          streamUrl = v?.url ?? media.url
+        }
+      } else {
+        const best = [...versions].filter((v: any) => v.height <= freeStreamMaxHeight).pop()
+        streamUrl = best?.url ?? media.url
+      }
+    }
+
+    const payload: Record<string, unknown> = {
       ...media,
-      // BigInt fields (eg fileSize) must be JSON-serialized explicitly
       fileSize: (media as any).fileSize === null || (media as any).fileSize === undefined ? null : (media as any).fileSize.toString(),
       avgRating: Math.round(avgRating * 10) / 10,
       views: media.views + 1,
-    })
+    }
+    if (streamUrl) payload.streamUrl = streamUrl
+    if ((media as any).versions?.length) {
+      payload.versions = (media as any).versions.map((v: any) => ({
+        ...v,
+        fileSize: v.fileSize != null ? v.fileSize.toString() : null,
+      }))
+    }
+
+    return NextResponse.json(payload)
   } catch (error) {
     console.error('Error fetching media:', error)
     return NextResponse.json(

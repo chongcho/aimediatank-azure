@@ -573,6 +573,11 @@ model CropToolSetting {
   freeVideoFps         Int   @default(24)
   freeAudioBitrateKbps Int   @default(128)
 
+  // Download & streaming: max resolution (pixel height) for free vs paid
+  freeStreamMaxHeight   Int    @default(720)   // Max height for free streaming (144–1080)
+  freeDownloadMaxHeight Int    @default(720)   // Max height for free download
+  paidDownloadQuality   String @default("hq")  // "hq" | "1080p" | "720p" for sell/paid download
+
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

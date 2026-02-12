@@ -120,6 +120,9 @@ interface CropToolSettings {
   freeVideoBitrateMbps: number
   freeVideoFps: number
   freeAudioBitrateKbps: number
+  freeStreamMaxHeight?: number
+  freeDownloadMaxHeight?: number
+  paidDownloadQuality?: string
 }
 
 // Membership Plan type
@@ -212,6 +215,7 @@ export default function AdminPage() {
     isEnabled: true,
     imageQuality: 0.92, videoBitrateMbps: 8.0, videoFps: 30, audioBitrateKbps: 256,
     freeImageQuality: 0.75, freeVideoBitrateMbps: 4.0, freeVideoFps: 24, freeAudioBitrateKbps: 128,
+    freeStreamMaxHeight: 720, freeDownloadMaxHeight: 720, paidDownloadQuality: 'hq',
   })
   const [cropToolLoading, setCropToolLoading] = useState(false)
   const [cropToolSaving, setCropToolSaving] = useState(false)
@@ -2558,6 +2562,65 @@ export default function AdminPage() {
                     </div>
                   </div>
 
+                  {/* Download & streaming — resolution caps for free vs sell media */}
+                  <div className="p-4 bg-tank-dark rounded-lg border border-tank-light">
+                    <h4 className="font-medium text-white mb-2">📥 Download & streaming</h4>
+                    <p className="text-gray-400 text-sm mb-4">Control which resolution is used for free vs paid/sell media (streaming and download).</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Free streaming max</label>
+                        <select
+                          value={cropToolSettings.freeStreamMaxHeight ?? 720}
+                          onChange={(e) => {
+                            const v = Number(e.target.value)
+                            setCropToolSettings(prev => ({ ...prev, freeStreamMaxHeight: v }))
+                            saveCropToolSettings({ freeStreamMaxHeight: v })
+                          }}
+                          className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
+                        >
+                          {[144, 240, 360, 480, 720, 1080].map(h => (
+                            <option key={h} value={h}>{h}p</option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">Max resolution for free viewers (playback)</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Free download max</label>
+                        <select
+                          value={cropToolSettings.freeDownloadMaxHeight ?? 720}
+                          onChange={(e) => {
+                            const v = Number(e.target.value)
+                            setCropToolSettings(prev => ({ ...prev, freeDownloadMaxHeight: v }))
+                            saveCropToolSettings({ freeDownloadMaxHeight: v })
+                          }}
+                          className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
+                        >
+                          {[144, 240, 360, 480, 720, 1080].map(h => (
+                            <option key={h} value={h}>{h}p</option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">Max resolution for free download</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Sell / paid download</label>
+                        <select
+                          value={cropToolSettings.paidDownloadQuality ?? 'hq'}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            setCropToolSettings(prev => ({ ...prev, paidDownloadQuality: v }))
+                            saveCropToolSettings({ paidDownloadQuality: v })
+                          }}
+                          className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
+                        >
+                          <option value="hq">HQ (best / source)</option>
+                          <option value="1080p">1080p</option>
+                          <option value="720p">720p</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">Quality for buyers &amp; owners</p>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Current Settings Summary */}
                   <div className="p-4 bg-tank-dark rounded-lg border border-tank-light">
                     <h4 className="font-medium text-white mb-3">📋 Current Settings Summary</h4>
@@ -2585,6 +2648,14 @@ export default function AdminPage() {
                           <div><span className="text-gray-400">Video</span> <span className="font-bold text-white ml-1">{cropToolSettings.videoBitrateMbps} Mbps</span></div>
                           <div><span className="text-gray-400">FPS</span> <span className="font-bold text-white ml-1">{cropToolSettings.videoFps}</span></div>
                           <div><span className="text-gray-400">Audio</span> <span className="font-bold text-white ml-1">{cropToolSettings.audioBitrateKbps} kbps</span></div>
+                        </div>
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="text-amber-400 font-semibold block mb-2">📥 Download &amp; streaming</span>
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                          <div><span className="text-gray-400">Free stream max</span> <span className="font-bold text-white ml-1">{cropToolSettings.freeStreamMaxHeight ?? 720}p</span></div>
+                          <div><span className="text-gray-400">Free download max</span> <span className="font-bold text-white ml-1">{cropToolSettings.freeDownloadMaxHeight ?? 720}p</span></div>
+                          <div><span className="text-gray-400">Paid download</span> <span className="font-bold text-white ml-1">{(cropToolSettings.paidDownloadQuality ?? 'hq').toUpperCase()}</span></div>
                         </div>
                       </div>
                     </div>

@@ -90,9 +90,12 @@ export async function GET(
       },
     })
 
-    // Get the media
+    // Get the media with versions (for resolution selection)
     const media = await prisma.media.findUnique({
       where: { id: mediaId },
+      include: {
+        versions: { orderBy: { height: 'asc' } },
+      },
     })
 
     if (!media) {
@@ -133,9 +136,31 @@ export async function GET(
       data: { downloadCount: { increment: 1 } },
     }).catch(() => {}) // non-blocking — don't fail the download if counter update fails
 
-    // Choose download URL: HQ (4K/source) for buyers/owners, standard (720p) for free downloads
-    const useHq = (isOwner || hasPurchased) && (media as any).urlHq
-    const downloadBlobUrl = useHq ? (media as any).urlHq : media.url
+    // Choose download URL from admin settings (free vs paid/sell)
+    const cropSettings = await prisma.cropToolSetting.findFirst()
+    const freeDownloadMaxHeight = cropSettings?.freeDownloadMaxHeight ?? 720
+    const paidQuality = cropSettings?.paidDownloadQuality ?? 'hq'
+    const versions = (media as any).versions || []
+
+    let downloadBlobUrl: string
+    if (media.type === 'VIDEO' && versions.length > 0) {
+      if (isOwner || hasPurchased) {
+        if (paidQuality === 'hq' && (media as any).urlHq) downloadBlobUrl = (media as any).urlHq
+        else if (paidQuality === '1080p') {
+          const v = versions.find((v: any) => v.height === 1080)
+          downloadBlobUrl = v?.url ?? (media as any).urlHq ?? media.url
+        } else {
+          const v = versions.find((v: any) => v.height === 720)
+          downloadBlobUrl = v?.url ?? media.url
+        }
+      } else {
+        const best = versions.filter((v: any) => v.height <= freeDownloadMaxHeight).pop()
+        downloadBlobUrl = best?.url ?? media.url
+      }
+    } else {
+      const useHq = (isOwner || hasPurchased) && (media as any).urlHq
+      downloadBlobUrl = useHq ? (media as any).urlHq : media.url
+    }
 
     // Build a friendly file name from the title
     const ext = downloadBlobUrl.split('.').pop()?.split('?')[0] || 'mp4'

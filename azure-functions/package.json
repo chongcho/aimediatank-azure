@@ -9,18 +9,10 @@
     "test": "echo \"No tests yet\""
   },
   "dependencies": {
-    "@azure/functions": "^4.0.0"
+    "@azure/functions": "^3.5.1"
   },
   "devDependencies": {
     "@types/node": "^18.x",
     "typescript": "^5.0.0"
   }
 }
-
-
-
-
-
-
-
-
