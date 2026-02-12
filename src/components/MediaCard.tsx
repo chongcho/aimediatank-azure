@@ -315,9 +315,9 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
           )}
 
 
-          {/* Processing overlay for videos being transcoded */}
+          {/* Processing overlay: thumbnail visible beneath (same idea as media detail page) */}
           {media.processingStatus && media.processingStatus !== 'completed' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 z-20">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20">
               {media.processingStatus === 'failed' ? (
                 <p className="text-red-400 text-xs font-medium">Processing failed</p>
               ) : (

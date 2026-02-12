@@ -340,12 +340,30 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
       {/* Media Player - Full Width with top padding, content aligned to top */}
       <div className="w-full bg-black pt-5">
         {media.processingStatus === 'pending' || media.processingStatus === 'processing' ? (
-          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-            <div className="w-12 h-12 border-4 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">Processing Video</h3>
-            <p className="text-gray-400 text-sm max-w-md">
-              Your video is being transcoded into optimized streaming quality. This usually takes 1-5 minutes depending on file size. This page will update automatically.
-            </p>
+          <div className="relative w-full max-w-4xl mx-auto aspect-video bg-black overflow-hidden">
+            {/* Same visual as homepage tile: thumbnail (or placeholder) with processing overlay */}
+            {media.thumbnailUrl ? (
+              <img
+                src={media.thumbnailUrl}
+                alt={media.title}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center">
+                <div className="text-white/30">
+                  <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              </div>
+            )}
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+              <div className="w-12 h-12 border-4 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin mb-3" />
+              <p className="text-white font-medium mb-6">Processing...</p>
+              <p className="text-gray-300 text-sm max-w-lg text-center px-4">
+                Your media is currently being transcoded for optimized streaming quality. This process usually takes 1–5 minutes, depending on the file size. The page will update automatically once processing is complete. You may continue browsing AiMediaTank in the meantime.
+              </p>
+            </div>
           </div>
         ) : media.processingStatus === 'failed' ? (
           <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
