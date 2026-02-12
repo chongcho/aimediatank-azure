@@ -88,8 +88,9 @@ model Media {
   title         String
   description   String?
   type          String
-  url           String
-  fileSize      BigInt?   // bytes (from blob properties)
+  url           String                      // Free streaming URL (720p for video after processing)
+  urlHq         String?                     // High-quality URL (4K/source-max for paid download)
+  fileSize      BigInt?                     // bytes (from blob properties)
   thumbnailUrl  String?
   aiTool        String?
   realDevice    String?
@@ -98,6 +99,8 @@ model Media {
   views         Int       @default(0)
   downloadCount Int       @default(0)
   shareCount    Int       @default(0)
+  processingStatus String @default("completed") // "pending", "processing", "completed", "failed"
+  processingError  String?                      // Error message if processing failed
   isPublic      Boolean   @default(true)
   isApproved    Boolean   @default(true)
   isSold        Boolean   @default(false)  // true after purchased & downloaded

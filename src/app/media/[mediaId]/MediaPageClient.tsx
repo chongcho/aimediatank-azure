@@ -14,6 +14,7 @@ interface MediaDetail {
   description: string | null
   type: 'VIDEO' | 'IMAGE' | 'MUSIC'
   url: string
+  urlHq: string | null
   thumbnailUrl: string | null
   aiTool: string | null
   aiPrompt: string | null
@@ -21,6 +22,7 @@ interface MediaDetail {
   avgRating: number
   createdAt: string
   price: number | null
+  processingStatus: string
   user: {
     id: string
     username: string
@@ -83,6 +85,27 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, session])
+
+  // Poll for processing status when media is still being processed
+  useEffect(() => {
+    if (!media) return
+    if (media.processingStatus === 'completed' || media.processingStatus === 'failed') return
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { cache: 'no-store' })
+        const data = await res.json()
+        if (res.ok) {
+          setMedia(data)
+          if (data.processingStatus === 'completed' || data.processingStatus === 'failed') {
+            clearInterval(interval)
+          }
+        }
+      } catch { /* ignore */ }
+    }, 5000) // Poll every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [media?.processingStatus, mediaId])
 
   const fetchSavedStatus = async () => {
     try {
@@ -314,12 +337,32 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     <div className="pb-[500px]">
       {/* Media Player - Full Width with top padding, content aligned to top */}
       <div className="w-full bg-black pt-5">
-        <MediaPlayer
-          type={media.type}
-          url={media.url}
-          title={media.title}
-          thumbnailUrl={media.thumbnailUrl}
-        />
+        {media.processingStatus === 'pending' || media.processingStatus === 'processing' ? (
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <div className="w-12 h-12 border-4 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">Processing Video</h3>
+            <p className="text-gray-400 text-sm max-w-md">
+              Your video is being transcoded into optimized streaming quality. This usually takes 1-5 minutes depending on file size. This page will update automatically.
+            </p>
+          </div>
+        ) : media.processingStatus === 'failed' ? (
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <svg className="w-12 h-12 text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <h3 className="text-lg font-semibold text-red-400 mb-2">Processing Failed</h3>
+            <p className="text-gray-400 text-sm max-w-md">
+              There was an error processing this video. Please try re-uploading.
+            </p>
+          </div>
+        ) : (
+          <MediaPlayer
+            type={media.type}
+            url={media.url}
+            title={media.title}
+            thumbnailUrl={media.thumbnailUrl}
+          />
+        )}
       </div>
 
       {/* Content below media */}

@@ -187,9 +187,12 @@ function UploadPageContent() {
     setError('')
     
     try {
-      // Step 1: Compress the file (skip if user chose "Upload Original")
+      // Step 1: Prepare file — VIDEO always raw (server FFmpeg), IMAGE/MUSIC client-compressed
       let compressedFile: File
-      if (skipCompressionRef.current) {
+      if (formData.type === 'VIDEO') {
+        setUploadStatus('Preparing video for upload...')
+        compressedFile = file
+      } else if (skipCompressionRef.current) {
         setUploadStatus('Preparing file...')
         compressedFile = file
       } else {
@@ -200,7 +203,7 @@ function UploadPageContent() {
           (progress) => {
             setUploadStatus(`Compressing... ${progress}%`)
           },
-          formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined,
+          undefined,
           qualitySettings
         )
       }
@@ -762,9 +765,17 @@ function UploadPageContent() {
     setUploadProgress(0)
 
     try {
-      // Step 1: Compress the file (skip if user chose "Upload Original")
+      // Step 1: Prepare the file for upload
+      // VIDEO: always upload raw — server-side FFmpeg creates 720p + HQ versions
+      // IMAGE/MUSIC: use client-side compression (Canvas / browser APIs)
       let compressedFile: File
-      if (skipCompressionRef.current) {
+      if (formData.type === 'VIDEO') {
+        // Skip all client-side compression for video — server handles it via FFmpeg
+        setUploadStatus('Preparing video for upload...')
+        setUploadProgress(5)
+        compressedFile = file
+        console.log(`Video upload: sending raw file for server-side processing (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
+      } else if (skipCompressionRef.current) {
         setUploadStatus('Preparing file...')
         setUploadProgress(5)
         compressedFile = file
@@ -780,16 +791,16 @@ function UploadPageContent() {
             setUploadProgress(5 + Math.round(progress * 0.25))
             setUploadStatus(`Compressing... ${progress}%`)
           },
-          formData.type === 'VIDEO' ? (videoCrop ?? undefined) : undefined,
+          undefined, // no crop for non-video
           qualitySettings
         )
         console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB, Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB, Type: ${compressedFile.type}`)
       }
       setUploadProgress(30)
       
-      // Validate compressed file
+      // Validate file
       if (!compressedFile || compressedFile.size === 0) {
-        throw new Error('Compression failed - file is empty')
+        throw new Error('File preparation failed - file is empty')
       }
 
       // Step 2: Upload main file to Azure

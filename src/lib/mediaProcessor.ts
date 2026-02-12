@@ -1,0 +1,437 @@
+/**
+ * Server-side media processing using FFmpeg.
+ *
+ * Lifecycle (YouTube-style):
+ *   1. Client uploads raw file → Azure Blob Storage
+ *   2. DB record created with processingStatus = 'pending'
+ *   3. This module downloads the raw blob, transcodes via FFmpeg:
+ *        - 720p  (free streaming)   → stored as  <uuid>-720p.mp4
+ *        - HQ    (paid / original)  → stored as  <uuid>-hq.mp4
+ *        - Thumbnail (if video)     → stored as  <uuid>-thumb.jpg
+ *   4. DB record updated: url → 720p, urlHq → HQ, processingStatus → 'completed'
+ *   5. Raw blob deleted
+ */
+
+import { prisma } from '@/lib/prisma'
+import { BlobServiceClient } from '@azure/storage-blob'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import { writeFile, unlink, readFile, mkdir } from 'fs/promises'
+import { existsSync } from 'fs'
+import { v4 as uuidv4 } from 'uuid'
+
+// ---------------------------------------------------------------------------
+// FFmpeg setup
+// ---------------------------------------------------------------------------
+
+let ffmpegPath: string | null = null
+
+function getFfmpegPath(): string {
+  if (ffmpegPath) return ffmpegPath
+
+  try {
+    // ffmpeg-static provides a path to the binary
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const staticPath = require('ffmpeg-static') as string | null
+    if (staticPath && existsSync(staticPath)) {
+      ffmpegPath = staticPath
+      return staticPath
+    }
+  } catch {
+    // fall through
+  }
+
+  // Fallback: assume ffmpeg is on PATH (e.g. installed via apt on Linux)
+  ffmpegPath = 'ffmpeg'
+  return 'ffmpeg'
+}
+
+// Run ffmpeg via child_process (more reliable than fluent-ffmpeg for server use)
+function runFfmpeg(args: string[]): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const { spawn } = require('child_process') as typeof import('child_process')
+    const bin = getFfmpegPath()
+    console.log(`[MediaProcessor] Running: ${bin} ${args.join(' ')}`)
+
+    const proc = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+
+    let stdout = ''
+    let stderr = ''
+
+    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+    proc.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
+
+    proc.on('close', (code: number) => {
+      if (code === 0) {
+        resolve({ stdout, stderr })
+      } else {
+        reject(new Error(`FFmpeg exited with code ${code}:\n${stderr.slice(-2000)}`))
+      }
+    })
+
+    proc.on('error', (err: Error) => {
+      reject(new Error(`FFmpeg spawn error: ${err.message}`))
+    })
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Azure Blob helpers
+// ---------------------------------------------------------------------------
+
+function getAzureBlobService() {
+  const cs = process.env.AZURE_STORAGE_CONNECTION_STRING
+  if (!cs) throw new Error('AZURE_STORAGE_CONNECTION_STRING not set')
+  return BlobServiceClient.fromConnectionString(cs)
+}
+
+function getContainerName() {
+  return process.env.AZURE_STORAGE_CONTAINER_NAME || 'media'
+}
+
+/** Parse a full blob URL into { containerName, blobName } */
+function parseBlobUrl(url: string): { containerName: string; blobName: string } | null {
+  try {
+    const u = new URL(url)
+    const parts = u.pathname.replace(/^\/+/, '').split('/').filter(Boolean)
+    if (parts.length >= 2) return { containerName: parts[0], blobName: parts.slice(1).join('/') }
+    if (parts.length === 1) return { containerName: getContainerName(), blobName: parts[0] }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/** Download a blob to a local temp file and return the path */
+async function downloadBlob(blobUrl: string): Promise<string> {
+  const parsed = parseBlobUrl(blobUrl)
+  if (!parsed) throw new Error(`Cannot parse blob URL: ${blobUrl}`)
+
+  const blobService = getAzureBlobService()
+  const container = blobService.getContainerClient(parsed.containerName)
+  const blob = container.getBlobClient(parsed.blobName)
+
+  const dir = join(tmpdir(), 'media-processor')
+  if (!existsSync(dir)) await mkdir(dir, { recursive: true })
+
+  const ext = parsed.blobName.split('.').pop() || 'mp4'
+  const localPath = join(dir, `${uuidv4()}.${ext}`)
+
+  const downloadResponse = await blob.download(0)
+  const chunks: Buffer[] = []
+  for await (const chunk of downloadResponse.readableStreamBody as AsyncIterable<Buffer>) {
+    chunks.push(chunk)
+  }
+  await writeFile(localPath, Buffer.concat(chunks))
+
+  console.log(`[MediaProcessor] Downloaded ${blobUrl} → ${localPath} (${Buffer.concat(chunks).length} bytes)`)
+  return localPath
+}
+
+/** Upload a local file to Azure Blob Storage and return the public URL */
+async function uploadBlob(localPath: string, blobName: string, contentType: string): Promise<string> {
+  const blobService = getAzureBlobService()
+  const containerName = getContainerName()
+  const container = blobService.getContainerClient(containerName)
+  const blockBlob = container.getBlockBlobClient(blobName)
+
+  const data = await readFile(localPath)
+  await blockBlob.upload(data, data.length, {
+    blobHTTPHeaders: {
+      blobContentType: contentType,
+      blobCacheControl: 'public, max-age=31536000',
+    },
+  })
+
+  const accountName = process.env.AZURE_STORAGE_CONNECTION_STRING?.match(/AccountName=([^;]+)/)?.[1] || ''
+  const url = `https://${accountName}.blob.core.windows.net/${containerName}/${blobName}`
+  console.log(`[MediaProcessor] Uploaded ${localPath} → ${url} (${data.length} bytes)`)
+  return url
+}
+
+/** Delete a blob by URL */
+async function deleteBlob(blobUrl: string) {
+  try {
+    const parsed = parseBlobUrl(blobUrl)
+    if (!parsed) return
+    const blobService = getAzureBlobService()
+    const container = blobService.getContainerClient(parsed.containerName)
+    const blob = container.getBlobClient(parsed.blobName)
+    await blob.deleteIfExists()
+    console.log(`[MediaProcessor] Deleted blob: ${blobUrl}`)
+  } catch (e) {
+    console.error(`[MediaProcessor] Failed to delete blob: ${blobUrl}`, e)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Probe helpers
+// ---------------------------------------------------------------------------
+
+interface ProbeResult {
+  width: number
+  height: number
+  duration: number // seconds
+  hasAudio: boolean
+}
+
+async function probeVideo(filePath: string): Promise<ProbeResult> {
+  const bin = getFfmpegPath()
+  // Use ffprobe from same directory (ffmpeg-static ships it alongside)
+  const probeBin = bin.replace(/ffmpeg(\.exe)?$/i, 'ffprobe$1')
+
+  const { spawn } = require('child_process') as typeof import('child_process')
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-v', 'quiet',
+      '-print_format', 'json',
+      '-show_format',
+      '-show_streams',
+      filePath,
+    ]
+
+    const proc = spawn(existsSync(probeBin) ? probeBin : 'ffprobe', args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+    proc.on('close', (code: number) => {
+      try {
+        const info = JSON.parse(stdout)
+        const videoStream = info.streams?.find((s: any) => s.codec_type === 'video')
+        const audioStream = info.streams?.find((s: any) => s.codec_type === 'audio')
+        resolve({
+          width: videoStream?.width ?? 1920,
+          height: videoStream?.height ?? 1080,
+          duration: parseFloat(info.format?.duration || '0'),
+          hasAudio: !!audioStream,
+        })
+      } catch {
+        // Fallback defaults
+        resolve({ width: 1920, height: 1080, duration: 0, hasAudio: true })
+      }
+    })
+    proc.on('error', () => resolve({ width: 1920, height: 1080, duration: 0, hasAudio: true }))
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Core transcoding
+// ---------------------------------------------------------------------------
+
+interface TranscodeResult {
+  url720p: string    // blob URL for 720p version
+  urlHq: string      // blob URL for HQ version
+  thumbnailUrl: string | null
+  fileSize720p: number
+  fileSizeHq: number
+}
+
+/**
+ * Transcode a video file into 720p (free) and HQ (paid) versions.
+ */
+async function transcodeVideo(
+  rawLocalPath: string,
+  baseBlobName: string,
+  existingThumbnail: string | null,
+): Promise<TranscodeResult> {
+  const probe = await probeVideo(rawLocalPath)
+  console.log(`[MediaProcessor] Probe: ${probe.width}x${probe.height}, ${probe.duration}s, audio=${probe.hasAudio}`)
+
+  const dir = join(tmpdir(), 'media-processor')
+
+  // --- 720p version (free streaming) ---
+  const path720p = join(dir, `${baseBlobName}-720p.mp4`)
+  const needs720pScale = probe.height > 720
+
+  const args720p: string[] = [
+    '-i', rawLocalPath,
+    '-y', // overwrite
+    ...(needs720pScale ? ['-vf', 'scale=-2:720'] : []),
+    '-c:v', 'libx264',
+    '-preset', 'medium',
+    '-crf', '23',
+    ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '128k'] : ['-an']),
+    '-movflags', '+faststart',
+    '-max_muxing_queue_size', '1024',
+    path720p,
+  ]
+
+  await runFfmpeg(args720p)
+
+  // --- HQ version (paid download / source quality) ---
+  const path4k = join(dir, `${baseBlobName}-hq.mp4`)
+
+  // Never upscale: keep source resolution, but encode with high quality H.264
+  const args4k: string[] = [
+    '-i', rawLocalPath,
+    '-y',
+    '-c:v', 'libx264',
+    '-preset', 'slow',
+    '-crf', '18',
+    ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '256k'] : ['-an']),
+    '-movflags', '+faststart',
+    '-max_muxing_queue_size', '1024',
+    path4k,
+  ]
+
+  await runFfmpeg(args4k)
+
+  // --- Thumbnail (only if one doesn't already exist) ---
+  let thumbnailUrl = existingThumbnail
+  let thumbBlobUrl: string | null = null
+
+  if (!existingThumbnail) {
+    const thumbPath = join(dir, `${baseBlobName}-thumb.jpg`)
+    const seekTime = Math.min(probe.duration * 0.1, 5) // 10% into video, max 5s
+
+    const argsThumb: string[] = [
+      '-i', rawLocalPath,
+      '-y',
+      '-ss', seekTime.toString(),
+      '-frames:v', '1',
+      '-vf', 'scale=640:-2',
+      '-q:v', '3',
+      thumbPath,
+    ]
+
+    try {
+      await runFfmpeg(argsThumb)
+      thumbBlobUrl = await uploadBlob(thumbPath, `${baseBlobName}-thumb.jpg`, 'image/jpeg')
+      thumbnailUrl = thumbBlobUrl
+      await safeUnlink(thumbPath)
+    } catch (e) {
+      console.error('[MediaProcessor] Thumbnail generation failed (non-fatal):', e)
+    }
+  }
+
+  // Upload transcoded files
+  const url720p = await uploadBlob(path720p, `${baseBlobName}-720p.mp4`, 'video/mp4')
+  const urlHq = await uploadBlob(path4k, `${baseBlobName}-hq.mp4`, 'video/mp4')
+
+  // Get file sizes
+  const data720p = await readFile(path720p)
+  const dataHq = await readFile(path4k)
+
+  // Clean up temp files
+  await safeUnlink(path720p)
+  await safeUnlink(path4k)
+
+  return {
+    url720p,
+    urlHq,
+    thumbnailUrl,
+    fileSize720p: data720p.length,
+    fileSizeHq: dataHq.length,
+  }
+}
+
+async function safeUnlink(p: string) {
+  try { await unlink(p) } catch { /* ignore */ }
+}
+
+// ---------------------------------------------------------------------------
+// Main entry point
+// ---------------------------------------------------------------------------
+
+/**
+ * Process a newly uploaded media file.
+ * Called fire-and-forget from the upload complete API.
+ *
+ * For VIDEO:
+ *   - Downloads raw → FFmpeg 720p + HQ → uploads → updates DB → deletes raw
+ *
+ * For IMAGE / MUSIC:
+ *   - Currently no server-side processing (client-side is sufficient)
+ *   - processingStatus set to 'completed' immediately
+ */
+export async function processMedia(mediaId: string): Promise<void> {
+  console.log(`[MediaProcessor] Starting processing for media ${mediaId}`)
+
+  try {
+    // Mark as processing
+    await prisma.media.update({
+      where: { id: mediaId },
+      data: { processingStatus: 'processing' },
+    })
+
+    // Fetch the media record
+    const media = await prisma.media.findUnique({ where: { id: mediaId } })
+    if (!media) {
+      console.error(`[MediaProcessor] Media ${mediaId} not found`)
+      return
+    }
+
+    // Only process VIDEO — images and music are already fine
+    if (media.type !== 'VIDEO') {
+      await prisma.media.update({
+        where: { id: mediaId },
+        data: { processingStatus: 'completed' },
+      })
+      console.log(`[MediaProcessor] Media ${mediaId} is ${media.type}, no processing needed`)
+      return
+    }
+
+    const rawUrl = media.url
+
+    // Extract base blob name (uuid without extension)
+    const parsed = parseBlobUrl(rawUrl)
+    if (!parsed) throw new Error(`Cannot parse raw URL: ${rawUrl}`)
+    const baseName = parsed.blobName.replace(/\.[^.]+$/, '') // strip extension
+
+    // Download raw file
+    const rawLocalPath = await downloadBlob(rawUrl)
+
+    try {
+      // Transcode
+      const result = await transcodeVideo(rawLocalPath, baseName, media.thumbnailUrl)
+
+      // Update DB: url → 720p (free), urlHq → HQ (paid), status → completed
+      const updateData: any = {
+        url: result.url720p,
+        urlHq: result.urlHq,
+        processingStatus: 'completed',
+        processingError: null,
+      }
+
+      // Update thumbnail if we generated one
+      if (result.thumbnailUrl && !media.thumbnailUrl) {
+        updateData.thumbnailUrl = result.thumbnailUrl
+      }
+
+      // Store HQ file size (the higher quality one is more representative)
+      if (result.fileSizeHq > 0) {
+        updateData.fileSize = BigInt(result.fileSizeHq)
+      }
+
+      await prisma.media.update({
+        where: { id: mediaId },
+        data: updateData,
+      })
+
+      // Delete raw blob (YouTube lifecycle: raw is no longer needed)
+      await deleteBlob(rawUrl)
+
+      console.log(`[MediaProcessor] ✅ Media ${mediaId} processed successfully`)
+      console.log(`  720p: ${(result.fileSize720p / 1024 / 1024).toFixed(1)} MB`)
+      console.log(`  HQ:   ${(result.fileSizeHq / 1024 / 1024).toFixed(1)} MB`)
+    } finally {
+      // Always clean up the local raw file
+      await safeUnlink(rawLocalPath)
+    }
+  } catch (error) {
+    console.error(`[MediaProcessor] ❌ Failed to process media ${mediaId}:`, error)
+
+    // Mark as failed so UI can show error state
+    try {
+      await prisma.media.update({
+        where: { id: mediaId },
+        data: {
+          processingStatus: 'failed',
+          processingError: error instanceof Error ? error.message : 'Unknown processing error',
+        },
+      })
+    } catch (dbErr) {
+      console.error('[MediaProcessor] Failed to update error status:', dbErr)
+    }
+  }
+}

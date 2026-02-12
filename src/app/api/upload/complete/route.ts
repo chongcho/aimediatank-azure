@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/email'
+import { processMedia } from '@/lib/mediaProcessor'
 import { BlobServiceClient } from '@azure/storage-blob'
 
 export const dynamic = 'force-dynamic'
@@ -350,6 +351,10 @@ export async function POST(request: Request) {
     // If user has paid credits, use them (cost is already paid)
     const uploadCost = isFreeUpload || isPaidWithCredit ? 0 : config.costPerUpload
 
+    // For VIDEO uploads, server-side FFmpeg processing will create 720p + HQ versions.
+    // Set processingStatus to 'pending' so the UI shows a "Processing…" indicator.
+    const isVideoUpload = type === 'VIDEO'
+
     // Create media record
     const media = await prisma.media.create({
       data: {
@@ -365,6 +370,7 @@ export async function POST(request: Request) {
         isPublic,
         isApproved: true,
         userId: session.user.id,
+        processingStatus: isVideoUpload ? 'pending' : 'completed',
       },
       include: {
         user: {
@@ -553,6 +559,13 @@ export async function POST(request: Request) {
 
     // Start background tasks without awaiting — they run after response is sent
     backgroundTasks()
+
+    // Fire-and-forget: start server-side video processing (FFmpeg 720p + HQ transcode)
+    if (isVideoUpload) {
+      processMedia(media.id).catch((err) =>
+        console.error(`[Upload] Background video processing failed for ${media.id}:`, err)
+      )
+    }
 
     return response
   } catch (error) {

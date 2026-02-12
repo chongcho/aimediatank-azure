@@ -18,6 +18,7 @@ interface Media {
   isSold?: boolean
   soldAt?: string | null
   soldCount?: number
+  processingStatus?: string
   views: number
   avgRating: number
   createdAt: string

@@ -133,8 +133,12 @@ export async function GET(
       data: { downloadCount: { increment: 1 } },
     }).catch(() => {}) // non-blocking — don't fail the download if counter update fails
 
+    // Choose download URL: HQ (4K/source) for buyers/owners, standard (720p) for free downloads
+    const useHq = (isOwner || hasPurchased) && (media as any).urlHq
+    const downloadBlobUrl = useHq ? (media as any).urlHq : media.url
+
     // Build a friendly file name from the title
-    const ext = media.url.split('.').pop()?.split('?')[0] || 'mp4'
+    const ext = downloadBlobUrl.split('.').pop()?.split('?')[0] || 'mp4'
     const safeTitle = (media.title || 'download')
       .replace(/[^a-zA-Z0-9 _-]/g, '')
       .trim()
@@ -148,15 +152,15 @@ export async function GET(
     if (connectionString) {
       const { accountName, accountKey } = parseConnectionString(connectionString)
       if (accountName && accountKey) {
-        const downloadUrl = generateDownloadSasUrl(media.url, accountName, accountKey, fileName)
+        const downloadUrl = generateDownloadSasUrl(downloadBlobUrl, accountName, accountKey, fileName)
         if (downloadUrl) {
           return NextResponse.redirect(downloadUrl)
         }
       }
     }
 
-    // Fallback: redirect to the raw blob URL (may play inline instead of downloading)
-    return NextResponse.redirect(media.url)
+    // Fallback: redirect to the blob URL (may play inline instead of downloading)
+    return NextResponse.redirect(downloadBlobUrl)
   } catch (error) {
     console.error('Download error:', error)
     return NextResponse.json(
