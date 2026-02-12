@@ -1,10 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone', // Required for Azure App Service
-  // Ensure ffmpeg-static binary is bundled in standalone output for server-side video processing
-  experimental: {
-    serverComponentsExternalPackages: ['ffmpeg-static'],
-  },
   images: {
     remotePatterns: [
       {

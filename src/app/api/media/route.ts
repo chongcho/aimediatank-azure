@@ -196,7 +196,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       { 
         error: 'Failed to fetch media',
-        details: errorMessage, // Temporarily expose error details for debugging
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
         media: [],
         pagination: { page: 1, limit: 20, total: 0, totalPages: 0 }
       },
