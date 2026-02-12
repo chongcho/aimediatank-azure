@@ -50,6 +50,11 @@ jobs:
           cp -r public ./deploy/public || true
           echo "Build completed at $(date)" > ./deploy/BUILD_INFO.txt
 
+      - name: Copy ffmpeg-static for video processing on Azure
+        run: |
+          mkdir -p deploy/node_modules
+          cp -r node_modules/ffmpeg-static deploy/node_modules/
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
