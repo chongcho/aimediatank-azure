@@ -1261,13 +1261,13 @@ function UploadPageContent() {
                     </select>
                   </div>
                 )}
-                {/* Trim (video only) */}
+                {/* Trim (video only) — same row layout as Crop (label | slider | value) */}
                 {cropMediaType === 'video' && videoDuration != null && videoDuration > 0 && (
-                  <div className="mt-3 sm:mt-4 space-y-2">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-300">Trim</label>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-gray-400 text-xs">Start</span>
+                  <div className="mt-3 sm:mt-4">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1.5">Trim</label>
+                    <div className="grid grid-cols-1 gap-1.5 sm:gap-2 text-sm text-gray-300">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <span className="w-14 sm:w-16 shrink-0 text-xs sm:text-sm">Start</span>
                         <input
                           type="range"
                           min={0}
@@ -1279,12 +1279,14 @@ function UploadPageContent() {
                             setVideoTrimStart(v)
                             if (videoTrimEnd < v) setVideoTrimEnd(v)
                           }}
-                          className="w-full mt-1"
+                          className="flex-1"
                         />
-                        <span className="text-white text-xs tabular-nums">{Math.floor(videoTrimStart / 60)}:{String(Math.floor(videoTrimStart % 60)).padStart(2, '0')}</span>
+                        <span className="w-20 sm:w-28 shrink-0 text-right text-white text-xs sm:text-sm tabular-nums">
+                          {Math.floor(videoTrimStart / 60)}:{String(Math.floor(videoTrimStart % 60)).padStart(2, '0')}
+                        </span>
                       </div>
-                      <div>
-                        <span className="text-gray-400 text-xs">End</span>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <span className="w-14 sm:w-16 shrink-0 text-xs sm:text-sm">End</span>
                         <input
                           type="range"
                           min={videoTrimStart}
@@ -1292,12 +1294,14 @@ function UploadPageContent() {
                           step={0.1}
                           value={videoTrimEnd}
                           onChange={(e) => setVideoTrimEnd(Number(e.target.value))}
-                          className="w-full mt-1"
+                          className="flex-1"
                         />
-                        <span className="text-white text-xs tabular-nums">{Math.floor(videoTrimEnd / 60)}:{String(Math.floor(videoTrimEnd % 60)).padStart(2, '0')}</span>
+                        <span className="w-20 sm:w-28 shrink-0 text-right text-white text-xs sm:text-sm tabular-nums">
+                          {Math.floor(videoTrimEnd / 60)}:{String(Math.floor(videoTrimEnd % 60)).padStart(2, '0')}
+                        </span>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-500">Only this segment will be kept (re-encoded).</p>
+                    <p className="text-xs text-gray-500 mt-1.5">Only this segment will be kept (re-encoded).</p>
                   </div>
                 )}
                 {mediaSize && (
