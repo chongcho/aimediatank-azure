@@ -468,136 +468,14 @@ export async function POST(request: Request) {
     const totalPaidCost = paidUploadsCount * config.costPerUpload
     const planName = `${user.membershipType.charAt(0) + user.membershipType.slice(1).toLowerCase()} Plan`
 
-    // Determine which notification to send
-    const userName = user.name || user.username || 'User'
-    
-    // Check if this upload just exhausted free uploads
-    // Only true if: this was a free upload AND it just hit the limit (not a paid credit upload)
-    const justExhaustedFreeUploads = isFreeUpload && 
-                                      newFreeUploadsUsed === config.freeUploads && 
-                                      user.membershipType !== 'PREMIUM'
-
-    if (justExhaustedFreeUploads) {
-      // Send free uploads exhausted email
-      const exhaustedEmailHtml = generateFreeUploadsExhaustedEmail(
-        userName,
-        planName,
-        config.costPerUpload
-      )
-
-      await sendEmail({
-        to: user.email,
-        subject: '⚠️ Free Uploads Exhausted | AI Media Tank',
-        html: exhaustedEmailHtml
-      })
-
-      // Create in-app notification
-      await prisma.notification.create({
-        data: {
-          userId: user.id,
-          type: 'system',
-          title: '⚠️ Free Uploads Exhausted',
-          message: config.canUploadAfterFree 
-            ? `You have used all 5 free uploads. Future uploads will cost $${config.costPerUpload.toFixed(2)} each.`
-            : `You have used all 5 free uploads. Upgrade your plan to continue uploading.`,
-          link: '/pricing',
-        }
-      })
-    } else if (isPaidWithCredit) {
-      // This upload used a paid credit - send confirmation
-      const creditUploadEmailHtml = generateUploadConfirmationEmail(
-        userName,
-        title,
-        totalUploads,
-        newPaidUploadCredits > 0 ? `${newPaidUploadCredits} paid credit(s) remaining` : 'No credits remaining',
-        false,
-        config.costPerUpload,
-        planName
-      )
-
-      await sendEmail({
-        to: user.email,
-        subject: '✅ Paid Upload Complete | AI Media Tank',
-        html: creditUploadEmailHtml
-      })
-
-      // Create in-app notification for paid credit upload
-      await prisma.notification.create({
-        data: {
-          userId: user.id,
-          type: 'system',
-          title: '✅ Paid Upload Complete',
-          message: `"${title}" uploaded using paid credit. ${newPaidUploadCredits} credit(s) remaining.`,
-          link: `/media/${media.id}`,
-        }
-      })
-    } else if (!isFreeUpload && uploadCost > 0) {
-      // This is a paid upload - send paid upload notification
-      const paidEmailHtml = generatePaidUploadEmail(
-        userName,
-        title,
-        uploadCost,
-        paidUploadsCount,
-        totalPaidCost
-      )
-
-      await sendEmail({
-        to: user.email,
-        subject: '💳 Paid Upload Processed | AI Media Tank',
-        html: paidEmailHtml
-      })
-
-      // Create in-app notification for paid upload
-      await prisma.notification.create({
-        data: {
-          userId: user.id,
-          type: 'system',
-          title: '💳 Paid Upload',
-          message: `Upload charged: $${uploadCost.toFixed(2)}. Total this period: $${totalPaidCost.toFixed(2)}`,
-          link: '/pricing',
-        }
-      })
-    } else {
-      // Regular free upload - send confirmation
-      const freeRemaining = user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
-      
-      const confirmationEmailHtml = generateUploadConfirmationEmail(
-        userName,
-        title,
-        totalUploads,
-        freeRemaining,
-        true,
-        0,
-        planName
-      )
-
-      await sendEmail({
-        to: user.email,
-        subject: '🎬 Upload Successful! | AI Media Tank',
-        html: confirmationEmailHtml
-      })
-
-      // Create in-app notification
-      const notificationMessage = user.membershipType === 'PREMIUM'
-        ? `"${title}" uploaded successfully! Unlimited uploads available.`
-        : `"${title}" uploaded! ${newFreeUploadsRemaining} free upload${newFreeUploadsRemaining !== 1 ? 's' : ''} remaining.`
-
-      await prisma.notification.create({
-        data: {
-          userId: user.id,
-          type: 'system',
-          title: '🎬 Upload Successful',
-          message: notificationMessage,
-        }
-      })
-    }
-
     // Calculate response info
     const uploadsRemaining = user.membershipType === 'PREMIUM' 
       ? 'Unlimited' 
       : newFreeUploadsRemaining
 
-    return NextResponse.json({ 
+    // Return response immediately — send emails & notifications in background
+    // (fire-and-forget so the client progress bar completes without waiting for SMTP)
+    const response = NextResponse.json({ 
       media,
       uploadInfo: {
         isFreeUpload,
@@ -612,6 +490,71 @@ export async function POST(request: Request) {
           : `💳 Upload cost: $${uploadCost.toFixed(2)}`
       }
     })
+
+    // Fire-and-forget: send email + notification in background
+    const backgroundTasks = async () => {
+      try {
+        const userName = user.name || user.username || 'User'
+        const justExhaustedFreeUploads = isFreeUpload && 
+                                          newFreeUploadsUsed === config.freeUploads && 
+                                          user.membershipType !== 'PREMIUM'
+
+        if (justExhaustedFreeUploads) {
+          const exhaustedEmailHtml = generateFreeUploadsExhaustedEmail(userName, planName, config.costPerUpload)
+          await sendEmail({ to: user.email, subject: '⚠️ Free Uploads Exhausted | AI Media Tank', html: exhaustedEmailHtml })
+          await prisma.notification.create({
+            data: {
+              userId: user.id, type: 'system', title: '⚠️ Free Uploads Exhausted',
+              message: config.canUploadAfterFree 
+                ? `You have used all 5 free uploads. Future uploads will cost $${config.costPerUpload.toFixed(2)} each.`
+                : `You have used all 5 free uploads. Upgrade your plan to continue uploading.`,
+              link: '/pricing',
+            }
+          })
+        } else if (isPaidWithCredit) {
+          const creditUploadEmailHtml = generateUploadConfirmationEmail(
+            userName, title, totalUploads,
+            newPaidUploadCredits > 0 ? `${newPaidUploadCredits} paid credit(s) remaining` : 'No credits remaining',
+            false, config.costPerUpload, planName
+          )
+          await sendEmail({ to: user.email, subject: '✅ Paid Upload Complete | AI Media Tank', html: creditUploadEmailHtml })
+          await prisma.notification.create({
+            data: {
+              userId: user.id, type: 'system', title: '✅ Paid Upload Complete',
+              message: `"${title}" uploaded using paid credit. ${newPaidUploadCredits} credit(s) remaining.`,
+              link: `/media/${media.id}`,
+            }
+          })
+        } else if (!isFreeUpload && uploadCost > 0) {
+          const paidEmailHtml = generatePaidUploadEmail(userName, title, uploadCost, paidUploadsCount, totalPaidCost)
+          await sendEmail({ to: user.email, subject: '💳 Paid Upload Processed | AI Media Tank', html: paidEmailHtml })
+          await prisma.notification.create({
+            data: {
+              userId: user.id, type: 'system', title: '💳 Paid Upload',
+              message: `Upload charged: $${uploadCost.toFixed(2)}. Total this period: $${totalPaidCost.toFixed(2)}`,
+              link: '/pricing',
+            }
+          })
+        } else {
+          const freeRemaining = user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
+          const confirmationEmailHtml = generateUploadConfirmationEmail(userName, title, totalUploads, freeRemaining, true, 0, planName)
+          await sendEmail({ to: user.email, subject: '🎬 Upload Successful! | AI Media Tank', html: confirmationEmailHtml })
+          const notificationMessage = user.membershipType === 'PREMIUM'
+            ? `"${title}" uploaded successfully! Unlimited uploads available.`
+            : `"${title}" uploaded! ${newFreeUploadsRemaining} free upload${newFreeUploadsRemaining !== 1 ? 's' : ''} remaining.`
+          await prisma.notification.create({
+            data: { userId: user.id, type: 'system', title: '🎬 Upload Successful', message: notificationMessage }
+          })
+        }
+      } catch (e) {
+        console.error('Background email/notification failed:', e)
+      }
+    }
+
+    // Start background tasks without awaiting — they run after response is sent
+    backgroundTasks()
+
+    return response
   } catch (error) {
     console.error('Error completing upload:', error)
     return NextResponse.json(
