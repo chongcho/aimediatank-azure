@@ -235,6 +235,8 @@ function UploadPageContent() {
           realDevice: formData.realDevice,
           price: formData.price || null,
           isPublic: formData.isPublic,
+          // Pass crop coordinates for server-side FFmpeg processing (video only)
+          ...(formData.type === 'VIDEO' && videoCrop ? { cropData: videoCrop } : {}),
         }),
       })
       
@@ -319,43 +321,43 @@ function UploadPageContent() {
         }
         reader.readAsDataURL(selectedFile)
       } else if (selectedFile.type.startsWith('video/')) {
-        console.log('Processing video file for crop')
+        // Server-side FFmpeg handles video transcoding.
+        // Show crop tool if enabled so user can set crop coordinates (applied server-side).
+        console.log('Processing video file (server-side FFmpeg will handle transcoding)')
         const src = URL.createObjectURL(selectedFile)
         setPreview(src)
         setCropMediaType('video')
 
         if (!cropEnabled) {
-          // Crop disabled — still generate thumbnail for upload but skip crop UI
+          // Crop disabled — just generate thumbnail for upload preview
           generateVideoThumbnail(selectedFile).then(async (thumbFile) => {
             if (fileChangeTokenRef.current !== changeToken) return
             if (thumbFile) setThumbnail(thumbFile)
           })
         } else {
-        // Auto-generate thumbnail from video and use it for cropping
-        generateVideoThumbnail(selectedFile).then(async (thumbFile) => {
-          if (fileChangeTokenRef.current !== changeToken) return
-          if (!thumbFile) {
-            console.log('No thumbnail generated for video - skipping crop tool')
-            setCropSource(null)
-            setShowCropper(false)
-            // Show a notice that crop is not available
-            alert('Video crop tool is not available on this device. You can still upload the video as-is.')
-            return
-          }
-          try {
-            const thumbSrc = await readFileAsDataUrl(thumbFile)
+          // Crop enabled — generate thumbnail and show crop tool
+          generateVideoThumbnail(selectedFile).then(async (thumbFile) => {
             if (fileChangeTokenRef.current !== changeToken) return
-            console.log('Video thumbnail loaded, showing cropper')
-            setCropSource(thumbSrc)
-            setShowCropper(true)
-          } catch (err) {
-            console.error('Failed to load thumbnail for crop:', err)
-            setCropSource(null)
-            setShowCropper(false)
-            alert('Video crop tool is not available on this device. You can still upload the video as-is.')
-          }
-        })
-        } // end cropEnabled else
+            if (!thumbFile) {
+              console.log('No thumbnail generated for video - skipping crop tool')
+              setCropSource(null)
+              setShowCropper(false)
+              return
+            }
+            setThumbnail(thumbFile)
+            try {
+              const thumbSrc = await readFileAsDataUrl(thumbFile)
+              if (fileChangeTokenRef.current !== changeToken) return
+              console.log('Video thumbnail loaded, showing cropper')
+              setCropSource(thumbSrc)
+              setShowCropper(true)
+            } catch (err) {
+              console.error('Failed to load thumbnail for crop:', err)
+              setCropSource(null)
+              setShowCropper(false)
+            }
+          })
+        }
       } else {
         console.log('Unknown file type:', selectedFile.type)
         setPreview(null)
@@ -834,6 +836,8 @@ function UploadPageContent() {
           realDevice: formData.realDevice,
           price: formData.price || null,
           isPublic: formData.isPublic,
+          // Pass crop coordinates for server-side FFmpeg processing (video only)
+          ...(formData.type === 'VIDEO' && videoCrop ? { cropData: videoCrop } : {}),
         }),
       })
 

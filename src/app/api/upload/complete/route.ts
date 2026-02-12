@@ -333,6 +333,7 @@ export async function POST(request: Request) {
       aiPrompt,
       price,
       isPublic = true,
+      cropData,   // { x, y, width, height } from crop tool — applied server-side by FFmpeg
     } = body
 
     if (!title || !type || !url) {
@@ -562,7 +563,7 @@ export async function POST(request: Request) {
 
     // Fire-and-forget: start server-side video processing (FFmpeg 720p + HQ transcode)
     if (isVideoUpload) {
-      processMedia(media.id).catch((err) =>
+      processMedia(media.id, cropData || undefined).catch((err) =>
         console.error(`[Upload] Background video processing failed for ${media.id}:`, err)
       )
     }

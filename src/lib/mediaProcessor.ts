@@ -228,25 +228,57 @@ interface TranscodeResult {
 
 /**
  * Transcode a video file into 720p (free) and HQ (paid) versions.
+ * If cropData is provided, it will be applied as a crop filter before scaling.
  */
 async function transcodeVideo(
   rawLocalPath: string,
   baseBlobName: string,
   existingThumbnail: string | null,
+  cropData?: { x: number; y: number; width: number; height: number },
 ): Promise<TranscodeResult> {
   const probe = await probeVideo(rawLocalPath)
   console.log(`[MediaProcessor] Probe: ${probe.width}x${probe.height}, ${probe.duration}s, audio=${probe.hasAudio}`)
+  if (cropData) {
+    console.log(`[MediaProcessor] Crop: x=${cropData.x}, y=${cropData.y}, w=${cropData.width}, h=${cropData.height}`)
+  }
 
   const dir = join(tmpdir(), 'media-processor')
 
+  // Build video filter chain: crop (if set) → scale (if needed)
+  // FFmpeg crop filter: crop=out_w:out_h:x:y
+  const buildVideoFilter = (scaleHeight?: number): string[] => {
+    const filters: string[] = []
+
+    if (cropData) {
+      // Clamp crop values to video dimensions
+      const cx = Math.max(0, Math.round(cropData.x))
+      const cy = Math.max(0, Math.round(cropData.y))
+      const cw = Math.min(Math.round(cropData.width), probe.width - cx)
+      const ch = Math.min(Math.round(cropData.height), probe.height - cy)
+      if (cw > 0 && ch > 0) {
+        filters.push(`crop=${cw}:${ch}:${cx}:${cy}`)
+      }
+    }
+
+    if (scaleHeight) {
+      filters.push(`scale=-2:${scaleHeight}`)
+    }
+
+    return filters.length > 0 ? ['-vf', filters.join(',')] : []
+  }
+
   // --- 720p version (free streaming) ---
   const path720p = join(dir, `${baseBlobName}-720p.mp4`)
-  const needs720pScale = probe.height > 720
+  // For 720p, check the effective height after crop (clamped the same way as buildVideoFilter)
+  const effectiveHeight = cropData
+    ? Math.min(Math.round(cropData.height), probe.height - Math.max(0, Math.round(cropData.y)))
+    : probe.height
+  const needs720pScale = effectiveHeight > 720
 
   const args720p: string[] = [
     '-i', rawLocalPath,
     '-y', // overwrite
-    ...(needs720pScale ? ['-vf', 'scale=-2:720'] : []),
+    ...buildVideoFilter(needs720pScale ? 720 : undefined),
     '-c:v', 'libx264',
     '-preset', 'medium',
     '-crf', '23',
@@ -261,10 +293,11 @@ async function transcodeVideo(
   // --- HQ version (paid download / source quality) ---
   const path4k = join(dir, `${baseBlobName}-hq.mp4`)
 
-  // Never upscale: keep source resolution, but encode with high quality H.264
+  // Never upscale: keep source resolution (or cropped resolution), encode with high quality H.264
   const args4k: string[] = [
     '-i', rawLocalPath,
     '-y',
+    ...buildVideoFilter(), // crop only (no scale) for HQ
     '-c:v', 'libx264',
     '-preset', 'slow',
     '-crf', '18',
@@ -284,12 +317,25 @@ async function transcodeVideo(
     const thumbPath = join(dir, `${baseBlobName}-thumb.jpg`)
     const seekTime = Math.min(probe.duration * 0.1, 5) // 10% into video, max 5s
 
+    // Build thumbnail filter: crop (if set) + scale to 640px wide
+    const thumbFilters: string[] = []
+    if (cropData) {
+      const cx = Math.max(0, Math.round(cropData.x))
+      const cy = Math.max(0, Math.round(cropData.y))
+      const cw = Math.min(Math.round(cropData.width), probe.width - cx)
+      const ch = Math.min(Math.round(cropData.height), probe.height - cy)
+      if (cw > 0 && ch > 0) {
+        thumbFilters.push(`crop=${cw}:${ch}:${cx}:${cy}`)
+      }
+    }
+    thumbFilters.push('scale=640:-2')
+
     const argsThumb: string[] = [
       '-i', rawLocalPath,
       '-y',
       '-ss', seekTime.toString(),
       '-frames:v', '1',
-      '-vf', 'scale=640:-2',
+      '-vf', thumbFilters.join(','),
       '-q:v', '3',
       thumbPath,
     ]
@@ -339,12 +385,16 @@ async function safeUnlink(p: string) {
  *
  * For VIDEO:
  *   - Downloads raw → FFmpeg 720p + HQ → uploads → updates DB → deletes raw
+ *   - If cropData is provided, applies crop during transcoding
  *
  * For IMAGE / MUSIC:
  *   - Currently no server-side processing (client-side is sufficient)
  *   - processingStatus set to 'completed' immediately
  */
-export async function processMedia(mediaId: string): Promise<void> {
+export async function processMedia(
+  mediaId: string,
+  cropData?: { x: number; y: number; width: number; height: number },
+): Promise<void> {
   console.log(`[MediaProcessor] Starting processing for media ${mediaId}`)
 
   try {
@@ -382,8 +432,8 @@ export async function processMedia(mediaId: string): Promise<void> {
     const rawLocalPath = await downloadBlob(rawUrl)
 
     try {
-      // Transcode
-      const result = await transcodeVideo(rawLocalPath, baseName, media.thumbnailUrl)
+      // Transcode (with optional crop)
+      const result = await transcodeVideo(rawLocalPath, baseName, media.thumbnailUrl, cropData)
 
       // Update DB: url → 720p (free), urlHq → HQ (paid), status → completed
       const updateData: any = {

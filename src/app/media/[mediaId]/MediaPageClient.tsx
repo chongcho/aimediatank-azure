@@ -238,15 +238,14 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     const shareUrl = `${window.location.origin}/media/${mediaId}`
     const shareTitle = media ? stripHashtags(media.title) : 'Check this out'
 
-    // Increment share counter (fire-and-forget)
-    fetch(`/api/media/${mediaId}/share`, { method: 'POST' }).catch(() => {})
-
     // Use native Web Share API if available (mobile devices)
     if (navigator.share) {
       try {
         await navigator.share({ title: shareTitle, url: shareUrl })
-      } catch (e) {
-        // User cancelled or share failed — ignore
+        // Only increment after user actually completed the share
+        fetch(`/api/media/${mediaId}/share`, { method: 'POST' }).catch(() => {})
+      } catch {
+        // User cancelled or share failed — don't count it
       }
       return
     }
@@ -254,6 +253,8 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     // Fallback: copy link to clipboard
     try {
       await navigator.clipboard.writeText(shareUrl)
+      // Only increment after successful clipboard copy
+      fetch(`/api/media/${mediaId}/share`, { method: 'POST' }).catch(() => {})
       setShareStatus('copied')
       setTimeout(() => setShareStatus('idle'), 2000)
     } catch {

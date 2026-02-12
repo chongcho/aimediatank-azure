@@ -56,6 +56,7 @@ interface Media {
   title: string
   type: string
   url: string
+  urlHq?: string | null
   fileSize?: string | number | null
   isApproved: boolean
   isDeleted: boolean
@@ -65,6 +66,8 @@ interface Media {
   soldAt: string | null
   downloadCount: number
   shareCount: number
+  processingStatus: string
+  processingError?: string | null
   ageRestriction: string
   createdAt: string
   user: { id: string; username: string; name: string | null; email: string }
@@ -1534,7 +1537,7 @@ export default function AdminPage() {
                 </div>
               )}
               <div className="card overflow-x-auto max-h-[70vh] overflow-y-auto">
-                <table className="w-full text-sm min-w-[1400px]">
+                <table className="w-full text-sm min-w-[1600px]">
                   <thead className="sticky top-0 bg-tank-dark z-10">
                     <tr className="border-b border-tank-light">
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">#</th>
@@ -1544,6 +1547,8 @@ export default function AdminPage() {
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Upload Date</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">File Size</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Processing</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Files</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Age Filter</th>
                       <th className="text-right p-3 text-gray-400 font-medium whitespace-nowrap">Downloads</th>
                       <th className="text-right p-3 text-gray-400 font-medium whitespace-nowrap">Shares</th>
@@ -1578,6 +1583,50 @@ export default function AdminPage() {
                           </td>
                           <td className="p-3 text-gray-400 whitespace-nowrap">
                             {formatBytes(item.fileSize ?? null)}
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            {item.type === 'VIDEO' ? (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                item.processingStatus === 'completed' ? 'bg-green-900/40 text-green-400' :
+                                item.processingStatus === 'processing' ? 'bg-blue-900/40 text-blue-400' :
+                                item.processingStatus === 'pending' ? 'bg-yellow-900/40 text-yellow-400' :
+                                item.processingStatus === 'failed' ? 'bg-red-900/40 text-red-400' :
+                                'bg-gray-700/40 text-gray-400'
+                              }`}>
+                                {item.processingStatus === 'completed' && '✓'}
+                                {item.processingStatus === 'processing' && '⟳'}
+                                {item.processingStatus === 'pending' && '⏳'}
+                                {item.processingStatus === 'failed' && '✗'}
+                                {item.processingStatus || 'n/a'}
+                              </span>
+                            ) : (
+                              <span className="text-gray-600 text-xs">—</span>
+                            )}
+                            {item.processingStatus === 'failed' && item.processingError && (
+                              <span className="block text-red-400/70 text-[10px] mt-0.5 max-w-[140px] truncate" title={item.processingError}>
+                                {item.processingError}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            {item.type === 'VIDEO' ? (
+                              <div className="text-xs space-y-0.5">
+                                <div className="flex items-center gap-1">
+                                  <span className={item.url ? 'text-green-400' : 'text-gray-600'}>720p</span>
+                                  <span className="text-gray-600">{item.url ? '✓' : '—'}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className={item.urlHq ? 'text-blue-400' : 'text-gray-600'}>HQ</span>
+                                  <span className="text-gray-600">{item.urlHq ? '✓' : '—'}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-xs">
+                                <span className={item.url ? 'text-green-400' : 'text-gray-600'}>
+                                  {item.url ? '✓ Original' : '—'}
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className="p-3">
                             <select

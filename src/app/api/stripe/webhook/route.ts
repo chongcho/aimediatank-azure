@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import Stripe from 'stripe'
 import { sendEmail, generatePurchaseEmail, generateMembershipPurchaseEmail } from '@/lib/email'
+import { processMedia } from '@/lib/mediaProcessor'
 
 // Plan upload conditions for emails
 const PLAN_CONDITIONS: Record<string, { name: string; uploadCondition: string }> = {
@@ -122,6 +123,14 @@ export async function POST(request: Request) {
         const pendingUploadId = session.metadata.pendingUploadId
         const mediaTitle = session.metadata.mediaTitle || 'Untitled'
         
+        // Parse crop data from Stripe metadata (stored as JSON string)
+        let cropData: { x: number; y: number; width: number; height: number } | undefined
+        try {
+          if (session.metadata.cropData) {
+            cropData = JSON.parse(session.metadata.cropData)
+          }
+        } catch { /* ignore parse errors */ }
+        
         console.log(`Processing upload_fee payment for userId: ${userId}, pendingUploadId: ${pendingUploadId}`)
         
         if (userId && pendingUploadId) {
@@ -134,6 +143,8 @@ export async function POST(request: Request) {
             console.error(`Pending upload ${pendingUploadId} not found`)
             break
           }
+          
+          const isVideoUpload = pendingUpload.type === 'VIDEO'
           
           // Create the actual media record
           const media = await prisma.media.create({
@@ -149,10 +160,18 @@ export async function POST(request: Request) {
               isPublic: pendingUpload.isPublic,
               isApproved: true,
               userId: pendingUpload.userId,
+              processingStatus: isVideoUpload ? 'pending' : 'completed',
             },
           })
           
           console.log(`Created media ${media.id} from pending upload ${pendingUploadId}`)
+          
+          // Fire-and-forget: start server-side video processing (FFmpeg 720p + HQ transcode)
+          if (isVideoUpload) {
+            processMedia(media.id, cropData).catch((err) =>
+              console.error(`[Webhook] Background video processing failed for ${media.id}:`, err)
+            )
+          }
           
           // Delete the pending upload
           await prisma.pendingUpload.delete({
