@@ -255,14 +255,19 @@ async function transcodeVideo(
 
   const dir = join(tmpdir(), 'media-processor')
 
+  // Use FFmpeg's built-in input dimensions (in_w / in_h) to guarantee the crop
+  // never exceeds coded pixel size — even when the client sends display-size crop
+  // data (e.g. SAR ≠ 1:1 → display width ≠ coded width).
   const buildVideoFilter = (scaleHeight?: number): string[] => {
     const filters: string[] = []
     if (cropData) {
       const cx = Math.max(0, Math.round(cropData.x))
       const cy = Math.max(0, Math.round(cropData.y))
-      const cw = Math.min(Math.round(cropData.width), probe.width - cx)
-      const ch = Math.min(Math.round(cropData.height), probe.height - cy)
-      if (cw > 0 && ch > 0) filters.push(`crop=${cw}:${ch}:${cx}:${cy}`)
+      const cw = Math.round(cropData.width)
+      const ch = Math.round(cropData.height)
+      // Clamp with min(value, in_w/in_h - offset) using FFmpeg expressions
+      // so it never exceeds coded pixel dimensions regardless of SAR.
+      filters.push(`crop='min(${cw},in_w-${cx})':'min(${ch},in_h-${cy})':'min(${cx},in_w-1)':'min(${cy},in_h-1)'`)
     }
     if (scaleHeight) filters.push(`scale=-2:${scaleHeight}`)
     return filters.length > 0 ? ['-vf', filters.join(',')] : []
@@ -320,9 +325,9 @@ async function transcodeVideo(
     if (cropData) {
       const cx = Math.max(0, Math.round(cropData.x))
       const cy = Math.max(0, Math.round(cropData.y))
-      const cw = Math.min(Math.round(cropData.width), probe.width - cx)
-      const ch = Math.min(Math.round(cropData.height), probe.height - cy)
-      if (cw > 0 && ch > 0) thumbFilters.push(`crop=${cw}:${ch}:${cx}:${cy}`)
+      const cw = Math.round(cropData.width)
+      const ch = Math.round(cropData.height)
+      thumbFilters.push(`crop='min(${cw},in_w-${cx})':'min(${ch},in_h-${cy})':'min(${cx},in_w-1)':'min(${cy},in_h-1)'`)
     }
     thumbFilters.push('scale=640:-2')
     try {
