@@ -189,6 +189,38 @@ az webapp log tail \
 
 ## 🛠️ Troubleshooting
 
+### 503 Service Unavailable (production down, staging works)
+
+If **aimediatank.com** returns 503 but staging works, the app or platform is not responding in production. Check in order:
+
+1. **Deployment in progress**  
+   Wait a few minutes; 503 can occur while the slot is swapping or the app is restarting.
+
+2. **App status and restart**  
+   - Azure Portal → App Service **aimediatank-azure** (production) → Overview.  
+   - Ensure status is **Running**. If needed: **Restart**.
+
+3. **Runtime logs (startup/crash)**  
+   - **Log stream:** App Service → Monitoring → **Log stream**.  
+   - **Or CLI:**  
+     `az webapp log tail --name aimediatank-azure --resource-group <your-rg>`  
+   Look for Node/Prisma/ENOENT errors or missing env.
+
+4. **Production app settings (vs staging)**  
+   - App Service **aimediatank-azure** → Configuration → Application settings.  
+   - Confirm **NEXTAUTH_URL** = `https://aimediatank.com` (production).  
+   - Confirm **DATABASE_URL**, **NEXTAUTH_SECRET**, and other required vars match what staging uses (or are correct for prod).
+
+5. **Custom domain and HTTPS**  
+   - Custom domains → **aimediatank.com** is bound and **HTTPS** is enabled.  
+   - If the app works at `https://aimediatank-azure.azurewebsites.net` but not at aimediatank.com, fix domain/SSL binding.
+
+6. **Always On**  
+   - Configuration → General settings → **Always On** = On (avoids cold-start 503).
+
+7. **Health check (if configured)**  
+   - If a path is set as health check, ensure it returns 200; otherwise the platform may mark the app unhealthy and return 503.
+
 ### Build Fails
 
 Check build logs:

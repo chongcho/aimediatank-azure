@@ -1055,7 +1055,7 @@ export default function AdminPage() {
           { id: 'games', label: 'Game Control' },
           { id: 'navbar', label: 'Navbar Control' },
           { id: 'badges', label: 'Media Badge Control' },
-          { id: 'cropTool', label: 'Crop/Re-encoding' },
+          { id: 'cropTool', label: 'Upload & Download' },
           { id: 'membershipSales', label: 'Membership Sales Reports' },
           { id: 'contentSales', label: 'Contents Sales Reports' },
           { id: 'adSales', label: 'Ad Sales Reports' },
@@ -2373,55 +2373,51 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Crop/Re-encoding Settings */}
+          {/* Upload & Download Settings — two panels: Upload (left), Download/Streaming (right) */}
           {activeTab === 'cropTool' && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">✂️ Crop/Re-encoding Settings</h2>
-                <p className="text-gray-400 text-sm">Control crop, trim, and re-encoding quality for uploads</p>
-              </div>
-
               {cropToolLoading ? (
                 <div className="flex justify-center py-12"><div className="spinner" /></div>
               ) : (
                 <>
-                  {/* Enable / Disable Toggle */}
-                  <div className="card">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-bold text-white text-lg">Crop/Re-encoding</h3>
-                        <p className="text-sm text-gray-400 mt-1">
-                          Allow users to crop, trim, and re-encode images and videos during upload
-                        </p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left: Upload Setting - Crop Tool */}
+                  <div className="space-y-6">
+                    <h2 className="text-lg font-bold text-white border-b border-tank-light pb-2">Upload Setting - Crop Tool</h2>
+                    <div className="card">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-bold text-white text-lg">Crop/Re-encoding</h3>
+                          <p className="text-sm text-gray-400 mt-1">
+                            Allow users to crop, trim, and re-encode images and videos during upload
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => saveCropToolSettings({ isEnabled: !cropToolSettings.isEnabled })}
+                          disabled={cropToolSaving}
+                          className={`relative w-14 h-7 rounded-full transition-colors ${
+                            cropToolSettings.isEnabled ? 'bg-green-500' : 'bg-gray-600'
+                          } ${cropToolSaving ? 'opacity-50' : ''}`}
+                        >
+                          <div
+                            className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow ${
+                              cropToolSettings.isEnabled ? 'translate-x-8' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => saveCropToolSettings({ isEnabled: !cropToolSettings.isEnabled })}
-                        disabled={cropToolSaving}
-                        className={`relative w-14 h-7 rounded-full transition-colors ${
-                          cropToolSettings.isEnabled ? 'bg-green-500' : 'bg-gray-600'
-                        } ${cropToolSaving ? 'opacity-50' : ''}`}
-                      >
-                        <div
-                          className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow ${
-                            cropToolSettings.isEnabled ? 'translate-x-8' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
+                      <div className="mt-3">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          cropToolSettings.isEnabled
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {cropToolSettings.isEnabled ? '✓ Enabled' : '✗ Disabled'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="mt-3">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        cropToolSettings.isEnabled
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-red-500/20 text-red-400'
-                      }`}>
-                        {cropToolSettings.isEnabled ? '✓ Enabled' : '✗ Disabled'}
-                      </span>
-                    </div>
-                  </div>
 
-                  {/* Quality Settings — two panels side by side */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* ── Free Content Quality ── */}
+                    {/* Free Content Quality */}
                     <div className="card border-2 border-blue-500/30">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xl">🆓</span>
@@ -2562,8 +2558,10 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* Download & streaming — resolution caps for free vs sell media */}
-                  <div className="p-4 bg-tank-dark rounded-lg border border-tank-light">
+                  {/* Right: Download/Streaming Setting */}
+                  <div className="space-y-6">
+                    <h2 className="text-lg font-bold text-white border-b border-tank-light pb-2">Download/Streaming Setting</h2>
+                    <div className="p-4 bg-tank-dark rounded-lg border border-tank-light">
                     <h4 className="font-medium text-white mb-2">📥 Download & streaming</h4>
                     <p className="text-gray-400 text-sm mb-4">Control which resolution is used for free vs paid/sell media (streaming and download).</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2619,6 +2617,8 @@ export default function AdminPage() {
                         <p className="text-xs text-gray-500 mt-1">Quality for buyers &amp; owners</p>
                       </div>
                     </div>
+                  </div>
+                  </div>
                   </div>
 
                   {/* Current Settings Summary */}
