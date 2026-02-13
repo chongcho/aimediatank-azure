@@ -283,6 +283,82 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* Architecture Diagram */}
+      <section className="py-20 px-4 bg-tank-gray/30">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Development & Deployment</span>
+            <h2 className="text-4xl font-bold mt-2">Architecture Overview</h2>
+            <p className="text-gray-400 mt-2 max-w-2xl mx-auto">
+              How the platform is built and deployed: from your browser to Azure and external services.
+            </p>
+          </div>
+          <div className="bg-tank-dark border border-tank-light rounded-2xl p-6 md:p-8 overflow-x-auto">
+            {/* Diagram: flow from client to backend to services */}
+            <div className="flex flex-col gap-6 min-w-[320px]">
+              {/* Row 1: Client */}
+              <div className="flex justify-center">
+                <div className="px-6 py-3 rounded-xl bg-cyan-500/20 border-2 border-cyan-400/50 text-center">
+                  <div className="text-sm text-cyan-300 font-semibold">Users</div>
+                  <div className="text-xs text-gray-400 mt-0.5">Browser / PWA</div>
+                </div>
+              </div>
+              <div className="flex justify-center">
+                <div className="w-0.5 h-4 bg-tank-light rounded-full" aria-hidden />
+              </div>
+              {/* Row 2: Next.js App (Azure App Service) */}
+              <div className="flex justify-center">
+                <div className="px-6 py-4 rounded-xl bg-tank-accent/20 border-2 border-tank-accent text-center max-w-md">
+                  <div className="text-tank-accent font-bold">Next.js 14 App</div>
+                  <div className="text-xs text-gray-400 mt-1">Azure App Service (B2)</div>
+                  <div className="flex flex-wrap justify-center gap-2 mt-2 text-xs">
+                    <span className="px-2 py-0.5 bg-tank-gray rounded">App Router</span>
+                    <span className="px-2 py-0.5 bg-tank-gray rounded">API Routes</span>
+                    <span className="px-2 py-0.5 bg-tank-gray rounded">NextAuth</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-center">
+                <div className="w-0.5 h-4 bg-tank-light rounded-full" aria-hidden />
+              </div>
+              {/* Row 3: Backend services (horizontal) */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-xl bg-tank-gray border border-tank-light p-3 text-center">
+                  <div className="text-lg mb-1">🗄️</div>
+                  <div className="text-sm font-semibold text-white">PostgreSQL</div>
+                  <div className="text-xs text-gray-500">Azure Flexible</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Prisma ORM</div>
+                </div>
+                <div className="rounded-xl bg-tank-gray border border-tank-light p-3 text-center">
+                  <div className="text-lg mb-1">☁️</div>
+                  <div className="text-sm font-semibold text-white">Blob Storage</div>
+                  <div className="text-xs text-gray-500">Azure Storage</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Media & thumbnails</div>
+                </div>
+                <div className="rounded-xl bg-tank-gray border border-tank-light p-3 text-center">
+                  <div className="text-lg mb-1">💳</div>
+                  <div className="text-sm font-semibold text-white">Stripe</div>
+                  <div className="text-xs text-gray-500">Payments & webhooks</div>
+                </div>
+                <div className="rounded-xl bg-tank-gray border border-tank-light p-3 text-center">
+                  <div className="text-lg mb-1">⏱️</div>
+                  <div className="text-sm font-semibold text-white">Azure Functions</div>
+                  <div className="text-xs text-gray-500">Cron / video processing</div>
+                </div>
+              </div>
+              {/* Row 4: CI/CD */}
+              <div className="flex justify-center pt-2">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-tank-gray border border-tank-light">
+                  <span className="text-lg">🔄</span>
+                  <span className="text-sm font-medium text-gray-300">GitHub Actions</span>
+                  <span className="text-xs text-gray-500">→ Deploy to staging & production</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 px-4 bg-gradient-to-br from-tank-accent/20 via-tank-dark to-cyan-500/10">
         <div className="max-w-4xl mx-auto text-center">
