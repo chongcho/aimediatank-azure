@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -77,6 +77,48 @@ export default function ProfilePage() {
   const [savedLoading, setSavedLoading] = useState(false)
   const [selectedSaved, setSelectedSaved] = useState<Set<string>>(new Set())
   const [unsaving, setUnsaving] = useState(false)
+  const [columns, setColumns] = useState(1)
+
+  useEffect(() => {
+    const getColumns = () => {
+      const w = typeof window !== 'undefined' ? window.innerWidth : 640
+      if (w >= 1920) return 5
+      if (w >= 1280) return 4
+      if (w >= 1024) return 3
+      if (w >= 640) return 2
+      return 1
+    }
+    setColumns(getColumns())
+    const onResize = () => setColumns(getColumns())
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  function columnMajorOrder<T>(arr: T[], n: number): T[] {
+    if (arr.length <= 1 || n <= 1) return arr
+    const numRows = Math.ceil(arr.length / n)
+    const out: T[] = []
+    for (let col = 0; col < n; col++) {
+      for (let row = 0; row < numRows; row++) {
+        const idx = row * n + col
+        if (idx < arr.length) out.push(arr[idx])
+      }
+    }
+    return out
+  }
+
+  const filteredMediaForGrid = useMemo(
+    () => columnMajorOrder(filteredMedia ?? [], columns),
+    [filteredMedia, columns]
+  )
+  const purchasesForGrid = useMemo(
+    () => columnMajorOrder(purchases, columns),
+    [purchases, columns]
+  )
+  const savedMediaForGrid = useMemo(
+    () => columnMajorOrder(savedMedia, columns),
+    [savedMedia, columns]
+  )
 
   // Get username from params - handle both string and array
   const username = Array.isArray(params.username) ? params.username[0] : params.username
@@ -481,10 +523,10 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          {/* Media Grid */}
+          {/* Media Grid — masonry + column-major for correct sort order (match homepage) */}
           {filteredMedia && filteredMedia.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredMedia.map((media) => (
+            <div className="media-grid">
+              {filteredMediaForGrid.map((media) => (
                 <MediaCard key={media.id} media={media} />
               ))}
             </div>
@@ -515,8 +557,8 @@ export default function ProfilePage() {
               <div className="spinner" />
             </div>
           ) : purchases.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {purchases.map((purchase) => (
+            <div className="media-grid">
+              {purchasesForGrid.map((purchase) => (
                 <div key={purchase.id} className="card group relative overflow-hidden">
                   {/* Purchased Badge */}
                   <div className="absolute top-3 left-3 z-10 px-2 py-1 bg-gradient-to-r from-tank-accent to-purple-500 rounded-lg text-xs font-bold text-tank-black">
@@ -668,9 +710,9 @@ export default function ProfilePage() {
                 </button>
               </div>
 
-              {/* Saved Media Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {savedMedia.map((item) => (
+              {/* Saved Media Grid — masonry + column-major (match homepage) */}
+              <div className="media-grid">
+                {savedMediaForGrid.map((item) => (
                   <div 
                     key={item.id} 
                     className={`card group relative overflow-hidden transition-all ${
