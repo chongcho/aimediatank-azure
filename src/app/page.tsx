@@ -90,6 +90,8 @@ function HomeContent() {
   // True once the first meaningful paint is done (media loaded + scroll positioned).
   // While false the SEO "about" section is hidden so it doesn't flash during transitions.
   const [contentReady, setContentReady] = useState(false)
+  // True while restoring scroll from Media Detail back to homepage; hides grid until scroll is applied to avoid "pass through" flash.
+  const [restoringScroll, setRestoringScroll] = useState(false)
   // Column count for masonry: reorder to column-major so "Most Recent" top row = 1,2,3,4 (match globals.css breakpoints)
   const [columns, setColumns] = useState(1)
 
@@ -186,6 +188,7 @@ function HomeContent() {
 
     if (canRestore) {
       isRestoringRef.current = true
+      setRestoringScroll(true)
       activeRestoreRunIdRef.current = runId
       scrollRestoredRef.current = false
       setMedia([])
@@ -197,6 +200,7 @@ function HomeContent() {
           if (restoreRunIdRef.current !== runId) {
             if (activeRestoreRunIdRef.current === runId) {
               isRestoringRef.current = false
+              setRestoringScroll(false)
               activeRestoreRunIdRef.current = null
             }
             return
@@ -205,6 +209,7 @@ function HomeContent() {
           if (restoreRunIdRef.current !== runId) {
             if (activeRestoreRunIdRef.current === runId) {
               isRestoringRef.current = false
+              setRestoringScroll(false)
               activeRestoreRunIdRef.current = null
             }
             return
@@ -223,12 +228,13 @@ function HomeContent() {
         }
 
         const attemptScrollToTarget = (attempts: number) => {
-          if (attempts <= 0) { setContentReady(true); return }
-          if (restoreRunIdRef.current !== runId) { setContentReady(true); return }
+          if (attempts <= 0) { setContentReady(true); setRestoringScroll(false); return }
+          if (restoreRunIdRef.current !== runId) { setContentReady(true); setRestoringScroll(false); return }
           const target = document.querySelector(`[data-media-id="${restoreState.targetId}"]`) as HTMLElement | null
           if (target) {
             scrollToTarget(target)
             scrollRestoredRef.current = true
+            setRestoringScroll(false)
             setContentReady(true)
 
             // Keep correcting scroll position as images load and shift the layout.
@@ -645,8 +651,9 @@ function HomeContent() {
         </div>
       )}
 
-      {/* Media Grid — min-h-screen during loading keeps the about section below the fold */}
-      {loading ? (
+      {/* Media Grid — min-h-screen during loading keeps the about section below the fold.
+          When restoringScroll, keep showing skeleton until scroll is applied to avoid "pass through" flash. */}
+      {loading || restoringScroll ? (
         <div className="media-grid min-h-screen">
           {[...Array(12)].map((_, i) => {
             // Varied skeleton heights to preview the masonry layout
@@ -663,7 +670,7 @@ function HomeContent() {
             )
           })}
         </div>
-      ) : media.length === 0 ? (
+      ) : !restoringScroll && media.length === 0 ? (
         <div className="text-center py-20">
           <div className="text-6xl mb-4">🎨</div>
           <h2 className="text-2xl font-semibold mb-2">No media found</h2>
