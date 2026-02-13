@@ -406,37 +406,37 @@ input[type="number"]::-webkit-outer-spin-button {
   overflow: hidden;
 }
 
-/* Media grid — row flow so "Sort by Most Recent" reads top-to-bottom, left-to-right */
+/* Masonry-style media grid — columns layout: top-to-bottom per column, minimal empty space */
 .media-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.25rem;
+  columns: 1;
+  column-gap: 1.25rem;
 }
 
 .media-grid > * {
-  min-width: 0;
+  break-inside: avoid;
+  margin-bottom: 1.25rem;
 }
 
 @media (min-width: 640px) {
   .media-grid {
-    grid-template-columns: repeat(2, 1fr);
+    columns: 2;
   }
 }
 
 @media (min-width: 1024px) {
   .media-grid {
-    grid-template-columns: repeat(3, 1fr);
+    columns: 3;
   }
 }
 
 @media (min-width: 1280px) {
   .media-grid {
-    grid-template-columns: repeat(4, 1fr);
+    columns: 4;
   }
 }
 
 @media (min-width: 1920px) {
   .media-grid {
-    grid-template-columns: repeat(5, 1fr);
+    columns: 5;
   }
 }
