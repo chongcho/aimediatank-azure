@@ -218,6 +218,7 @@ function HomeContent() {
           if (activeRestoreRunIdRef.current === runId) {
             isRestoringRef.current = false
             setRestoringScroll(false)
+            setLoading(false)
             activeRestoreRunIdRef.current = null
           }
           return
@@ -225,6 +226,7 @@ function HomeContent() {
         const merged = results.flatMap((r) => r.media)
         const lastTotalPages = results[pageCount - 1]?.totalPages ?? 1
         setMedia(merged)
+        setLoading(false)
         setHasMore(pageCount < lastTotalPages)
         if (activeRestoreRunIdRef.current === runId) {
           isRestoringRef.current = false
