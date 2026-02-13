@@ -262,11 +262,11 @@ function UploadPageContent() {
           qualitySettings
         )
       }
-      
+
       // Step 2: Upload to Azure Blob Storage
       setUploadStatus('Uploading to cloud storage...')
       const fileUrl = await uploadToAzure(compressedFile, formData.type)
-      
+
       // Upload thumbnail if provided
       let thumbnailUrl = null
       if (thumbnail) {
@@ -883,7 +883,7 @@ function UploadPageContent() {
         console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB, Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB, Type: ${compressedFile.type}`)
       }
       setUploadProgress(30)
-      
+
       // Validate file
       if (!compressedFile || compressedFile.size === 0) {
         throw new Error('File preparation failed - file is empty')
