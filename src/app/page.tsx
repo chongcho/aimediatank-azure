@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense, useRef, useCallback } from 'react'
+import { useEffect, useState, Suspense, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
@@ -90,6 +90,38 @@ function HomeContent() {
   // True once the first meaningful paint is done (media loaded + scroll positioned).
   // While false the SEO "about" section is hidden so it doesn't flash during transitions.
   const [contentReady, setContentReady] = useState(false)
+  // Column count for masonry: reorder to column-major so "Most Recent" top row = 1,2,3,4 (match globals.css breakpoints)
+  const [columns, setColumns] = useState(1)
+
+  useEffect(() => {
+    const getColumns = () => {
+      const w = typeof window !== 'undefined' ? window.innerWidth : 640
+      if (w >= 1920) return 5
+      if (w >= 1280) return 4
+      if (w >= 1024) return 3
+      if (w >= 640) return 2
+      return 1
+    }
+    setColumns(getColumns())
+    const onResize = () => setColumns(getColumns())
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  // Reorder media to column-major so CSS columns layout shows top row as 1st, 2nd, 3rd... (correct "Most Recent" order)
+  const mediaForGrid = useMemo(() => {
+    if (media.length <= 1 || columns <= 1) return media
+    const n = columns
+    const numRows = Math.ceil(media.length / n)
+    const out: Media[] = []
+    for (let col = 0; col < n; col++) {
+      for (let row = 0; row < numRows; row++) {
+        const idx = row * n + col
+        if (idx < media.length) out.push(media[idx])
+      }
+    }
+    return out
+  }, [media, columns])
 
   // Check for pending scroll restoration on mount, or scroll to top
   useEffect(() => {
@@ -642,7 +674,7 @@ function HomeContent() {
       ) : (
         <>
           <div className="media-grid">
-            {media.map((item) => (
+            {mediaForGrid.map((item) => (
               <MediaCard
                 key={item.id}
                 media={item}

@@ -406,38 +406,37 @@ input[type="number"]::-webkit-outer-spin-button {
   overflow: hidden;
 }
 
-/* Media grid — row-major flow so "Sort by Most Recent" reads left-to-right, then top-to-bottom */
+/* Masonry media grid — CSS columns for compact layout. Use column-major order in JS so top row = 1,2,3,4. */
 .media-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-auto-rows: min-content;
-  gap: 1.25rem;
+  columns: 1;
+  column-gap: 1.25rem;
 }
 
 .media-grid > * {
-  min-width: 0;
+  break-inside: avoid;
+  margin-bottom: 1.25rem;
 }
 
 @media (min-width: 640px) {
   .media-grid {
-    grid-template-columns: repeat(2, 1fr);
+    columns: 2;
   }
 }
 
 @media (min-width: 1024px) {
   .media-grid {
-    grid-template-columns: repeat(3, 1fr);
+    columns: 3;
   }
 }
 
 @media (min-width: 1280px) {
   .media-grid {
-    grid-template-columns: repeat(4, 1fr);
+    columns: 4;
   }
 }
 
 @media (min-width: 1920px) {
   .media-grid {
-    grid-template-columns: repeat(5, 1fr);
+    columns: 5;
   }
 }
