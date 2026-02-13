@@ -1055,7 +1055,7 @@ export default function AdminPage() {
           { id: 'games', label: 'Game Control' },
           { id: 'navbar', label: 'Navbar Control' },
           { id: 'badges', label: 'Media Badge Control' },
-          { id: 'cropTool', label: 'Crop Tool' },
+          { id: 'cropTool', label: 'Crop/Re-encoding' },
           { id: 'membershipSales', label: 'Membership Sales Reports' },
           { id: 'contentSales', label: 'Contents Sales Reports' },
           { id: 'adSales', label: 'Ad Sales Reports' },
@@ -2373,12 +2373,12 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Crop Tool Settings */}
+          {/* Crop/Re-encoding Settings */}
           {activeTab === 'cropTool' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">✂️ Crop Tool Settings</h2>
-                <p className="text-gray-400 text-sm">Control the crop tool and re-encoding quality for uploads</p>
+                <h2 className="text-xl font-bold text-white">✂️ Crop/Re-encoding Settings</h2>
+                <p className="text-gray-400 text-sm">Control crop, trim, and re-encoding quality for uploads</p>
               </div>
 
               {cropToolLoading ? (
@@ -2389,9 +2389,9 @@ export default function AdminPage() {
                   <div className="card">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-bold text-white text-lg">Crop Tool</h3>
+                        <h3 className="font-bold text-white text-lg">Crop/Re-encoding</h3>
                         <p className="text-sm text-gray-400 mt-1">
-                          Allow users to crop images and videos during upload
+                          Allow users to crop, trim, and re-encode images and videos during upload
                         </p>
                       </div>
                       <button
