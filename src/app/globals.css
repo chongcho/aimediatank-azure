@@ -406,37 +406,37 @@ input[type="number"]::-webkit-outer-spin-button {
   overflow: hidden;
 }
 
-/* Responsive masonry media grid — columns layout for natural aspect ratios */
+/* Media grid — row flow so "Sort by Most Recent" reads top-to-bottom, left-to-right */
 .media-grid {
-  columns: 1;
-  column-gap: 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
 }
 
 .media-grid > * {
-  break-inside: avoid;
-  margin-bottom: 1.25rem;
+  min-width: 0;
 }
 
 @media (min-width: 640px) {
   .media-grid {
-    columns: 2;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (min-width: 1024px) {
   .media-grid {
-    columns: 3;
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
 @media (min-width: 1280px) {
   .media-grid {
-    columns: 4;
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
 @media (min-width: 1920px) {
   .media-grid {
-    columns: 5;
+    grid-template-columns: repeat(5, 1fr);
   }
 }
