@@ -341,8 +341,8 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
       <div className="w-full bg-black pt-5">
         {media.processingStatus === 'pending' || media.processingStatus === 'processing' ? (
           <div className="flex justify-center px-4">
-            <div className="relative w-full max-w-md aspect-video bg-black overflow-hidden rounded-xl border border-tank-light">
-              {/* Thumbnail-sized: same scale as grid cards */}
+            <div className="relative w-full max-w-2xl aspect-video bg-black overflow-hidden rounded-xl border border-tank-light">
+              {/* Processing thumbnail: uploader can check status here; hidden from homepage until completed */}
               {media.thumbnailUrl ? (
                 <img
                   src={media.thumbnailUrl}
@@ -352,18 +352,23 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center">
                   <div className="text-white/30">
-                    <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   </div>
                 </div>
               )}
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
-                <div className="w-10 h-10 border-2 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin mb-2" />
-                <p className="text-white font-medium mb-2">Processing...</p>
-                <p className="text-gray-300 text-xs max-w-[280px] text-center px-3">
-                  Your media is being transcoded. This usually takes 1–5 minutes. The page will update automatically.
+                <div className="w-12 h-12 border-2 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin mb-3" />
+                <p className="text-white font-semibold mb-1">Processing...</p>
+                <p className="text-gray-300 text-sm max-w-md text-center px-4 mb-2">
+                  Your media is being transcoded for streaming. This usually takes 1–5 minutes. The page will update automatically when ready.
                 </p>
+                {isOwner && (
+                  <p className="text-tank-accent/90 text-xs">
+                    Only you can see this page until processing completes. It won’t appear on the homepage until then.
+                  </p>
+                )}
               </div>
             </div>
           </div>
