@@ -84,6 +84,9 @@ function HomeContent() {
   const isRestoringRef = useRef(false)
   const restoreRunIdRef = useRef(0)
   const activeRestoreRunIdRef = useRef<number | null>(null)
+  // Keep current filters in a ref so load-more (effect with [page]) always uses latest sort/type/search
+  const filtersRef = useRef({ sort: 'popular', type: null as string | null, search: '' })
+  filtersRef.current = { sort, type, search }
   // True once the first meaningful paint is done (media loaded + scroll positioned).
   // While false the SEO "about" section is hidden so it doesn't flash during transitions.
   const [contentReady, setContentReady] = useState(false)
@@ -377,19 +380,20 @@ function HomeContent() {
     }
 
     try {
+      const { sort: currentSort, type: currentType, search: currentSearch } = filtersRef.current
       const params = new URLSearchParams({
-        sort,
+        sort: currentSort,
         page: pageNum.toString(),
         limit: '20',
       })
-      if (type) params.set('type', type)
+      if (currentType) params.set('type', currentType)
 
       // Handle @username search - filter by user
-      if (search && search.startsWith('@')) {
-        const username = search.slice(1)
+      if (currentSearch && currentSearch.startsWith('@')) {
+        const username = currentSearch.slice(1)
         if (username) params.set('user', username)
-      } else if (search) {
-        params.set('search', search)
+      } else if (currentSearch) {
+        params.set('search', currentSearch)
       }
 
       const res = await fetch(`/api/media?${params}`, { cache: 'no-store' })
