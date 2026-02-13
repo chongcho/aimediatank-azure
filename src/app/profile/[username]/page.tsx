@@ -107,19 +107,6 @@ export default function ProfilePage() {
     return out
   }
 
-  const filteredMediaForGrid = useMemo(
-    () => columnMajorOrder(filteredMedia ?? [], columns),
-    [filteredMedia, columns]
-  )
-  const purchasesForGrid = useMemo(
-    () => columnMajorOrder(purchases, columns),
-    [purchases, columns]
-  )
-  const savedMediaForGrid = useMemo(
-    () => columnMajorOrder(savedMedia, columns),
-    [savedMedia, columns]
-  )
-
   // Get username from params - handle both string and array
   const username = Array.isArray(params.username) ? params.username[0] : params.username
   const decodedUsername = username ? decodeURIComponent(username) : ''
@@ -345,6 +332,19 @@ export default function ProfilePage() {
 
   const filteredMedia = profile?.media.filter((m) =>
     activeTab === 'all' ? true : m.type === activeTab
+  )
+
+  const filteredMediaForGrid = useMemo(
+    () => columnMajorOrder(filteredMedia ?? [], columns),
+    [filteredMedia, columns]
+  )
+  const purchasesForGrid = useMemo(
+    () => columnMajorOrder(purchases, columns),
+    [purchases, columns]
+  )
+  const savedMediaForGrid = useMemo(
+    () => columnMajorOrder(savedMedia, columns),
+    [savedMedia, columns]
   )
 
   const stats = profile
