@@ -665,8 +665,9 @@ function HomeContent() {
       )}
 
       {/* Media Grid — min-h-screen during loading keeps the about section below the fold.
-          When restoringScroll, keep showing skeleton until scroll is applied to avoid "pass through" flash. */}
-      {loading || restoringScroll ? (
+          When restoringScroll, render the real grid invisibly (so DOM targets exist for scroll restore)
+          with a skeleton overlay so the user sees a loading state instead of a flash at the wrong scroll position. */}
+      {loading ? (
         <div className="media-grid min-h-screen">
           {[...Array(12)].map((_, i) => {
             // Varied skeleton heights to preview the masonry layout
@@ -683,7 +684,7 @@ function HomeContent() {
             )
           })}
         </div>
-      ) : !restoringScroll && media.length === 0 ? (
+      ) : media.length === 0 ? (
         <div className="text-center py-20">
           <div className="text-6xl mb-4">🎨</div>
           <h2 className="text-2xl font-semibold mb-2">No media found</h2>
@@ -693,7 +694,7 @@ function HomeContent() {
         </div>
       ) : (
         <>
-          <div className="media-grid">
+          <div className={`media-grid${restoringScroll ? ' invisible' : ''}`}>
             {mediaForGrid.map((item) => (
               <MediaCard
                 key={item.id}
