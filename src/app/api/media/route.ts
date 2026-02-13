@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // Force dynamic rendering since we use request.url
@@ -16,25 +18,40 @@ export async function GET(request: Request) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20') || 20))
     const search = searchParams.get('search')
     const user = searchParams.get('user') // Filter by username
+    const includeProcessing = searchParams.get('includeProcessing') === '1'
 
     const skip = (page - 1) * limit
     
     console.log('Media API request:', { sort, page, limit, type, search, user })
 
+    // When profile owner requests their own media with includeProcessing=1, include pending/processing/failed so they can see upload progress
+    let allowProcessingStatuses = false
+    if (user && includeProcessing) {
+      const session = await getServerSession(authOptions)
+      const requestedUser = decodeURIComponent(user)
+      if (session?.user && typeof session.user === 'object' && 'username' in session.user) {
+        const su = session.user as { username?: string; email?: string; id?: string }
+        if (su.username === requestedUser || su.email === requestedUser) {
+          allowProcessingStatuses = true
+        }
+      }
+    }
+
     // Build where clause
-    // Show all public, approved, non-deleted items with processing completed (hide pending/processing from listing)
-    // Sold items will be filtered out by cron job after 10 days
+    // Show all public, approved, non-deleted items; hide pending/processing from public listing unless owner requested includeProcessing
     const where: any = {
       isPublic: true,
       isApproved: true,
       isDeleted: false,
-      processingStatus: 'completed',
+    }
+    if (!allowProcessingStatuses) {
+      where.processingStatus = 'completed'
     }
 
     // Filter by username if provided
     if (user) {
       where.user = {
-        username: user,
+        username: decodeURIComponent(user),
       }
     }
 

@@ -196,25 +196,36 @@ function HomeContent() {
       setPage(restoreState.page)
 
       const restorePages = async () => {
-        for (let p = 1; p <= restoreState.page; p += 1) {
-          if (restoreRunIdRef.current !== runId) {
-            if (activeRestoreRunIdRef.current === runId) {
-              isRestoringRef.current = false
-              setRestoringScroll(false)
-              activeRestoreRunIdRef.current = null
-            }
-            return
-          }
-          await fetchMedia(p, p === 1)
-          if (restoreRunIdRef.current !== runId) {
-            if (activeRestoreRunIdRef.current === runId) {
-              isRestoringRef.current = false
-              setRestoringScroll(false)
-              activeRestoreRunIdRef.current = null
-            }
-            return
-          }
+        const { sort: s, type: t, search: q } = restoreState
+        const fetchOnePage = async (p: number): Promise<{ media: Media[]; totalPages: number }> => {
+          const params = new URLSearchParams({ sort: s, page: p.toString(), limit: '20' })
+          if (t) params.set('type', t)
+          if (q?.startsWith('@')) params.set('user', q.slice(1))
+          else if (q) params.set('search', q)
+          const res = await fetch(`/api/media?${params}`, { cache: 'no-store' })
+          const data = await res.json()
+          if (!res.ok) return { media: [], totalPages: 1 }
+          const list = (data.media || []).map((m: Media) => ({ ...m, _page: p }))
+          const totalPages = data.pagination?.totalPages ?? 1
+          return { media: list, totalPages }
         }
+
+        const pageCount = restoreState.page
+        const results = await Promise.all(
+          Array.from({ length: pageCount }, (_, i) => fetchOnePage(i + 1))
+        )
+        if (restoreRunIdRef.current !== runId) {
+          if (activeRestoreRunIdRef.current === runId) {
+            isRestoringRef.current = false
+            setRestoringScroll(false)
+            activeRestoreRunIdRef.current = null
+          }
+          return
+        }
+        const merged = results.flatMap((r) => r.media)
+        const lastTotalPages = results[pageCount - 1]?.totalPages ?? 1
+        setMedia(merged)
+        setHasMore(pageCount < lastTotalPages)
         if (activeRestoreRunIdRef.current === runId) {
           isRestoringRef.current = false
           activeRestoreRunIdRef.current = null

@@ -25,6 +25,7 @@ interface UserProfile {
     createdAt: string
     aiTool?: string
     price?: number
+    processingStatus?: string
     user: {
       username: string
       name: string | null
@@ -133,7 +134,7 @@ export default function ProfilePage() {
     if (decodedUsername) {
       fetchProfile()
     }
-  }, [decodedUsername])
+  }, [decodedUsername, session])
 
   // Fetch counts for own profile on initial load
   useEffect(() => {
@@ -163,8 +164,13 @@ export default function ProfilePage() {
       const userRes = await fetch(`/api/user/${encodeURIComponent(decodedUsername)}`)
       const userData = await userRes.json()
 
-      // Then fetch user's media
-      const res = await fetch(`/api/media?user=${encodeURIComponent(decodedUsername)}&limit=100`)
+      // Include processing items when viewing own profile so user can see upload progress
+      const isOwn = !!(
+        session?.user &&
+        (session.user.username === decodedUsername || session.user.email === decodedUsername)
+      )
+      const mediaUrl = `/api/media?user=${encodeURIComponent(decodedUsername)}&limit=100${isOwn ? '&includeProcessing=1' : ''}`
+      const res = await fetch(mediaUrl)
       const data = await res.json()
       
       if (userData.user) {
