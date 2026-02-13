@@ -947,12 +947,9 @@ function UploadPageContent() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-0 m-0 pb-[500px]">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">Upload AI Media</h1>
-        <p className="text-gray-400">
-          Share your AI-generated videos, images, or music with the community
-        </p>
+    <div className="max-w-3xl mx-auto p-0 m-0 pt-5 pb-[500px]">
+      <div className="text-center mb-[30px]">
+        <h1 className="text-3xl font-bold">Upload Media</h1>
       </div>
 
       {/* Payment Success Banner - Upload Complete */}
@@ -975,7 +972,7 @@ function UploadPageContent() {
         </div>
       )}
 
-      {/* Upload Quota Status Banner */}
+      {/* Upload Quota Status Banner — clean design, credit includes free upload, no grid */}
       {!quotaLoading && uploadQuota && (
         <div className={`mb-6 p-4 rounded-xl border ${
           uploadQuota.statusType === 'free' 
@@ -986,9 +983,7 @@ function UploadPageContent() {
         }`}>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">
-                {uploadQuota.statusType === 'free' ? '🎁' : uploadQuota.statusType === 'paid' ? '💳' : '⚠️'}
-              </span>
+              <span className="text-xl text-tank-accent" aria-hidden>✔</span>
               <div>
                 <p className={`font-semibold ${
                   uploadQuota.statusType === 'free' 
@@ -997,39 +992,18 @@ function UploadPageContent() {
                     ? 'text-yellow-400'
                     : 'text-red-400'
                 }`}>
-                  {uploadQuota.statusMessage}
+                  {uploadQuota.statusType === 'free' && uploadQuota.freeUploadsRemaining === 'Unlimited'
+                    ? 'Unlimited upload credits available'
+                    : `${uploadQuota.totalCredits + uploadQuota.creditsUsed} upload credits available`}
                 </p>
-                <p className="text-sm text-gray-400">
-                  {uploadQuota.membershipType} Plan • {uploadQuota.planDescription}
-                </p>
+                <p className="text-xs text-gray-400">Credit includes free upload</p>
               </div>
             </div>
             {uploadQuota.freeUploadsRemaining !== 'Unlimited' && (
-              <div className="flex flex-col gap-2">
-                {/* Free Uploads Counter */}
-                <div className="flex items-center gap-2">
-                  <div className="text-center min-w-[60px] px-4 py-2 bg-tank-dark rounded-lg">
-                    <p className="text-2xl font-bold text-white">{uploadQuota.freeUploadsUsed}</p>
-                    <p className="text-xs text-gray-400">Used</p>
-                  </div>
-                  <div className="text-gray-500">/</div>
-                  <div className="text-center min-w-[60px] px-4 py-2 bg-tank-dark rounded-lg">
-                    <p className="text-2xl font-bold text-tank-accent">{uploadQuota.freeUploads}</p>
-                    <p className="text-xs text-gray-400">Free</p>
-                  </div>
-                </div>
-                {/* Credits Counter */}
-                <div className="flex items-center gap-2">
-                  <div className="text-center min-w-[60px] px-4 py-2 bg-tank-dark rounded-lg border border-tank-light">
-                    <p className="text-2xl font-bold text-white">{uploadQuota.creditsUsed}</p>
-                    <p className="text-xs text-gray-400">Used</p>
-                  </div>
-                  <div className="text-gray-500">/</div>
-                  <div className="text-center min-w-[60px] px-4 py-2 bg-tank-dark rounded-lg border border-tank-light">
-                    <p className="text-2xl font-bold text-tank-accent">{uploadQuota.totalCredits + uploadQuota.creditsUsed}</p>
-                    <p className="text-xs text-gray-400">Credits</p>
-                  </div>
-                </div>
+              <div className="text-right sm:text-left">
+                <p className="text-lg font-bold text-white tabular-nums">
+                  {uploadQuota.creditsUsed} Used <span className="text-gray-500 font-normal">/</span> {uploadQuota.totalCredits + uploadQuota.creditsUsed} Credits
+                </p>
               </div>
             )}
           </div>
@@ -1075,27 +1049,31 @@ function UploadPageContent() {
             </div>
           )}
 
-          {/* Media Type */}
+          {/* Media Type — compact buttons, black bg, green border when selected */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Media Type *
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="flex gap-3">
               {['IMAGE', 'VIDEO'].map((type) => (
                 <button
                   key={type}
                   type="button"
                   onClick={() => setFormData((prev) => ({ ...prev, type }))}
-                  className={`p-4 rounded-xl border transition-all ${
+                  className={`flex items-center gap-2 px-4 py-3 rounded-lg border transition-all bg-black/80 ${
                     formData.type === type
-                      ? 'border-tank-accent bg-tank-accent/10'
-                      : 'border-tank-light hover:border-gray-600'
+                      ? 'border-tank-accent text-white'
+                      : 'border-gray-600 text-white hover:border-gray-500'
                   }`}
                 >
-                  <div className="text-2xl mb-2">
-                    {type === 'IMAGE' ? '🖼️' : type === 'VIDEO' ? '🎬' : '🎵'}
-                  </div>
-                  <div className="font-medium">{type}</div>
+                  <span className={type === 'VIDEO' ? 'text-purple-400' : 'text-gray-300'}>
+                    {type === 'IMAGE' ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                    )}
+                  </span>
+                  <span className="font-medium text-sm">{type}</span>
                 </button>
               ))}
             </div>
@@ -1286,14 +1264,15 @@ function UploadPageContent() {
                     </select>
                   </div>
                 )}
-                {/* Trim (video only) — slider + editable h:mm:ss input + up/down arrows */}
+                {/* Trim (video only) — Start and End on one row, compact sliders and time boxes */}
                 {cropMediaType === 'video' && videoDuration != null && videoDuration > 0 && (
                   <div className="mt-3 sm:mt-4">
                     <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">Trim</label>
-                    <div className="grid grid-cols-1 gap-3 text-sm text-gray-300">
-                      <div className="flex flex-col gap-1">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-300">
+                      {/* Start */}
+                      <div className="flex flex-col gap-1 min-w-0">
                         <span className="text-xs text-gray-400">Start</span>
-                        <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex items-center gap-1.5 min-w-0">
                           <input
                             type="range"
                             min={0}
@@ -1306,9 +1285,9 @@ function UploadPageContent() {
                               setTrimStartInput(null)
                               if (videoTrimEnd < v) setVideoTrimEnd(v)
                             }}
-                            className="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-tank-accent"
+                            className="min-w-0 flex-1 max-w-[80px] sm:max-w-[100px] h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-tank-accent"
                           />
-                          <div className="flex items-stretch border border-gray-600 rounded-lg bg-gray-800 overflow-hidden shrink-0">
+                          <div className="flex items-stretch border border-gray-600 rounded-lg bg-gray-800 overflow-hidden shrink-0 w-[72px] sm:w-[80px]">
                             <input
                               type="text"
                               placeholder="h:mm:ss"
@@ -1324,57 +1303,30 @@ function UploadPageContent() {
                                 }
                                 setTrimStartInput(null)
                               }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                              }}
-                              className="w-24 sm:w-28 pl-2 pr-8 py-1.5 bg-gray-800 border-0 text-white text-xs sm:text-sm tabular-nums focus:ring-1 focus:ring-tank-accent focus:outline-none"
+                              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                              className="flex-1 min-w-0 pl-1.5 pr-6 py-1 bg-gray-800 border-0 text-white text-xs tabular-nums focus:ring-1 focus:ring-tank-accent focus:outline-none"
                             />
                             <div className="flex flex-col border-l border-gray-600">
-                              <button
-                                type="button"
-                                aria-label="Increase start time"
-                                onClick={() => {
-                                  const v = Math.min(videoDuration - 0.1, Math.floor(videoTrimStart) + 1)
-                                  setVideoTrimStart(v)
-                                  setTrimStartInput(null)
-                                  if (videoTrimEnd < v) setVideoTrimEnd(v)
-                                }}
-                                className="flex-1 px-1.5 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700 border-b border-gray-600"
-                              >
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414 6.707 12.707a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
-                              </button>
-                              <button
-                                type="button"
-                                aria-label="Decrease start time"
-                                onClick={() => {
-                                  const v = Math.max(0, Math.floor(videoTrimStart) - 1)
-                                  setVideoTrimStart(v)
-                                  setTrimStartInput(null)
-                                }}
-                                className="flex-1 px-1.5 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700"
-                              >
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                              </button>
+                              <button type="button" aria-label="Increase start time" onClick={() => { const v = Math.min(videoDuration - 0.1, Math.floor(videoTrimStart) + 1); setVideoTrimStart(v); setTrimStartInput(null); if (videoTrimEnd < v) setVideoTrimEnd(v) }} className="flex-1 px-1 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700 border-b border-gray-600"><svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414 6.707 12.707a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg></button>
+                              <button type="button" aria-label="Decrease start time" onClick={() => { const v = Math.max(0, Math.floor(videoTrimStart) - 1); setVideoTrimStart(v); setTrimStartInput(null) }} className="flex-1 px-1 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700"><svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button>
                             </div>
                           </div>
                         </div>
                       </div>
-                      <div className="flex flex-col gap-1">
+                      {/* End */}
+                      <div className="flex flex-col gap-1 min-w-0">
                         <span className="text-xs text-gray-400">End</span>
-                        <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex items-center gap-1.5 min-w-0">
                           <input
                             type="range"
                             min={videoTrimStart}
                             max={videoDuration}
                             step={0.1}
                             value={videoTrimEnd}
-                            onChange={(e) => {
-                              setVideoTrimEnd(Number(e.target.value))
-                              setTrimEndInput(null)
-                            }}
-                            className="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-tank-accent"
+                            onChange={(e) => { setVideoTrimEnd(Number(e.target.value)); setTrimEndInput(null) }}
+                            className="min-w-0 flex-1 max-w-[80px] sm:max-w-[100px] h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-tank-accent"
                           />
-                          <div className="flex items-stretch border border-gray-600 rounded-lg bg-gray-800 overflow-hidden shrink-0">
+                          <div className="flex items-stretch border border-gray-600 rounded-lg bg-gray-800 overflow-hidden shrink-0 w-[72px] sm:w-[80px]">
                             <input
                               type="text"
                               placeholder="h:mm:ss"
@@ -1383,39 +1335,15 @@ function UploadPageContent() {
                               onChange={(e) => setTrimEndInput(e.target.value)}
                               onBlur={(e) => {
                                 const sec = parseTrimTime(e.target.value)
-                                if (sec != null) {
-                                  setVideoTrimEnd(Math.max(videoTrimStart, Math.min(sec, videoDuration)))
-                                }
+                                if (sec != null) setVideoTrimEnd(Math.max(videoTrimStart, Math.min(sec, videoDuration)))
                                 setTrimEndInput(null)
                               }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                              }}
-                              className="w-24 sm:w-28 pl-2 pr-8 py-1.5 bg-gray-800 border-0 text-white text-xs sm:text-sm tabular-nums focus:ring-1 focus:ring-tank-accent focus:outline-none"
+                              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                              className="flex-1 min-w-0 pl-1.5 pr-6 py-1 bg-gray-800 border-0 text-white text-xs tabular-nums focus:ring-1 focus:ring-tank-accent focus:outline-none"
                             />
                             <div className="flex flex-col border-l border-gray-600">
-                              <button
-                                type="button"
-                                aria-label="Increase end time"
-                                onClick={() => {
-                                  setVideoTrimEnd(Math.min(videoDuration, Math.floor(videoTrimEnd) + 1))
-                                  setTrimEndInput(null)
-                                }}
-                                className="flex-1 px-1.5 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700 border-b border-gray-600"
-                              >
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414 6.707 12.707a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
-                              </button>
-                              <button
-                                type="button"
-                                aria-label="Decrease end time"
-                                onClick={() => {
-                                  setVideoTrimEnd(Math.max(videoTrimStart, Math.floor(videoTrimEnd) - 1))
-                                  setTrimEndInput(null)
-                                }}
-                                className="flex-1 px-1.5 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700"
-                              >
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                              </button>
+                              <button type="button" aria-label="Increase end time" onClick={() => { setVideoTrimEnd(Math.min(videoDuration, Math.floor(videoTrimEnd) + 1)); setTrimEndInput(null) }} className="flex-1 px-1 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700 border-b border-gray-600"><svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414 6.707 12.707a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg></button>
+                              <button type="button" aria-label="Decrease end time" onClick={() => { setVideoTrimEnd(Math.max(videoTrimStart, Math.floor(videoTrimEnd) - 1)); setTrimEndInput(null) }} className="flex-1 px-1 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700"><svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button>
                             </div>
                           </div>
                         </div>
@@ -1768,18 +1696,18 @@ function UploadPageContent() {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-end">
             <button
               type="button"
               onClick={() => router.push('/')}
-              className="w-full sm:w-auto px-6 py-3 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all"
+              className="w-full sm:w-auto px-8 py-3 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !file || !!(uploadQuota && !uploadQuota.canUpload)}
-              className="btn-primary w-full"
+              className="w-full sm:w-auto px-8 py-3 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all"
             >
               {loading ? 'Uploading...' : 
                 uploadQuota?.statusType === 'paid' && !uploadPaid && !((uploadQuota?.paidUploadCredits ?? 0) > 0) 
