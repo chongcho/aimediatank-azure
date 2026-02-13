@@ -22,12 +22,13 @@ export async function GET(request: Request) {
     console.log('Media API request:', { sort, page, limit, type, search, user })
 
     // Build where clause
-    // Show all public, approved, non-deleted items
+    // Show all public, approved, non-deleted items with processing completed (hide pending/processing from listing)
     // Sold items will be filtered out by cron job after 10 days
     const where: any = {
       isPublic: true,
       isApproved: true,
       isDeleted: false,
+      processingStatus: 'completed',
     }
 
     // Filter by username if provided

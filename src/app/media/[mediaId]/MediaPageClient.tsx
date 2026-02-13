@@ -340,29 +340,31 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
       {/* Media Player - Full Width with top padding, content aligned to top */}
       <div className="w-full bg-black pt-5">
         {media.processingStatus === 'pending' || media.processingStatus === 'processing' ? (
-          <div className="relative w-full max-w-4xl mx-auto aspect-video bg-black overflow-hidden">
-            {/* Same visual as homepage tile: thumbnail (or placeholder) with processing overlay */}
-            {media.thumbnailUrl ? (
-              <img
-                src={media.thumbnailUrl}
-                alt={media.title}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center">
-                <div className="text-white/30">
-                  <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
+          <div className="flex justify-center px-4">
+            <div className="relative w-full max-w-md aspect-video bg-black overflow-hidden rounded-xl border border-tank-light">
+              {/* Thumbnail-sized: same scale as grid cards */}
+              {media.thumbnailUrl ? (
+                <img
+                  src={media.thumbnailUrl}
+                  alt={media.title}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center">
+                  <div className="text-white/30">
+                    <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
                 </div>
+              )}
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+                <div className="w-10 h-10 border-2 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin mb-2" />
+                <p className="text-white font-medium mb-2">Processing...</p>
+                <p className="text-gray-300 text-xs max-w-[280px] text-center px-3">
+                  Your media is being transcoded. This usually takes 1–5 minutes. The page will update automatically.
+                </p>
               </div>
-            )}
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
-              <div className="w-12 h-12 border-4 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin mb-3" />
-              <p className="text-white font-medium mb-6">Processing...</p>
-              <p className="text-gray-300 text-sm max-w-lg text-center px-4">
-                Your media is currently being transcoded for optimized streaming quality. This process usually takes 1–5 minutes, depending on the file size. The page will update automatically once processing is complete. You may continue browsing AiMediaTank in the meantime.
-              </p>
             </div>
           </div>
         ) : media.processingStatus === 'failed' ? (
