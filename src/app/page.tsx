@@ -277,10 +277,14 @@ function HomeContent() {
             setTimeout(correctScroll, correctionInterval)
             return
           }
-          setTimeout(() => attemptScrollToTarget(attempts - 1), 100)
+          setTimeout(() => attemptScrollToTarget(attempts - 1), 30)
         }
 
-        setTimeout(() => attemptScrollToTarget(20), 50)
+        // Run scroll attempt as soon as the next frame after React has painted the grid (minimize skeleton visibility)
+        const runAfterPaint = (fn: () => void) => {
+          requestAnimationFrame(() => requestAnimationFrame(fn))
+        }
+        runAfterPaint(() => attemptScrollToTarget(20))
         restoreStateRef.current = null
       }
 
@@ -694,14 +698,34 @@ function HomeContent() {
         </div>
       ) : (
         <>
-          <div className={`media-grid${restoringScroll ? ' invisible' : ''}`}>
-            {mediaForGrid.map((item) => (
-              <MediaCard
-                key={item.id}
-                media={item}
-                homeScrollContext={{ page: item._page || page, sort, type, search }}
-              />
-            ))}
+          <div className="relative">
+            {/* When restoringScroll, grid is invisible (DOM targets exist for scroll) but show skeleton overlay so user sees loading state */}
+            {restoringScroll && (
+              <div className="absolute inset-0 z-10 media-grid min-h-screen pointer-events-none">
+                {[...Array(12)].map((_, i) => {
+                  const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
+                    'aspect-square', 'aspect-video', 'aspect-[4/5]', 'aspect-video', 'aspect-square', 'aspect-[3/4]']
+                  return (
+                    <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
+                      <div className={`${ratios[i]} skeleton`} />
+                      <div className="p-4">
+                        <div className="h-5 skeleton mb-2 w-3/4" />
+                        <div className="h-4 skeleton w-1/2" />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <div className={`media-grid${restoringScroll ? ' invisible' : ''}`}>
+              {mediaForGrid.map((item) => (
+                <MediaCard
+                  key={item.id}
+                  media={item}
+                  homeScrollContext={{ page: item._page || page, sort, type, search }}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Infinite Scroll Trigger */}

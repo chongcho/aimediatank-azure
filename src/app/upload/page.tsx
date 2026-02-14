@@ -591,16 +591,8 @@ function UploadPageContent() {
           }
         }
 
-        // Timestamps to try, in order (seconds)
-        const seekTargets = (duration: number): number[] => {
-          const targets = [
-            Math.min(1, duration * 0.1),   // 10% of duration
-            Math.min(3, duration * 0.2),   // 20%
-            Math.min(5, duration * 0.3),   // 30%
-            0.01,                          // very start
-          ]
-          return targets.filter(t => t < duration)
-        }
+        // Use very start of video for thumbnail so homepage tiles always show the beginning
+        const seekTargets = (_duration: number): number[] => [0.01]
         let seekIndex = 0
         let seekList: number[] = []
 
