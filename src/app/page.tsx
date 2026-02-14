@@ -92,22 +92,34 @@ function HomeContent() {
   const [contentReady, setContentReady] = useState(false)
   // True while restoring scroll from Media Detail back to homepage; hides grid until scroll is applied to avoid "pass through" flash.
   const [restoringScroll, setRestoringScroll] = useState(false)
-  // Column count for masonry: reorder to column-major so "Most Recent" top row = 1,2,3,4 (match globals.css breakpoints)
+  // Column count for masonry: use grid container width so reorder matches visible layout (same breakpoints as globals.css)
   const [columns, setColumns] = useState(1)
+  const gridSectionRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const getColumns = () => {
-      const w = typeof window !== 'undefined' ? window.innerWidth : 640
+    const getColumnsFromWidth = (w: number) => {
       if (w >= 1920) return 5
       if (w >= 1280) return 4
       if (w >= 1024) return 3
       if (w >= 640) return 2
       return 1
     }
-    setColumns(getColumns())
-    const onResize = () => setColumns(getColumns())
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    const updateColumns = () => {
+      const w = gridSectionRef.current?.clientWidth ?? (typeof window !== 'undefined' ? window.innerWidth : 640)
+      setColumns((prev) => {
+        const next = getColumnsFromWidth(w)
+        return next !== prev ? next : prev
+      })
+    }
+    updateColumns()
+    const el = gridSectionRef.current
+    const ro = el ? new ResizeObserver(updateColumns) : null
+    if (el) ro?.observe(el)
+    window.addEventListener('resize', updateColumns)
+    return () => {
+      ro?.disconnect()
+      window.removeEventListener('resize', updateColumns)
+    }
   }, [])
 
   // Reorder media to column-major so CSS columns layout shows top row as 1st, 2nd, 3rd... (correct "Most Recent" order)
@@ -713,6 +725,7 @@ function HomeContent() {
       {/* Media Grid — min-h-screen during loading keeps the about section below the fold.
           When restoringScroll, render the real grid invisibly (so DOM targets exist for scroll restore)
           with a skeleton overlay so the user sees a loading state instead of a flash at the wrong scroll position. */}
+      <div ref={gridSectionRef} className="w-full">
       {loading ? (
         <div className="media-grid min-h-screen">
           {[...Array(12)].map((_, i) => {
@@ -784,6 +797,7 @@ function HomeContent() {
           </div>
         </>
       )}
+      </div>
 
       {/* About & footer links — hidden until media is loaded and scroll is positioned
            so the text doesn't flash during back-navigation transitions */}
