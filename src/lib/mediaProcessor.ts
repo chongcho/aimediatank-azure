@@ -45,7 +45,10 @@ function getFfmpegPath(): string {
   return 'ffmpeg'
 }
 
-// Run ffmpeg via child_process (more reliable than fluent-ffmpeg for server use)
+// Max wall-clock time per FFmpeg invocation (avoid runaway transcodes; cron marks stuck after 30 min)
+const FFMPEG_TIMEOUT_MS = 25 * 60 * 1000 // 25 minutes
+
+// Run ffmpeg via child_process with a process timeout so bad/huge files don't run forever
 function runFfmpeg(args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const { spawn } = require('child_process') as typeof import('child_process')
@@ -56,20 +59,43 @@ function runFfmpeg(args: string[]): Promise<{ stdout: string; stderr: string }> 
 
     let stdout = ''
     let stderr = ''
+    let settled = false
+
+    const settle = (fn: () => void) => {
+      if (settled) return
+      settled = true
+      fn()
+    }
+
+    const timeoutId = setTimeout(() => {
+      settle(() => {
+        try {
+          proc.kill()
+        } catch {
+          // ignore
+        }
+        reject(new Error(`FFmpeg timed out after ${FFMPEG_TIMEOUT_MS / 60000} minutes`))
+      })
+    }, FFMPEG_TIMEOUT_MS)
 
     proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
     proc.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
 
     proc.on('close', (code: number) => {
-      if (code === 0) {
-        resolve({ stdout, stderr })
-      } else {
-        reject(new Error(`FFmpeg exited with code ${code}:\n${stderr.slice(-2000)}`))
-      }
+      clearTimeout(timeoutId)
+      if (settled) return
+      settle(() => {
+        if (code === 0) {
+          resolve({ stdout, stderr })
+        } else {
+          reject(new Error(`FFmpeg exited with code ${code}:\n${stderr.slice(-2000)}`))
+        }
+      })
     })
 
     proc.on('error', (err: Error) => {
-      reject(new Error(`FFmpeg spawn error: ${err.message}`))
+      clearTimeout(timeoutId)
+      settle(() => reject(new Error(`FFmpeg spawn error: ${err.message}`)))
     })
   })
 }

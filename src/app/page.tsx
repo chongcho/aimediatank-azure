@@ -196,6 +196,7 @@ function HomeContent() {
       setPage(restoreState.page)
 
       const restorePages = async () => {
+        try {
         const { sort: s, type: t, search: q } = restoreState
         const fetchOnePage = async (p: number): Promise<{ media: Media[]; totalPages: number }> => {
           const params = new URLSearchParams({ sort: s, page: p.toString(), limit: '20' })
@@ -286,9 +287,20 @@ function HomeContent() {
         }
         runAfterPaint(() => attemptScrollToTarget(20))
         restoreStateRef.current = null
+        } catch (err) {
+          console.error('Scroll restore failed:', err)
+          setLoading(false)
+          setRestoringScroll(false)
+          setContentReady(true)
+          if (activeRestoreRunIdRef.current === runId) {
+            isRestoringRef.current = false
+            activeRestoreRunIdRef.current = null
+          }
+          restoreStateRef.current = null
+        }
       }
 
-      restorePages()
+      restorePages().catch(() => { /* already handled in try/catch */ })
       return
     }
 

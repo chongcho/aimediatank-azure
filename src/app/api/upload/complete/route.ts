@@ -359,36 +359,78 @@ export async function POST(request: Request) {
     // Set processingStatus to 'pending' so the UI shows a "Processing…" indicator.
     const isVideoUpload = type === 'VIDEO'
 
-    // Create media record
-    const media = await prisma.media.create({
-      data: {
-        title,
-        description: description || '',
-        type: type as 'VIDEO' | 'IMAGE' | 'MUSIC',
-        url,
-        thumbnailUrl: thumbnailUrl || null,
-        aiTool: aiTool || null,
-        realDevice: realDevice || null,
-        aiPrompt: aiPrompt || null,
-        price: price ? parseFloat(price) : null,
-        isPublic,
-        isApproved: true,
-        userId: session.user.id,
-        processingStatus: isVideoUpload ? 'pending' : 'completed',
-        cropData: isVideoUpload && cropData ? cropData : undefined,
-        trimStart: isVideoUpload && (typeof trimStart === 'number' || typeof trimStart === 'string') && !Number.isNaN(Number(trimStart)) && Number(trimStart) >= 0 ? Number(trimStart) : undefined,
-        trimEnd: isVideoUpload && (typeof trimEnd === 'number' || typeof trimEnd === 'string') && !Number.isNaN(Number(trimEnd)) && Number(trimEnd) > 0 ? Number(trimEnd) : undefined,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            name: true,
-            avatar: true,
+    // Compute new counts for response (same logic as DB updates)
+    let newFreeUploadsUsed = freeUploadsUsed
+    let newFreeUploadsRemaining: number | string = freeUploadsRemaining
+    let newPaidUploadCredits = paidUploadCredits
+    let newBonusCredits = bonusCredits
+    let newCreditsUsed = creditsUsed
+    if (user.membershipType !== 'PREMIUM') {
+      if (isFreeUpload) {
+        newFreeUploadsUsed = freeUploadsUsed + 1
+        newFreeUploadsRemaining = Math.max(0, config.freeUploads - newFreeUploadsUsed)
+      } else if (isPaidWithCredit) {
+        newCreditsUsed = creditsUsed + 1
+        if (bonusCredits > 0) newBonusCredits = bonusCredits - 1
+        else newPaidUploadCredits = paidUploadCredits - 1
+      }
+    }
+
+    // Atomic: create media + update user counts in one transaction so we never have media without updated counts
+    const media = await prisma.$transaction(async (tx) => {
+      const created = await tx.media.create({
+        data: {
+          title,
+          description: description || '',
+          type: type as 'VIDEO' | 'IMAGE' | 'MUSIC',
+          url,
+          thumbnailUrl: thumbnailUrl || null,
+          aiTool: aiTool || null,
+          realDevice: realDevice || null,
+          aiPrompt: aiPrompt || null,
+          price: price ? parseFloat(price) : null,
+          isPublic,
+          isApproved: true,
+          userId: session.user.id,
+          processingStatus: isVideoUpload ? 'pending' : 'completed',
+          cropData: isVideoUpload && cropData ? cropData : undefined,
+          trimStart: isVideoUpload && (typeof trimStart === 'number' || typeof trimStart === 'string') && !Number.isNaN(Number(trimStart)) && Number(trimStart) >= 0 ? Number(trimStart) : undefined,
+          trimEnd: isVideoUpload && (typeof trimEnd === 'number' || typeof trimEnd === 'string') && !Number.isNaN(Number(trimEnd)) && Number(trimEnd) > 0 ? Number(trimEnd) : undefined,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              name: true,
+              avatar: true,
+            },
           },
         },
-      },
+      })
+      if (user.membershipType !== 'PREMIUM') {
+        if (isFreeUpload) {
+          await tx.user.update({
+            where: { id: user.id },
+            data: { freeUploadsUsed: newFreeUploadsUsed },
+          })
+        } else if (isPaidWithCredit) {
+          await tx.user.update({
+            where: { id: user.id },
+            data: {
+              bonusCredits: newBonusCredits,
+              paidUploadCredits: newPaidUploadCredits,
+              creditsUsed: newCreditsUsed,
+            },
+          })
+          if (bonusCredits > 0) {
+            console.log(`User ${user.id} used bonus credit. Remaining bonus: ${newBonusCredits}`)
+          } else {
+            console.log(`User ${user.id} used paid upload credit. Remaining: ${newPaidUploadCredits}`)
+          }
+        }
+      }
+      return created
     })
 
     // Best-effort: persist fileSize once at upload time (do not block upload if Azure is unavailable)
@@ -418,7 +460,6 @@ export async function POST(request: Request) {
       }
 
       if (typeof size === 'number' && Number.isFinite(size) && size >= 0) {
-        // Use raw SQL to avoid Prisma client type drift in some environments
         await prisma.$executeRaw`
           UPDATE "Media"
           SET "fileSize" = ${BigInt(Math.trunc(size))}
@@ -427,53 +468,6 @@ export async function POST(request: Request) {
       }
     } catch (e) {
       console.error('Failed to persist fileSize on upload:', e)
-    }
-
-    // Update free uploads used (for non-Premium plans) or consume paid credit
-    let newFreeUploadsUsed = freeUploadsUsed
-    let newFreeUploadsRemaining: number | string = freeUploadsRemaining
-    let newPaidUploadCredits = paidUploadCredits
-    let newBonusCredits = bonusCredits
-    let newCreditsUsed = creditsUsed
-
-    if (user.membershipType !== 'PREMIUM') {
-      if (isFreeUpload) {
-        // Use a free upload
-        newFreeUploadsUsed = freeUploadsUsed + 1
-        newFreeUploadsRemaining = Math.max(0, config.freeUploads - newFreeUploadsUsed)
-        
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { freeUploadsUsed: newFreeUploadsUsed },
-        })
-      } else if (isPaidWithCredit) {
-        // Consume a credit (bonus credits first, then paid credits)
-        newCreditsUsed = creditsUsed + 1
-        
-        if (bonusCredits > 0) {
-          // Use bonus credit first
-          newBonusCredits = bonusCredits - 1
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { 
-              bonusCredits: newBonusCredits,
-              creditsUsed: newCreditsUsed,
-            },
-          })
-          console.log(`User ${user.id} used bonus credit. Remaining bonus: ${newBonusCredits}`)
-        } else {
-          // Use paid credit
-          newPaidUploadCredits = paidUploadCredits - 1
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { 
-              paidUploadCredits: newPaidUploadCredits,
-              creditsUsed: newCreditsUsed,
-            },
-          })
-          console.log(`User ${user.id} used paid upload credit. Remaining: ${newPaidUploadCredits}`)
-        }
-      }
     }
 
     const totalUploads = (user._count?.media || 0) + 1
@@ -504,7 +498,8 @@ export async function POST(request: Request) {
       }
     })
 
-    // Fire-and-forget: send email + notification in background
+    // Fire-and-forget: send email + notification in background.
+    // Must attach .catch() so an unhandled rejection does not crash the process (e.g. under azure-run.js).
     const backgroundTasks = async () => {
       try {
         const userName = user.name || user.username || 'User'
@@ -564,8 +559,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Start background tasks without awaiting — they run after response is sent
-    backgroundTasks()
+    // Start background tasks without awaiting; .catch() prevents unhandledRejection → process exit in production
+    backgroundTasks().catch((e) => {
+      console.error('Background tasks promise rejected:', e)
+    })
 
     // Video processing is now handled by Azure Function (process-videos timer)
     // which calls /api/cron/process-videos every minute.
