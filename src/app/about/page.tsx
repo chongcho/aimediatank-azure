@@ -143,6 +143,7 @@ export default function AboutPage() {
               { emoji: '🖼️', title: 'Image Gallery', desc: 'Showcase your AI artwork' },
               { emoji: '🎵', title: 'Music Hosting', desc: 'Share AI-composed music' },
               { emoji: '🔐', title: 'Secure Uploads', desc: 'Azure cloud storage' },
+              { emoji: '🎞️', title: 'Video Processing', desc: 'Multi-resolution transcoding' },
               { emoji: '💳', title: 'Stripe Payments', desc: 'Secure transactions' },
               { emoji: '💬', title: 'Real-time Chat', desc: 'Connect with creators' },
               { emoji: '⭐', title: 'Ratings & Reviews', desc: 'Build your reputation' },

@@ -84,7 +84,7 @@ export default function PolicyPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold mb-2">Policy Book</h1>
-          <p className="text-gray-400">Last Updated: January 21, 2026</p>
+          <p className="text-gray-400">Last Updated: February 10, 2026</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -345,19 +345,24 @@ export default function PolicyPage() {
                   </thead>
                   <tbody>
                     <tr className="border-b border-tank-light/50">
+                      <td className="py-2 px-3">Viewer</td>
                       <td className="py-2 px-3">Free</td>
-                      <td className="py-2 px-3">$0/month</td>
-                      <td className="py-2 px-3">View content, limited uploads</td>
+                      <td className="py-2 px-3">Browse and purchase; 5 free uploads (upgrade to upload more)</td>
                     </tr>
                     <tr className="border-b border-tank-light/50">
-                      <td className="py-2 px-3">Creator</td>
-                      <td className="py-2 px-3">$1.99/month</td>
-                      <td className="py-2 px-3">Upload content, sell creations</td>
+                      <td className="py-2 px-3">Basic</td>
+                      <td className="py-2 px-3">$2/month</td>
+                      <td className="py-2 px-3">5 free uploads; $1 per additional upload; sell content</td>
+                    </tr>
+                    <tr className="border-b border-tank-light/50">
+                      <td className="py-2 px-3">Advanced</td>
+                      <td className="py-2 px-3">$5/month</td>
+                      <td className="py-2 px-3">5 free uploads; $0.50 per additional upload; priority support</td>
                     </tr>
                     <tr>
                       <td className="py-2 px-3">Premium</td>
-                      <td className="py-2 px-3">$9.99/month</td>
-                      <td className="py-2 px-3">Unlimited uploads, priority support</td>
+                      <td className="py-2 px-3">$8/month</td>
+                      <td className="py-2 px-3">Unlimited free uploads; featured placement; creator badge</td>
                     </tr>
                   </tbody>
                 </table>

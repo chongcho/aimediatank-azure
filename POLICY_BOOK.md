@@ -1,7 +1,7 @@
 # AiMediaTank Policy Book
 
 **Effective Date:** December 20, 2024  
-**Last Updated:** December 20, 2024
+**Last Updated:** February 10, 2026
 
 ---
 
@@ -271,15 +271,16 @@ Violations may result in:
 
 | Plan | Price | Features |
 |------|-------|----------|
-| Free | $0/month | View content, limited uploads |
-| Creator | $1.99/month | Upload content, sell creations |
-| Premium | $9.99/month | Unlimited uploads, priority support |
+| Viewer | Free | Browse and purchase content; 5 free uploads (no paid uploads after) |
+| Basic | $2/month | 5 free uploads; $1 per additional upload; sell content |
+| Advanced | $5/month | 5 free uploads; $0.50 per additional upload; priority support |
+| Premium | $8/month | Unlimited free uploads; featured placement; creator badge |
 
 ### 7.4 Upload Fees
 
-- Free tier: Limited free uploads per month
-- Paid uploads: $1.00 per upload after free tier exhausted
-- Premium members: Unlimited free uploads
+- Viewer: 5 free uploads; no paid uploads after free tier (upgrade required to continue uploading).
+- Basic / Advanced: 5 free uploads per membership period; then $1 (Basic) or $0.50 (Advanced) per additional upload.
+- Premium: Unlimited free uploads.
 
 ### 7.5 Refund Policy
 
@@ -341,7 +342,8 @@ Violations may result in:
 ### 9.1 Content Retention
 
 - Uploaded content: Retained while account is active
-- Purchased content: Available for download for 10 days after purchase
+- Purchased content: Remains available in your account while hosted on the Platform
+- Inactive media: Content with no activity may be removed after 60 days
 - Deleted content: Permanently removed within 30 days
 
 ### 9.2 User Data Retention
@@ -397,7 +399,7 @@ If any provision of these terms is found to be unenforceable, the remaining prov
 
 ---
 
-**© 2024 AiMediaTank. All Rights Reserved.**
+**© 2026 AiMediaTank. All Rights Reserved.**
 
 ---
 
