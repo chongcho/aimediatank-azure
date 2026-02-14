@@ -79,10 +79,10 @@ export async function GET(request: Request) {
       }
     }
 
-    // Build orderBy
-    let orderBy: any = { views: 'desc' } // popular
+    // Build orderBy with stable tie-breaker (id) so pagination is consistent when createdAt/views are equal
+    let orderBy: any = [{ views: 'desc' }, { id: 'desc' }] // popular
     if (sort === 'recent') {
-      orderBy = { createdAt: 'desc' }
+      orderBy = [{ createdAt: 'desc' }, { id: 'desc' }]
     }
 
     const [media, total] = await Promise.all([
@@ -194,9 +194,13 @@ export async function GET(request: Request) {
       }
     })
 
-    // Sort by rating if requested
+    // Sort by rating if requested (tie-break by id for stable pagination)
     if (sort === 'rated') {
-      mediaWithRating.sort((a, b) => b.avgRating - a.avgRating)
+      mediaWithRating.sort((a, b) => {
+        const diff = b.avgRating - a.avgRating
+        if (diff !== 0) return diff
+        return (b.id as string).localeCompare(a.id as string)
+      })
     }
 
     return NextResponse.json({

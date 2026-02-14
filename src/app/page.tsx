@@ -469,7 +469,11 @@ function HomeContent() {
       if (isReset) {
         setMedia(newMedia)
       } else {
-        setMedia((prev) => [...prev, ...newMedia])
+        setMedia((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id))
+          const deduped = newMedia.filter((m: Media) => !existingIds.has(m.id))
+          return deduped.length ? [...prev, ...deduped] : prev
+        })
       }
       setHasMore(pageNum < totalPages)
     } catch (error) {
