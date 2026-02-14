@@ -125,6 +125,32 @@ function HomeContent() {
     return out
   }, [media, columns])
 
+  // When user clicks Home/All while already on homepage, reset feed and refetch page 1 (so "Most Recent" is the true first page)
+  useEffect(() => {
+    const handler = () => {
+      setPage(1)
+      setMedia([])
+      setHasMore(true)
+      setLoading(true)
+      const { sort: s, type: t, search: q } = filtersRef.current
+      const params = new URLSearchParams({ sort: s, page: '1', limit: '20' })
+      if (t) params.set('type', t)
+      if (q?.startsWith('@')) params.set('user', q.slice(1))
+      else if (q) params.set('search', q)
+      fetch(`/api/media?${params}`, { cache: 'no-store' })
+        .then((res) => res.json())
+        .then((data) => {
+          const list = (data.media || []).map((m: Media) => ({ ...m, _page: 1 }))
+          setMedia(list)
+          setHasMore((data.pagination?.totalPages ?? 1) > 1)
+        })
+        .catch((err) => console.error('Home refresh failed:', err))
+        .finally(() => setLoading(false))
+    }
+    window.addEventListener('homeRefreshRequested', handler)
+    return () => window.removeEventListener('homeRefreshRequested', handler)
+  }, [])
+
   // Check for pending scroll restoration on mount, or scroll to top
   useEffect(() => {
     const rawState = sessionStorage.getItem('homeScrollState')
@@ -880,8 +906,12 @@ function HomeContent() {
       <section className={`mt-10 border-t border-tank-light pt-6 px-[10px]${contentReady ? '' : ' hidden'}`}>
         <div className="max-w-6xl">
           <ul className="space-y-1 text-sm text-gray-300">
-            <li><Link href="/" className="hover:text-white">Home</Link></li>
-            <li><Link href="/" className="hover:text-white">All</Link></li>
+            <li>
+              <Link href="/" className="hover:text-white" onClick={(e) => { if (typeof window !== 'undefined' && window.location.pathname === '/') { e.preventDefault(); window.dispatchEvent(new Event('homeRefreshRequested')) } }}>Home</Link>
+            </li>
+            <li>
+              <Link href="/" className="hover:text-white" onClick={(e) => { if (typeof window !== 'undefined' && window.location.pathname === '/') { e.preventDefault(); window.dispatchEvent(new Event('homeRefreshRequested')) } }}>All</Link>
+            </li>
             <li><Link href="/?type=VIDEO" className="hover:text-white">Videos</Link></li>
             <li><Link href="/?type=IMAGE" className="hover:text-white">Images</Link></li>
             <li><Link href="/notifications" className="hover:text-white">Notification</Link></li>

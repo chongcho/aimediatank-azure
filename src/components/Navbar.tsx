@@ -707,6 +707,8 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
       sessionStorage.removeItem('homeScrollState')
       if (window.location.pathname === '/') {
         window.scrollTo({ top: 0, behavior: 'instant' })
+        // Ask homepage to reset feed and refetch page 1 so "Most Recent" shows true first page
+        window.dispatchEvent(new Event('homeRefreshRequested'))
       } else {
         window.location.href = '/'
       }
