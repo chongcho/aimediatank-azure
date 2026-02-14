@@ -30,19 +30,37 @@ export async function GET(request: Request) {
       return NextResponse.json({ status: 'idle', message: 'No pending videos' })
     }
 
+    // If this pending item has been waiting too long, cron likely wasn't running — mark failed so UI shows error
+    const pendingStaleThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 hours
+    if (pendingMedia.createdAt < pendingStaleThreshold) {
+      await prisma.media.update({
+        where: { id: pendingMedia.id },
+        data: {
+          processingStatus: 'failed',
+          processingError: 'Processing did not start in time. Ensure the process-videos Azure Function is deployed and WEBAPP_URL + CRON_SECRET are set.',
+        },
+      })
+      console.log(`[ProcessVideos] Marked long-pending media ${pendingMedia.id} as failed (created ${pendingMedia.createdAt.toISOString()})`)
+      return NextResponse.json({
+        status: 'stale_pending_failed',
+        mediaId: pendingMedia.id,
+        message: 'Marked stale pending as failed',
+      })
+    }
+
     // Also check if something is already processing (avoid parallel processing)
     const currentlyProcessing = await prisma.media.findFirst({
       where: {
         type: 'VIDEO',
         processingStatus: 'processing',
       },
-      select: { id: true, createdAt: true },
+      select: { id: true, updatedAt: true },
     })
 
     if (currentlyProcessing) {
-      // Check if it's been stuck for more than 30 minutes — mark as failed so it can be retried
+      // Stuck = still "processing" after 30 min (use updatedAt: when we set status to 'processing' we touch the row)
       const stuckThreshold = new Date(Date.now() - 30 * 60 * 1000)
-      if (currentlyProcessing.createdAt < stuckThreshold) {
+      if (currentlyProcessing.updatedAt < stuckThreshold) {
         await prisma.media.update({
           where: { id: currentlyProcessing.id },
           data: {

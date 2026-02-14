@@ -81,6 +81,7 @@ In Azure Portal → App Service → Configuration → Application settings:
 | `SMTP_PORT` | `587` |
 | `SMTP_USER` | Your email |
 | `SMTP_PASS` | Your app password |
+| `CRON_SECRET` | Secret for cron endpoints (e.g. `openssl rand -hex 24`). Required if you use Azure Functions for process-videos. |
 
 Also set these for stable cold starts (Configuration → Application settings):
 
@@ -134,6 +135,10 @@ https://aimediatank-azure.azurewebsites.net/api/admin/add-legal-name
 
 ### Step 6: Deploy Azure Functions (Cron Jobs)
 
+Video transcoding depends on a **timer-triggered Azure Function** that calls the Web App every minute. If you skip this, uploads will stay on "Processing..." until they are marked failed (e.g. after 24 hours for pending, or 30 minutes for stuck processing).
+
+1. **Deploy the Function app** (create the Function App in Azure first if needed, e.g. `aimediatank-functions`):
+
 ```bash
 cd azure-functions
 npm install
@@ -142,6 +147,21 @@ npm run build
 # Deploy to Azure
 func azure functionapp publish aimediatank-functions
 ```
+
+2. **Configure the Function App** (Azure Portal → Function App **aimediatank-functions** → Configuration → Application settings):
+
+| Variable | Value |
+|----------|-------|
+| `WEBAPP_URL` | Your Web App URL, e.g. `https://aimediatank-azure.azurewebsites.net` (no trailing slash) |
+| `CRON_SECRET` | Same secret you set on the Web App (see below) |
+
+3. **Configure the Web App** (App Service → Configuration → Application settings):
+
+| Variable | Value |
+|----------|-------|
+| `CRON_SECRET` | A secret string (e.g. `openssl rand -hex 24`). Must match the Function App’s `CRON_SECRET`. |
+
+The process-videos timer runs every minute (`0 */1 * * * *`), calls `GET {WEBAPP_URL}/api/cron/process-videos` with header `x-cron-secret: <CRON_SECRET>`, and the Web App runs FFmpeg transcoding (ffmpeg-static is included in the deploy).
 
 ## 🔧 Configuration
 
@@ -267,6 +287,36 @@ If the site shows "Application Error" and platform logs say "Container has finis
 1. Restart App Service after changes
 2. Check Application settings in Azure Portal
 3. Verify variable names match exactly
+
+### Videos stuck on "Processing..."
+
+If video uploads never leave "Processing..." (or show "Processing failed" after a long wait), server-side transcoding is not completing. Check in order:
+
+1. **Azure Function is deployed and running**  
+   - Azure Portal → Function App (e.g. **aimediatank-functions**) → Overview → Status **Running**.  
+   - **Monitor** → **Log stream** (or **Functions** → **process-videos** → **Monitor**): you should see runs about every minute and log lines like "Process videos timer trigger executed at" and "Process videos result: ...".
+
+2. **Function App settings**  
+   - Configuration → Application settings: **WEBAPP_URL** must be the exact Web App URL (e.g. `https://aimediatank-azure.azurewebsites.net` for production).  
+   - **CRON_SECRET** must be set and must match the Web App’s **CRON_SECRET** (same value in both places). If the Web App expects a secret and the Function sends none or a different one, the cron returns 401 and no transcoding runs.
+
+3. **Web App settings**  
+   - App Service → Configuration: **CRON_SECRET** set and equal to the Function App’s value.  
+   - **AZURE_STORAGE_CONNECTION_STRING** and **AZURE_STORAGE_CONTAINER_NAME** must be set so the Web App can read the raw upload blob and write transcoded files.
+
+4. **Manual test**  
+   From a machine that can reach the Web App:
+   ```bash
+   curl -s -H "x-cron-secret: YOUR_CRON_SECRET" "https://aimediatank-azure.azurewebsites.net/api/cron/process-videos"
+   ```
+   You should get JSON like `{"status":"idle","message":"No pending videos"}` or `{"status":"processed",...}`. If you get `401 Unauthorized`, fix **CRON_SECRET** on both sides.
+
+5. **Stuck recovery**  
+   - Items stuck in **processing** for more than 30 minutes are automatically marked **failed** on the next cron run (so the queue can advance).  
+   - Items stuck in **pending** for more than 24 hours are marked **failed** with a message to check the process-videos Function and WEBAPP_URL/CRON_SECRET.
+
+6. **FFmpeg on the Web App**  
+   The deploy workflow copies **ffmpeg-static** into the deployed app; transcoding runs on the Web App (Node), not in the Function. If transcoding starts but then fails, check the **Web App** Log stream for `[MediaProcessor]` or `[ProcessVideos]` errors (e.g. FFmpeg exit code, blob download/upload errors).
 
 ## 📁 Project Structure
 
