@@ -107,7 +107,7 @@ interface ChatMessage {
   }
 }
 
-type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'navbar' | 'badges' | 'cropTool'
+type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'navbar' | 'layout' | 'badges' | 'cropTool'
 
 interface CropToolSettings {
   id?: string
@@ -209,6 +209,9 @@ export default function AdminPage() {
   const [gamesLoading, setGamesLoading] = useState(false)
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
   const [navbarLoading, setNavbarLoading] = useState(false)
+  const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid'>('masonry')
+  const [homeLayoutLoading, setHomeLayoutLoading] = useState(false)
+  const [homeLayoutSaving, setHomeLayoutSaving] = useState(false)
   const [mediaBadgeItems, setMediaBadgeItems] = useState<MediaBadgeItem[]>([])
   const [mediaBadgeLoading, setMediaBadgeLoading] = useState(false)
   const [cropToolSettings, setCropToolSettings] = useState<CropToolSettings>({
@@ -552,6 +555,15 @@ export default function AdminPage() {
         const res = await fetch('/api/admin?action=navbarSettings')
         const data = await res.json()
         setNavbarMenuItems(data.items || [])
+      } else if (activeTab === 'layout') {
+        setHomeLayoutLoading(true)
+        try {
+          const res = await fetch('/api/admin?action=homeLayoutSettings')
+          const data = await res.json()
+          setHomeLayout(data.layout === 'grid' ? 'grid' : 'masonry')
+        } finally {
+          setHomeLayoutLoading(false)
+        }
       } else if (activeTab === 'badges') {
         const res = await fetch('/api/admin?action=badgeSettings')
         const data = await res.json()
@@ -1054,6 +1066,7 @@ export default function AdminPage() {
           { id: 'promotions', label: 'Promotions' },
           { id: 'games', label: 'Game Control' },
           { id: 'navbar', label: 'Navbar Control' },
+          { id: 'layout', label: 'Home Layout' },
           { id: 'badges', label: 'Media Badge Control' },
           { id: 'cropTool', label: 'Upload & Download' },
           { id: 'membershipSales', label: 'Membership Sales Reports' },
@@ -2228,6 +2241,52 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Home Layout */}
+          {activeTab === 'layout' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">📐 Home Layout</h2>
+                <p className="text-gray-400 text-sm">Choose how the home feed displays media</p>
+              </div>
+              {homeLayoutLoading ? (
+                <p className="text-gray-400">Loading…</p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="text-white font-medium">Layout:</label>
+                  <select
+                    value={homeLayout}
+                    onChange={(e) => setHomeLayout(e.target.value as 'masonry' | 'grid')}
+                    disabled={homeLayoutSaving}
+                    className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="masonry">Masonry</option>
+                    <option value="grid">Fixed grid</option>
+                  </select>
+                  <button
+                    onClick={async () => {
+                      setHomeLayoutSaving(true)
+                      try {
+                        const res = await fetch('/api/admin', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'setHomeLayout', layout: homeLayout }),
+                        })
+                        const data = await res.json()
+                        if (data.layout) setHomeLayout(data.layout)
+                      } finally {
+                        setHomeLayoutSaving(false)
+                      }
+                    }}
+                    disabled={homeLayoutSaving}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium disabled:opacity-50"
+                  >
+                    {homeLayoutSaving ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

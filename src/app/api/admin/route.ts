@@ -556,6 +556,21 @@ export async function GET(request: Request) {
       }
     }
 
+    // Get home feed layout setting (masonry vs grid)
+    if (action === 'homeLayoutSettings') {
+      try {
+        let row = await prisma.homeLayoutSetting.findFirst()
+        if (!row) {
+          row = await prisma.homeLayoutSetting.create({ data: { layout: 'masonry' } })
+        }
+        const layout = row.layout === 'grid' ? 'grid' : 'masonry'
+        return NextResponse.json({ layout })
+      } catch (error) {
+        console.error('Home layout settings unavailable:', error)
+        return NextResponse.json({ layout: 'masonry' })
+      }
+    }
+
     // Get media badge settings for admin management
     if (action === 'badgeSettings') {
       const defaultItems = [
@@ -1734,6 +1749,24 @@ export async function POST(request: Request) {
 
         await logAdminAction(adminId, 'TOGGLE_NAVBAR_ITEM', 'NAVBAR', itemKey, { isEnabled })
         return NextResponse.json({ message: `Navbar item ${isEnabled ? 'enabled' : 'disabled'}`, item })
+      }
+
+      case 'setHomeLayout': {
+        const { layout } = data || {}
+        if (!layout || (layout !== 'masonry' && layout !== 'grid')) {
+          return NextResponse.json({ error: 'layout must be "masonry" or "grid"' }, { status: 400 })
+        }
+        let row = await prisma.homeLayoutSetting.findFirst()
+        if (!row) {
+          row = await prisma.homeLayoutSetting.create({ data: { layout } })
+        } else {
+          row = await prisma.homeLayoutSetting.update({
+            where: { id: row.id },
+            data: { layout },
+          })
+        }
+        await logAdminAction(adminId, 'SET_HOME_LAYOUT', 'HOME_LAYOUT', row.id, { layout })
+        return NextResponse.json({ message: 'Home layout updated', layout: row.layout })
       }
 
       case 'toggleBadge': {

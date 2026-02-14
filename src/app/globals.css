@@ -440,3 +440,14 @@ input[type="number"]::-webkit-outer-spin-button {
     columns: 5;
   }
 }
+
+/* Fixed grid variant — row-major order, same column counts via --media-grid-cols */
+.media-grid--grid {
+  display: grid;
+  grid-template-columns: repeat(var(--media-grid-cols, 1), 1fr);
+  gap: 1.25rem;
+  columns: unset;
+}
+.media-grid--grid > * {
+  margin-bottom: 0;
+}

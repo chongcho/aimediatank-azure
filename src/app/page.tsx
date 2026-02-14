@@ -95,6 +95,14 @@ function HomeContent() {
   // Column count for masonry: use grid container width so reorder matches visible layout (same breakpoints as globals.css)
   const [columns, setColumns] = useState(1)
   const gridSectionRef = useRef<HTMLDivElement>(null)
+  const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid'>('masonry')
+
+  useEffect(() => {
+    fetch('/api/ui/home-layout', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => setHomeLayout(data.layout === 'grid' ? 'grid' : 'masonry'))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const getColumnsFromWidth = (w: number) => {
@@ -122,8 +130,9 @@ function HomeContent() {
     }
   }, [])
 
-  // Reorder media to column-major so CSS columns layout shows top row as 1st, 2nd, 3rd... (correct "Most Recent" order)
+  // Masonry: column-major order so CSS columns show top row as 1st, 2nd, 3rd... Grid: row-major (no reorder).
   const mediaForGrid = useMemo(() => {
+    if (homeLayout === 'grid') return media
     if (media.length <= 1 || columns <= 1) return media
     const n = columns
     const numRows = Math.ceil(media.length / n)
@@ -135,7 +144,7 @@ function HomeContent() {
       }
     }
     return out
-  }, [media, columns])
+  }, [media, columns, homeLayout])
 
   // When user clicks Home/All while already on homepage, reset feed and refetch page 1 (so "Most Recent" is the true first page)
   useEffect(() => {
@@ -727,7 +736,10 @@ function HomeContent() {
           with a skeleton overlay so the user sees a loading state instead of a flash at the wrong scroll position. */}
       <div ref={gridSectionRef} className="w-full">
       {loading ? (
-        <div className="media-grid min-h-screen">
+        <div
+          className={`media-grid min-h-screen${homeLayout === 'grid' ? ' media-grid--grid' : ''}`}
+          style={homeLayout === 'grid' ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
+        >
           {[...Array(12)].map((_, i) => {
             // Varied skeleton heights to preview the masonry layout
             const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
@@ -756,7 +768,10 @@ function HomeContent() {
           <div className="relative">
             {/* When restoringScroll, grid is invisible (DOM targets exist for scroll) but show skeleton overlay so user sees loading state */}
             {restoringScroll && (
-              <div className="absolute inset-0 z-10 media-grid min-h-screen pointer-events-none">
+              <div
+                className={`absolute inset-0 z-10 media-grid min-h-screen pointer-events-none${homeLayout === 'grid' ? ' media-grid--grid' : ''}`}
+                style={homeLayout === 'grid' ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
+              >
                 {[...Array(12)].map((_, i) => {
                   const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
                     'aspect-square', 'aspect-video', 'aspect-[4/5]', 'aspect-video', 'aspect-square', 'aspect-[3/4]']
@@ -772,7 +787,10 @@ function HomeContent() {
                 })}
               </div>
             )}
-            <div className={`media-grid${restoringScroll ? ' invisible' : ''}`}>
+            <div
+              className={`media-grid${restoringScroll ? ' invisible' : ''}${homeLayout === 'grid' ? ' media-grid--grid' : ''}`}
+              style={homeLayout === 'grid' ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
+            >
               {mediaForGrid.map((item) => (
                 <MediaCard
                   key={item.id}

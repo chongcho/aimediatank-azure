@@ -583,3 +583,11 @@ model CropToolSetting {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
+
+// Home feed layout (managed by admin): masonry (CSS columns) or grid (fixed rows)
+model HomeLayoutSetting {
+  id        String   @id @default(uuid())
+  layout    String   @default("masonry")  // "masonry" | "grid"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
