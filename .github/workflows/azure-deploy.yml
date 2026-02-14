@@ -48,6 +48,7 @@ jobs:
           cp -r .next/standalone/. ./deploy/
           cp -r .next/static ./deploy/.next/static
           cp -r public ./deploy/public || true
+          cp scripts/azure-run.js ./deploy/run.js
           echo "Build completed at $(date)" > ./deploy/BUILD_INFO.txt
 
       - name: Copy ffmpeg-static for video processing on Azure
