@@ -96,11 +96,15 @@ function HomeContent() {
   const [columns, setColumns] = useState(1)
   const gridSectionRef = useRef<HTMLDivElement>(null)
   const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid'>('masonry')
+  const [homePreplay, setHomePreplay] = useState(true)
 
   useEffect(() => {
     fetch('/api/ui/home-layout', { cache: 'no-store' })
       .then((res) => res.json())
-      .then((data) => setHomeLayout(data.layout === 'grid' ? 'grid' : 'masonry'))
+      .then((data) => {
+        setHomeLayout(data.layout === 'grid' ? 'grid' : 'masonry')
+        setHomePreplay(data.preplay !== false)
+      })
       .catch(() => {})
   }, [])
 
@@ -796,6 +800,7 @@ function HomeContent() {
                   key={item.id}
                   media={item}
                   homeScrollContext={{ page: item._page || page, sort, type, search }}
+                  preplay={homePreplay}
                 />
               ))}
             </div>

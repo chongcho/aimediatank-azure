@@ -588,6 +588,7 @@ model CropToolSetting {
 model HomeLayoutSetting {
   id        String   @id @default(uuid())
   layout    String   @default("masonry")  // "masonry" | "grid"
+  preplay   Boolean  @default(true)       // muted video preview on hover on homepage
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

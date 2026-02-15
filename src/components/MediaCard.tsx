@@ -43,6 +43,8 @@ interface MediaCardProps {
     type: string | null
     search: string
   }
+  /** When true, VIDEO cards play muted on hover (homepage only, controlled by admin) */
+  preplay?: boolean
 }
 
 type BadgeItem = { itemKey: string; isEnabled: boolean }
@@ -73,11 +75,13 @@ async function getBadgeItems(): Promise<BadgeItem[] | null> {
   return badgeItemsPromise
 }
 
-export default function MediaCard({ media, homeScrollContext }: MediaCardProps) {
+export default function MediaCard({ media, homeScrollContext, preplay = false }: MediaCardProps) {
   const router = useRouter()
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false)
   const [thumbnailError, setThumbnailError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const preplayVideoRef = useRef<HTMLVideoElement>(null)
+  const [preplayHover, setPreplayHover] = useState(false)
   const [badgeItems, setBadgeItems] = useState<BadgeItem[] | null>(badgeItemsCache)
 
   useEffect(() => {
@@ -225,6 +229,26 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
     router.push(`/media/${media.id}`)
   }
 
+  const isPreplayVideo = preplay && media.type === 'VIDEO' && (!media.processingStatus || media.processingStatus === 'completed')
+  const handlePreplayPointerEnter = () => {
+    if (!isPreplayVideo) return
+    setPreplayHover(true)
+    if (thumbnailSrc && !thumbnailError) {
+      preplayVideoRef.current?.play().catch(() => {})
+    } else if (showVideoElement) {
+      videoRef.current?.play().catch(() => {})
+    }
+  }
+  const handlePreplayPointerLeave = () => {
+    if (!isPreplayVideo) return
+    setPreplayHover(false)
+    if (thumbnailSrc && !thumbnailError) {
+      preplayVideoRef.current?.pause()
+    } else if (showVideoElement) {
+      videoRef.current?.pause()
+    }
+  }
+
   return (
     <Link
       href={`/media/${media.id}`}
@@ -234,7 +258,11 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
     >
       <div className="bg-tank-gray rounded-xl overflow-hidden border border-tank-light hover:border-tank-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-tank-accent/10">
         {/* Thumbnail — natural aspect ratio for masonry layout */}
-        <div className="relative bg-tank-dark overflow-hidden">
+        <div
+          className="relative bg-tank-dark overflow-hidden"
+          onPointerEnter={handlePreplayPointerEnter}
+          onPointerLeave={handlePreplayPointerLeave}
+        >
           {/* Skeleton placeholder while thumbnail loads */}
           {thumbnailSrc && !thumbnailLoaded && !thumbnailError && (
             <div className="aspect-video skeleton" />
@@ -272,13 +300,26 @@ export default function MediaCard({ media, homeScrollContext }: MediaCardProps) 
           ) : null}
 
           {thumbnailSrc && !thumbnailError ? (
-            <img
-              src={thumbnailSrc}
-              alt={media.title}
-              className={`w-full h-auto block group-hover:scale-105 transition-transform duration-500${thumbnailLoaded ? '' : ' invisible absolute'}`}
-              onLoad={() => setThumbnailLoaded(true)}
-              onError={() => setThumbnailError(true)}
-            />
+            <>
+              <img
+                src={thumbnailSrc}
+                alt={media.title}
+                className={`w-full h-auto block group-hover:scale-105 transition-transform duration-500${thumbnailLoaded ? '' : ' invisible absolute'}`}
+                onLoad={() => setThumbnailLoaded(true)}
+                onError={() => setThumbnailError(true)}
+              />
+              {isPreplayVideo && (
+                <video
+                  ref={preplayVideoRef}
+                  src={media.url}
+                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover ? 'opacity-100' : 'opacity-0'}`}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  loop
+                />
+              )}
+            </>
           ) : showVideoElement ? (
             // Show video element as fallback for videos - improved for mobile
             <video

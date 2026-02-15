@@ -210,6 +210,7 @@ export default function AdminPage() {
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
   const [navbarLoading, setNavbarLoading] = useState(false)
   const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid'>('masonry')
+  const [homePreplay, setHomePreplay] = useState(true)
   const [homeLayoutLoading, setHomeLayoutLoading] = useState(false)
   const [homeLayoutSaving, setHomeLayoutSaving] = useState(false)
   const [mediaBadgeItems, setMediaBadgeItems] = useState<MediaBadgeItem[]>([])
@@ -561,6 +562,7 @@ export default function AdminPage() {
           const res = await fetch('/api/admin?action=homeLayoutSettings')
           const data = await res.json()
           setHomeLayout(data.layout === 'grid' ? 'grid' : 'masonry')
+          setHomePreplay(data.preplay !== false)
         } finally {
           setHomeLayoutLoading(false)
         }
@@ -2254,17 +2256,34 @@ export default function AdminPage() {
               {homeLayoutLoading ? (
                 <p className="text-gray-400">Loading…</p>
               ) : (
-                <div className="flex flex-wrap items-center gap-4">
-                  <label className="text-white font-medium">Layout:</label>
-                  <select
-                    value={homeLayout}
-                    onChange={(e) => setHomeLayout(e.target.value as 'masonry' | 'grid')}
-                    disabled={homeLayoutSaving}
-                    className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
-                  >
-                    <option value="masonry">Masonry</option>
-                    <option value="grid">Fixed grid</option>
-                  </select>
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label className="text-white font-medium">Layout:</label>
+                    <select
+                      value={homeLayout}
+                      onChange={(e) => setHomeLayout(e.target.value as 'masonry' | 'grid')}
+                      disabled={homeLayoutSaving}
+                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="masonry">Masonry</option>
+                      <option value="grid">Fixed grid</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <span className="text-white font-medium">Preplay:</span>
+                    <button
+                      type="button"
+                      onClick={() => setHomePreplay((p) => !p)}
+                      disabled={homeLayoutSaving}
+                      className={`relative w-14 h-7 rounded-full transition-colors ${homePreplay ? 'bg-green-500' : 'bg-gray-600'} ${homeLayoutSaving ? 'opacity-50' : ''}`}
+                      aria-label={homePreplay ? 'Preplay on' : 'Preplay off'}
+                    >
+                      <div
+                        className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow ${homePreplay ? 'translate-x-8' : 'translate-x-1'}`}
+                      />
+                    </button>
+                    <span className="text-gray-400 text-sm">Muted video preview on hover on homepage</span>
+                  </div>
                   <button
                     onClick={async () => {
                       setHomeLayoutSaving(true)
@@ -2272,10 +2291,11 @@ export default function AdminPage() {
                         const res = await fetch('/api/admin', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ action: 'setHomeLayout', layout: homeLayout }),
+                          body: JSON.stringify({ action: 'setHomeLayout', layout: homeLayout, preplay: homePreplay }),
                         })
                         const data = await res.json()
                         if (data.layout) setHomeLayout(data.layout)
+                        if (typeof data.preplay === 'boolean') setHomePreplay(data.preplay)
                       } finally {
                         setHomeLayoutSaving(false)
                       }

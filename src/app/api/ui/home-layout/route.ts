@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 const LAYOUTS = ['masonry', 'grid'] as const
 export type HomeLayoutType = (typeof LAYOUTS)[number]
 
-async function getOrCreateSetting(): Promise<HomeLayoutType> {
+async function getOrCreateSetting(): Promise<{ layout: HomeLayoutType; preplay: boolean }> {
   let row = await prisma.homeLayoutSetting.findFirst()
   if (!row) {
     row = await prisma.homeLayoutSetting.create({
@@ -14,15 +14,16 @@ async function getOrCreateSetting(): Promise<HomeLayoutType> {
     })
   }
   const layout = row.layout as string
-  return LAYOUTS.includes(layout as HomeLayoutType) ? (layout as HomeLayoutType) : 'masonry'
+  const layoutVal = LAYOUTS.includes(layout as HomeLayoutType) ? (layout as HomeLayoutType) : 'masonry'
+  return { layout: layoutVal, preplay: row.preplay }
 }
 
 export async function GET() {
   try {
-    const layout = await getOrCreateSetting()
-    return NextResponse.json({ layout })
+    const { layout, preplay } = await getOrCreateSetting()
+    return NextResponse.json({ layout, preplay })
   } catch (error) {
     console.error('Home layout settings unavailable:', error)
-    return NextResponse.json({ layout: 'masonry' })
+    return NextResponse.json({ layout: 'masonry', preplay: true })
   }
 }
