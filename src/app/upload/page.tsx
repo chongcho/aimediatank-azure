@@ -242,11 +242,21 @@ function UploadPageContent() {
     setError('')
     
     try {
-      // Step 1: Prepare file — VIDEO always raw (server FFmpeg), IMAGE/MUSIC client-compressed
+      // Step 1: Prepare file — VIDEO with crop + "Upload Edit" = client crop; else VIDEO raw (server FFmpeg)
       let compressedFile: File
-      if (formData.type === 'VIDEO') {
+      const videoWithClientCropPayment = formData.type === 'VIDEO' && videoCrop && !skipCompressionRef.current
+      if (formData.type === 'VIDEO' && !videoWithClientCropPayment) {
         setUploadStatus('Preparing video for upload...')
         compressedFile = file
+      } else if (videoWithClientCropPayment) {
+        setUploadStatus('Cropping video...')
+        compressedFile = await compressMedia(
+          file,
+          'VIDEO',
+          (progress) => setUploadStatus(`Cropping video... ${progress}%`),
+          videoCrop,
+          qualitySettings
+        )
       } else if (skipCompressionRef.current) {
         setUploadStatus('Preparing file...')
         compressedFile = file
@@ -290,8 +300,8 @@ function UploadPageContent() {
           realDevice: formData.realDevice,
           price: formData.price || null,
           isPublic: formData.isPublic,
-          // Pass crop coordinates for server-side FFmpeg processing (video only)
-          ...(formData.type === 'VIDEO' && videoCrop ? { cropData: videoCrop } : {}),
+          // Pass crop for server only when we uploaded raw (uncropped) video
+          ...(formData.type === 'VIDEO' && videoCrop && !videoWithClientCropPayment ? { cropData: videoCrop } : {}),
           ...(formData.type === 'VIDEO' && videoDuration != null && (videoTrimStart > 0 || videoTrimEnd < videoDuration)
             ? { trimStart: videoTrimStart, trimEnd: videoTrimEnd }
             : {}),
@@ -844,15 +854,31 @@ function UploadPageContent() {
 
     try {
       // Step 1: Prepare the file for upload
-      // VIDEO: always upload raw — server-side FFmpeg creates 720p + HQ versions
+      // VIDEO with crop + "Upload Edit": client re-encodes with crop so output has correct dimensions; then server only transcodes (no cropData).
+      // VIDEO with crop + "Upload Original": upload raw, send cropData for server-side FFmpeg crop.
+      // VIDEO without crop: upload raw, no cropData.
       // IMAGE/MUSIC: use client-side compression (Canvas / browser APIs)
       let compressedFile: File
-      if (formData.type === 'VIDEO') {
-        // Skip all client-side compression for video — server handles it via FFmpeg
+      const videoWithClientCrop = formData.type === 'VIDEO' && videoCrop && !skipCompressionRef.current
+      if (formData.type === 'VIDEO' && !videoWithClientCrop) {
         setUploadStatus('Preparing video for upload...')
         setUploadProgress(5)
         compressedFile = file
         console.log(`Video upload: sending raw file for server-side processing (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
+      } else if (videoWithClientCrop) {
+        setUploadStatus('Compressing and cropping video...')
+        setUploadProgress(5)
+        compressedFile = await compressMedia(
+          file,
+          'VIDEO',
+          (progress) => {
+            setUploadProgress(5 + Math.round(progress * 0.25))
+            setUploadStatus(`Cropping video... ${progress}%`)
+          },
+          videoCrop,
+          qualitySettings
+        )
+        console.log(`Video cropped client-side: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`)
       } else if (skipCompressionRef.current) {
         setUploadStatus('Preparing file...')
         setUploadProgress(5)
@@ -912,8 +938,8 @@ function UploadPageContent() {
           realDevice: formData.realDevice,
           price: formData.price || null,
           isPublic: formData.isPublic,
-          // Pass crop and trim for server-side FFmpeg processing (video only)
-          ...(formData.type === 'VIDEO' && videoCrop ? { cropData: videoCrop } : {}),
+          // Pass crop for server-side FFmpeg only when we uploaded raw (uncropped) video
+          ...(formData.type === 'VIDEO' && videoCrop && !videoWithClientCrop ? { cropData: videoCrop } : {}),
           ...(formData.type === 'VIDEO' && videoDuration != null && (videoTrimStart > 0 || videoTrimEnd < videoDuration)
             ? { trimStart: videoTrimStart, trimEnd: videoTrimEnd }
             : {}),
