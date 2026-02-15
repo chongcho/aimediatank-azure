@@ -531,7 +531,8 @@ export async function compressMedia(
     case 'IMAGE':
       return compressImage(file, {}, crop, qualitySettings)
     case 'VIDEO':
-      return compressVideo(file, {}, onProgress, crop, qualitySettings)
+      // Video crop/trim/transcode is done server-side only; client never applies crop
+      return compressVideo(file, {}, onProgress, undefined, qualitySettings)
     case 'MUSIC':
       // Audio compression is complex and usually not needed
       // Return original file
