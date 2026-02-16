@@ -1275,11 +1275,12 @@ function UploadPageContent() {
                     </select>
                   </div>
                 )}
-                {/* Trim (video only) — Start and End on one row, compact sliders and time boxes */}
+                {/* Trim (video only) — Trim label left, Start and End to the right on one row */}
                 {cropMediaType === 'video' && videoDuration != null && videoDuration > 0 && (
                   <div className="mt-3 sm:mt-4">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">Trim</label>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-300">
+                    <div className="flex flex-wrap items-start gap-x-4 gap-y-2 text-sm text-gray-300">
+                      <label className="shrink-0 pt-0.5 text-xs sm:text-sm font-medium text-gray-300">Trim</label>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 min-w-0 flex-1">
                       {/* Start */}
                       <div className="flex flex-col gap-1 min-w-0">
                         <span className="text-xs text-gray-400">Start</span>
@@ -1359,6 +1360,7 @@ function UploadPageContent() {
                           </div>
                         </div>
                       </div>
+                    </div>
                     </div>
                     <p className="text-xs text-gray-500 mt-1.5">Only this segment will be kept (re-encoded). Type time as h:mm:ss or use arrows.</p>
                   </div>
