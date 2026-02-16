@@ -332,20 +332,21 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover ? 'opacity-100' : 'opacity-0'}`}
                   muted
                   playsInline
-                  preload="none"
+                  preload="metadata"
                   loop
                 />
               )}
             </>
           ) : showVideoElement && isInView ? (
-            // Show video element as fallback for videos only when in view (performance)
+            // Show video element as fallback for videos only when in view (performance).
+            // preload="metadata" required so onLoadedMetadata fires and we can seek to 1s for preview frame.
             <video
               ref={videoRef}
               src={media.url}
               className="w-full aspect-video object-cover"
               muted
               playsInline
-              preload="none"
+              preload="metadata"
               poster=""
               onLoadedMetadata={(e) => {
                 const video = e.currentTarget
