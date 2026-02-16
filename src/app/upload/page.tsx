@@ -1252,8 +1252,8 @@ function UploadPageContent() {
                 </div>
                 {/* Aspect ratio preset (crop to common ratios) */}
                 {mediaSize && (
-                  <div className="mt-3 sm:mt-4">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1.5">Ratio</label>
+                  <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <label className="shrink-0 text-xs sm:text-sm font-medium text-gray-300">Ratio</label>
                     <select
                       value={cropAspectRatio ?? 'free'}
                       onChange={(e) => {
@@ -1262,7 +1262,7 @@ function UploadPageContent() {
                         setCropAspectRatio(key)
                         if (key) applyCropAspectRatio(key)
                       }}
-                      className="w-full sm:max-w-xs bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white text-sm"
+                      className="min-w-0 flex-1 sm:max-w-xs bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white text-sm"
                     >
                       <option value="free">Free (no constraint)</option>
                       <option value="16:9">Wide 16:9 — YouTube and streaming</option>
