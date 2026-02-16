@@ -2270,19 +2270,16 @@ export default function AdminPage() {
                     </select>
                   </div>
                   <div className="flex flex-wrap items-center gap-4">
-                    <span className="text-white font-medium">Preplay:</span>
-                    <button
-                      type="button"
-                      onClick={() => setHomePreplay((p) => !p)}
+                    <label className="text-white font-medium">Preplay:</label>
+                    <select
+                      value={homePreplay ? 'on' : 'off'}
+                      onChange={(e) => setHomePreplay(e.target.value === 'on')}
                       disabled={homeLayoutSaving}
-                      className={`relative w-14 h-7 rounded-full transition-colors ${homePreplay ? 'bg-green-500' : 'bg-gray-600'} ${homeLayoutSaving ? 'opacity-50' : ''}`}
-                      aria-label={homePreplay ? 'Preplay on' : 'Preplay off'}
+                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
                     >
-                      <div
-                        className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow ${homePreplay ? 'translate-x-8' : 'translate-x-1'}`}
-                      />
-                    </button>
-                    <span className="text-gray-400 text-sm">Muted video preview on hover on homepage</span>
+                      <option value="on">On — Muted video preview on hover on homepage</option>
+                      <option value="off">Off</option>
+                    </select>
                   </div>
                   <button
                     onClick={async () => {
@@ -2291,9 +2288,16 @@ export default function AdminPage() {
                         const res = await fetch('/api/admin', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ action: 'setHomeLayout', layout: homeLayout, preplay: homePreplay }),
+                          body: JSON.stringify({
+                            action: 'setHomeLayout',
+                            data: { layout: homeLayout, preplay: homePreplay },
+                          }),
                         })
                         const data = await res.json()
+                        if (!res.ok) {
+                          console.error('Home layout save failed:', data)
+                          return
+                        }
                         if (data.layout) setHomeLayout(data.layout)
                         if (typeof data.preplay === 'boolean') setHomePreplay(data.preplay)
                       } finally {
