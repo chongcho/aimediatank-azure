@@ -1056,8 +1056,8 @@ export default function AdminPage() {
       <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
       <p className="text-gray-400 mb-8">Manage users, content, chat, and reports</p>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-8 overflow-x-auto no-scrollbar">
+      {/* Tabs — wrap on narrow/zoomed so all items stay visible; scroll only if needed */}
+      <div className="flex flex-wrap gap-2 mb-8 min-w-0 max-w-full">
         {([
           { id: 'dashboard', label: 'Dashboard' },
           { id: 'analytics', label: 'Analytics' },
