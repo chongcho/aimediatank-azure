@@ -83,6 +83,23 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const preplayVideoRef = useRef<HTMLVideoElement>(null)
   const [preplayHover, setPreplayHover] = useState(false)
   const [badgeItems, setBadgeItems] = useState<BadgeItem[] | null>(badgeItemsCache)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [isInView, setIsInView] = useState(false)
+
+  // Only mount video elements when card is in or near viewport to avoid 200+ videos in DOM (performance)
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0]
+        if (e) setIsInView(e.isIntersecting)
+      },
+      { rootMargin: '150px 0px 300px 0px', threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -256,7 +273,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       data-media-id={media.id}
       className="group cursor-pointer block"
     >
-      <div className="bg-tank-gray rounded-xl overflow-hidden border border-tank-light hover:border-tank-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-tank-accent/10">
+      <div ref={cardRef} className="bg-tank-gray rounded-xl overflow-hidden border border-tank-light hover:border-tank-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-tank-accent/10">
         {/* Thumbnail — natural aspect ratio for masonry layout */}
         <div
           className="relative bg-tank-dark overflow-hidden"
@@ -308,30 +325,29 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 onLoad={() => setThumbnailLoaded(true)}
                 onError={() => setThumbnailError(true)}
               />
-              {isPreplayVideo && (
+              {isPreplayVideo && isInView && (
                 <video
                   ref={preplayVideoRef}
                   src={media.url}
                   className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover ? 'opacity-100' : 'opacity-0'}`}
                   muted
                   playsInline
-                  preload="metadata"
+                  preload="none"
                   loop
                 />
               )}
             </>
-          ) : showVideoElement ? (
-            // Show video element as fallback for videos - improved for mobile
+          ) : showVideoElement && isInView ? (
+            // Show video element as fallback for videos only when in view (performance)
             <video
               ref={videoRef}
               src={media.url}
               className="w-full aspect-video object-cover"
               muted
               playsInline
-              preload="metadata"
-              poster="" // Empty poster to show first frame
+              preload="none"
+              poster=""
               onLoadedMetadata={(e) => {
-                // Try to seek to 1 second for a better thumbnail frame
                 const video = e.currentTarget
                 if (video.duration > 1) {
                   video.currentTime = 1
