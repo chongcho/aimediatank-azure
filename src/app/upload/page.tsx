@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -58,7 +58,33 @@ function UploadPageContent() {
     offsetY: number
   } | null>(null)
   const cropContainerRef = useRef<HTMLDivElement | null>(null)
+  const cropImgRef = useRef<HTMLImageElement | null>(null)
   const minCropSize = 120
+
+  const updateCropRenderBox = useCallback(() => {
+    const container = cropContainerRef.current
+    const img = cropImgRef.current
+    if (!container || !img) return
+    const naturalWidth = img.naturalWidth || mediaSize?.width
+    const naturalHeight = img.naturalHeight || mediaSize?.height
+    if (!naturalWidth || !naturalHeight) return
+    const rect = container.getBoundingClientRect()
+    const cw = rect.width
+    const ch = rect.height
+    const scale = Math.min(cw / naturalWidth, ch / naturalHeight)
+    const width = naturalWidth * scale
+    const height = naturalHeight * scale
+    const offsetX = (cw - width) / 2
+    const offsetY = (ch - height) / 2
+    setRenderBox({
+      containerWidth: cw,
+      containerHeight: ch,
+      width,
+      height,
+      offsetX,
+      offsetY,
+    })
+  }, [mediaSize?.width, mediaSize?.height])
   const fileChangeTokenRef = useRef(0)
   const skipCompressionRef = useRef(false)
   const [videoSize, setVideoSize] = useState<{ width: number; height: number } | null>(null)
@@ -165,6 +191,17 @@ function UploadPageContent() {
 
     setCropAreaPixels({ x: left, y: top, width, height })
   }, [cropInsets, mediaSize, renderBox])
+
+  // Recompute green crop box position when container resizes (fixes misalignment)
+  useEffect(() => {
+    if (!showCropper || !cropSource || !mediaSize) return
+    const el = cropContainerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => updateCropRenderBox())
+    ro.observe(el)
+    updateCropRenderBox()
+    return () => ro.disconnect()
+  }, [showCropper, cropSource, mediaSize, updateCropRenderBox])
 
   // Trim time format: h:mm:ss (e.g. 0:01:30) and parse from input
   const formatTrimTime = (seconds: number): string => {
@@ -1168,34 +1205,18 @@ function UploadPageContent() {
                   className="relative w-full h-[180px] sm:h-[280px] md:h-[360px] bg-black rounded-xl overflow-hidden"
                 >
                   <img
+                    ref={cropImgRef}
                     src={cropSource}
                     alt="Crop preview"
                     className="w-full h-full object-contain select-none"
                     draggable={false}
                     onLoad={(e) => {
                       const img = e.currentTarget
-                      const container = cropContainerRef.current?.getBoundingClientRect()
-                      if (!container) return
-
                       const naturalWidth = img.naturalWidth
                       const naturalHeight = img.naturalHeight
                       if (!naturalWidth || !naturalHeight) return
-
-                      const scale = Math.min(container.width / naturalWidth, container.height / naturalHeight)
-                      const width = naturalWidth * scale
-                      const height = naturalHeight * scale
-                      const offsetX = (container.width - width) / 2
-                      const offsetY = (container.height - height) / 2
-
                       setMediaSize({ width: naturalWidth, height: naturalHeight })
-                      setRenderBox({
-                        containerWidth: container.width,
-                        containerHeight: container.height,
-                        width,
-                        height,
-                        offsetX,
-                        offsetY,
-                      })
+                      requestAnimationFrame(() => updateCropRenderBox())
                     }}
                   />
 
