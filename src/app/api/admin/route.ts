@@ -632,17 +632,18 @@ export async function GET(request: Request) {
       }
     }
 
-    // Default: return dashboard stats
+    // Default: return dashboard stats (totalMedia = non-deleted only, to match Media tab list)
     const [totalUsers, totalMedia, totalComments, pendingReports] =
       await Promise.all([
         prisma.user.count(),
-        prisma.media.count(),
+        prisma.media.count({ where: { isDeleted: false } }),
         prisma.comment.count(),
         prisma.report.count({ where: { status: 'PENDING' } }),
       ])
 
     const mediaByType = await prisma.media.groupBy({
       by: ['type'],
+      where: { isDeleted: false },
       _count: true,
     })
 

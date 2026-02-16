@@ -521,7 +521,8 @@ export default function AdminPage() {
         const res = await fetch(`/api/admin?${params}`)
         const data = await res.json()
         setMedia(data.media || [])
-        setMediaTotal(data.media?.length || 0)
+        setMediaTotal(data.pagination?.total ?? data.media?.length ?? 0)
+        setMediaTotalPages(data.pagination?.totalPages ?? 1)
         // Best-effort: refresh file size status for the Media tab
         fetchFileSizeStatus()
       } else if (activeTab === 'chat') {
