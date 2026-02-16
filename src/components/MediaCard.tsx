@@ -336,6 +336,17 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   loop
                 />
               )}
+              {/* When Preplay is OFF, still preload metadata so media detail page loads faster when user clicks */}
+              {!preplay && media.type === 'VIDEO' && isInView && (!media.processingStatus || media.processingStatus === 'completed') && (
+                <video
+                  src={media.url}
+                  preload="metadata"
+                  className="absolute inset-0 w-full h-full pointer-events-none opacity-0"
+                  muted
+                  playsInline
+                  aria-hidden
+                />
+              )}
             </>
           ) : showVideoElement && isInView ? (
             // Show video element as fallback for videos only when in view (performance).
