@@ -1374,6 +1374,8 @@ export default function AdminPage() {
                           <span className={`badge text-xs ${
                             user.membershipType === 'PREMIUM' ? 'bg-purple-500/20 text-purple-400' :
                             user.membershipType === 'BASIC' || user.membershipType === 'SUBSCRIBER' ? 'bg-tank-accent/20 text-tank-accent' :
+                            user.membershipType === 'ADVANCED' ? 'bg-blue-500/20 text-blue-400' :
+                            user.membershipType === 'VIEWER' ? 'bg-slate-500/20 text-slate-300' :
                             'bg-gray-500/20 text-gray-400'
                           }`}>
                             {user.membershipType}
@@ -1775,7 +1777,10 @@ export default function AdminPage() {
                             <td className="p-3">
                               <span className={`badge text-xs ${
                                 user.membershipType === 'PREMIUM' ? 'bg-purple-500/20 text-purple-400' :
-                                'bg-tank-accent/20 text-tank-accent'
+                                user.membershipType === 'BASIC' || user.membershipType === 'SUBSCRIBER' ? 'bg-tank-accent/20 text-tank-accent' :
+                                user.membershipType === 'ADVANCED' ? 'bg-blue-500/20 text-blue-400' :
+                                user.membershipType === 'VIEWER' ? 'bg-slate-500/20 text-slate-300' :
+                                'bg-gray-500/20 text-gray-400'
                               }`}>
                                 {user.membershipType}
                               </span>
