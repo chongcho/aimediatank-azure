@@ -173,7 +173,7 @@ export default function CelebrationCardModal({ mediaId, mediaTitle, onClose }: C
               </button>
             </div>
             <div className="flex flex-wrap gap-2">
-              {typeof navigator !== 'undefined' && navigator.share && (
+              {typeof navigator !== 'undefined' && 'share' in navigator && (
                 <button
                   type="button"
                   onClick={shareNative}
