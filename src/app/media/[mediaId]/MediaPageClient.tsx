@@ -73,6 +73,8 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const [buyingMedia, setBuyingMedia] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
+  const [mediaDetailDownloadEnabled, setMediaDetailDownloadEnabled] = useState(true)
+  const [mediaDetailShareEnabled, setMediaDetailShareEnabled] = useState(true)
 
   const isOwner = session?.user?.id === media?.user?.id
   const isAdmin = session?.user?.role === 'ADMIN'
@@ -86,6 +88,25 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, session])
+
+  useEffect(() => {
+    const fetchMediaDetailSettings = async () => {
+      try {
+        const res = await fetch('/api/ui/media-detail', { cache: 'no-store' })
+        if (res.ok) {
+          const data = await res.json()
+          setMediaDetailDownloadEnabled(data.downloadEnabled !== false)
+          setMediaDetailShareEnabled(data.shareEnabled !== false)
+        }
+      } catch (error) {
+        console.error('Error fetching media detail settings:', error)
+      }
+    }
+    fetchMediaDetailSettings()
+    const handler = () => fetchMediaDetailSettings()
+    window.addEventListener('mediaDetailUpdated', handler as EventListener)
+    return () => window.removeEventListener('mediaDetailUpdated', handler as EventListener)
+  }, [])
 
   // Poll for processing status when media is still being processed
   useEffect(() => {
@@ -552,8 +573,8 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
 
               {/* Download & Share row */}
               <div className="flex items-center gap-2">
-                {/* Download Button — shown for free content (any logged-in user) and owners */}
-                {(isOwner || !media.price || media.price === 0) && (
+                {/* Download Button — shown for free content (any logged-in user) and owners, when enabled */}
+                {mediaDetailDownloadEnabled && (isOwner || !media.price || media.price === 0) && (
                   <button
                     onClick={handleDownload}
                     disabled={downloading}
@@ -575,27 +596,29 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                   </button>
                 )}
 
-                {/* Share Button */}
-                <button
-                  onClick={handleShare}
-                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
-                >
-                  {shareStatus === 'copied' ? (
-                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                      />
-                    </svg>
-                  )}
-                  {shareStatus === 'copied' ? 'Copied!' : 'Share'}
-                </button>
+                {/* Share Button — when enabled */}
+                {mediaDetailShareEnabled && (
+                  <button
+                    onClick={handleShare}
+                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
+                  >
+                    {shareStatus === 'copied' ? (
+                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                        />
+                      </svg>
+                    )}
+                    {shareStatus === 'copied' ? 'Copied!' : 'Share'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

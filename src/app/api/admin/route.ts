@@ -573,6 +573,23 @@ export async function GET(request: Request) {
       }
     }
 
+    // Get media detail page settings (Download/Share visibility)
+    if (action === 'mediaDetailSettings') {
+      try {
+        let row = await prisma.mediaDetailSetting.findFirst()
+        if (!row) {
+          row = await prisma.mediaDetailSetting.create({ data: {} })
+        }
+        return NextResponse.json({
+          downloadEnabled: row.downloadEnabled ?? true,
+          shareEnabled: row.shareEnabled ?? true,
+        })
+      } catch (error) {
+        console.error('Media detail settings unavailable:', error)
+        return NextResponse.json({ downloadEnabled: true, shareEnabled: true })
+      }
+    }
+
     // Get media badge settings for admin management
     if (action === 'badgeSettings') {
       const defaultItems = [
@@ -1790,6 +1807,38 @@ export async function POST(request: Request) {
           layout: row.layout,
           preplay: row.preplay,
           ecardEnabled: row.ecardEnabled,
+        })
+      }
+
+      case 'setMediaDetail': {
+        const { downloadEnabled: downloadPayload, shareEnabled: sharePayload } = data || {}
+        const downloadBool = typeof downloadPayload === 'boolean' ? downloadPayload : undefined
+        const shareBool = typeof sharePayload === 'boolean' ? sharePayload : undefined
+        let row = await prisma.mediaDetailSetting.findFirst()
+        if (!row) {
+          row = await prisma.mediaDetailSetting.create({
+            data: {
+              ...(downloadBool !== undefined && { downloadEnabled: downloadBool }),
+              ...(shareBool !== undefined && { shareEnabled: shareBool }),
+            },
+          })
+        } else {
+          row = await prisma.mediaDetailSetting.update({
+            where: { id: row.id },
+            data: {
+              ...(downloadBool !== undefined && { downloadEnabled: downloadBool }),
+              ...(shareBool !== undefined && { shareEnabled: shareBool }),
+            },
+          })
+        }
+        await logAdminAction(adminId, 'SET_MEDIA_DETAIL', 'MEDIA_DETAIL', row.id, {
+          downloadEnabled: row.downloadEnabled,
+          shareEnabled: row.shareEnabled,
+        })
+        return NextResponse.json({
+          message: 'Media detail settings updated',
+          downloadEnabled: row.downloadEnabled,
+          shareEnabled: row.shareEnabled,
         })
       }
 

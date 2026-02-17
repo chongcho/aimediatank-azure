@@ -596,6 +596,15 @@ model HomeLayoutSetting {
   updatedAt    DateTime @updatedAt
 }
 
+// Media detail page: show/hide Download and Share buttons (admin)
+model MediaDetailSetting {
+  id              String   @id @default(uuid())
+  downloadEnabled Boolean  @default(true)
+  shareEnabled    Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 // Celebration e-card: share media as a card via email/SNS with optional TTS message
 model CelebrationCard {
   id             String    @id @default(uuid())
