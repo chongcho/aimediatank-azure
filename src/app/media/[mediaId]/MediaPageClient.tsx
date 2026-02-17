@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaPlayer from '@/components/MediaPlayer'
+import CelebrationCardModal from '@/components/CelebrationCardModal'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
 import { stopAllMedia } from '@/lib/mediaStop'
 
@@ -73,6 +74,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const [buyingMedia, setBuyingMedia] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
+  const [showCelebrationCardModal, setShowCelebrationCardModal] = useState(false)
 
   const isOwner = session?.user?.id === media?.user?.id
   const isAdmin = session?.user?.role === 'ADMIN'
@@ -596,6 +598,16 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                   )}
                   {shareStatus === 'copied' ? 'Copied!' : 'Share'}
                 </button>
+
+                {/* Send celebration card */}
+                <button
+                  onClick={() => setShowCelebrationCardModal(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
+                  title="Send as e-card via email or social"
+                >
+                  <span className="text-lg">🎉</span>
+                  Send card
+                </button>
               </div>
             </div>
           </div>
@@ -639,6 +651,15 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
           )}
         </div>
       </div>
+
+      {/* Celebration card modal */}
+      {showCelebrationCardModal && media && (
+        <CelebrationCardModal
+          mediaId={mediaId}
+          mediaTitle={stripHashtags(media.title)}
+          onClose={() => setShowCelebrationCardModal(false)}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

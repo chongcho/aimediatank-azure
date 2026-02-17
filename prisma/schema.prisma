@@ -81,6 +81,7 @@ model User {
   pendingUploads PendingUpload[]
   conversationMemberships ConversationMember[]
   creditHistory CreditHistory[]
+  celebrationCardsSent CelebrationCard[] @relation("CelebrationCardSender")
 }
 
 model Media {
@@ -129,6 +130,7 @@ model Media {
   purchases     Purchase[]
   savedBy       SavedMedia[]
   versions      MediaVersion[]  // per-resolution variants (YouTube-style)
+  celebrationCards CelebrationCard[]
 
   @@index([userId])
   @@index([type])
@@ -591,4 +593,21 @@ model HomeLayoutSetting {
   preplay   Boolean  @default(true)       // muted video preview on hover on homepage
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Celebration e-card: share media as a card via email/SNS with optional TTS message
+model CelebrationCard {
+  id             String    @id @default(uuid())
+  mediaId        String
+  media          Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  senderId       String?   // null = anonymous
+  sender         User?    @relation("CelebrationCardSender", fields: [senderId], references: [id], onDelete: SetNull)
+  recipientEmail String?   // if sent by email
+  cardTitle      String?   // e.g. "Happy Birthday!"
+  ttsMessage     String?   @db.Text // message read aloud on card view
+  expiresAt      DateTime? // optional time-limited link
+  createdAt      DateTime  @default(now())
+
+  @@index([mediaId])
+  @@index([senderId])
 }

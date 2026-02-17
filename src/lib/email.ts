@@ -74,6 +74,73 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   }
 }
 
+// Celebration card e-card email
+export function generateCelebrationCardEmail(options: {
+  senderName: string
+  cardTitle?: string
+  ttsMessage?: string
+  cardUrl: string
+  mediaTitle: string
+  thumbnailUrl: string | null
+  creatorUsername: string
+}): string {
+  const { senderName, cardTitle, ttsMessage, cardUrl, mediaTitle, thumbnailUrl, creatorUsername } = options
+  const titleBlock = cardTitle
+    ? `<p style="font-size: 18px; font-weight: bold; color: #1a1a2e; margin: 0 0 16px 0;">${escapeHtml(cardTitle)}</p>`
+    : ''
+  const messageBlock = ttsMessage
+    ? `<p style="font-size: 16px; color: #444; margin: 16px 0; line-height: 1.6;">${escapeHtml(ttsMessage)}</p>`
+    : ''
+  const imgBlock = thumbnailUrl
+    ? `<img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" style="width: 100%; max-width: 400px; height: auto; border-radius: 12px; display: block; margin: 16px 0;" />`
+    : '<div style="background: linear-gradient(135deg, #2d2d44 0%, #1a1a2e 100%); height: 200px; border-radius: 12px; margin: 16px 0;"></div>'
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
+    <h1 style="color: #0f8; margin: 0; font-size: 24px;">🎉 You received a celebration card!</h1>
+  </div>
+  
+  <p style="font-size: 16px;">${escapeHtml(senderName)} sent you a celebration card from AI Media Tank.</p>
+  ${titleBlock}
+  ${messageBlock}
+  
+  <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin: 20px 0; border: 1px solid #e0e0e0;">
+    <p style="margin: 0 0 8px 0; font-size: 12px; color: #666;">Media</p>
+    ${imgBlock}
+    <p style="margin: 12px 0 0 0; font-size: 16px; font-weight: 600; color: #1a1a2e;">${escapeHtml(mediaTitle)}</p>
+    <p style="margin: 4px 0 0 0; font-size: 14px; color: #666;">by @${escapeHtml(creatorUsername)}</p>
+  </div>
+  
+  <div style="text-align: center; margin: 28px 0;">
+    <a href="${escapeHtml(cardUrl)}" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+      View your celebration card
+    </a>
+  </div>
+  
+  <p style="font-size: 14px; color: #666;">You can listen to the personal message and view the full media on the card page.</p>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  <p style="font-size: 14px; color: #666;">Sincerely,<br><strong>AI Media Tank</strong></p>
+</body>
+</html>
+`
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 // Generate purchase confirmation email
 export function generatePurchaseEmail(
   buyerName: string,
