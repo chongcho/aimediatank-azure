@@ -565,10 +565,11 @@ export async function GET(request: Request) {
         }
         const layout = row.layout === 'grid' ? 'grid' : 'masonry'
         const preplay = row.preplay
-        return NextResponse.json({ layout, preplay })
+        const ecardEnabled = row.ecardEnabled ?? true
+        return NextResponse.json({ layout, preplay, ecardEnabled })
       } catch (error) {
         console.error('Home layout settings unavailable:', error)
-        return NextResponse.json({ layout: 'masonry', preplay: true })
+        return NextResponse.json({ layout: 'masonry', preplay: true, ecardEnabled: true })
       }
     }
 
@@ -1754,24 +1755,42 @@ export async function POST(request: Request) {
       }
 
       case 'setHomeLayout': {
-        const { layout, preplay } = data || {}
+        const { layout, preplay, ecardEnabled: ecardEnabledPayload } = data || {}
         if (!layout || (layout !== 'masonry' && layout !== 'grid')) {
           return NextResponse.json({ error: 'layout must be "masonry" or "grid"' }, { status: 400 })
         }
         const preplayBool = typeof preplay === 'boolean' ? preplay : undefined
+        const ecardBool = typeof ecardEnabledPayload === 'boolean' ? ecardEnabledPayload : undefined
         let row = await prisma.homeLayoutSetting.findFirst()
         if (!row) {
           row = await prisma.homeLayoutSetting.create({
-            data: { layout, ...(preplayBool !== undefined && { preplay: preplayBool }) },
+            data: {
+              layout,
+              ...(preplayBool !== undefined && { preplay: preplayBool }),
+              ...(ecardBool !== undefined && { ecardEnabled: ecardBool }),
+            },
           })
         } else {
           row = await prisma.homeLayoutSetting.update({
             where: { id: row.id },
-            data: { layout, ...(preplayBool !== undefined && { preplay: preplayBool }) },
+            data: {
+              layout,
+              ...(preplayBool !== undefined && { preplay: preplayBool }),
+              ...(ecardBool !== undefined && { ecardEnabled: ecardBool }),
+            },
           })
         }
-        await logAdminAction(adminId, 'SET_HOME_LAYOUT', 'HOME_LAYOUT', row.id, { layout, preplay: row.preplay })
-        return NextResponse.json({ message: 'Home layout updated', layout: row.layout, preplay: row.preplay })
+        await logAdminAction(adminId, 'SET_HOME_LAYOUT', 'HOME_LAYOUT', row.id, {
+          layout,
+          preplay: row.preplay,
+          ecardEnabled: row.ecardEnabled,
+        })
+        return NextResponse.json({
+          message: 'Home layout updated',
+          layout: row.layout,
+          preplay: row.preplay,
+          ecardEnabled: row.ecardEnabled,
+        })
       }
 
       case 'toggleBadge': {

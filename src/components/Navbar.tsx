@@ -43,6 +43,7 @@ export default function Navbar() {
   const [chatInviteCount, setChatInviteCount] = useState(0)
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
+  const [ecardEnabled, setEcardEnabled] = useState(true)
 
   const profileRef = useRef<HTMLDivElement>(null)
   const alertsRef = useRef<HTMLDivElement>(null)
@@ -76,6 +77,25 @@ export default function Navbar() {
     window.addEventListener('navbarMenuUpdated', handler as EventListener)
     return () => window.removeEventListener('navbarMenuUpdated', handler as EventListener)
   }, [fetchNavbarMenuSettings])
+
+  const fetchHomeLayout = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ui/home-layout', { cache: 'no-store' })
+      if (res.ok) {
+        const data = await res.json()
+        setEcardEnabled(data.ecardEnabled !== false)
+      }
+    } catch (error) {
+      console.error('Error fetching home layout:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchHomeLayout()
+    const handler = () => fetchHomeLayout()
+    window.addEventListener('homeLayoutUpdated', handler as EventListener)
+    return () => window.removeEventListener('homeLayoutUpdated', handler as EventListener)
+  }, [fetchHomeLayout])
 
   // If chat is disabled via Navbar Control, force-close it.
   useEffect(() => {
@@ -436,6 +456,17 @@ export default function Navbar() {
               </div>
             )}
 
+            {/* eCard link - left of Chat when enabled */}
+            {ecardEnabled && (
+              <Link
+                href="/ecard"
+                className="h-9 px-2 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
+                aria-label="eCard"
+                title="eCard"
+              >
+                <span className="text-sm font-bold text-gray-900">eCard</span>
+              </Link>
+            )}
             {/* Chat Button */}
             {isNavbarItemEnabled('chat') && (
               <div className="relative">
