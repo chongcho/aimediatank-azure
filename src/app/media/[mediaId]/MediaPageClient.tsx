@@ -75,11 +75,6 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
   const [mediaDetailDownloadEnabled, setMediaDetailDownloadEnabled] = useState(true)
   const [mediaDetailShareEnabled, setMediaDetailShareEnabled] = useState(true)
-  const [showShareModal, setShowShareModal] = useState(false)
-  const [shareEmail, setShareEmail] = useState('')
-  const [shareEmailSending, setShareEmailSending] = useState(false)
-  const [shareEmailSent, setShareEmailSent] = useState(false)
-  const [shareEmailError, setShareEmailError] = useState<string | null>(null)
 
   const isOwner = session?.user?.id === media?.user?.id
   const isAdmin = session?.user?.role === 'ADMIN'
@@ -261,86 +256,32 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     }
   }
 
-  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/media/${mediaId}` : ''
-  const shareTitle = media ? stripHashtags(media.title) : 'Check this out'
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/media/${mediaId}`
+    const shareTitle = media ? stripHashtags(media.title) : 'Check this out'
 
-  const openShareModal = () => {
-    setShareEmail('')
-    setShareEmailSent(false)
-    setShareEmailError(null)
-    setShowShareModal(true)
-  }
-
-  const handleShareSendEmail = async () => {
-    if (!session?.user?.email) {
-      setShareEmailError('Sign in to send a share link by email')
-      return
-    }
-    const email = shareEmail.trim()
-    if (!email) {
-      setShareEmailError('Please enter an email address')
-      return
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setShareEmailError('Please enter a valid email address')
-      return
-    }
-    setShareEmailError(null)
-    setShareEmailSending(true)
-    try {
-      const res = await fetch(`/api/media/${mediaId}/share-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok) {
-        setShareEmailSent(true)
-      } else {
-        setShareEmailError(data.error || 'Failed to send. Please try again.')
+    // Use native Web Share API if available (mobile devices)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareTitle, url: shareUrl })
+        // Only increment after user actually completed the share
+        fetch(`/api/media/${mediaId}/share`, { method: 'POST' }).catch(() => {})
+      } catch {
+        // User cancelled or share failed — don't count it
       }
-    } catch {
-      setShareEmailError('Failed to send. Please try again.')
-    } finally {
-      setShareEmailSending(false)
+      return
     }
-  }
 
-  const handleShareCopyLink = async () => {
+    // Fallback: copy link to clipboard
     try {
       await navigator.clipboard.writeText(shareUrl)
+      // Only increment after successful clipboard copy
       fetch(`/api/media/${mediaId}/share`, { method: 'POST' }).catch(() => {})
       setShareStatus('copied')
       setTimeout(() => setShareStatus('idle'), 2000)
-      setShowShareModal(false)
     } catch {
+      // Clipboard API unavailable — prompt manually
       window.prompt('Copy this link:', shareUrl)
-    }
-  }
-
-  const handleShareOpenEmailApp = () => {
-    // Open default email app (Outlook, Mail, Gmail, etc.) with subject and body so user can
-    // compose and send from the full app — not a contact picker. Use window.open so the page
-    // doesn't navigate; fallback to location.href if popup is blocked (e.g. some mobile).
-    const subject = encodeURIComponent(shareTitle)
-    const body = encodeURIComponent(`${shareUrl}\n\nCheck out this link from AI Media Tank.`)
-    const mailtoUrl = `mailto:?subject=${subject}&body=${body}`
-    const opened = typeof window !== 'undefined' && window.open(mailtoUrl, '_blank', 'noopener,noreferrer')
-    if (!opened) {
-      window.location.href = mailtoUrl
-    }
-    setShowShareModal(false)
-  }
-
-  const handleShareNative = async () => {
-    if (typeof navigator !== 'undefined' && 'share' in navigator) {
-      try {
-        await navigator.share({ title: shareTitle, url: shareUrl })
-        fetch(`/api/media/${mediaId}/share`, { method: 'POST' }).catch(() => {})
-        setShowShareModal(false)
-      } catch {
-        // User cancelled or share failed
-      }
     }
   }
 
@@ -658,7 +599,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 {/* Share Button — when enabled */}
                 {mediaDetailShareEnabled && (
                   <button
-                    onClick={openShareModal}
+                    onClick={handleShare}
                     className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
                   >
                     {shareStatus === 'copied' ? (
@@ -722,97 +663,6 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
         </div>
       </div>
 
-      {/* Share modal — Share link preview, enter email, Copy link, Open in email app, Share with app */}
-      {showShareModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="card max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-white">Share link</h3>
-              <button
-                type="button"
-                onClick={() => setShowShareModal(false)}
-                className="p-1 rounded-lg hover:bg-tank-light text-gray-400 hover:text-white"
-                aria-label="Close"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            {media && (
-              <p className="text-gray-300 text-sm mb-2 line-clamp-2">{stripHashtags(media.title)}</p>
-            )}
-            <div className="flex items-center gap-2 mb-4 p-2 rounded-lg bg-tank-dark border border-tank-light">
-              <span className="text-gray-400 text-sm truncate flex-1 min-w-0">{shareUrl}</span>
-              <button
-                type="button"
-                onClick={handleShareCopyLink}
-                className="shrink-0 p-1.5 rounded hover:bg-tank-light text-gray-400 hover:text-white"
-                title="Copy link"
-                aria-label="Copy link"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-gray-400 text-sm mb-2">
-              {session?.user?.email
-                ? 'Send link by email (we’ll send it from our server)'
-                : 'Sign in to send a share link by email from this site.'}
-            </p>
-            <div className="space-y-2 mb-4">
-              <input
-                type="email"
-                value={shareEmail}
-                onChange={(e) => { setShareEmail(e.target.value); setShareEmailError(null) }}
-                placeholder="Enter recipient email"
-                className="w-full px-4 py-2 rounded-lg bg-tank-dark border border-tank-light text-white placeholder-gray-500 focus:ring-2 focus:ring-tank-accent focus:border-transparent"
-                disabled={shareEmailSending || !session?.user?.email}
-              />
-              {shareEmailError && <p className="text-sm text-red-400">{shareEmailError}</p>}
-              {shareEmailSent && <p className="text-sm text-green-400">Link sent successfully.</p>}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleShareSendEmail}
-                disabled={shareEmailSending || !session?.user?.email}
-                className="px-4 py-2 rounded-lg font-medium bg-tank-accent text-tank-black hover:bg-tank-accent/90 disabled:opacity-50"
-              >
-                {shareEmailSending ? 'Sending…' : 'Send link by email'}
-              </button>
-              <button
-                type="button"
-                onClick={handleShareCopyLink}
-                className="px-4 py-2 rounded-lg font-medium bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
-              >
-                Copy link
-              </button>
-              <button
-                type="button"
-                onClick={handleShareOpenEmailApp}
-                className="px-4 py-2 rounded-lg font-medium bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
-                title="Opens your default email app (Outlook, Mail, Gmail, etc.) with subject and link so you can send from the full app"
-              >
-                Open in email app
-              </button>
-              {typeof navigator !== 'undefined' && 'share' in navigator && (
-                <button
-                  type="button"
-                  onClick={handleShareNative}
-                  className="px-4 py-2 rounded-lg font-medium bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
-                >
-                  Share with app
-                </button>
-              )}
-            </div>
-            <p className="text-gray-500 text-xs mt-3">
-              “Open in email app” opens your default email app (Outlook, Mail, Gmail, etc.) with the link ready — add a recipient and send from the full app.
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
