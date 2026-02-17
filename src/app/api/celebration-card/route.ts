@@ -82,6 +82,7 @@ export async function POST(request: Request) {
 
     const senderName = session?.user?.name || session?.user?.username || 'Someone'
 
+    let emailSent = false
     if (card.recipientEmail) {
       const thumbUrl = toAbsolute(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
       const html = generateCelebrationCardEmail({
@@ -93,15 +94,14 @@ export async function POST(request: Request) {
         thumbnailUrl: thumbUrl,
         creatorUsername: media.user.username,
       })
-      const sent = await sendEmail({
+      emailSent = await sendEmail({
         to: card.recipientEmail,
         subject: card.cardTitle
           ? `${senderName} sent you a celebration card: ${card.cardTitle}`
           : `You received a celebration card from ${senderName}`,
         html,
       })
-      if (!sent) {
-        // Card is still created; we just couldn't send email
+      if (!emailSent) {
         console.warn('Celebration card email failed to send to', card.recipientEmail)
       }
     }
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       cardId: card.id,
       cardUrl,
-      emailSent: Boolean(card.recipientEmail),
+      emailSent,
     })
   } catch (e) {
     console.error('Celebration card create failed:', e)
