@@ -723,6 +723,26 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 </svg>
               </button>
             </div>
+            {/* Thumbnail preview — what recipient will see in the email */}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-tank-gray border border-tank-light mb-4">
+              {media.thumbnailUrl ? (
+                <img
+                  src={media.thumbnailUrl}
+                  alt={stripHashtags(media.title)}
+                  className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-lg bg-tank-light flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-white text-sm font-medium truncate">{stripHashtags(media.title)}</p>
+                <p className="text-gray-400 text-xs mt-0.5">This thumbnail will be in the email (clickable link)</p>
+              </div>
+            </div>
             <p className="text-gray-400 text-sm mb-4">
               Recipient will get an email with a thumbnail linked to this media so they can click to watch.
             </p>
