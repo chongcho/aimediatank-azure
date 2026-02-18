@@ -79,6 +79,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const [sendingEmail, setSendingEmail] = useState(false)
   const [mediaDetailDownloadEnabled, setMediaDetailDownloadEnabled] = useState(true)
   const [mediaDetailShareEnabled, setMediaDetailShareEnabled] = useState(true)
+  const [mediaDetailSendByEmailEnabled, setMediaDetailSendByEmailEnabled] = useState(true)
 
   const isOwner = session?.user?.id === media?.user?.id
   const isAdmin = session?.user?.role === 'ADMIN'
@@ -101,6 +102,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
           const data = await res.json()
           setMediaDetailDownloadEnabled(data.downloadEnabled !== false)
           setMediaDetailShareEnabled(data.shareEnabled !== false)
+          setMediaDetailSendByEmailEnabled(data.sendByEmailEnabled !== false)
         }
       } catch (error) {
         console.error('Error fetching media detail settings:', error)
@@ -651,16 +653,18 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                       )}
                       {shareStatus === 'copied' ? 'Copied!' : 'Share'}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowEmailModal(true)}
-                      className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      Send by email
-                    </button>
+                    {mediaDetailSendByEmailEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => setShowEmailModal(true)}
+                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Send by email
+                      </button>
+                    )}
                   </>
                 )}
               </div>

@@ -580,13 +580,15 @@ export async function GET(request: Request) {
         if (!row) {
           row = await prisma.mediaDetailSetting.create({ data: {} })
         }
+        const rowWithEmail = row as { sendByEmailEnabled?: boolean }
         return NextResponse.json({
           downloadEnabled: row.downloadEnabled ?? true,
           shareEnabled: row.shareEnabled ?? true,
+          sendByEmailEnabled: rowWithEmail.sendByEmailEnabled ?? true,
         })
       } catch (error) {
         console.error('Media detail settings unavailable:', error)
-        return NextResponse.json({ downloadEnabled: true, shareEnabled: true })
+        return NextResponse.json({ downloadEnabled: true, shareEnabled: true, sendByEmailEnabled: true })
       }
     }
 
@@ -1811,15 +1813,17 @@ export async function POST(request: Request) {
       }
 
       case 'setMediaDetail': {
-        const { downloadEnabled: downloadPayload, shareEnabled: sharePayload } = data || {}
+        const { downloadEnabled: downloadPayload, shareEnabled: sharePayload, sendByEmailEnabled: sendByEmailPayload } = data || {}
         const downloadBool = typeof downloadPayload === 'boolean' ? downloadPayload : undefined
         const shareBool = typeof sharePayload === 'boolean' ? sharePayload : undefined
+        const sendByEmailBool = typeof sendByEmailPayload === 'boolean' ? sendByEmailPayload : undefined
         let row = await prisma.mediaDetailSetting.findFirst()
         if (!row) {
           row = await prisma.mediaDetailSetting.create({
             data: {
               ...(downloadBool !== undefined && { downloadEnabled: downloadBool }),
               ...(shareBool !== undefined && { shareEnabled: shareBool }),
+              ...(sendByEmailBool !== undefined && { sendByEmailEnabled: sendByEmailBool }),
             },
           })
         } else {
@@ -1828,17 +1832,21 @@ export async function POST(request: Request) {
             data: {
               ...(downloadBool !== undefined && { downloadEnabled: downloadBool }),
               ...(shareBool !== undefined && { shareEnabled: shareBool }),
+              ...(sendByEmailBool !== undefined && { sendByEmailEnabled: sendByEmailBool }),
             },
           })
         }
+        const updated = row as { sendByEmailEnabled: boolean }
         await logAdminAction(adminId, 'SET_MEDIA_DETAIL', 'MEDIA_DETAIL', row.id, {
           downloadEnabled: row.downloadEnabled,
           shareEnabled: row.shareEnabled,
+          sendByEmailEnabled: updated.sendByEmailEnabled,
         })
         return NextResponse.json({
           message: 'Media detail settings updated',
           downloadEnabled: row.downloadEnabled,
           shareEnabled: row.shareEnabled,
+          sendByEmailEnabled: updated.sendByEmailEnabled,
         })
       }
 
