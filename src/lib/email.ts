@@ -133,6 +133,42 @@ export function generateCelebrationCardEmail(options: {
 `
 }
 
+// Share media by email: clickable thumbnail (hyperlinks to media page so video can be played)
+export function generateShareMediaEmail(options: {
+  mediaTitle: string
+  mediaPageUrl: string
+  thumbnailUrl: string | null
+  message?: string
+}): string {
+  const { mediaTitle, mediaPageUrl, thumbnailUrl, message } = options
+  const messageBlock = message
+    ? `<p style="font-size: 16px; color: #444; margin: 16px 0; line-height: 1.6;">${escapeHtml(message)}</p>`
+    : ''
+  const thumbnailBlock = thumbnailUrl
+    ? `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 16px 0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" style="width: 100%; max-width: 400px; height: auto; border-radius: 12px; display: block; border: 1px solid #e0e0e0;" /></a>`
+    : `<a href="${escapeHtml(mediaPageUrl)}" style="color: #0f8; font-weight: bold;">View: ${escapeHtml(mediaTitle)}</a>`
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <p style="font-size: 16px;">Someone shared this with you from AI Media Tank.</p>
+  ${messageBlock}
+  <p style="font-size: 16px; font-weight: 600; color: #1a1a2e;">${escapeHtml(mediaTitle)}</p>
+  <p style="margin: 8px 0 0 0;">Click the image below to watch:</p>
+  ${thumbnailBlock}
+  <p style="font-size: 14px; margin-top: 16px;"><a href="${escapeHtml(mediaPageUrl)}" style="color: #0f8; font-weight: bold;">Open in browser</a></p>
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  <p style="font-size: 14px; color: #666;">Sincerely,<br><strong>AI Media Tank</strong></p>
+</body>
+</html>
+`
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
