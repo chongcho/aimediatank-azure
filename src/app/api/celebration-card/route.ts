@@ -8,6 +8,62 @@ export const dynamic = 'force-dynamic'
 
 const RATE_LIMIT_PER_HOUR = 10
 
+function getBaseUrl(request: Request): string {
+  const host = request.headers.get('host')
+  if (!host) return process.env.NEXTAUTH_URL || 'https://www.aimediatank.com'
+  return host.includes('localhost') ? `http://${host}` : `https://${host}`
+}
+
+// GET - List celebration cards sent by the current user (for Sent History)
+export async function GET(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Sign in to view sent cards' }, { status: 401 })
+    }
+
+    const cards = await prisma.celebrationCard.findMany({
+      where: { senderId: session.user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: {
+        media: {
+          select: {
+            id: true,
+            title: true,
+            type: true,
+            thumbnailUrl: true,
+          },
+        },
+      },
+    })
+
+    const baseUrl = getBaseUrl(request)
+    return NextResponse.json(
+      cards.map((c) => ({
+        id: c.id,
+        cardUrl: `${baseUrl}/card/${c.id}`,
+        recipientEmail: c.recipientEmail,
+        cardTitle: c.cardTitle,
+        ttsMessage: c.ttsMessage,
+        createdAt: c.createdAt,
+        media: c.media
+          ? {
+              id: c.media.id,
+              title: c.media.title,
+              type: c.media.type,
+              thumbnailUrl: c.media.thumbnailUrl,
+            }
+          : null,
+      }))
+    )
+  } catch (e) {
+    console.error('Celebration card list failed:', e)
+    return NextResponse.json({ error: 'Failed to load sent cards' }, { status: 500 })
+  }
+}
+
+
 // Simple in-memory rate limit by userId or IP (per deployment)
 const recentCreates: { key: string; at: number }[] = []
 function checkRateLimit(userId: string | null, ip: string): boolean {
