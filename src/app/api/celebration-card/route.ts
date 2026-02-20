@@ -137,25 +137,26 @@ export async function POST(request: Request) {
     }
 
     const senderName = session?.user?.name || session?.user?.username || 'Someone'
+    const senderEmail = session?.user?.email && typeof session.user.email === 'string' ? session.user.email : undefined
 
     let emailSent = false
     if (card.recipientEmail) {
       const thumbUrl = toAbsolute(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
+      const mediaTitle = media.title.replace(/#\w+/g, '').trim()
       const html = generateCelebrationCardEmail({
-        senderName,
-        cardTitle: card.cardTitle || undefined,
-        ttsMessage: card.ttsMessage || undefined,
+        senderEmail,
         cardUrl,
-        mediaTitle: media.title.replace(/#\w+/g, '').trim(),
+        mediaTitle,
         thumbnailUrl: thumbUrl,
-        creatorUsername: media.user.username,
       })
+      const subject = card.ttsMessage && card.ttsMessage.trim()
+        ? card.ttsMessage.trim().slice(0, 50) + (card.ttsMessage.trim().length > 50 ? '…' : '')
+        : `You received a celebration card from ${senderName}`
       emailSent = await sendEmail({
         to: card.recipientEmail,
-        subject: card.cardTitle
-          ? `${senderName} sent you a celebration card: ${card.cardTitle}`
-          : `You received a celebration card from ${senderName}`,
+        subject,
         html,
+        ...(senderEmail && { replyTo: senderEmail }),
       })
       if (!emailSent) {
         console.warn('Celebration card email failed to send to', card.recipientEmail)
