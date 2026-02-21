@@ -4,8 +4,45 @@ import AzureADB2CProvider from 'next-auth/providers/azure-ad-b2c'
 import { compare } from 'bcryptjs'
 import { prisma } from './prisma'
 
-// Build Entra External ID / Azure AD B2C provider when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
-function getEntraProvider() {
+// Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
+const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
+const ENTRA_DOMAIN_HINTS: Record<(typeof ENTRA_SOCIAL_IDS)[number], string> = {
+  google: 'Google',
+  facebook: 'Facebook',
+  apple: 'Apple',
+  microsoft: 'Microsoft',
+}
+
+function buildEntraProvider(idSuffix: string, domainHint: string) {
+  const issuer = process.env.ENTRA_ISSUER
+  const clientId = process.env.ENTRA_CLIENT_ID ?? process.env.AZURE_AD_B2C_CLIENT_ID
+  const clientSecret = process.env.ENTRA_CLIENT_SECRET ?? process.env.AZURE_AD_B2C_CLIENT_SECRET
+  if (!issuer || !clientId || !clientSecret) return null
+  const id = `entra-external-id-${idSuffix}`
+  const name = domainHint
+  return {
+    id,
+    name,
+    type: 'oauth' as const,
+    wellKnown: `${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`,
+    authorization: { params: { scope: 'openid email profile', domain_hint: domainHint } },
+    idToken: true,
+    clientId,
+    clientSecret,
+    profile(profile: { sub?: string; name?: string; email?: string; emails?: string[]; picture?: string }) {
+      const email = profile.email ?? (Array.isArray(profile.emails) ? profile.emails[0] : undefined)
+      return {
+        id: profile.sub ?? '',
+        name: profile.name ?? email?.split('@')[0] ?? 'User',
+        email: email ?? null,
+        image: profile.picture ?? null,
+      }
+    },
+    style: { logo: '/azure.svg', bg: '#0072c6', text: '#fff' },
+  }
+}
+
+function getEntraProviders(): any[] {
   const issuer = process.env.ENTRA_ISSUER
   const clientId = process.env.ENTRA_CLIENT_ID ?? process.env.AZURE_AD_B2C_CLIENT_ID
   const clientSecret = process.env.ENTRA_CLIENT_SECRET ?? process.env.AZURE_AD_B2C_CLIENT_SECRET
@@ -13,40 +50,25 @@ function getEntraProvider() {
   const userFlow = process.env.AZURE_AD_B2C_PRIMARY_USER_FLOW
 
   if (issuer && clientId && clientSecret) {
-    return {
-      id: 'entra-external-id',
-      name: 'Microsoft',
-      type: 'oauth' as const,
-      wellKnown: `${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`,
-      authorization: { params: { scope: 'openid email profile' } },
-      idToken: true,
-      clientId,
-      clientSecret,
-      profile(profile: { sub?: string; name?: string; email?: string; emails?: string[]; picture?: string }) {
-        const email = profile.email ?? (Array.isArray(profile.emails) ? profile.emails[0] : undefined)
-        return {
-          id: profile.sub ?? '',
-          name: profile.name ?? email?.split('@')[0] ?? 'User',
-          email: email ?? null,
-          image: profile.picture ?? null,
-        }
-      },
-      style: { logo: '/azure.svg', bg: '#0072c6', text: '#fff' },
-    }
+    return ENTRA_SOCIAL_IDS.map((key) => buildEntraProvider(key, ENTRA_DOMAIN_HINTS[key])).filter(
+      (p): p is NonNullable<typeof p> => p !== null
+    ) as any[]
   }
   if (tenantName && userFlow && clientId && clientSecret) {
-    return AzureADB2CProvider({
-      tenantId: tenantName,
-      clientId,
-      clientSecret,
-      primaryUserFlow: userFlow,
-      authorization: { params: { scope: 'openid email profile' } },
-    })
+    return [
+      AzureADB2CProvider({
+        tenantId: tenantName,
+        clientId,
+        clientSecret,
+        primaryUserFlow: userFlow,
+        authorization: { params: { scope: 'openid email profile' } },
+      }) as any,
+    ]
   }
-  return null
+  return []
 }
 
-const entraProvider = getEntraProvider()
+const entraProviders = getEntraProviders()
 
 /** Ensure unique username from email; add suffix if taken. */
 async function ensureUniqueUsername(base: string): Promise<string> {
@@ -70,7 +92,7 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
   },
   providers: [
-    ...(entraProvider ? [entraProvider as any] : []),
+    ...entraProviders,
     CredentialsProvider({
       name: 'credentials',
       credentials: {
