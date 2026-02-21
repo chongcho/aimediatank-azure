@@ -86,32 +86,43 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const canManage = isOwner || isAdmin
 
   useEffect(() => {
-    fetchMedia()
-    fetchReactions()
+    const ac = new AbortController()
+    const signal = ac.signal
+    fetchMedia(signal)
+    fetchReactions(signal)
     if (session) {
-      fetchSavedStatus()
+      fetchSavedStatus(signal)
     }
+    return () => ac.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, session])
 
   useEffect(() => {
+    const ac = new AbortController()
+    const signal = ac.signal
     const fetchMediaDetailSettings = async () => {
       try {
-        const res = await fetch('/api/ui/media-detail', { cache: 'no-store' })
+        const res = await fetch('/api/ui/media-detail', { signal, cache: 'no-store' })
+        if (signal.aborted) return
         if (res.ok) {
           const data = await res.json()
+          if (signal.aborted) return
           setMediaDetailDownloadEnabled(data.downloadEnabled !== false)
           setMediaDetailShareEnabled(data.shareEnabled !== false)
           setMediaDetailSendByEmailEnabled(data.sendByEmailEnabled !== false)
         }
       } catch (error) {
+        if ((error as Error).name === 'AbortError') return
         console.error('Error fetching media detail settings:', error)
       }
     }
     fetchMediaDetailSettings()
     const handler = () => fetchMediaDetailSettings()
     window.addEventListener('mediaDetailUpdated', handler as EventListener)
-    return () => window.removeEventListener('mediaDetailUpdated', handler as EventListener)
+    return () => {
+      ac.abort()
+      window.removeEventListener('mediaDetailUpdated', handler as EventListener)
+    }
   }, [])
 
   // Poll for processing status when media is still being processed
@@ -119,28 +130,38 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     if (!media) return
     if (media.processingStatus === 'completed' || media.processingStatus === 'failed') return
 
+    const ac = new AbortController()
+    const signal = ac.signal
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { cache: 'no-store' })
+        const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { signal, cache: 'no-store' })
         const data = await res.json()
+        if (signal.aborted) return
         if (res.ok) {
           setMedia(data)
           if (data.processingStatus === 'completed' || data.processingStatus === 'failed') {
             clearInterval(interval)
           }
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore (includes AbortError) */
+      }
     }, 5000) // Poll every 5 seconds
 
-    return () => clearInterval(interval)
+    return () => {
+      ac.abort()
+      clearInterval(interval)
+    }
   }, [media?.processingStatus, mediaId])
 
-  const fetchSavedStatus = async () => {
+  const fetchSavedStatus = async (signal?: AbortSignal) => {
     try {
-      const res = await fetch(`/api/media/${mediaId}/save`)
+      const res = await fetch(`/api/media/${mediaId}/save`, { signal })
       const data = await res.json()
+      if (signal?.aborted) return
       setIsSaved(data.saved)
     } catch (error) {
+      if ((error as Error).name === 'AbortError') return
       console.error('Error fetching saved status:', error)
     }
   }
@@ -156,20 +177,22 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     return visitorId
   }
 
-  const fetchReactions = async () => {
+  const fetchReactions = async (signal?: AbortSignal) => {
     try {
       const visitorId = getVisitorId()
       const headers: HeadersInit = {}
       if (visitorId) {
         headers['x-visitor-id'] = visitorId
       }
-      const res = await fetch(`/api/media/${mediaId}/reactions`, { headers })
+      const res = await fetch(`/api/media/${mediaId}/reactions`, { signal, headers })
       const data = await res.json()
+      if (signal?.aborted) return
       if (res.ok) {
         setReactions(data.counts)
         setUserReaction(data.userReaction)
       }
     } catch (error) {
+      if ((error as Error).name === 'AbortError') return
       console.error('Error fetching reactions:', error)
     }
   }
@@ -319,18 +342,19 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     }
   }
 
-  const fetchMedia = async () => {
+  const fetchMedia = async (signal?: AbortSignal) => {
     try {
-      // Add timestamp to prevent caching and get fresh user data
-      const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { cache: 'no-store' })
+      const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { signal, cache: 'no-store' })
       const data = await res.json()
+      if (signal?.aborted) return
       if (res.ok) {
         setMedia(data)
       }
     } catch (error) {
+      if ((error as Error).name === 'AbortError') return
       console.error('Error fetching media:', error)
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
 

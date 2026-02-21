@@ -360,7 +360,9 @@ function HomeContent() {
     setMedia([])
     setPage(1)
     setHasMore(true)
-    fetchMedia(1, true)
+    const ac = new AbortController()
+    fetchMedia(1, true, false, ac.signal)
+    return () => ac.abort()
   }, [sort, type, search, sortInitialized])
 
   // Infinite scroll observer
@@ -490,7 +492,7 @@ function HomeContent() {
     window.location.href = `/media/${suggestion.id}`
   }
 
-  const fetchMedia = async (pageNum: number = 1, isReset: boolean = false, isRetry: boolean = false) => {
+  const fetchMedia = async (pageNum: number = 1, isReset: boolean = false, isRetry: boolean = false, signal?: AbortSignal) => {
     if (isReset) {
       setLoading(true)
     } else {
@@ -514,8 +516,9 @@ function HomeContent() {
         params.set('search', currentSearch)
       }
 
-      const res = await fetch(`/api/media?${params}`, { cache: 'no-store' })
+      const res = await fetch(`/api/media?${params}`, { signal, cache: 'no-store' })
       const data = await res.json()
+      if (signal?.aborted) return
       // Only update state on success so we don't wipe the list on 4xx/5xx or network errors after idle
       if (!res.ok) {
         if (isReset && !isRetry) {
@@ -540,17 +543,20 @@ function HomeContent() {
       }
       setHasMore(pageNum < totalPages)
     } catch (error) {
+      if ((error as Error).name === 'AbortError') return
       console.error('Error fetching media:', error)
       if (isReset && !isRetry) {
         setTimeout(() => fetchMedia(1, true, true), 800)
       }
     } finally {
-      setLoading(false)
-      setLoadingMore(false)
-      // Mark content ready after initial load (not during scroll restoration —
-      // the restore path sets contentReady after scroll position is restored).
-      if (isReset && !isRestoringRef.current) {
-        setContentReady(true)
+      if (!signal?.aborted) {
+        setLoading(false)
+        setLoadingMore(false)
+        // Mark content ready after initial load (not during scroll restoration —
+        // the restore path sets contentReady after scroll position is restored).
+        if (isReset && !isRestoringRef.current) {
+          setContentReady(true)
+        }
       }
     }
   }
