@@ -73,9 +73,6 @@ export function SocialSignIn({ mode, callbackUrl = '/' }: Props) {
           </>
         )}
       </button>
-      <p className="text-xs text-gray-500 mt-2 text-center">
-        Sign in with Google, Facebook, Apple, or Microsoft when redirected to Azure.
-      </p>
     </>
   )
 }
