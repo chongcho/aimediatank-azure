@@ -329,6 +329,8 @@ export default function RegisterPage() {
           codeSent: true,
           sending: false,
           error: '',
+          // When API returns code (e.g. dev or no SMS configured), pre-fill so user can verify
+          ...(data.code ? { code: String(data.code).slice(0, 6) } : {}),
         }))
       } else {
         setPhoneVerificationState(prev => ({
@@ -754,6 +756,9 @@ export default function RegisterPage() {
                         </button>
                       ) : (
                         <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-xs text-gray-400 w-full">
+                            Enter the 6-digit code sent to your phone. (If SMS is not configured, the code is filled in above for testing.)
+                          </p>
                           <input
                             type="text"
                             inputMode="numeric"
