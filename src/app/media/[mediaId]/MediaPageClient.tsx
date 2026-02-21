@@ -73,39 +73,56 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const [buyingMedia, setBuyingMedia] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailTo, setEmailTo] = useState('')
+  const [emailMessage, setEmailMessage] = useState('')
+  const [sendingEmail, setSendingEmail] = useState(false)
   const [mediaDetailDownloadEnabled, setMediaDetailDownloadEnabled] = useState(true)
   const [mediaDetailShareEnabled, setMediaDetailShareEnabled] = useState(true)
+  const [mediaDetailSendByEmailEnabled, setMediaDetailSendByEmailEnabled] = useState(true)
 
   const isOwner = session?.user?.id === media?.user?.id
   const isAdmin = session?.user?.role === 'ADMIN'
   const canManage = isOwner || isAdmin
 
   useEffect(() => {
-    fetchMedia()
-    fetchReactions()
+    const ac = new AbortController()
+    const signal = ac.signal
+    fetchMedia(signal)
+    fetchReactions(signal)
     if (session) {
-      fetchSavedStatus()
+      fetchSavedStatus(signal)
     }
+    return () => ac.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, session])
 
   useEffect(() => {
+    const ac = new AbortController()
+    const signal = ac.signal
     const fetchMediaDetailSettings = async () => {
       try {
-        const res = await fetch('/api/ui/media-detail', { cache: 'no-store' })
+        const res = await fetch('/api/ui/media-detail', { signal, cache: 'no-store' })
+        if (signal.aborted) return
         if (res.ok) {
           const data = await res.json()
+          if (signal.aborted) return
           setMediaDetailDownloadEnabled(data.downloadEnabled !== false)
           setMediaDetailShareEnabled(data.shareEnabled !== false)
+          setMediaDetailSendByEmailEnabled(data.sendByEmailEnabled !== false)
         }
       } catch (error) {
+        if ((error as Error).name === 'AbortError') return
         console.error('Error fetching media detail settings:', error)
       }
     }
     fetchMediaDetailSettings()
     const handler = () => fetchMediaDetailSettings()
     window.addEventListener('mediaDetailUpdated', handler as EventListener)
-    return () => window.removeEventListener('mediaDetailUpdated', handler as EventListener)
+    return () => {
+      ac.abort()
+      window.removeEventListener('mediaDetailUpdated', handler as EventListener)
+    }
   }, [])
 
   // Poll for processing status when media is still being processed
@@ -113,28 +130,38 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     if (!media) return
     if (media.processingStatus === 'completed' || media.processingStatus === 'failed') return
 
+    const ac = new AbortController()
+    const signal = ac.signal
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { cache: 'no-store' })
+        const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { signal, cache: 'no-store' })
         const data = await res.json()
+        if (signal.aborted) return
         if (res.ok) {
           setMedia(data)
           if (data.processingStatus === 'completed' || data.processingStatus === 'failed') {
             clearInterval(interval)
           }
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore (includes AbortError) */
+      }
     }, 5000) // Poll every 5 seconds
 
-    return () => clearInterval(interval)
+    return () => {
+      ac.abort()
+      clearInterval(interval)
+    }
   }, [media?.processingStatus, mediaId])
 
-  const fetchSavedStatus = async () => {
+  const fetchSavedStatus = async (signal?: AbortSignal) => {
     try {
-      const res = await fetch(`/api/media/${mediaId}/save`)
+      const res = await fetch(`/api/media/${mediaId}/save`, { signal })
       const data = await res.json()
+      if (signal?.aborted) return
       setIsSaved(data.saved)
     } catch (error) {
+      if ((error as Error).name === 'AbortError') return
       console.error('Error fetching saved status:', error)
     }
   }
@@ -150,20 +177,22 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     return visitorId
   }
 
-  const fetchReactions = async () => {
+  const fetchReactions = async (signal?: AbortSignal) => {
     try {
       const visitorId = getVisitorId()
       const headers: HeadersInit = {}
       if (visitorId) {
         headers['x-visitor-id'] = visitorId
       }
-      const res = await fetch(`/api/media/${mediaId}/reactions`, { headers })
+      const res = await fetch(`/api/media/${mediaId}/reactions`, { signal, headers })
       const data = await res.json()
+      if (signal?.aborted) return
       if (res.ok) {
         setReactions(data.counts)
         setUserReaction(data.userReaction)
       }
     } catch (error) {
+      if ((error as Error).name === 'AbortError') return
       console.error('Error fetching reactions:', error)
     }
   }
@@ -285,18 +314,47 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     }
   }
 
-  const fetchMedia = async () => {
+  const handleSendByEmail = async () => {
+    const to = emailTo.trim()
+    if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      alert('Please enter a valid email address.')
+      return
+    }
+    setSendingEmail(true)
     try {
-      // Add timestamp to prevent caching and get fresh user data
-      const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { cache: 'no-store' })
+      const res = await fetch(`/api/media/${mediaId}/share-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, message: emailMessage.trim() || undefined }),
+      })
       const data = await res.json()
+      if (res.ok && data.ok) {
+        setShowEmailModal(false)
+        setEmailTo('')
+        setEmailMessage('')
+      } else {
+        alert(data.error || 'Failed to send email')
+      }
+    } catch {
+      alert('Failed to send email')
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
+  const fetchMedia = async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { signal, cache: 'no-store' })
+      const data = await res.json()
+      if (signal?.aborted) return
       if (res.ok) {
         setMedia(data)
       }
     } catch (error) {
+      if ((error as Error).name === 'AbortError') return
       console.error('Error fetching media:', error)
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
 
@@ -414,6 +472,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
             url={(media as any).streamUrl ?? media.url}
             title={media.title}
             thumbnailUrl={media.thumbnailUrl}
+            autoUnmuteOnMount
           />
         )}
       </div>
@@ -598,26 +657,40 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
 
                 {/* Share Button — when enabled */}
                 {mediaDetailShareEnabled && (
-                  <button
-                    onClick={handleShare}
-                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
-                  >
-                    {shareStatus === 'copied' ? (
-                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                        />
-                      </svg>
+                  <>
+                    <button
+                      onClick={handleShare}
+                      className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
+                    >
+                      {shareStatus === 'copied' ? (
+                        <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                          />
+                        </svg>
+                      )}
+                      {shareStatus === 'copied' ? 'Copied!' : 'Share'}
+                    </button>
+                    {mediaDetailSendByEmailEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => setShowEmailModal(true)}
+                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Send by email
+                      </button>
                     )}
-                    {shareStatus === 'copied' ? 'Copied!' : 'Share'}
-                  </button>
+                  </>
                 )}
               </div>
             </div>
@@ -663,6 +736,84 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
         </div>
       </div>
 
+      {/* Send by email modal — sends HTML email with thumbnail + hyperlink so recipient can click to play */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !sendingEmail && setShowEmailModal(false)}>
+          <div className="card max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Send by email</h3>
+              <button
+                type="button"
+                onClick={() => !sendingEmail && setShowEmailModal(false)}
+                className="text-gray-400 hover:text-white transition-colors p-1"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {/* Thumbnail preview — what recipient will see in the email */}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-tank-gray border border-tank-light mb-4">
+              {media.thumbnailUrl ? (
+                <img
+                  src={media.thumbnailUrl}
+                  alt={stripHashtags(media.title)}
+                  className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-lg bg-tank-light flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-white text-sm font-medium truncate">{stripHashtags(media.title)}</p>
+                <p className="text-gray-400 text-xs mt-0.5">This thumbnail will be in the email (clickable link)</p>
+              </div>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Recipient will get an email with a thumbnail linked to this media so they can click to watch.
+            </p>
+            <label className="block text-sm font-medium text-gray-300 mb-1">To (email)</label>
+            <input
+              type="email"
+              value={emailTo}
+              onChange={(e) => setEmailTo(e.target.value)}
+              placeholder="friend@example.com"
+              className="w-full px-4 py-2 rounded-lg bg-tank-gray border border-tank-light text-white placeholder-gray-500 mb-4"
+              disabled={sendingEmail}
+            />
+            <label className="block text-sm font-medium text-gray-300 mb-1">Message (optional)</label>
+            <textarea
+              value={emailMessage}
+              onChange={(e) => setEmailMessage(e.target.value)}
+              placeholder="Check this out!"
+              rows={2}
+              className="w-full px-4 py-2 rounded-lg bg-tank-gray border border-tank-light text-white placeholder-gray-500 mb-4 resize-none"
+              disabled={sendingEmail}
+            />
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => !sendingEmail && setShowEmailModal(false)}
+                className="btn-secondary flex-1"
+                disabled={sendingEmail}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendByEmail}
+                disabled={sendingEmail}
+                className="flex-1 px-4 py-2 bg-tank-accent text-tank-black font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {sendingEmail ? 'Sending...' : 'Send'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

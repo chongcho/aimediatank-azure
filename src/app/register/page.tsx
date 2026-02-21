@@ -13,10 +13,14 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     name: '',
+    firstName: '',
+    middleName: '',
+    lastName: '',
     legalName: '',
     phone: '',
     location: '',
     bio: '',
+    birthday: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -72,6 +76,23 @@ export default function RegisterPage() {
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [generatedCode, setGeneratedCode] = useState('')
   const [policyAgreed, setPolicyAgreed] = useState(false)
+
+  // Phone verification state (two-step verification when phone is provided)
+  const [phoneVerificationState, setPhoneVerificationState] = useState<{
+    codeSent: boolean
+    codeVerified: boolean
+    sending: boolean
+    verifying: boolean
+    code: string
+    error: string
+  }>({
+    codeSent: false,
+    codeVerified: false,
+    sending: false,
+    verifying: false,
+    code: '',
+    error: '',
+  })
 
   // Debounced email check
   const checkEmail = useCallback(async (email: string) => {
@@ -163,14 +184,31 @@ export default function RegisterPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-    
+    const isNamePart = name === 'firstName' || name === 'middleName' || name === 'lastName'
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value }
+      if (isNamePart) {
+        const first = name === 'firstName' ? value : prev.firstName
+        const middle = name === 'middleName' ? value : prev.middleName
+        const last = name === 'lastName' ? value : prev.lastName
+        next.legalName = [first, middle, last].filter(Boolean).join(' ').trim() || ''
+      }
+      return next
+    })
+
     // Reset verification if email changes
     if (name === 'email') {
       setVerificationState(prev => ({
+        ...prev,
+        codeSent: false,
+        codeVerified: false,
+        code: '',
+        error: '',
+      }))
+    }
+    // Reset phone verification if phone changes
+    if (name === 'phone') {
+      setPhoneVerificationState(prev => ({
         ...prev,
         codeSent: false,
         codeVerified: false,
@@ -281,6 +319,80 @@ export default function RegisterPage() {
     }
   }
 
+  // Send phone verification code (two-step verification)
+  const sendPhoneCode = async () => {
+    const phone = formData.phone.trim()
+    if (!phone || phone.replace(/\D/g, '').length < 10) {
+      setPhoneVerificationState(prev => ({ ...prev, error: 'Please enter a valid phone number' }))
+      return
+    }
+    setPhoneVerificationState(prev => ({ ...prev, sending: true, error: '' }))
+    try {
+      const res = await fetch('/api/auth/send-phone-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setPhoneVerificationState(prev => ({
+          ...prev,
+          codeSent: true,
+          sending: false,
+          error: '',
+          // When API returns code (e.g. dev or no SMS configured), pre-fill so user can verify
+          ...(data.code ? { code: String(data.code).slice(0, 6) } : {}),
+        }))
+      } else {
+        setPhoneVerificationState(prev => ({
+          ...prev,
+          sending: false,
+          error: data.error || 'Failed to send code',
+        }))
+      }
+    } catch {
+      setPhoneVerificationState(prev => ({
+        ...prev,
+        sending: false,
+        error: 'Failed to send verification code',
+      }))
+    }
+  }
+
+  // Verify phone code
+  const verifyPhoneCode = async () => {
+    const phone = formData.phone.trim()
+    if (!phone || phoneVerificationState.code.length !== 6) return
+    setPhoneVerificationState(prev => ({ ...prev, verifying: true, error: '' }))
+    try {
+      const res = await fetch('/api/auth/verify-phone-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code: phoneVerificationState.code }),
+      })
+      const data = await res.json()
+      if (res.ok && data.valid) {
+        setPhoneVerificationState(prev => ({
+          ...prev,
+          codeVerified: true,
+          verifying: false,
+        }))
+      } else {
+        setPhoneVerificationState(prev => ({
+          ...prev,
+          verifying: false,
+          error: data.error || 'Invalid verification code',
+        }))
+      }
+    } catch {
+      setPhoneVerificationState(prev => ({
+        ...prev,
+        verifying: false,
+        error: 'Failed to verify code',
+      }))
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -294,6 +406,13 @@ export default function RegisterPage() {
     // Check email verification
     if (!verificationState.codeVerified) {
       setError('Please verify your email address first')
+      return
+    }
+
+    // If phone provided, require phone verification (two-step)
+    const phoneTrimmed = formData.phone.trim()
+    if (phoneTrimmed && phoneTrimmed.replace(/\D/g, '').length >= 10 && !phoneVerificationState.codeVerified) {
+      setError('Please verify your phone number first')
       return
     }
 
@@ -322,6 +441,7 @@ export default function RegisterPage() {
           phone: formData.phone,
           location: formData.location,
           bio: formData.bio,
+          birthday: formData.birthday || undefined,
         }),
       })
 
@@ -401,15 +521,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-block mb-6">
-            <span className="font-bold text-3xl text-white">
-              <span className="text-tank-accent">A</span>i
-              <span className="text-red-500">M</span>edia
-              <span className="text-sky-400">T</span>ank
-            </span>
-          </Link>
           <h1 className="text-3xl font-bold mb-2">Create Account</h1>
-          <p className="text-gray-400">Join our AI media community</p>
         </div>
 
         <div className="card">
@@ -476,26 +588,43 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* User Name (Legal Name) */}
+            {/* Name (First, Middle, Last) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                User Name (Legal Name)
+                Name
               </label>
-              <input
-                type="text"
-                name="legalName"
-                value={formData.legalName}
-                onChange={handleChange}
-                placeholder="Your full legal name"
-                className="w-full"
-              />
-              <p className="text-xs text-gray-500 mt-1">Your legal name for account records</p>
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  placeholder="First"
+                  className="w-full"
+                />
+                <input
+                  type="text"
+                  name="middleName"
+                  value={formData.middleName}
+                  onChange={handleChange}
+                  placeholder="Middle"
+                  className="w-full"
+                />
+                <input
+                  type="text"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  placeholder="Last"
+                  className="w-full"
+                />
+              </div>
             </div>
 
-            {/* User ID */}
+            {/* Nickname (User ID) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                User ID *
+                Nickname *
               </label>
               <div className="relative">
               <input
@@ -548,6 +677,20 @@ export default function RegisterPage() {
               {!usernameStatus.message && (
                 <p className="text-xs text-gray-500 mt-1">Used for login and your profile URL</p>
               )}
+            </div>
+
+            {/* Birthday */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Birthday
+              </label>
+              <input
+                type="date"
+                name="birthday"
+                value={formData.birthday}
+                onChange={handleChange}
+                className="w-full"
+              />
             </div>
 
             <div>
@@ -619,10 +762,10 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {/* Phone */}
+            {/* Phone (optional) – two-step verification when provided */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Phone Number
+                Phone Number (optional)
               </label>
               <input
                 type="tel"
@@ -631,7 +774,74 @@ export default function RegisterPage() {
                 onChange={handleChange}
                 placeholder="+1 (555) 000-0000"
                 className="w-full"
+                disabled={phoneVerificationState.codeVerified}
               />
+              {formData.phone.trim().replace(/\D/g, '').length >= 10 && (
+                <div className="mt-2 space-y-2">
+                  {!phoneVerificationState.codeVerified ? (
+                    <>
+                      {!phoneVerificationState.codeSent ? (
+                        <button
+                          type="button"
+                          onClick={sendPhoneCode}
+                          disabled={phoneVerificationState.sending}
+                          className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent/20 text-tank-accent hover:bg-tank-accent/30 border border-tank-accent/50"
+                        >
+                          {phoneVerificationState.sending ? 'Sending...' : 'Send verification code'}
+                        </button>
+                      ) : (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-xs text-gray-400">
+                            Enter the 6-digit code sent to your phone.
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={6}
+                              placeholder="000000"
+                              value={phoneVerificationState.code}
+                              onChange={(e) =>
+                                setPhoneVerificationState((prev) => ({
+                                  ...prev,
+                                  code: e.target.value.replace(/\D/g, '').slice(0, 6),
+                                }))
+                              }
+                              className="w-28 px-2 py-1.5 rounded bg-tank-black border border-tank-light text-center font-mono text-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={verifyPhoneCode}
+                              disabled={phoneVerificationState.code.length !== 6 || phoneVerificationState.verifying}
+                              className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent text-tank-black font-medium disabled:opacity-50"
+                            >
+                              {phoneVerificationState.verifying ? 'Verifying...' : 'Verify'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={sendPhoneCode}
+                              disabled={phoneVerificationState.sending}
+                              className="text-sm text-gray-400 hover:text-tank-accent"
+                            >
+                              Resend code
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {phoneVerificationState.error && (
+                        <p className="text-xs text-red-400">{phoneVerificationState.error}</p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-green-400 flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Phone verified
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Location */}
@@ -806,9 +1016,14 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading || !policyAgreed}
+              disabled={
+                loading ||
+                !policyAgreed ||
+                (formData.phone.trim().replace(/\D/g, '').length >= 10 && !phoneVerificationState.codeVerified)
+              }
               className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${
-                policyAgreed
+                policyAgreed &&
+                !(formData.phone.trim().replace(/\D/g, '').length >= 10 && !phoneVerificationState.codeVerified)
                   ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
                   : 'bg-gray-600 text-gray-400 cursor-not-allowed'
               }`}

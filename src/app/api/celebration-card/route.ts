@@ -8,6 +8,62 @@ export const dynamic = 'force-dynamic'
 
 const RATE_LIMIT_PER_HOUR = 10
 
+function getBaseUrl(request: Request): string {
+  const host = request.headers.get('host')
+  if (!host) return process.env.NEXTAUTH_URL || 'https://www.aimediatank.com'
+  return host.includes('localhost') ? `http://${host}` : `https://${host}`
+}
+
+// GET - List celebration cards sent by the current user (for Sent History)
+export async function GET(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Sign in to view sent cards' }, { status: 401 })
+    }
+
+    const cards = await prisma.celebrationCard.findMany({
+      where: { senderId: session.user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: {
+        media: {
+          select: {
+            id: true,
+            title: true,
+            type: true,
+            thumbnailUrl: true,
+          },
+        },
+      },
+    })
+
+    const baseUrl = getBaseUrl(request)
+    return NextResponse.json(
+      cards.map((c) => ({
+        id: c.id,
+        cardUrl: `${baseUrl}/card/${c.id}`,
+        recipientEmail: c.recipientEmail,
+        cardTitle: c.cardTitle,
+        ttsMessage: c.ttsMessage,
+        createdAt: c.createdAt,
+        media: c.media
+          ? {
+              id: c.media.id,
+              title: c.media.title,
+              type: c.media.type,
+              thumbnailUrl: c.media.thumbnailUrl,
+            }
+          : null,
+      }))
+    )
+  } catch (e) {
+    console.error('Celebration card list failed:', e)
+    return NextResponse.json({ error: 'Failed to load sent cards' }, { status: 500 })
+  }
+}
+
+
 // Simple in-memory rate limit by userId or IP (per deployment)
 const recentCreates: { key: string; at: number }[] = []
 function checkRateLimit(userId: string | null, ip: string): boolean {
@@ -73,6 +129,7 @@ export async function POST(request: Request) {
 
     const baseUrl = (process.env.NEXTAUTH_URL || '').replace(/\/$/, '') || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.aimediatank.com')
     const cardUrl = `${baseUrl}/card/${card.id}`
+    const mediaPageUrl = `${baseUrl}/media/${media.id}`
 
     const toAbsolute = (url: string | null): string | null => {
       if (!url) return null
@@ -81,25 +138,29 @@ export async function POST(request: Request) {
     }
 
     const senderName = session?.user?.name || session?.user?.username || 'Someone'
+    const senderEmail = session?.user?.email && typeof session.user.email === 'string' ? session.user.email : undefined
 
     let emailSent = false
     if (card.recipientEmail) {
       const thumbUrl = toAbsolute(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
+      const mediaTitle = media.title.replace(/#\w+/g, '').trim()
       const html = generateCelebrationCardEmail({
-        senderName,
-        cardTitle: card.cardTitle || undefined,
-        ttsMessage: card.ttsMessage || undefined,
-        cardUrl,
-        mediaTitle: media.title.replace(/#\w+/g, '').trim(),
+        senderEmail,
+        mediaPageUrl,
+        mediaTitle,
         thumbnailUrl: thumbUrl,
-        creatorUsername: media.user.username,
+        message: card.ttsMessage || undefined,
       })
+      const subject = card.ttsMessage && card.ttsMessage.trim()
+        ? card.ttsMessage.trim().slice(0, 50) + (card.ttsMessage.trim().length > 50 ? '…' : '')
+        : `You received a celebration card from ${senderName}`
+      const senderDisplayName = session?.user?.name || session?.user?.username || undefined
       emailSent = await sendEmail({
         to: card.recipientEmail,
-        subject: card.cardTitle
-          ? `${senderName} sent you a celebration card: ${card.cardTitle}`
-          : `You received a celebration card from ${senderName}`,
+        subject,
         html,
+        ...(senderEmail && { replyTo: senderEmail }),
+        ...(senderDisplayName && { fromName: senderDisplayName }),
       })
       if (!emailSent) {
         console.warn('Celebration card email failed to send to', card.recipientEmail)

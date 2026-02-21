@@ -216,6 +216,7 @@ export default function AdminPage() {
   const [homeLayoutSaving, setHomeLayoutSaving] = useState(false)
   const [mediaDetailDownload, setMediaDetailDownload] = useState(true)
   const [mediaDetailShare, setMediaDetailShare] = useState(true)
+  const [mediaDetailSendByEmail, setMediaDetailSendByEmail] = useState(true)
   const [mediaDetailLoading, setMediaDetailLoading] = useState(false)
   const [mediaDetailSaving, setMediaDetailSaving] = useState(false)
   const [mediaBadgeItems, setMediaBadgeItems] = useState<MediaBadgeItem[]>([])
@@ -580,6 +581,7 @@ export default function AdminPage() {
           const data = await res.json()
           setMediaDetailDownload(data.downloadEnabled !== false)
           setMediaDetailShare(data.shareEnabled !== false)
+          setMediaDetailSendByEmail(data.sendByEmailEnabled !== false)
         } finally {
           setMediaDetailLoading(false)
         }
@@ -2356,7 +2358,7 @@ export default function AdminPage() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">📄 Media Detail</h2>
-                <p className="text-gray-400 text-sm">Show or hide Download and Share buttons on media detail page</p>
+                <p className="text-gray-400 text-sm">Show or hide Download, Share, and Send by email on media detail page</p>
               </div>
               {mediaDetailLoading ? (
                 <p className="text-gray-400">Loading…</p>
@@ -2386,6 +2388,18 @@ export default function AdminPage() {
                       <option value="off">Off</option>
                     </select>
                   </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label className="text-white font-medium">Send by email:</label>
+                    <select
+                      value={mediaDetailSendByEmail ? 'on' : 'off'}
+                      onChange={(e) => setMediaDetailSendByEmail(e.target.value === 'on')}
+                      disabled={mediaDetailSaving}
+                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="on">On</option>
+                      <option value="off">Off</option>
+                    </select>
+                  </div>
                   <button
                     onClick={async () => {
                       setMediaDetailSaving(true)
@@ -2395,7 +2409,7 @@ export default function AdminPage() {
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
                             action: 'setMediaDetail',
-                            data: { downloadEnabled: mediaDetailDownload, shareEnabled: mediaDetailShare },
+                            data: { downloadEnabled: mediaDetailDownload, shareEnabled: mediaDetailShare, sendByEmailEnabled: mediaDetailSendByEmail },
                           }),
                         })
                         const data = await res.json()
@@ -2405,6 +2419,7 @@ export default function AdminPage() {
                         }
                         if (typeof data.downloadEnabled === 'boolean') setMediaDetailDownload(data.downloadEnabled)
                         if (typeof data.shareEnabled === 'boolean') setMediaDetailShare(data.shareEnabled)
+                        if (typeof data.sendByEmailEnabled === 'boolean') setMediaDetailSendByEmail(data.sendByEmailEnabled)
                         if (typeof window !== 'undefined') window.dispatchEvent(new Event('mediaDetailUpdated'))
                       } finally {
                         setMediaDetailSaving(false)
