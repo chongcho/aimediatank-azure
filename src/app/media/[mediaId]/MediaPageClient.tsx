@@ -448,6 +448,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
             url={(media as any).streamUrl ?? media.url}
             title={media.title}
             thumbnailUrl={media.thumbnailUrl}
+            autoUnmuteOnMount
           />
         )}
       </div>

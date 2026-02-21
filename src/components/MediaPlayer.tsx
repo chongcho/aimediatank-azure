@@ -9,9 +9,11 @@ interface MediaPlayerProps {
   url: string
   title: string
   thumbnailUrl?: string | null
+  /** When true (e.g. on media detail page), start unmuted and try unmuted autoplay first. */
+  autoUnmuteOnMount?: boolean
 }
 
-export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPlayerProps) {
+export default function MediaPlayer({ type, url, title, thumbnailUrl, autoUnmuteOnMount }: MediaPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -19,12 +21,14 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
-  // Mobile browser only: start muted so autoplay is allowed. PWA and desktop: start unmuted.
+  // On media detail (autoUnmuteOnMount): start unmuted. Else mobile browser: start muted for autoplay; desktop/PWA: unmuted.
   const [isMuted, setIsMuted] = useState(
     () =>
-      typeof window !== 'undefined' &&
-      (window.innerWidth < 768 || navigator.maxTouchPoints > 0) &&
-      !isInstalledPWA()
+      autoUnmuteOnMount
+        ? false
+        : typeof window !== 'undefined' &&
+          (window.innerWidth < 768 || navigator.maxTouchPoints > 0) &&
+          !isInstalledPWA()
   )
   const [showMobileControls, setShowMobileControls] = useState(false)
   // Buffering state — true while waiting for enough data to play (initial load + mid-stream stalls)
@@ -115,7 +119,8 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
     // preload heuristic, whereas canplay waits for the browser's conservative threshold.
     const tryAutoplay = async () => {
       if (cancelled) return
-      if (isMobileBrowser) {
+      // On media detail (autoUnmuteOnMount): try unmuted first even on mobile so sound is on when user lands.
+      if (isMobileBrowser && !autoUnmuteOnMount) {
         video.muted = true
         setIsMuted(true)
         try {
@@ -164,7 +169,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl }: MediaPla
       video.removeEventListener('seeked', onSeeked)
       video.removeEventListener('loadedmetadata', onMetadataLoaded)
     }
-  }, [type, url, isMounted])
+  }, [type, url, isMounted, autoUnmuteOnMount])
 
   useEffect(() => {
     if (!isFullscreen) return

@@ -154,11 +154,13 @@ export async function POST(request: Request) {
       const subject = card.ttsMessage && card.ttsMessage.trim()
         ? card.ttsMessage.trim().slice(0, 50) + (card.ttsMessage.trim().length > 50 ? '…' : '')
         : `You received a celebration card from ${senderName}`
+      const senderDisplayName = session?.user?.name || session?.user?.username || undefined
       emailSent = await sendEmail({
         to: card.recipientEmail,
         subject,
         html,
         ...(senderEmail && { replyTo: senderEmail }),
+        ...(senderDisplayName && { fromName: senderDisplayName }),
       })
       if (!emailSent) {
         console.warn('Celebration card email failed to send to', card.recipientEmail)

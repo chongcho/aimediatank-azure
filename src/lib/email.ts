@@ -6,6 +6,8 @@ interface EmailOptions {
   subject: string
   html: string
   replyTo?: string
+  /** Display name for From (e.g. sender's name). Actual From address is always the SMTP account; use replyTo for replies to go to the user. */
+  fromName?: string
 }
 
 // Gmail credentials — must be provided via environment variables
@@ -51,7 +53,9 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     return false
   }
 
-  const emailFrom = `"AI Media Tank" <${GMAIL_USER}>`
+  const emailFrom = options.fromName
+    ? `"${options.fromName.replace(/"/g, '\\"')}" <${GMAIL_USER}>`
+    : `"AI Media Tank" <${GMAIL_USER}>`
 
   try {
     await transporter.verify()
