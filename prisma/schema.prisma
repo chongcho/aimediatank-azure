@@ -390,6 +390,18 @@ model VerificationCode {
   @@index([expiresAt])
 }
 
+// Phone verification codes for two-step verification (sign up, etc.)
+model PhoneVerificationCode {
+  id        String   @id @default(uuid())
+  phone     String   @unique // normalized: digits only
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+  @@index([expiresAt])
+}
+
 // Pending uploads waiting for payment confirmation
 model PendingUpload {
   id            String    @id @default(uuid())
