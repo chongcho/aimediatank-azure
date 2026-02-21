@@ -1,7 +1,66 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
+import AzureADB2CProvider from 'next-auth/providers/azure-ad-b2c'
 import { compare } from 'bcryptjs'
 import { prisma } from './prisma'
+
+// Build Entra External ID / Azure AD B2C provider when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
+function getEntraProvider() {
+  const issuer = process.env.ENTRA_ISSUER
+  const clientId = process.env.ENTRA_CLIENT_ID ?? process.env.AZURE_AD_B2C_CLIENT_ID
+  const clientSecret = process.env.ENTRA_CLIENT_SECRET ?? process.env.AZURE_AD_B2C_CLIENT_SECRET
+  const tenantName = process.env.AZURE_AD_B2C_TENANT_NAME
+  const userFlow = process.env.AZURE_AD_B2C_PRIMARY_USER_FLOW
+
+  if (issuer && clientId && clientSecret) {
+    return {
+      id: 'entra-external-id',
+      name: 'Microsoft',
+      type: 'oauth' as const,
+      wellKnown: `${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`,
+      authorization: { params: { scope: 'openid email profile' } },
+      idToken: true,
+      clientId,
+      clientSecret,
+      profile(profile: { sub?: string; name?: string; email?: string; emails?: string[]; picture?: string }) {
+        const email = profile.email ?? (Array.isArray(profile.emails) ? profile.emails[0] : undefined)
+        return {
+          id: profile.sub ?? '',
+          name: profile.name ?? email?.split('@')[0] ?? 'User',
+          email: email ?? null,
+          image: profile.picture ?? null,
+        }
+      },
+      style: { logo: '/azure.svg', bg: '#0072c6', text: '#fff' },
+    }
+  }
+  if (tenantName && userFlow && clientId && clientSecret) {
+    return AzureADB2CProvider({
+      tenantId: tenantName,
+      clientId,
+      clientSecret,
+      primaryUserFlow: userFlow,
+      authorization: { params: { scope: 'openid email profile' } },
+    })
+  }
+  return null
+}
+
+const entraProvider = getEntraProvider()
+
+/** Ensure unique username from email; add suffix if taken. */
+async function ensureUniqueUsername(base: string): Promise<string> {
+  let username = base.replace(/[^a-z0-9_]/gi, '').slice(0, 24) || 'user'
+  if (!/^[a-zA-Z]/.test(username)) username = 'u' + username
+  let candidate = username
+  let n = 0
+  while (true) {
+    const existing = await prisma.user.findUnique({ where: { username: candidate } })
+    if (!existing) return candidate
+    candidate = `${username}${++n}`
+    if (candidate.length > 32) candidate = `${username.slice(0, 28)}${n}`
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -11,6 +70,7 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
   },
   providers: [
+    ...(entraProvider ? [entraProvider as any] : []),
     CredentialsProvider({
       name: 'credentials',
       credentials: {
@@ -74,14 +134,57 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger, session, account }) {
       if (user) {
-        token.id = user.id
-        token.username = user.username
-        token.role = user.role
-        token.avatar = user.avatar
+        // Credentials sign-in: user has our internal id, username, role, avatar
+        if (user.username !== undefined && user.role !== undefined) {
+          token.id = user.id
+          token.username = user.username
+          token.role = user.role
+          token.avatar = user.avatar
+          return token
+        }
+        // OAuth (Entra/B2C): find or create our User and attach to token
+        const email = (user.email ?? '').toString().toLowerCase()
+        if (!email) return token
+        let dbUser = await prisma.user.findUnique({ where: { email } })
+        if (!dbUser) {
+          const username = await ensureUniqueUsername(email.split('@')[0])
+          dbUser = await prisma.user.create({
+            data: {
+              email,
+              username,
+              password: '',
+              name: (user.name ?? email.split('@')[0]) ?? undefined,
+              emailVerified: true,
+              policyAgreedAt: new Date(),
+              role: 'SUBSCRIBER',
+            },
+          })
+        }
+        if (dbUser.isSuspended) {
+          if (dbUser.suspendedUntil && new Date(dbUser.suspendedUntil) < new Date()) {
+            await prisma.user.update({
+              where: { id: dbUser.id },
+              data: {
+                isSuspended: false,
+                suspendedAt: null,
+                suspendedUntil: null,
+                suspendReason: null,
+              },
+            })
+          } else {
+            throw new Error(
+              `Account suspended${dbUser.suspendedUntil ? ` until ${new Date(dbUser.suspendedUntil).toLocaleDateString()}` : ''}: ${dbUser.suspendReason || 'Policy violation'}`
+            )
+          }
+        }
+        token.id = dbUser.id
+        token.username = dbUser.username
+        token.role = dbUser.role
+        token.avatar = dbUser.avatar
       }
-      
+
       // Handle session updates (e.g., when username is changed)
       if (trigger === 'update' && session?.user) {
         if (session.user.username) token.username = session.user.username
@@ -89,7 +192,7 @@ export const authOptions: NextAuthOptions = {
         if (session.user.avatar !== undefined) token.avatar = session.user.avatar
         if (session.user.role) token.role = session.user.role
       }
-      
+
       return token
     },
     async session({ session, token }) {

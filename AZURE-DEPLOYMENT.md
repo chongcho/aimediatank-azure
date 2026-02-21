@@ -83,6 +83,8 @@ In Azure Portal → App Service → Configuration → Application settings:
 | `SMTP_PASS` | Your app password |
 | `CRON_SECRET` | Secret for cron endpoints (e.g. `openssl rand -hex 24`). Required if you use Azure Functions for process-videos. |
 
+**Optional – social sign-in (Entra External ID):** See [docs/entra-social-signin.md](docs/entra-social-signin.md). Set `ENTRA_ISSUER`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` (or the `AZURE_AD_B2C_*` vars for B2C) to enable “Continue with Microsoft” (Google/Facebook/Apple/Microsoft via Azure).
+
 Also set these for stable cold starts (Configuration → Application settings):
 
 | Variable | Value |

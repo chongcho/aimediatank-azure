@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { signIn } from 'next-auth/react'
 import Link from 'next/link'
+import { SocialSignIn } from '@/components/SocialSignIn'
 
 interface SignInModalProps {
   isOpen: boolean
@@ -376,6 +377,10 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
+
+            <div style={{ marginTop: '8px' }}>
+              <SocialSignIn mode="signin" callbackUrl={typeof window !== 'undefined' ? window.location.href : '/'} />
+            </div>
           </form>
         )}
 

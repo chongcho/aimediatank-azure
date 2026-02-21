@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { SocialSignIn } from '@/components/SocialSignIn'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -105,6 +106,8 @@ export default function LoginPage() {
                 'Sign In'
               )}
             </button>
+
+            <SocialSignIn mode="signin" callbackUrl="/" />
           </form>
         </div>
 
