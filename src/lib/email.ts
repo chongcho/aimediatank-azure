@@ -76,17 +76,22 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   }
 }
 
-// Celebration card e-card email (streamlined: sender, clickable thumbnail only, powered-by footer)
+// Celebration card e-card email (streamlined: sender, clickable thumbnail → media detail, message under thumbnail, powered-by footer)
 export function generateCelebrationCardEmail(options: {
   senderEmail?: string
-  cardUrl: string
+  mediaPageUrl: string
   mediaTitle: string
   thumbnailUrl: string | null
+  message?: string
 }): string {
-  const { senderEmail, cardUrl, mediaTitle, thumbnailUrl } = options
+  const { senderEmail, mediaPageUrl, mediaTitle, thumbnailUrl, message } = options
   const imgBlock = thumbnailUrl
-    ? `<a href="${escapeHtml(cardUrl)}" style="display: inline-block; margin: 16px 0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" style="width: 100%; max-width: 400px; height: auto; border-radius: 12px; display: block; border: 1px solid #e0e0e0;" /></a>`
-    : `<a href="${escapeHtml(cardUrl)}" style="display: inline-block; margin: 16px 0; color: #0f8; font-weight: bold;">View celebration card</a>`
+    ? `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 16px 0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" style="width: 100%; max-width: 400px; height: auto; border-radius: 12px; display: block; border: 1px solid #e0e0e0;" /></a>`
+    : `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 16px 0; color: #0f8; font-weight: bold;">View media</a>`
+
+  const messageBlock = message
+    ? `<p style="font-size: 16px; color: #444; margin: 16px 0; line-height: 1.6;">${escapeHtml(message)}</p>`
+    : ''
 
   const fromLine = senderEmail
     ? `<p style="font-size: 14px; color: #666; margin: 0 0 16px 0;">From: ${escapeHtml(senderEmail)}</p>`
@@ -102,6 +107,7 @@ export function generateCelebrationCardEmail(options: {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   ${fromLine}
   ${imgBlock}
+  ${messageBlock}
   <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
   <p style="font-size: 14px; color: #666;">Powered by <a href="https://www.aimediatank.com" style="color: #0f8;">www.aimediatank.com</a></p>
 </body>

@@ -129,6 +129,7 @@ export async function POST(request: Request) {
 
     const baseUrl = (process.env.NEXTAUTH_URL || '').replace(/\/$/, '') || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.aimediatank.com')
     const cardUrl = `${baseUrl}/card/${card.id}`
+    const mediaPageUrl = `${baseUrl}/media/${media.id}`
 
     const toAbsolute = (url: string | null): string | null => {
       if (!url) return null
@@ -145,9 +146,10 @@ export async function POST(request: Request) {
       const mediaTitle = media.title.replace(/#\w+/g, '').trim()
       const html = generateCelebrationCardEmail({
         senderEmail,
-        cardUrl,
+        mediaPageUrl,
         mediaTitle,
         thumbnailUrl: thumbUrl,
+        message: card.ttsMessage || undefined,
       })
       const subject = card.ttsMessage && card.ttsMessage.trim()
         ? card.ttsMessage.trim().slice(0, 50) + (card.ttsMessage.trim().length > 50 ? '…' : '')
