@@ -53,8 +53,11 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     return false
   }
 
+  // RFC 5322: in quoted-strings, \ and " are special; escape \ first then ".
+  const escapeFromName = (name: string) =>
+    name.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
   const emailFrom = options.fromName
-    ? `"${options.fromName.replace(/"/g, '\\"')}" <${GMAIL_USER}>`
+    ? `"${escapeFromName(options.fromName)}" <${GMAIL_USER}>`
     : `"AI Media Tank" <${GMAIL_USER}>`
 
   try {
