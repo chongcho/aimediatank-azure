@@ -38,6 +38,7 @@ model User {
   bio           String?
   phone         String?
   location      String?
+  birthday      DateTime?
   role          String    @default("VIEWER")
   membershipType String   @default("VIEWER")  // "VIEWER", "BASIC", "PREMIUM"
   membershipExpiresAt DateTime?

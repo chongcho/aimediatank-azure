@@ -13,10 +13,14 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     name: '',
+    firstName: '',
+    middleName: '',
+    lastName: '',
     legalName: '',
     phone: '',
     location: '',
     bio: '',
+    birthday: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -180,11 +184,18 @@ export default function RegisterPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-    
+    const isNamePart = name === 'firstName' || name === 'middleName' || name === 'lastName'
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value }
+      if (isNamePart) {
+        const first = name === 'firstName' ? value : prev.firstName
+        const middle = name === 'middleName' ? value : prev.middleName
+        const last = name === 'lastName' ? value : prev.lastName
+        next.legalName = [first, middle, last].filter(Boolean).join(' ').trim() || ''
+      }
+      return next
+    })
+
     // Reset verification if email changes
     if (name === 'email') {
       setVerificationState(prev => ({
@@ -430,6 +441,7 @@ export default function RegisterPage() {
           phone: formData.phone,
           location: formData.location,
           bio: formData.bio,
+          birthday: formData.birthday || undefined,
         }),
       })
 
@@ -509,15 +521,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-block mb-6">
-            <span className="font-bold text-3xl text-white">
-              <span className="text-tank-accent">A</span>i
-              <span className="text-red-500">M</span>edia
-              <span className="text-sky-400">T</span>ank
-            </span>
-          </Link>
           <h1 className="text-3xl font-bold mb-2">Create Account</h1>
-          <p className="text-gray-400">Join our AI media community</p>
         </div>
 
         <div className="card">
@@ -584,26 +588,43 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* User Name (Legal Name) */}
+            {/* Name (First, Middle, Last) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                User Name (Legal Name)
+                Name
               </label>
-              <input
-                type="text"
-                name="legalName"
-                value={formData.legalName}
-                onChange={handleChange}
-                placeholder="Your full legal name"
-                className="w-full"
-              />
-              <p className="text-xs text-gray-500 mt-1">Your legal name for account records</p>
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  placeholder="First"
+                  className="w-full"
+                />
+                <input
+                  type="text"
+                  name="middleName"
+                  value={formData.middleName}
+                  onChange={handleChange}
+                  placeholder="Middle"
+                  className="w-full"
+                />
+                <input
+                  type="text"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  placeholder="Last"
+                  className="w-full"
+                />
+              </div>
             </div>
 
-            {/* User ID */}
+            {/* Nickname (User ID) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                User ID *
+                Nickname *
               </label>
               <div className="relative">
               <input
@@ -656,6 +677,20 @@ export default function RegisterPage() {
               {!usernameStatus.message && (
                 <p className="text-xs text-gray-500 mt-1">Used for login and your profile URL</p>
               )}
+            </div>
+
+            {/* Birthday */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Birthday
+              </label>
+              <input
+                type="date"
+                name="birthday"
+                value={formData.birthday}
+                onChange={handleChange}
+                className="w-full"
+              />
             </div>
 
             <div>
@@ -755,40 +790,42 @@ export default function RegisterPage() {
                           {phoneVerificationState.sending ? 'Sending...' : 'Send verification code'}
                         </button>
                       ) : (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-xs text-gray-400 w-full">
-                            Enter the 6-digit code sent to your phone. (If SMS is not configured, the code is filled in above for testing.)
+                        <div className="mt-2 space-y-1">
+                          <p className="text-xs text-gray-400">
+                            Enter the 6-digit code sent to your phone.
                           </p>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={6}
-                            placeholder="000000"
-                            value={phoneVerificationState.code}
-                            onChange={(e) =>
-                              setPhoneVerificationState((prev) => ({
-                                ...prev,
-                                code: e.target.value.replace(/\D/g, '').slice(0, 6),
-                              }))
-                            }
-                            className="w-28 px-2 py-1.5 rounded bg-tank-black border border-tank-light text-center font-mono text-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={verifyPhoneCode}
-                            disabled={phoneVerificationState.code.length !== 6 || phoneVerificationState.verifying}
-                            className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent text-tank-black font-medium disabled:opacity-50"
-                          >
-                            {phoneVerificationState.verifying ? 'Verifying...' : 'Verify'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={sendPhoneCode}
-                            disabled={phoneVerificationState.sending}
-                            className="text-sm text-gray-400 hover:text-tank-accent"
-                          >
-                            Resend code
-                          </button>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={6}
+                              placeholder="000000"
+                              value={phoneVerificationState.code}
+                              onChange={(e) =>
+                                setPhoneVerificationState((prev) => ({
+                                  ...prev,
+                                  code: e.target.value.replace(/\D/g, '').slice(0, 6),
+                                }))
+                              }
+                              className="w-28 px-2 py-1.5 rounded bg-tank-black border border-tank-light text-center font-mono text-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={verifyPhoneCode}
+                              disabled={phoneVerificationState.code.length !== 6 || phoneVerificationState.verifying}
+                              className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent text-tank-black font-medium disabled:opacity-50"
+                            >
+                              {phoneVerificationState.verifying ? 'Verifying...' : 'Verify'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={sendPhoneCode}
+                              disabled={phoneVerificationState.sending}
+                              className="text-sm text-gray-400 hover:text-tank-accent"
+                            >
+                              Resend code
+                            </button>
+                          </div>
                         </div>
                       )}
                       {phoneVerificationState.error && (
