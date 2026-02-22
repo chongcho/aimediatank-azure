@@ -74,7 +74,7 @@ export default function PolicyPage() {
           <div>
             <p className="text-green-400 font-medium">Policy Agreement Confirmed</p>
             <p className="text-sm text-gray-400">
-              You agreed to the Terms of Service and Privacy Policy on {formatDate(policyStatus.agreedAt!)}
+              You agreed to the <Link href="/terms" className="text-tank-accent hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link> on {formatDate(policyStatus.agreedAt!)}
             </p>
           </div>
         </div>
@@ -110,17 +110,26 @@ export default function PolicyPage() {
             <ul className="space-y-1">
               {sections.map((section) => (
                 <li key={section.id}>
-                  <a
-                    href={`#${section.id}`}
-                    onClick={() => setActiveSection(section.id)}
-                    className={`block px-3 py-2 rounded-lg text-sm transition-colors ${
-                      activeSection === section.id
-                        ? 'bg-tank-accent/20 text-tank-accent'
-                        : 'text-gray-400 hover:text-white hover:bg-tank-light'
-                    }`}
-                  >
-                    {section.title}
-                  </a>
+                  {section.id === 'terms' || section.id === 'privacy' ? (
+                    <Link
+                      href={section.id === 'terms' ? '/terms' : '/privacy'}
+                      className="block px-3 py-2 rounded-lg text-sm transition-colors text-gray-400 hover:text-white hover:bg-tank-light"
+                    >
+                      {section.title}
+                    </Link>
+                  ) : (
+                    <a
+                      href={`#${section.id}`}
+                      onClick={() => setActiveSection(section.id)}
+                      className={`block px-3 py-2 rounded-lg text-sm transition-colors ${
+                        activeSection === section.id
+                          ? 'bg-tank-accent/20 text-tank-accent'
+                          : 'text-gray-400 hover:text-white hover:bg-tank-light'
+                      }`}
+                    >
+                      {section.title}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
@@ -132,6 +141,9 @@ export default function PolicyPage() {
           <div id="policy-content" className="card prose prose-invert max-w-none">
             {/* Terms of Service */}
             <section id="terms" className="mb-12">
+              <p className="text-sm text-gray-400 mb-4">
+                Standalone document: <Link href="/terms" className="text-tank-accent hover:underline">Terms of Service</Link>
+              </p>
               <h2 className="text-2xl font-bold text-tank-accent mb-4">1. Terms of Service</h2>
               
               <h3 className="text-lg font-semibold mt-6 mb-3">1.1 Acceptance of Terms</h3>
@@ -176,6 +188,9 @@ export default function PolicyPage() {
 
             {/* Privacy Policy */}
             <section id="privacy" className="mb-12">
+              <p className="text-sm text-gray-400 mb-4">
+                Standalone document: <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link>
+              </p>
               <h2 className="text-2xl font-bold text-tank-accent mb-4">2. Privacy Policy</h2>
               
               <h3 className="text-lg font-semibold mt-6 mb-3">2.1 Information We Collect</h3>

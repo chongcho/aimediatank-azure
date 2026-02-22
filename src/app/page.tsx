@@ -964,6 +964,8 @@ function HomeContent() {
             <li><Link href="/pricing" className="hover:text-white">Membership</Link></li>
             <li><Link href="/about" className="hover:text-white">About</Link></li>
             <li><Link href="/policy" className="hover:text-white">Policy</Link></li>
+            <li><Link href="/terms" className="hover:text-white">Terms of Service</Link></li>
+            <li><Link href="/privacy" className="hover:text-white">Privacy Policy</Link></li>
             <li><Link href="/support" className="hover:text-white">Support</Link></li>
           </ul>
         </div>

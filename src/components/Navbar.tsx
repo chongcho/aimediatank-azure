@@ -603,6 +603,20 @@ export default function Navbar() {
                         </svg>
                         Policy
                       </Link>
+                      <Link
+                        href="/terms"
+                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
+                        onClick={() => setIsProfileOpen(false)}
+                      >
+                        <span className="text-gray-400 text-sm">Terms</span>
+                      </Link>
+                      <Link
+                        href="/privacy"
+                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
+                        onClick={() => setIsProfileOpen(false)}
+                      >
+                        <span className="text-gray-400 text-sm">Privacy</span>
+                      </Link>
                       {isAdmin && (
                         <Link
                           href="/admin"
