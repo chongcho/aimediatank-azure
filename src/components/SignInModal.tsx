@@ -326,7 +326,10 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
           <form onSubmit={handleSubmit}>
             <button
               type="button"
-              onClick={() => setShowEmailForm(false)}
+              onClick={() => {
+                setError('')
+                setShowEmailForm(false)
+              }}
               style={{
                 background: 'none',
                 border: 'none',

@@ -107,7 +107,10 @@ function LoginContent() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <button
                 type="button"
-                onClick={() => setShowEmailForm(false)}
+                onClick={() => {
+                  setError('')
+                  setShowEmailForm(false)
+                }}
                 className="text-sm text-gray-400 hover:text-gray-200 transition-colors -mb-2"
               >
                 ← Back
