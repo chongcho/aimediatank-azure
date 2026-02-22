@@ -12,6 +12,7 @@ interface SignInModalProps {
 }
 
 function SignInModalContent({ onClose }: { onClose: () => void }) {
+  const [showEmailForm, setShowEmailForm] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -270,9 +271,74 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
               </button>
             </form>
           </div>
+        ) : !showEmailForm ? (
+          /* Social first, then Sign in with Email */
+          <>
+            {error && (
+              <div style={{
+                background: '#dc2626',
+                color: 'white',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                marginBottom: '16px',
+                fontSize: '14px',
+              }}>
+                {error}
+              </div>
+            )}
+            <div style={{ marginBottom: '16px' }}>
+              <SocialSignIn
+                mode="signin"
+                callbackUrl={typeof window !== 'undefined' ? window.location.href : '/'}
+                hideDividerAbove
+              />
+            </div>
+            <div style={{
+              position: 'relative',
+              margin: '20px 0',
+              display: 'flex',
+              alignItems: 'center',
+            }}>
+              <div style={{ flex: 1, height: 1, background: '#333' }} />
+              <span style={{ padding: '0 12px', color: '#888', fontSize: '14px' }}>Or</span>
+              <div style={{ flex: 1, height: 1, background: '#333' }} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowEmailForm(true)}
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '12px',
+                border: '1px solid #333',
+                background: '#2a2a2a',
+                color: '#e5e5e5',
+                fontWeight: '500',
+                fontSize: '16px',
+                cursor: 'pointer',
+              }}
+            >
+              Sign in with Email
+            </button>
+          </>
         ) : (
-          /* Sign In Form */
+          /* Email / password form */
           <form onSubmit={handleSubmit}>
+            <button
+              type="button"
+              onClick={() => setShowEmailForm(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#888',
+                fontSize: '14px',
+                cursor: 'pointer',
+                padding: 0,
+                marginBottom: '16px',
+              }}
+            >
+              ← Back
+            </button>
             <div style={{ marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <label style={{ color: '#ccc', fontSize: '14px' }}>
@@ -377,15 +443,24 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
-
-            <div style={{ marginTop: '8px' }}>
-              <SocialSignIn mode="signin" callbackUrl={typeof window !== 'undefined' ? window.location.href : '/'} />
-            </div>
           </form>
         )}
 
+        {/* Legal disclaimer */}
+        <p style={{ textAlign: 'center', color: '#888', fontSize: '12px', margin: '20px 0 0 0', lineHeight: 1.5 }}>
+          I have read and agree to the{' '}
+          <Link href="/policy#terms" onClick={onClose} style={{ color: '#10b981', textDecoration: 'underline' }}>
+            Terms of Service
+          </Link>
+          {' '}and{' '}
+          <Link href="/policy#privacy" onClick={onClose} style={{ color: '#10b981', textDecoration: 'underline' }}>
+            Privacy Policy
+          </Link>
+          . I understand and accept the platform rules and regulations.
+        </p>
+
         {/* Footer */}
-        <p style={{ textAlign: 'center', color: '#888', fontSize: '14px', margin: 0 }}>
+        <p style={{ textAlign: 'center', color: '#888', fontSize: '14px', margin: '16px 0 0 0' }}>
           Don&apos;t have an account?{' '}
           <Link 
             href="/register" 
