@@ -84,7 +84,13 @@ async function ensureUniqueUsername(base: string): Promise<string> {
   }
 }
 
+// In production, set AUTH_TRUST_HOST=true so NextAuth uses the request host for origin
+// (avoids www vs non-www redirect sending users to a host that has no session cookie).
+const isProductionHttps =
+  typeof process.env.NEXTAUTH_URL === 'string' && process.env.NEXTAUTH_URL.startsWith('https://')
+
 export const authOptions: NextAuthOptions = {
+  useSecureCookies: isProductionHttps,
   session: {
     strategy: 'jwt',
   },
@@ -104,7 +110,6 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Please enter email and password')
         }
 
-        // Normalize email to lowercase for case-insensitive login
         const normalizedEmail = credentials.email.toLowerCase()
 
         const user = await prisma.user.findUnique({
@@ -121,11 +126,8 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid password')
         }
 
-        // Check if user is suspended
         if (user.isSuspended) {
-          // Check if suspension has expired
           if (user.suspendedUntil && new Date(user.suspendedUntil) < new Date()) {
-            // Suspension expired, unsuspend the user
             await prisma.user.update({
               where: { id: user.id },
               data: {
@@ -137,7 +139,7 @@ export const authOptions: NextAuthOptions = {
             })
           } else {
             const reason = user.suspendReason || 'Policy violation'
-            const until = user.suspendedUntil 
+            const until = user.suspendedUntil
               ? ` until ${new Date(user.suspendedUntil).toLocaleDateString()}`
               : ''
             throw new Error(`Account suspended${until}: ${reason}`)

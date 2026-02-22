@@ -14,6 +14,8 @@ const FALLBACK_PROVIDER_IDS = ['entra-external-id', 'azure-ad-b2c']
 type Props = {
   mode: 'signin' | 'signup'
   callbackUrl?: string
+  /** When true, do not render the "Or continue with" divider above the buttons (e.g. when social is the primary block). */
+  hideDividerAbove?: boolean
 }
 
 function SocialIcon({ icon }: { icon: 'google' | 'facebook' | 'apple' | 'microsoft' }) {
@@ -50,7 +52,7 @@ function SocialIcon({ icon }: { icon: 'google' | 'facebook' | 'apple' | 'microso
   )
 }
 
-export function SocialSignIn({ mode, callbackUrl = '/' }: Props) {
+export function SocialSignIn({ mode, callbackUrl = '/', hideDividerAbove = false }: Props) {
   const [availableIds, setAvailableIds] = useState<Set<string>>(new Set())
   const [loadingId, setLoadingId] = useState<string | null>(null)
 
@@ -91,14 +93,16 @@ export function SocialSignIn({ mode, callbackUrl = '/' }: Props) {
 
   return (
     <>
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-tank-light" />
+      {!hideDividerAbove && (
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-tank-light" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="bg-tank-gray px-3 text-gray-400">Or continue with</span>
+          </div>
         </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="bg-tank-gray px-3 text-gray-400">Or continue with</span>
-        </div>
-      </div>
+      )}
 
       <div className="space-y-2">
         {buttons.map((btn) => (

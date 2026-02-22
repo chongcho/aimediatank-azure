@@ -58,6 +58,16 @@ You can set **either** Option A **or** Option B. If both are set, Option A (`ENT
 - Entra External ID: first **50,000 MAU** are free; beyond that, see [External ID pricing](https://aka.ms/ExternalIDPricing).
 - You still need to create and configure each social IdP (Google, Facebook, Apple, Microsoft) in their own consoles; Azure is the single place your app talks to.
 
+## Production / troubleshooting
+
+- **AADSTS7000215 / "Invalid client secret provided"**: Entra expects the **client secret value**, not the **Secret ID**. In the Azure portal (App registration → Certificates & secrets), the table shows both a "Secret ID" (a GUID) and "Value" (hidden after creation). You must set `ENTRA_CLIENT_SECRET` (or `AZURE_AD_B2C_CLIENT_SECRET`) to the **Value** — the long string you copied when you created the secret. If you no longer have it, create a **new** client secret, copy the **Value** immediately (it is shown only once), set that in your App Service (or `.env`), then restart the app. You can delete the old secret after switching.
+- **AUTH_TRUST_HOST=true** (critical for production): NextAuth uses this to build the auth origin from the **request** (Host + protocol) instead of only `NEXTAUTH_URL`. Without it, if users hit `https://www.aimediatank.com` but `NEXTAUTH_URL` is `https://aimediatank.com` (or the other way around), the post-login redirect can send them to the other host where the session cookie is not sent, so they appear not signed in. Set **AUTH_TRUST_HOST=true** in production (and staging if you use a custom domain) so sign-in works for both www and non-www. Staging on `*.azurewebsites.net` often works without it because you typically set `NEXTAUTH_URL` to that exact host.
+- **NEXTAUTH_URL**: Set to your canonical base URL (e.g. `https://aimediatank.com`). With `AUTH_TRUST_HOST=true`, redirects will still use the host the user actually used (www or non-www).
+- Add **both** www and non-www redirect URIs in Entra if users can reach the site at both (e.g. `https://aimediatank.com/...` and `https://www.aimediatank.com/...`).
+- If **email sign-in still fails** after setting AUTH_TRUST_HOST: **restart** the App Service after any env change. Confirm **DATABASE_URL** (same DB as staging if you expect the same users) and **NEXTAUTH_SECRET** in production.
+- NextAuth redirects to `/login?error=...` on failure; the login page shows friendly messages for codes like `OAuthCallback`, `CredentialsSignin`, etc.
+- **Cookie warning “Mark cross-site cookies as Secure”**: The cookie `esctx-*` on `.aimediatank.ciamlogin.com` is set by **Microsoft Entra** (CIAM), not by your app. Ensure the app and redirects use **HTTPS**. If the warning persists, it is on Microsoft’s side; sign-in may still work in many browsers.
+
 ## Implementation notes
 
 - **Auth config**: `src/lib/auth.ts` — adds the Entra/B2C provider and find-or-create user logic in the JWT callback.

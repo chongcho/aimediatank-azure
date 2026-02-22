@@ -21,8 +21,6 @@ export async function GET(request: Request) {
     const includeProcessing = searchParams.get('includeProcessing') === '1'
 
     const skip = (page - 1) * limit
-    
-    console.log('Media API request:', { sort, page, limit, type, search, user })
 
     // When profile owner requests their own media with includeProcessing=1, include pending/processing/failed so they can see upload progress
     let allowProcessingStatuses = false
