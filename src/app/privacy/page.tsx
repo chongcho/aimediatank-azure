@@ -13,14 +13,6 @@ export default function PrivacyPage() {
         <Link href="/terms" className="text-tank-accent hover:underline">
           Terms of Service
         </Link>
-        <span className="text-gray-500">|</span>
-        <Link href="/login" className="text-tank-accent hover:underline">
-          Sign in
-        </Link>
-        <span className="text-gray-500">|</span>
-        <Link href="/register" className="text-tank-accent hover:underline">
-          Sign up
-        </Link>
       </div>
 
       <div className="card prose prose-invert max-w-none">
@@ -71,6 +63,21 @@ export default function PrivacyPage() {
         <p className="mt-8 pt-6 border-t border-tank-light text-gray-400 text-sm">
           See also our <Link href="/terms" className="text-tank-accent hover:underline">Terms of Service</Link> and the full <Link href="/policy" className="text-tank-accent hover:underline">Policy Book</Link>.
         </p>
+
+        <div className="mt-8 pt-6 border-t border-tank-light flex flex-wrap gap-3">
+          <Link
+            href="/login"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
+          >
+            Back to Sign in
+          </Link>
+          <Link
+            href="/register"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
+          >
+            Back to Sign up
+          </Link>
+        </div>
       </div>
     </div>
   )
