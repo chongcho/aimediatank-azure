@@ -748,14 +748,25 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               </button>
             </div>
             <p className="text-gray-300 text-sm truncate mb-1" title={shareTitle}>{shareTitle}</p>
-            <p className="text-gray-500 text-xs truncate mb-4 font-mono" title={shareUrl}>{shareUrl}</p>
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="w-full py-2.5 rounded-lg bg-tank-accent text-tank-black font-semibold hover:opacity-90 transition-opacity mb-5"
-            >
-              {shareStatus === 'copied' ? 'Copied!' : 'Copy'}
-            </button>
+            <div className="flex items-center gap-2 mb-5">
+              <p className="flex-1 min-w-0 text-gray-500 text-xs truncate font-mono" title={shareUrl}>{shareUrl}</p>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="shrink-0 w-10 h-10 rounded-lg bg-tank-accent text-tank-black hover:opacity-90 transition-opacity flex items-center justify-center"
+                title={shareStatus === 'copied' ? 'Copied!' : 'Copy'}
+              >
+                {shareStatus === 'copied' ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </button>
+            </div>
             <div className="flex items-center justify-center gap-4 flex-wrap">
               {mediaDetailSendByEmailEnabled && (
                 <button
@@ -839,7 +850,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 href="https://www.tiktok.com/"
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => { handleCopyLink(); recordShareAction(); }}
+                onClick={() => handleCopyLink()}
                 className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
                 title="TikTok (link copied)"
               >
