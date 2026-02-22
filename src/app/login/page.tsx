@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -18,7 +18,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   default: 'Something went wrong. Please try again.',
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [showEmailForm, setShowEmailForm] = useState(false)
@@ -182,5 +182,36 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+function LoginFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <Link href="/" className="inline-block mb-6">
+            <span className="font-bold text-3xl text-white">
+              <span className="text-tank-accent">A</span>i
+              <span className="text-red-500">M</span>edia
+              <span className="text-sky-400">T</span>ank
+            </span>
+          </Link>
+          <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
+          <p className="text-gray-400">Sign in to your account</p>
+        </div>
+        <div className="card flex items-center justify-center py-12">
+          <span className="spinner w-8 h-8" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginContent />
+    </Suspense>
   )
 }
