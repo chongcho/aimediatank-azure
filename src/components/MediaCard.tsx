@@ -266,8 +266,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     }
   }
 
-  // Mobile: touch has no hover; play() must run from touchstart to satisfy autoplay policy
-  const handlePreplayTouchStart = (e: React.TouchEvent) => {
+  // Mobile: no hover; play() must run from touchstart for autoplay. Keep focus/tap-highlight off to avoid green mask.
+  const handlePreplayTouchStart = () => {
     if (!isPreplayVideo) return
     setPreplayHover(true)
     if (thumbnailSrc && !thumbnailError) {
@@ -291,12 +291,12 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       href={`/media/${media.id}`}
       onClick={handleClick}
       data-media-id={media.id}
-      className="group cursor-pointer block"
+      className="group cursor-pointer block focus:outline-none [-webkit-tap-highlight-color:transparent]"
     >
       <div ref={cardRef} className="bg-tank-gray rounded-xl overflow-hidden border border-tank-light hover:border-tank-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-tank-accent/10">
         {/* Thumbnail — natural aspect ratio for masonry layout */}
         <div
-          className="relative bg-tank-dark overflow-hidden"
+          className="relative bg-tank-dark overflow-hidden outline-none [-webkit-tap-highlight-color:transparent]"
           onPointerEnter={handlePreplayPointerEnter}
           onPointerLeave={handlePreplayPointerLeave}
           onTouchStart={handlePreplayTouchStart}
