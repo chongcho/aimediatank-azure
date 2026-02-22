@@ -13,6 +13,14 @@ export default function TermsPage() {
         <Link href="/privacy" className="text-tank-accent hover:underline">
           Privacy Policy
         </Link>
+        <span className="text-gray-500">|</span>
+        <Link href="/login" className="text-tank-accent hover:underline">
+          Sign in
+        </Link>
+        <span className="text-gray-500">|</span>
+        <Link href="/register" className="text-tank-accent hover:underline">
+          Sign up
+        </Link>
       </div>
 
       <div className="card prose prose-invert max-w-none">
