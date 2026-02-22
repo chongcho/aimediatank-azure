@@ -451,15 +451,15 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
 
         {/* Legal disclaimer */}
         <p style={{ textAlign: 'center', color: '#888', fontSize: '12px', margin: '20px 0 0 0', lineHeight: 1.5 }}>
-          I have read and agree to the{' '}
-          <Link href="/policy#terms" onClick={onClose} style={{ color: '#10b981', textDecoration: 'underline' }}>
-            Terms of Service
+          By signing in, you agree to the{' '}
+          <Link href="/policy#terms" onClick={onClose} style={{ color: '#10b981', textDecoration: 'underline', fontWeight: 600 }}>
+            AiMediaTank Terms of Service
           </Link>
           {' '}and{' '}
-          <Link href="/policy#privacy" onClick={onClose} style={{ color: '#10b981', textDecoration: 'underline' }}>
+          <Link href="/policy#privacy" onClick={onClose} style={{ color: '#10b981', textDecoration: 'underline', fontWeight: 600 }}>
             Privacy Policy
           </Link>
-          . I understand and accept the platform rules and regulations.
+          {' '}and acknowledge that you have read and accepted all applicable rules and regulations.
         </p>
 
         {/* Footer */}

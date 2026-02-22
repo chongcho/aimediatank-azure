@@ -77,6 +77,7 @@ export default function RegisterPage() {
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [generatedCode, setGeneratedCode] = useState('')
   const [policyAgreed, setPolicyAgreed] = useState(false)
+  const [showEmailForm, setShowEmailForm] = useState(false)
 
   // Phone verification state (two-step verification when phone is provided)
   const [phoneVerificationState, setPhoneVerificationState] = useState<{
@@ -526,12 +527,45 @@ export default function RegisterPage() {
         </div>
 
         <div className="card">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
-                {error}
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          {!showEmailForm ? (
+            <>
+              <SocialSignIn mode="signup" callbackUrl="/" hideDividerAbove />
+
+              <div className="relative mt-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-tank-light" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="bg-tank-gray px-3 text-gray-400">Or</span>
+                </div>
               </div>
-            )}
+
+              <button
+                type="button"
+                onClick={() => setShowEmailForm(true)}
+                className="mt-6 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-gray-200"
+              >
+                Sign up with Email
+              </button>
+            </>
+          ) : (
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <button
+              type="button"
+              onClick={() => {
+                setError('')
+                setShowEmailForm(false)
+              }}
+              className="text-sm text-gray-400 hover:text-gray-200 transition-colors -mb-2"
+            >
+              ← Back
+            </button>
 
             {/* Avatar and Bio Section */}
             <div className="flex items-start justify-center gap-6">
@@ -998,11 +1032,15 @@ export default function RegisterPage() {
                   className="mt-1 w-5 h-5 rounded border-tank-light bg-tank-dark text-tank-accent focus:ring-tank-accent focus:ring-offset-0 cursor-pointer"
                 />
                 <span className="text-sm text-gray-300">
-                  I have read and agree to the{' '}
-                  <a href="/policy" target="_blank" className="text-tank-accent hover:underline">
-                    Terms of Service and Privacy Policy
-                  </a>
-                  . I understand and accept the platform rules and regulations.
+                  By creating an account, you agree to the{' '}
+                  <Link href="/policy#terms" target="_blank" className="text-tank-accent hover:underline font-medium">
+                    AiMediaTank Terms of Service
+                  </Link>
+                  {' '}and{' '}
+                  <Link href="/policy#privacy" target="_blank" className="text-tank-accent hover:underline font-medium">
+                    Privacy Policy
+                  </Link>
+                  {' '}and acknowledge that you have read and accepted all applicable rules and regulations.
                 </span>
               </label>
               {!policyAgreed && (
@@ -1038,9 +1076,20 @@ export default function RegisterPage() {
                 'Create Account'
               )}
             </button>
-
-            <SocialSignIn mode="signup" callbackUrl="/" />
           </form>
+          )}
+
+          <p className="mt-6 text-center text-sm text-gray-400">
+            By creating an account, you agree to the{' '}
+            <Link href="/policy#terms" className="text-tank-accent hover:underline font-medium">
+              AiMediaTank Terms of Service
+            </Link>
+            {' '}and{' '}
+            <Link href="/policy#privacy" className="text-tank-accent hover:underline font-medium">
+              Privacy Policy
+            </Link>
+            {' '}and acknowledge that you have read and accepted all applicable rules and regulations.
+          </p>
         </div>
 
         <p className="text-center mt-6 text-gray-400">
