@@ -266,6 +266,26 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     }
   }
 
+  // Mobile: touch has no hover; play() must run from touchstart to satisfy autoplay policy
+  const handlePreplayTouchStart = (e: React.TouchEvent) => {
+    if (!isPreplayVideo) return
+    setPreplayHover(true)
+    if (thumbnailSrc && !thumbnailError) {
+      preplayVideoRef.current?.play().catch(() => {})
+    } else if (showVideoElement) {
+      videoRef.current?.play().catch(() => {})
+    }
+  }
+  const handlePreplayTouchEnd = () => {
+    if (!isPreplayVideo) return
+    setPreplayHover(false)
+    if (thumbnailSrc && !thumbnailError) {
+      preplayVideoRef.current?.pause()
+    } else if (showVideoElement) {
+      videoRef.current?.pause()
+    }
+  }
+
   return (
     <Link
       href={`/media/${media.id}`}
@@ -279,6 +299,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           className="relative bg-tank-dark overflow-hidden"
           onPointerEnter={handlePreplayPointerEnter}
           onPointerLeave={handlePreplayPointerLeave}
+          onTouchStart={handlePreplayTouchStart}
+          onTouchEnd={handlePreplayTouchEnd}
+          onTouchCancel={handlePreplayTouchEnd}
         >
           {/* Skeleton placeholder while thumbnail loads */}
           {thumbnailSrc && !thumbnailLoaded && !thumbnailError && (

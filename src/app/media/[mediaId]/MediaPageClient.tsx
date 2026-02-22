@@ -768,9 +768,11 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               </button>
             </div>
             <div className="flex items-center justify-center gap-4 flex-wrap">
-              {/* Email — opens default mail client (e.g. Outlook) with link in body, YouTube-style */}
+              {/* Email — opens default mail client with thumbnail URL + media link in body (mailto is plain text only) */}
               <a
-                href={`mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareUrl)}`}
+                href={`mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(
+                  media?.thumbnailUrl ? `${shareTitle}\n\n${media.thumbnailUrl}\n\n${shareUrl}` : shareUrl
+                )}`}
                 onClick={() => { recordShareAction(); setShowShareModal(false); }}
                 className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
                 title="Email (opens your email app)"
