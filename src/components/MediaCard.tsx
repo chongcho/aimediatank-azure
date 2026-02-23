@@ -301,7 +301,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       data-media-id={media.id}
       className="group cursor-pointer block focus:outline-none [-webkit-tap-highlight-color:transparent]"
     >
-      <div ref={cardRef} className="bg-tank-gray rounded-xl overflow-hidden border border-tank-light hover:border-tank-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-tank-accent/10">
+      <div ref={cardRef} className="bg-tank-gray rounded-xl overflow-hidden border border-tank-light transition-all duration-300">
         {/* Thumbnail — natural aspect ratio for masonry layout */}
         <div
           className="relative bg-tank-dark overflow-hidden outline-none [-webkit-tap-highlight-color:transparent]"
@@ -451,7 +451,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           {/* Title and Type Badge */}
           <div className="flex items-center gap-2 mb-2">
             <h3
-              className="font-semibold text-white group-hover:text-tank-accent transition-colors truncate flex-1 min-w-0"
+              className="font-semibold text-white transition-colors truncate flex-1 min-w-0"
               title={stripHashtags(media.title)}
             >
               {renderTitle(media.title)}
