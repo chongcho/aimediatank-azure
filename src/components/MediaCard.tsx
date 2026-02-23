@@ -49,6 +49,16 @@ interface MediaCardProps {
 
 type BadgeItem = { itemKey: string; isEnabled: boolean }
 
+// Mobile: only the card with largest intersection ratio pre-plays; tie-break by closest to viewport center (matches green-focused card)
+const preplayData: Record<string, { ratio: number; distanceToCenter: number }> = {}
+const PREPLAY_RATIO_EVENT = 'preplay-ratio-change'
+
+function dispatchPreplayRatio() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(PREPLAY_RATIO_EVENT))
+  }
+}
+
 let badgeItemsCache: BadgeItem[] | null = null
 let badgeItemsPromise: Promise<BadgeItem[] | null> | null = null
 
@@ -86,27 +96,67 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [isActivePreplay, setIsActivePreplay] = useState(false)
 
   useEffect(() => {
     setIsMobile(typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
   }, [])
 
   // Only mount video elements when card is in or near viewport to avoid 200+ videos in DOM (performance)
+  // Also track intersection ratio + distance to viewport center so on mobile only the centered (focused) card pre-plays
   useEffect(() => {
     const el = cardRef.current
+    const id = media.id
     if (!el) return
     const observer = new IntersectionObserver(
       (entries) => {
         const e = entries[0]
-        if (e) setIsInView(e.isIntersecting)
+        if (e) {
+          const inView = e.isIntersecting
+          const ratio = inView ? e.intersectionRatio : 0
+          const rect = e.boundingClientRect
+          const viewportCenterY = typeof window !== 'undefined' ? window.innerHeight / 2 : 0
+          const cardCenterY = rect.top + rect.height / 2
+          const distanceToCenter = Math.abs(cardCenterY - viewportCenterY)
+          setIsInView(inView)
+          preplayData[id] = { ratio, distanceToCenter }
+          dispatchPreplayRatio()
+        }
       },
-      { rootMargin: '150px 0px 300px 0px', threshold: 0 }
+      { rootMargin: '150px 0px 300px 0px', threshold: [0, 0.25, 0.5, 0.75, 1] }
     )
     observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
+    return () => {
+      observer.disconnect()
+      delete preplayData[id]
+      dispatchPreplayRatio()
+    }
+  }, [media.id])
 
-  // Mobile: YouTube-style — auto-play muted preplay when card is in view, pause when out of view
+  // Mobile: single card that pre-plays = largest ratio, then closest to viewport center (matches green-focused card)
+  useEffect(() => {
+    if (!isMobile) return
+    const check = () => {
+      const ids = Object.keys(preplayData)
+      if (ids.length === 0) {
+        setIsActivePreplay(false)
+        return
+      }
+      const sorted = ids
+        .map((id) => ({ id, ...preplayData[id] }))
+        .sort((a, b) => {
+          if (b.ratio !== a.ratio) return b.ratio - a.ratio
+          return a.distanceToCenter - b.distanceToCenter
+        })
+      const activeId = sorted[0].id
+      setIsActivePreplay(activeId === media.id)
+    }
+    check()
+    window.addEventListener(PREPLAY_RATIO_EVENT, check)
+    return () => window.removeEventListener(PREPLAY_RATIO_EVENT, check)
+  }, [isMobile, media.id])
+
+  // Mobile: YouTube-style — auto-play only the card with largest intersection (focused); pause others
   useEffect(() => {
     if (!isMobile) return
     const isPreplay =
@@ -117,7 +167,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     const hasThumb = !!(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
     const useOverlayVideo = hasThumb && !thumbnailError
     const useFallbackVideo = media.type === 'VIDEO' && !hasThumb && !thumbnailError
-    if (isInView) {
+    if (isInView && isActivePreplay) {
       const id = requestAnimationFrame(() => {
         if (useOverlayVideo) preplayVideoRef.current?.play().catch(() => {})
         else if (useFallbackVideo) videoRef.current?.play().catch(() => {})
@@ -127,7 +177,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       if (useOverlayVideo) preplayVideoRef.current?.pause()
       else if (useFallbackVideo) videoRef.current?.pause()
     }
-  }, [isMobile, isInView, preplay, media.type, media.processingStatus, media.thumbnailUrl, media.url, thumbnailError])
+  }, [isMobile, isInView, isActivePreplay, preplay, media.type, media.processingStatus, media.thumbnailUrl, media.url, thumbnailError])
 
   useEffect(() => {
     let isMounted = true
@@ -357,7 +407,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 <video
                   ref={preplayVideoRef}
                   src={media.url}
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover || (isMobile && isInView) ? 'opacity-100' : 'opacity-0'}`}
+                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover || (isMobile && isActivePreplay) ? 'opacity-100' : 'opacity-0'}`}
                   muted
                   playsInline
                   preload="metadata"
