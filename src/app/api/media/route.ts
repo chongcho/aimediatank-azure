@@ -83,6 +83,10 @@ export async function GET(request: Request) {
       orderBy = [{ createdAt: 'desc' }, { id: 'desc' }]
     }
 
+    // Load display streaming max once so we can set streamUrl for pre-play (homepage) to match Media Detail quality
+    const cropSettings = await prisma.cropToolSetting.findFirst() as { freeStreamMaxHeight?: number } | null
+    const freeStreamMaxHeight = cropSettings?.freeStreamMaxHeight ?? 720
+
     const [media, total] = await Promise.all([
       prisma.media.findMany({
         where,
@@ -102,6 +106,10 @@ export async function GET(request: Request) {
             select: {
               score: true,
             },
+          },
+          versions: {
+            orderBy: { height: 'asc' },
+            select: { height: true, url: true },
           },
           _count: {
             select: {
@@ -165,8 +173,20 @@ export async function GET(request: Request) {
           }
         }
         
+        // For VIDEO, set streamUrl to best version <= freeStreamMaxHeight (same as Media Detail) for pre-play quality
+        let streamUrl: string | undefined
+        if (m.type === 'VIDEO' && (m as any).versions?.length) {
+          const versions = (m as any).versions as { height: number; url: string }[]
+          const best = [...versions].filter((v) => v.height <= freeStreamMaxHeight).pop()
+          streamUrl = best?.url ?? m.url
+        } else {
+          streamUrl = m.url
+        }
+
+        const { versions: _v, ...rest } = m as any
         return {
-          ...m,
+          ...rest,
+          streamUrl,
           fileSize,
           avgRating: Math.round(avgRating * 10) / 10,
           reactions: { happy: happyCount, sad: sadCount },
@@ -181,6 +201,7 @@ export async function GET(request: Request) {
           title: m.title || 'Unknown',
           type: m.type || 'IMAGE',
           url: m.url || '',
+          streamUrl: m.type === 'VIDEO' ? m.url || '' : undefined,
           thumbnailUrl: m.thumbnailUrl || null,
           views: m.views || 0,
           createdAt: m.createdAt,

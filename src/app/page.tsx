@@ -11,6 +11,7 @@ interface Media {
   title: string
   type: string
   url: string
+  streamUrl?: string  // Best stream <= Display streaming max (for pre-play quality)
   thumbnailUrl: string | null
   aiTool: string | null
   realDevice?: string | null

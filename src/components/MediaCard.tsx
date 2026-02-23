@@ -11,6 +11,8 @@ interface MediaCardProps {
     title: string
     type: string
     url: string
+    /** When set (from list API), use for pre-play to match Display streaming max (e.g. 1080p). */
+    streamUrl?: string
     thumbnailUrl?: string | null
     aiTool?: string | null
     realDevice?: string | null
@@ -361,7 +363,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               {isPreplayVideo && isInView && (
                 <video
                   ref={preplayVideoRef}
-                  src={media.url}
+                  src={media.streamUrl ?? media.url}
                   className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover || (isMobile && isInView) ? 'opacity-100' : 'opacity-0'}`}
                   muted
                   playsInline
@@ -372,7 +374,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               {/* When Preplay is OFF, still preload metadata so media detail page loads faster when user clicks */}
               {!preplay && media.type === 'VIDEO' && isInView && (!media.processingStatus || media.processingStatus === 'completed') && (
                 <video
-                  src={media.url}
+                  src={media.streamUrl ?? media.url}
                   preload="metadata"
                   className="absolute inset-0 w-full h-full pointer-events-none opacity-0"
                   muted
@@ -386,7 +388,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             // preload="metadata" required so onLoadedMetadata fires and we can seek to 1s for preview frame.
             <video
               ref={videoRef}
-              src={media.url}
+              src={media.streamUrl ?? media.url}
               className="w-full aspect-video object-cover"
               muted
               playsInline
