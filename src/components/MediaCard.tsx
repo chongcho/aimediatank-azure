@@ -277,6 +277,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const isPreplayVideo = preplay && media.type === 'VIDEO' && (!media.processingStatus || media.processingStatus === 'completed')
   const handlePreplayPointerEnter = () => {
     if (!isPreplayVideo) return
+    // On mobile, preplay is driven only by isInView; ignore pointer enter/leave so long touch doesn't stop it.
+    if (isMobile) return
     setPreplayHover(true)
     if (thumbnailSrc && !thumbnailError) {
       preplayVideoRef.current?.play().catch(() => {})
@@ -286,6 +288,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
   const handlePreplayPointerLeave = () => {
     if (!isPreplayVideo) return
+    // On mobile, do not pause on pointer leave — long touch often fires pointerleave and was stopping preplay.
+    // Mobile preplay is driven only by isInView (scroll in/out).
+    if (isMobile) return
     setPreplayHover(false)
     if (thumbnailSrc && !thumbnailError) {
       preplayVideoRef.current?.pause()
