@@ -2780,7 +2780,7 @@ export default function AdminPage() {
                           }}
                           className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
                         >
-                          {[144, 240, 360, 480, 720, 1080].map(h => (
+                          {[480, 720, 1080].map(h => (
                             <option key={h} value={h}>{h}p</option>
                           ))}
                         </select>
@@ -2797,7 +2797,7 @@ export default function AdminPage() {
                           }}
                           className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
                         >
-                          {[144, 240, 360, 480, 720, 1080].map(h => (
+                          {[480, 720, 1080].map(h => (
                             <option key={h} value={h}>{h}p</option>
                           ))}
                         </select>

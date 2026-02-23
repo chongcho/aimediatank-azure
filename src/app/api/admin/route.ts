@@ -1900,8 +1900,8 @@ export async function POST(request: Request) {
         if (freeVideoFps !== undefined) updateData.freeVideoFps = Math.round(clamp(freeVideoFps, 15, 60))
         if (freeAudioBitrateKbps !== undefined) updateData.freeAudioBitrateKbps = Math.round(clamp(freeAudioBitrateKbps, 64, 512))
         // Download & streaming (resolution caps)
-        if (freeStreamMaxHeight !== undefined) updateData.freeStreamMaxHeight = Math.round(clamp(freeStreamMaxHeight, 144, 1080))
-        if (freeDownloadMaxHeight !== undefined) updateData.freeDownloadMaxHeight = Math.round(clamp(freeDownloadMaxHeight, 144, 1080))
+        if (freeStreamMaxHeight !== undefined) updateData.freeStreamMaxHeight = Math.round(clamp(freeStreamMaxHeight, 480, 1080))
+        if (freeDownloadMaxHeight !== undefined) updateData.freeDownloadMaxHeight = Math.round(clamp(freeDownloadMaxHeight, 480, 1080))
         if (paidDownloadQuality !== undefined && ['hq', '1080p', '720p'].includes(String(paidDownloadQuality))) {
           updateData.paidDownloadQuality = String(paidDownloadQuality)
         }

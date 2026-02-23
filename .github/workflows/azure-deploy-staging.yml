@@ -63,6 +63,7 @@ jobs:
             exit 1
           fi
           echo "deploy/node_modules/next present"
+          ls -la deploy/ deploy/node_modules/ | head -50
 
       - name: Deploy to Azure Staging
         id: deploy
