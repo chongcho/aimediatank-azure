@@ -266,7 +266,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     }
   }
 
-  // Mobile: no hover; play() must run from touchstart for autoplay. Keep focus/tap-highlight off to avoid green mask.
+  // Mobile: no hover; play() must run from touchstart for autoplay. Don't pause on touchEnd so video stays playing until click navigates.
   const handlePreplayTouchStart = () => {
     if (!isPreplayVideo) return
     setPreplayHover(true)
@@ -277,6 +277,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     }
   }
   const handlePreplayTouchEnd = () => {
+    // No-op: keep video playing until the link's click navigates. Pausing here would stop preplay before user sees it.
+  }
+  const handlePreplayTouchCancel = () => {
     if (!isPreplayVideo) return
     setPreplayHover(false)
     if (thumbnailSrc && !thumbnailError) {
@@ -301,7 +304,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           onPointerLeave={handlePreplayPointerLeave}
           onTouchStart={handlePreplayTouchStart}
           onTouchEnd={handlePreplayTouchEnd}
-          onTouchCancel={handlePreplayTouchEnd}
+          onTouchCancel={handlePreplayTouchCancel}
         >
           {/* Skeleton placeholder while thumbnail loads */}
           {thumbnailSrc && !thumbnailLoaded && !thumbnailError && (
