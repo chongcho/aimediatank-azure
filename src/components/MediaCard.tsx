@@ -85,6 +85,11 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [badgeItems, setBadgeItems] = useState<BadgeItem[] | null>(badgeItemsCache)
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    setIsMobile(typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
+  }, [])
 
   // Only mount video elements when card is in or near viewport to avoid 200+ videos in DOM (performance)
   useEffect(() => {
@@ -100,6 +105,29 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  // Mobile: YouTube-style — auto-play muted preplay when card is in view, pause when out of view
+  useEffect(() => {
+    if (!isMobile) return
+    const isPreplay =
+      preplay &&
+      media.type === 'VIDEO' &&
+      (!media.processingStatus || media.processingStatus === 'completed')
+    if (!isPreplay) return
+    const hasThumb = !!(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
+    const useOverlayVideo = hasThumb && !thumbnailError
+    const useFallbackVideo = media.type === 'VIDEO' && !hasThumb && !thumbnailError
+    if (isInView) {
+      const id = requestAnimationFrame(() => {
+        if (useOverlayVideo) preplayVideoRef.current?.play().catch(() => {})
+        else if (useFallbackVideo) videoRef.current?.play().catch(() => {})
+      })
+      return () => cancelAnimationFrame(id)
+    } else {
+      if (useOverlayVideo) preplayVideoRef.current?.pause()
+      else if (useFallbackVideo) videoRef.current?.pause()
+    }
+  }, [isMobile, isInView, preplay, media.type, media.processingStatus, media.thumbnailUrl, media.url, thumbnailError])
 
   useEffect(() => {
     let isMounted = true
@@ -266,29 +294,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     }
   }
 
-  // Mobile: no hover; play() must run from touchstart for autoplay. Don't pause on touchEnd so video stays playing until click navigates.
-  const handlePreplayTouchStart = () => {
-    if (!isPreplayVideo) return
-    setPreplayHover(true)
-    if (thumbnailSrc && !thumbnailError) {
-      preplayVideoRef.current?.play().catch(() => {})
-    } else if (showVideoElement) {
-      videoRef.current?.play().catch(() => {})
-    }
-  }
-  const handlePreplayTouchEnd = () => {
-    // No-op: keep video playing until the link's click navigates. Pausing here would stop preplay before user sees it.
-  }
-  const handlePreplayTouchCancel = () => {
-    if (!isPreplayVideo) return
-    setPreplayHover(false)
-    if (thumbnailSrc && !thumbnailError) {
-      preplayVideoRef.current?.pause()
-    } else if (showVideoElement) {
-      videoRef.current?.pause()
-    }
-  }
-
   return (
     <Link
       href={`/media/${media.id}`}
@@ -302,9 +307,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           className="relative bg-tank-dark overflow-hidden outline-none [-webkit-tap-highlight-color:transparent]"
           onPointerEnter={handlePreplayPointerEnter}
           onPointerLeave={handlePreplayPointerLeave}
-          onTouchStart={handlePreplayTouchStart}
-          onTouchEnd={handlePreplayTouchEnd}
-          onTouchCancel={handlePreplayTouchCancel}
         >
           {/* Skeleton placeholder while thumbnail loads */}
           {thumbnailSrc && !thumbnailLoaded && !thumbnailError && (
@@ -355,7 +357,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 <video
                   ref={preplayVideoRef}
                   src={media.url}
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover ? 'opacity-100' : 'opacity-0'}`}
+                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover || (isMobile && isInView) ? 'opacity-100' : 'opacity-0'}`}
                   muted
                   playsInline
                   preload="metadata"
