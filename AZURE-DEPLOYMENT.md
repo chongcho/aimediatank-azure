@@ -276,7 +276,15 @@ If the site shows "Application Error" and platform logs say "Container has finis
 1. **Startup command:** In Configuration → General settings, set **Startup Command** to `node run.js` (so errors are logged).
 2. **View the crash reason:** In Azure Portal → App Service → **Monitoring** → **Log stream**. Reproduce the crash (e.g. restart the app or trigger a deploy), then check the stream for Node.js errors (e.g. `[azure-run] unhandledRejection:`, `Error:`, `Cannot find module`, `Connection refused`). Also check **App Service logs** (Monitoring → App Service logs) and download logs if needed.
 3. **Common causes:** Missing or invalid **DATABASE_URL**, **NEXTAUTH_SECRET**, or **NEXTAUTH_URL**; database unreachable (firewall/SSL); or out-of-memory. Fix the reported error and redeploy or restart.
-4. **If the site is blocked** ("Site is blocked due to multiple, consecutive cold start failures"): Wait until the block expires (e.g. 1 minute) or restart the app from the Overview blade, then fix the underlying error and try again.
+
+4. **`Error: Cannot find module 'next'`**  
+   The app failed because `node_modules` (or the `next` package) was not present when the container started. This can happen on the first start after a deploy if the deployment package didn’t include `node_modules`, or if the platform started before extraction finished.  
+   - Ensure **Startup Command** is `node run.js` (so crashes are visible in Log stream).  
+   - The GitHub Actions workflow deploys the **standalone** build; the deploy folder must include `node_modules` from `.next/standalone`. The workflow now verifies that `deploy/node_modules/next` exists before deploying.  
+   - If the error persists, in Azure Portal → Deployment Center (or the deployment method you use), confirm that the deployed package is the full folder (including `node_modules`). Do **not** exclude `node_modules` (e.g. via a `.webappignore` or similar).  
+   - Restart the app after a successful redeploy; the second start in your log succeeded once `node_modules` was available.
+
+5. **If the site is blocked** ("Site is blocked due to multiple, consecutive cold start failures"): Wait until the block expires (e.g. 1 minute) or restart the app from the Overview blade, then fix the underlying error and try again.
 
 ### Database Connection Issues
 
