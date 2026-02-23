@@ -2772,7 +2772,7 @@ export default function AdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Display streaming max</label>
                         <select
-                          value={[480, 720, 1080].includes(cropToolSettings.freeStreamMaxHeight ?? 0) ? (cropToolSettings.freeStreamMaxHeight ?? 720) : 480}
+                          value={cropToolSettings.freeStreamMaxHeight == null ? 720 : [480, 720, 1080].includes(cropToolSettings.freeStreamMaxHeight) ? cropToolSettings.freeStreamMaxHeight : 480}
                           onChange={(e) => {
                             const v = Number(e.target.value)
                             setCropToolSettings(prev => ({ ...prev, freeStreamMaxHeight: v }))
@@ -2789,7 +2789,7 @@ export default function AdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Free download max</label>
                         <select
-                          value={[480, 720, 1080].includes(cropToolSettings.freeDownloadMaxHeight ?? 0) ? (cropToolSettings.freeDownloadMaxHeight ?? 720) : 480}
+                          value={cropToolSettings.freeDownloadMaxHeight == null ? 720 : [480, 720, 1080].includes(cropToolSettings.freeDownloadMaxHeight) ? cropToolSettings.freeDownloadMaxHeight : 480}
                           onChange={(e) => {
                             const v = Number(e.target.value)
                             setCropToolSettings(prev => ({ ...prev, freeDownloadMaxHeight: v }))
