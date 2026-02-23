@@ -173,11 +173,13 @@ export async function GET(request: Request) {
           }
         }
         
-        // For VIDEO, set streamUrl to best version <= freeStreamMaxHeight (same as Media Detail) for pre-play quality
+        // For VIDEO, set streamUrl to best version <= freeStreamMaxHeight (same as Media Detail) for pre-play quality.
+        // Normalize cap to at least 480 so legacy DB values (144/240/360) don't yield no match and fallback to 720p.
         let streamUrl: string | undefined
         if (m.type === 'VIDEO' && (m as any).versions?.length) {
           const versions = (m as any).versions as { height: number; url: string }[]
-          const best = [...versions].filter((v) => v.height <= freeStreamMaxHeight).pop()
+          const cap = Math.max(480, freeStreamMaxHeight)
+          const best = [...versions].filter((v) => v.height <= cap).pop()
           streamUrl = best?.url ?? m.url
         } else {
           streamUrl = m.url

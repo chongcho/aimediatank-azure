@@ -157,7 +157,9 @@ export async function GET(
           downloadBlobUrl = v?.url ?? media.url
         }
       } else {
-        const best = versions.filter((v: any) => v.height <= freeDownloadMaxHeight).pop()
+        // Normalize cap to at least 480 so legacy DB values (144/240/360) don't yield no match and fallback to 720p
+        const cap = Math.max(480, freeDownloadMaxHeight)
+        const best = versions.filter((v: any) => v.height <= cap).pop()
         downloadBlobUrl = best?.url ?? media.url
       }
     } else {
