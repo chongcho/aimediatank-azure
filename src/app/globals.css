@@ -142,23 +142,53 @@ body {
   color: #0a0a0b;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - hidden by default, show when mouse is near right edge */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #111113;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2a2a32;
+  background: transparent;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
+  background: transparent;
+}
+
+/* Firefox: hide by default */
+html,
+body {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+/* Show scrollbar when mouse is near the right edge of the screen */
+html.scrollbar-near-edge::-webkit-scrollbar-track,
+body.scrollbar-near-edge::-webkit-scrollbar-track {
+  background: #111113;
+}
+
+html.scrollbar-near-edge::-webkit-scrollbar-thumb,
+body.scrollbar-near-edge::-webkit-scrollbar-thumb {
+  background: #2a2a32;
+  border-radius: 4px;
+}
+
+html.scrollbar-near-edge::-webkit-scrollbar-thumb:hover,
+body.scrollbar-near-edge::-webkit-scrollbar-thumb:hover {
   background: #00ff88;
+}
+
+/* Firefox: show when near right edge */
+html.scrollbar-near-edge,
+body.scrollbar-near-edge {
+  scrollbar-color: #2a2a32 #111113;
 }
 
 /* Grid pattern */
