@@ -89,12 +89,22 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [isInView, setIsInView] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const preplayViewCountedRef = useRef(false)
+  const preplay10sTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Local view count so we can update immediately when a preplay view is recorded (no refetch)
   const [displayViews, setDisplayViews] = useState(media.views)
 
   useEffect(() => {
     setDisplayViews(media.views)
   }, [media.id, media.views])
+
+  useEffect(() => {
+    return () => {
+      if (preplay10sTimeoutRef.current) {
+        clearTimeout(preplay10sTimeoutRef.current)
+        preplay10sTimeoutRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     setIsMobile(typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
@@ -304,9 +314,25 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const recordPreplayView = useCallback(() => {
     if (preplayViewCountedRef.current || !media.id) return
     preplayViewCountedRef.current = true
+    if (preplay10sTimeoutRef.current) {
+      clearTimeout(preplay10sTimeoutRef.current)
+      preplay10sTimeoutRef.current = null
+    }
     setDisplayViews((prev) => prev + 1)
     fetch(`/api/media/${media.id}/view`, { method: 'POST', credentials: 'same-origin' }).catch(() => {})
   }, [media.id])
+
+  const clearPreplay10sTimeout = useCallback(() => {
+    if (preplay10sTimeoutRef.current) {
+      clearTimeout(preplay10sTimeoutRef.current)
+      preplay10sTimeoutRef.current = null
+    }
+  }, [])
+
+  const startPreplay10sTimer = useCallback(() => {
+    clearPreplay10sTimeout()
+    preplay10sTimeoutRef.current = setTimeout(recordPreplayView, 10_000)
+  }, [recordPreplayView, clearPreplay10sTimeout])
 
   const handlePreplayPointerEnter = () => {
     if (!isPreplayVideo) return
@@ -400,6 +426,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   playsInline
                   preload="metadata"
                   loop
+                  onPlay={startPreplay10sTimer}
+                  onPause={clearPreplay10sTimeout}
                   onTimeUpdate={(e) => {
                     // loop prevents "ended" from firing; detect one cycle when currentTime nears duration
                     const v = e.currentTarget
@@ -436,6 +464,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   video.currentTime = 1
                 }
               }}
+              onPlay={preplay ? startPreplay10sTimer : undefined}
+              onPause={preplay ? clearPreplay10sTimeout : undefined}
               onEnded={preplay ? recordPreplayView : undefined}
               onError={() => setThumbnailError(true)}
             />
