@@ -93,19 +93,35 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     setIsMobile(typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
   }, [])
 
-  // Only mount video elements when card is in or near viewport to avoid 200+ videos in DOM (performance)
+  // Only mount video elements when card is in or near viewport to avoid 200+ videos in DOM (performance).
+  // Use a tight rootMargin so scrolling doesn't trigger too many concurrent video loads; defer isInView
+  // so we only load for cards that stay near viewport (avoids loading for cards that scroll past quickly).
   useEffect(() => {
     const el = cardRef.current
     if (!el) return
+    let deferId: ReturnType<typeof setTimeout> | null = null
     const observer = new IntersectionObserver(
       (entries) => {
         const e = entries[0]
-        if (e) setIsInView(e.isIntersecting)
+        if (!e) return
+        if (e.isIntersecting) {
+          if (deferId) clearTimeout(deferId)
+          deferId = setTimeout(() => setIsInView(true), 120)
+        } else {
+          if (deferId) {
+            clearTimeout(deferId)
+            deferId = null
+          }
+          setIsInView(false)
+        }
       },
-      { rootMargin: '150px 0px 300px 0px', threshold: 0 }
+      { rootMargin: '60px 0px 100px 0px', threshold: 0 }
     )
     observer.observe(el)
-    return () => observer.disconnect()
+    return () => {
+      if (deferId) clearTimeout(deferId)
+      observer.disconnect()
+    }
   }, [])
 
   // Mobile: YouTube-style — auto-play muted preplay when card is in view, pause when out of view
