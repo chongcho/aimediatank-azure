@@ -5,7 +5,7 @@
  *   1. Client uploads raw file → Azure Blob Storage
  *   2. DB record created with processingStatus = 'pending'
  *   3. This module downloads the raw blob, transcodes via FFmpeg into multiple resolutions:
- *        - 144p, 240p, 360p, 480p, 720p, 1080p (when source is tall enough) + HQ (source)
+ *        - 480p, 720p, 1080p (when source is tall enough) + HQ (source)
  *        - Thumbnail (if video) → <uuid>-thumb.jpg
  *   4. MediaVersion rows created per resolution with url + fileSize; media.url = 720p, media.urlHq = HQ
  *   5. Raw blob deleted
@@ -243,8 +243,8 @@ async function probeVideo(filePath: string): Promise<ProbeResult> {
 // Core transcoding
 // ---------------------------------------------------------------------------
 
-// YouTube-style: 144p up to 1080p + HQ (source). Only encode heights <= source (no upscale).
-const TARGET_HEIGHTS = [144, 240, 360, 480, 720, 1080] as const
+// 480p up to 1080p + HQ (source). Only encode heights <= source (no upscale).
+const TARGET_HEIGHTS = [480, 720, 1080] as const
 
 export interface VariantResult {
   label: string
@@ -320,8 +320,8 @@ async function transcodeVideo(
       '-i', rawLocalPath, '-y',
       ...buildVideoFilter(effectiveHeight > height ? height : undefined),
       '-c:v', 'libx264', '-preset', height <= 480 ? 'fast' : 'medium',
-      '-crf', height <= 360 ? '26' : '23',
-      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', height <= 360 ? '96k' : '128k'] : ['-an']),
+      '-crf', height <= 480 ? '26' : '23',
+      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', height <= 480 ? '96k' : '128k'] : ['-an']),
       '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
       outPath,
     ]

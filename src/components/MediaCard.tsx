@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
 
 interface MediaCardProps {
@@ -11,6 +11,8 @@ interface MediaCardProps {
     title: string
     type: string
     url: string
+    /** When set (from list API), use for pre-play to match Display streaming max (e.g. 1080p). */
+    streamUrl?: string
     thumbnailUrl?: string | null
     aiTool?: string | null
     realDevice?: string | null
@@ -86,26 +88,42 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const preplayViewCountedRef = useRef(false)
 
   useEffect(() => {
     setIsMobile(typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
   }, [])
 
-  // Mount video when near viewport. Mobile: use extended rootMargin (on-screen + ~one above/below) so those cards pre-play.
+  // Only mount video elements when card is in or near viewport to avoid 200+ videos in DOM (performance).
+  // Use a tight rootMargin so scrolling doesn't trigger too many concurrent video loads; defer isInView
+  // so we only load for cards that stay near viewport (avoids loading for cards that scroll past quickly).
   useEffect(() => {
     const el = cardRef.current
     if (!el) return
-    const rootMargin = isMobile ? '100vh 0px 100vh 0px' : '150px 0px 300px 0px'
+    let deferId: ReturnType<typeof setTimeout> | null = null
     const observer = new IntersectionObserver(
       (entries) => {
         const e = entries[0]
-        if (e) setIsInView(e.isIntersecting)
+        if (!e) return
+        if (e.isIntersecting) {
+          if (deferId) clearTimeout(deferId)
+          deferId = setTimeout(() => setIsInView(true), 120)
+        } else {
+          if (deferId) {
+            clearTimeout(deferId)
+            deferId = null
+          }
+          setIsInView(false)
+        }
       },
-      { rootMargin, threshold: 0 }
+      { rootMargin: '60px 0px 100px 0px', threshold: 0 }
     )
     observer.observe(el)
-    return () => observer.disconnect()
-  }, [isMobile])
+    return () => {
+      if (deferId) clearTimeout(deferId)
+      observer.disconnect()
+    }
+  }, [])
 
   // Mobile: pre-play all cards in extended zone (on-screen + one up/down); no single "focused" card
   useEffect(() => {
@@ -276,8 +294,17 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
 
   const isPreplayVideo = preplay && media.type === 'VIDEO' && (!media.processingStatus || media.processingStatus === 'completed')
+
+  const recordPreplayView = useCallback(() => {
+    if (preplayViewCountedRef.current || !media.id) return
+    preplayViewCountedRef.current = true
+    fetch(`/api/media/${media.id}/view`, { method: 'POST', credentials: 'same-origin' }).catch(() => {})
+  }, [media.id])
+
   const handlePreplayPointerEnter = () => {
     if (!isPreplayVideo) return
+    // On mobile, preplay is driven only by isInView; ignore pointer enter/leave so long touch doesn't stop it.
+    if (isMobile) return
     setPreplayHover(true)
     if (thumbnailSrc && !thumbnailError) {
       preplayVideoRef.current?.play().catch(() => {})
@@ -287,6 +314,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
   const handlePreplayPointerLeave = () => {
     if (!isPreplayVideo) return
+    // On mobile, do not pause on pointer leave — long touch often fires pointerleave and was stopping preplay.
+    // Mobile preplay is driven only by isInView (scroll in/out).
+    if (isMobile) return
     setPreplayHover(false)
     if (thumbnailSrc && !thumbnailError) {
       preplayVideoRef.current?.pause()
@@ -357,18 +387,19 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               {isPreplayVideo && isInView && (
                 <video
                   ref={preplayVideoRef}
-                  src={media.url}
+                  src={media.streamUrl ?? media.url}
                   className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover || (isMobile && isInView) ? 'opacity-100' : 'opacity-0'}`}
                   muted
                   playsInline
                   preload="metadata"
                   loop
+                  onEnded={recordPreplayView}
                 />
               )}
               {/* When Preplay is OFF, still preload metadata so media detail page loads faster when user clicks */}
               {!preplay && media.type === 'VIDEO' && isInView && (!media.processingStatus || media.processingStatus === 'completed') && (
                 <video
-                  src={media.url}
+                  src={media.streamUrl ?? media.url}
                   preload="metadata"
                   className="absolute inset-0 w-full h-full pointer-events-none opacity-0"
                   muted
@@ -382,7 +413,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             // preload="metadata" required so onLoadedMetadata fires and we can seek to 1s for preview frame.
             <video
               ref={videoRef}
-              src={media.url}
+              src={media.streamUrl ?? media.url}
               className="w-full aspect-video object-cover"
               muted
               playsInline
@@ -394,6 +425,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   video.currentTime = 1
                 }
               }}
+              onEnded={preplay ? recordPreplayView : undefined}
               onError={() => setThumbnailError(true)}
             />
           ) : media.type === 'VIDEO' ? (
@@ -452,7 +484,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           {/* Title and Type Badge */}
           <div className="flex items-center gap-2 mb-2">
             <h3
-              className="font-semibold text-white group-hover:text-tank-accent transition-colors truncate flex-1 min-w-0"
+              className="font-semibold text-white transition-colors truncate flex-1 min-w-0"
               title={stripHashtags(media.title)}
             >
               {renderTitle(media.title)}

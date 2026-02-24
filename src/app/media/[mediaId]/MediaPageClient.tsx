@@ -81,6 +81,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const [mediaDetailDownloadEnabled, setMediaDetailDownloadEnabled] = useState(true)
   const [mediaDetailShareEnabled, setMediaDetailShareEnabled] = useState(true)
   const [mediaDetailSendByEmailEnabled, setMediaDetailSendByEmailEnabled] = useState(true)
+  const [retrying, setRetrying] = useState(false)
 
   const isOwner = session?.user?.id === media?.user?.id
   const isAdmin = session?.user?.role === 'ADMIN'
@@ -453,12 +454,43 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
             </svg>
             <h3 className="text-lg font-semibold text-red-400 mb-2">Processing Failed</h3>
             <p className="text-gray-400 text-sm max-w-md mb-2">
-              There was an error processing this video. Please try re-uploading.
+              There was an error processing this video. You can retry or re-upload.
             </p>
             {media.processingError && (
-              <p className="text-gray-500 text-xs max-w-lg font-mono break-all" title={media.processingError}>
+              <p className="text-gray-500 text-xs max-w-lg font-mono break-all mb-4" title={media.processingError}>
                 {media.processingError}
               </p>
+            )}
+            {canManage && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (retrying) return
+                  setRetrying(true)
+                  try {
+                    const res = await fetch(`/api/media/${mediaId}/retry-processing`, { method: 'POST' })
+                    const data = await res.json()
+                    if (!res.ok) {
+                      alert(data.error || 'Retry failed')
+                      return
+                    }
+                    const r = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { cache: 'no-store' })
+                    if (r.ok) {
+                      const updated = await r.json()
+                      setMedia(updated)
+                    }
+                  } catch (e) {
+                    console.error('Retry failed:', e)
+                    alert('Retry failed. Please try again.')
+                  } finally {
+                    setRetrying(false)
+                  }
+                }}
+                disabled={retrying}
+                className="px-4 py-2 bg-tank-accent hover:bg-tank-accent/90 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+              >
+                {retrying ? 'Retrying…' : 'Retry processing'}
+              </button>
             )}
           </div>
         ) : (
@@ -626,7 +658,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               </button>
 
               {/* Download & Share row */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {/* Download Button — shown for free content (any logged-in user) and owners, when enabled */}
                 {mediaDetailDownloadEnabled && (isOwner || !media.price || media.price === 0) && (
                   <button

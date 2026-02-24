@@ -56,6 +56,15 @@ jobs:
           mkdir -p deploy/node_modules
           cp -r node_modules/ffmpeg-static deploy/node_modules/
 
+      - name: Verify deploy package has Next.js (avoids MODULE_NOT_FOUND on Azure)
+        run: |
+          if [ ! -d deploy/node_modules/next ]; then
+            echo "::error::deploy/node_modules/next missing. Standalone build must include node_modules."
+            exit 1
+          fi
+          echo "deploy/node_modules/next present"
+          ls -la deploy/ deploy/node_modules/ | head -50
+
       - name: Deploy to Azure Web App
         id: deploy
         uses: azure/webapps-deploy@v2

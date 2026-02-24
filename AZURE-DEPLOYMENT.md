@@ -276,7 +276,16 @@ If the site shows "Application Error" and platform logs say "Container has finis
 1. **Startup command:** In Configuration → General settings, set **Startup Command** to `node run.js` (so errors are logged).
 2. **View the crash reason:** In Azure Portal → App Service → **Monitoring** → **Log stream**. Reproduce the crash (e.g. restart the app or trigger a deploy), then check the stream for Node.js errors (e.g. `[azure-run] unhandledRejection:`, `Error:`, `Cannot find module`, `Connection refused`). Also check **App Service logs** (Monitoring → App Service logs) and download logs if needed.
 3. **Common causes:** Missing or invalid **DATABASE_URL**, **NEXTAUTH_SECRET**, or **NEXTAUTH_URL**; database unreachable (firewall/SSL); or out-of-memory. Fix the reported error and redeploy or restart.
-4. **If the site is blocked** ("Site is blocked due to multiple, consecutive cold start failures"): Wait until the block expires (e.g. 1 minute) or restart the app from the Overview blade, then fix the underlying error and try again.
+
+4. **`Error: Cannot find module 'next'`**  
+   The app failed because `node_modules` (or the `next` package) was not present when the container started.  
+   - Ensure **Startup Command** is `node run.js`. The wrapper now logs the contents of the app directory and `node_modules` to the Log stream when `next` is missing—check the stream to see what was actually deployed.  
+   - The GitHub Actions workflow deploys the **standalone** build and verifies that `deploy/node_modules/next` exists before uploading. If the workflow passes, the zip includes `node_modules`.  
+   - **Use Run from package:** In Azure Portal → App Service → **Configuration** → **Application settings**, add or set **WEBSITE_RUN_FROM_PACKAGE** = **1**. This makes the app run from the deployed zip as-is (no Oryx build overwriting files). Restart the app after changing.  
+   - If you deploy by a method other than the GitHub Actions zip (e.g. Git or FTP), ensure the deployed folder includes `node_modules` from the standalone build (e.g. copy `.next/standalone` contents including `node_modules`). Do **not** exclude `node_modules` via `.webappignore` or similar.  
+   - Restart the app after a successful redeploy.
+
+5. **If the site is blocked** ("Site is blocked due to multiple, consecutive cold start failures"): Wait until the block expires (e.g. 1 minute) or restart the app from the Overview blade, then fix the underlying error and try again.
 
 ### Database Connection Issues
 

@@ -325,6 +325,8 @@ export default function AdminPage() {
   const [fileSizeStatusLoading, setFileSizeStatusLoading] = useState(false)
   const [fileSizeBackfillRunning, setFileSizeBackfillRunning] = useState(false)
   const [fileSizeBackfillResult, setFileSizeBackfillResult] = useState<{ scanned: number; updated: number; errors?: string[] } | null>(null)
+  const [cleanupLegacyLoading, setCleanupLegacyLoading] = useState(false)
+  const [cleanupLegacyResult, setCleanupLegacyResult] = useState<{ versionsDeleted: number; blobsDeleted: number; errors?: string[] } | null>(null)
   
   // Delete media modal state
   const [deleteModal, setDeleteModal] = useState<{
@@ -680,6 +682,27 @@ export default function AdminPage() {
       alert('Backfill failed')
     } finally {
       setFileSizeBackfillRunning(false)
+    }
+  }
+
+  const runCleanupLegacyVersions = async () => {
+    if (!confirm('Permanently delete all 144p, 240p, and 360p versions from the database and Azure Blob Storage? This cannot be undone.')) return
+    setCleanupLegacyLoading(true)
+    setCleanupLegacyResult(null)
+    try {
+      const res = await fetch('/api/admin/cleanup-legacy-versions', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setCleanupLegacyResult({ versionsDeleted: data.versionsDeleted, blobsDeleted: data.blobsDeleted, errors: data.errors })
+        if (activeTab === 'media') await fetchData()
+      } else {
+        alert(data.error || 'Cleanup failed')
+      }
+    } catch (e) {
+      console.error('Cleanup failed:', e)
+      alert('Cleanup failed')
+    } finally {
+      setCleanupLegacyLoading(false)
     }
   }
   
@@ -1170,6 +1193,19 @@ export default function AdminPage() {
                   >
                     {fileSizeBackfillRunning ? 'Backfilling...' : 'Backfill file sizes'}
                   </button>
+                  <button
+                    onClick={runCleanupLegacyVersions}
+                    className="px-2 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm whitespace-nowrap"
+                    disabled={cleanupLegacyLoading}
+                    title="Delete 144p, 240p, 360p from DB and Azure Blob"
+                  >
+                    {cleanupLegacyLoading ? 'Cleaning...' : 'Remove legacy 144p/240p/360p'}
+                  </button>
+                  {cleanupLegacyResult && (
+                    <span className="text-xs text-gray-400 whitespace-nowrap">
+                      Removed {cleanupLegacyResult.versionsDeleted} versions, {cleanupLegacyResult.blobsDeleted} blobs
+                    </span>
+                  )}
                 </div>
               </>
             )}
@@ -1654,7 +1690,9 @@ export default function AdminPage() {
                             {item.type === 'VIDEO' ? (
                               item.versions && item.versions.length > 0 ? (
                                 <div className="text-xs space-y-0.5 max-w-[180px]">
-                                  {item.versions.map((v) => (
+                                  {item.versions
+                                    .filter((v) => ![144, 240, 360].includes(v.height))
+                                    .map((v) => (
                                     <div key={v.id} className="flex items-center justify-between gap-2">
                                       <span className={v.label === '720p' ? 'text-green-400' : v.label === 'HQ' ? 'text-blue-400' : 'text-gray-400'}>
                                         {v.label}
@@ -2772,7 +2810,7 @@ export default function AdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Display streaming max</label>
                         <select
-                          value={cropToolSettings.freeStreamMaxHeight ?? 720}
+                          value={cropToolSettings.freeStreamMaxHeight == null ? 720 : [480, 720, 1080].includes(cropToolSettings.freeStreamMaxHeight) ? cropToolSettings.freeStreamMaxHeight : 480}
                           onChange={(e) => {
                             const v = Number(e.target.value)
                             setCropToolSettings(prev => ({ ...prev, freeStreamMaxHeight: v }))
@@ -2780,7 +2818,7 @@ export default function AdminPage() {
                           }}
                           className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
                         >
-                          {[144, 240, 360, 480, 720, 1080].map(h => (
+                          {[480, 720, 1080].map(h => (
                             <option key={h} value={h}>{h}p</option>
                           ))}
                         </select>
@@ -2789,7 +2827,7 @@ export default function AdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Free download max</label>
                         <select
-                          value={cropToolSettings.freeDownloadMaxHeight ?? 720}
+                          value={cropToolSettings.freeDownloadMaxHeight == null ? 720 : [480, 720, 1080].includes(cropToolSettings.freeDownloadMaxHeight) ? cropToolSettings.freeDownloadMaxHeight : 480}
                           onChange={(e) => {
                             const v = Number(e.target.value)
                             setCropToolSettings(prev => ({ ...prev, freeDownloadMaxHeight: v }))
@@ -2797,7 +2835,7 @@ export default function AdminPage() {
                           }}
                           className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
                         >
-                          {[144, 240, 360, 480, 720, 1080].map(h => (
+                          {[480, 720, 1080].map(h => (
                             <option key={h} value={h}>{h}p</option>
                           ))}
                         </select>

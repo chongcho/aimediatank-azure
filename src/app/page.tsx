@@ -11,6 +11,7 @@ interface Media {
   title: string
   type: string
   url: string
+  streamUrl?: string  // Best stream <= Display streaming max (for pre-play quality)
   thumbnailUrl: string | null
   aiTool: string | null
   realDevice?: string | null
@@ -556,6 +557,11 @@ function HomeContent() {
         // the restore path sets contentReady after scroll position is restored).
         if (isReset && !isRestoringRef.current) {
           setContentReady(true)
+          // After a reset (e.g. refetch on return from sleep/tab), list may be shorter;
+          // scroll to top so user sees content instead of being parked at the bottom.
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: 0, behavior: 'instant' })
+          })
         }
       }
     }
