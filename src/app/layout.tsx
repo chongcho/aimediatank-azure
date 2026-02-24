@@ -5,7 +5,6 @@ import Providers from '@/components/Providers'
 import Navbar from '@/components/Navbar'
 import InstallPrompt from '@/components/InstallPrompt'
 import RouteChangeMediaStopper from '@/components/RouteChangeMediaStopper'
-import ScrollbarEdgeReveal from '@/components/ScrollbarEdgeReveal'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -109,7 +108,6 @@ export default function RootLayout({
         <div className="landscape-padding-left" aria-hidden="true" />
         <div className="landscape-padding-right" aria-hidden="true" />
         <Providers>
-          <ScrollbarEdgeReveal />
           <RouteChangeMediaStopper />
           <Navbar />
           <main className="pt-16 m-0 p-0">
