@@ -107,7 +107,7 @@ interface ChatMessage {
   }
 }
 
-type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool'
+type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool' | 'accessLogs'
 
 interface CropToolSettings {
   id?: string
@@ -320,6 +320,35 @@ export default function AdminPage() {
   const [mediaTypeFilter, setMediaTypeFilter] = useState('all')
   const [mediaStatusFilter, setMediaStatusFilter] = useState('all')
 
+  // Access logs (Site analytics)
+  const [accessLogs, setAccessLogs] = useState<Array<{
+    id: string
+    ipAddress: string | null
+    userAgent: string | null
+    browser: string | null
+    os: string | null
+    device: string | null
+    city: string | null
+    region: string | null
+    country: string | null
+    path: string
+    method: string
+    query: string | null
+    referrer: string | null
+    sessionId: string | null
+    userId: string | null
+    statusCode: number | null
+    createdAt: string
+  }>>([])
+  const [accessLogsPage, setAccessLogsPage] = useState(1)
+  const [accessLogsTotalPages, setAccessLogsTotalPages] = useState(1)
+  const [accessLogsTotal, setAccessLogsTotal] = useState(0)
+  const [accessLogsSummary, setAccessLogsSummary] = useState<{ uniqueIps: number; uniqueSessions: number } | null>(null)
+  const [accessLogsPathFilter, setAccessLogsPathFilter] = useState('')
+  const [accessLogsIpFilter, setAccessLogsIpFilter] = useState('')
+  const [accessLogsFrom, setAccessLogsFrom] = useState('')
+  const [accessLogsTo, setAccessLogsTo] = useState('')
+
   // File size backfill status (Media tab)
   const [fileSizeStatus, setFileSizeStatus] = useState<{ missing: number } | null>(null)
   const [fileSizeStatusLoading, setFileSizeStatusLoading] = useState(false)
@@ -501,7 +530,7 @@ export default function AdminPage() {
     if (session?.user?.role === 'ADMIN') {
       fetchData()
     }
-  }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter])
+  }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo])
 
   const fetchData = async () => {
     setLoading(true)
@@ -545,6 +574,18 @@ export default function AdminPage() {
         const res = await fetch('/api/admin?action=users&filter=members')
         const data = await res.json()
         setUsers(data.users || [])
+      } else if (activeTab === 'accessLogs') {
+        const params = new URLSearchParams({ action: 'accessLogs', page: String(accessLogsPage), limit: '50' })
+        if (accessLogsPathFilter) params.set('path', accessLogsPathFilter)
+        if (accessLogsIpFilter) params.set('ip', accessLogsIpFilter)
+        if (accessLogsFrom) params.set('from', accessLogsFrom)
+        if (accessLogsTo) params.set('to', accessLogsTo)
+        const res = await fetch(`/api/admin?${params}`)
+        const data = await res.json()
+        setAccessLogs(data.logs || [])
+        setAccessLogsTotal(data.pagination?.total ?? 0)
+        setAccessLogsTotalPages(data.pagination?.totalPages ?? 1)
+        setAccessLogsSummary(data.summary ?? null)
       } else if (activeTab === 'contentSales') {
         const res = await fetch('/api/admin?action=contentSales')
         const data = await res.json()
@@ -1117,6 +1158,7 @@ export default function AdminPage() {
           { id: 'membershipSales', label: 'Membership Sales Reports' },
           { id: 'contentSales', label: 'Contents Sales Reports' },
           { id: 'adSales', label: 'Ad Sales Reports' },
+          { id: 'accessLogs', label: 'Access Logs' },
         ] as { id: TabType; label: string }[]).map((tab) => (
           <button
             key={tab.id}
@@ -1128,6 +1170,7 @@ export default function AdminPage() {
                 setMediaTypeFilter('all')
                 setMediaStatusFilter('all')
               }
+              if (tab.id === 'accessLogs') setAccessLogsPage(1)
             }}
             className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
               activeTab === tab.id
@@ -1141,7 +1184,7 @@ export default function AdminPage() {
       </div>
 
       {/* Filter Bar - styled as menu bar */}
-      {(activeTab === 'media' || activeTab === 'users' || activeTab === 'chat') && (
+      {(activeTab === 'media' || activeTab === 'users' || activeTab === 'chat' || activeTab === 'accessLogs') && (
         <div className="bg-tank-gray/50 rounded-xl p-3 mb-4 border border-tank-light/30">
           <div className="flex gap-3 flex-wrap items-center">
             <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">Filters:</span>
@@ -1253,6 +1296,43 @@ export default function AdminPage() {
                 <span className="text-sm text-gray-400 ml-auto">Total: {chatMessages.length} messages</span>
               </>
             )}
+
+            {activeTab === 'accessLogs' && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Path contains..."
+                  value={accessLogsPathFilter}
+                  onChange={(e) => { setAccessLogsPathFilter(e.target.value); setAccessLogsPage(1) }}
+                  className="input flex-1 min-w-[140px] h-9 text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="IP contains..."
+                  value={accessLogsIpFilter}
+                  onChange={(e) => { setAccessLogsIpFilter(e.target.value); setAccessLogsPage(1) }}
+                  className="input w-36 h-9 text-sm"
+                />
+                <input
+                  type="date"
+                  value={accessLogsFrom}
+                  onChange={(e) => { setAccessLogsFrom(e.target.value); setAccessLogsPage(1) }}
+                  className="input w-40 h-9 text-sm"
+                  title="From date"
+                />
+                <input
+                  type="date"
+                  value={accessLogsTo}
+                  onChange={(e) => { setAccessLogsTo(e.target.value); setAccessLogsPage(1) }}
+                  className="input w-40 h-9 text-sm"
+                  title="To date"
+                />
+                <span className="text-sm text-gray-400 ml-auto">
+                  {accessLogsTotal} hits
+                  {accessLogsSummary != null && ` · ${accessLogsSummary.uniqueIps} IPs · ${accessLogsSummary.uniqueSessions} sessions`}
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1263,6 +1343,78 @@ export default function AdminPage() {
         </div>
       ) : (
         <>
+          {/* Access Logs */}
+          {activeTab === 'accessLogs' && (
+            <div className="card overflow-hidden">
+              <h2 className="text-xl font-bold text-white mb-4">Access Logs (site analytics, support, security)</h2>
+              <p className="text-gray-400 text-sm mb-4">
+                IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-tank-light/30">
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Time</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">IP</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Browser / OS / Device</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Location</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Path</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Method</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Referrer</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Session</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accessLogs.length === 0 && !loading && (
+                      <tr><td colSpan={8} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
+                    )}
+                    {accessLogs.map((log) => (
+                      <tr key={log.id} className="border-b border-tank-light/10 hover:bg-tank-light/5">
+                        <td className="p-3 text-gray-300 whitespace-nowrap" title={log.createdAt}>
+                          {new Date(log.createdAt).toLocaleString()}
+                        </td>
+                        <td className="p-3 text-gray-300 font-mono text-xs">{log.ipAddress ?? '-'}</td>
+                        <td className="p-3 text-gray-300">
+                          <span className="text-tank-accent">{log.browser ?? '-'}</span>
+                          {log.os && ` / ${log.os}`}
+                          {log.device && ` / ${log.device}`}
+                        </td>
+                        <td className="p-3 text-gray-300">
+                          {[log.city, log.region, log.country].filter(Boolean).join(', ') || '-'}
+                        </td>
+                        <td className="p-3 text-gray-300 max-w-[200px] truncate" title={log.path}>{log.path}</td>
+                        <td className="p-3 text-gray-400">{log.method}</td>
+                        <td className="p-3 text-gray-400 max-w-[150px] truncate" title={log.referrer ?? ''}>{log.referrer || '-'}</td>
+                        <td className="p-3 text-gray-500 font-mono text-xs">{log.sessionId ? log.sessionId.slice(0, 8) + '…' : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {accessLogsTotalPages > 1 && (
+                <div className="flex items-center justify-between p-3 border-t border-tank-light/20">
+                  <span className="text-gray-500 text-sm">Page {accessLogsPage} of {accessLogsTotalPages}</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setAccessLogsPage((p) => Math.max(1, p - 1))}
+                      disabled={accessLogsPage <= 1}
+                      className="px-3 py-1 rounded bg-tank-light/20 hover:bg-tank-light/30 disabled:opacity-50 text-sm"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setAccessLogsPage((p) => Math.min(accessLogsTotalPages, p + 1))}
+                      disabled={accessLogsPage >= accessLogsTotalPages}
+                      className="px-3 py-1 rounded bg-tank-light/20 hover:bg-tank-light/30 disabled:opacity-50 text-sm"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Dashboard */}
           {activeTab === 'dashboard' && stats && (
             <div className="space-y-8">

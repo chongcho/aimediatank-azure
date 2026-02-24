@@ -313,6 +313,45 @@ export async function GET(request: Request) {
       return NextResponse.json({ actions })
     }
 
+    if (action === 'accessLogs') {
+      const page = parseInt(searchParams.get('page') || '1')
+      const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 200)
+      const pathFilter = searchParams.get('path') || ''
+      const ipFilter = searchParams.get('ip') || ''
+      const fromStr = searchParams.get('from') // ISO date
+      const toStr = searchParams.get('to') // ISO date
+
+      const where: any = {}
+      if (pathFilter) where.path = { contains: pathFilter, mode: 'insensitive' }
+      if (ipFilter) where.ipAddress = { contains: ipFilter, mode: 'insensitive' }
+      if (fromStr) where.createdAt = { ...(where.createdAt as object), gte: new Date(fromStr) }
+      if (toStr) where.createdAt = { ...(where.createdAt as object), lte: new Date(toStr) }
+
+      const [logs, total, uniqueIps, uniqueSessions] = await Promise.all([
+        prisma.siteAccessLog.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.siteAccessLog.count({ where }),
+        prisma.siteAccessLog.groupBy({
+          by: ['ipAddress'],
+          where: { ...where, ipAddress: { not: null } },
+        }).then((r) => r.length),
+        prisma.siteAccessLog.groupBy({
+          by: ['sessionId'],
+          where: { ...where, sessionId: { not: null } },
+        }).then((r) => r.length),
+      ])
+
+      return NextResponse.json({
+        logs,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        summary: { uniqueIps, uniqueSessions },
+      })
+    }
+
     if (action === 'contentSales') {
       // Get content/media sales (completed purchases)
       const sales = await prisma.purchase.findMany({

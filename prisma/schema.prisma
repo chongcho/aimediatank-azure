@@ -237,6 +237,33 @@ model Report {
   @@index([mediaId])
 }
 
+// Site access logs for analytics, support, and security (IP, UA, location, pages, session)
+model SiteAccessLog {
+  id          String   @id @default(uuid())
+  ipAddress   String?
+  userAgent   String?  @db.Text
+  browser     String?
+  os          String?
+  device      String?
+  city        String?
+  region      String?
+  country     String?
+  path        String   @db.Text
+  method      String   @default("GET")
+  query       String?  @db.Text
+  referrer    String?  @db.Text
+  sessionId   String?
+  userId      String?
+  statusCode  Int?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([path])
+  @@index([ipAddress])
+}
+
 // Track all admin actions for audit
 model AdminAction {
   id            String    @id @default(uuid())
