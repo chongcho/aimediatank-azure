@@ -1304,30 +1304,30 @@ export default function AdminPage() {
                   placeholder="Path contains..."
                   value={accessLogsPathFilter}
                   onChange={(e) => { setAccessLogsPathFilter(e.target.value); setAccessLogsPage(1) }}
-                  className="input flex-1 min-w-[140px] h-9 text-sm"
+                  className="input flex-1 min-w-[120px] max-w-[200px] h-9 text-sm"
                 />
                 <input
                   type="text"
                   placeholder="IP contains..."
                   value={accessLogsIpFilter}
                   onChange={(e) => { setAccessLogsIpFilter(e.target.value); setAccessLogsPage(1) }}
-                  className="input w-36 h-9 text-sm"
+                  className="input w-28 h-9 text-sm shrink-0"
                 />
                 <input
                   type="date"
                   value={accessLogsFrom}
                   onChange={(e) => { setAccessLogsFrom(e.target.value); setAccessLogsPage(1) }}
-                  className="input w-40 h-9 text-sm"
+                  className="input w-32 h-9 text-sm shrink-0"
                   title="From date"
                 />
                 <input
                   type="date"
                   value={accessLogsTo}
                   onChange={(e) => { setAccessLogsTo(e.target.value); setAccessLogsPage(1) }}
-                  className="input w-40 h-9 text-sm"
+                  className="input w-32 h-9 text-sm shrink-0"
                   title="To date"
                 />
-                <span className="text-sm text-gray-400 ml-auto">
+                <span className="text-sm text-gray-400 whitespace-nowrap shrink-0 ml-auto">
                   {accessLogsTotal} hits
                   {accessLogsSummary != null && ` · ${accessLogsSummary.uniqueIps} IPs · ${accessLogsSummary.uniqueSessions} sessions`}
                 </span>
