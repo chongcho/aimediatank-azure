@@ -280,12 +280,22 @@ input[type="email"],
 input[type="password"],
 input[type="tel"],
 input[type="number"],
+input[type="date"],
 textarea,
 select {
   @apply w-full px-2 py-1.5 bg-tank-dark border border-tank-light rounded-xl 
          text-white placeholder-gray-500
          focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent/50
          transition-all duration-200;
+}
+
+/* Date input value visibility (browser often uses separate inner elements) */
+input[type="date"]::-webkit-datetime-edit,
+input[type="date"]::-webkit-datetime-edit-text,
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field {
+  color: inherit;
 }
 
 /* Number input spinner spacing - add gap between number and arrows */
