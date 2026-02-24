@@ -658,7 +658,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               </button>
 
               {/* Download & Share row */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {/* Download Button — shown for free content (any logged-in user) and owners, when enabled */}
                 {mediaDetailDownloadEnabled && (isOwner || !media.price || media.price === 0) && (
                   <button
