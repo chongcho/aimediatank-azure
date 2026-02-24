@@ -167,8 +167,26 @@ export async function GET(
       downloadBlobUrl = useHq ? (media as any).urlHq : media.url
     }
 
-    // Build a friendly file name from the title
-    const ext = downloadBlobUrl.split('.').pop()?.split('?')[0] || 'mp4'
+    // Prefer MP4 over WebM for VIDEO when we have an MP4 source (better compatibility)
+    if (media.type === 'VIDEO') {
+      const isWebm = downloadBlobUrl.toLowerCase().includes('.webm')
+      if (isWebm) {
+        const urlHq = (media as any).urlHq as string | undefined
+        const mp4Version = versions.find((v: any) => v?.url && String(v.url).toLowerCase().includes('.mp4'))
+        if (urlHq && urlHq.toLowerCase().includes('.mp4')) {
+          downloadBlobUrl = urlHq
+        } else if (mp4Version?.url) {
+          downloadBlobUrl = mp4Version.url
+        }
+      }
+    }
+
+    // Build a friendly file name from the title; use .mp4 for VIDEO when we're serving an MP4
+    const rawExt = downloadBlobUrl.split('.').pop()?.split('?')[0]?.toLowerCase() || ''
+    const ext =
+      media.type === 'VIDEO' && (rawExt === 'mp4' || downloadBlobUrl.toLowerCase().includes('.mp4'))
+        ? 'mp4'
+        : rawExt || 'mp4'
     const safeTitle = (media.title || 'download')
       .replace(/[^a-zA-Z0-9 _-]/g, '')
       .trim()
