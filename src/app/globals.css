@@ -142,7 +142,7 @@ body {
   color: #0a0a0b;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - thumb turns green (active) when mouse is in right-edge area */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -159,6 +159,23 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #00ff88;
+}
+
+/* Active state: green thumb when pointer is in the right-edge area (any vertical position) */
+html.scrollbar-active::-webkit-scrollbar-thumb,
+body.scrollbar-active::-webkit-scrollbar-thumb {
+  background: #00ff88;
+}
+
+html.scrollbar-active::-webkit-scrollbar-thumb:hover,
+body.scrollbar-active::-webkit-scrollbar-thumb:hover {
+  background: #00ff88;
+}
+
+/* Firefox */
+html.scrollbar-active,
+body.scrollbar-active {
+  scrollbar-color: #00ff88 #111113;
 }
 
 /* Grid pattern */
