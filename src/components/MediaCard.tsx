@@ -90,6 +90,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [isMobile, setIsMobile] = useState(false)
   const preplayViewCountedRef = useRef(false)
   const preplayPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const preplayViewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setIsMobile(typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
@@ -100,6 +101,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       if (preplayPollIntervalRef.current) {
         clearInterval(preplayPollIntervalRef.current)
         preplayPollIntervalRef.current = null
+      }
+      if (preplayViewTimerRef.current) {
+        clearTimeout(preplayViewTimerRef.current)
+        preplayViewTimerRef.current = null
       }
     }
   }, [])
@@ -312,6 +317,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       clearInterval(preplayPollIntervalRef.current)
       preplayPollIntervalRef.current = null
     }
+    if (preplayViewTimerRef.current) {
+      clearTimeout(preplayViewTimerRef.current)
+      preplayViewTimerRef.current = null
+    }
     fetch(`/api/media/${media.id}/view`, { method: 'POST', credentials: 'same-origin' }).catch(() => {})
   }, [media.id])
 
@@ -330,6 +339,29 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       preplayPollIntervalRef.current = null
     }
   }, [])
+
+  // Count a view when preplay card is in view for 10+ seconds (works even if video doesn't autoplay)
+  useEffect(() => {
+    if (!isPreplayVideo) return
+    if (isInView) {
+      if (preplayViewTimerRef.current) return
+      preplayViewTimerRef.current = setTimeout(() => {
+        preplayViewTimerRef.current = null
+        recordPreplayView()
+      }, 10000)
+    } else {
+      if (preplayViewTimerRef.current) {
+        clearTimeout(preplayViewTimerRef.current)
+        preplayViewTimerRef.current = null
+      }
+    }
+    return () => {
+      if (preplayViewTimerRef.current) {
+        clearTimeout(preplayViewTimerRef.current)
+        preplayViewTimerRef.current = null
+      }
+    }
+  }, [isInView, isPreplayVideo, recordPreplayView])
 
   const handlePreplayPointerEnter = () => {
     if (!isPreplayVideo) return
