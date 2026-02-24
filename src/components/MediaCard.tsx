@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
 
 interface MediaCardProps {
@@ -88,6 +88,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const preplayViewCountedRef = useRef(false)
 
   useEffect(() => {
     setIsMobile(typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
@@ -293,6 +294,13 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
 
   const isPreplayVideo = preplay && media.type === 'VIDEO' && (!media.processingStatus || media.processingStatus === 'completed')
+
+  const recordPreplayView = useCallback(() => {
+    if (preplayViewCountedRef.current) return
+    preplayViewCountedRef.current = true
+    fetch(`/api/media/${media.id}/view`, { method: 'POST' }).catch(() => {})
+  }, [media.id])
+
   const handlePreplayPointerEnter = () => {
     if (!isPreplayVideo) return
     // On mobile, preplay is driven only by isInView; ignore pointer enter/leave so long touch doesn't stop it.
@@ -385,6 +393,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   playsInline
                   preload="metadata"
                   loop
+                  onTimeUpdate={(e) => {
+                    if (e.currentTarget.currentTime >= 10) recordPreplayView()
+                  }}
+                  onEnded={recordPreplayView}
                 />
               )}
               {/* When Preplay is OFF, still preload metadata so media detail page loads faster when user clicks */}
@@ -416,6 +428,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   video.currentTime = 1
                 }
               }}
+              onTimeUpdate={preplay ? (e) => { if (e.currentTarget.currentTime >= 10) recordPreplayView() } : undefined}
+              onEnded={preplay ? recordPreplayView : undefined}
               onError={() => setThumbnailError(true)}
             />
           ) : media.type === 'VIDEO' ? (
