@@ -89,9 +89,19 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [isInView, setIsInView] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const preplayViewCountedRef = useRef(false)
+  const preplayPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     setIsMobile(typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (preplayPollIntervalRef.current) {
+        clearInterval(preplayPollIntervalRef.current)
+        preplayPollIntervalRef.current = null
+      }
+    }
   }, [])
 
   // Only mount video elements when card is in or near viewport to avoid 200+ videos in DOM (performance).
@@ -296,10 +306,30 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const isPreplayVideo = preplay && media.type === 'VIDEO' && (!media.processingStatus || media.processingStatus === 'completed')
 
   const recordPreplayView = useCallback(() => {
-    if (preplayViewCountedRef.current) return
+    if (preplayViewCountedRef.current || !media.id) return
     preplayViewCountedRef.current = true
-    fetch(`/api/media/${media.id}/view`, { method: 'POST' }).catch(() => {})
+    if (preplayPollIntervalRef.current) {
+      clearInterval(preplayPollIntervalRef.current)
+      preplayPollIntervalRef.current = null
+    }
+    fetch(`/api/media/${media.id}/view`, { method: 'POST', credentials: 'same-origin' }).catch(() => {})
   }, [media.id])
+
+  const startPreplayViewPolling = useCallback((video: HTMLVideoElement) => {
+    if (preplayPollIntervalRef.current) return
+    preplayPollIntervalRef.current = setInterval(() => {
+      if (video.currentTime >= 10) {
+        recordPreplayView()
+      }
+    }, 1000)
+  }, [recordPreplayView])
+
+  const stopPreplayViewPolling = useCallback(() => {
+    if (preplayPollIntervalRef.current) {
+      clearInterval(preplayPollIntervalRef.current)
+      preplayPollIntervalRef.current = null
+    }
+  }, [])
 
   const handlePreplayPointerEnter = () => {
     if (!isPreplayVideo) return
@@ -393,10 +423,15 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   playsInline
                   preload="metadata"
                   loop
+                  onPlaying={(e) => startPreplayViewPolling(e.currentTarget)}
+                  onPause={stopPreplayViewPolling}
                   onTimeUpdate={(e) => {
                     if (e.currentTarget.currentTime >= 10) recordPreplayView()
                   }}
-                  onEnded={recordPreplayView}
+                  onEnded={() => {
+                    recordPreplayView()
+                    stopPreplayViewPolling()
+                  }}
                 />
               )}
               {/* When Preplay is OFF, still preload metadata so media detail page loads faster when user clicks */}
@@ -428,8 +463,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   video.currentTime = 1
                 }
               }}
+              onPlaying={preplay ? (e) => startPreplayViewPolling(e.currentTarget) : undefined}
+              onPause={preplay ? stopPreplayViewPolling : undefined}
               onTimeUpdate={preplay ? (e) => { if (e.currentTarget.currentTime >= 10) recordPreplayView() } : undefined}
-              onEnded={preplay ? recordPreplayView : undefined}
+              onEnded={preplay ? () => { recordPreplayView(); stopPreplayViewPolling() } : undefined}
               onError={() => setThumbnailError(true)}
             />
           ) : media.type === 'VIDEO' ? (
