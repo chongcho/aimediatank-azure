@@ -393,7 +393,11 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   playsInline
                   preload="metadata"
                   loop
-                  onEnded={recordPreplayView}
+                  onTimeUpdate={(e) => {
+                    // loop prevents "ended" from firing; detect one cycle when currentTime nears duration
+                    const v = e.currentTarget
+                    if (v.duration > 0 && v.currentTime >= v.duration - 0.25) recordPreplayView()
+                  }}
                 />
               )}
               {/* When Preplay is OFF, still preload metadata so media detail page loads faster when user clicks */}
