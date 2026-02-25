@@ -474,6 +474,7 @@ input[type="number"]::-webkit-outer-spin-button {
   grid-template-columns: repeat(var(--media-grid-cols, 1), 1fr);
   gap: 1.25rem;
   columns: unset;
+  align-items: center; /* shorter items vertically centered in the row (middle of tallest) */
 }
 .media-grid--grid > * {
   margin-bottom: 0;
