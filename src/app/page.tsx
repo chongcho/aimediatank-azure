@@ -753,7 +753,7 @@ function HomeContent() {
       <div ref={gridSectionRef} className="w-full">
       {loading ? (
         <div
-          className={`media-grid min-h-screen${homeLayout === 'grid' ? ` media-grid--grid media-grid--cols-${columns}` : ''}`}
+          className={`media-grid min-h-screen${homeLayout === 'grid' ? ' media-grid--grid' : ''}`}
           style={homeLayout === 'grid' ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
         >
           {[...Array(12)].map((_, i) => {
@@ -785,7 +785,7 @@ function HomeContent() {
             {/* When restoringScroll, grid is invisible (DOM targets exist for scroll) but show skeleton overlay so user sees loading state */}
             {restoringScroll && (
               <div
-                className={`absolute inset-0 z-10 media-grid min-h-screen pointer-events-none${homeLayout === 'grid' ? ` media-grid--grid media-grid--cols-${columns}` : ''}`}
+                className={`absolute inset-0 z-10 media-grid min-h-screen pointer-events-none${homeLayout === 'grid' ? ' media-grid--grid' : ''}`}
                 style={homeLayout === 'grid' ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
               >
                 {[...Array(12)].map((_, i) => {
@@ -804,7 +804,7 @@ function HomeContent() {
               </div>
             )}
             <div
-              className={`media-grid${restoringScroll ? ' invisible' : ''}${homeLayout === 'grid' ? ` media-grid--grid media-grid--cols-${columns}` : ''}`}
+              className={`media-grid${restoringScroll ? ' invisible' : ''}${homeLayout === 'grid' ? ' media-grid--grid' : ''}`}
               style={homeLayout === 'grid' ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
             >
               {mediaForGrid.map((item) => (
