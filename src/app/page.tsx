@@ -96,14 +96,17 @@ function HomeContent() {
   // Column count for masonry: use grid container width so reorder matches visible layout (same breakpoints as globals.css)
   const [columns, setColumns] = useState(1)
   const gridSectionRef = useRef<HTMLDivElement>(null)
-  const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid'>('masonry')
+  const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid_top' | 'grid_center'>('masonry')
   const [homePreplay, setHomePreplay] = useState(true)
 
   useEffect(() => {
     fetch('/api/ui/home-layout', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
-        setHomeLayout(data.layout === 'grid' ? 'grid' : 'masonry')
+        const layout = data.layout
+        setHomeLayout(
+          layout === 'grid_top' || layout === 'grid_center' ? layout : layout === 'grid' ? 'grid_center' : 'masonry'
+        )
         setHomePreplay(data.preplay !== false)
       })
       .catch(() => {})
@@ -136,8 +139,9 @@ function HomeContent() {
   }, [])
 
   // Masonry: column-major order so CSS columns show top row as 1st, 2nd, 3rd... Grid: row-major (no reorder).
+  const isGridLayout = homeLayout === 'grid_top' || homeLayout === 'grid_center'
   const mediaForGrid = useMemo(() => {
-    if (homeLayout === 'grid') return media
+    if (isGridLayout) return media
     if (media.length <= 1 || columns <= 1) return media
     const n = columns
     const numRows = Math.ceil(media.length / n)
@@ -149,7 +153,7 @@ function HomeContent() {
       }
     }
     return out
-  }, [media, columns, homeLayout])
+  }, [media, columns, isGridLayout])
 
   // When user clicks Home/All while already on homepage, reset feed and refetch page 1 (so "Most Recent" is the true first page)
   useEffect(() => {
@@ -753,8 +757,8 @@ function HomeContent() {
       <div ref={gridSectionRef} className="w-full">
       {loading ? (
         <div
-          className={`media-grid min-h-screen${homeLayout === 'grid' ? ' media-grid--grid' : ''}`}
-          style={homeLayout === 'grid' ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
+          className={`media-grid min-h-screen${isGridLayout ? ` media-grid--grid${homeLayout === 'grid_center' ? ' media-grid--grid--center' : ''}` : ''}`}
+          style={isGridLayout ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
         >
           {[...Array(12)].map((_, i) => {
             // Varied skeleton heights to preview the masonry layout
@@ -785,8 +789,8 @@ function HomeContent() {
             {/* When restoringScroll, grid is invisible (DOM targets exist for scroll) but show skeleton overlay so user sees loading state */}
             {restoringScroll && (
               <div
-                className={`absolute inset-0 z-10 media-grid min-h-screen pointer-events-none${homeLayout === 'grid' ? ' media-grid--grid' : ''}`}
-                style={homeLayout === 'grid' ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
+                className={`absolute inset-0 z-10 media-grid min-h-screen pointer-events-none${isGridLayout ? ` media-grid--grid${homeLayout === 'grid_center' ? ' media-grid--grid--center' : ''}` : ''}`}
+                style={isGridLayout ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
               >
                 {[...Array(12)].map((_, i) => {
                   const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
@@ -804,8 +808,8 @@ function HomeContent() {
               </div>
             )}
             <div
-              className={`media-grid${restoringScroll ? ' invisible' : ''}${homeLayout === 'grid' ? ' media-grid--grid' : ''}`}
-              style={homeLayout === 'grid' ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
+              className={`media-grid${restoringScroll ? ' invisible' : ''}${isGridLayout ? ` media-grid--grid${homeLayout === 'grid_center' ? ' media-grid--grid--center' : ''}` : ''}`}
+              style={isGridLayout ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
             >
               {mediaForGrid.map((item) => (
                 <MediaCard

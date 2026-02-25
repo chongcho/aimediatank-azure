@@ -6,6 +6,11 @@ import { useEffect } from 'react'
 const RIGHT_EDGE_PX = 48
 const CLASS_NAME = 'scrollbar-active'
 
+function clearActive(html: HTMLElement, body: HTMLElement) {
+  html.classList.remove(CLASS_NAME)
+  body.classList.remove(CLASS_NAME)
+}
+
 export default function ScrollbarEdgeReveal() {
   useEffect(() => {
     const html = document.documentElement
@@ -17,16 +22,23 @@ export default function ScrollbarEdgeReveal() {
         html.classList.add(CLASS_NAME)
         body.classList.add(CLASS_NAME)
       } else {
-        html.classList.remove(CLASS_NAME)
-        body.classList.remove(CLASS_NAME)
+        clearActive(html, body)
       }
     }
 
+    /** Deactivate when pointer leaves the document (e.g. moved to another monitor). */
+    const handleLeave = () => clearActive(html, body)
+    /** Deactivate when window loses focus (e.g. user clicked on another monitor). */
+    const handleBlur = () => clearActive(html, body)
+
     window.addEventListener('mousemove', handleMove, { passive: true })
+    document.documentElement.addEventListener('mouseleave', handleLeave)
+    window.addEventListener('blur', handleBlur)
     return () => {
       window.removeEventListener('mousemove', handleMove)
-      html.classList.remove(CLASS_NAME)
-      body.classList.remove(CLASS_NAME)
+      document.documentElement.removeEventListener('mouseleave', handleLeave)
+      window.removeEventListener('blur', handleBlur)
+      clearActive(html, body)
     }
   }, [])
 

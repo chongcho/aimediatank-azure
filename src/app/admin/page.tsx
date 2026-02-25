@@ -209,7 +209,7 @@ export default function AdminPage() {
   const [gamesLoading, setGamesLoading] = useState(false)
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
   const [navbarLoading, setNavbarLoading] = useState(false)
-  const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid'>('masonry')
+  const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid_top' | 'grid_center'>('masonry')
   const [homePreplay, setHomePreplay] = useState(true)
   const [homeEcardEnabled, setHomeEcardEnabled] = useState(true)
   const [homeLayoutLoading, setHomeLayoutLoading] = useState(false)
@@ -611,7 +611,10 @@ export default function AdminPage() {
         try {
           const res = await fetch('/api/admin?action=homeLayoutSettings')
           const data = await res.json()
-          setHomeLayout(data.layout === 'grid' ? 'grid' : 'masonry')
+          const layout = data.layout
+          setHomeLayout(
+            layout === 'grid_top' || layout === 'grid_center' ? layout : layout === 'grid' ? 'grid_center' : 'masonry'
+          )
           setHomePreplay(data.preplay !== false)
           setHomeEcardEnabled(data.ecardEnabled !== false)
         } finally {
@@ -2476,12 +2479,13 @@ export default function AdminPage() {
                     <label className="text-white font-medium">Layout:</label>
                     <select
                       value={homeLayout}
-                      onChange={(e) => setHomeLayout(e.target.value as 'masonry' | 'grid')}
+                      onChange={(e) => setHomeLayout(e.target.value as 'masonry' | 'grid_top' | 'grid_center')}
                       disabled={homeLayoutSaving}
                       className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
                     >
                       <option value="masonry">Masonry</option>
-                      <option value="grid">Fixed grid</option>
+                      <option value="grid_top">Fixed grid top</option>
+                      <option value="grid_center">Fixed grid center</option>
                     </select>
                   </div>
                   <div className="flex flex-wrap items-center gap-4">

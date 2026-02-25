@@ -595,14 +595,18 @@ export async function GET(request: Request) {
       }
     }
 
-    // Get home feed layout setting (masonry vs grid, preplay on/off)
+    // Get home feed layout setting (masonry | grid_top | grid_center, preplay on/off)
     if (action === 'homeLayoutSettings') {
       try {
         let row = await prisma.homeLayoutSetting.findFirst()
         if (!row) {
           row = await prisma.homeLayoutSetting.create({ data: { layout: 'masonry' } })
         }
-        const layout = row.layout === 'grid' ? 'grid' : 'masonry'
+        const layout = ['masonry', 'grid_top', 'grid_center'].includes(row.layout)
+          ? row.layout
+          : row.layout === 'grid'
+            ? 'grid_center'
+            : 'masonry'
         const preplay = row.preplay
         const ecardEnabled = row.ecardEnabled ?? true
         return NextResponse.json({ layout, preplay, ecardEnabled })
@@ -1814,8 +1818,10 @@ export async function POST(request: Request) {
 
       case 'setHomeLayout': {
         const { layout, preplay, ecardEnabled: ecardEnabledPayload } = data || {}
-        if (!layout || (layout !== 'masonry' && layout !== 'grid')) {
-          return NextResponse.json({ error: 'layout must be "masonry" or "grid"' }, { status: 400 })
+        const validLayouts = ['masonry', 'grid_top', 'grid_center']
+        const layoutVal = layout === 'grid' ? 'grid_center' : layout
+        if (!layoutVal || !validLayouts.includes(layoutVal)) {
+          return NextResponse.json({ error: 'layout must be "masonry", "grid_top", or "grid_center"' }, { status: 400 })
         }
         const preplayBool = typeof preplay === 'boolean' ? preplay : undefined
         const ecardBool = typeof ecardEnabledPayload === 'boolean' ? ecardEnabledPayload : undefined
@@ -1823,7 +1829,7 @@ export async function POST(request: Request) {
         if (!row) {
           row = await prisma.homeLayoutSetting.create({
             data: {
-              layout,
+              layout: layoutVal,
               ...(preplayBool !== undefined && { preplay: preplayBool }),
               ...(ecardBool !== undefined && { ecardEnabled: ecardBool }),
             },
@@ -1832,20 +1838,20 @@ export async function POST(request: Request) {
           row = await prisma.homeLayoutSetting.update({
             where: { id: row.id },
             data: {
-              layout,
+              layout: layoutVal,
               ...(preplayBool !== undefined && { preplay: preplayBool }),
               ...(ecardBool !== undefined && { ecardEnabled: ecardBool }),
             },
           })
         }
         await logAdminAction(adminId, 'SET_HOME_LAYOUT', 'HOME_LAYOUT', row.id, {
-          layout,
+          layout: layoutVal,
           preplay: row.preplay,
           ecardEnabled: row.ecardEnabled,
         })
         return NextResponse.json({
           message: 'Home layout updated',
-          layout: row.layout,
+          layout: row.layout as string,
           preplay: row.preplay,
           ecardEnabled: row.ecardEnabled,
         })
