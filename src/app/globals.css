@@ -478,3 +478,11 @@ input[type="number"]::-webkit-outer-spin-button {
 .media-grid--grid > * {
   margin-bottom: 0;
 }
+
+/* Smaller-size appearance in middle columns (fixed layout): constrain width and center */
+.media-grid--cols-1 > * { max-width: 85%; justify-self: center; }
+.media-grid--cols-2 > *:nth-child(2n) { max-width: 85%; justify-self: center; }
+.media-grid--cols-3 > *:nth-child(3n + 2) { max-width: 85%; justify-self: center; }
+.media-grid--cols-4 > *:nth-child(4n + 2),
+.media-grid--cols-4 > *:nth-child(4n + 3) { max-width: 85%; justify-self: center; }
+.media-grid--cols-5 > *:nth-child(5n + 3) { max-width: 85%; justify-self: center; }
