@@ -1766,7 +1766,7 @@ export default function AdminPage() {
                   </details>
                 </div>
               )}
-              <div className="card overflow-x-auto max-h-[70vh] overflow-y-auto">
+              <div className="card overflow-x-auto">
                 <table className="w-full text-sm min-w-[1600px]">
                   <thead className="sticky top-0 bg-tank-dark z-10">
                     <tr className="border-b border-tank-light">
