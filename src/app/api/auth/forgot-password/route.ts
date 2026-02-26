@@ -39,8 +39,7 @@ export async function POST(request: Request) {
     // Generate and store 6-digit code
     const code = generateCode()
     await storeCode(normalizedEmail, code, 15) // 15 minutes expiry for password reset
-    
-    console.log('Generated reset code for:', normalizedEmail, 'Code:', code)
+    // Do not log the code — it would expose password reset tokens in server logs
 
     // Send email with code
     const emailHtml = `

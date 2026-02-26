@@ -368,6 +368,16 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: rgb(42 42 50) !important;
   box-shadow: none !important;
 }
+/* Media cards: no green shadow or background on active/focus (avoids green "mask" on long touch) */
+.no-touch-callout:active .media-card-inner,
+.no-touch-callout:focus .media-card-inner {
+  box-shadow: none !important;
+  border-color: rgb(42 42 50) !important;
+}
+.no-touch-callout:active .media-card-inner *,
+.no-touch-callout:focus .media-card-inner * {
+  box-shadow: none !important;
+}
 
 /* Card styles */
 .card {

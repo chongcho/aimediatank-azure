@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import SignInModal from './SignInModal'
 import MediaMessageModal from './MediaMessageModal'
@@ -47,8 +47,10 @@ export default function Navbar() {
 
   const profileRef = useRef<HTMLDivElement>(null)
   const alertsRef = useRef<HTMLDivElement>(null)
+  const alertsDropdownRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
+  const [alertsDropdownStyle, setAlertsDropdownStyle] = useState<React.CSSProperties>({})
 
   const fetchNavbarMenuSettings = useCallback(async () => {
     try {
@@ -112,6 +114,33 @@ export default function Navbar() {
   
   // Display name - show User ID (username) in navbar
   const displayName = userData?.username || session?.user?.username || 'User'
+
+  // Keep notification dropdown within viewport (fix overflow on small screens / mobile)
+  useLayoutEffect(() => {
+    if (!isAlertsOpen || !alertsRef.current) {
+      setAlertsDropdownStyle({})
+      return
+    }
+    const rect = alertsRef.current.getBoundingClientRect()
+    const dropdownWidth = 320
+    const gap = 8
+    const padding = 8
+    let left = rect.right - dropdownWidth
+    const top = rect.bottom + gap
+    if (left < padding) {
+      left = padding
+    }
+    const maxLeft = typeof window !== 'undefined' ? window.innerWidth - dropdownWidth - padding : 0
+    const clampedLeft = Math.min(Math.max(left, padding), maxLeft)
+    const safeTop = Math.max(padding, top)
+    setAlertsDropdownStyle({
+      position: 'fixed',
+      top: safeTop,
+      left: clampedLeft,
+      width: Math.min(dropdownWidth, (typeof window !== 'undefined' ? window.innerWidth : 400) - padding * 2),
+      zIndex: 50,
+    })
+  }, [isAlertsOpen])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -405,9 +434,13 @@ export default function Navbar() {
                     )}
                   </div>
                 </button>
-                {/* Notifications Dropdown */}
+                {/* Notifications Dropdown - positioned in viewport via alertsDropdownStyle */}
                 {isAlertsOpen && (
-                  <div className="absolute right-0 mt-2 w-80 bg-tank-gray border border-tank-light rounded-lg shadow-xl overflow-hidden z-50">
+                  <div
+                    ref={alertsDropdownRef}
+                    style={alertsDropdownStyle}
+                    className="bg-tank-gray border border-tank-light rounded-lg shadow-xl overflow-hidden"
+                  >
                     <div className="px-3 py-2 border-b border-tank-light flex items-center justify-between bg-tank-dark">
                       <h3 className="font-semibold text-sm">Notifications</h3>
                       {unreadCount > 0 && (

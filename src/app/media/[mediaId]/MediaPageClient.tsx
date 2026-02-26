@@ -494,13 +494,15 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
             )}
           </div>
         ) : (
-          <MediaPlayer
-            type={media.type}
-            url={(media as any).streamUrl ?? media.url}
-            title={media.title}
-            thumbnailUrl={media.thumbnailUrl}
-            autoUnmuteOnMount
-          />
+          <div className="no-touch-callout" onContextMenu={(e) => e.preventDefault()}>
+            <MediaPlayer
+              type={media.type}
+              url={(media as any).streamUrl ?? media.url}
+              title={media.title}
+              thumbnailUrl={media.thumbnailUrl}
+              autoUnmuteOnMount
+            />
+          </div>
         )}
       </div>
 
