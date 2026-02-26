@@ -475,6 +475,15 @@ export default function AdminPage() {
   
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  // Admin re-authentication (password + 2FA) — required before accessing panel
+  const [reauthVerified, setReauthVerified] = useState<boolean | null>(null)
+  const [reauthPassword, setReauthPassword] = useState('')
+  const [reauthChannel, setReauthChannel] = useState<'email' | 'phone'>('email')
+  const [reauthCode, setReauthCode] = useState('')
+  const [reauthSendLoading, setReauthSendLoading] = useState(false)
+  const [reauthVerifyLoading, setReauthVerifyLoading] = useState(false)
+  const [reauthError, setReauthError] = useState('')
   
   // Auto-hide toast after 3 seconds
   useEffect(() => {
@@ -491,6 +500,21 @@ export default function AdminPage() {
       router.push('/')
     }
   }, [status, session, router])
+
+  // Check if admin has already passed re-auth (cookie valid)
+  useEffect(() => {
+    if (status !== 'authenticated' || !session?.user || session.user.role !== 'ADMIN') return
+    let cancelled = false
+    fetch('/api/admin/verify-access', { credentials: 'include' })
+      .then((res) => {
+        if (cancelled) return
+        setReauthVerified(res.ok)
+      })
+      .catch(() => {
+        if (!cancelled) setReauthVerified(false)
+      })
+    return () => { cancelled = true }
+  }, [status, session?.user?.role])
 
   // Debounce user search
   useEffect(() => {
@@ -527,10 +551,10 @@ export default function AdminPage() {
   }, [chatSearch])
 
   useEffect(() => {
-    if (session?.user?.role === 'ADMIN') {
+    if (session?.user?.role === 'ADMIN' && reauthVerified === true) {
       fetchData()
     }
-  }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo])
+  }, [session, reauthVerified, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo])
 
   const fetchData = async () => {
     setLoading(true)
@@ -1106,10 +1130,133 @@ export default function AdminPage() {
     }
   }
 
-  if (status === 'loading' || !session?.user || session.user.role !== 'ADMIN') {
+  if (status === 'loading' || !session?.user || session.user.role !== 'ADMIN' || reauthVerified === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="spinner" />
+      </div>
+    )
+  }
+
+  // Re-authentication gate: password + two-step verification (email or phone code)
+  if (reauthVerified === false) {
+    const handleSendCode = async () => {
+      setReauthError('')
+      setReauthSendLoading(true)
+      try {
+        const res = await fetch('/api/admin/send-verification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ channel: reauthChannel }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setReauthError(data.error || 'Failed to send code')
+          return
+        }
+        setReauthCode('')
+        setToast({ message: data.message || 'Code sent', type: 'success' })
+      } catch {
+        setReauthError('Failed to send code')
+      } finally {
+        setReauthSendLoading(false)
+      }
+    }
+    const handleVerify = async (e: React.FormEvent) => {
+      e.preventDefault()
+      setReauthError('')
+      setReauthVerifyLoading(true)
+      try {
+        const res = await fetch('/api/admin/verify-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ password: reauthPassword, channel: reauthChannel, code: reauthCode }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setReauthError(data.error || 'Verification failed')
+          return
+        }
+        setReauthVerified(true)
+        setReauthPassword('')
+        setReauthCode('')
+        setToast({ message: 'Access granted', type: 'success' })
+      } catch {
+        setReauthError('Verification failed')
+      } finally {
+        setReauthVerifyLoading(false)
+      }
+    }
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-8">
+          <h1 className="text-2xl font-bold text-white mb-1">Admin Panel</h1>
+          <p className="text-gray-400 text-sm mb-6">Re-enter your password and complete two-step verification to continue.</p>
+          <form onSubmit={handleVerify} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+              <input
+                type="password"
+                value={reauthPassword}
+                onChange={(e) => { setReauthPassword(e.target.value); setReauthError('') }}
+                className="input w-full"
+                placeholder="Your password"
+                autoComplete="current-password"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Verification method</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="channel"
+                    checked={reauthChannel === 'email'}
+                    onChange={() => { setReauthChannel('email'); setReauthError('') }}
+                  />
+                  <span className="text-gray-300">Email</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="channel"
+                    checked={reauthChannel === 'phone'}
+                    onChange={() => { setReauthChannel('phone'); setReauthError('') }}
+                  />
+                  <span className="text-gray-300">Phone</span>
+                </label>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleSendCode}
+                disabled={reauthSendLoading}
+                className="btn-secondary flex-1"
+              >
+                {reauthSendLoading ? 'Sending…' : 'Send verification code'}
+              </button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Verification code</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={reauthCode}
+                onChange={(e) => { setReauthCode(e.target.value.replace(/\D/g, '')); setReauthError('') }}
+                className="input w-full font-mono text-lg tracking-widest"
+                placeholder="000000"
+              />
+            </div>
+            {reauthError && <p className="text-red-400 text-sm">{reauthError}</p>}
+            <button type="submit" disabled={reauthVerifyLoading} className="btn-primary w-full">
+              {reauthVerifyLoading ? 'Verifying…' : 'Verify and enter Admin Panel'}
+            </button>
+          </form>
+        </div>
       </div>
     )
   }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
 import { BlobServiceClient } from '@azure/storage-blob'
 
 export const dynamic = 'force-dynamic'
@@ -45,11 +46,15 @@ async function deleteBlobIfExists(blobUrl: string): Promise<boolean> {
  * POST: Delete all MediaVersion rows with height 144, 240, or 360 and their Azure blobs.
  * Admin only.
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as { role?: string }).role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    const reauth = getAdminReauthFromRequest(request)
+    if (!reauth || reauth.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Re-authentication required' }, { status: 403 })
     }
 
     const legacy = await prisma.mediaVersion.findMany({

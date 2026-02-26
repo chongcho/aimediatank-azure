@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
 import { BlobServiceClient } from '@azure/storage-blob'
 
 export const dynamic = 'force-dynamic'
@@ -73,9 +74,13 @@ async function requireAdmin() {
   return session
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const reauth = getAdminReauthFromRequest(request)
+  if (!reauth || reauth.userId !== session.user.id) {
+    return NextResponse.json({ error: 'Re-authentication required' }, { status: 403 })
+  }
 
   const missing = await prisma.media.count({
     where: { fileSize: null, isDeleted: false },
@@ -87,6 +92,10 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const reauth = getAdminReauthFromRequest(request)
+  if (!reauth || reauth.userId !== session.user.id) {
+    return NextResponse.json({ error: 'Re-authentication required' }, { status: 403 })
+  }
 
   const { searchParams } = new URL(request.url)
   const limit = Math.min(500, Math.max(1, parseInt(searchParams.get('limit') || '200', 10) || 200))

@@ -2,8 +2,17 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
 
 export const dynamic = 'force-dynamic'
+
+function requireAdminReauth(request: Request, session: { user: { id: string } }): NextResponse | null {
+  const payload = getAdminReauthFromRequest(request)
+  if (!payload || payload.userId !== session.user.id) {
+    return NextResponse.json({ error: 'Re-authentication required' }, { status: 403 })
+  }
+  return null
+}
 
 // Helper to log admin actions
 async function logAdminAction(adminId: string, action: string, targetType: string, targetId: string, details?: any) {
@@ -30,6 +39,8 @@ export async function GET(request: Request) {
     if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+    const reauthErr = requireAdminReauth(request, session)
+    if (reauthErr) return reauthErr
 
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
@@ -742,6 +753,8 @@ export async function POST(request: Request) {
     if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+    const reauthErr = requireAdminReauth(request, session)
+    if (reauthErr) return reauthErr
 
     const { action, targetId, data } = await request.json()
     const adminId = session.user.id
