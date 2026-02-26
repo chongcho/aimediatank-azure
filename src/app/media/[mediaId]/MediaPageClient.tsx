@@ -99,6 +99,13 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, session])
 
+  // When media is not found (e.g. deleted and user pressed Back), go home so they don't see the error screen
+  useEffect(() => {
+    if (!loading && !media) {
+      router.replace('/')
+    }
+  }, [loading, media, router])
+
   useEffect(() => {
     const ac = new AbortController()
     const signal = ac.signal
@@ -372,9 +379,9 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
       })
 
       if (res.ok) {
-        // Redirect back to user's profile (My Contents) instead of home
+        // Go to profile and replace history so Back doesn't return to the deleted media page
         const username = session?.user?.username || media.user.username
-        router.push(`/profile/${username}`)
+        router.replace(`/profile/${username}`)
       } else {
         const data = await res.json()
         alert(data.error || 'Failed to delete media')
@@ -397,11 +404,11 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   }
 
   if (!media) {
+    // Redirect to home is handled in useEffect above; show minimal fallback while redirecting
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Media Not Found</h1>
-          <p className="text-gray-400 mb-4">This media may have been removed.</p>
+          <p className="text-gray-400 mb-4">Media not found. Redirecting home…</p>
           <Link href="/" className="btn-primary" onClick={() => stopAllMedia()}>
             Go Home
           </Link>

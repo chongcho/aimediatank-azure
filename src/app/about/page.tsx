@@ -360,6 +360,139 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* The Home of AI Generated and Real Media — relocated from homepage */}
+      <section className="py-20 px-4 border-t border-tank-light">
+        <div className="max-w-6xl mx-auto w-full">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
+            The Home of AI Generated and Real Media
+          </h2>
+          <p className="text-gray-300 leading-relaxed mb-4">
+            AiMediaTank is a professional community platform for AI media creators and real world content producers. It brings AI generated and real media together under one unified marketplace and social experience, enabling creators to publish, showcase, and monetize their work while offering audiences a trusted way to discover and support content they love.
+          </p>
+          <p className="text-gray-300 leading-relaxed mb-6">
+            Whether you are building with the latest AI tools or capturing real world moments with your favorite device, AiMediaTank gives you a polished, production ready workflow and a community designed for creators and enthusiasts alike.
+          </p>
+
+          <hr className="border-tank-light my-6" />
+
+          <h3 className="text-xl font-semibold text-white mb-3">Why AiMediaTank</h3>
+          <ol className="list-decimal list-inside text-gray-300 space-y-4 mb-6">
+            <li>
+              <span className="font-semibold text-white">A Unified Creator Platform</span>
+              <div className="mt-1">
+                Most platforms treat AI and real media as separate worlds. AiMediaTank embraces both. You can tag AI generated content, document real world devices, and showcase media in a single, clean ecosystem that celebrates innovation and authenticity together.
+              </div>
+            </li>
+            <li>
+              <span className="font-semibold text-white">Built In Monetization</span>
+              <div className="mt-1">
+                AiMediaTank enables creators to publish media with a price or offer content for free. Paid uploads and purchase flows are built in, making it easy to monetize without external tools. Buyers can access and download their purchases from their profile while the media remains hosted, and the platform handles display logic such as sold status and badges.
+              </div>
+            </li>
+            <li>
+              <span className="font-semibold text-white">Trust and Transparency</span>
+              <div className="mt-1">
+                Media tiles clearly show AI and Real badges based on creator provided fields. Community metrics like views and reactions keep discovery honest and engaging. Admin controls allow platform owners to tune the visibility of key badges and UI elements without redeploying code.
+              </div>
+            </li>
+          </ol>
+
+          <hr className="border-tank-light my-6" />
+
+          <h3 className="text-xl font-semibold text-white mb-3">Core Experience</h3>
+          <div className="text-gray-300 space-y-4 mb-6">
+            <div>
+              <span className="font-semibold text-white">Upload and Publish</span>
+              <p className="mt-1">
+                Creators can upload media with a streamlined, modern form designed for clarity and speed. Titles, descriptions, AI tools used, and real device information are captured in a structured way, helping audiences understand the origins of each creation.
+              </p>
+            </div>
+            <div>
+              <span className="font-semibold text-white">Edit and Manage</span>
+              <p className="mt-1">
+                Editing media is simple and professional. Update titles, descriptions, AI tool data, real device information, and pricing from a clean editing interface. The experience is optimized for creators who need to adjust metadata without friction.
+              </p>
+            </div>
+            <div>
+              <span className="font-semibold text-white">Media Showcase</span>
+              <p className="mt-1">
+                Media tiles highlight key details with elegant badges, including AI and Real markers, price or sold status, view counts, post date, and community reactions. These badges are configurable via the Admin Panel for maximum flexibility.
+              </p>
+            </div>
+            <div>
+              <span className="font-semibold text-white">Messaging and Community</span>
+              <p className="mt-1">
+                Built in chat and media messaging make community engagement direct and immediate. Creators and fans can communicate within the platform, growing relationships around shared content interests.
+              </p>
+            </div>
+          </div>
+
+          <hr className="border-tank-light my-6" />
+
+          <h3 className="text-xl font-semibold text-white mb-3">Built for Azure</h3>
+          <ul className="list-disc list-inside text-gray-300 space-y-2 mb-6">
+            <li>Azure App Service for scalable web hosting</li>
+            <li>Azure Blob Storage for media assets</li>
+            <li>PostgreSQL Flexible Server for structured media metadata</li>
+            <li>Azure Functions for scheduled jobs and policy based cleanup</li>
+            <li>GitHub Actions for staging first deployments</li>
+          </ul>
+          <p className="text-gray-300 leading-relaxed mb-6">
+            This architecture ensures production reliability, secure storage, and high performance across the full media pipeline.
+          </p>
+
+          <hr className="border-tank-light my-6" />
+
+          <h3 className="text-xl font-semibold text-white mb-3">Who It&apos;s For</h3>
+          <div className="text-gray-300 space-y-4 mb-6">
+            <div>
+              <span className="font-semibold text-white">AI Creators</span>
+              <p className="mt-1">
+                Publish AI videos and images, document the tools used, and build a credible portfolio inside a creator first community.
+              </p>
+            </div>
+            <div>
+              <span className="font-semibold text-white">Real World Creators</span>
+              <p className="mt-1">
+                Showcase camera based or real world content and stand alongside AI generated work in a unified discovery experience.
+              </p>
+            </div>
+            <div>
+              <span className="font-semibold text-white">Communities and Brands</span>
+              <p className="mt-1">
+                Use AiMediaTank as a trusted hub for AI and real media, with configurable controls, badge management, and professional presentation.
+              </p>
+            </div>
+          </div>
+
+          <hr className="border-tank-light my-6" />
+
+          <h3 className="text-xl font-semibold text-white mb-3">Experience the Platform</h3>
+          <p className="text-gray-300 leading-relaxed mb-2">
+            AiMediaTank is the bridge between AI creativity and real world storytelling. It is designed to scale with creators, support monetization, and build a trustworthy media ecosystem that is clear, professional, and future ready.
+          </p>
+          <p className="text-gray-300 leading-relaxed mb-8">
+            If you want a modern platform that respects both AI innovation and real creation, AiMediaTank is built for you.
+          </p>
+
+          <h3 className="text-lg font-semibold text-white mb-3">Quick links</h3>
+          <ul className="space-y-1 text-sm text-gray-300">
+            <li><Link href="/" className="hover:text-white">Home</Link></li>
+            <li><Link href="/?type=VIDEO" className="hover:text-white">Videos</Link></li>
+            <li><Link href="/?type=IMAGE" className="hover:text-white">Images</Link></li>
+            <li><Link href="/notifications" className="hover:text-white">Notification</Link></li>
+            <li><Link href="/?openChat=1" className="hover:text-white">Chat</Link></li>
+            <li><Link href="/login" className="hover:text-white">Sign-In</Link></li>
+            <li><Link href="/register" className="hover:text-white">Sign-Up</Link></li>
+            <li><Link href="/pricing" className="hover:text-white">Membership</Link></li>
+            <li><Link href="/policy" className="hover:text-white">Policy</Link></li>
+            <li><Link href="/terms" className="hover:text-white">Terms of Service</Link></li>
+            <li><Link href="/privacy" className="hover:text-white">Privacy Policy</Link></li>
+            <li><Link href="/support" className="hover:text-white">Support</Link></li>
+          </ul>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 px-4 bg-gradient-to-br from-tank-accent/20 via-tank-dark to-cyan-500/10">
         <div className="max-w-4xl mx-auto text-center">
