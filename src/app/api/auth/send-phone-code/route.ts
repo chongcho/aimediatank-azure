@@ -16,7 +16,8 @@ const SMS_MESSAGE = (code: string) =>
 // Otherwise return code in response for testing (dev or no SMS provider).
 export async function POST(request: Request) {
   try {
-    const { phone: rawPhone } = await request.json()
+    const body = await request.json()
+    const rawPhone = body?.phone
 
     if (!rawPhone || typeof rawPhone !== 'string') {
       return NextResponse.json(
@@ -32,6 +33,10 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    // Log so App Service Log stream shows the request (enable Application Logging in Azure)
+    const last4 = normalized.slice(-4)
+    console.error('[send-phone-code] Request received, phone ends ***' + last4 + ', Azure SMS configured:', isAzureSmsConfigured())
 
     const code = generateCode()
     await storePhoneCode(rawPhone, code, 10) // 10 minutes expiry

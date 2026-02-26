@@ -12,6 +12,13 @@ export function isAzureSmsConfigured(): boolean {
   return !!(connectionString && fromNumber)
 }
 
+// Log once at module load so App Service startup logs show SMS config (enable Application Logging to see this)
+if (typeof process !== 'undefined') {
+  const configured = !!(connectionString && fromNumber)
+  const fromHint = fromNumber ? `from=${fromNumber.replace(/\d(?=\d{4})/g, '*')}` : 'from=not set'
+  console.error(`[Azure SMS] ${configured ? 'Configured' : 'NOT configured'} (${fromHint}). Set AZURE_ACS_CONNECTION_STRING and AZURE_ACS_SMS_FROM for phone verification.`)
+}
+
 /**
  * Format phone to E.164 (e.g. 14255605621 -> +14255605621).
  */
