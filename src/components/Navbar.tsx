@@ -45,6 +45,7 @@ export default function Navbar() {
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
   const [ecardEnabled, setEcardEnabled] = useState(true)
 
+  const navRef = useRef<HTMLElement>(null)
   const profileRef = useRef<HTMLDivElement>(null)
   const alertsRef = useRef<HTMLDivElement>(null)
   const alertsDropdownRef = useRef<HTMLDivElement>(null)
@@ -115,18 +116,20 @@ export default function Navbar() {
   // Display name - show User ID (username) in navbar
   const displayName = userData?.username || session?.user?.username || 'User'
 
-  // Keep notification dropdown within viewport (fix overflow on small screens / mobile)
+  // Keep notification dropdown within viewport, positioned just below the navbar
   useLayoutEffect(() => {
     if (!isAlertsOpen || !alertsRef.current) {
       setAlertsDropdownStyle({})
       return
     }
     const rect = alertsRef.current.getBoundingClientRect()
+    const navRect = navRef.current?.getBoundingClientRect()
     const dropdownWidth = 320
-    const gap = 8
+    const gap = 4
     const padding = 8
+    // Place top edge just below the navbar (or below bell if nav ref missing)
+    const top = navRect ? navRect.bottom + gap : rect.bottom + gap
     let left = rect.right - dropdownWidth
-    const top = rect.bottom + gap
     if (left < padding) {
       left = padding
     }
@@ -341,7 +344,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-tank-dark/90 backdrop-blur-md border-b border-tank-light pwa-navbar">
+    <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 bg-tank-dark/90 backdrop-blur-md border-b border-tank-light pwa-navbar">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo and Home Icon */}
