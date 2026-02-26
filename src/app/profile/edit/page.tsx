@@ -41,6 +41,7 @@ export default function EditProfilePage() {
   })
   const [originalEmail, setOriginalEmail] = useState('')
   const [originalUsername, setOriginalUsername] = useState('')
+  const [originalPhone, setOriginalPhone] = useState('')
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -76,6 +77,18 @@ export default function EditProfilePage() {
   })
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [generatedCode, setGeneratedCode] = useState('')
+  // Phone verification when subscriber adds or changes phone (Azure ACS SMS)
+  const [phoneVerificationState, setPhoneVerificationState] = useState<{
+    codeSent: boolean
+    sending: boolean
+    code: string
+    error: string
+  }>({
+    codeSent: false,
+    sending: false,
+    code: '',
+    error: '',
+  })
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -106,6 +119,7 @@ export default function EditProfilePage() {
         })
         setOriginalEmail(data.user.email || '')
         setOriginalUsername(data.user.username || '')
+        setOriginalPhone(data.user.phone || '')
         if (data.user.avatar) {
           setAvatarPreview(data.user.avatar)
         }
@@ -123,6 +137,36 @@ export default function EditProfilePage() {
   
   // Check if username changed
   const usernameChanged = formData.username !== originalUsername && formData.username.length > 0
+
+  const phoneDigits = (v: string) => v.replace(/\D/g, '')
+  const phoneChangedAndValid =
+    formData.phone.trim().length > 0 &&
+    phoneDigits(formData.phone).length >= 10 &&
+    phoneDigits(formData.phone) !== phoneDigits(originalPhone)
+
+  const sendPhoneCode = async () => {
+    const phone = formData.phone.trim()
+    if (!phone || phoneDigits(phone).length < 10) {
+      setPhoneVerificationState((prev) => ({ ...prev, error: 'Please enter a valid phone number' }))
+      return
+    }
+    setPhoneVerificationState((prev) => ({ ...prev, sending: true, error: '' }))
+    try {
+      const res = await fetch('/api/auth/send-phone-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setPhoneVerificationState((prev) => ({ ...prev, sending: false, error: data.error || 'Failed to send code' }))
+        return
+      }
+      setPhoneVerificationState((prev) => ({ ...prev, codeSent: true, sending: false, error: '' }))
+    } catch {
+      setPhoneVerificationState((prev) => ({ ...prev, sending: false, error: 'Failed to send code' }))
+    }
+  }
 
   // Debounced username check
   const checkUsername = useCallback(async (username: string) => {
@@ -425,7 +469,15 @@ export default function EditProfilePage() {
       return
     }
 
+    if (phoneChangedAndValid) {
+      if (!phoneVerificationState.codeSent || phoneVerificationState.code.trim().length !== 6) {
+        setError('Please request a verification code and enter the 6-digit code sent to your phone before saving.')
+        return
+      }
+    }
+
     setSaving(true)
+    setError('')
 
     try {
       const updateData: any = {
@@ -437,6 +489,9 @@ export default function EditProfilePage() {
         location: formData.location,
         bio: formData.bio,
         avatar: formData.avatar,
+      }
+      if (phoneChangedAndValid && phoneVerificationState.code.trim().length === 6) {
+        updateData.phoneVerificationCode = phoneVerificationState.code.trim()
       }
 
       // Only include password if user wants to change it
@@ -461,6 +516,8 @@ export default function EditProfilePage() {
           password: '',
           confirmPassword: '',
         }))
+        setOriginalPhone(formData.phone)
+        setPhoneVerificationState({ codeSent: false, sending: false, code: '', error: '' })
         
         // Update session with new username
         await updateSession({
@@ -720,7 +777,7 @@ export default function EditProfilePage() {
             )}
           </div>
 
-          {/* Phone */}
+          {/* Phone — verify when subscriber adds or changes number (Azure ACS) */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Phone Number
@@ -728,10 +785,57 @@ export default function EditProfilePage() {
             <input
               type="tel"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, phone: e.target.value })
+                setPhoneVerificationState((prev) => ({ ...prev, codeSent: false, code: '', error: '' }))
+              }}
               placeholder="+1 (555) 000-0000"
               className="w-full"
             />
+            {phoneChangedAndValid && (
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-yellow-400">Verify this number to save. A code will be sent via SMS (Azure ACS).</p>
+                {!phoneVerificationState.codeSent ? (
+                  <button
+                    type="button"
+                    onClick={sendPhoneCode}
+                    disabled={phoneVerificationState.sending}
+                    className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent/20 text-tank-accent hover:bg-tank-accent/30 border border-tank-accent/50"
+                  >
+                    {phoneVerificationState.sending ? 'Sending...' : 'Send verification code'}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-gray-400">Enter 6-digit code:</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="000000"
+                      value={phoneVerificationState.code}
+                      onChange={(e) =>
+                        setPhoneVerificationState((prev) => ({
+                          ...prev,
+                          code: e.target.value.replace(/\D/g, '').slice(0, 6),
+                        }))
+                      }
+                      className="w-28 px-2 py-1.5 rounded bg-tank-dark border border-tank-light text-center font-mono text-lg text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={sendPhoneCode}
+                      disabled={phoneVerificationState.sending}
+                      className="text-sm text-gray-400 hover:text-tank-accent"
+                    >
+                      Resend code
+                    </button>
+                  </div>
+                )}
+                {phoneVerificationState.error && (
+                  <p className="text-xs text-red-400">{phoneVerificationState.error}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Location */}

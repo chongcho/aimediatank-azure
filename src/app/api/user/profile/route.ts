@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
 import bcrypt from 'bcryptjs'
 
 export const dynamic = 'force-dynamic'
@@ -59,7 +60,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { name, legalName, username, email, phone, location, bio, birthday, password, avatar } = body
+    const { name, legalName, username, email, phone, location, bio, birthday, password, avatar, phoneVerificationCode } = body
 
     // Check if username is taken by another user
     if (username) {
@@ -112,7 +113,31 @@ export async function PUT(request: Request) {
         updateData.emailVerified = false
       }
     }
-    if (phone !== undefined) updateData.phone = phone
+    if (phone !== undefined) {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { phone: true },
+      })
+      const currentPhoneNorm = currentUser?.phone ? normalizePhone(currentUser.phone) : ''
+      const newPhoneNorm = phone && typeof phone === 'string' ? normalizePhone(phone) : ''
+      const phoneAddedOrChanged = newPhoneNorm.length >= 10 && newPhoneNorm !== currentPhoneNorm
+      if (phoneAddedOrChanged) {
+        if (!phoneVerificationCode || typeof phoneVerificationCode !== 'string' || phoneVerificationCode.trim().length !== 6) {
+          return NextResponse.json(
+            { error: 'Please verify your phone number: request a code and enter the 6-digit code before saving.' },
+            { status: 400 }
+          )
+        }
+        const result = await verifyPhoneCode(phone, phoneVerificationCode.trim())
+        if (!result.valid) {
+          return NextResponse.json(
+            { error: result.error || 'Invalid or expired verification code. Please request a new code.' },
+            { status: 400 }
+          )
+        }
+      }
+      updateData.phone = phone || null
+    }
     if (location !== undefined) updateData.location = location
     if (bio !== undefined) updateData.bio = bio
     if (birthday !== undefined) updateData.birthday = birthday ? new Date(birthday) : null
