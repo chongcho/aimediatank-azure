@@ -44,7 +44,19 @@ export async function POST(request: Request) {
     const useAzureSms = isAzureSmsConfigured()
     let smsSent = false
     if (useAzureSms) {
-      smsSent = await sendAzureSms(normalized, SMS_MESSAGE(code))
+      const SMS_TIMEOUT_MS = 15000
+      const sendPromise = sendAzureSms(normalized, SMS_MESSAGE(code))
+      const timeoutPromise = new Promise<false>((_, reject) =>
+        setTimeout(() => reject(new Error('SMS send timeout')), SMS_TIMEOUT_MS)
+      )
+      try {
+        smsSent = await Promise.race([sendPromise, timeoutPromise])
+      } catch (timeoutOrOther: unknown) {
+        const msg = timeoutOrOther instanceof Error ? timeoutOrOther.message : String(timeoutOrOther)
+        console.error('[send-phone-code] SMS send error or timeout:', msg)
+        smsSent = false
+      }
+      console.error('[send-phone-code] SMS send result:', smsSent ? 'ok' : 'failed (see [Azure SMS] or timeout above)')
       if (!smsSent) {
         // Log for debugging; return 502 so client shows error. In dev, include code so user can still verify.
         console.error('[send-phone-code] Azure SMS send failed for', rawPhone, '- check server logs for [Azure SMS] details')
