@@ -5,7 +5,9 @@ import { isAzureSmsConfigured, sendAzureSms } from '@/lib/azureSms'
 export const dynamic = 'force-dynamic'
 
 // Azure ACS SMS: set AZURE_ACS_CONNECTION_STRING (or COMMUNICATION_SERVICES_CONNECTION_STRING)
-// and AZURE_ACS_SMS_FROM (E.164 sender, e.g. +18005551234) in your Communication Services resource.
+// and AZURE_ACS_SMS_FROM (E.164, e.g. +18339081234) in your Communication Services resource.
+// If no code is delivered: (1) Check server logs for [Azure SMS] and [send-phone-code]. (2) Ensure
+// AZURE_ACS_SMS_FROM is an SMS-capable number; US toll-free may need toll-free verification in Azure Portal.
 
 const SMS_MESSAGE = (code: string) =>
   `Your AI Media Tank verification code is: ${code}. It expires in 10 minutes.`
@@ -39,11 +41,19 @@ export async function POST(request: Request) {
     if (useAzureSms) {
       smsSent = await sendAzureSms(normalized, SMS_MESSAGE(code))
       if (!smsSent) {
+        // Log for debugging; return 502 so client shows error. In dev, include code so user can still verify.
+        console.error('[send-phone-code] Azure SMS send failed for', rawPhone, '- check server logs for [Azure SMS] details')
+        const isDev = process.env.NODE_ENV === 'development'
         return NextResponse.json(
-          { error: 'Failed to send SMS. Please try again or use a different number.' },
+          {
+            error: 'SMS could not be delivered. Check that AZURE_ACS_SMS_FROM is an SMS-capable number (toll-free may require verification). Try again or use a different number.',
+            ...(isDev ? { code } : {}),
+          },
           { status: 502 }
         )
       }
+    } else {
+      console.warn('[send-phone-code] Azure SMS not configured (AZURE_ACS_CONNECTION_STRING, AZURE_ACS_SMS_FROM). Code stored but not sent.')
     }
 
     const isDev = process.env.NODE_ENV === 'development'

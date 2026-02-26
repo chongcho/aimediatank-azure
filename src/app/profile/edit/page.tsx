@@ -83,6 +83,7 @@ export default function EditProfilePage() {
     sending: boolean
     code: string
     error: string
+    codeInMessage?: boolean
   }>({
     codeSent: false,
     sending: false,
@@ -159,10 +160,25 @@ export default function EditProfilePage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        setPhoneVerificationState((prev) => ({ ...prev, sending: false, error: data.error || 'Failed to send code' }))
+        const codeFromError = typeof data.code === 'string' ? data.code.trim().slice(0, 6) : ''
+        setPhoneVerificationState((prev) => ({
+          ...prev,
+          sending: false,
+          error: data.error || 'Failed to send code',
+          ...(codeFromError ? { codeSent: true, code: codeFromError, codeInMessage: true } : {}),
+        }))
         return
       }
-      setPhoneVerificationState((prev) => ({ ...prev, codeSent: true, sending: false, error: '' }))
+      // If server returned a code (SMS not configured or fallback), show it so user can still verify
+      const codeFromServer = typeof data.code === 'string' ? data.code.trim().slice(0, 6) : ''
+      setPhoneVerificationState((prev) => ({
+        ...prev,
+        codeSent: true,
+        sending: false,
+        error: '',
+        ...(codeFromServer ? { code: codeFromServer } : {}),
+        codeInMessage: data.message?.includes('use code below') || !!codeFromServer,
+      }))
     } catch {
       setPhoneVerificationState((prev) => ({ ...prev, sending: false, error: 'Failed to send code' }))
     }
@@ -517,7 +533,7 @@ export default function EditProfilePage() {
           confirmPassword: '',
         }))
         setOriginalPhone(formData.phone)
-        setPhoneVerificationState({ codeSent: false, sending: false, code: '', error: '' })
+        setPhoneVerificationState({ codeSent: false, sending: false, code: '', error: '', codeInMessage: false })
         
         // Update session with new username
         await updateSession({
@@ -787,7 +803,7 @@ export default function EditProfilePage() {
               value={formData.phone}
               onChange={(e) => {
                 setFormData({ ...formData, phone: e.target.value })
-                setPhoneVerificationState((prev) => ({ ...prev, codeSent: false, code: '', error: '' }))
+                setPhoneVerificationState((prev) => ({ ...prev, codeSent: false, code: '', error: '', codeInMessage: false }))
               }}
               placeholder="+1 (555) 000-0000"
               className="w-full"
@@ -805,9 +821,13 @@ export default function EditProfilePage() {
                     {phoneVerificationState.sending ? 'Sending...' : 'Send verification code'}
                   </button>
                 ) : (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-gray-400">Enter 6-digit code:</span>
-                    <input
+                  <div className="space-y-1">
+                    {phoneVerificationState.codeInMessage && (
+                      <p className="text-xs text-yellow-400">SMS not configured or not delivered. Use the code below if you have it.</p>
+                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-gray-400">Enter 6-digit code:</span>
+                      <input
                       type="text"
                       inputMode="numeric"
                       maxLength={6}
@@ -829,6 +849,7 @@ export default function EditProfilePage() {
                     >
                       Resend code
                     </button>
+                    </div>
                   </div>
                 )}
                 {phoneVerificationState.error && (

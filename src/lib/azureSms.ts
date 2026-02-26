@@ -23,16 +23,17 @@ export function toE164(digitsOnly: string): string {
 /**
  * Send an SMS via Azure Communication Services.
  * Returns true if sent successfully, false otherwise.
+ * Logs configuration and delivery failures for debugging (check server logs if SMS not received).
  */
 export async function sendAzureSms(toDigitsOnly: string, message: string): Promise<boolean> {
   if (!connectionString || !fromNumber) {
-    console.warn('Azure SMS not configured: AZURE_ACS_CONNECTION_STRING and AZURE_ACS_SMS_FROM required')
+    console.warn('[Azure SMS] Not configured: set AZURE_ACS_CONNECTION_STRING and AZURE_ACS_SMS_FROM (E.164, e.g. +18339081234)')
     return false
   }
 
   const to = toE164(toDigitsOnly)
   if (!to || to.length < 10) {
-    console.warn('Invalid recipient for SMS:', toDigitsOnly)
+    console.warn('[Azure SMS] Invalid recipient (need 10+ digits):', toDigitsOnly)
     return false
   }
 
@@ -49,11 +50,19 @@ export async function sendAzureSms(toDigitsOnly: string, message: string): Promi
     const success = results.every((r) => r.successful)
     if (!success) {
       const failed = results.filter((r) => !r.successful)
-      console.error('Azure SMS send failed:', failed)
+      const first = failed[0] as { httpStatusCode?: number; errorMessage?: string } | undefined
+      console.error('[Azure SMS] Send failed:', {
+        from: fromNumber,
+        to,
+        httpStatusCode: first?.httpStatusCode,
+        errorMessage: first?.errorMessage ?? 'Unknown',
+        allFailed: failed,
+      })
     }
     return success
   } catch (error) {
-    console.error('Azure SMS error:', error)
+    const err = error as Error
+    console.error('[Azure SMS] Exception:', err?.message ?? error, error)
     return false
   }
 }
