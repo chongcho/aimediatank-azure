@@ -143,7 +143,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     const signal = ac.signal
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { signal, cache: 'no-store' })
+        const res = await fetch(`/api/media/${mediaId}?skipView=1&t=${Date.now()}`, { signal, cache: 'no-store' })
         const data = await res.json()
         if (signal.aborted) return
         if (res.ok) {
@@ -347,11 +347,25 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
 
   const fetchMedia = async (signal?: AbortSignal) => {
     try {
-      const res = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { signal, cache: 'no-store' })
-      const data = await res.json()
+      const playRes = await fetch(`/api/media/${mediaId}/play?t=${Date.now()}`, { signal, cache: 'no-store' })
+      const playData = await playRes.json()
       if (signal?.aborted) return
-      if (res.ok) {
-        setMedia(data)
+      if (playRes.ok) {
+        setMedia(playData)
+        setLoading(false)
+        // Fetch full media (comments, ratings) in background; don't block player
+        fetch(`/api/media/${mediaId}?skipView=1&t=${Date.now()}`, { cache: 'no-store' })
+          .then((r) => r.json())
+          .then((full) => {
+            if (full?.id === mediaId) setMedia(full)
+          })
+          .catch(() => {})
+        return
+      }
+      if (playRes.status === 404) {
+        setMedia(null)
+        setLoading(false)
+        return
       }
     } catch (error) {
       if ((error as Error).name === 'AbortError') return
@@ -481,7 +495,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                       alert(data.error || 'Retry failed')
                       return
                     }
-                    const r = await fetch(`/api/media/${mediaId}?t=${Date.now()}`, { cache: 'no-store' })
+                    const r = await fetch(`/api/media/${mediaId}?skipView=1&t=${Date.now()}`, { cache: 'no-store' })
                     if (r.ok) {
                       const updated = await r.json()
                       setMedia(updated)

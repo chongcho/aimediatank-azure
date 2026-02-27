@@ -15,6 +15,9 @@ export async function GET(
 ) {
   try {
     const { mediaId } = await params
+    const { searchParams } = new URL(request.url)
+    const skipView = searchParams.get('skipView') === '1'
+
     const media = await prisma.media.findUnique({
       where: { id: mediaId },
       include: {
@@ -75,11 +78,12 @@ export async function GET(
       return NextResponse.json({ error: 'Media not found' }, { status: 404 })
     }
 
-    // Increment view count
-    await prisma.media.update({
-      where: { id: mediaId },
-      data: { views: { increment: 1 } },
-    })
+    if (!skipView) {
+      await prisma.media.update({
+        where: { id: mediaId },
+        data: { views: { increment: 1 } },
+      })
+    }
 
     // Calculate average rating
     const ratings = (media as any).ratings || []
@@ -128,7 +132,7 @@ export async function GET(
       ...media,
       fileSize: (media as any).fileSize === null || (media as any).fileSize === undefined ? null : (media as any).fileSize.toString(),
       avgRating: Math.round(avgRating * 10) / 10,
-      views: media.views + 1,
+      views: media.views + (skipView ? 0 : 1),
     }
     if (streamUrl) payload.streamUrl = streamUrl
     if ((media as any).versions?.length) {
