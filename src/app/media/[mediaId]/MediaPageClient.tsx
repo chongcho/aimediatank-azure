@@ -107,6 +107,11 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     }
   }, [loading, media, router])
 
+  // Prefetch home so Back transition is fast and avoids black screen
+  useEffect(() => {
+    router.prefetch('/')
+  }, [router])
+
   useEffect(() => {
     const ac = new AbortController()
     const signal = ac.signal
