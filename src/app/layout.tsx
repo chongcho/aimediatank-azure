@@ -113,8 +113,31 @@ export default function RootLayout({
           <RouteChangeMediaStopper />
           <Navbar />
           <main className="pt-16 m-0 p-0">
+            {/* Inline skeleton in first HTML chunk so something paints before streamed content (reduces black screen) */}
+            <div id="initial-loading" className="w-full p-0 m-0" aria-hidden="true">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mb-8 py-2 px-4">
+                <div className="h-9 w-48 rounded bg-tank-gray animate-pulse" />
+                <div className="h-4 w-72 rounded bg-tank-gray animate-pulse hidden lg:block" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 px-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+                  <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
+                    <div className="aspect-video rounded-t-2xl bg-tank-light animate-pulse" />
+                    <div className="p-4">
+                      <div className="h-5 rounded bg-tank-light animate-pulse mb-2 w-3/4" />
+                      <div className="h-4 rounded bg-tank-light animate-pulse w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
             {children}
           </main>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `(function(){var m=document.querySelector('main');var l=document.getElementById('initial-loading');if(!m||!l)return;function hide(){if(l&&m.querySelector('[data-initial-content]')){l.style.display='none';}}hide();var obs=new MutationObserver(hide);obs.observe(m,{childList:true,subtree:true});})();`,
+            }}
+          />
           <footer className="w-full py-6 mt-8 border-t border-tank-light">
             <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
               © {new Date().getFullYear()} AiMediaTank. All Rights Reserved.

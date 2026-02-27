@@ -213,8 +213,10 @@ function LoginFallback() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<LoginFallback />}>
-      <LoginContent />
-    </Suspense>
+    <div data-initial-content className="contents">
+      <Suspense fallback={<LoginFallback />}>
+        <LoginContent />
+      </Suspense>
+    </div>
   )
 }

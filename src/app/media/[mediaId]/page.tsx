@@ -187,12 +187,12 @@ export default async function MediaPage({
     })()
 
   return (
-    <>
+    <div data-initial-content>
       {jsonLd && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       )}
       <MediaPageClient mediaId={params.mediaId} />
-    </>
+    </div>
   )
 }
 

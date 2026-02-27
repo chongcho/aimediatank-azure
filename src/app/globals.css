@@ -25,6 +25,11 @@ body {
   text-size-adjust: 100%;
 }
 
+/* Hide initial-loading skeleton as soon as streamed page/loading content is in the DOM */
+main:has([data-initial-content]) #initial-loading {
+  display: none;
+}
+
 /* PWA standalone mode - add black safe area padding */
 @media all and (display-mode: standalone) {
   html {
