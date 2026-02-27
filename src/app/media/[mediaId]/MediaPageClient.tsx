@@ -424,8 +424,29 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="spinner" />
+      <div className="pb-[500px] min-h-screen bg-tank-black">
+        {/* Skeleton: media area - matches real page layout to avoid black flash */}
+        <div className="w-full bg-black pt-5">
+          <div className="w-full max-w-4xl mx-auto px-4">
+            <div className="relative w-full aspect-video max-h-[70vh] bg-tank-gray rounded-xl overflow-hidden">
+              <div className="absolute inset-0 skeleton" />
+            </div>
+          </div>
+        </div>
+        <div className="max-w-4xl mx-auto px-4 pt-5 space-y-6">
+          <div className="card">
+            <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-8">
+              <div className="min-w-0 lg:flex-1 space-y-4">
+                <div className="h-6 skeleton w-3/4 rounded" />
+                <div className="flex flex-wrap gap-3">
+                  <div className="h-4 skeleton w-16 rounded" />
+                  <div className="h-4 skeleton w-24 rounded" />
+                  <div className="h-4 skeleton w-20 rounded" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -433,7 +454,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   if (!media) {
     // Redirect to home is handled in useEffect above; show minimal fallback while redirecting
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-tank-black">
         <div className="text-center">
           <p className="text-gray-400 mb-4">Media not found. Redirecting home…</p>
           <Link href="/" className="btn-primary" onClick={() => stopAllMedia()}>
