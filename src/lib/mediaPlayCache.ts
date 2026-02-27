@@ -1,0 +1,53 @@
+/**
+ * In-memory cache for /api/media/[id]/play responses. Used so that when the user
+ * clicks a media card (after hover or in-view prefetch), the media page can show
+ * the player immediately without waiting for a network request.
+ */
+
+const TTL_MS = 60_000 // 1 minute
+const MAX_ENTRIES = 50
+
+interface Entry {
+  data: unknown
+  expiresAt: number
+}
+
+let cache: Map<string, Entry> = new Map()
+
+function prune() {
+  const now = Date.now()
+  if (cache.size <= MAX_ENTRIES) return
+  for (const [id, entry] of cache.entries()) {
+    if (entry.expiresAt <= now || cache.size <= MAX_ENTRIES) {
+      cache.delete(id)
+      if (cache.size <= MAX_ENTRIES) break
+    }
+  }
+}
+
+export function setMediaPlayCache(mediaId: string, data: unknown): void {
+  if (!mediaId || !data) return
+  cache.set(mediaId, { data, expiresAt: Date.now() + TTL_MS })
+  prune()
+}
+
+export function getMediaPlayCache(mediaId: string): unknown | null {
+  const entry = cache.get(mediaId)
+  if (!entry) return null
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(mediaId)
+    return null
+  }
+  return entry.data
+}
+
+export function prefetchMediaPlay(mediaId: string): void {
+  if (typeof window === 'undefined' || !mediaId) return
+  if (getMediaPlayCache(mediaId)) return // already cached
+  fetch(`/api/media/${mediaId}/play?t=${Date.now()}`, { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (data?.id === mediaId) setMediaPlayCache(mediaId, data)
+    })
+    .catch(() => {})
+}

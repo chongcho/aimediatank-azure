@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
+import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 
 interface MediaCardProps {
   media: {
@@ -90,6 +91,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [isMobile, setIsMobile] = useState(false)
   const preplayViewCountedRef = useRef(false)
   const preplay10sTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prefetchInViewRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Local view count so we can update immediately when a preplay view is recorded (no refetch)
   const [displayViews, setDisplayViews] = useState(media.views)
 
@@ -102,6 +104,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       if (preplay10sTimeoutRef.current) {
         clearTimeout(preplay10sTimeoutRef.current)
         preplay10sTimeoutRef.current = null
+      }
+      if (prefetchInViewRef.current) {
+        clearTimeout(prefetchInViewRef.current)
+        prefetchInViewRef.current = null
       }
     }
   }, [])
@@ -140,6 +146,22 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       observer.disconnect()
     }
   }, [])
+
+  // Prefetch /play when card is in view for a short time (so media page loads instantly on click)
+  useEffect(() => {
+    if (!isInView || !media.id) return
+    if (prefetchInViewRef.current) return
+    prefetchInViewRef.current = setTimeout(() => {
+      prefetchInViewRef.current = null
+      prefetchMediaPlay(media.id)
+    }, 400)
+    return () => {
+      if (prefetchInViewRef.current) {
+        clearTimeout(prefetchInViewRef.current)
+        prefetchInViewRef.current = null
+      }
+    }
+  }, [isInView, media.id])
 
   // Mobile: pre-play all cards in extended zone (on-screen + one up/down); no single "focused" card
   useEffect(() => {
@@ -358,10 +380,15 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     }
   }
 
+  const handleMouseEnter = () => {
+    prefetchMediaPlay(media.id)
+  }
+
   return (
     <Link
       href={`/media/${media.id}`}
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
       onContextMenu={(e) => e.preventDefault()}
       data-media-id={media.id}
       className="group cursor-pointer block focus:outline-none no-touch-callout [-webkit-tap-highlight-color:transparent]"

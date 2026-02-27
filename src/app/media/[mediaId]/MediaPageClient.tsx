@@ -7,6 +7,7 @@ import Link from 'next/link'
 import MediaPlayer from '@/components/MediaPlayer'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
 import { stopAllMedia } from '@/lib/mediaStop'
+import { getMediaPlayCache } from '@/lib/mediaPlayCache'
 
 interface MediaDetail {
   id: string
@@ -347,13 +348,25 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
 
   const fetchMedia = async (signal?: AbortSignal) => {
     try {
+      const cached = getMediaPlayCache(mediaId)
+      if (cached && typeof cached === 'object' && (cached as { id?: string }).id === mediaId) {
+        setMedia(cached as MediaDetail)
+        setLoading(false)
+        fetch(`/api/media/${mediaId}/play?t=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
+        fetch(`/api/media/${mediaId}?skipView=1&t=${Date.now()}`, { cache: 'no-store' })
+          .then((r) => r.json())
+          .then((full) => {
+            if (full?.id === mediaId) setMedia(full)
+          })
+          .catch(() => {})
+        return
+      }
       const playRes = await fetch(`/api/media/${mediaId}/play?t=${Date.now()}`, { signal, cache: 'no-store' })
       const playData = await playRes.json()
       if (signal?.aborted) return
       if (playRes.ok) {
         setMedia(playData)
         setLoading(false)
-        // Fetch full media (comments, ratings) in background; don't block player
         fetch(`/api/media/${mediaId}?skipView=1&t=${Date.now()}`, { cache: 'no-store' })
           .then((r) => r.json())
           .then((full) => {
