@@ -17,11 +17,14 @@ let cache: Map<string, Entry> = new Map()
 function prune() {
   const now = Date.now()
   if (cache.size <= MAX_ENTRIES) return
-  for (const [id, entry] of cache.entries()) {
-    if (entry.expiresAt <= now || cache.size <= MAX_ENTRIES) {
-      cache.delete(id)
-      if (cache.size <= MAX_ENTRIES) break
-    }
+  const entries = Array.from(cache.entries())
+  for (let i = 0; i < entries.length; i++) {
+    const [id, entry] = entries[i]
+    if (entry.expiresAt <= now) cache.delete(id)
+  }
+  if (cache.size <= MAX_ENTRIES) return
+  for (let i = 0; i < entries.length && cache.size > MAX_ENTRIES; i++) {
+    cache.delete(entries[i][0])
   }
 }
 
