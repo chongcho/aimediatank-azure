@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 import LiveChat from '@/components/LiveChat'
+import { getHomePrefetch } from '@/lib/homePrefetchCache'
 
 interface Media {
   id: string
@@ -243,6 +244,82 @@ function HomeContent() {
       restoreState.search === search
 
     if (canRestore) {
+      const prefetched = getHomePrefetch({
+        sort: restoreState.sort,
+        type: restoreState.type,
+        search: restoreState.search,
+        page: restoreState.page,
+      })
+      if (prefetched) {
+        isRestoringRef.current = true
+        setRestoringScroll(true)
+        activeRestoreRunIdRef.current = runId
+        scrollRestoredRef.current = false
+        setMedia(prefetched.media as Media[])
+        setLoading(false)
+        setHasMore(prefetched.params.page < prefetched.totalPages)
+        setPage(restoreState.page)
+        const scrollToTarget = (el: HTMLElement) => {
+          const rect = el.getBoundingClientRect()
+          const headerOffset = 80
+          const top = window.scrollY + rect.top - headerOffset
+          window.scrollTo({ top, behavior: 'auto' })
+        }
+        const attemptScrollToTarget = (attempts: number) => {
+          if (attempts <= 0) {
+            isRestoringRef.current = false
+            activeRestoreRunIdRef.current = null
+            setContentReady(true)
+            setRestoringScroll(false)
+            return
+          }
+          if (restoreRunIdRef.current !== runId) {
+            isRestoringRef.current = false
+            activeRestoreRunIdRef.current = null
+            setContentReady(true)
+            setRestoringScroll(false)
+            return
+          }
+          const target = document.querySelector(`[data-media-id="${restoreState.targetId}"]`) as HTMLElement | null
+          if (target) {
+            scrollToTarget(target)
+            scrollRestoredRef.current = true
+            isRestoringRef.current = false
+            activeRestoreRunIdRef.current = null
+            setRestoringScroll(false)
+            setContentReady(true)
+            let correctionCount = 0
+            const maxCorrections = 15
+            const correctionInterval = 200
+            let lastTop = window.scrollY
+            const correctScroll = () => {
+              correctionCount++
+              if (correctionCount > maxCorrections) return
+              if (restoreRunIdRef.current !== runId) return
+              const el = document.querySelector(`[data-media-id="${restoreState.targetId}"]`) as HTMLElement | null
+              if (!el) return
+              const rect = el.getBoundingClientRect()
+              const headerOffset = 80
+              const idealTop = window.scrollY + rect.top - headerOffset
+              if (Math.abs(idealTop - lastTop) > 5) {
+                window.scrollTo({ top: idealTop, behavior: 'auto' })
+                lastTop = idealTop
+              }
+              setTimeout(correctScroll, correctionInterval)
+            }
+            setTimeout(correctScroll, correctionInterval)
+            restoreStateRef.current = null
+            return
+          }
+          setTimeout(() => attemptScrollToTarget(attempts - 1), 30)
+        }
+        const runAfterPaint = (fn: () => void) => {
+          requestAnimationFrame(() => requestAnimationFrame(fn))
+        }
+        runAfterPaint(() => attemptScrollToTarget(20))
+        restoreStateRef.current = null
+        return
+      }
       isRestoringRef.current = true
       setRestoringScroll(true)
       activeRestoreRunIdRef.current = runId
@@ -357,6 +434,16 @@ function HomeContent() {
       }
 
       restorePages().catch(() => { /* already handled in try/catch */ })
+      return
+    }
+
+    const prefetched = getHomePrefetch({ sort, type, search, page: 1 })
+    if (prefetched) {
+      setMedia(prefetched.media as Media[])
+      setLoading(false)
+      setHasMore(prefetched.totalPages > 1)
+      setPage(1)
+      setContentReady(true)
       return
     }
 

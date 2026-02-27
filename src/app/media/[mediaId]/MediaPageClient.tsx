@@ -8,6 +8,7 @@ import MediaPlayer from '@/components/MediaPlayer'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
 import { stopAllMedia } from '@/lib/mediaStop'
 import { getMediaPlayCache } from '@/lib/mediaPlayCache'
+import { setHomePrefetch } from '@/lib/homePrefetchCache'
 
 interface MediaDetail {
   id: string
@@ -1090,18 +1091,65 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
         </div>
       )}
 
-      {/* Back Button at bottom left - stop media before navigating so audio does not continue on homepage */}
+      {/* Back Button: Option 1 — fetch home media first, then navigate so home can use cache and skip skeleton */}
       <div className="max-w-4xl mx-auto px-4 mt-8">
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             stopAllMedia()
-            // Navigate back if there's history, otherwise go home.
-            // Do NOT use a timer-based fallback with router.push('/') because
-            // Next.js App Router transitions can be slower than the timeout,
-            // which fires router.push('/') while router.back() is still in
-            // flight — creating a duplicate history entry and requiring two
-            // Back clicks to return home.
+            let sort = 'popular'
+            let page = 1
+            let type: string | null = null
+            let search = ''
+            try {
+              const raw = typeof window !== 'undefined' ? sessionStorage.getItem('homeScrollState') : null
+              if (raw) {
+                const parsed = JSON.parse(raw) as { page?: number; sort?: string; type?: string | null; search?: string }
+                if (parsed.sort && ['popular', 'recent', 'rated'].includes(parsed.sort)) sort = parsed.sort
+                if (typeof parsed.page === 'number' && parsed.page >= 1) page = parsed.page
+                if (parsed.type != null) type = parsed.type
+                if (typeof parsed.search === 'string') search = parsed.search
+              }
+            } catch {
+              /* use defaults */
+            }
+            const buildParams = (p: number) => {
+              const params = new URLSearchParams({ sort, page: String(p), limit: '20' })
+              if (type) params.set('type', type)
+              if (search.startsWith('@')) {
+                const user = search.slice(1).trim()
+                if (user) params.set('user', user)
+              } else if (search) params.set('search', search)
+              return params
+            }
+            const fetchOne = async (p: number): Promise<{ media: unknown[]; totalPages: number }> => {
+              const res = await fetch(`/api/media?${buildParams(p)}`, { cache: 'no-store' })
+              const data = await res.json()
+              if (!res.ok) return { media: [], totalPages: 1 }
+              const list = (data.media || []).map((m: unknown) => ({ ...(m as object), _page: p }))
+              return { media: list, totalPages: data.pagination?.totalPages ?? 1 }
+            }
+            const maxWait = 500
+            const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+            try {
+              const results = await Promise.race([
+                Promise.all(Array.from({ length: page }, (_, i) => fetchOne(i + 1))),
+                sleep(maxWait).then(() => null),
+              ])
+              if (results) {
+                const merged = results.flatMap((r) => r.media)
+                const totalPages = results[page - 1]?.totalPages ?? 1
+                if (merged.length > 0) {
+                  setHomePrefetch({
+                    params: { sort, type, search, page },
+                    media: merged,
+                    totalPages,
+                  })
+                }
+              }
+            } catch {
+              /* navigate anyway */
+            }
             if (window.history.length > 1) {
               router.back()
             } else {
