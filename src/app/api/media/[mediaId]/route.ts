@@ -78,13 +78,6 @@ export async function GET(
       return NextResponse.json({ error: 'Media not found' }, { status: 404 })
     }
 
-    if (!skipView) {
-      await prisma.media.update({
-        where: { id: mediaId },
-        data: { views: { increment: 1 } },
-      })
-    }
-
     // Calculate average rating
     const ratings = (media as any).ratings || []
     const avgRating =
@@ -142,7 +135,16 @@ export async function GET(
       }))
     }
 
-    return NextResponse.json(payload)
+    const res = NextResponse.json(payload)
+    if (!skipView) {
+      prisma.media
+        .update({
+          where: { id: mediaId },
+          data: { views: { increment: 1 } },
+        })
+        .catch((e) => console.error('[media GET] view increment failed:', e))
+    }
+    return res
   } catch (error) {
     console.error('Error fetching media:', error)
     return NextResponse.json(
