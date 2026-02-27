@@ -81,10 +81,8 @@ export async function GET(
       }
     }
 
-    const fileSize =
-      (media as { fileSize?: number | null }).fileSize == null
-        ? null
-        : String((media as { fileSize: number }).fileSize)
+    const rawFileSize = (media as { fileSize?: bigint | null }).fileSize
+    const fileSize = rawFileSize == null ? null : String(rawFileSize)
 
     const payload = {
       id: media.id,
