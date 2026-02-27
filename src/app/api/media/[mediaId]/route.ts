@@ -92,10 +92,13 @@ export async function GET(
         ? ratings.reduce((acc: number, r: any) => acc + r.score, 0) / ratings.length
         : 0
 
-    // Resolve stream URL for video from admin download/stream settings
+    // Resolve stream URL for video from admin download/stream settings (session + crop in parallel)
     let streamUrl: string | null = null
     if (media.type === 'VIDEO' && media.url) {
-      const session = await getServerSession(authOptions)
+      const [session, cropSettings] = await Promise.all([
+        getServerSession(authOptions),
+        prisma.cropToolSetting.findFirst(),
+      ])
       const purchase = session?.user
         ? await prisma.purchase.findFirst({
             where: { mediaId, buyerId: session.user.id, status: 'completed' },
@@ -103,9 +106,9 @@ export async function GET(
         : null
       const isOwner = media.userId === session?.user?.id
       const hasPurchased = !!purchase
-      const cropSettings = await prisma.cropToolSetting.findFirst() as { freeStreamMaxHeight?: number; paidDownloadQuality?: string } | null
-      const freeStreamMaxHeight = cropSettings?.freeStreamMaxHeight ?? 720
-      const paidQuality = cropSettings?.paidDownloadQuality ?? 'hq'
+      const crop = cropSettings as { freeStreamMaxHeight?: number; paidDownloadQuality?: string } | null
+      const freeStreamMaxHeight = crop?.freeStreamMaxHeight ?? 720
+      const paidQuality = crop?.paidDownloadQuality ?? 'hq'
       const versions = (media as any).versions || []
 
       if (isOwner || hasPurchased) {
