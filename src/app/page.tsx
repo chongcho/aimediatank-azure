@@ -251,8 +251,8 @@ function HomeContent() {
         page: restoreState.page,
       })
       if (prefetched) {
-        // Prefetched path: show real content immediately (no skeleton overlay); scroll to target after paint.
         isRestoringRef.current = true
+        setRestoringScroll(true)
         activeRestoreRunIdRef.current = runId
         scrollRestoredRef.current = false
         setMedia(prefetched.media as Media[])
@@ -311,9 +311,12 @@ function HomeContent() {
             restoreStateRef.current = null
             return
           }
-          setTimeout(() => attemptScrollToTarget(attempts - 1), 16)
+          setTimeout(() => attemptScrollToTarget(attempts - 1), 30)
         }
-        requestAnimationFrame(() => attemptScrollToTarget(25))
+        const runAfterPaint = (fn: () => void) => {
+          requestAnimationFrame(() => requestAnimationFrame(fn))
+        }
+        runAfterPaint(() => attemptScrollToTarget(20))
         restoreStateRef.current = null
         return
       }
