@@ -187,7 +187,7 @@ export default async function MediaPage({
     })()
 
   return (
-    <div data-initial-content className="contents">
+    <div data-initial-content>
       {jsonLd && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       )}
