@@ -395,10 +395,20 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     }
   }
 
+  // Use same player-area layout and white spinner as MediaPlayer so there is only one loading state (no small green then large white).
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="spinner" />
+      <div className="pb-[500px]">
+        <div className="w-full bg-black pt-5">
+          <div className="flex items-center justify-center w-full max-w-2xl mx-auto aspect-video bg-black">
+            <div className="w-16 h-16 relative">
+              <svg className="animate-spin w-full h-full" viewBox="0 0 50 50">
+                <circle cx="25" cy="25" r="20" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="4" />
+                <circle cx="25" cy="25" r="20" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeDasharray="80, 200" strokeDashoffset="0" />
+              </svg>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
