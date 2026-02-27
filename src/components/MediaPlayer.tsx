@@ -113,6 +113,18 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl, autoUnmute
     video.addEventListener('seeking', onSeeking)
     video.addEventListener('seeked', onSeeked)
 
+    // Seamless loop: seek to 0 just before end to avoid gap between cycles
+    const onTimeUpdate = () => {
+      if (cancelled) return
+      const d = video.duration
+      if (!Number.isFinite(d) || d <= 0) return
+      const t = video.currentTime
+      if (t >= d - 0.05 && t > 0.1) {
+        video.currentTime = 0
+      }
+    }
+    video.addEventListener('timeupdate', onTimeUpdate)
+
     // Try to play immediately — don't wait for canplay.
     // The browser will buffer internally and start as soon as it has enough data.
     // This is faster because play() signals "I need data NOW" to the browser's
@@ -167,6 +179,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl, autoUnmute
       video.removeEventListener('canplaythrough', onCanPlay)
       video.removeEventListener('seeking', onSeeking)
       video.removeEventListener('seeked', onSeeked)
+      video.removeEventListener('timeupdate', onTimeUpdate)
       video.removeEventListener('loadedmetadata', onMetadataLoaded)
     }
   }, [type, url, isMounted, autoUnmuteOnMount])
