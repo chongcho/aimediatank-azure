@@ -1,39 +1,38 @@
 /**
- * Cache for home feed data prefetched when user clicks Back on media detail (Option 1).
- * Media detail fetches home media before navigating; home page reads this and skips skeleton.
+ * In-memory snapshot of the home feed, saved by the home page when data loads.
+ * On back-navigation the home page reads this synchronously in useState
+ * so it renders content on the very first frame (no skeleton flash).
+ *
+ * Module-level variable survives SPA navigations (router.push / router.back).
  */
 
-export interface HomePrefetchParams {
+export interface HomeFeedParams {
   sort: string
   type: string | null
   search: string
   page: number
 }
 
-export interface HomePrefetchEntry {
-  params: HomePrefetchParams
+interface Snapshot {
+  params: HomeFeedParams
   media: unknown[]
   totalPages: number
 }
 
-let cache: HomePrefetchEntry | null = null
+let snapshot: Snapshot | null = null
 
-function buildKey(params: HomePrefetchParams): string {
-  return `${params.sort}\n${params.type ?? ''}\n${params.search}\n${params.page}`
+export function saveHomeFeed(params: HomeFeedParams, media: unknown[], totalPages: number): void {
+  snapshot = { params, media, totalPages }
 }
 
-export function setHomePrefetch(entry: HomePrefetchEntry): void {
-  cache = entry
+export function getHomeFeed(params: HomeFeedParams): Snapshot | null {
+  if (!snapshot) return null
+  const s = snapshot.params
+  if (s.sort !== params.sort || s.type !== params.type || s.search !== params.search) return null
+  if (s.page < params.page) return null
+  return snapshot
 }
 
-export function getHomePrefetch(params: HomePrefetchParams): HomePrefetchEntry | null {
-  if (!cache) return null
-  if (buildKey(cache.params) !== buildKey(params)) return null
-  const out = cache
-  cache = null
-  return out
-}
-
-export function clearHomePrefetch(): void {
-  cache = null
+export function clearHomeFeed(): void {
+  snapshot = null
 }

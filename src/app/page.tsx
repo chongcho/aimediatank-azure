@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 import LiveChat from '@/components/LiveChat'
-import { getHomePrefetch } from '@/lib/homePrefetchCache'
+import { getHomeFeed, saveHomeFeed } from '@/lib/homePrefetchCache'
 
 interface Media {
   id: string
@@ -65,15 +65,29 @@ interface HomeScrollState {
 
 function HomeContent() {
   const searchParams = useSearchParams()
-  const [media, setMedia] = useState<Media[]>([])
-  const [loading, setLoading] = useState(true)
+
+  // Read cached feed synchronously so the very first render shows content (not skeleton).
+  const [cachedInit] = useState<{ media: Media[]; page: number; hasMore: boolean } | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const raw = sessionStorage.getItem('homeScrollState')
+      if (!raw) return null
+      const state = JSON.parse(raw) as HomeScrollState
+      const cached = getHomeFeed({ sort: state.sort, type: state.type, search: state.search, page: state.page })
+      if (!cached) return null
+      return { media: cached.media as Media[], page: cached.params.page, hasMore: cached.params.page < cached.totalPages }
+    } catch { return null }
+  })
+
+  const [media, setMedia] = useState<Media[]>(cachedInit?.media ?? [])
+  const [loading, setLoading] = useState(!cachedInit)
   const [loadingMore, setLoadingMore] = useState(false)
   const [sort, setSort] = useState('popular')
   const [sortInitialized, setSortInitialized] = useState(false)
   const [type, setType] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
+  const [page, setPage] = useState(cachedInit?.page ?? 1)
+  const [hasMore, setHasMore] = useState(cachedInit?.hasMore ?? true)
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
   const [userSuggestions, setUserSuggestions] = useState<UserSuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -99,6 +113,13 @@ function HomeContent() {
   const gridSectionRef = useRef<HTMLDivElement>(null)
   const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid_top' | 'grid_center'>('masonry')
   const [homePreplay, setHomePreplay] = useState(true)
+
+  // Persist feed snapshot so back-navigation can read it synchronously on next mount
+  useEffect(() => {
+    if (media.length > 0 && !loading && !isRestoringRef.current) {
+      saveHomeFeed({ sort, type, search, page }, media, hasMore ? page + 1 : page)
+    }
+  }, [media, loading, page, sort, type, search, hasMore])
 
   useEffect(() => {
     fetch('/api/ui/home-layout', { cache: 'no-store' })
@@ -244,7 +265,7 @@ function HomeContent() {
       restoreState.search === search
 
     if (canRestore) {
-      const prefetched = getHomePrefetch({
+      const prefetched = getHomeFeed({
         sort: restoreState.sort,
         type: restoreState.type,
         search: restoreState.search,
@@ -437,7 +458,7 @@ function HomeContent() {
       return
     }
 
-    const prefetched = getHomePrefetch({ sort, type, search, page: 1 })
+    const prefetched = getHomeFeed({ sort, type, search, page: 1 })
     if (prefetched) {
       setMedia(prefetched.media as Media[])
       setLoading(false)
