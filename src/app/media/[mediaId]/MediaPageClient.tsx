@@ -1129,7 +1129,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               const list = (data.media || []).map((m: unknown) => ({ ...(m as object), _page: p }))
               return { media: list, totalPages: data.pagination?.totalPages ?? 1 }
             }
-            const maxWait = 500
+            const maxWait = 100
             const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
             try {
               const results = await Promise.race([
