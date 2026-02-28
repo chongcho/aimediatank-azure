@@ -39,3 +39,7 @@ publish-profile.xml
 # Session docs (local logs, not committed)
 docs/session-*.md
 docs/session-log-*.md
+
+# Native app builds (unused)
+/android/
+/ios/
