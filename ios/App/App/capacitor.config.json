@@ -1,0 +1,13 @@
+{
+	"appId": "com.aimediatank.apple",
+	"appName": "AiMediaTank",
+	"webDir": "www",
+	"server": {
+		"url": "https://aimediatank.com",
+		"cleartext": false
+	},
+	"ios": {
+		"contentInset": "automatic"
+	},
+	"packageClassList": []
+}
