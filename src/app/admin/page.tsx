@@ -1190,7 +1190,7 @@ export default function AdminPage() {
       }
     }
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
+      <div data-initial-content className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-8">
           <h1 className="text-2xl font-bold text-white mb-1">Admin Panel</h1>
           <p className="text-gray-400 text-sm mb-6">Re-enter your password and complete two-step verification to continue.</p>
@@ -1262,7 +1262,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="w-full px-4 lg:px-8 pb-[500px]">
+    <div data-initial-content className="w-full px-4 lg:px-8 pb-[500px]">
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed top-4 right-4 z-[99999] px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in ${

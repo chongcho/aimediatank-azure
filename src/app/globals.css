@@ -25,8 +25,9 @@ body {
   text-size-adjust: 100%;
 }
 
-/* Hide initial-loading skeleton as soon as streamed page/loading content is in the DOM */
-main:has([data-initial-content]) #initial-loading {
+/* Hide initial-loading skeleton as soon as any page content is in the DOM */
+main:has(> [data-initial-content]) > #initial-loading,
+main:has(> :not(#initial-loading)) > #initial-loading {
   display: none;
 }
 
