@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic'
 import SignInModal from './SignInModal'
 import MediaMessageModal from './MediaMessageModal'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
+import { clearHomeFeed } from '@/lib/homePrefetchCache'
 
 // Dynamic import TalkChat to prevent SSR issues
 const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
@@ -351,8 +352,8 @@ export default function Navbar() {
           <div className="flex items-center flex-shrink-0">
             <Link href="/" className="flex items-center" onClick={(e) => { 
               e.preventDefault();
-              // Clear scroll restoration state so home page scrolls to top
               sessionStorage.removeItem('homeScrollState');
+              clearHomeFeed();
               if (window.location.pathname === '/') {
                 window.scrollTo({ top: 0, behavior: 'instant' });
               } else {
@@ -371,8 +372,8 @@ export default function Navbar() {
               className="ml-[20px] text-gray-400 hover:text-white transition-colors"
               onClick={(e) => { 
                 e.preventDefault();
-                // Clear scroll restoration state so home page scrolls to top
                 sessionStorage.removeItem('homeScrollState');
+                clearHomeFeed();
                 if (window.location.pathname === '/') {
                   window.scrollTo({ top: 0, behavior: 'instant' });
                 } else {
@@ -784,8 +785,8 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
     // For Home link, scroll to top if already on home, otherwise navigate
     if (href === '/') {
       e.preventDefault()
-      // Clear scroll restoration state so home page scrolls to top
       sessionStorage.removeItem('homeScrollState')
+      clearHomeFeed()
       if (window.location.pathname === '/') {
         window.scrollTo({ top: 0, behavior: 'instant' })
         // Ask homepage to reset feed and refetch page 1 so "Most Recent" shows true first page
@@ -811,9 +812,9 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     onClick()
-    // Clear scroll restoration state for home navigation
     if (href === '/') {
       sessionStorage.removeItem('homeScrollState')
+      clearHomeFeed()
     }
     window.location.href = href
   }
