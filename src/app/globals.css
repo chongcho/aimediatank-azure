@@ -354,20 +354,21 @@ input[type="number"]::-webkit-outer-spin-button {
 .no-touch-callout,
 .no-touch-callout * {
   -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
   -webkit-tap-highlight-color: transparent !important;
   tap-highlight-color: transparent !important;
   touch-action: manipulation;
 }
 .no-touch-callout {
-  -webkit-user-select: none;
-  user-select: none;
   outline: none;
 }
 .no-touch-callout input,
 .no-touch-callout textarea,
 .no-touch-callout select {
-  -webkit-user-select: text;
-  user-select: text;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
 }
 .no-touch-callout:focus,
 .no-touch-callout:active {
