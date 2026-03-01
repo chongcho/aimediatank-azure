@@ -363,6 +363,12 @@ input[type="number"]::-webkit-outer-spin-button {
   user-select: none;
   outline: none;
 }
+.no-touch-callout input,
+.no-touch-callout textarea,
+.no-touch-callout select {
+  -webkit-user-select: text;
+  user-select: text;
+}
 .no-touch-callout:focus,
 .no-touch-callout:active {
   outline: none !important;
