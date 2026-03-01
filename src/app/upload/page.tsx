@@ -203,12 +203,70 @@ function UploadPageContent() {
     return () => ro.disconnect()
   }, [showCropper, cropSource, mediaSize, updateCropRenderBox])
 
-  // Trim time format: h:mm:ss (e.g. 0:01:30) and parse from input
+  // Trim time format: mm:ss (or h:mm:ss for videos >= 1 hour)
   const formatTrimTime = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600)
-    const m = Math.floor((seconds % 3600) / 60)
-    const s = Math.floor(seconds % 60)
-    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    const totalSec = Math.floor(seconds)
+    if (totalSec >= 3600) {
+      const h = Math.floor(totalSec / 3600)
+      const m = Math.floor((totalSec % 3600) / 60)
+      const s = totalSec % 60
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    }
+    const m = Math.floor(totalSec / 60)
+    const s = totalSec % 60
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+
+  // Trim timeline bar — drag state kept in refs to avoid stale closures
+  const trimBarRef = useRef<HTMLDivElement>(null)
+  const trimDragRef = useRef<'start' | 'end' | null>(null)
+  const trimStartRef = useRef(videoTrimStart)
+  trimStartRef.current = videoTrimStart
+  const trimEndRef = useRef(videoTrimEnd)
+  trimEndRef.current = videoTrimEnd
+  const trimDurRef = useRef(videoDuration)
+  trimDurRef.current = videoDuration
+
+  useEffect(() => {
+    const posToTime = (clientX: number): number => {
+      if (!trimBarRef.current || !trimDurRef.current) return 0
+      const rect = trimBarRef.current.getBoundingClientRect()
+      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+      return Math.round(pct * trimDurRef.current * 10) / 10
+    }
+    const onMove = (clientX: number) => {
+      const dur = trimDurRef.current
+      if (!trimDragRef.current || !dur) return
+      const t = posToTime(clientX)
+      if (trimDragRef.current === 'start') {
+        const v = Math.max(0, Math.min(t, trimEndRef.current - 0.1))
+        setVideoTrimStart(v)
+        setTrimStartInput(null)
+      } else {
+        const v = Math.min(dur, Math.max(t, trimStartRef.current + 0.1))
+        setVideoTrimEnd(v)
+        setTrimEndInput(null)
+      }
+    }
+    const mouseMove = (e: MouseEvent) => onMove(e.clientX)
+    const touchMove = (e: TouchEvent) => { if (trimDragRef.current) { e.preventDefault(); onMove(e.touches[0].clientX) } }
+    const dragEnd = () => { trimDragRef.current = null }
+    window.addEventListener('mousemove', mouseMove)
+    window.addEventListener('mouseup', dragEnd)
+    window.addEventListener('touchmove', touchMove, { passive: false })
+    window.addEventListener('touchend', dragEnd)
+    return () => {
+      window.removeEventListener('mousemove', mouseMove)
+      window.removeEventListener('mouseup', dragEnd)
+      window.removeEventListener('touchmove', touchMove)
+      window.removeEventListener('touchend', dragEnd)
+    }
+  }, [])
+
+  const startTrimDrag = (handle: 'start' | 'end', e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    trimDragRef.current = handle
   }
   const parseTrimTime = (str: string): number | null => {
     const t = str.trim().replace(/,/g, '.')
@@ -1275,96 +1333,140 @@ function UploadPageContent() {
                     </select>
                   </div>
                 )}
-                {/* Trim (video only) — Trim label left, Start and End to the right on one row */}
-                {cropMediaType === 'video' && videoDuration != null && videoDuration > 0 && (
+                {/* Trim (video only) — unified timeline bar with draggable handles */}
+                {cropMediaType === 'video' && videoDuration != null && videoDuration > 0 && (() => {
+                  const startPct = (videoTrimStart / videoDuration) * 100
+                  const endPct = (videoTrimEnd / videoDuration) * 100
+                  return (
                   <div className="mt-3 sm:mt-4">
-                    <div className="flex flex-wrap items-start gap-x-4 gap-y-2 text-sm text-gray-300">
-                      <label className="shrink-0 pt-0.5 text-xs sm:text-sm font-medium text-gray-300">Trim</label>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 min-w-0 flex-1">
-                      {/* Start */}
-                      <div className="flex flex-col gap-1 min-w-0">
-                        <span className="text-xs text-gray-400">Start</span>
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <input
-                            type="range"
-                            min={0}
-                            max={Math.max(0, videoDuration - 0.1)}
-                            step={0.1}
-                            value={videoTrimStart}
-                            onChange={(e) => {
-                              const v = Number(e.target.value)
+                    {/* Time labels above the bar */}
+                    <div className="flex items-end justify-between mb-1.5 px-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-gray-400 font-medium">Start</span>
+                        <input
+                          type="text"
+                          placeholder="mm:ss"
+                          value={trimStartInput ?? formatTrimTime(videoTrimStart)}
+                          onFocus={() => setTrimStartInput(formatTrimTime(videoTrimStart))}
+                          onChange={(e) => setTrimStartInput(e.target.value)}
+                          onBlur={(e) => {
+                            const sec = parseTrimTime(e.target.value)
+                            if (sec != null) {
+                              const v = Math.max(0, Math.min(sec, videoDuration - 0.1))
                               setVideoTrimStart(v)
-                              setTrimStartInput(null)
                               if (videoTrimEnd < v) setVideoTrimEnd(v)
-                            }}
-                            className="min-w-0 flex-1 max-w-[80px] sm:max-w-[100px] h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-tank-accent"
-                          />
-                          <div className="flex items-stretch border border-gray-600 rounded-lg bg-gray-800 overflow-hidden shrink-0 w-[72px] sm:w-[80px]">
-                            <input
-                              type="text"
-                              placeholder="h:mm:ss"
-                              value={trimStartInput ?? formatTrimTime(videoTrimStart)}
-                              onFocus={() => setTrimStartInput(formatTrimTime(videoTrimStart))}
-                              onChange={(e) => setTrimStartInput(e.target.value)}
-                              onBlur={(e) => {
-                                const sec = parseTrimTime(e.target.value)
-                                if (sec != null) {
-                                  const v = Math.max(0, Math.min(sec, videoDuration - 0.1))
-                                  setVideoTrimStart(v)
-                                  if (videoTrimEnd < v) setVideoTrimEnd(v)
-                                }
-                                setTrimStartInput(null)
-                              }}
-                              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                              className="flex-1 min-w-0 pl-1.5 pr-6 py-1 bg-gray-800 border-0 text-white text-xs tabular-nums focus:ring-1 focus:ring-tank-accent focus:outline-none"
-                            />
-                            <div className="flex flex-col border-l border-gray-600">
-                              <button type="button" aria-label="Increase start time" onClick={() => { const v = Math.min(videoDuration - 0.1, Math.floor(videoTrimStart) + 1); setVideoTrimStart(v); setTrimStartInput(null); if (videoTrimEnd < v) setVideoTrimEnd(v) }} className="flex-1 px-1 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700 border-b border-gray-600"><svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414 6.707 12.707a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg></button>
-                              <button type="button" aria-label="Decrease start time" onClick={() => { const v = Math.max(0, Math.floor(videoTrimStart) - 1); setVideoTrimStart(v); setTrimStartInput(null) }} className="flex-1 px-1 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700"><svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button>
-                            </div>
-                          </div>
-                        </div>
+                            }
+                            setTrimStartInput(null)
+                          }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                          className="w-[52px] sm:w-[58px] px-1 py-0.5 bg-gray-800 border border-gray-600 rounded text-white text-[11px] tabular-nums text-center focus:ring-1 focus:ring-tank-accent focus:outline-none"
+                        />
                       </div>
-                      {/* End */}
-                      <div className="flex flex-col gap-1 min-w-0">
-                        <span className="text-xs text-gray-400">End</span>
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <input
-                            type="range"
-                            min={videoTrimStart}
-                            max={videoDuration}
-                            step={0.1}
-                            value={videoTrimEnd}
-                            onChange={(e) => { setVideoTrimEnd(Number(e.target.value)); setTrimEndInput(null) }}
-                            className="min-w-0 flex-1 max-w-[80px] sm:max-w-[100px] h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-tank-accent"
-                          />
-                          <div className="flex items-stretch border border-gray-600 rounded-lg bg-gray-800 overflow-hidden shrink-0 w-[72px] sm:w-[80px]">
-                            <input
-                              type="text"
-                              placeholder="h:mm:ss"
-                              value={trimEndInput ?? formatTrimTime(videoTrimEnd)}
-                              onFocus={() => setTrimEndInput(formatTrimTime(videoTrimEnd))}
-                              onChange={(e) => setTrimEndInput(e.target.value)}
-                              onBlur={(e) => {
-                                const sec = parseTrimTime(e.target.value)
-                                if (sec != null) setVideoTrimEnd(Math.max(videoTrimStart, Math.min(sec, videoDuration)))
-                                setTrimEndInput(null)
-                              }}
-                              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                              className="flex-1 min-w-0 pl-1.5 pr-6 py-1 bg-gray-800 border-0 text-white text-xs tabular-nums focus:ring-1 focus:ring-tank-accent focus:outline-none"
-                            />
-                            <div className="flex flex-col border-l border-gray-600">
-                              <button type="button" aria-label="Increase end time" onClick={() => { setVideoTrimEnd(Math.min(videoDuration, Math.floor(videoTrimEnd) + 1)); setTrimEndInput(null) }} className="flex-1 px-1 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700 border-b border-gray-600"><svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414 6.707 12.707a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg></button>
-                              <button type="button" aria-label="Decrease end time" onClick={() => { setVideoTrimEnd(Math.max(videoTrimStart, Math.floor(videoTrimEnd) - 1)); setTrimEndInput(null) }} className="flex-1 px-1 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700"><svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button>
-                            </div>
-                          </div>
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          placeholder="mm:ss"
+                          value={trimEndInput ?? formatTrimTime(videoTrimEnd)}
+                          onFocus={() => setTrimEndInput(formatTrimTime(videoTrimEnd))}
+                          onChange={(e) => setTrimEndInput(e.target.value)}
+                          onBlur={(e) => {
+                            const sec = parseTrimTime(e.target.value)
+                            if (sec != null) setVideoTrimEnd(Math.max(videoTrimStart + 0.1, Math.min(sec, videoDuration)))
+                            setTrimEndInput(null)
+                          }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                          className="w-[52px] sm:w-[58px] px-1 py-0.5 bg-gray-800 border border-gray-600 rounded text-white text-[11px] tabular-nums text-center focus:ring-1 focus:ring-tank-accent focus:outline-none"
+                        />
+                        <span className="text-[11px] text-gray-400 font-medium">End</span>
                       </div>
                     </div>
+
+                    {/* Trim label + timeline bar */}
+                    <div className="flex items-center gap-2">
+                      <label className="shrink-0 text-xs sm:text-sm font-medium text-gray-300">Trim</label>
+                      <div
+                        ref={trimBarRef}
+                        className="relative flex-1 h-3 bg-gray-700 rounded-sm select-none touch-none"
+                        onMouseDown={(e) => {
+                          if (!trimBarRef.current || !videoDuration) return
+                          const rect = trimBarRef.current.getBoundingClientRect()
+                          const t = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * videoDuration
+                          const nearest = Math.abs(t - videoTrimStart) <= Math.abs(t - videoTrimEnd) ? 'start' : 'end'
+                          startTrimDrag(nearest, e)
+                        }}
+                        onTouchStart={(e) => {
+                          if (!trimBarRef.current || !videoDuration) return
+                          const rect = trimBarRef.current.getBoundingClientRect()
+                          const t = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width)) * videoDuration
+                          const nearest = Math.abs(t - videoTrimStart) <= Math.abs(t - videoTrimEnd) ? 'start' : 'end'
+                          startTrimDrag(nearest, e)
+                        }}
+                      >
+                        {/* Selected range highlight */}
+                        <div
+                          className="absolute top-0 bottom-0 bg-teal-600/80 rounded-sm"
+                          style={{ left: `${startPct}%`, width: `${endPct - startPct}%` }}
+                        />
+                        {/* Start handle */}
+                        <div
+                          className="absolute top-[-3px] bottom-[-3px] w-[3px] bg-green-400 rounded-full cursor-ew-resize z-10"
+                          style={{ left: `${startPct}%`, transform: 'translateX(-50%)' }}
+                          onMouseDown={(e) => startTrimDrag('start', e)}
+                          onTouchStart={(e) => startTrimDrag('start', e)}
+                        />
+                        {/* End handle */}
+                        <div
+                          className="absolute top-[-3px] bottom-[-3px] w-[3px] bg-green-400 rounded-full cursor-ew-resize z-10"
+                          style={{ left: `${endPct}%`, transform: 'translateX(-50%)' }}
+                          onMouseDown={(e) => startTrimDrag('end', e)}
+                          onTouchStart={(e) => startTrimDrag('end', e)}
+                        />
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1.5">Only this segment will be kept (re-encoded). Type time as h:mm:ss or use arrows.</p>
+
+                    {/* Arrow nudge buttons below the bar */}
+                    <div className="flex items-start justify-between mt-1" style={{ paddingLeft: 'calc(2rem + 8px)' }}>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          aria-label="Decrease start time"
+                          onClick={() => { const v = Math.max(0, Math.floor(videoTrimStart) - 1); setVideoTrimStart(v); setTrimStartInput(null) }}
+                          className="p-0.5 text-teal-400 hover:text-white transition-colors"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M14 7l-5 5 5 5V7z"/><path d="M8 7l-5 5 5 5V7z"/></svg>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Increase start time"
+                          onClick={() => { const v = Math.min(videoDuration - 0.1, Math.floor(videoTrimStart) + 1); setVideoTrimStart(v); setTrimStartInput(null); if (videoTrimEnd < v) setVideoTrimEnd(v) }}
+                          className="p-0.5 text-teal-400 hover:text-white transition-colors"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M10 17l5-5-5-5v10z"/><path d="M16 17l5-5-5-5v10z"/></svg>
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          aria-label="Decrease end time"
+                          onClick={() => { setVideoTrimEnd(Math.max(videoTrimStart + 0.1, Math.floor(videoTrimEnd) - 1)); setTrimEndInput(null) }}
+                          className="p-0.5 text-teal-400 hover:text-white transition-colors"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M14 7l-5 5 5 5V7z"/><path d="M8 7l-5 5 5 5V7z"/></svg>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Increase end time"
+                          onClick={() => { setVideoTrimEnd(Math.min(videoDuration, Math.floor(videoTrimEnd) + 1)); setTrimEndInput(null) }}
+                          className="p-0.5 text-teal-400 hover:text-white transition-colors"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M10 17l5-5-5-5v10z"/><path d="M16 17l5-5-5-5v10z"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-0.5 ml-0">Drag handles or use arrows. Only the selected segment is kept.</p>
                   </div>
-                )}
+                  )
+                })()}
                 {mediaSize && (
                   <div className="grid grid-cols-1 gap-1.5 sm:gap-2 mt-3 sm:mt-4 text-sm text-gray-300">
                     <div className="flex items-center gap-2 sm:gap-3">
