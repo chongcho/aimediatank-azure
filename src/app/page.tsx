@@ -118,6 +118,8 @@ function HomeContent() {
   const [contentReady, setContentReady] = useState(false)
   // True while restoring scroll from Media Detail back to homepage; hides grid until scroll is applied to avoid "pass through" flash.
   const [restoringScroll, setRestoringScroll] = useState(false)
+  // When cachedInit provided data, skip the scroll-restore overlay (content is already rendered).
+  const cachedInitUsedRef = useRef(!!cachedInit)
   // Column count for masonry: use grid container width so reorder matches visible layout (same breakpoints as globals.css)
   const [columns, setColumns] = useState(1)
   const gridSectionRef = useRef<HTMLDivElement>(null)
@@ -255,17 +257,9 @@ function HomeContent() {
   useEffect(() => {
     const typeParam = searchParams.get('type')
     const searchParam = searchParams.get('search')
-    
-    if (typeParam) {
-      setType(typeParam)
-    } else {
-      setType(null)
-    }
-    
-    // Handle search param from URL (for hashtag links)
-    if (searchParam) {
-      setSearch(searchParam)
-    }
+    if (typeParam) setType(typeParam)
+    else setType(null)
+    if (searchParam) setSearch(searchParam)
   }, [searchParams])
 
   // Reset and fetch when filters change (only after sort is initialized)
