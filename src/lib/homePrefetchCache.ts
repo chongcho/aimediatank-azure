@@ -1,10 +1,13 @@
 /**
- * In-memory snapshot of the home feed, saved by the home page when data loads.
+ * Persists a snapshot of the home feed to sessionStorage.
  * On back-navigation the home page reads this synchronously in useState
  * so it renders content on the very first frame (no skeleton flash).
  *
- * Module-level variable survives SPA navigations (router.push / router.back).
+ * Uses sessionStorage instead of a module variable because Next.js
+ * code-splits route chunks and module state may not survive navigation.
  */
+
+const STORAGE_KEY = 'homeFeedSnapshot'
 
 export interface HomeFeedParams {
   sort: string
@@ -19,20 +22,24 @@ interface Snapshot {
   totalPages: number
 }
 
-let snapshot: Snapshot | null = null
-
 export function saveHomeFeed(params: HomeFeedParams, media: unknown[], totalPages: number): void {
-  snapshot = { params, media, totalPages }
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ params, media, totalPages }))
+  } catch { /* quota exceeded or private mode */ }
 }
 
 export function getHomeFeed(params: HomeFeedParams): Snapshot | null {
-  if (!snapshot) return null
-  const s = snapshot.params
-  if (s.sort !== params.sort || s.type !== params.type || s.search !== params.search) return null
-  if (s.page < params.page) return null
-  return snapshot
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const snap = JSON.parse(raw) as Snapshot
+    const s = snap.params
+    if (s.sort !== params.sort || s.type !== params.type || s.search !== params.search) return null
+    if (s.page < params.page) return null
+    return snap
+  } catch { return null }
 }
 
 export function clearHomeFeed(): void {
-  snapshot = null
+  try { sessionStorage.removeItem(STORAGE_KEY) } catch {}
 }
