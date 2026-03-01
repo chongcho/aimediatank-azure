@@ -103,6 +103,10 @@ function HomeContent() {
   // Keep current filters in a ref so load-more (effect with [page]) always uses latest sort/type/search
   const filtersRef = useRef({ sort: 'popular', type: null as string | null, search: '' })
   filtersRef.current = { sort, type, search }
+  const pageRef = useRef(page)
+  pageRef.current = page
+  const hasMoreRef = useRef(hasMore)
+  hasMoreRef.current = hasMore
   // Tracks the filters that the current `media` array was fetched for.
   // Prevents the save-to-cache effect from writing stale data when filters change but media hasn't been re-fetched yet.
   const mediaFiltersRef = useRef<{ sort: string; type: string | null; search: string } | null>(null)
@@ -119,13 +123,16 @@ function HomeContent() {
 
   // Persist feed snapshot so back-navigation can read it synchronously on next mount.
   // Only save when the media actually belongs to the current filters (mediaFiltersRef).
+  // page/hasMore are read via refs so a page increment alone (before fetchMedia completes) doesn't trigger a stale write.
   useEffect(() => {
     const mf = mediaFiltersRef.current
     if (media.length > 0 && !loading && !isRestoringRef.current && mf &&
         mf.sort === sort && mf.type === type && mf.search === search) {
-      saveHomeFeed({ sort, type, search, page }, media, hasMore ? page + 1 : page)
+      const p = pageRef.current
+      const hm = hasMoreRef.current
+      saveHomeFeed({ sort, type, search, page: p }, media, hm ? p + 1 : p)
     }
-  }, [media, loading, page, sort, type, search, hasMore])
+  }, [media, loading, sort, type, search])
 
   useEffect(() => {
     fetch('/api/ui/home-layout', { cache: 'no-store' })
