@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense, useRef, useCallback, useMemo } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 import LiveChat from '@/components/LiveChat'
@@ -64,8 +63,6 @@ interface HomeScrollState {
 }
 
 function HomeContent() {
-  const searchParams = useSearchParams()
-
   // Read cached feed synchronously so the very first render shows content (not skeleton).
   const [cachedInit] = useState<{ media: Media[]; page: number; hasMore: boolean } | null>(() => {
     if (typeof window === 'undefined') return null
@@ -108,6 +105,8 @@ function HomeContent() {
   const [contentReady, setContentReady] = useState(false)
   // True while restoring scroll from Media Detail back to homepage; hides grid until scroll is applied to avoid "pass through" flash.
   const [restoringScroll, setRestoringScroll] = useState(false)
+  // When cachedInit provided data, skip the scroll-restore overlay (content is already rendered).
+  const cachedInitUsedRef = useRef(!!cachedInit)
   // Column count for masonry: use grid container width so reorder matches visible layout (same breakpoints as globals.css)
   const [columns, setColumns] = useState(1)
   const gridSectionRef = useRef<HTMLDivElement>(null)
@@ -236,20 +235,13 @@ function HomeContent() {
   }
 
   useEffect(() => {
-    const typeParam = searchParams.get('type')
-    const searchParam = searchParams.get('search')
-    
-    if (typeParam) {
-      setType(typeParam)
-    } else {
-      setType(null)
-    }
-    
-    // Handle search param from URL (for hashtag links)
-    if (searchParam) {
-      setSearch(searchParam)
-    }
-  }, [searchParams])
+    const params = new URLSearchParams(window.location.search)
+    const typeParam = params.get('type')
+    const searchParam = params.get('search')
+    if (typeParam) setType(typeParam)
+    else setType(null)
+    if (searchParam) setSearch(searchParam)
+  }, [])
 
   // Reset and fetch when filters change (only after sort is initialized)
   useEffect(() => {
@@ -272,14 +264,17 @@ function HomeContent() {
         page: restoreState.page,
       })
       if (prefetched) {
+        const skipOverlay = cachedInitUsedRef.current
+        cachedInitUsedRef.current = false
         isRestoringRef.current = true
-        setRestoringScroll(true)
+        if (!skipOverlay) setRestoringScroll(true)
         activeRestoreRunIdRef.current = runId
         scrollRestoredRef.current = false
         setMedia(prefetched.media as Media[])
         setLoading(false)
         setHasMore(prefetched.params.page < prefetched.totalPages)
         setPage(restoreState.page)
+        if (skipOverlay) setContentReady(true)
         const scrollToTarget = (el: HTMLElement) => {
           const rect = el.getBoundingClientRect()
           const headerOffset = 80
@@ -955,40 +950,7 @@ function HomeContent() {
 export default function Home() {
   return (
     <div data-initial-content className="contents">
-    <Suspense fallback={
-      <div className="w-full min-h-screen bg-tank-black p-0 m-0">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mb-8 py-2">
-          <div className="flex-shrink-0 overflow-visible">
-            <div className="flex items-end gap-0">
-              <h1 className="text-2xl md:text-3xl font-bold" style={{ paddingRight: '20px' }}>
-                <span className="text-gradient">AiMediaTank</span>
-            </h1>
-              <span className="font-bold italic text-gray-400 text-[15px] md:text-[16px]">AI-Generated and Real</span>
-            </div>
-            <p className="text-gray-400 text-[13px] md:text-sm italic">
-              Community for AI Contents Creators and Digital Enthusiasts
-            </p>
-          </div>
-        </div>
-        <div className="media-grid min-h-screen">
-          {[...Array(12)].map((_, i) => {
-            const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
-              'aspect-square', 'aspect-video', 'aspect-[4/5]', 'aspect-video', 'aspect-square', 'aspect-[3/4]']
-            return (
-              <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
-                <div className={`${ratios[i]} skeleton`} />
-                <div className="p-4">
-                  <div className="h-5 skeleton mb-2 w-3/4" />
-                  <div className="h-4 skeleton w-1/2" />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    }>
       <HomeContent />
-    </Suspense>
     </div>
   )
 }
