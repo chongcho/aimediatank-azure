@@ -65,6 +65,8 @@ interface HomeScrollState {
 
 function HomeContent() {
   const searchParams = useSearchParams()
+
+
   // Read cached feed synchronously so the very first render shows content (not skeleton).
   const [cachedInit] = useState<{ media: Media[]; page: number; hasMore: boolean } | null>(() => {
     if (typeof window === 'undefined') return null
