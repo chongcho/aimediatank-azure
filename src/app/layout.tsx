@@ -43,8 +43,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode
+  modal: React.ReactNode
 }) {
   return (
     <html lang="en">
@@ -132,6 +134,7 @@ export default function RootLayout({
               </div>
             </div>
             {children}
+            {modal}
           </main>
           <script
             dangerouslySetInnerHTML={{
