@@ -103,6 +103,9 @@ function HomeContent() {
   // Keep current filters in a ref so load-more (effect with [page]) always uses latest sort/type/search
   const filtersRef = useRef({ sort: 'popular', type: null as string | null, search: '' })
   filtersRef.current = { sort, type, search }
+  // Tracks the filters that the current `media` array was fetched for.
+  // Prevents the save-to-cache effect from writing stale data when filters change but media hasn't been re-fetched yet.
+  const mediaFiltersRef = useRef<{ sort: string; type: string | null; search: string } | null>(null)
   // True once the first meaningful paint is done (media loaded + scroll positioned).
   // While false the SEO "about" section is hidden so it doesn't flash during transitions.
   const [contentReady, setContentReady] = useState(false)
@@ -114,9 +117,12 @@ function HomeContent() {
   const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid_top' | 'grid_center'>('masonry')
   const [homePreplay, setHomePreplay] = useState(true)
 
-  // Persist feed snapshot so back-navigation can read it synchronously on next mount
+  // Persist feed snapshot so back-navigation can read it synchronously on next mount.
+  // Only save when the media actually belongs to the current filters (mediaFiltersRef).
   useEffect(() => {
-    if (media.length > 0 && !loading && !isRestoringRef.current) {
+    const mf = mediaFiltersRef.current
+    if (media.length > 0 && !loading && !isRestoringRef.current && mf &&
+        mf.sort === sort && mf.type === type && mf.search === search) {
       saveHomeFeed({ sort, type, search, page }, media, hasMore ? page + 1 : page)
     }
   }, [media, loading, page, sort, type, search, hasMore])
@@ -193,6 +199,7 @@ function HomeContent() {
         .then((res) => res.json())
         .then((data) => {
           const list = (data.media || []).map((m: Media) => ({ ...m, _page: 1 }))
+          mediaFiltersRef.current = { sort: s, type: t, search: q }
           setMedia(list)
           setHasMore((data.pagination?.totalPages ?? 1) > 1)
         })
@@ -276,6 +283,7 @@ function HomeContent() {
         setRestoringScroll(true)
         activeRestoreRunIdRef.current = runId
         scrollRestoredRef.current = false
+        mediaFiltersRef.current = { sort: restoreState.sort, type: restoreState.type, search: restoreState.search }
         setMedia(prefetched.media as Media[])
         setLoading(false)
         setHasMore(prefetched.params.page < prefetched.totalPages)
@@ -380,6 +388,7 @@ function HomeContent() {
         }
         const merged = results.flatMap((r) => r.media)
         const lastTotalPages = results[pageCount - 1]?.totalPages ?? 1
+        mediaFiltersRef.current = { sort: restoreState.sort, type: restoreState.type, search: restoreState.search }
         setMedia(merged)
         setLoading(false)
         setHasMore(pageCount < lastTotalPages)
@@ -460,6 +469,7 @@ function HomeContent() {
 
     const prefetched = getHomeFeed({ sort, type, search, page: 1 })
     if (prefetched) {
+      mediaFiltersRef.current = { sort, type, search }
       setMedia(prefetched.media as Media[])
       setLoading(false)
       setHasMore(prefetched.totalPages > 1)
@@ -644,6 +654,7 @@ function HomeContent() {
       }
       const newMedia = (data.media || []).map((m: Media) => ({ ...m, _page: pageNum }))
       const totalPages = data.pagination?.totalPages || 1
+      mediaFiltersRef.current = { sort: currentSort, type: currentType, search: currentSearch }
 
       if (isReset) {
         setMedia(newMedia)

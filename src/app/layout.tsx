@@ -135,7 +135,7 @@ export default function RootLayout({
           </main>
           <script
             dangerouslySetInnerHTML={{
-              __html: `(function(){var m=document.querySelector('main');var l=document.getElementById('initial-loading');if(!m||!l)return;function hide(){if(l&&m.querySelector('[data-initial-content]')){l.style.display='none';}}hide();var obs=new MutationObserver(hide);obs.observe(m,{childList:true,subtree:true});})();`,
+              __html: `(function(){var m=document.querySelector('main');var l=document.getElementById('initial-loading');if(!m||!l)return;function hide(){for(var c=m.children,i=0;i<c.length;i++){if(c[i]!==l){l.style.display='none';return;}}};hide();var obs=new MutationObserver(hide);obs.observe(m,{childList:true,subtree:true});})();`,
             }}
           />
           <footer className="w-full py-6 mt-8 border-t border-tank-light">
