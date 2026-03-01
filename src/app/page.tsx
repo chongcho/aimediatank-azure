@@ -109,6 +109,9 @@ function HomeContent() {
   // Tracks the filters that the current `media` array was fetched for.
   // Prevents the save-to-cache effect from writing stale data when filters change but media hasn't been re-fetched yet.
   const mediaFiltersRef = useRef<{ sort: string; type: string | null; search: string } | null>(null)
+  // When cachedInit provided data, the grid is already rendered on the first frame.
+  // Skip the scroll-restore skeleton overlay — just scroll directly.
+  const cachedInitUsedRef = useRef(!!cachedInit)
   // True once the first meaningful paint is done (media loaded + scroll positioned).
   // While false the SEO "about" section is hidden so it doesn't flash during transitions.
   const [contentReady, setContentReady] = useState(false)
