@@ -869,8 +869,8 @@ function UploadPageContent() {
     }
 
     // Check if payment is required (free uploads exhausted for paid plans)
-    // If user has paid credits, they can upload without showing payment modal
-    const hasPaidCredits = (uploadQuota?.paidUploadCredits || 0) > 0
+    // If user has any credits (paid or bonus), they can upload without payment
+    const hasPaidCredits = ((uploadQuota?.paidUploadCredits || 0) + (uploadQuota?.bonusCredits || 0)) > 0
     if (uploadQuota?.statusType === 'paid' && !uploadPaid && !hasPaidCredits) {
       setShowPaymentModal(true)
       return
