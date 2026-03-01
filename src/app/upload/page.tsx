@@ -1241,7 +1241,7 @@ function UploadPageContent() {
 
           {showCropper && cropSource && cropMediaType && portalMounted && createPortal(
             <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[99999] p-2 sm:p-4 overscroll-contain touch-none overflow-y-auto">
-              <div className="bg-tank-dark border border-tank-light rounded-2xl w-full max-w-2xl p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto">
+              <div className="bg-tank-dark border border-tank-light w-full max-w-2xl p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto">
                 <div className="relative flex items-center mb-2 sm:mb-4">
                   <h3 className="text-lg sm:text-xl font-semibold text-white pr-12">
                     Crop {cropMediaType === 'video' ? 'Video' : 'Image'}
@@ -1249,7 +1249,7 @@ function UploadPageContent() {
                   <button
                     type="button"
                     onClick={() => setShowCropper(false)}
-                    className="absolute right-0 top-0 w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 transition-colors flex items-center justify-center"
+                    className="absolute right-0 top-0 w-10 h-10 bg-black/30 hover:bg-black/50 transition-colors flex items-center justify-center"
                     aria-label="Close crop tool"
                     title="Close"
                   >
@@ -1260,7 +1260,7 @@ function UploadPageContent() {
                 </div>
                 <div
                   ref={cropContainerRef}
-                  className="relative w-full h-[180px] sm:h-[280px] md:h-[360px] bg-black rounded-xl overflow-hidden"
+                  className="relative w-full h-[180px] sm:h-[280px] md:h-[360px] bg-black overflow-hidden"
                 >
                   <img
                     ref={cropImgRef}
@@ -1300,7 +1300,6 @@ function UploadPageContent() {
                               height,
                               border: '2px solid rgba(0, 255, 136, 0.95)',
                               boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)',
-                              borderRadius: '6px',
                             }}
                           />
                         )
@@ -1320,7 +1319,7 @@ function UploadPageContent() {
                         setCropAspectRatio(key)
                         if (key) applyCropAspectRatio(key)
                       }}
-                      className="min-w-0 flex-1 sm:max-w-xs bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white text-sm"
+                      className="min-w-0 flex-1 sm:max-w-xs bg-tank-gray border border-tank-light px-3 py-2 text-white text-sm"
                     >
                       <option value="free">Free (no constraint)</option>
                       <option value="16:9">Wide 16:9 — YouTube and streaming</option>
@@ -1468,26 +1467,10 @@ function UploadPageContent() {
                   )
                 })()}
                 {mediaSize && (
-                  <div className="grid grid-cols-1 gap-1.5 sm:gap-2 mt-3 sm:mt-4 text-sm text-gray-300">
+                  <div className="grid grid-cols-1 gap-2 sm:gap-3 mt-3 sm:mt-4 text-sm text-gray-300">
+                    {/* Top */}
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <span className="w-14 sm:w-16 shrink-0 text-xs sm:text-sm">Top</span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={Math.max(0, mediaSize.height - minCropSize - cropInsets.bottom)}
-                        value={cropInsets.top}
-                        onChange={(e) => {
-                          const nextTop = Number(e.target.value)
-                          setCropInsets((prev) => ({
-                            ...prev,
-                            top: Math.min(
-                              Math.max(0, nextTop),
-                              Math.max(0, mediaSize.height - minCropSize - prev.bottom)
-                            ),
-                          }))
-                        }}
-                        className="flex-1"
-                      />
+                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">Top</span>
                       <input
                         type="number"
                         min={0}
@@ -1497,35 +1480,32 @@ function UploadPageContent() {
                           const nextTop = Number(e.target.value) || 0
                           setCropInsets((prev) => ({
                             ...prev,
-                            top: Math.min(
-                              Math.max(0, nextTop),
-                              Math.max(0, mediaSize.height - minCropSize - prev.bottom)
-                            ),
+                            top: Math.min(Math.max(0, nextTop), Math.max(0, mediaSize.height - minCropSize - prev.bottom)),
                           }))
                         }}
-                        className="w-20 sm:w-28 pl-2 pr-8 sm:pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white text-xs sm:text-sm"
+                        className="flex-1 px-3 py-1.5 bg-white border-2 border-teal-600 text-right text-black text-sm sm:text-base [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setCropInsets((prev) => ({ ...prev, top: Math.min(prev.top + 1, Math.max(0, mediaSize.height - minCropSize - prev.bottom)) }))}
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
+                        title="Increase top crop"
+                      >
+                        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6l8 12H4z"/></svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCropInsets((prev) => ({ ...prev, top: Math.max(0, prev.top - 1) }))}
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
+                        title="Decrease top crop"
+                      >
+                        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 18l-8-12h16z"/></svg>
+                      </button>
                     </div>
 
+                    {/* Bottom */}
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <span className="w-14 sm:w-16 shrink-0 text-xs sm:text-sm">Bottom</span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={Math.max(0, mediaSize.height - minCropSize - cropInsets.top)}
-                        value={cropInsets.bottom}
-                        onChange={(e) => {
-                          const nextBottom = Number(e.target.value)
-                          setCropInsets((prev) => ({
-                            ...prev,
-                            bottom: Math.min(
-                              Math.max(0, nextBottom),
-                              Math.max(0, mediaSize.height - minCropSize - prev.top)
-                            ),
-                          }))
-                        }}
-                        className="flex-1"
-                      />
+                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">Bottom</span>
                       <input
                         type="number"
                         min={0}
@@ -1535,35 +1515,32 @@ function UploadPageContent() {
                           const nextBottom = Number(e.target.value) || 0
                           setCropInsets((prev) => ({
                             ...prev,
-                            bottom: Math.min(
-                              Math.max(0, nextBottom),
-                              Math.max(0, mediaSize.height - minCropSize - prev.top)
-                            ),
+                            bottom: Math.min(Math.max(0, nextBottom), Math.max(0, mediaSize.height - minCropSize - prev.top)),
                           }))
                         }}
-                        className="w-20 sm:w-28 pl-2 pr-8 sm:pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white text-xs sm:text-sm"
+                        className="flex-1 px-3 py-1.5 bg-white border-2 border-teal-600 text-right text-black text-sm sm:text-base [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setCropInsets((prev) => ({ ...prev, bottom: Math.min(prev.bottom + 1, Math.max(0, mediaSize.height - minCropSize - prev.top)) }))}
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
+                        title="Increase bottom crop"
+                      >
+                        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6l8 12H4z"/></svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCropInsets((prev) => ({ ...prev, bottom: Math.max(0, prev.bottom - 1) }))}
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
+                        title="Decrease bottom crop"
+                      >
+                        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 18l-8-12h16z"/></svg>
+                      </button>
                     </div>
 
+                    {/* Left */}
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <span className="w-14 sm:w-16 shrink-0 text-xs sm:text-sm">Left</span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={Math.max(0, mediaSize.width - minCropSize - cropInsets.right)}
-                        value={cropInsets.left}
-                        onChange={(e) => {
-                          const nextLeft = Number(e.target.value)
-                          setCropInsets((prev) => ({
-                            ...prev,
-                            left: Math.min(
-                              Math.max(0, nextLeft),
-                              Math.max(0, mediaSize.width - minCropSize - prev.right)
-                            ),
-                          }))
-                        }}
-                        className="flex-1"
-                      />
+                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">Left</span>
                       <input
                         type="number"
                         min={0}
@@ -1573,35 +1550,32 @@ function UploadPageContent() {
                           const nextLeft = Number(e.target.value) || 0
                           setCropInsets((prev) => ({
                             ...prev,
-                            left: Math.min(
-                              Math.max(0, nextLeft),
-                              Math.max(0, mediaSize.width - minCropSize - prev.right)
-                            ),
+                            left: Math.min(Math.max(0, nextLeft), Math.max(0, mediaSize.width - minCropSize - prev.right)),
                           }))
                         }}
-                        className="w-20 sm:w-28 pl-2 pr-8 sm:pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white text-xs sm:text-sm"
+                        className="flex-1 px-3 py-1.5 bg-white border-2 border-teal-600 text-right text-black text-sm sm:text-base [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setCropInsets((prev) => ({ ...prev, left: Math.min(prev.left + 1, Math.max(0, mediaSize.width - minCropSize - prev.right)) }))}
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
+                        title="Increase left crop"
+                      >
+                        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M6 12l12-8v16z"/></svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCropInsets((prev) => ({ ...prev, left: Math.max(0, prev.left - 1) }))}
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
+                        title="Decrease left crop"
+                      >
+                        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M18 12L6 4v16z"/></svg>
+                      </button>
                     </div>
 
+                    {/* Right */}
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <span className="w-14 sm:w-16 shrink-0 text-xs sm:text-sm">Right</span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={Math.max(0, mediaSize.width - minCropSize - cropInsets.left)}
-                        value={cropInsets.right}
-                        onChange={(e) => {
-                          const nextRight = Number(e.target.value)
-                          setCropInsets((prev) => ({
-                            ...prev,
-                            right: Math.min(
-                              Math.max(0, nextRight),
-                              Math.max(0, mediaSize.width - minCropSize - prev.left)
-                            ),
-                          }))
-                        }}
-                        className="flex-1"
-                      />
+                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">Right</span>
                       <input
                         type="number"
                         min={0}
@@ -1611,14 +1585,27 @@ function UploadPageContent() {
                           const nextRight = Number(e.target.value) || 0
                           setCropInsets((prev) => ({
                             ...prev,
-                            right: Math.min(
-                              Math.max(0, nextRight),
-                              Math.max(0, mediaSize.width - minCropSize - prev.left)
-                            ),
+                            right: Math.min(Math.max(0, nextRight), Math.max(0, mediaSize.width - minCropSize - prev.left)),
                           }))
                         }}
-                        className="w-20 sm:w-28 pl-2 pr-8 sm:pr-10 py-1 bg-gray-800 border border-gray-600 rounded text-right text-white text-xs sm:text-sm"
+                        className="flex-1 px-3 py-1.5 bg-white border-2 border-teal-600 text-right text-black text-sm sm:text-base [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setCropInsets((prev) => ({ ...prev, right: Math.min(prev.right + 1, Math.max(0, mediaSize.width - minCropSize - prev.left)) }))}
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
+                        title="Increase right crop"
+                      >
+                        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M6 12l12-8v16z"/></svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCropInsets((prev) => ({ ...prev, right: Math.max(0, prev.right - 1) }))}
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
+                        title="Decrease right crop"
+                      >
+                        <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M18 12L6 4v16z"/></svg>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1631,14 +1618,14 @@ function UploadPageContent() {
                   <button
                     type="button"
                     onClick={handleUseOriginal}
-                    className="px-6 py-2 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all"
+                    className="px-6 py-2 bg-tank-gray border border-tank-light text-white hover:bg-tank-light transition-all"
                   >
                     Reset to Original
                   </button>
                   <button
                     type="button"
                     onClick={handleUseEdited}
-                    className="px-6 py-2 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all"
+                    className="px-6 py-2 bg-tank-accent text-black font-semibold hover:bg-tank-accent/90 transition-all"
                   >
                     Upload
                   </button>
