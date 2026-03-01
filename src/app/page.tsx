@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useState, Suspense, useRef, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 import LiveChat from '@/components/LiveChat'
@@ -63,6 +64,7 @@ interface HomeScrollState {
 }
 
 function HomeContent() {
+  const searchParams = useSearchParams()
   // Read cached feed synchronously so the very first render shows content (not skeleton).
   const [cachedInit] = useState<{ media: Media[]; page: number; hasMore: boolean } | null>(() => {
     if (typeof window === 'undefined') return null
@@ -235,13 +237,12 @@ function HomeContent() {
   }
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const typeParam = params.get('type')
-    const searchParam = params.get('search')
+    const typeParam = searchParams.get('type')
+    const searchParam = searchParams.get('search')
     if (typeParam) setType(typeParam)
     else setType(null)
     if (searchParam) setSearch(searchParam)
-  }, [])
+  }, [searchParams])
 
   // Reset and fetch when filters change (only after sort is initialized)
   useEffect(() => {
@@ -950,7 +951,9 @@ function HomeContent() {
 export default function Home() {
   return (
     <div data-initial-content className="contents">
-      <HomeContent />
+      <Suspense fallback={<div className="w-full min-h-screen bg-tank-black" />}>
+        <HomeContent />
+      </Suspense>
     </div>
   )
 }
