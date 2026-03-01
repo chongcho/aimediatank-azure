@@ -65,7 +65,7 @@ export default function EditMediaPage() {
 
       // Check if user is owner or admin
       if (data.user.id !== session?.user?.id && session?.user?.role !== 'ADMIN') {
-        router.push(`/media/${mediaId}`)
+        window.location.href = `/media/${mediaId}`
         return
       }
 
@@ -124,7 +124,8 @@ export default function EditMediaPage() {
       })
 
       if (res.ok) {
-        router.push(`/media/${mediaId}`)
+        window.location.href = `/media/${mediaId}`
+        return
       } else {
         const data = await res.json()
         setError(data.error || 'Failed to update media')
@@ -191,7 +192,7 @@ export default function EditMediaPage() {
     <div className="max-w-3xl mx-auto p-0 m-0 pb-[500px]">
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
-        <Link
+        <a
           href={`/media/${mediaId}`}
           className="w-10 h-10 rounded-full bg-tank-gray hover:bg-tank-light flex items-center justify-center transition-colors no-touch-callout"
           onContextMenu={(e) => e.preventDefault()}
@@ -199,7 +200,7 @@ export default function EditMediaPage() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-        </Link>
+        </a>
           <h1 className="text-2xl font-bold">Edit Media</h1>
         <span className="text-gray-400">— Update your content details</span>
       </div>
@@ -394,13 +395,13 @@ export default function EditMediaPage() {
 
         {/* Actions */}
         <div className="flex gap-4 pt-4 border-t border-tank-light">
-          <Link
+          <a
             href={`/media/${mediaId}`}
             className="btn-secondary flex-1 text-center no-touch-callout"
             onContextMenu={(e) => e.preventDefault()}
           >
             Cancel
-          </Link>
+          </a>
           <button
             type="submit"
             disabled={saving || !title.trim()}

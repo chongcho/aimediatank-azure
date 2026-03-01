@@ -582,15 +582,15 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                   {formatMediaTitle(media.title, 60)}
                 </h1>
 
-                {/* Edit Button - for owners */}
+                {/* Edit Button - for owners (hard navigation to exit intercepting-route modal) */}
                 {canManage && (
-                  <Link
+                  <a
                     href={`/media/${mediaId}/edit`}
                     className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold no-touch-callout"
                     onContextMenu={(e) => e.preventDefault()}
                   >
                     Edit
-                  </Link>
+                  </a>
                 )}
               </div>
 
