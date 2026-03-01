@@ -520,16 +520,17 @@ export async function POST(request: Request) {
             }
           })
         } else if (isPaidWithCredit) {
+          const remainingCredits = newPaidUploadCredits + newBonusCredits
           const creditUploadEmailHtml = generateUploadConfirmationEmail(
             userName, title, totalUploads,
-            newPaidUploadCredits > 0 ? `${newPaidUploadCredits} paid credit(s) remaining` : 'No credits remaining',
-            false, config.costPerUpload, planName
+            `${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''}`,
+            true, 0, planName
           )
-          await sendEmail({ to: user.email, subject: '✅ Paid Upload Complete | AI Media Tank', html: creditUploadEmailHtml })
+          await sendEmail({ to: user.email, subject: '✅ Upload Complete (Credit Used) | AI Media Tank', html: creditUploadEmailHtml })
           await prisma.notification.create({
             data: {
-              userId: user.id, type: 'system', title: '✅ Paid Upload Complete',
-              message: `"${title}" uploaded using paid credit. ${newPaidUploadCredits} credit(s) remaining.`,
+              userId: user.id, type: 'system', title: '✅ Upload Complete (Credit Used)',
+              message: `"${title}" uploaded using credit. ${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''} remaining.`,
               link: `/media/${media.id}`,
             }
           })

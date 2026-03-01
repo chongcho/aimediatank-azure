@@ -3,8 +3,8 @@
  * On back-navigation the home page reads this synchronously in useState
  * so it renders content on the very first frame (no skeleton flash).
  *
- * Uses sessionStorage instead of a module variable because Next.js
- * code-splits route chunks and module state may not survive navigation.
+ * Uses sessionStorage for durability (survives chunk unload during SPA nav)
+ * plus a volatile window flag so the cache auto-invalidates on page reload.
  */
 
 const STORAGE_KEY = 'homeFeedSnapshot'
@@ -25,11 +25,13 @@ interface Snapshot {
 export function saveHomeFeed(params: HomeFeedParams, media: unknown[], totalPages: number): void {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ params, media, totalPages }))
+    if (typeof window !== 'undefined') (window as any).__homeFeedCacheValid = true
   } catch { /* quota exceeded or private mode */ }
 }
 
 export function getHomeFeed(params: HomeFeedParams): Snapshot | null {
   try {
+    if (typeof window === 'undefined' || !(window as any).__homeFeedCacheValid) return null
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const snap = JSON.parse(raw) as Snapshot
@@ -41,5 +43,8 @@ export function getHomeFeed(params: HomeFeedParams): Snapshot | null {
 }
 
 export function clearHomeFeed(): void {
-  try { sessionStorage.removeItem(STORAGE_KEY) } catch {}
+  try {
+    sessionStorage.removeItem(STORAGE_KEY)
+    if (typeof window !== 'undefined') (window as any).__homeFeedCacheValid = false
+  } catch {}
 }
