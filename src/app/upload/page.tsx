@@ -1851,6 +1851,17 @@ function UploadPageContent() {
               personal and commercial purposes.
             </p>
           </div>
+
+          <div className="mt-8 flex justify-center">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#41454E] text-white font-medium hover:bg-[#4d525e] transition-colors"
+            >
+              <span aria-hidden>←</span>
+              Back
+            </button>
+          </div>
         </form>
       </div>
       )}
