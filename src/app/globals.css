@@ -368,7 +368,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .no-touch-callout select {
   -webkit-user-select: text !important;
   user-select: text !important;
-  -webkit-touch-callout: default !important;
+  -webkit-touch-callout: none !important;
 }
 .no-touch-callout:focus,
 .no-touch-callout:active {
