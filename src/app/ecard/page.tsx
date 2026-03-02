@@ -1,11 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { stripHashtags } from '@/lib/text'
-
-type View = 'choice' | 'new' | 'history'
 
 interface MediaItem {
   id: string
@@ -13,16 +11,6 @@ interface MediaItem {
   type: string
   thumbnailUrl: string | null
   user?: { username: string }
-}
-
-interface SentCard {
-  id: string
-  cardUrl: string
-  recipientEmail: string | null
-  cardTitle: string | null
-  ttsMessage: string | null
-  createdAt: string
-  media: { id: string; title: string; type: string; thumbnailUrl: string | null } | null
 }
 
 const TITLE_OPTIONS = [
@@ -35,20 +23,6 @@ const TITLE_OPTIONS = [
 
 export default function EcardPage() {
   const { data: session, status } = useSession()
-  const [view, setView] = useState<View>('choice')
-  const [sentCards, setSentCards] = useState<SentCard[]>([])
-  const [historyLoading, setHistoryLoading] = useState(false)
-
-  useEffect(() => {
-    if (view === 'history' && session?.user) {
-      setHistoryLoading(true)
-      fetch('/api/celebration-card')
-        .then((res) => (res.ok ? res.json() : []))
-        .then((data) => setSentCards(Array.isArray(data) ? data : []))
-        .catch(() => setSentCards([]))
-        .finally(() => setHistoryLoading(false))
-    }
-  }, [view, session?.user])
 
   if (status === 'loading') {
     return (
@@ -75,109 +49,12 @@ export default function EcardPage() {
     )
   }
 
-  if (view === 'choice') {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center px-4 py-12">
-        <div className="max-w-md w-full space-y-4">
-          <h1 className="text-2xl font-bold text-white text-center">Celebration Card</h1>
-          <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => setView('new')}
-              className="w-full px-6 py-4 rounded-xl font-semibold bg-tank-accent text-tank-black hover:opacity-90 transition-opacity"
-            >
-              New Celebration Card
-            </button>
-            <button
-              type="button"
-              onClick={() => setView('history')}
-              className="w-full px-6 py-4 rounded-xl font-semibold bg-tank-gray border border-tank-light text-white hover:bg-tank-light transition-colors"
-            >
-              Sent History
-            </button>
-          </div>
-          <p className="text-center text-gray-400 text-sm">
-            Create a celebration card with media and a message, or view cards you&apos;ve sent.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  if (view === 'history') {
-    return (
-      <div className="min-h-[60vh] max-w-2xl mx-auto px-4 py-8">
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            type="button"
-            onClick={() => setView('choice')}
-            className="text-gray-400 hover:text-white"
-          >
-            &larr; Back
-          </button>
-          <h1 className="text-xl font-bold text-white">Sent History</h1>
-        </div>
-        {historyLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-10 h-10 border-2 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin" />
-          </div>
-        ) : sentCards.length === 0 ? (
-          <p className="text-gray-400">No celebration cards sent yet.</p>
-        ) : (
-          <ul className="space-y-4">
-            {sentCards.map((card) => (
-              <li
-                key={card.id}
-                className="flex items-center gap-4 p-4 rounded-xl bg-tank-dark border border-tank-light"
-              >
-                {card.media?.thumbnailUrl ? (
-                  <img
-                    src={card.media.thumbnailUrl}
-                    alt=""
-                    className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-lg bg-tank-light flex-shrink-0 flex items-center justify-center">
-                    <span className="text-gray-500 text-xs">No thumb</span>
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-white font-medium truncate">{card.media?.title ? stripHashtags(card.media.title) : 'Card'}</p>
-                  <p className="text-gray-400 text-sm">
-                    {card.recipientEmail || 'No email'} &middot; {new Date(card.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <a
-                    href={card.cardUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1.5 rounded-lg bg-tank-accent text-tank-black text-sm font-medium hover:opacity-90"
-                  >
-                    View
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => navigator.clipboard.writeText(card.cardUrl)}
-                    className="px-3 py-1.5 rounded-lg bg-tank-gray border border-tank-light text-white text-sm hover:bg-tank-light"
-                  >
-                    Copy link
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    )
-  }
-
   return (
-    <CelebrationCardForm onBack={() => setView('choice')} senderName={session.user?.name || session.user?.username || 'User'} />
+    <CelebrationCardForm senderName={session.user?.name || session.user?.username || 'User'} />
   )
 }
 
-function CelebrationCardForm({ onBack, senderName }: { onBack: () => void; senderName: string }) {
+function CelebrationCardForm({ senderName }: { senderName: string }) {
   const [deliveryMethod, setDeliveryMethod] = useState<'email' | 'phone'>('email')
   const [recipientEmail, setRecipientEmail] = useState('')
   const [recipientPhone, setRecipientPhone] = useState('')
@@ -187,7 +64,7 @@ function CelebrationCardForm({ onBack, senderName }: { onBack: () => void; sende
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<{ cardUrl: string; emailSent: boolean } | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const [mediaLoading, setMediaLoading] = useState(true)
 
   useEffect(() => {
@@ -196,6 +73,16 @@ function CelebrationCardForm({ onBack, senderName }: { onBack: () => void; sende
       .then((data) => setMediaList(data.media || []))
       .catch(() => setMediaList([]))
       .finally(() => setMediaLoading(false))
+  }, [])
+
+  const resetForm = useCallback(() => {
+    setDeliveryMethod('email')
+    setRecipientEmail('')
+    setRecipientPhone('')
+    setCardTitle('')
+    setSelectedMedia(null)
+    setMessage('')
+    setError(null)
   }, [])
 
   const handleSend = async (e: React.FormEvent) => {
@@ -228,7 +115,9 @@ function CelebrationCardForm({ onBack, senderName }: { onBack: () => void; sende
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to create card')
-      setResult({ cardUrl: data.cardUrl, emailSent: data.emailSent })
+      setToast(email ? `Card sent to ${email}` : 'Card created!')
+      resetForm()
+      setTimeout(() => setToast(null), 4000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -236,63 +125,20 @@ function CelebrationCardForm({ onBack, senderName }: { onBack: () => void; sende
     }
   }
 
-  if (result) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center px-4 py-8">
-        <div className="max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-[#1a5c66]">
-          <div className="bg-[#1a6e7a] p-6 text-center">
-            <svg className="w-12 h-12 mx-auto text-white/90 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h2 className="text-xl font-bold text-white">Card Sent!</h2>
-          </div>
-          <div className="bg-[#14555e] p-6 space-y-4">
-            {result.emailSent && (
-              <p className="text-sm text-green-300">Email sent to {recipientEmail}</p>
-            )}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={result.cardUrl}
-                className="flex-1 px-3 py-2 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white text-sm truncate"
-              />
-              <button
-                type="button"
-                onClick={() => navigator.clipboard.writeText(result.cardUrl)}
-                className="px-4 py-2 rounded-lg bg-[#1a6e7a] text-white text-sm font-medium hover:bg-[#1f7f8c] shrink-0"
-              >
-                Copy
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={onBack}
-              className="w-full py-3 rounded-xl font-semibold bg-[#1a6e7a] text-white hover:bg-[#1f7f8c] transition-colors"
-            >
-              Back to Celebration Card
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4 py-8">
       <div className="max-w-md w-full">
-        {/* Back button */}
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-gray-400 hover:text-white text-sm mb-4 inline-flex items-center gap-1"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          Back
-        </button>
-
-        {/* Card header */}
         <h1 className="text-lg font-bold text-white mb-4">Celebration Card</h1>
+
+        {/* Success toast */}
+        {toast && (
+          <div className="mb-4 px-4 py-3 rounded-lg bg-green-600 text-white text-sm font-medium flex items-center gap-2 animate-fade-in">
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {toast}
+          </div>
+        )}
 
         <form onSubmit={handleSend} className="rounded-2xl overflow-hidden shadow-2xl border border-[#1a5c66]">
           {/* Send from */}
