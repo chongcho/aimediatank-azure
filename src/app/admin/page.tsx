@@ -1286,8 +1286,23 @@ export default function AdminPage() {
         </div>
       )}
       
-      <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
-      <p className="text-gray-400 mb-8">Manage users, content, chat, and reports</p>
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <h1 className="text-3xl font-bold">Admin Panel</h1>
+          <p className="text-gray-400 mt-1">Manage users, content, chat, and reports</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push('/')}
+          className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-tank-light transition-colors flex-shrink-0"
+          aria-label="Close Admin Panel"
+          title="Close"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
 
       {/* Tabs — wrap on narrow/zoomed so all items stay visible; scroll only if needed */}
       <div className="flex flex-wrap gap-2 mb-8 min-w-0 max-w-full">
