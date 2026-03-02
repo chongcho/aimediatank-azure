@@ -38,8 +38,11 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   if (!client) return false
 
   try {
+    const senderAddress = options.senderAddress || SENDER_ADDRESS
+    const displayName = options.fromName ?? (senderAddress === SENDER_ADDRESS ? DEFAULT_SENDER_NAME : undefined)
+    const senderValue = displayName ? `"${displayName.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}" <${senderAddress}>` : senderAddress
     const poller = await client.beginSend({
-      senderAddress: options.senderAddress || SENDER_ADDRESS,
+      senderAddress: senderValue,
       recipients: {
         to: [{ address: options.to }],
       },
