@@ -1816,7 +1816,7 @@ function UploadPageContent() {
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-end">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => router.push('/')}
               className="w-full sm:w-auto px-8 py-3 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all font-medium"
             >
               Cancel
