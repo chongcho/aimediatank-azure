@@ -1346,7 +1346,7 @@ function UploadPageContent() {
                     {/* Time labels above the bar */}
                     <div className="flex items-end justify-between mb-1.5 px-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-gray-400 font-medium">Start</span>
+                        <span className="text-sm sm:text-base text-gray-400 font-medium">Start</span>
                         <input
                           type="text"
                           placeholder="mm:ss"
@@ -1363,7 +1363,7 @@ function UploadPageContent() {
                             setTrimStartInput(null)
                           }}
                           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                          className="w-[52px] sm:w-[58px] px-1 py-0.5 bg-gray-800 border border-gray-600 rounded text-white text-[11px] tabular-nums text-center focus:ring-1 focus:ring-tank-accent focus:outline-none"
+                          className="w-[62px] sm:w-[72px] px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded text-white text-sm sm:text-base tabular-nums text-center focus:ring-1 focus:ring-tank-accent focus:outline-none"
                         />
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -1379,9 +1379,9 @@ function UploadPageContent() {
                             setTrimEndInput(null)
                           }}
                           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                          className="w-[52px] sm:w-[58px] px-1 py-0.5 bg-gray-800 border border-gray-600 rounded text-white text-[11px] tabular-nums text-center focus:ring-1 focus:ring-tank-accent focus:outline-none"
+                          className="w-[62px] sm:w-[72px] px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded text-white text-sm sm:text-base tabular-nums text-center focus:ring-1 focus:ring-tank-accent focus:outline-none"
                         />
-                        <span className="text-[11px] text-gray-400 font-medium">End</span>
+                        <span className="text-sm sm:text-base text-gray-400 font-medium">End</span>
                       </div>
                     </div>
 
@@ -1435,17 +1435,17 @@ function UploadPageContent() {
                           type="button"
                           aria-label="Decrease start time"
                           onClick={() => { const v = Math.max(0, Math.floor(videoTrimStart) - 1); setVideoTrimStart(v); setTrimStartInput(null) }}
-                          className="p-0.5 text-teal-400 hover:text-white transition-colors"
+                          className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M14 7l-5 5 5 5V7z"/><path d="M8 7l-5 5 5 5V7z"/></svg>
+                          <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M6 12l12-8v16z"/></svg>
                         </button>
                         <button
                           type="button"
                           aria-label="Increase start time"
                           onClick={() => { const v = Math.min(videoDuration - 0.1, Math.floor(videoTrimStart) + 1); setVideoTrimStart(v); setTrimStartInput(null); if (videoTrimEnd < v) setVideoTrimEnd(v) }}
-                          className="p-0.5 text-teal-400 hover:text-white transition-colors"
+                          className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M10 17l5-5-5-5v10z"/><path d="M16 17l5-5-5-5v10z"/></svg>
+                          <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M18 12L6 4v16z"/></svg>
                         </button>
                       </div>
                       <div className="flex items-center gap-0.5">
@@ -1453,17 +1453,17 @@ function UploadPageContent() {
                           type="button"
                           aria-label="Decrease end time"
                           onClick={() => { setVideoTrimEnd(Math.max(videoTrimStart + 0.1, Math.floor(videoTrimEnd) - 1)); setTrimEndInput(null) }}
-                          className="p-0.5 text-teal-400 hover:text-white transition-colors"
+                          className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M14 7l-5 5 5 5V7z"/><path d="M8 7l-5 5 5 5V7z"/></svg>
+                          <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M6 12l12-8v16z"/></svg>
                         </button>
                         <button
                           type="button"
                           aria-label="Increase end time"
                           onClick={() => { setVideoTrimEnd(Math.min(videoDuration, Math.floor(videoTrimEnd) + 1)); setTrimEndInput(null) }}
-                          className="p-0.5 text-teal-400 hover:text-white transition-colors"
+                          className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-teal-600 hover:text-teal-400 transition-colors"
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M10 17l5-5-5-5v10z"/><path d="M16 17l5-5-5-5v10z"/></svg>
+                          <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M18 12L6 4v16z"/></svg>
                         </button>
                       </div>
                     </div>
