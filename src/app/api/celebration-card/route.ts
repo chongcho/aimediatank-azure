@@ -148,7 +148,6 @@ export async function POST(request: Request) {
         mediaPageUrl,
         mediaTitle,
         thumbnailUrl: thumbUrl,
-        cardTitle: card.cardTitle || undefined,
         message: card.ttsMessage || undefined,
       })
       const subject = card.cardTitle && card.cardTitle.trim()
@@ -158,7 +157,7 @@ export async function POST(request: Request) {
         to: card.recipientEmail,
         subject,
         html,
-        fromName: `${senderName} via Celebrate`,
+        senderAddress: 'Celebrate@aimediatank.com',
       })
       if (!emailSent) {
         console.warn('Celebration card email failed to send to', card.recipientEmail)

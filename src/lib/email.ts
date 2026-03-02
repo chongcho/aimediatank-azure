@@ -8,6 +8,8 @@ interface EmailOptions {
   replyTo?: string
   /** Display name shown alongside the sender address (configured via AZURE_EMAIL_SENDER_NAME env var by default). */
   fromName?: string
+  /** Override the default sender address (must be a verified MailFrom in Azure). */
+  senderAddress?: string
 }
 
 const CONNECTION_STRING = process.env.AZURE_EMAIL_CONNECTION_STRING || ''
@@ -37,7 +39,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
 
   try {
     const poller = await client.beginSend({
-      senderAddress: SENDER_ADDRESS,
+      senderAddress: options.senderAddress || SENDER_ADDRESS,
       recipients: {
         to: [{ address: options.to }],
       },
@@ -68,24 +70,18 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   }
 }
 
-// Celebration card e-card email (sender name, card title, clickable thumbnail, message, reply-to footer)
+// Celebration card e-card email (clickable thumbnail, optional message, reply-to footer)
 export function generateCelebrationCardEmail(options: {
   senderName: string
   mediaPageUrl: string
   mediaTitle: string
   thumbnailUrl: string | null
-  cardTitle?: string
   message?: string
 }): string {
-  const { senderName, mediaPageUrl, mediaTitle, thumbnailUrl, cardTitle, message } = options
-  const titleBlock = cardTitle
-    ? `<h1 style="font-size: 22px; color: #1a1a2e; margin: 0 0 8px 0;">${escapeHtml(cardTitle)}</h1>`
-    : ''
-
-  const senderBlock = `<p style="font-size: 14px; color: #666; margin: 0 0 20px 0;">${escapeHtml(senderName)} via Celebrate@aimediatank.com</p>`
+  const { senderName, mediaPageUrl, mediaTitle, thumbnailUrl, message } = options
 
   const imgBlock = thumbnailUrl
-    ? `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 16px 0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" style="width: 100%; max-width: 400px; height: auto; border-radius: 12px; display: block; border: 1px solid #e0e0e0;" /></a>`
+    ? `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" style="width: 100%; max-width: 400px; height: auto; border-radius: 12px; display: block; border: 1px solid #e0e0e0;" /></a>`
     : `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 16px 0; color: #0f8; font-weight: bold;">View media</a>`
 
   const messageBlock = message
@@ -100,8 +96,6 @@ export function generateCelebrationCardEmail(options: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  ${titleBlock}
-  ${senderBlock}
   ${imgBlock}
   ${messageBlock}
   <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">You can reply to ${escapeHtml(senderName)} at <a href="mailto:support@aimediatank.com" style="color: #0066cc;">support@aimediatank.com</a></p>
