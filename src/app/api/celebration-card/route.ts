@@ -167,7 +167,7 @@ export async function POST(request: Request) {
         subject,
         html,
         senderAddress: 'Celebrate@aimediatank.com',
-        fromName: `${senderDisplayName} via Celebrate@aimediatank.com`,
+        fromName: `${senderDisplayName} via`,
       })
       if (!emailSent) {
         console.warn('Celebration card email failed to send to', card.recipientEmail)

@@ -38,10 +38,15 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   if (!client) return false
 
   try {
-    // Azure ACS requires senderAddress to be a plain verified MailFrom address, not RFC 5322 formatted.
     const senderAddress = options.senderAddress || SENDER_ADDRESS
+    // When fromName is set, use RFC 5322 "Display Name <address>" so the From header shows e.g. "Jack Smith via <Celebrate@aimediatank.com>".
+    // If Azure rejects this format, it will need to be reverted to plain senderAddress.
+    const senderValue =
+      options.fromName != null
+        ? `"${options.fromName.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}" <${senderAddress}>`
+        : senderAddress
     const poller = await client.beginSend({
-      senderAddress,
+      senderAddress: senderValue,
       recipients: {
         to: [{ address: options.to }],
       },
