@@ -1241,11 +1241,11 @@ function UploadPageContent() {
 
           {showCropper && cropSource && cropMediaType && portalMounted && createPortal(
             <div
-              className="fixed inset-0 bg-black/70 flex items-center justify-center z-[99999] p-2 sm:p-4 overscroll-contain touch-none overflow-y-auto no-touch-callout"
+              className="fixed inset-0 bg-black/70 flex items-center justify-center z-[99999] p-2 sm:p-4 overscroll-contain touch-none overflow-y-auto"
               onContextMenu={(e) => { if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) e.preventDefault() }}
             >
               <div
-                className="bg-tank-dark border border-tank-light w-full max-w-2xl p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto"
+                className="bg-tank-dark border border-tank-light w-full max-w-2xl p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto no-touch-callout"
               >
                 <div className="relative flex items-center mb-2 sm:mb-4">
                   <h3 className="text-lg sm:text-xl font-semibold text-white pr-12">
