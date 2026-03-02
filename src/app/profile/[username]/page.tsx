@@ -455,14 +455,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Actions */}
-          {isOwnProfile && (
-            <div className="flex flex-col gap-3">
-              <Link href="/upload" className="btn-primary text-center">
-                Upload New
-              </Link>
-            </div>
-          )}
         </div>
       </div>
 

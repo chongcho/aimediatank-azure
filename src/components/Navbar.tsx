@@ -42,6 +42,7 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [chatInviteCount, setChatInviteCount] = useState(0)
+  const [notificationsOn, setNotificationsOn] = useState(true)
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
   const [ecardEnabled, setEcardEnabled] = useState(true)
@@ -223,11 +224,33 @@ export default function Navbar() {
     }
   }, [session])
 
-  // Update app badge when notification counts change
+  // Persist notifications ON/OFF preference
   useEffect(() => {
-    const totalCount = calculateTotalNotifications(unreadCount, chatInviteCount)
+    try {
+      const stored = localStorage.getItem('notifications-on')
+      if (stored !== null) setNotificationsOn(stored === 'true')
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const toggleNotificationsOn = () => {
+    setNotificationsOn((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('notifications-on', String(next))
+      } catch {
+        // ignore
+      }
+      return next
+    })
+  }
+
+  // Update app badge when notification counts change (only if notifications are on)
+  useEffect(() => {
+    const totalCount = notificationsOn ? calculateTotalNotifications(unreadCount, chatInviteCount) : 0
     setAppBadge(totalCount)
-  }, [unreadCount, chatInviteCount])
+  }, [unreadCount, chatInviteCount, notificationsOn])
 
   // Listen for notification updates from TalkChat
   useEffect(() => {
@@ -447,17 +470,30 @@ export default function Navbar() {
                   >
                     <div className="px-3 py-2 border-b border-tank-light flex items-center justify-between bg-tank-dark">
                       <h3 className="font-semibold text-sm">Notifications</h3>
-                      {unreadCount > 0 && (
+                      <div className="flex items-center gap-2">
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            markAllAsRead()
+                            toggleNotificationsOn()
                           }}
-                          className="text-xs text-tank-accent hover:underline"
+                          className={`text-xs font-medium px-2 py-0.5 rounded ${notificationsOn ? 'bg-tank-accent text-black' : 'bg-tank-light/30 text-gray-400'}`}
+                          aria-label={notificationsOn ? 'Turn notifications off' : 'Turn notifications on'}
                         >
-                          Mark all read
+                          {notificationsOn ? 'ON' : 'OFF'}
                         </button>
-                      )}
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              markAllAsRead()
+                            }}
+                            className="text-xs text-tank-accent hover:underline"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="max-h-64 overflow-y-auto">
                       {notifications.length === 0 ? (
