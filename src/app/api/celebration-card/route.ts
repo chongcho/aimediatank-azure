@@ -142,32 +142,36 @@ export async function POST(request: Request) {
     let emailSent = false
     if (card.recipientEmail) {
       let senderDisplayName = senderName
+      let senderEmail: string | undefined = session?.user?.email || undefined
       if (session?.user?.id) {
         const sender = await prisma.user.findUnique({
           where: { id: session.user.id },
-          select: { legalName: true, name: true, username: true },
+          select: { legalName: true, name: true, username: true, email: true },
         })
         senderDisplayName = sender?.legalName || sender?.name || session?.user?.username || senderName
+        senderEmail = sender?.email || session?.user?.email || undefined
       }
 
       const thumbUrl = toAbsolute(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
       const mediaTitle = media.title.replace(/#\w+/g, '').trim()
       const html = generateCelebrationCardEmail({
         senderName: senderDisplayName,
+        senderEmail,
         mediaPageUrl,
         mediaTitle,
         thumbnailUrl: thumbUrl,
         message: card.ttsMessage || undefined,
       })
       const subject = card.cardTitle && card.cardTitle.trim()
-        ? card.cardTitle.trim()
+        ? `${card.cardTitle.trim()} from ${senderDisplayName}`
         : `You received a celebration card from ${senderDisplayName}`
+      const celebrateSender = process.env.AZURE_EMAIL_CELEBRATE_SENDER || 'Celebrate@aimediatank.com'
       emailSent = await sendEmail({
         to: card.recipientEmail,
         subject,
         html,
-        senderAddress: 'Celebrate@aimediatank.com',
-        fromName: `${senderDisplayName} via`,
+        senderAddress: celebrateSender,
+        fromName: senderDisplayName,
       })
       if (!emailSent) {
         console.warn('Celebration card email failed to send to', card.recipientEmail)

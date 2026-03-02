@@ -39,14 +39,8 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
 
   try {
     const senderAddress = options.senderAddress || SENDER_ADDRESS
-    // When fromName is set, use RFC 5322 "Display Name <address>" so the From header shows e.g. "Jack Smith via <Celebrate@aimediatank.com>".
-    // If Azure rejects this format, it will need to be reverted to plain senderAddress.
-    const senderValue =
-      options.fromName != null
-        ? `"${options.fromName.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}" <${senderAddress}>`
-        : senderAddress
     const poller = await client.beginSend({
-      senderAddress: senderValue,
+      senderAddress,
       recipients: {
         to: [{ address: options.to }],
       },
@@ -80,12 +74,13 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
 // Celebration card e-card email (clickable thumbnail, optional message, reply-to footer)
 export function generateCelebrationCardEmail(options: {
   senderName: string
+  senderEmail?: string
   mediaPageUrl: string
   mediaTitle: string
   thumbnailUrl: string | null
   message?: string
 }): string {
-  const { senderName, mediaPageUrl, mediaTitle, thumbnailUrl, message } = options
+  const { senderName, senderEmail, mediaPageUrl, mediaTitle, thumbnailUrl, message } = options
 
   const imgBlock = thumbnailUrl
     ? `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" style="width: 100%; max-width: 400px; height: auto; border-radius: 12px; display: block; border: 1px solid #e0e0e0;" /></a>`
@@ -105,7 +100,7 @@ export function generateCelebrationCardEmail(options: {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   ${imgBlock}
   ${messageBlock}
-  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">You can reply to ${escapeHtml(senderName)} at <a href="mailto:support@aimediatank.com" style="color: #0066cc;">support@aimediatank.com</a></p>
+  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong>${senderEmail ? `<br><a href="mailto:${escapeHtml(senderEmail)}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a>` : ''}</p>
   <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
   <p style="font-size: 14px; color: #666;">Powered by <a href="https://www.aimediatank.com" style="color: #0f8;">www.aimediatank.com</a></p>
 </body>
