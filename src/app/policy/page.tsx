@@ -64,7 +64,17 @@ export default function PolicyPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-0 m-0 pb-[500px]">
+    <div className="max-w-6xl mx-auto p-0 m-0 pb-[500px] relative">
+      <button
+        type="button"
+        onClick={() => router.back()}
+        className="absolute top-1 right-2 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors z-10"
+        aria-label="Close"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
       {/* Policy Agreement Status */}
       {session && policyStatus.agreed && (
         <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex items-center gap-3">
@@ -96,9 +106,6 @@ export default function PolicyPage() {
             </svg>
             Download
           </button>
-          <Link href="/" className="flex items-center gap-2 px-4 py-2 bg-tank-accent text-tank-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-colors">
-            Back to Home
-          </Link>
         </div>
       </div>
 

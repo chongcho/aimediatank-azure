@@ -1032,7 +1032,17 @@ function UploadPageContent() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-0 m-0 pt-5 pb-[500px]">
+    <div className="max-w-3xl mx-auto p-0 m-0 pt-5 pb-[500px] relative">
+      <button
+        type="button"
+        onClick={() => router.back()}
+        className="absolute top-6 right-0 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors z-10"
+        aria-label="Close"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
       <div className="text-center mb-[30px]">
         <h1 className="text-3xl font-bold">Upload Media</h1>
       </div>
@@ -1806,7 +1816,7 @@ function UploadPageContent() {
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-end">
             <button
               type="button"
-              onClick={() => router.push('/')}
+              onClick={() => router.back()}
               className="w-full sm:w-auto px-8 py-3 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all font-medium"
             >
               Cancel
