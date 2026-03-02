@@ -422,19 +422,18 @@ export default function Navbar() {
 
           {/* Right Side */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Media Message Button - signed-in users */}
-            {session && isNavbarItemEnabled('mediaMessage') && (
-              <button
-                type="button"
-                onClick={() => setIsMediaMessageOpen(true)}
+            {/* Celebrate Button - signed-in users */}
+            {session && (
+              <Link
+                href="/ecard"
                 className="h-9 w-9 flex items-center justify-center rounded-lg border border-tank-light text-gray-200 hover:text-white hover:border-tank-accent transition-colors"
-                aria-label="Media Message"
-                title="Media Message"
+                aria-label="Celebrate"
+                title="Celebrate"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.8L3 20l1.2-3A7.87 7.87 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7m-14 0a2 2 0 01-2-2V9a2 2 0 012-2h14a2 2 0 012 2v1a2 2 0 01-2 2" />
                 </svg>
-              </button>
+              </Link>
             )}
 
             {/* Notification Bell - signed-in users */}
