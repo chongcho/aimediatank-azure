@@ -1,83 +1,68 @@
-// Email service for sending notifications using SMTP
-import nodemailer from 'nodemailer'
+// Email service using Azure Communication Services Email
+import { EmailClient } from '@azure/communication-email'
 
 interface EmailOptions {
   to: string
   subject: string
   html: string
   replyTo?: string
-  /** Display name for From (e.g. sender's name). Actual From address is always the SMTP account; use replyTo for replies to go to the user. */
+  /** Display name shown alongside the sender address (configured via AZURE_EMAIL_SENDER_NAME env var by default). */
   fromName?: string
 }
 
-// Gmail credentials — must be provided via environment variables
-const GMAIL_USER = process.env.EMAIL_USER || process.env.SMTP_USER || ''
-const GMAIL_PASS = process.env.EMAIL_PASS || process.env.SMTP_PASS || ''
+const CONNECTION_STRING = process.env.AZURE_EMAIL_CONNECTION_STRING || ''
+const SENDER_ADDRESS = process.env.AZURE_EMAIL_SENDER || ''
+const DEFAULT_SENDER_NAME = process.env.AZURE_EMAIL_SENDER_NAME || 'AI Media Tank'
 
-// Create reusable transporter using Gmail service
-let cachedTransporter: nodemailer.Transporter | null = null
+let cachedClient: EmailClient | null = null
 
-function getTransporter(): nodemailer.Transporter | null {
-  if (!GMAIL_USER || !GMAIL_PASS) {
-    console.error('Email credentials not configured. Set EMAIL_USER/EMAIL_PASS or SMTP_USER/SMTP_PASS environment variables.')
+function getClient(): EmailClient | null {
+  if (!CONNECTION_STRING) {
+    console.error('Azure Email not configured. Set AZURE_EMAIL_CONNECTION_STRING environment variable.')
     return null
   }
-
-  if (cachedTransporter) {
-    return cachedTransporter
+  if (!SENDER_ADDRESS) {
+    console.error('Azure Email sender not configured. Set AZURE_EMAIL_SENDER environment variable.')
+    return null
   }
-  
-  // Use Gmail service for better compatibility
-  cachedTransporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: GMAIL_USER,
-      pass: GMAIL_PASS,
-    },
-    // Connection settings for reliability
-    pool: true,
-    maxConnections: 3,
-    maxMessages: 100,
-    rateDelta: 1000,
-    rateLimit: 5, // 5 emails per second max
-  })
-  
-  return cachedTransporter
+  if (!cachedClient) {
+    cachedClient = new EmailClient(CONNECTION_STRING)
+  }
+  return cachedClient
 }
 
-// Send email using SMTP
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
-  const transporter = getTransporter()
-
-  if (!transporter) {
-    return false
-  }
-
-  // RFC 5322: in quoted-strings, \ and " are special; escape \ first then ".
-  const escapeFromName = (name: string) =>
-    name.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-  const emailFrom = options.fromName
-    ? `"${escapeFromName(options.fromName)}" <${GMAIL_USER}>`
-    : `"AI Media Tank" <${GMAIL_USER}>`
+  const client = getClient()
+  if (!client) return false
 
   try {
-    await transporter.verify()
-    await transporter.sendMail({
-      from: emailFrom,
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      ...(options.replyTo && { replyTo: options.replyTo }),
+    const poller = await client.beginSend({
+      senderAddress: SENDER_ADDRESS,
+      recipients: {
+        to: [{ address: options.to }],
+      },
+      content: {
+        subject: options.subject,
+        html: options.html,
+      },
+      ...(options.replyTo && {
+        replyTo: [{ address: options.replyTo, displayName: options.fromName || undefined }],
+      }),
     })
-    console.log(`Email sent to ${options.to}: ${options.subject}`)
-    return true
+
+    const result = await poller.pollUntilDone()
+
+    if (result.status === 'Succeeded') {
+      console.log(`Email sent to ${options.to}: ${options.subject}`)
+      return true
+    }
+
+    console.error(`Email send failed with status ${result.status}:`, result.error)
+    return false
   } catch (error: unknown) {
     console.error('Email send failed:', error instanceof Error ? error.message : error)
-    if (error instanceof Error) {
-      // If connection failed, reset the cached transporter
-      if (error.message.includes('connect') || error.message.includes('auth') || error.message.includes('ECONNREFUSED')) {
-        cachedTransporter = null
-      }
+    if (error instanceof Error && (error.message.includes('connect') || error.message.includes('auth'))) {
+      cachedClient = null
     }
     return false
   }

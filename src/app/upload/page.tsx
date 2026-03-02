@@ -1852,7 +1852,7 @@ function UploadPageContent() {
             </p>
           </div>
 
-          <div className="mt-8 flex justify-center">
+          <div className="mt-8 flex justify-start">
             <button
               type="button"
               onClick={() => router.back()}
