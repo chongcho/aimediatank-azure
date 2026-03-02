@@ -68,25 +68,28 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   }
 }
 
-// Celebration card e-card email (streamlined: sender, clickable thumbnail → media detail, message under thumbnail, powered-by footer)
+// Celebration card e-card email (sender name, card title, clickable thumbnail, message, reply-to footer)
 export function generateCelebrationCardEmail(options: {
-  senderEmail?: string
+  senderName: string
   mediaPageUrl: string
   mediaTitle: string
   thumbnailUrl: string | null
+  cardTitle?: string
   message?: string
 }): string {
-  const { senderEmail, mediaPageUrl, mediaTitle, thumbnailUrl, message } = options
+  const { senderName, mediaPageUrl, mediaTitle, thumbnailUrl, cardTitle, message } = options
+  const titleBlock = cardTitle
+    ? `<h1 style="font-size: 22px; color: #1a1a2e; margin: 0 0 8px 0;">${escapeHtml(cardTitle)}</h1>`
+    : ''
+
+  const senderBlock = `<p style="font-size: 14px; color: #666; margin: 0 0 20px 0;">${escapeHtml(senderName)} via Celebrate@aimediatank.com</p>`
+
   const imgBlock = thumbnailUrl
     ? `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 16px 0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" style="width: 100%; max-width: 400px; height: auto; border-radius: 12px; display: block; border: 1px solid #e0e0e0;" /></a>`
     : `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 16px 0; color: #0f8; font-weight: bold;">View media</a>`
 
   const messageBlock = message
     ? `<p style="font-size: 16px; color: #444; margin: 16px 0; line-height: 1.6;">${escapeHtml(message)}</p>`
-    : ''
-
-  const fromLine = senderEmail
-    ? `<p style="font-size: 14px; color: #666; margin: 0 0 16px 0;">From: ${escapeHtml(senderEmail)}</p>`
     : ''
 
   return `
@@ -97,9 +100,11 @@ export function generateCelebrationCardEmail(options: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  ${fromLine}
+  ${titleBlock}
+  ${senderBlock}
   ${imgBlock}
   ${messageBlock}
+  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">You can reply to ${escapeHtml(senderName)} at <a href="mailto:support@aimediatank.com" style="color: #0066cc;">support@aimediatank.com</a></p>
   <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
   <p style="font-size: 14px; color: #666;">Powered by <a href="https://www.aimediatank.com" style="color: #0f8;">www.aimediatank.com</a></p>
 </body>
