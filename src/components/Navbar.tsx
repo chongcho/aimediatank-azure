@@ -41,6 +41,7 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [chatInviteCount, setChatInviteCount] = useState(0)
   const [notificationsOn, setNotificationsOn] = useState(true)
+  const [expandedNotificationId, setExpandedNotificationId] = useState<string | null>(null)
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
   const [ecardEnabled, setEcardEnabled] = useState(true)
@@ -153,6 +154,7 @@ export default function Navbar() {
       }
       if (alertsRef.current && !alertsRef.current.contains(event.target as Node)) {
         setIsAlertsOpen(false)
+        setExpandedNotificationId(null)
       }
       // Close mobile menu when clicking outside
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node) &&
@@ -431,6 +433,7 @@ export default function Navbar() {
                     e.stopPropagation()
                     setIsAlertsOpen(!isAlertsOpen)
                     setIsProfileOpen(false)
+                    setExpandedNotificationId(null)
                   }}
                   className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-200 hover:text-white hover:bg-tank-light transition-colors"
                   aria-label="Notifications"
@@ -485,29 +488,36 @@ export default function Navbar() {
                       {notifications.length === 0 ? (
                         <p className="px-3 py-4 text-xs text-gray-500 text-center">No notifications</p>
                       ) : (
-                        notifications.slice(0, 5).map((notification) => (
-                          <Link
-                            key={notification.id}
-                            href={notification.link || '#'}
-                            className={`block px-3 py-2 hover:bg-tank-dark transition-colors border-b border-tank-light/50 last:border-b-0 ${!notification.read ? 'bg-tank-accent/5' : ''}`}
-                            onClick={() => {
-                              markAsRead(notification.id)
-                              setIsAlertsOpen(false)
-                            }}
-                          >
-                            <div className="flex gap-2">
-                              {getNotificationIcon(notification.type)}
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
-                                  {notification.title}
-                                </p>
-                                <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">
-                                  {notification.message}
-                                </p>
+                        notifications.slice(0, 5).map((notification) => {
+                          const isExpanded = expandedNotificationId === notification.id
+                          return (
+                            <div
+                              key={notification.id}
+                              className={`px-3 py-2 cursor-pointer hover:bg-tank-dark transition-colors border-b border-tank-light/50 last:border-b-0 ${!notification.read ? 'bg-tank-accent/5' : ''}`}
+                              onClick={() => {
+                                setExpandedNotificationId(isExpanded ? null : notification.id)
+                                if (!notification.read) markAsRead(notification.id)
+                              }}
+                            >
+                              <div className="flex gap-2">
+                                {getNotificationIcon(notification.type)}
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-xs font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
+                                    {notification.title}
+                                  </p>
+                                  <p className={`text-[10px] text-gray-500 mt-0.5 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-1'}`}>
+                                    {notification.message}
+                                  </p>
+                                  {isExpanded && (
+                                    <p className="text-[9px] text-gray-600 mt-1">
+                                      {new Date(notification.createdAt).toLocaleString()}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </Link>
-                        ))
+                          )
+                        })
                       )}
                     </div>
                   </div>
