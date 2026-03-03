@@ -1020,16 +1020,6 @@ export default function EditProfilePage() {
         </form>
       </div>
 
-      {/* Back Button at bottom left */}
-      <div className="flex justify-start mt-8">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
-        >
-          ← Back
-        </button>
-      </div>
 
       {/* Verification Code Modal */}
       {showVerifyModal && (

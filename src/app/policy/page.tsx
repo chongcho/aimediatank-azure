@@ -64,17 +64,7 @@ export default function PolicyPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-0 m-0 pb-[500px] relative">
-      <button
-        type="button"
-        onClick={() => router.back()}
-        className="absolute top-1 right-2 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors z-10"
-        aria-label="Close"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+    <div className="max-w-6xl mx-auto p-0 m-0 pb-[500px]">
       {/* Policy Agreement Status */}
       {session && policyStatus.agreed && (
         <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex items-center gap-3">
@@ -96,7 +86,7 @@ export default function PolicyPage() {
           <h1 className="text-3xl font-bold mb-2">Policy Book</h1>
           <p className="text-gray-400">Last Updated: February 10, 2026</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
           <button
             onClick={handleDownload}
             className="flex items-center gap-2 px-4 py-2 bg-tank-gray border border-tank-light rounded-xl hover:bg-tank-light transition-colors"
@@ -105,6 +95,16 @@ export default function PolicyPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Download
+          </button>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+            aria-label="Close"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
       </div>

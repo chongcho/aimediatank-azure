@@ -986,8 +986,19 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
 
       {/* Send by email modal */}
       {showEmailModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !sendingEmail && setShowEmailModal(false)}>
-          <div className="max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-[#1a5c66]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black flex items-center justify-center z-50 p-4" onClick={() => !sendingEmail && setShowEmailModal(false)}>
+          <div className="max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-[#1a5c66] relative" onClick={(e) => e.stopPropagation()}>
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => !sendingEmail && setShowEmailModal(false)}
+              className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
             {/* FROM */}
             <div className="bg-[#1a6e7a] px-5 py-3">
               <p className="text-white font-medium">

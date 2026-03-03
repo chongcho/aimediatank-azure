@@ -1813,6 +1813,23 @@ function UploadPageContent() {
             </div>
           )}
 
+          <div className="rounded-xl border border-tank-light bg-tank-gray/40 p-4 text-sm text-gray-300">
+            <div className="font-semibold text-white mb-1">No Returns on Purchased Media</div>
+            <p className="mb-4">
+              All digital media purchases are final. Due to the nature of digital assets, returns,
+              refunds, cancellations, or exchanges are not permitted once payment has been
+              successfully processed.
+            </p>
+            <div className="font-semibold text-white mb-1">License and Usage Rights</div>
+            <p>
+              Upon successful upload to aimediatank.com, the media shall be designated as
+              license-free between the Seller and the Buyer. The Seller, as the original creator,
+              and the Buyer, upon lawful download, are each granted a non-exclusive, perpetual,
+              royalty-free license to use, reproduce, display, and distribute the media for both
+              personal and commercial purposes.
+            </p>
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-end">
             <button
               type="button"
@@ -1832,34 +1849,6 @@ function UploadPageContent() {
                   : (uploadQuota?.paidUploadCredits ?? 0) > 0 
                     ? `Upload (Using Paid Credit)` 
                     : 'Upload Media'}
-            </button>
-          </div>
-
-          <div className="rounded-xl border border-tank-light bg-tank-gray/40 p-4 text-sm text-gray-300">
-            <div className="font-semibold text-white mb-1">No Returns on Purchased Media</div>
-            <p className="mb-4">
-              All digital media purchases are final. Due to the nature of digital assets, returns,
-              refunds, cancellations, or exchanges are not permitted once payment has been
-              successfully processed.
-            </p>
-            <div className="font-semibold text-white mb-1">License and Usage Rights</div>
-            <p>
-              Upon successful upload to aimediatank.com, the media shall be designated as
-              license-free between the Seller and the Buyer. The Seller, as the original creator,
-              and the Buyer, upon lawful download, are each granted a non-exclusive, perpetual,
-              royalty-free license to use, reproduce, display, and distribute the media for both
-              personal and commercial purposes.
-            </p>
-          </div>
-
-          <div className="mt-8 flex justify-start">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#41454E] text-white font-medium hover:bg-[#4d525e] transition-colors"
-            >
-              <span aria-hidden>←</span>
-              Back
             </button>
           </div>
         </form>

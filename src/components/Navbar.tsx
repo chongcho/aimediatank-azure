@@ -422,27 +422,6 @@ export default function Navbar() {
 
           {/* Right Side */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Celebrate Button - signed-in users */}
-            {session && (
-              <Link
-                href="/ecard"
-                className="h-9 w-9 flex items-center justify-center rounded-lg bg-pink-500 hover:bg-pink-600 text-white transition-colors"
-                aria-label="Celebrate"
-                title="Celebrate"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5.8 11.3 2 22l10.7-3.8" />
-                  <path d="M4 3h.01" />
-                  <path d="M22 8h.01" />
-                  <path d="M15 2h.01" />
-                  <path d="M22 20h.01" />
-                  <path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10" />
-                  <path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11c-.11.63-.69 1.07-1.33 1.07h-.36c-.62 0-1.16.4-1.35.99l-.11.34" />
-                  <path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98C9.59 4.91 9.15 5.49 9.15 6.13v.36c0 .62-.4 1.16-.99 1.35l-.34.11" />
-                </svg>
-              </Link>
-            )}
-
             {/* Notification Bell - signed-in users */}
             {session && (
               <div className="relative" ref={alertsRef}>
@@ -535,8 +514,29 @@ export default function Navbar() {
               </div>
             )}
 
+            {/* Celebrate Button - signed-in users, controlled by navbar 'mediaMessage' toggle */}
+            {session && isNavbarItemEnabled('mediaMessage') && (
+              <Link
+                href="/ecard"
+                className="h-9 w-9 flex items-center justify-center rounded-lg bg-pink-500 hover:bg-pink-600 text-white transition-colors"
+                aria-label="Celebrate"
+                title="Celebrate"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5.8 11.3 2 22l10.7-3.8" />
+                  <path d="M4 3h.01" />
+                  <path d="M22 8h.01" />
+                  <path d="M15 2h.01" />
+                  <path d="M22 20h.01" />
+                  <path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10" />
+                  <path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11c-.11.63-.69 1.07-1.33 1.07h-.36c-.62 0-1.16.4-1.35.99l-.11.34" />
+                  <path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98C9.59 4.91 9.15 5.49 9.15 6.13v.36c0 .62-.4 1.16-.99 1.35l-.34.11" />
+                </svg>
+              </Link>
+            )}
+
             {/* eCard link - left of Chat when enabled */}
-            {ecardEnabled && (
+            {ecardEnabled && isNavbarItemEnabled('mediaMessage') && (
               <Link
                 href="/ecard"
                 className="h-9 px-2 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
@@ -630,18 +630,6 @@ export default function Navbar() {
                         </svg>
                         Profile
                       </Link>
-                      {isNavbarItemEnabled('mediaMessage') && (
-                        <Link
-                          href="/messages"
-                          className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
-                          onClick={() => setIsProfileOpen(false)}
-                        >
-                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.8L3 20l1.2-3A7.87 7.87 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                          </svg>
-                          Messages
-                        </Link>
-                      )}
                       <Link
                         href={`/profile/${userData?.username || session.user?.username}`}
                         className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
@@ -773,9 +761,6 @@ export default function Navbar() {
               )}
               {isNavbarItemEnabled('play') && (
                 <MobileNavLink href="/game" onClick={() => setIsMenuOpen(false)}>Play</MobileNavLink>
-              )}
-              {session && isNavbarItemEnabled('mediaMessage') && (
-                <MobileNavLink href="/messages" onClick={() => setIsMenuOpen(false)}>Messages</MobileNavLink>
               )}
             </div>
           </div>

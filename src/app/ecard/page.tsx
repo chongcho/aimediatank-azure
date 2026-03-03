@@ -130,8 +130,20 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4 py-8">
-      <div className="max-w-md w-full">
-        <h1 className="text-lg font-bold text-white mb-4">Celebration Card</h1>
+      <div className="max-w-md w-full relative">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-lg font-bold text-white">Celebration Card</h1>
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
+            aria-label="Close"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
         {/* Success toast */}
         {toast && (
@@ -341,7 +353,7 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
           <div className="flex border-t border-[#1a5c66]">
             <button
               type="button"
-              onClick={resetForm}
+              onClick={() => window.history.back()}
               className="flex-1 bg-[#14555e] hover:bg-[#175f69] px-5 py-4 text-white/70 hover:text-white font-bold text-lg transition-colors border-r border-[#1a5c66]"
             >
               Cancel
@@ -355,15 +367,6 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
             </button>
           </div>
         </form>
-
-        {/* Back button */}
-        <button
-          type="button"
-          onClick={() => window.history.back()}
-          className="mt-4 px-5 py-2.5 bg-gray-600/80 hover:bg-gray-500/80 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          &larr; Back
-        </button>
       </div>
     </div>
   )
