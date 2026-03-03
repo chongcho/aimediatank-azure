@@ -9,6 +9,8 @@ interface MediaItem {
   id: string
   title: string
   type: string
+  url: string
+  streamUrl?: string
   thumbnailUrl: string | null
   user?: { username: string }
 }
@@ -280,7 +282,7 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
                 </button>
               </p>
             )}
-            {/* Inline media preview overlay */}
+            {/* Inline media preview */}
             {previewMedia && (
               <div className="mt-2 relative rounded-lg overflow-hidden border border-white/20 bg-black">
                 <button
@@ -290,16 +292,26 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
                 >
                   &times;
                 </button>
-                {previewMedia.thumbnailUrl ? (
+                {previewMedia.type === 'VIDEO' ? (
+                  <video
+                    src={previewMedia.streamUrl ?? previewMedia.url}
+                    poster={previewMedia.thumbnailUrl || undefined}
+                    className="w-full max-h-64 object-contain"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="auto"
+                  />
+                ) : previewMedia.thumbnailUrl ? (
                   <img
                     src={previewMedia.thumbnailUrl}
                     alt={stripHashtags(previewMedia.title)}
-                    className="w-full max-h-48 object-contain"
+                    className="w-full max-h-64 object-contain"
                   />
                 ) : (
-                  <div className="w-full h-32 flex items-center justify-center text-white/40 text-sm">No preview available</div>
+                  <div className="w-full h-40 flex items-center justify-center text-white/40 text-sm">No preview available</div>
                 )}
-                <p className="text-xs text-white/70 px-2 py-1 bg-black/50 truncate">{stripHashtags(previewMedia.title)}</p>
               </div>
             )}
           </div>
@@ -325,14 +337,23 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
             </div>
           )}
 
-          {/* Send button */}
-          <button
-            type="submit"
-            disabled={sending || !selectedMedia}
-            className="w-full bg-[#14555e] hover:bg-[#175f69] disabled:opacity-50 px-5 py-4 text-white font-bold text-lg transition-colors border-t border-[#1a5c66]"
-          >
-            {sending ? 'Sending...' : 'Send'}
-          </button>
+          {/* Cancel / Send buttons */}
+          <div className="flex border-t border-[#1a5c66]">
+            <button
+              type="button"
+              onClick={resetForm}
+              className="flex-1 bg-[#14555e] hover:bg-[#175f69] px-5 py-4 text-white/70 hover:text-white font-bold text-lg transition-colors border-r border-[#1a5c66]"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={sending || !selectedMedia}
+              className="flex-1 bg-[#14555e] hover:bg-[#175f69] disabled:opacity-50 px-5 py-4 text-white font-bold text-lg transition-colors"
+            >
+              {sending ? 'Sending...' : 'Send'}
+            </button>
+          </div>
         </form>
 
         {/* Back button */}

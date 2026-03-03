@@ -426,7 +426,7 @@ export default function Navbar() {
             {session && (
               <Link
                 href="/ecard"
-                className="h-9 w-9 flex items-center justify-center rounded-lg border border-tank-light text-gray-200 hover:text-white hover:border-tank-accent transition-colors"
+                className="h-9 w-9 flex items-center justify-center rounded-lg bg-pink-500 hover:bg-pink-600 text-white transition-colors"
                 aria-label="Celebrate"
                 title="Celebrate"
               >
