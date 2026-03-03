@@ -643,20 +643,11 @@ export default function Navbar() {
             {session && isNavbarItemEnabled('mediaMessage') && (
               <Link
                 href="/ecard"
-                className="h-9 w-9 flex items-center justify-center rounded-lg bg-pink-500 hover:bg-pink-600 text-white transition-colors"
+                className="h-9 w-9 flex items-center justify-center rounded-lg bg-pink-500 hover:bg-pink-600 transition-colors"
                 aria-label="Celebrate"
                 title="Celebrate"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5.8 11.3 2 22l10.7-3.8" />
-                  <path d="M4 3h.01" />
-                  <path d="M22 8h.01" />
-                  <path d="M15 2h.01" />
-                  <path d="M22 20h.01" />
-                  <path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10" />
-                  <path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11c-.11.63-.69 1.07-1.33 1.07h-.36c-.62 0-1.16.4-1.35.99l-.11.34" />
-                  <path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98C9.59 4.91 9.15 5.49 9.15 6.13v.36c0 .62-.4 1.16-.99 1.35l-.34.11" />
-                </svg>
+                <span className="text-lg leading-none">🎉</span>
               </Link>
             )}
 
@@ -913,6 +904,31 @@ export default function Navbar() {
 }
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const [isActive, setIsActive] = useState(false)
+
+  const checkActive = useCallback(() => {
+    const pathname = window.location.pathname
+    const search = window.location.search
+    if (href === '/') {
+      setIsActive(pathname === '/' && !search)
+    } else if (href.startsWith('/?')) {
+      setIsActive(pathname === '/' && search === href.slice(1))
+    } else {
+      setIsActive(pathname === href || pathname.startsWith(href + '/'))
+    }
+  }, [href])
+
+  useEffect(() => {
+    checkActive()
+    const onFilter = () => setTimeout(checkActive, 0)
+    window.addEventListener('homeFilterChange', onFilter)
+    window.addEventListener('popstate', checkActive)
+    return () => {
+      window.removeEventListener('homeFilterChange', onFilter)
+      window.removeEventListener('popstate', checkActive)
+    }
+  }, [checkActive])
+
   const handleClick = (e: React.MouseEvent) => {
     const isOnHomePage = window.location.pathname === '/'
 
@@ -920,13 +936,8 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
       e.preventDefault()
 
       if (isOnHomePage) {
-        // Use replaceState instead of Link soft navigation to preserve
-        // the @modal parallel route context needed for intercepted routes.
-        // Soft-navigating to /?type=VIDEO via <Link> corrupts that context
-        // and breaks all subsequent media detail modals until a full reload.
         window.history.replaceState(window.history.state, '', href)
 
-        // Same clear behavior as "All" so Videos/Images get a clean feed and intercept works
         sessionStorage.removeItem('homeScrollState')
         clearHomeFeed()
 
@@ -949,7 +960,11 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
     <Link
       href={href}
       onClick={handleClick}
-      className="px-4 py-2 text-white hover:text-tank-accent hover:bg-tank-light rounded-lg transition-all"
+      className={`px-4 py-2 rounded-lg transition-all ${
+        isActive
+          ? 'text-tank-accent bg-tank-light font-semibold'
+          : 'text-white hover:text-tank-accent hover:bg-tank-light'
+      }`}
     >
       {children}
     </Link>
