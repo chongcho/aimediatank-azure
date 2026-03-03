@@ -62,8 +62,8 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+      <div className="w-full max-w-md relative">
+        <div className="text-center mb-8 pt-[30px] relative">
           <Link href="/" className="inline-block mb-6">
             <span className="font-bold text-3xl text-white">
               <span className="text-tank-accent">A</span>i
@@ -72,6 +72,16 @@ function LoginContent() {
             </span>
           </Link>
           <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="absolute top-[30px] right-0 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+            aria-label="Close"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
           <p className="text-gray-400">Sign in to your account</p>
         </div>
 

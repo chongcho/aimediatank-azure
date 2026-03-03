@@ -102,12 +102,13 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, session])
 
-  // When media is not found (e.g. deleted and user pressed Back), go home so they don't see the error screen
+  // When media is not found (e.g. deleted and user pressed Back), go home so they don't see the error screen.
+  // Use window.location so it works reliably inside intercepted route modals.
   useEffect(() => {
     if (!loading && !media) {
-      router.replace('/')
+      window.location.href = '/'
     }
-  }, [loading, media, router])
+  }, [loading, media])
 
   // Prefetch home so Back transition is fast and avoids black screen
   useEffect(() => {
@@ -469,14 +470,16 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   }
 
   if (!media) {
-    // Redirect to home is handled in useEffect above; show minimal fallback while redirecting
     return (
       <div className="min-h-screen flex items-center justify-center bg-tank-black">
         <div className="text-center">
           <p className="text-gray-400 mb-4">Media not found. Redirecting home…</p>
-          <Link href="/" className="btn-primary" onClick={() => stopAllMedia()}>
+          <button
+            className="btn-primary"
+            onClick={() => { stopAllMedia(); window.location.href = '/' }}
+          >
             Go Home
-          </Link>
+          </button>
         </div>
       </div>
     )
