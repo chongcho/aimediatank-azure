@@ -579,7 +579,7 @@ export default function Navbar() {
                       relative overflow-hidden"
                   >
                     <span className="upload-text font-bold">
-                      Upload
+                      Post
                     </span>
                   </Link>
                 )}

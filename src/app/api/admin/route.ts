@@ -572,7 +572,7 @@ export async function GET(request: Request) {
         { itemKey: 'play', label: 'Play', isEnabled: true, sortOrder: 4 },
         { itemKey: 'chat', label: 'Chat', isEnabled: true, sortOrder: 5 },
         { itemKey: 'mediaMessage', label: 'Celebration Card', isEnabled: true, sortOrder: 6 },
-        { itemKey: 'upload', label: 'Upload', isEnabled: true, sortOrder: 7 },
+        { itemKey: 'upload', label: 'Post', isEnabled: true, sortOrder: 7 },
         { itemKey: 'signIn', label: 'Sign In', isEnabled: true, sortOrder: 8 },
         { itemKey: 'signUp', label: 'Sign Up', isEnabled: true, sortOrder: 9 },
       ]
@@ -591,6 +591,16 @@ export async function GET(request: Request) {
           const missingItems = defaultItems.filter((item) => !existingKeys.has(item.itemKey))
           for (const item of missingItems) {
             await prisma.navbarMenuSetting.create({ data: item })
+          }
+          const defaultLabelMap = new Map(defaultItems.map((d) => [d.itemKey, d.label]))
+          for (const item of items) {
+            const expected = defaultLabelMap.get(item.itemKey)
+            if (expected && item.label !== expected) {
+              await prisma.navbarMenuSetting.update({
+                where: { id: item.id },
+                data: { label: expected },
+              })
+            }
           }
         }
 
