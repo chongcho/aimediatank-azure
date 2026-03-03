@@ -52,11 +52,15 @@ export default function EcardPage() {
   }
 
   return (
-    <CelebrationCardForm senderName={session.user?.name || session.user?.username || 'User'} />
+    <CelebrationCardForm
+      sessionName={session.user?.name || session.user?.username || 'User'}
+      userId={session.user?.id}
+    />
   )
 }
 
-function CelebrationCardForm({ senderName }: { senderName: string }) {
+function CelebrationCardForm({ sessionName, userId }: { sessionName: string; userId?: string }) {
+  const [senderName, setSenderName] = useState(sessionName)
   const [deliveryMethod, setDeliveryMethod] = useState<'email' | 'phone'>('email')
   const [recipientEmail, setRecipientEmail] = useState('')
   const [recipientPhone, setRecipientPhone] = useState('')
@@ -69,6 +73,20 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [mediaLoading, setMediaLoading] = useState(true)
+
+  useEffect(() => {
+    if (userId) {
+      fetch('/api/user/profile')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.user) {
+            const displayName = data.user.legalName || data.user.name || data.user.username || sessionName
+            setSenderName(displayName)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [userId, sessionName])
 
   useEffect(() => {
     fetch('/api/media?limit=24&sort=recent')
@@ -300,9 +318,12 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
                 <button
                   type="button"
                   onClick={() => setPreviewMedia(null)}
-                  className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-black/70 text-white flex items-center justify-center text-sm hover:bg-black"
+                  className="absolute top-1 right-1 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
+                  aria-label="Close"
                 >
-                  &times;
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
                 {previewMedia.type === 'VIDEO' ? (
                   <video

@@ -49,13 +49,14 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
 
       if (result?.error) {
         setError('Invalid email or password')
+        setLoading(false)
       } else {
         onClose()
-        window.location.reload()
+        window.location.replace('/')
+        return
       }
     } catch (err) {
       setError('An error occurred. Please try again.')
-    } finally {
       setLoading(false)
     }
   }
@@ -131,19 +132,23 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
             right: '12px',
             width: '32px',
             height: '32px',
-            background: '#333',
+            background: 'rgba(75, 85, 99, 0.8)',
             border: 'none',
             borderRadius: '50%',
-            color: '#999',
+            color: '#fff',
             cursor: 'pointer',
-            fontSize: '20px',
-            lineHeight: 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            transition: 'background 0.15s',
           }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(107, 114, 128, 0.8)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(75, 85, 99, 0.8)' }}
+          aria-label="Close"
         >
-          ×
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
 
         {/* Header */}
@@ -289,7 +294,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
             <div style={{ marginBottom: '16px' }}>
               <SocialSignIn
                 mode="signin"
-                callbackUrl={typeof window !== 'undefined' ? window.location.href : '/'}
+                callbackUrl="/"
                 hideDividerAbove
               />
             </div>

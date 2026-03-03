@@ -600,10 +600,10 @@ export default function EditProfilePage() {
       <button
         type="button"
         onClick={() => router.back()}
-        className="absolute top-3 right-2 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors z-10"
+        className="absolute top-3 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors z-10"
         aria-label="Close"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>

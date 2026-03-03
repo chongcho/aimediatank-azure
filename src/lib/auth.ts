@@ -158,6 +158,14 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith('/')) return `${baseUrl}${url}`
+      try {
+        const urlObj = new URL(url)
+        if (urlObj.origin === baseUrl) return url
+      } catch {}
+      return baseUrl
+    },
     async jwt({ token, user, trigger, session, account }) {
       if (user) {
         // Credentials sign-in: user has our internal id, username, role, avatar

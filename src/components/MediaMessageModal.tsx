@@ -158,10 +158,12 @@ export default function MediaMessageModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-lg border border-white/30 text-white/80 hover:text-white"
+          className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
           aria-label="Close media message"
         >
-          ✕
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
 
         <div className="space-y-4 p-6 md:p-8">

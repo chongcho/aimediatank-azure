@@ -69,6 +69,9 @@ function LoginContent() {
     setForgotEmailResult(null)
   }
 
+  const callbackUrl = searchParams.get('callbackUrl') || '/'
+  const safeCallbackUrl = callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : '/'
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -83,12 +86,16 @@ function LoginContent() {
 
       if (result?.error) {
         setError(ERROR_MESSAGES[result.error] ?? result.error)
+        setLoading(false)
+      } else if (result?.ok) {
+        window.location.replace(safeCallbackUrl)
+        return
       } else {
-        window.location.href = '/'
+        window.location.replace(safeCallbackUrl)
+        return
       }
     } catch (err) {
       setError('Something went wrong')
-    } finally {
       setLoading(false)
     }
   }
@@ -108,10 +115,10 @@ function LoginContent() {
           <button
             type="button"
             onClick={() => { window.location.href = '/' }}
-            className="absolute top-[30px] right-0 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+            className="absolute top-[30px] right-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
             aria-label="Close"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -182,7 +189,7 @@ function LoginContent() {
             </form>
           ) : !showEmailForm ? (
             <>
-              <SocialSignIn mode="signin" callbackUrl="/" hideDividerAbove />
+              <SocialSignIn mode="signin" callbackUrl={safeCallbackUrl} hideDividerAbove />
 
               <div className="relative mt-6">
                 <div className="absolute inset-0 flex items-center">
