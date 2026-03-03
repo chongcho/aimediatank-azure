@@ -61,6 +61,7 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
   const [cardTitle, setCardTitle] = useState('')
   const [mediaList, setMediaList] = useState<MediaItem[]>([])
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null)
+  const [previewMedia, setPreviewMedia] = useState<MediaItem | null>(null)
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -141,40 +142,42 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
         )}
 
         <form onSubmit={handleSend} className="rounded-2xl overflow-hidden shadow-2xl border border-[#1a5c66]">
-          {/* Send from */}
-          <div className="bg-[#1a6e7a] px-5 py-4">
-            <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Send from:</label>
-            <p className="text-white font-medium mt-1">
+          {/* From */}
+          <div className="bg-[#1a6e7a] px-5 py-3">
+            <p className="text-white font-medium">
+              <span className="text-sm font-semibold text-white/80 uppercase tracking-wide">From: </span>
               {senderName} <span className="text-white/60 text-sm">via Celebrate@aimediatank.com</span>
             </p>
           </div>
 
-          {/* Send to */}
-          <div className="bg-[#17626c] px-5 py-4 border-t border-[#1a5c66]">
-            <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Send to:</label>
-            <div className="flex gap-2 mt-2 mb-3">
-              <button
-                type="button"
-                onClick={() => setDeliveryMethod('email')}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  deliveryMethod === 'email'
-                    ? 'bg-white text-[#17626c]'
-                    : 'bg-[#1a6e7a] text-white/70 hover:text-white'
-                }`}
-              >
-                Email
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeliveryMethod('phone')}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  deliveryMethod === 'phone'
-                    ? 'bg-white text-[#17626c]'
-                    : 'bg-[#1a6e7a] text-white/70 hover:text-white'
-                }`}
-              >
-                Phone
-              </button>
+          {/* To */}
+          <div className="bg-[#17626c] px-5 py-3 border-t border-[#1a5c66]">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-semibold text-white/80 uppercase tracking-wide shrink-0">To:</span>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMethod('email')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                    deliveryMethod === 'email'
+                      ? 'bg-white text-[#17626c]'
+                      : 'bg-[#1a6e7a] text-white/70 hover:text-white'
+                  }`}
+                >
+                  Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMethod('phone')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                    deliveryMethod === 'phone'
+                      ? 'bg-white text-[#17626c]'
+                      : 'bg-[#1a6e7a] text-white/70 hover:text-white'
+                  }`}
+                >
+                  Phone
+                </button>
+              </div>
             </div>
             {deliveryMethod === 'email' ? (
               <input
@@ -196,39 +199,57 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
           </div>
 
           {/* Title */}
-          <div className="bg-[#1a6e7a] px-5 py-4 border-t border-[#1a5c66]">
-            <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Title</label>
-            <select
-              value={cardTitle}
-              onChange={(e) => setCardTitle(e.target.value)}
-              className="w-full mt-2 px-4 py-2.5 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white text-sm focus:outline-none focus:border-white/50 appearance-none cursor-pointer"
-            >
-              <option value="" className="bg-[#0f3f47]">Select a title...</option>
-              {TITLE_OPTIONS.map((t) => (
-                <option key={t} value={t} className="bg-[#0f3f47]">{t}</option>
-              ))}
-            </select>
+          <div className="bg-[#1a6e7a] px-5 py-3 border-t border-[#1a5c66]">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-white/80 uppercase tracking-wide shrink-0">Title:</span>
+              <select
+                value={TITLE_OPTIONS.includes(cardTitle) || cardTitle === '' ? cardTitle : '__other__'}
+                onChange={(e) => {
+                  if (e.target.value === '__other__') {
+                    setCardTitle(' ')
+                  } else {
+                    setCardTitle(e.target.value)
+                  }
+                }}
+                className="flex-1 px-3 py-2 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white text-sm focus:outline-none focus:border-white/50 appearance-none cursor-pointer"
+              >
+                <option value="" className="bg-[#0f3f47]">Select a title...</option>
+                {TITLE_OPTIONS.map((t) => (
+                  <option key={t} value={t} className="bg-[#0f3f47]">{t}</option>
+                ))}
+                <option value="__other__" className="bg-[#0f3f47]">Other...</option>
+              </select>
+            </div>
+            {!TITLE_OPTIONS.includes(cardTitle) && cardTitle !== '' && (
+              <input
+                type="text"
+                value={cardTitle.trim() === '' ? '' : cardTitle}
+                onChange={(e) => setCardTitle(e.target.value)}
+                placeholder="Type your custom title"
+                autoFocus
+                className="w-full mt-2 px-3 py-2 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/50"
+              />
+            )}
           </div>
 
           {/* Select media */}
           <div className="bg-[#17626c] px-5 py-4 border-t border-[#1a5c66]">
             <label className="text-sm font-semibold text-white/80 uppercase tracking-wide">Select media</label>
-            <p className="text-xs text-white/50 mt-1 mb-3">Select media from AiMediaTank.com</p>
             {mediaLoading ? (
               <div className="flex justify-center py-6">
                 <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+              <div className="grid grid-cols-3 gap-0.5 max-h-48 overflow-y-auto pr-1 mt-2">
                 {mediaList.map((m) => (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => setSelectedMedia(m)}
-                    className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${
+                    className={`relative aspect-video overflow-hidden border transition-all ${
                       selectedMedia?.id === m.id
                         ? 'border-white ring-1 ring-white shadow-lg'
-                        : 'border-transparent hover:border-white/30'
+                        : 'border-[#1a5c66]/50 hover:border-white/30'
                     }`}
                   >
                     {m.thumbnailUrl ? (
@@ -254,10 +275,32 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
             {selectedMedia && (
               <p className="text-xs text-white/70 mt-2">
                 Selected: {stripHashtags(selectedMedia.title)} &middot;{' '}
-                <Link href={`/media/${selectedMedia.id}`} className="underline text-white/90" target="_blank">
+                <button type="button" onClick={() => setPreviewMedia(selectedMedia)} className="underline text-white/90 hover:text-white">
                   View media
-                </Link>
+                </button>
               </p>
+            )}
+            {/* Inline media preview overlay */}
+            {previewMedia && (
+              <div className="mt-2 relative rounded-lg overflow-hidden border border-white/20 bg-black">
+                <button
+                  type="button"
+                  onClick={() => setPreviewMedia(null)}
+                  className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-black/70 text-white flex items-center justify-center text-sm hover:bg-black"
+                >
+                  &times;
+                </button>
+                {previewMedia.thumbnailUrl ? (
+                  <img
+                    src={previewMedia.thumbnailUrl}
+                    alt={stripHashtags(previewMedia.title)}
+                    className="w-full max-h-48 object-contain"
+                  />
+                ) : (
+                  <div className="w-full h-32 flex items-center justify-center text-white/40 text-sm">No preview available</div>
+                )}
+                <p className="text-xs text-white/70 px-2 py-1 bg-black/50 truncate">{stripHashtags(previewMedia.title)}</p>
+              </div>
             )}
           </div>
 
@@ -291,6 +334,15 @@ function CelebrationCardForm({ senderName }: { senderName: string }) {
             {sending ? 'Sending...' : 'Send'}
           </button>
         </form>
+
+        {/* Back button */}
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          className="mt-4 px-5 py-2.5 bg-gray-600/80 hover:bg-gray-500/80 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          &larr; Back
+        </button>
       </div>
     </div>
   )
