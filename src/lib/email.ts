@@ -75,12 +75,13 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
 export function generateCelebrationCardEmail(options: {
   senderName: string
   senderEmail?: string
+  subject?: string
   mediaPageUrl: string
   mediaTitle: string
   thumbnailUrl: string | null
   message?: string
 }): string {
-  const { senderName, senderEmail, mediaPageUrl, mediaTitle, thumbnailUrl, message } = options
+  const { senderName, senderEmail, subject, mediaPageUrl, mediaTitle, thumbnailUrl, message } = options
 
   const imgBlock = thumbnailUrl
     ? `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" style="width: 100%; max-width: 400px; height: auto; border-radius: 12px; display: block; border: 1px solid #e0e0e0;" /></a>`
@@ -100,9 +101,8 @@ export function generateCelebrationCardEmail(options: {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   ${imgBlock}
   ${messageBlock}
-  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong>${senderEmail ? `<br><a href="mailto:${escapeHtml(senderEmail)}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a>` : ''}</p>
-  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-  <p style="font-size: 14px; color: #666;">Powered by <a href="https://www.aimediatank.com" style="color: #0f8;">www.aimediatank.com</a></p>
+  ${senderEmail ? `<p style="font-size: 14px; color: #666; margin: 16px 0 0 0;">Click <a href="mailto:${encodeURI(senderEmail)}${subject ? `?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent('Hi ' + senderName + ',\n\nThank you for the celebration card!\n\n')}` : ''}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a> to reply to ${escapeHtml(senderName)}</p>` : ''}
+  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0f8;">www.aimediatank.com</a></p>
 </body>
 </html>
 `

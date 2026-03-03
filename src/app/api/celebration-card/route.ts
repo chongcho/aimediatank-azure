@@ -154,17 +154,18 @@ export async function POST(request: Request) {
 
       const thumbUrl = toAbsolute(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
       const mediaTitle = media.title.replace(/#\w+/g, '').trim()
+      const subject = card.cardTitle && card.cardTitle.trim()
+        ? `${card.cardTitle.trim()} from ${senderDisplayName}`
+        : `You received a celebration card from ${senderDisplayName}`
       const html = generateCelebrationCardEmail({
         senderName: senderDisplayName,
         senderEmail,
+        subject,
         mediaPageUrl,
         mediaTitle,
         thumbnailUrl: thumbUrl,
         message: card.ttsMessage || undefined,
       })
-      const subject = card.cardTitle && card.cardTitle.trim()
-        ? `${card.cardTitle.trim()} from ${senderDisplayName}`
-        : `You received a celebration card from ${senderDisplayName}`
       const celebrateSender = process.env.AZURE_EMAIL_CELEBRATE_SENDER || 'Celebrate@aimediatank.com'
       emailSent = await sendEmail({
         to: card.recipientEmail,
