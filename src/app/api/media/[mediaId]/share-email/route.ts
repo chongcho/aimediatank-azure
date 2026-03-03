@@ -66,7 +66,7 @@ export async function POST(
       message,
     })
 
-    const shareSender = process.env.AZURE_EMAIL_SHARE_SENDER || process.env.AZURE_EMAIL_SENDER || ''
+    const shareSender = process.env.AZURE_EMAIL_SHARE_SENDER || 'Share@aimediatank.com'
     const sent = await sendEmail({
       to,
       subject,
