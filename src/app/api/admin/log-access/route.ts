@@ -72,7 +72,12 @@ export async function POST(request: Request) {
     let region: string | null = null
     let country: string | null = null
 
-    if (ipAddress && !ipAddress.startsWith('10.') && !ipAddress.startsWith('127.') && ipAddress !== '::1') {
+    const isPrivateIp = (ip: string) =>
+      ip.startsWith('10.') || ip.startsWith('127.') || ip.startsWith('192.168.') ||
+      ip === '::1' || ip.startsWith('fc') || ip.startsWith('fd') ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
+
+    if (ipAddress && !isPrivateIp(ipAddress)) {
       const geo = await lookupGeo(ipAddress)
       city = geo.city
       region = geo.region
