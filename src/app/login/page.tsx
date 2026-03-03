@@ -74,7 +74,7 @@ function LoginContent() {
           <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push('/')}
             className="absolute top-[30px] right-0 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
             aria-label="Close"
           >
