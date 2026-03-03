@@ -36,6 +36,8 @@ body {
   background: #000000;
   color: #ffffff;
   -webkit-text-size-adjust: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a32 #111113;
   text-size-adjust: 100%;
 }
 
@@ -192,9 +194,9 @@ body.scrollbar-active::-webkit-scrollbar-thumb:hover {
   background: #00ff88;
 }
 
-/* Firefox */
 html.scrollbar-active,
 body.scrollbar-active {
+  scrollbar-width: thin;
   scrollbar-color: #00ff88 #111113;
 }
 
