@@ -164,8 +164,8 @@ main:has(> :not(#initial-loading)) > #initial-loading {
 
 /* Custom scrollbar - thumb turns green (active) when mouse is in right-edge area */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -174,7 +174,7 @@ main:has(> :not(#initial-loading)) > #initial-loading {
 
 ::-webkit-scrollbar-thumb {
   background: #2a2a32;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
