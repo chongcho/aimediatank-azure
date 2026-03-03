@@ -5,17 +5,6 @@ import Link from 'next/link'
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-tank-dark text-white pb-[500px]">
-      {/* Fixed Back Button */}
-      <button
-        onClick={() => { window.location.href = '/' }}
-        className="fixed top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 bg-tank-gray/80 backdrop-blur-sm border border-tank-light/50 rounded-full text-gray-300 hover:text-white hover:bg-tank-gray transition-colors shadow-lg"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        <span className="text-sm font-medium">Home</span>
-      </button>
-
       {/* Hero Section */}
       <section className="relative py-20 px-4 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-tank-accent/10 via-transparent to-cyan-500/10" />
