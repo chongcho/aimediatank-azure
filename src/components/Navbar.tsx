@@ -398,6 +398,7 @@ export default function Navbar() {
                 clearHomeFeed();
                 if (window.location.pathname === '/') {
                   window.scrollTo({ top: 0, behavior: 'instant' });
+                  window.dispatchEvent(new Event('homeRefreshRequested'));
                 } else {
                   window.location.href = '/';
                 }
