@@ -1286,14 +1286,14 @@ export default function AdminPage() {
         </div>
       )}
       
-      <div className="flex items-start justify-between mb-2">
+      <div className="flex items-start justify-between mb-2 pt-[20px]">
         <div>
           <h1 className="text-3xl font-bold">Admin Panel</h1>
           <p className="text-gray-400 mt-1">Manage users, content, chat, and reports</p>
         </div>
         <button
           type="button"
-          onClick={() => router.push('/')}
+          onClick={() => { window.location.href = '/' }}
           className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-tank-light transition-colors flex-shrink-0"
           aria-label="Close Admin Panel"
           title="Close"
