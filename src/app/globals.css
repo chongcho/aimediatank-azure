@@ -253,29 +253,17 @@ body.scrollbar-active {
 
 /* Upload button moving gradient animation */
 .upload-btn {
-  background: linear-gradient(90deg, #0d0d1a, #0d0d1a) padding-box,
-              linear-gradient(90deg, #00ff88, #00d4aa, #00b4d8, #00ff88) border-box;
-  border: 2px solid transparent;
-  background-size: 100% 100%, 200% 100%;
-  animation: gradient-move 3s linear infinite;
+  background: #16a34a;
+  border: none;
 }
 
 .upload-btn:hover {
-  animation: gradient-move 1.5s linear infinite;
-  box-shadow: 0 0 20px rgba(0, 255, 136, 0.4), 0 0 30px rgba(0, 212, 170, 0.2);
+  background: #15803d;
+  box-shadow: 0 0 16px rgba(22, 163, 74, 0.4);
 }
 
 .upload-text {
-  background: linear-gradient(90deg, #00ff88, #00d4aa, #00b4d8, #00ff88);
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: gradient-move 3s linear infinite;
-}
-
-.upload-btn:hover .upload-text {
-  animation: gradient-move 1.5s linear infinite;
+  color: #fff;
 }
 
 /* Text gradient */

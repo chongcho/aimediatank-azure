@@ -547,9 +547,9 @@ export default function Navbar() {
                                 setIsSelectMode(false)
                                 setSelectedIds(new Set())
                               }}
-                              className="text-xs text-tank-accent hover:underline"
+                              className="text-xs text-gray-400 hover:text-white"
                             >
-                              Done
+                              Cancel
                             </button>
                           </>
                         ) : (
@@ -564,7 +564,7 @@ export default function Navbar() {
                                 }}
                                 className="text-xs text-gray-400 hover:text-white"
                               >
-                                Select
+                                Delete
                               </button>
                             )}
                             {unreadCount > 0 && (
