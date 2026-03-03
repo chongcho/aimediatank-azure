@@ -399,6 +399,21 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
 
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      setError('Please enter your first and last name')
+      return
+    }
+
+    if (!formData.birthday) {
+      setError('Please enter your birthday')
+      return
+    }
+
+    if (!formData.location) {
+      setError('Please select your location')
+      return
+    }
+
     // Check username availability
     if (!usernameStatus.valid || !usernameStatus.available) {
       setError('Please choose an available User ID')
@@ -626,7 +641,7 @@ export default function RegisterPage() {
             {/* Name (First, Middle, Last) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Name
+                Name *
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <input
@@ -635,6 +650,7 @@ export default function RegisterPage() {
                   value={formData.firstName}
                   onChange={handleChange}
                   placeholder="First"
+                  required
                   className="w-full"
                 />
                 <input
@@ -651,6 +667,7 @@ export default function RegisterPage() {
                   value={formData.lastName}
                   onChange={handleChange}
                   placeholder="Last"
+                  required
                   className="w-full"
                 />
               </div>
@@ -717,13 +734,14 @@ export default function RegisterPage() {
             {/* Birthday */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Birthday
+                Birthday *
               </label>
               <input
                 type="date"
                 name="birthday"
                 value={formData.birthday}
                 onChange={handleChange}
+                required
                 className="w-full"
               />
             </div>
@@ -882,12 +900,13 @@ export default function RegisterPage() {
             {/* Location */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Location
+                Location *
               </label>
               <select
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
+                required
                 className="w-full"
                 aria-label="Select your country"
                 title="Select your country"
@@ -1053,29 +1072,38 @@ export default function RegisterPage() {
               )}
             </div>
 
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                !policyAgreed ||
-                (formData.phone.trim().replace(/\D/g, '').length >= 10 && !phoneVerificationState.codeVerified)
-              }
-              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${
-                policyAgreed &&
-                !(formData.phone.trim().replace(/\D/g, '').length >= 10 && !phoneVerificationState.codeVerified)
-                  ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner" />
-                  Creating account...
-                </>
-              ) : (
-                'Create Account'
-              )}
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="flex-1 py-3 rounded-xl font-semibold bg-tank-gray border border-tank-light text-white hover:bg-tank-light transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  !policyAgreed ||
+                  (formData.phone.trim().replace(/\D/g, '').length >= 10 && !phoneVerificationState.codeVerified)
+                }
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${
+                  policyAgreed &&
+                  !(formData.phone.trim().replace(/\D/g, '').length >= 10 && !phoneVerificationState.codeVerified)
+                    ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner" />
+                    Creating account...
+                  </>
+                ) : (
+                  'Create Account'
+                )}
+              </button>
+            </div>
           </form>
           )}
 

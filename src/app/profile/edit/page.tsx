@@ -13,6 +13,7 @@ interface ProfileData {
   phone: string
   location: string
   bio: string
+  birthday: string
   password: string
   confirmPassword: string
   emailVerified: boolean
@@ -34,11 +35,15 @@ export default function EditProfilePage() {
     phone: '',
     location: '',
     bio: '',
+    birthday: '',
     password: '',
     confirmPassword: '',
     emailVerified: false,
     avatar: null,
   })
+  const [firstName, setFirstName] = useState('')
+  const [middleName, setMiddleName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [originalEmail, setOriginalEmail] = useState('')
   const [originalUsername, setOriginalUsername] = useState('')
   const [originalPhone, setOriginalPhone] = useState('')
@@ -105,6 +110,7 @@ export default function EditProfilePage() {
       const data = await res.json()
 
       if (data.user) {
+        const bday = data.user.birthday ? new Date(data.user.birthday).toISOString().slice(0, 10) : ''
         setFormData({
           name: data.user.name || '',
           legalName: data.user.legalName || '',
@@ -113,11 +119,16 @@ export default function EditProfilePage() {
           phone: data.user.phone || '',
           location: data.user.location || '',
           bio: data.user.bio || '',
+          birthday: bday,
           password: '',
           confirmPassword: '',
           emailVerified: data.user.emailVerified || false,
           avatar: data.user.avatar || null,
         })
+        const legalParts = (data.user.legalName || '').split(' ').filter(Boolean)
+        if (legalParts.length === 1) { setFirstName(legalParts[0]); setMiddleName(''); setLastName('') }
+        else if (legalParts.length === 2) { setFirstName(legalParts[0]); setMiddleName(''); setLastName(legalParts[1]) }
+        else if (legalParts.length >= 3) { setFirstName(legalParts[0]); setLastName(legalParts[legalParts.length - 1]); setMiddleName(legalParts.slice(1, -1).join(' ')) }
         setOriginalEmail(data.user.email || '')
         setOriginalUsername(data.user.username || '')
         setOriginalPhone(data.user.phone || '')
@@ -462,9 +473,24 @@ export default function EditProfilePage() {
     setError('')
     setSuccess('')
 
+    if (!firstName.trim() || !lastName.trim()) {
+      setError('Please enter your first and last name')
+      return
+    }
+
+    if (!formData.birthday) {
+      setError('Please enter your birthday')
+      return
+    }
+
+    if (!formData.location) {
+      setError('Please select your location')
+      return
+    }
+
     // Check if username changed and is available
     if (usernameChanged && (!usernameStatus.valid || !usernameStatus.available)) {
-      setError('Please choose an available User ID')
+      setError('Please choose an available Nickname')
       return
     }
 
@@ -504,6 +530,7 @@ export default function EditProfilePage() {
         phone: formData.phone,
         location: formData.location,
         bio: formData.bio,
+        birthday: formData.birthday || undefined,
         avatar: formData.avatar,
       }
       if (phoneChangedAndValid && phoneVerificationState.code.trim().length === 6) {
@@ -661,25 +688,51 @@ export default function EditProfilePage() {
             </div>
           </div>
 
-          {/* User Name (Legal Name) */}
+          {/* Name (First, Middle, Last) */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              User Name (Legal Name)
+              Name *
             </label>
-            <input
-              type="text"
-              value={formData.legalName}
-              onChange={(e) => setFormData({ ...formData, legalName: e.target.value })}
-              placeholder="Your full legal name"
-              className="w-full"
-            />
-            <p className="text-xs text-gray-500 mt-1">Your legal name for account records</p>
+            <div className="grid grid-cols-3 gap-2">
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => {
+                  setFirstName(e.target.value)
+                  setFormData((prev) => ({ ...prev, legalName: [e.target.value, middleName, lastName].filter(Boolean).join(' ').trim() }))
+                }}
+                placeholder="First"
+                required
+                className="w-full"
+              />
+              <input
+                type="text"
+                value={middleName}
+                onChange={(e) => {
+                  setMiddleName(e.target.value)
+                  setFormData((prev) => ({ ...prev, legalName: [firstName, e.target.value, lastName].filter(Boolean).join(' ').trim() }))
+                }}
+                placeholder="Middle"
+                className="w-full"
+              />
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => {
+                  setLastName(e.target.value)
+                  setFormData((prev) => ({ ...prev, legalName: [firstName, middleName, e.target.value].filter(Boolean).join(' ').trim() }))
+                }}
+                placeholder="Last"
+                required
+                className="w-full"
+              />
+            </div>
           </div>
 
-          {/* User ID */}
+          {/* Nickname */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              User ID *
+              Nickname *
             </label>
             <div className="relative">
             <input
@@ -731,6 +784,20 @@ export default function EditProfilePage() {
             {(!usernameChanged || !usernameStatus.message) && (
             <p className="text-xs text-gray-500 mt-1">Used for login and your profile URL</p>
             )}
+          </div>
+
+          {/* Birthday */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Birthday *
+            </label>
+            <input
+              type="date"
+              value={formData.birthday}
+              onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
+              required
+              className="w-full"
+            />
           </div>
 
           {/* Email with inline verification */}
@@ -872,11 +939,12 @@ export default function EditProfilePage() {
           {/* Location */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Location
+              Location *
             </label>
             <select
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              required
               className="w-full"
             >
               <option value="">Select country</option>

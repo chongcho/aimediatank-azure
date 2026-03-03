@@ -888,19 +888,6 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 </svg>
                 <span className="text-xs">Email</span>
               </a>
-              {mediaDetailSendByEmailEnabled && (
-                <button
-                  type="button"
-                  onClick={() => { setShowShareModal(false); setEmailMessage(`${session?.user?.name || session?.user?.username || 'Someone'} thought you might be interested in this.`); setShowEmailModal(true); }}
-                  className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
-                  title="Send by email (we send it for you)"
-                >
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                  <span className="text-xs">Send by email</span>
-                </button>
-              )}
               <a
                 href={`https://wa.me/?text=${encodeURIComponent(shareTitle + ' ' + shareUrl)}`}
                 target="_blank"

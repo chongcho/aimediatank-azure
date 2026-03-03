@@ -163,6 +163,7 @@ export const authOptions: NextAuthOptions = {
         // Credentials sign-in: user has our internal id, username, role, avatar
         if (user.username !== undefined && user.role !== undefined) {
           token.id = user.id
+          token.name = user.name ?? null
           token.username = user.username
           token.role = user.role
           token.avatar = user.avatar
@@ -204,6 +205,7 @@ export const authOptions: NextAuthOptions = {
           }
         }
         token.id = dbUser.id
+        token.name = dbUser.name ?? token.name ?? null
         token.username = dbUser.username
         token.role = dbUser.role
         token.avatar = dbUser.avatar
@@ -222,6 +224,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
+        session.user.name = (token.name as string) ?? null
         session.user.username = token.username as string
         session.user.role = token.role as string
         session.user.avatar = token.avatar as string | null
