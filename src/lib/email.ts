@@ -102,7 +102,7 @@ export function generateCelebrationCardEmail(options: {
   ${imgBlock}
   ${messageBlock}
   ${senderEmail ? `<p style="font-size: 14px; color: #666; margin: 16px 0 0 0;">Click <a href="mailto:${encodeURI(senderEmail)}${subject ? `?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent('Hi ' + senderName + ',\n\nThank you for the celebration card!\n\n')}` : ''}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a> to reply to ${escapeHtml(senderName)}</p>` : ''}
-  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0f8;">www.aimediatank.com</a></p>
+  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
 </body>
 </html>
 `
@@ -143,7 +143,7 @@ export function generateShareMediaEmail(options: {
   ${thumbnailBlock}
   ${messageBlock}
   ${replyBlock}
-  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0f8;">www.aimediatank.com</a></p>
+  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
 </body>
 </html>
 `
