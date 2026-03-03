@@ -42,6 +42,8 @@ export default function Navbar() {
   const [chatInviteCount, setChatInviteCount] = useState(0)
   const [notificationsOn, setNotificationsOn] = useState(true)
   const [expandedNotificationId, setExpandedNotificationId] = useState<string | null>(null)
+  const [isSelectMode, setIsSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
   const [ecardEnabled, setEcardEnabled] = useState(true)
@@ -155,6 +157,8 @@ export default function Navbar() {
       if (alertsRef.current && !alertsRef.current.contains(event.target as Node)) {
         setIsAlertsOpen(false)
         setExpandedNotificationId(null)
+        setIsSelectMode(false)
+        setSelectedIds(new Set())
       }
       // Close mobile menu when clicking outside
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node) &&
@@ -330,6 +334,36 @@ export default function Navbar() {
     }
   }
 
+  const deleteSelectedNotifications = async () => {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    try {
+      const res = await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      })
+      if (res.ok) {
+        setNotifications(prev => prev.filter(n => !selectedIds.has(n.id)))
+        const deletedUnread = notifications.filter(n => selectedIds.has(n.id) && !n.read).length
+        setUnreadCount(prev => Math.max(0, prev - deletedUnread))
+        setSelectedIds(new Set())
+        setIsSelectMode(false)
+      }
+    } catch (error) {
+      console.error('Error deleting notifications:', error)
+    }
+  }
+
+  const toggleSelectNotification = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'purchase':
@@ -434,6 +468,10 @@ export default function Navbar() {
                     setIsAlertsOpen(!isAlertsOpen)
                     setIsProfileOpen(false)
                     setExpandedNotificationId(null)
+                    if (isAlertsOpen) {
+                      setIsSelectMode(false)
+                      setSelectedIds(new Set())
+                    }
                   }}
                   className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-200 hover:text-white hover:bg-tank-light transition-colors"
                   aria-label="Notifications"
@@ -460,27 +498,85 @@ export default function Navbar() {
                     <div className="px-3 py-2 border-b border-tank-light flex items-center justify-between bg-tank-dark">
                       <h3 className="font-semibold text-sm">Notifications</h3>
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleNotificationsOn()
-                          }}
-                          className={`text-xs font-medium px-2 py-0.5 rounded ${notificationsOn ? 'bg-tank-accent text-black' : 'bg-tank-light/30 text-gray-400'}`}
-                          aria-label={notificationsOn ? 'Turn notifications off' : 'Turn notifications on'}
-                        >
-                          {notificationsOn ? 'ON' : 'OFF'}
-                        </button>
-                        {unreadCount > 0 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              markAllAsRead()
-                            }}
-                            className="text-xs text-tank-accent hover:underline"
-                          >
-                            Mark all read
-                          </button>
+                        {isSelectMode ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const visible = notifications.slice(0, 5)
+                                if (selectedIds.size === visible.length) {
+                                  setSelectedIds(new Set())
+                                } else {
+                                  setSelectedIds(new Set(visible.map(n => n.id)))
+                                }
+                              }}
+                              className="text-xs text-gray-400 hover:text-white"
+                            >
+                              {selectedIds.size === notifications.slice(0, 5).length ? 'Deselect All' : 'Select All'}
+                            </button>
+                            {selectedIds.size > 0 && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  deleteSelectedNotifications()
+                                }}
+                                className="text-xs font-medium px-2 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white"
+                              >
+                                Delete ({selectedIds.size})
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setIsSelectMode(false)
+                                setSelectedIds(new Set())
+                              }}
+                              className="text-xs text-tank-accent hover:underline"
+                            >
+                              Done
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleNotificationsOn()
+                              }}
+                              className={`text-xs font-medium px-2 py-0.5 rounded ${notificationsOn ? 'bg-tank-accent text-black' : 'bg-tank-light/30 text-gray-400'}`}
+                              aria-label={notificationsOn ? 'Turn notifications off' : 'Turn notifications on'}
+                            >
+                              {notificationsOn ? 'ON' : 'OFF'}
+                            </button>
+                            {notifications.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setIsSelectMode(true)
+                                  setExpandedNotificationId(null)
+                                }}
+                                className="text-xs text-gray-400 hover:text-white"
+                              >
+                                Select
+                              </button>
+                            )}
+                            {unreadCount > 0 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  markAllAsRead()
+                                }}
+                                className="text-xs text-tank-accent hover:underline"
+                              >
+                                Mark all read
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -490,16 +586,32 @@ export default function Navbar() {
                       ) : (
                         notifications.slice(0, 5).map((notification) => {
                           const isExpanded = expandedNotificationId === notification.id
+                          const isSelected = selectedIds.has(notification.id)
                           return (
                             <div
                               key={notification.id}
-                              className={`px-3 py-2 cursor-pointer hover:bg-tank-dark transition-colors border-b border-tank-light/50 last:border-b-0 ${!notification.read ? 'bg-tank-accent/5' : ''}`}
+                              className={`px-3 py-2 cursor-pointer hover:bg-tank-dark transition-colors border-b border-tank-light/50 last:border-b-0 ${!notification.read ? 'bg-tank-accent/5' : ''} ${isSelected ? 'bg-tank-accent/10' : ''}`}
                               onClick={() => {
-                                setExpandedNotificationId(isExpanded ? null : notification.id)
-                                if (!notification.read) markAsRead(notification.id)
+                                if (isSelectMode) {
+                                  toggleSelectNotification(notification.id)
+                                } else {
+                                  setExpandedNotificationId(isExpanded ? null : notification.id)
+                                  if (!notification.read) markAsRead(notification.id)
+                                }
                               }}
                             >
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 items-start">
+                                {isSelectMode && (
+                                  <div className="flex items-center pt-0.5">
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-tank-accent border-tank-accent' : 'border-gray-500'}`}>
+                                      {isSelected && (
+                                        <svg className="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                                 {getNotificationIcon(notification.type)}
                                 <div className="flex-1 min-w-0">
                                   <p className={`text-xs font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
@@ -508,7 +620,7 @@ export default function Navbar() {
                                   <p className={`text-[10px] text-gray-500 mt-0.5 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-1'}`}>
                                     {notification.message}
                                   </p>
-                                  {isExpanded && (
+                                  {isExpanded && !isSelectMode && (
                                     <p className="text-[9px] text-gray-600 mt-1">
                                       {new Date(notification.createdAt).toLocaleString()}
                                     </p>
