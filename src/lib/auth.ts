@@ -150,6 +150,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
+          legalName: user.legalName,
           username: user.username,
           role: user.role,
           avatar: user.avatar,
@@ -172,6 +173,7 @@ export const authOptions: NextAuthOptions = {
         if (user.username !== undefined && user.role !== undefined) {
           token.id = user.id
           token.name = user.name ?? null
+          token.legalName = user.legalName ?? null
           token.username = user.username
           token.role = user.role
           token.avatar = user.avatar
@@ -214,6 +216,7 @@ export const authOptions: NextAuthOptions = {
         }
         token.id = dbUser.id
         token.name = dbUser.name ?? token.name ?? null
+        token.legalName = dbUser.legalName ?? null
         token.username = dbUser.username
         token.role = dbUser.role
         token.avatar = dbUser.avatar
@@ -223,6 +226,7 @@ export const authOptions: NextAuthOptions = {
       if (trigger === 'update' && session?.user) {
         if (session.user.username) token.username = session.user.username
         if (session.user.name) token.name = session.user.name
+        if (session.user.legalName !== undefined) token.legalName = session.user.legalName
         if (session.user.avatar !== undefined) token.avatar = session.user.avatar
         if (session.user.role) token.role = session.user.role
       }
@@ -233,6 +237,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string
         session.user.name = (token.name as string) ?? null
+        session.user.legalName = (token.legalName as string) ?? null
         session.user.username = token.username as string
         session.user.role = token.role as string
         session.user.avatar = token.avatar as string | null
