@@ -4,6 +4,14 @@ import type { NextRequest } from 'next/server'
 const LOG_ACCESS_PATH = '/api/admin/log-access'
 const SESSION_COOKIE = '_sa_sid'
 
+const SKIP_PATHS = new Set([
+  LOG_ACCESS_PATH,
+  '/robots933456.txt',
+  '/favicon.ico',
+  '/manifest.json',
+  '/sw.js',
+])
+
 function getClientIp(request: NextRequest): string | null {
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) return forwarded.split(',')[0]?.trim() ?? null
@@ -13,11 +21,13 @@ function getClientIp(request: NextRequest): string | null {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  if (pathname === LOG_ACCESS_PATH) return NextResponse.next()
+  if (SKIP_PATHS.has(pathname) || pathname.startsWith('/api/')) {
+    return NextResponse.next()
+  }
 
   const ip = getClientIp(request)
   const userAgent = request.headers.get('user-agent') ?? undefined
-  const referrer = request.headers.get('referer') ?? request.headers.get('referer') ?? undefined
+  const referrer = request.headers.get('referer') ?? undefined
   const method = request.method
   const query = request.nextUrl.search ? request.nextUrl.search.slice(1) : undefined
 
@@ -35,9 +45,6 @@ export async function middleware(request: NextRequest) {
     query,
     referrer,
     sessionId: sessionId ?? undefined,
-    city: request.headers.get('x-vercel-ip-city') ?? request.headers.get('x-azure-ip-city') ?? undefined,
-    region: request.headers.get('x-vercel-ip-country-region') ?? request.headers.get('x-azure-ip-region') ?? undefined,
-    country: request.headers.get('x-vercel-ip-country') ?? request.headers.get('x-azure-ip-country') ?? undefined,
   }
 
   const response = NextResponse.next()
@@ -52,18 +59,14 @@ export async function middleware(request: NextRequest) {
     })
   }
 
-  try {
-    await Promise.race([
-      fetch(`${origin}${LOG_ACCESS_PATH}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
-    ])
-  } catch (_) {
-    // Non-blocking: do not fail the request if logging fails
-  }
+  // Fire-and-forget: do NOT await. Awaiting a self-referencing fetch on
+  // Azure App Service deadlocks the single Node.js process because the
+  // inner request can't be handled while the outer request is suspended.
+  fetch(`${origin}${LOG_ACCESS_PATH}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).catch(() => {})
 
   return response
 }

@@ -4,10 +4,38 @@ import { parseUserAgent } from '@/lib/parseUserAgent'
 
 export const dynamic = 'force-dynamic'
 
+// In-memory cache: IP → { city, region, country, expires }
+const geoCache = new Map<string, { city: string | null; region: string | null; country: string | null; expires: number }>()
+const GEO_CACHE_TTL = 1000 * 60 * 60 * 24 // 24 hours
+const GEO_CACHE_MAX = 2000
+
+async function lookupGeo(ip: string): Promise<{ city: string | null; region: string | null; country: string | null }> {
+  const now = Date.now()
+  const cached = geoCache.get(ip)
+  if (cached && cached.expires > now) return cached
+
+  try {
+    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,city,regionName,country`, {
+      signal: AbortSignal.timeout(2000),
+    })
+    if (!res.ok) return { city: null, region: null, country: null }
+    const data = await res.json()
+    if (data.status !== 'success') return { city: null, region: null, country: null }
+    const geo = { city: data.city ?? null, region: data.regionName ?? null, country: data.country ?? null }
+    if (geoCache.size >= GEO_CACHE_MAX) {
+      const first = geoCache.keys().next().value
+      if (first) geoCache.delete(first)
+    }
+    geoCache.set(ip, { ...geo, expires: now + GEO_CACHE_TTL })
+    return geo
+  } catch {
+    return { city: null, region: null, country: null }
+  }
+}
+
 /**
  * POST /api/admin/log-access
- * Called by middleware (or server) to record a site access for analytics, support, security.
- * No auth required; only same-origin requests should hit this (middleware).
+ * Called by middleware (fire-and-forget) to record page visits.
  */
 export async function POST(request: Request) {
   try {
@@ -21,9 +49,6 @@ export async function POST(request: Request) {
       referrer,
       sessionId,
       userId,
-      city,
-      region,
-      country,
       statusCode,
     } = body as {
       ipAddress?: string
@@ -34,9 +59,6 @@ export async function POST(request: Request) {
       referrer?: string
       sessionId?: string
       userId?: string
-      city?: string
-      region?: string
-      country?: string
       statusCode?: number
     }
 
@@ -46,6 +68,17 @@ export async function POST(request: Request) {
 
     const { browser, os, device } = parseUserAgent(userAgent)
 
+    let city: string | null = null
+    let region: string | null = null
+    let country: string | null = null
+
+    if (ipAddress && !ipAddress.startsWith('10.') && !ipAddress.startsWith('127.') && ipAddress !== '::1') {
+      const geo = await lookupGeo(ipAddress)
+      city = geo.city
+      region = geo.region
+      country = geo.country
+    }
+
     await prisma.siteAccessLog.create({
       data: {
         ipAddress: ipAddress ?? null,
@@ -53,9 +86,9 @@ export async function POST(request: Request) {
         browser: browser ?? null,
         os: os ?? null,
         device: device ?? null,
-        city: city ?? null,
-        region: region ?? null,
-        country: country ?? null,
+        city,
+        region,
+        country,
         path: path.substring(0, 2048),
         method: method.substring(0, 16),
         query: query ? String(query).substring(0, 2048) : null,
