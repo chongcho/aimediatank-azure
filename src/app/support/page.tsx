@@ -9,20 +9,20 @@ export default function SupportPage() {
   const userName = session?.user?.username || session?.user?.name || 'Guest'
 
   return (
-    <div className="max-w-md mx-auto p-0 m-0 pb-[500px] pt-[25px] relative">
-      <button
-        type="button"
-        onClick={() => router.back()}
-        className="absolute top-6 right-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors z-10"
-        aria-label="Close"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+    <div className="max-w-md mx-auto p-0 m-0 pb-[500px] pt-[25px]">
       {/* Header */}
-      <div className="text-center mb-6">
+      <div className="flex items-center justify-center relative mb-6">
         <h1 className="text-[18px] font-bold">Support</h1>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="absolute right-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
+          aria-label="Close"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
       <div className="bg-tank-dark border border-tank-light rounded-2xl shadow-2xl overflow-hidden">

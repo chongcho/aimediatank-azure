@@ -139,9 +139,9 @@ export function generateShareMediaEmail(options: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <p style="font-size: 16px;">${escapeHtml(senderName)} thought you might be interested in this.<br>Click the image to see the media.</p>
-  ${thumbnailBlock}
   ${messageBlock}
+  <p style="font-size: 16px;">Click the image to see the media.</p>
+  ${thumbnailBlock}
   ${replyBlock}
   <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
 </body>

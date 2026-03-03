@@ -596,20 +596,22 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-0 m-0 pb-[500px] pt-[10px] relative">
-      <button
-        type="button"
-        onClick={() => router.back()}
-        className="absolute top-3 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors z-10"
-        aria-label="Close"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-      <div className="text-center py-[20px]">
-        <h1 className="text-[18px] font-bold">Edit Profile</h1>
-        <p className="text-gray-400 text-xs">Update your account information</p>
+    <div className="max-w-2xl mx-auto p-0 m-0 pb-[500px] pt-[10px]">
+      <div className="py-[20px]">
+        <div className="flex items-center justify-center relative">
+          <h1 className="text-[18px] font-bold">Edit Profile</h1>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="absolute right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
+            aria-label="Close"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <p className="text-gray-400 text-xs text-center">Update your account information</p>
       </div>
 
       <div className="card">

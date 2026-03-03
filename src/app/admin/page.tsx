@@ -1286,22 +1286,22 @@ export default function AdminPage() {
         </div>
       )}
       
-      <div className="flex items-start justify-between mb-2 pt-[20px]">
-        <div>
+      <div className="pt-[20px] mb-2">
+        <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Admin Panel</h1>
-          <p className="text-gray-400 mt-1">Manage users, content, chat, and reports</p>
+          <button
+            type="button"
+            onClick={() => { window.location.href = '/' }}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors flex-shrink-0"
+            aria-label="Close Admin Panel"
+            title="Close"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => { window.location.href = '/' }}
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors flex-shrink-0"
-          aria-label="Close Admin Panel"
-          title="Close"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <p className="text-gray-400 mt-1">Manage users, content, chat, and reports</p>
       </div>
 
       {/* Tabs — wrap on narrow/zoomed so all items stay visible; scroll only if needed */}
