@@ -108,7 +108,7 @@ function LoginContent() {
           <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
           <button
             type="button"
-            onClick={() => router.push('/')}
+            onClick={() => { window.location.href = '/' }}
             className="absolute top-[30px] right-0 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
             aria-label="Close"
           >
@@ -222,7 +222,7 @@ function LoginContent() {
                   </label>
                   <button
                     type="button"
-                    onClick={() => setShowForgotEmail(true)}
+                    onClick={() => { setError(''); setShowForgotEmail(true) }}
                     className="text-sm text-blue-400 hover:underline"
                   >
                     Forgot email?

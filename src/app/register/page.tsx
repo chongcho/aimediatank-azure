@@ -537,18 +537,20 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
       <div className="w-full max-w-md relative">
-        <div className="text-center mb-8 pt-[30px] relative">
-          <h1 className="text-3xl font-bold mb-2">Create Account</h1>
-          <button
-            type="button"
-            onClick={() => router.push('/')}
-            className="absolute top-0 right-0 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
-            aria-label="Close"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        <div className="mb-8 pt-[30px]">
+          <div className="flex items-center justify-center relative">
+            <h1 className="text-3xl font-bold">Create Account</h1>
+            <button
+              type="button"
+              onClick={() => { window.location.href = '/' }}
+              className="absolute right-0 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="card">
