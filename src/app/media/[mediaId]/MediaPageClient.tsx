@@ -76,7 +76,9 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
   const [showShareModal, setShowShareModal] = useState(false)
   const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailDeliveryMethod, setEmailDeliveryMethod] = useState<'email' | 'phone'>('email')
   const [emailTo, setEmailTo] = useState('')
+  const [emailPhone, setEmailPhone] = useState('')
   const [emailMessage, setEmailMessage] = useState('')
   const [sendingEmail, setSendingEmail] = useState(false)
   const [mediaDetailDownloadEnabled, setMediaDetailDownloadEnabled] = useState(true)
@@ -324,30 +326,40 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   }
 
   const handleSendByEmail = async () => {
-    const to = emailTo.trim()
-    if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
-      alert('Please enter a valid email address.')
-      return
-    }
-    setSendingEmail(true)
-    try {
-      const res = await fetch(`/api/media/${mediaId}/share-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, message: emailMessage.trim() || undefined }),
-      })
-      const data = await res.json()
-      if (res.ok && data.ok) {
-        setShowEmailModal(false)
-        setEmailTo('')
-        setEmailMessage('')
-      } else {
-        alert(data.error || 'Failed to send email')
+    if (emailDeliveryMethod === 'email') {
+      const to = emailTo.trim()
+      if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+        alert('Please enter a valid email address.')
+        return
       }
-    } catch {
-      alert('Failed to send email')
-    } finally {
-      setSendingEmail(false)
+      setSendingEmail(true)
+      try {
+        const res = await fetch(`/api/media/${mediaId}/share-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to, message: emailMessage.trim() || undefined }),
+        })
+        const data = await res.json()
+        if (res.ok && data.ok) {
+          setShowEmailModal(false)
+          setEmailTo('')
+          setEmailPhone('')
+          setEmailMessage('')
+        } else {
+          alert(data.error || 'Failed to send email')
+        }
+      } catch {
+        alert('Failed to send email')
+      } finally {
+        setSendingEmail(false)
+      }
+    } else {
+      const phone = emailPhone.trim()
+      if (!phone) {
+        alert('Please enter a phone number.')
+        return
+      }
+      alert('Phone delivery is not yet available.')
     }
   }
 
@@ -972,68 +984,115 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
         </div>
       )}
 
-      {/* Send by email modal — sends HTML email with thumbnail + hyperlink so recipient can click to play */}
+      {/* Send by email modal */}
       {showEmailModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !sendingEmail && setShowEmailModal(false)}>
-          <div className="card max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Send by email</h3>
-              <button
-                type="button"
-                onClick={() => !sendingEmail && setShowEmailModal(false)}
-                className="text-gray-400 hover:text-white transition-colors p-1"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+          <div className="max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-[#1a5c66]" onClick={(e) => e.stopPropagation()}>
+            {/* FROM */}
+            <div className="bg-[#1a6e7a] px-5 py-3">
+              <p className="text-white font-medium">
+                <span className="text-sm font-semibold text-white/80 uppercase tracking-wide">From: </span>
+                <span className="bg-[#0f3f47] px-2 py-0.5 rounded text-sm">Share&lt;share@aimediatank.com&gt;</span>
+              </p>
             </div>
-            {/* Thumbnail preview — what recipient will see in the email */}
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-tank-gray border border-tank-light mb-4">
-              {media.thumbnailUrl ? (
-                <img
-                  src={media.thumbnailUrl}
-                  alt={stripHashtags(media.title)}
-                  className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+
+            {/* TO */}
+            <div className="bg-[#17626c] px-5 py-3 border-t border-[#1a5c66]">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-semibold text-white/80 uppercase tracking-wide shrink-0">To:</span>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEmailDeliveryMethod('email')}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                      emailDeliveryMethod === 'email'
+                        ? 'bg-white text-[#17626c]'
+                        : 'bg-[#1a6e7a] text-white/70 hover:text-white'
+                    }`}
+                  >
+                    Email
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmailDeliveryMethod('phone')}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                      emailDeliveryMethod === 'phone'
+                        ? 'bg-white text-[#17626c]'
+                        : 'bg-[#1a6e7a] text-white/70 hover:text-white'
+                    }`}
+                  >
+                    Phone
+                  </button>
+                </div>
+              </div>
+              {emailDeliveryMethod === 'email' ? (
+                <input
+                  type="email"
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  placeholder="Type Email Address"
+                  className="w-full px-4 py-2.5 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/50"
+                  disabled={sendingEmail}
                 />
               ) : (
-                <div className="w-20 h-20 rounded-lg bg-tank-light flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
+                <input
+                  type="tel"
+                  value={emailPhone}
+                  onChange={(e) => setEmailPhone(e.target.value)}
+                  placeholder="Type Phone Number"
+                  className="w-full px-4 py-2.5 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/50"
+                  disabled={sendingEmail}
+                />
               )}
-              <div className="min-w-0">
-                <p className="text-white text-sm font-medium truncate">{stripHashtags(media.title)}</p>
-                <p className="text-gray-400 text-xs mt-0.5">This thumbnail will be in the email (clickable link)</p>
-              </div>
             </div>
-            <p className="text-gray-400 text-sm mb-4">
-              Recipient will get an email with a thumbnail linked to this media so they can click to watch.
-            </p>
-            <label className="block text-sm font-medium text-gray-300 mb-1">To (email)</label>
-            <input
-              type="email"
-              value={emailTo}
-              onChange={(e) => setEmailTo(e.target.value)}
-              placeholder="friend@example.com"
-              className="w-full px-4 py-2 rounded-lg bg-tank-gray border border-tank-light text-white placeholder-gray-500 mb-4"
-              disabled={sendingEmail}
-            />
-            <label className="block text-sm font-medium text-gray-300 mb-1">Message (optional)</label>
-            <textarea
-              value={emailMessage}
-              onChange={(e) => setEmailMessage(e.target.value)}
-              placeholder="Check this out!"
-              rows={2}
-              className="w-full px-4 py-2 rounded-lg bg-tank-gray border border-tank-light text-white placeholder-gray-500 mb-4 resize-none"
-              disabled={sendingEmail}
-            />
-            <div className="flex gap-3">
+
+            {/* Media preview */}
+            <div className="bg-[#0f3f47] px-5 py-4 border-t border-[#1a5c66]">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-[#17626c]/50 border border-[#1a5c66]">
+                {media.thumbnailUrl ? (
+                  <img
+                    src={media.thumbnailUrl}
+                    alt={stripHashtags(media.title)}
+                    className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-lg bg-[#1a5c66] flex items-center justify-center flex-shrink-0">
+                    <svg className="w-7 h-7 text-white/30" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-white text-sm font-semibold truncate">{stripHashtags(media.title)}</p>
+                  <p className="text-white/50 text-xs mt-0.5">This thumbnail will be in the email (clickable link)</p>
+                </div>
+              </div>
+              <p className="text-white/50 text-sm mt-3">
+                Recipient will get an email with a thumbnail linked to this media so they can click to watch.
+              </p>
+            </div>
+
+            {/* Message */}
+            <div className="bg-[#1a6e7a] px-5 py-4 border-t border-[#1a5c66]">
+              <label className="text-sm font-semibold text-white/80">
+                Message <span className="text-white/40 font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={emailMessage}
+                onChange={(e) => setEmailMessage(e.target.value)}
+                placeholder="Check this out!"
+                rows={2}
+                className="w-full mt-2 px-4 py-2.5 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/50 resize-none"
+                disabled={sendingEmail}
+              />
+            </div>
+
+            {/* Cancel / Send buttons */}
+            <div className="flex border-t border-[#1a5c66]">
               <button
                 type="button"
                 onClick={() => !sendingEmail && setShowEmailModal(false)}
-                className="btn-secondary flex-1"
+                className="flex-1 bg-[#14555e] hover:bg-[#175f69] px-5 py-4 text-white/70 hover:text-white font-bold text-lg transition-colors border-r border-[#1a5c66]"
                 disabled={sendingEmail}
               >
                 Cancel
@@ -1041,8 +1100,8 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               <button
                 type="button"
                 onClick={handleSendByEmail}
-                disabled={sendingEmail}
-                className="flex-1 px-4 py-2 bg-tank-accent text-tank-black font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                disabled={sendingEmail || (emailDeliveryMethod === 'email' ? !emailTo.trim() : !emailPhone.trim())}
+                className="flex-1 bg-[#14555e] hover:bg-[#175f69] disabled:opacity-50 px-5 py-4 text-white font-bold text-lg transition-colors"
               >
                 {sendingEmail ? 'Sending...' : 'Send'}
               </button>
