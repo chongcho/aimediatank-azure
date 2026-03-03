@@ -1,15 +1,27 @@
 'use client'
 
 import { useEffect, Suspense } from 'react'
+import { usePathname } from 'next/navigation'
 import AboutPage from '@/app/about/page'
 
 export default function AboutModal() {
+  const pathname = usePathname()
+  const isActive = pathname === '/about'
+
   useEffect(() => {
-    document.body.style.overflow = 'hidden'
+    if (isActive) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
     return () => {
       document.body.style.overflow = ''
     }
-  }, [])
+  }, [isActive])
+
+  if (!isActive) {
+    return null
+  }
 
   return (
     <div

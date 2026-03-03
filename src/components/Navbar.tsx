@@ -389,20 +389,25 @@ export default function Navbar() {
             </Link>
             {/* Home Icon - wireframe only */}
             {isNavbarItemEnabled('home') && (
-            <button
-              type="button"
+            <Link 
+              href="/" 
               className="ml-[20px] text-gray-400 hover:text-white transition-colors"
-              onClick={() => { 
+              onClick={(e) => { 
+                e.preventDefault();
                 sessionStorage.removeItem('homeScrollState');
                 clearHomeFeed();
-                window.location.href = '/';
+                if (window.location.pathname === '/') {
+                  window.scrollTo({ top: 0, behavior: 'instant' });
+                } else {
+                  window.location.href = '/';
+                }
               }}
               title="Home"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
               </svg>
-            </button>
+            </Link>
             )}
             </div>
 
@@ -784,17 +789,17 @@ export default function Navbar() {
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault()
     if (href === '/') {
+      e.preventDefault()
       sessionStorage.removeItem('homeScrollState')
       clearHomeFeed()
       if (window.location.pathname === '/') {
         window.scrollTo({ top: 0, behavior: 'instant' })
         window.dispatchEvent(new Event('homeRefreshRequested'))
-        return
+      } else {
+        window.location.href = '/'
       }
     }
-    window.location.href = href
   }
 
   return (
