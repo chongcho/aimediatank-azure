@@ -114,6 +114,11 @@ function HomeContent() {
   // When a filter change originates from the navbar (via homeFilterChange event), we handle
   // the fetch inline. This flag tells the [sort, type, search] effect to skip its own fetch.
   const filterChangeFromNavRef = useRef(false)
+  // Once a navbar event takes over filter management, the Next.js router's searchParams
+  // no longer reflects the true filter state (we used replaceState, not Link).  Prevent
+  // the searchParams sync effect from overriding our state when router navigations (e.g.
+  // intercepted route modals) change the URL away from /?type=VIDEO.
+  const filterOwnedByNavRef = useRef(false)
   // When cachedInit provided data, the grid is already rendered on the first frame.
   // Skip the scroll-restore skeleton overlay — just scroll directly.
   const cachedInitUsedRef = useRef(!!cachedInit)
@@ -233,6 +238,7 @@ function HomeContent() {
       const newType: string | null = detail?.type ?? null
 
       filterChangeFromNavRef.current = true
+      filterOwnedByNavRef.current = true
       setType(newType)
       setPage(1)
       setMedia([])
@@ -298,6 +304,10 @@ function HomeContent() {
   }
 
   useEffect(() => {
+    // Once filters are managed by navbar events (via replaceState), the Next.js
+    // router doesn't know about the ?type= param.  Don't let router-driven
+    // searchParams changes (e.g. opening a media modal) reset the active filter.
+    if (filterOwnedByNavRef.current) return
     const typeParam = searchParams.get('type')
     const searchParam = searchParams.get('search')
     if (typeParam) setType(typeParam)
