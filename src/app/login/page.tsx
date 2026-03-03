@@ -84,8 +84,7 @@ function LoginContent() {
       if (result?.error) {
         setError(ERROR_MESSAGES[result.error] ?? result.error)
       } else {
-        router.push('/')
-        router.refresh()
+        window.location.href = '/'
       }
     } catch (err) {
       setError('Something went wrong')
