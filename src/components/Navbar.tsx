@@ -790,15 +790,34 @@ export default function Navbar() {
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const handleClick = (e: React.MouseEvent) => {
-    if (href === '/') {
+    const isOnHomePage = window.location.pathname === '/'
+
+    if (href === '/' || href.startsWith('/?')) {
       e.preventDefault()
-      sessionStorage.removeItem('homeScrollState')
-      clearHomeFeed()
-      if (window.location.pathname === '/') {
+
+      if (isOnHomePage) {
+        // Use replaceState instead of Link soft navigation to preserve
+        // the @modal parallel route context needed for intercepted routes.
+        // Soft-navigating to /?type=VIDEO via <Link> corrupts that context
+        // and breaks all subsequent media detail modals until a full reload.
+        window.history.replaceState(window.history.state, '', href)
+
+        if (href === '/') {
+          sessionStorage.removeItem('homeScrollState')
+          clearHomeFeed()
+        }
+
         window.scrollTo({ top: 0, behavior: 'instant' })
-        window.dispatchEvent(new Event('homeRefreshRequested'))
+        const url = new URL(href, window.location.origin)
+        window.dispatchEvent(new CustomEvent('homeFilterChange', {
+          detail: { type: url.searchParams.get('type') }
+        }))
       } else {
-        window.location.href = '/'
+        if (href === '/') {
+          sessionStorage.removeItem('homeScrollState')
+          clearHomeFeed()
+        }
+        window.location.href = href
       }
     }
   }
@@ -818,13 +837,31 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     onClick()
-    if (href === '/') {
-      sessionStorage.removeItem('homeScrollState')
-      clearHomeFeed()
+
+    const isOnHomePage = window.location.pathname === '/'
+
+    if ((href === '/' || href.startsWith('/?')) && isOnHomePage) {
+      window.history.replaceState(window.history.state, '', href)
+
+      if (href === '/') {
+        sessionStorage.removeItem('homeScrollState')
+        clearHomeFeed()
+      }
+
+      window.scrollTo({ top: 0, behavior: 'instant' })
+      const url = new URL(href, window.location.origin)
+      window.dispatchEvent(new CustomEvent('homeFilterChange', {
+        detail: { type: url.searchParams.get('type') }
+      }))
+    } else {
+      if (href === '/') {
+        sessionStorage.removeItem('homeScrollState')
+        clearHomeFeed()
+      }
+      window.location.href = href
     }
-    window.location.href = href
   }
-  
+
   return (
     <Link
       href={href}

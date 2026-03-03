@@ -111,6 +111,9 @@ function HomeContent() {
   // Tracks the filters that the current `media` array was fetched for.
   // Prevents the save-to-cache effect from writing stale data when filters change but media hasn't been re-fetched yet.
   const mediaFiltersRef = useRef<{ sort: string; type: string | null; search: string } | null>(null)
+  // When a filter change originates from the navbar (via homeFilterChange event), we handle
+  // the fetch inline. This flag tells the [sort, type, search] effect to skip its own fetch.
+  const filterChangeFromNavRef = useRef(false)
   // When cachedInit provided data, the grid is already rendered on the first frame.
   // Skip the scroll-restore skeleton overlay — just scroll directly.
   const cachedInitUsedRef = useRef(!!cachedInit)
@@ -221,6 +224,47 @@ function HomeContent() {
     return () => window.removeEventListener('homeRefreshRequested', handler)
   }, [])
 
+  // Handle filter changes dispatched from the navbar. These bypass the Next.js
+  // router (using replaceState instead of Link) to preserve the @modal parallel
+  // route context needed for intercepted routes to keep working.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      const newType: string | null = detail?.type ?? null
+
+      filterChangeFromNavRef.current = true
+      setType(newType)
+      setPage(1)
+      setMedia([])
+      setHasMore(true)
+      setLoading(true)
+      restoreStateRef.current = null
+
+      const s = filtersRef.current.sort
+      const q = filtersRef.current.search
+      const params = new URLSearchParams({ sort: s, page: '1', limit: '20' })
+      if (newType) params.set('type', newType)
+      if (q?.startsWith('@')) params.set('user', q.slice(1))
+      else if (q) params.set('search', q)
+
+      fetch(`/api/media?${params}`, { cache: 'no-store' })
+        .then((res) => res.json())
+        .then((data) => {
+          const list = (data.media || []).map((m: Media) => ({ ...m, _page: 1 }))
+          mediaFiltersRef.current = { sort: s, type: newType, search: q }
+          setMedia(list)
+          setHasMore((data.pagination?.totalPages ?? 1) > 1)
+        })
+        .catch((err) => console.error('Filter change failed:', err))
+        .finally(() => {
+          setLoading(false)
+          filterChangeFromNavRef.current = false
+        })
+    }
+    window.addEventListener('homeFilterChange', handler)
+    return () => window.removeEventListener('homeFilterChange', handler)
+  }, [])
+
   // Check for pending scroll restoration on mount, or scroll to top
   useEffect(() => {
     const rawState = sessionStorage.getItem('homeScrollState')
@@ -264,6 +308,10 @@ function HomeContent() {
   // Reset and fetch when filters change (only after sort is initialized)
   useEffect(() => {
     if (!sortInitialized) return
+    if (filterChangeFromNavRef.current) {
+      filterChangeFromNavRef.current = false
+      return
+    }
     restoreRunIdRef.current += 1
     const runId = restoreRunIdRef.current
 

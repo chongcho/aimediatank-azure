@@ -5,6 +5,10 @@ on:
     branches: [staging]  # Deploy to staging on staging branch
   workflow_dispatch:  # Manual trigger option
 
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
 env:
   AZURE_WEBAPP_NAME: aimediatank-staging  # Separate staging app
   NODE_VERSION: '20.x'

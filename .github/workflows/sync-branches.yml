@@ -41,17 +41,3 @@ jobs:
           git merge --no-edit origin/staging
           git push origin main
 
-      # IMPORTANT:
-      # Pushes made with GITHUB_TOKEN do NOT trigger other workflows via `on: push`.
-      # So we explicitly dispatch the production deploy workflow here.
-      - name: Trigger production deploy
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'azure-deploy.yml',
-              ref: 'main',
-            })
-

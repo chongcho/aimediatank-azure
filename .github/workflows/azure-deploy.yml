@@ -5,6 +5,10 @@ on:
     branches: [main]  # Deploy to production on main
   workflow_dispatch:  # Manual trigger option
 
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
 env:
   AZURE_WEBAPP_NAME: aimediatank-azure
   NODE_VERSION: '20.x'
