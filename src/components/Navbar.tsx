@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import SignInModal from './SignInModal'
 import MediaMessageModal from './MediaMessageModal'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
 import { clearHomeFeed } from '@/lib/homePrefetchCache'
@@ -37,7 +36,6 @@ export default function Navbar() {
   // IMPORTANT: keep chat closed by default to avoid background polling slowing the app.
   const [isTalkChatOpen, setIsTalkChatOpen] = useState(false)
   const [isPageVisible, setIsPageVisible] = useState(true)
-  const [isSignInOpen, setIsSignInOpen] = useState(false)
   const [isMediaMessageOpen, setIsMediaMessageOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -702,12 +700,12 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center gap-2">
                 {isNavbarItemEnabled('signIn') && (
-                  <button
-                    onClick={() => setIsSignInOpen(true)}
+                  <Link
+                    href="/login"
                     className="h-9 px-0.5 flex items-center justify-center text-blue-400 hover:text-blue-300 font-bold transition-colors text-sm"
                   >
                     Sign In
-                  </button>
+                  </Link>
                 )}
                 {isNavbarItemEnabled('signUp') && (
                   <Link
@@ -774,12 +772,6 @@ export default function Navbar() {
           onClose={() => setIsTalkChatOpen(false)}
         />
       )}
-
-      {/* Sign In Modal */}
-      <SignInModal
-        isOpen={isSignInOpen}
-        onClose={() => setIsSignInOpen(false)}
-      />
 
       {session && isNavbarItemEnabled('mediaMessage') && (
         <MediaMessageModal

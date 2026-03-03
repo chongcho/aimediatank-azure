@@ -27,6 +27,11 @@ function LoginContent() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const [showForgotEmail, setShowForgotEmail] = useState(false)
+  const [forgotEmailUsername, setForgotEmailUsername] = useState('')
+  const [forgotEmailLoading, setForgotEmailLoading] = useState(false)
+  const [forgotEmailResult, setForgotEmailResult] = useState<{ maskedEmail?: string; error?: string } | null>(null)
+
   useEffect(() => {
     const errorCode = searchParams.get('error')
     if (errorCode) {
@@ -34,6 +39,35 @@ function LoginContent() {
       window.history.replaceState({}, '', '/login')
     }
   }, [searchParams])
+
+  const handleForgotEmail = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setForgotEmailResult(null)
+    setForgotEmailLoading(true)
+    try {
+      const res = await fetch('/api/auth/forgot-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: forgotEmailUsername }),
+      })
+      const data = await res.json()
+      if (res.ok && data.maskedEmail) {
+        setForgotEmailResult({ maskedEmail: data.maskedEmail })
+      } else {
+        setForgotEmailResult({ error: data.error || 'User not found' })
+      }
+    } catch {
+      setForgotEmailResult({ error: 'An error occurred. Please try again.' })
+    } finally {
+      setForgotEmailLoading(false)
+    }
+  }
+
+  const closeForgotEmail = () => {
+    setShowForgotEmail(false)
+    setForgotEmailUsername('')
+    setForgotEmailResult(null)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -92,7 +126,62 @@ function LoginContent() {
             </div>
           )}
 
-          {!showEmailForm ? (
+          {showForgotEmail ? (
+            <form onSubmit={handleForgotEmail} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Enter your Nickname (username)
+                </label>
+                <input
+                  type="text"
+                  value={forgotEmailUsername}
+                  onChange={(e) => setForgotEmailUsername(e.target.value)}
+                  placeholder="Your username"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              {forgotEmailResult?.error && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                  {forgotEmailResult.error}
+                </div>
+              )}
+
+              {forgotEmailResult?.maskedEmail && (
+                <div className="p-4 bg-emerald-900/40 border border-emerald-700/50 rounded-xl text-center">
+                  <p className="text-sm font-semibold text-white mb-2">Your sign-in email:</p>
+                  <p className="text-lg font-bold text-emerald-400 bg-emerald-900/50 px-4 py-2 rounded-lg tracking-wide">
+                    {forgotEmailResult.maskedEmail}
+                  </p>
+                  <p className="text-xs text-emerald-300/70 mt-2">Use this email to sign in</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={forgotEmailLoading}
+                className="btn-primary w-full flex items-center justify-center gap-2"
+              >
+                {forgotEmailLoading ? (
+                  <>
+                    <span className="spinner" />
+                    Searching...
+                  </>
+                ) : (
+                  'Find My Email'
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={closeForgotEmail}
+                className="w-full text-center text-sm text-gray-400 hover:text-gray-200 transition-colors py-2"
+              >
+                ← Back to Sign In
+              </button>
+            </form>
+          ) : !showEmailForm ? (
             <>
               <SocialSignIn mode="signin" callbackUrl="/" hideDividerAbove />
 
@@ -127,9 +216,18 @@ function LoginContent() {
               </button>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Email
-                </label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Email
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotEmail(true)}
+                    className="text-sm text-blue-400 hover:underline"
+                  >
+                    Forgot email?
+                  </button>
+                </div>
                 <input
                   type="email"
                   value={email}
