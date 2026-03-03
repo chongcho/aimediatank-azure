@@ -785,7 +785,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                     {mediaDetailSendByEmailEnabled && (
                       <button
                         type="button"
-                        onClick={() => { setEmailMessage(`${session?.user?.name || session?.user?.username || 'Someone'} thought you might be interested in this.`); setShowEmailModal(true) }}
+                        onClick={() => { setEmailMessage(''); setShowEmailModal(true) }}
                         className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
