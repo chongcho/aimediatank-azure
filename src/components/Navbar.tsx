@@ -647,7 +647,7 @@ export default function Navbar() {
                 aria-label="Celebrate"
                 title="Celebrate"
               >
-                <span className="text-lg leading-none">🎉</span>
+                <span className="text-2xl leading-none">🎉</span>
               </Link>
             )}
 
@@ -690,11 +690,12 @@ export default function Navbar() {
                 {isNavbarItemEnabled('upload') && (
                   <Link
                     href={isSubscriber ? "/upload" : "/pricing"}
-                    className="upload-btn flex items-center justify-center h-9 px-0.5 font-bold rounded-lg text-sm
+                    className="upload-btn flex items-center justify-center h-9 rounded-lg
                       hover:scale-105 active:scale-95 transition-transform duration-200 ease-out
                       relative overflow-hidden"
+                    style={{ paddingLeft: '7px', paddingRight: '7px' }}
                   >
-                    <span className="upload-text font-bold">
+                    <span className="upload-text text-sm font-bold">
                       Post
                     </span>
                   </Link>
