@@ -566,15 +566,16 @@ export async function GET(request: Request) {
     if (action === 'navbarSettings') {
       const defaultItems = [
         { itemKey: 'home', label: 'Home', isEnabled: true, sortOrder: 0 },
-        { itemKey: 'videos', label: 'Videos', isEnabled: true, sortOrder: 1 },
-        { itemKey: 'images', label: 'Images', isEnabled: true, sortOrder: 2 },
-        { itemKey: 'about', label: 'About', isEnabled: true, sortOrder: 3 },
-        { itemKey: 'play', label: 'Play', isEnabled: true, sortOrder: 4 },
-        { itemKey: 'chat', label: 'Chat', isEnabled: true, sortOrder: 5 },
-        { itemKey: 'mediaMessage', label: 'Celebration Card', isEnabled: true, sortOrder: 6 },
-        { itemKey: 'upload', label: 'Post', isEnabled: true, sortOrder: 7 },
-        { itemKey: 'signIn', label: 'Sign In', isEnabled: true, sortOrder: 8 },
-        { itemKey: 'signUp', label: 'Sign Up', isEnabled: true, sortOrder: 9 },
+        { itemKey: 'all', label: 'All', isEnabled: true, sortOrder: 1 },
+        { itemKey: 'videos', label: 'Videos', isEnabled: true, sortOrder: 2 },
+        { itemKey: 'images', label: 'Images', isEnabled: true, sortOrder: 3 },
+        { itemKey: 'about', label: 'About', isEnabled: true, sortOrder: 4 },
+        { itemKey: 'play', label: 'Play', isEnabled: true, sortOrder: 5 },
+        { itemKey: 'chat', label: 'Chat', isEnabled: true, sortOrder: 6 },
+        { itemKey: 'mediaMessage', label: 'Celebration Card', isEnabled: true, sortOrder: 7 },
+        { itemKey: 'upload', label: 'Post', isEnabled: true, sortOrder: 8 },
+        { itemKey: 'signIn', label: 'Sign In', isEnabled: true, sortOrder: 9 },
+        { itemKey: 'signUp', label: 'Sign Up', isEnabled: true, sortOrder: 10 },
       ]
 
       try {

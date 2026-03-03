@@ -388,6 +388,7 @@ export default function Navbar() {
             />
             </Link>
             {/* Home Icon - wireframe only */}
+            {isNavbarItemEnabled('home') && (
             <Link 
               href="/" 
               className="ml-[20px] text-gray-400 hover:text-white transition-colors"
@@ -407,11 +408,12 @@ export default function Navbar() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
               </svg>
             </Link>
+            )}
             </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
-            {isNavbarItemEnabled('home') && <NavLink href="/">All</NavLink>}
+            {isNavbarItemEnabled('all') && <NavLink href="/">All</NavLink>}
             {isNavbarItemEnabled('videos') && <NavLink href="/?type=VIDEO">Videos</NavLink>}
             {isNavbarItemEnabled('images') && <NavLink href="/?type=IMAGE">Images</NavLink>}
             {isNavbarItemEnabled('about') && <NavLink href="/about">About</NavLink>}
@@ -745,7 +747,7 @@ export default function Navbar() {
         {isMenuOpen && (
           <div ref={mobileMenuRef} className="md:hidden py-1 border-t border-tank-light">
             <div className="flex flex-col gap-[1px] items-end">
-              {isNavbarItemEnabled('home') && (
+              {isNavbarItemEnabled('all') && (
                 <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>All</MobileNavLink>
               )}
               {isNavbarItemEnabled('videos') && (
