@@ -430,8 +430,15 @@ export default function Navbar() {
                 aria-label="Celebrate"
                 title="Celebrate"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7m-14 0a2 2 0 01-2-2V9a2 2 0 012-2h14a2 2 0 012 2v1a2 2 0 01-2 2" />
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5.8 11.3 2 22l10.7-3.8" />
+                  <path d="M4 3h.01" />
+                  <path d="M22 8h.01" />
+                  <path d="M15 2h.01" />
+                  <path d="M22 20h.01" />
+                  <path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10" />
+                  <path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11c-.11.63-.69 1.07-1.33 1.07h-.36c-.62 0-1.16.4-1.35.99l-.11.34" />
+                  <path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98C9.59 4.91 9.15 5.49 9.15 6.13v.36c0 .62-.4 1.16-.99 1.35l-.34.11" />
                 </svg>
               </Link>
             )}
