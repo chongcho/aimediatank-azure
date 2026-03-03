@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
@@ -905,30 +906,36 @@ export default function Navbar() {
 }
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  const [isActive, setIsActive] = useState(false)
-
-  const checkActive = useCallback(() => {
-    const pathname = window.location.pathname
-    const search = window.location.search
-    if (href === '/') {
-      setIsActive(pathname === '/' && !search)
-    } else if (href.startsWith('/?')) {
-      setIsActive(pathname === '/' && search === href.slice(1))
-    } else {
-      setIsActive(pathname === href || pathname.startsWith(href + '/'))
-    }
-  }, [href])
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [manualType, setManualType] = useState<string | null>(null)
 
   useEffect(() => {
-    checkActive()
-    const onFilter = () => setTimeout(checkActive, 0)
-    window.addEventListener('homeFilterChange', onFilter)
-    window.addEventListener('popstate', checkActive)
-    return () => {
-      window.removeEventListener('homeFilterChange', onFilter)
-      window.removeEventListener('popstate', checkActive)
+    const onFilter = (e: Event) => {
+      const type = (e as CustomEvent).detail?.type ?? null
+      setManualType(type)
     }
-  }, [checkActive])
+    window.addEventListener('homeFilterChange', onFilter)
+    return () => window.removeEventListener('homeFilterChange', onFilter)
+  }, [])
+
+  useEffect(() => {
+    setManualType(null)
+  }, [pathname, searchParams])
+
+  const isActive = (() => {
+    const currentSearch = manualType !== null
+      ? (manualType ? `?type=${manualType}` : '')
+      : (searchParams.toString() ? `?${searchParams.toString()}` : '')
+
+    if (href === '/') {
+      return pathname === '/' && !currentSearch
+    } else if (href.startsWith('/?')) {
+      return pathname === '/' && currentSearch === href.slice(1)
+    } else {
+      return pathname === href || pathname.startsWith(href + '/')
+    }
+  })()
 
   const handleClick = (e: React.MouseEvent) => {
     const isOnHomePage = window.location.pathname === '/'
