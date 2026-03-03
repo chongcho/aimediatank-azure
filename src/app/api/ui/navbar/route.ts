@@ -10,7 +10,7 @@ const defaultItems = [
   { itemKey: 'about', label: 'About', isEnabled: true, sortOrder: 3 },
   { itemKey: 'play', label: 'Play', isEnabled: true, sortOrder: 4 },
   { itemKey: 'chat', label: 'Chat', isEnabled: true, sortOrder: 5 },
-  { itemKey: 'mediaMessage', label: 'Celebrate', isEnabled: true, sortOrder: 6 },
+  { itemKey: 'mediaMessage', label: 'Celebration Card', isEnabled: true, sortOrder: 6 },
   { itemKey: 'upload', label: 'Upload', isEnabled: true, sortOrder: 7 },
   { itemKey: 'signIn', label: 'Sign In', isEnabled: true, sortOrder: 8 },
   { itemKey: 'signUp', label: 'Sign Up', isEnabled: true, sortOrder: 9 },
