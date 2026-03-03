@@ -802,10 +802,9 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
         // and breaks all subsequent media detail modals until a full reload.
         window.history.replaceState(window.history.state, '', href)
 
-        if (href === '/') {
-          sessionStorage.removeItem('homeScrollState')
-          clearHomeFeed()
-        }
+        // Same clear behavior as "All" so Videos/Images get a clean feed and intercept works
+        sessionStorage.removeItem('homeScrollState')
+        clearHomeFeed()
 
         window.scrollTo({ top: 0, behavior: 'instant' })
         const url = new URL(href, window.location.origin)
@@ -843,10 +842,8 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
     if ((href === '/' || href.startsWith('/?')) && isOnHomePage) {
       window.history.replaceState(window.history.state, '', href)
 
-      if (href === '/') {
-        sessionStorage.removeItem('homeScrollState')
-        clearHomeFeed()
-      }
+      sessionStorage.removeItem('homeScrollState')
+      clearHomeFeed()
 
       window.scrollTo({ top: 0, behavior: 'instant' })
       const url = new URL(href, window.location.origin)
