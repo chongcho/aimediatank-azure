@@ -41,14 +41,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         valid: true,
         available: false,
-        message: 'This User ID is already taken',
+        message: 'This Nickname is already taken',
       })
     }
 
     return NextResponse.json({
       valid: true,
       available: true,
-      message: 'User ID is available',
+      message: 'Nickname is available',
     })
   } catch (error) {
     console.error('Username check error:', error)

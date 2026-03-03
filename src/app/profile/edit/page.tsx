@@ -690,10 +690,10 @@ export default function EditProfilePage() {
             </div>
           </div>
 
-          {/* Name (First, Middle, Last) */}
+          {/* Legal Name (First, Middle, Last) */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Name *
+              Legal Name *
             </label>
             <div className="grid grid-cols-3 gap-2">
               <input

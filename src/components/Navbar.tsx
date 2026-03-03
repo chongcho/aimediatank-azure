@@ -116,7 +116,7 @@ export default function Navbar() {
                        session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'
   const isAdmin = userData?.role === 'ADMIN' || session?.user?.role === 'ADMIN'
   
-  // Display name - show User ID (username) in navbar
+  // Display name - show Nickname (username) in navbar
   const displayName = userData?.username || session?.user?.username || 'User'
 
   // Keep notification dropdown within viewport, positioned just below the navbar
@@ -496,7 +496,20 @@ export default function Navbar() {
                     className="bg-tank-gray border border-tank-light rounded-lg shadow-xl overflow-hidden"
                   >
                     <div className="px-3 py-2 border-b border-tank-light flex items-center justify-between bg-tank-dark">
-                      <h3 className="font-semibold text-sm">Notifications</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-sm">Notifications</h3>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleNotificationsOn()
+                          }}
+                          className={`text-xs font-medium px-2 py-0.5 rounded ${notificationsOn ? 'bg-tank-accent text-black' : 'bg-tank-light/30 text-gray-400'}`}
+                          aria-label={notificationsOn ? 'Turn notifications off' : 'Turn notifications on'}
+                        >
+                          {notificationsOn ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
                       <div className="flex items-center gap-2">
                         {isSelectMode ? (
                           <>
@@ -541,17 +554,6 @@ export default function Navbar() {
                           </>
                         ) : (
                           <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                toggleNotificationsOn()
-                              }}
-                              className={`text-xs font-medium px-2 py-0.5 rounded ${notificationsOn ? 'bg-tank-accent text-black' : 'bg-tank-light/30 text-gray-400'}`}
-                              aria-label={notificationsOn ? 'Turn notifications off' : 'Turn notifications on'}
-                            >
-                              {notificationsOn ? 'ON' : 'OFF'}
-                            </button>
                             {notifications.length > 0 && (
                               <button
                                 type="button"
@@ -707,7 +709,7 @@ export default function Navbar() {
                   </Link>
                 )}
 
-                {/* User ID Dropdown */}
+                {/* Nickname Dropdown */}
                 <div className="relative" ref={profileRef}>
                   <button
                     onClick={() => {

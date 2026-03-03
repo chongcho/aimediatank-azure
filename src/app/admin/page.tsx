@@ -1699,7 +1699,7 @@ export default function AdminPage() {
                   <thead className="sticky top-0 bg-tank-dark z-10">
                     <tr className="border-b border-tank-light">
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">#</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User ID</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Nickname</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User Name</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email Address</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Phone Number</th>
@@ -1828,7 +1828,7 @@ export default function AdminPage() {
                     <tr className="border-b border-tank-light">
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">#</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Date</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User ID</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Nickname</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Open Chat Messages</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Actions</th>
                     </tr>
@@ -2120,7 +2120,7 @@ export default function AdminPage() {
                     <tr className="border-b border-tank-light bg-[#2a7b9b]">
                       <th className="text-left p-3 text-white font-medium whitespace-nowrap">Year</th>
                       <th className="text-left p-3 text-white font-medium whitespace-nowrap">Month</th>
-                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">User ID</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Nickname</th>
                       <th className="text-left p-3 text-white font-medium whitespace-nowrap">User Name</th>
                       <th className="text-left p-3 text-white font-medium whitespace-nowrap">Email</th>
                       <th className="text-left p-3 text-white font-medium whitespace-nowrap">Phone</th>
@@ -2182,7 +2182,7 @@ export default function AdminPage() {
                     <tr className="border-b border-tank-light bg-[#2a7b9b]">
                       <th className="text-left p-3 text-white font-medium whitespace-nowrap">Year</th>
                       <th className="text-left p-3 text-white font-medium whitespace-nowrap">Month</th>
-                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">User ID</th>
+                      <th className="text-left p-3 text-white font-medium whitespace-nowrap">Nickname</th>
                       <th className="text-left p-3 text-white font-medium whitespace-nowrap">User Name</th>
                       <th className="text-left p-3 text-white font-medium whitespace-nowrap">Email</th>
                       <th className="text-left p-3 text-white font-medium whitespace-nowrap">Phone</th>

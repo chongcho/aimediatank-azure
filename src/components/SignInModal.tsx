@@ -174,7 +174,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
             <form onSubmit={handleForgotEmail}>
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', color: '#ccc', fontSize: '14px', marginBottom: '8px' }}>
-                  Enter your User ID (username)
+                  Enter your Nickname
                 </label>
                 <input
                   type="text"

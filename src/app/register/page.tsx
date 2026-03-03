@@ -416,7 +416,7 @@ export default function RegisterPage() {
 
     // Check username availability
     if (!usernameStatus.valid || !usernameStatus.available) {
-      setError('Please choose an available User ID')
+      setError('Please choose an available Nickname')
       return
     }
 
@@ -650,10 +650,10 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Name (First, Middle, Last) */}
+            {/* Legal Name (First, Middle, Last) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Name *
+                Legal Name *
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <input
@@ -685,7 +685,7 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Nickname (User ID) */}
+            {/* Nickname */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Nickname *
