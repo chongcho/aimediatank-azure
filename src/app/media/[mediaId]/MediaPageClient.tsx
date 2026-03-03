@@ -782,7 +782,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                     {mediaDetailSendByEmailEnabled && (
                       <button
                         type="button"
-                        onClick={() => setShowEmailModal(true)}
+                        onClick={() => { setEmailMessage(`${session?.user?.name || session?.user?.username || 'Someone'} thought you might be interested in this.`); setShowEmailModal(true) }}
                         className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -891,7 +891,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
               {mediaDetailSendByEmailEnabled && (
                 <button
                   type="button"
-                  onClick={() => { setShowShareModal(false); setShowEmailModal(true); }}
+                  onClick={() => { setShowShareModal(false); setEmailMessage(`${session?.user?.name || session?.user?.username || 'Someone'} thought you might be interested in this.`); setShowEmailModal(true); }}
                   className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
                   title="Send by email (we send it for you)"
                 >
@@ -1086,12 +1086,12 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
             {/* Message */}
             <div className="bg-[#1a6e7a] px-5 py-4 border-t border-[#1a5c66]">
               <label className="text-sm font-semibold text-white/80">
-                Message <span className="text-white/40 font-normal">(optional)</span>
+                Message
               </label>
               <textarea
                 value={emailMessage}
                 onChange={(e) => setEmailMessage(e.target.value)}
-                placeholder="Check this out!"
+                placeholder="Add a personal message..."
                 rows={2}
                 className="w-full mt-2 px-4 py-2.5 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/50 resize-none"
                 disabled={sendingEmail}
