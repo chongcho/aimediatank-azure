@@ -90,7 +90,7 @@ export function generateCelebrationCardEmail(options: {
   mediaTitle: string
   thumbnailUrl: string | null
   message?: string
-}): string {
+}): { html: string; plainText: string } {
   const { senderName, senderEmail, subject, mediaPageUrl, mediaTitle, thumbnailUrl, message } = options
 
   const imgBlock = thumbnailUrl
@@ -101,7 +101,7 @@ export function generateCelebrationCardEmail(options: {
     ? `<p style="font-size: 16px; color: #444; margin: 16px 0; line-height: 1.6;">${escapeHtml(message)}</p>`
     : ''
 
-  return `
+  const html = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -112,13 +112,22 @@ export function generateCelebrationCardEmail(options: {
   <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">${escapeHtml(senderName)} sent you a celebration card on AiMediaTank.</p>
   ${messageBlock}
   ${imgBlock}
-  <p style="font-size: 14px; color: #555; margin: 16px 0 0 0;">Click the image above to view the full card on <a href="https://www.aimediatank.com" style="color: #0066cc;">AiMediaTank</a>.</p>
+  <p style="font-size: 14px; color: #555; margin: 16px 0 0 0;">Click the link to view the full card on AiMediaTank: <a href="${escapeHtml(mediaPageUrl)}" style="color: #0066cc;">${escapeHtml(mediaPageUrl)}</a></p>
   ${senderEmail ? `<p style="font-size: 14px; color: #666; margin: 16px 0 0 0;">Reply to ${escapeHtml(senderName)} at <a href="mailto:${encodeURI(senderEmail)}${subject ? `?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent('Hi ' + senderName + ',\n\nThank you for the celebration card!\n\n')}` : ''}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a></p>` : ''}
-  <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0 16px 0;" />
-  <p style="font-size: 12px; color: #999; margin: 0;">This email was sent by ${escapeHtml(senderName)} via <a href="https://www.aimediatank.com" style="color: #999;">AiMediaTank</a>, an AI-generated media community. If you did not expect this email, you can safely ignore it.</p>
+  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
 </body>
 </html>
 `
+
+  const plainText = [
+    `${senderName} sent you a celebration card on AiMediaTank.\n`,
+    message ? `${message}\n` : '',
+    `View the card: ${mediaPageUrl}\n`,
+    senderEmail ? `Reply to ${senderName}: ${senderEmail}\n` : '',
+    `Sincerely,\n${senderName}\nwww.aimediatank.com`,
+  ].filter(Boolean).join('\n')
+
+  return { html, plainText }
 }
 
 // Share media by email: clickable thumbnail (hyperlinks to media page so video can be played)
@@ -129,7 +138,7 @@ export function generateShareMediaEmail(options: {
   mediaPageUrl: string
   thumbnailUrl: string | null
   message?: string
-}): string {
+}): { html: string; plainText: string } {
   const { senderName, senderEmail, mediaTitle, mediaPageUrl, thumbnailUrl, message } = options
 
   const thumbnailBlock = thumbnailUrl
@@ -144,7 +153,7 @@ export function generateShareMediaEmail(options: {
     ? `<p style="font-size: 14px; color: #666; margin: 16px 0 0 0;">Click <a href="mailto:${encodeURI(senderEmail)}?subject=${encodeURIComponent('Re: ' + senderName + ' shared this for you!')}&body=${encodeURIComponent('Hi ' + senderName + ',\n\n')}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a> to reply to ${escapeHtml(senderName)}</p>`
     : ''
 
-  return `
+  const html = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -160,6 +169,15 @@ export function generateShareMediaEmail(options: {
 </body>
 </html>
 `
+
+  const plainText = [
+    message ? `${message}\n` : '',
+    `View the media: ${mediaPageUrl}\n`,
+    senderEmail ? `Reply to ${senderName}: ${senderEmail}\n` : '',
+    `Sincerely,\n${senderName}\nwww.aimediatank.com`,
+  ].filter(Boolean).join('\n')
+
+  return { html, plainText }
 }
 
 function escapeHtml(s: string): string {

@@ -157,7 +157,7 @@ export async function POST(request: Request) {
       const subject = card.cardTitle && card.cardTitle.trim()
         ? `${card.cardTitle.trim()} — from ${senderDisplayName} via AiMediaTank`
         : `${senderDisplayName} sent you a celebration card — AiMediaTank`
-      const html = generateCelebrationCardEmail({
+      const { html, plainText } = generateCelebrationCardEmail({
         senderName: senderDisplayName,
         senderEmail,
         subject,
@@ -171,6 +171,7 @@ export async function POST(request: Request) {
         to: card.recipientEmail,
         subject,
         html,
+        plainText,
         senderAddress: celebrateSender,
         fromName: senderDisplayName,
       })
