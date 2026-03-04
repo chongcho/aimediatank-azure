@@ -8,7 +8,6 @@ import Link from 'next/link'
 export default function PolicyPage() {
   const router = useRouter()
   const { data: session } = useSession()
-  const [activeSection, setActiveSection] = useState('terms')
   const [policyStatus, setPolicyStatus] = useState<{ agreed: boolean; agreedAt: string | null }>({ agreed: false, agreedAt: null })
 
   useEffect(() => {
@@ -37,35 +36,8 @@ export default function PolicyPage() {
     })
   }
 
-  const sections = [
-    { id: 'terms', title: '1. Terms of Service' },
-    { id: 'privacy', title: '2. Privacy Policy' },
-    { id: 'content', title: '3. Content Guidelines' },
-    { id: 'ai-content', title: '4. AI-Generated Content Policy' },
-    { id: 'copyright', title: '5. Copyright & IP' },
-    { id: 'conduct', title: '6. User Conduct' },
-    { id: 'payment', title: '7. Payment & Refund Policy' },
-    { id: 'account', title: '8. Account Terms' },
-    { id: 'data', title: '9. Data Retention Policy' },
-    { id: 'contact', title: '10. Contact Information' },
-  ]
-
-  const handleDownload = () => {
-    const policyContent = document.getElementById('policy-content')?.innerText || ''
-    const blob = new Blob([policyContent], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'AiMediaTank_Policy_Book.txt'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
   return (
-    <div className="max-w-6xl mx-auto p-0 m-0 pb-[500px]">
-      {/* Policy Agreement Status */}
+    <div className="max-w-4xl mx-auto p-0 m-0 pb-[500px]">
       {session && policyStatus.agreed && (
         <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex items-center gap-3">
           <svg className="w-6 h-6 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,416 +52,232 @@ export default function PolicyPage() {
         </div>
       )}
 
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Policy Book</h1>
-          <p className="text-gray-400">Last Updated: February 10, 2026</p>
+          <h1 className="text-3xl font-bold mb-2">Policy Documents</h1>
+          <p className="text-gray-400">Effective: December 20, 2024 &middot; Last Updated: March 4, 2026</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-2 px-4 py-2 bg-tank-gray border border-tank-light rounded-xl hover:bg-tank-light transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Download
-          </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
-            aria-label="Close"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors self-start md:self-auto"
+          aria-label="Close"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <p className="text-gray-300 mb-8">
+        AiMediaTank maintains two standalone policy documents that govern your use of the Platform and how we handle your data. Please review both documents carefully.
+      </p>
+
+      <div className="grid gap-6 md:grid-cols-2 mb-12">
+        {/* Terms of Service Card */}
+        <Link href="/terms" className="group block">
+          <div className="card h-full border border-tank-light hover:border-tank-accent/50 transition-colors">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-tank-accent/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-tank-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-white group-hover:text-tank-accent transition-colors">Terms of Service</h2>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Governs your use of the AiMediaTank Platform, including:
+            </p>
+            <ul className="text-gray-400 text-sm space-y-1.5 mb-4">
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Eligibility and age requirements (13+ minimum)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>User accounts, conduct, and responsibilities</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Content guidelines and AI-generated content policies</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Copyright, DMCA, and intellectual property</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Payment, refund, and creator payout policies</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Third-party platforms (YouTube, TikTok, X)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Dispute resolution and governing law</span>
+              </li>
+            </ul>
+            <span className="text-tank-accent text-sm font-medium group-hover:underline">Read Terms of Service &rarr;</span>
+          </div>
+        </Link>
+
+        {/* Privacy Policy Card */}
+        <Link href="/privacy" className="group block">
+          <div className="card h-full border border-tank-light hover:border-tank-accent/50 transition-colors">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-tank-accent/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-tank-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-white group-hover:text-tank-accent transition-colors">Privacy Policy</h2>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Describes how we collect, use, and protect your data, including:
+            </p>
+            <ul className="text-gray-400 text-sm space-y-1.5 mb-4">
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Information we collect and how we use it</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Legal bases (GDPR compliance)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Cookies and tracking technologies</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Your rights (GDPR, CCPA, LGPD, PIPEDA)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Children&apos;s privacy (COPPA compliance)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>Data retention schedules</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-tank-accent mt-1">&bull;</span>
+                <span>International data transfers and safeguards</span>
+              </li>
+            </ul>
+            <span className="text-tank-accent text-sm font-medium group-hover:underline">Read Privacy Policy &rarr;</span>
+          </div>
+        </Link>
+      </div>
+
+      {/* Compliance */}
+      <div className="card mb-8">
+        <h2 className="text-lg font-bold mb-4">Global Compliance</h2>
+        <p className="text-gray-400 text-sm mb-4">
+          Our policy documents are designed to comply with applicable regulations worldwide:
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-gray-300 text-sm">
+            <thead>
+              <tr className="border-b border-tank-light">
+                <th className="text-left py-2 px-3">Regulation</th>
+                <th className="text-left py-2 px-3">Jurisdiction</th>
+                <th className="text-left py-2 px-3">Key Areas</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-tank-light/50">
+                <td className="py-2 px-3 font-medium">GDPR</td>
+                <td className="py-2 px-3">EU / EEA</td>
+                <td className="py-2 px-3">Data protection, user rights, legal bases</td>
+              </tr>
+              <tr className="border-b border-tank-light/50">
+                <td className="py-2 px-3 font-medium">UK DPA 2018</td>
+                <td className="py-2 px-3">United Kingdom</td>
+                <td className="py-2 px-3">Data protection aligned with GDPR</td>
+              </tr>
+              <tr className="border-b border-tank-light/50">
+                <td className="py-2 px-3 font-medium">CCPA / CPRA</td>
+                <td className="py-2 px-3">California, USA</td>
+                <td className="py-2 px-3">Consumer privacy, opt-out, non-discrimination</td>
+              </tr>
+              <tr className="border-b border-tank-light/50">
+                <td className="py-2 px-3 font-medium">COPPA</td>
+                <td className="py-2 px-3">United States</td>
+                <td className="py-2 px-3">Children&apos;s privacy, 13+ minimum age</td>
+              </tr>
+              <tr className="border-b border-tank-light/50">
+                <td className="py-2 px-3 font-medium">LGPD</td>
+                <td className="py-2 px-3">Brazil</td>
+                <td className="py-2 px-3">Data protection, ANPD authority</td>
+              </tr>
+              <tr className="border-b border-tank-light/50">
+                <td className="py-2 px-3 font-medium">PIPEDA</td>
+                <td className="py-2 px-3">Canada</td>
+                <td className="py-2 px-3">Personal information protection</td>
+              </tr>
+              <tr className="border-b border-tank-light/50">
+                <td className="py-2 px-3 font-medium">DMCA</td>
+                <td className="py-2 px-3">United States</td>
+                <td className="py-2 px-3">Copyright takedown procedures</td>
+              </tr>
+              <tr className="border-b border-tank-light/50">
+                <td className="py-2 px-3 font-medium">EU AI Act</td>
+                <td className="py-2 px-3">European Union</td>
+                <td className="py-2 px-3">AI transparency obligations</td>
+              </tr>
+              <tr>
+                <td className="py-2 px-3 font-medium">PCI DSS</td>
+                <td className="py-2 px-3">Global</td>
+                <td className="py-2 px-3">Payment security (via Stripe)</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Sidebar Navigation */}
-        <nav className="lg:w-64 shrink-0">
-          <div className="card sticky top-4">
-            <h3 className="font-semibold mb-3 text-sm text-gray-400 uppercase">Contents</h3>
-            <ul className="space-y-1">
-              {sections.map((section) => (
-                <li key={section.id}>
-                  {section.id === 'terms' || section.id === 'privacy' ? (
-                    <Link
-                      href={section.id === 'terms' ? '/terms' : '/privacy'}
-                      className="block px-3 py-2 rounded-lg text-sm transition-colors text-gray-400 hover:text-white hover:bg-tank-light"
-                    >
-                      {section.title}
-                    </Link>
-                  ) : (
-                    <a
-                      href={`#${section.id}`}
-                      onClick={() => setActiveSection(section.id)}
-                      className={`block px-3 py-2 rounded-lg text-sm transition-colors ${
-                        activeSection === section.id
-                          ? 'bg-tank-accent/20 text-tank-accent'
-                          : 'text-gray-400 hover:text-white hover:bg-tank-light'
-                      }`}
-                    >
-                      {section.title}
-                    </a>
-                  )}
-                </li>
-              ))}
-            </ul>
+      {/* Contact */}
+      <div className="card mb-8">
+        <h2 className="text-lg font-bold mb-4">Contact</h2>
+        <div className="grid gap-3 sm:grid-cols-2 text-sm">
+          <div className="text-gray-300">
+            <span className="text-gray-400">General Support:</span><br />
+            support@aimediatank.com
           </div>
-        </nav>
-
-        {/* Policy Content */}
-        <div className="flex-1">
-          <div id="policy-content" className="card prose prose-invert max-w-none">
-            {/* Terms of Service */}
-            <section id="terms" className="mb-12">
-              <p className="text-sm text-gray-400 mb-4">
-                Standalone document: <Link href="/terms" className="text-tank-accent hover:underline">Terms of Service</Link>
-              </p>
-              <h2 className="text-2xl font-bold text-tank-accent mb-4">1. Terms of Service</h2>
-              
-              <h3 className="text-lg font-semibold mt-6 mb-3">1.1 Acceptance of Terms</h3>
-              <p className="text-gray-300 mb-4">
-                By accessing or using AiMediaTank ("the Platform," "we," "us," or "our"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our services.
-              </p>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">1.2 Eligibility</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-2 mb-4">
-                <li>This Platform is available to users of all ages.</li>
-                <li>Users under 18 years old have filtered access to age-appropriate content only.</li>
-                <li>Users under 18 must have parental or guardian consent to use this Platform.</li>
-                <li>You must have the legal capacity to enter into a binding agreement (or have parental consent if under 18).</li>
-                <li>You must not be prohibited from using the Platform under applicable laws.</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">1.3 Age-Based Access</h3>
-              <p className="text-gray-300 mb-2"><strong>Users 18 and older:</strong></p>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>Full access to all content on the Platform</li>
-                <li>Ability to upload, purchase, and sell content</li>
-                <li>Access to all Platform features</li>
-              </ul>
-              <p className="text-gray-300 mb-2"><strong>Users under 18:</strong></p>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>Filtered access to age-appropriate content only</li>
-                <li>Content marked as mature or adult-only is restricted</li>
-                <li>Parental controls may be applied</li>
-                <li>Some features may be limited based on age verification</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">1.4 Description of Service</h3>
-              <p className="text-gray-300 mb-4">
-                AiMediaTank is a community platform for sharing, discovering, and purchasing AI-generated and real media content including videos, images, and music, with built-in tools to publish, showcase, and monetize work.
-              </p>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">1.5 Modifications to Terms</h3>
-              <p className="text-gray-300 mb-4">
-                We reserve the right to modify these terms at any time. Users will be notified of significant changes via email or platform notification. Continued use of the Platform after changes constitutes acceptance of the new terms.
-              </p>
-            </section>
-
-            {/* Privacy Policy */}
-            <section id="privacy" className="mb-12">
-              <p className="text-sm text-gray-400 mb-4">
-                Standalone document: <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link>
-              </p>
-              <h2 className="text-2xl font-bold text-tank-accent mb-4">2. Privacy Policy</h2>
-              
-              <h3 className="text-lg font-semibold mt-6 mb-3">2.1 Information We Collect</h3>
-              <p className="text-gray-300 mb-2"><strong>Personal Information:</strong></p>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>Name and username</li>
-                <li>Email address</li>
-                <li>Profile information (avatar, bio)</li>
-                <li>Payment information (processed securely through Stripe)</li>
-              </ul>
-              <p className="text-gray-300 mb-2"><strong>Usage Information:</strong></p>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>Content views and interactions</li>
-                <li>Upload history</li>
-                <li>Purchase history</li>
-                <li>Device and browser information</li>
-                <li>IP address</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">2.2 How We Use Your Information</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>To provide and maintain our services</li>
-                <li>To process transactions and payments</li>
-                <li>To communicate with you about your account</li>
-                <li>To send service-related notifications</li>
-                <li>To improve our Platform and user experience</li>
-                <li>To detect and prevent fraud or abuse</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">2.3 Information Sharing</h3>
-              <p className="text-gray-300 mb-4">
-                We do not sell your personal information. We may share information with payment processors (Stripe), cloud service providers (Microsoft Azure), and law enforcement when required by law.
-              </p>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">2.4 Your Rights</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>Access your personal data</li>
-                <li>Correct inaccurate data</li>
-                <li>Delete your account and associated data</li>
-                <li>Export your data</li>
-                <li>Opt-out of marketing communications</li>
-              </ul>
-            </section>
-
-            {/* Content Guidelines */}
-            <section id="content" className="mb-12">
-              <h2 className="text-2xl font-bold text-tank-accent mb-4">3. Content Guidelines</h2>
-              
-              <h3 className="text-lg font-semibold mt-6 mb-3">3.1 Acceptable Content</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>AI-generated, AI-assisted, or real-world original content</li>
-                <li>Original or properly licensed content</li>
-                <li>Appropriate for a general audience</li>
-                <li>Compliant with all applicable laws</li>
-                <li>Accurately labeled with AI tools used or real device details when applicable</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">3.2 Prohibited Content</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>Child sexual abuse material (CSAM)</li>
-                <li>Non-consensual intimate imagery</li>
-                <li>Content promoting violence or terrorism</li>
-                <li>Hate speech targeting protected groups</li>
-                <li>Content infringing on intellectual property rights</li>
-                <li>Malware or malicious code</li>
-                <li>Spam or misleading content</li>
-                <li>Content depicting illegal activities</li>
-                <li>Deepfakes of real individuals without consent</li>
-                <li>Misleading or false AI/real attribution</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">3.3 Content Moderation</h3>
-              <p className="text-gray-300 mb-4">
-                We reserve the right to remove any content that violates these guidelines. Repeated violations may result in account suspension or termination.
-              </p>
-            </section>
-
-            {/* AI-Generated Content Policy */}
-            <section id="ai-content" className="mb-12">
-              <h2 className="text-2xl font-bold text-tank-accent mb-4">4. AI-Generated Content Policy</h2>
-              
-              <h3 className="text-lg font-semibold mt-6 mb-3">4.1 Definition</h3>
-              <p className="text-gray-300 mb-4">
-                AI-generated content refers to media created using artificial intelligence tools including image generators (Midjourney, DALL-E, Stable Diffusion), video generators (Runway, Pika, Sora), and music generators (Suno, Udio).
-              </p>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">4.2 Disclosure Requirements</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>AI-generated content must be identified as AI-generated</li>
-                <li>Users should specify the AI tool used when uploading</li>
-                <li>Real-world content should include capture device details when available</li>
-                <li>Misrepresenting AI content as human-created is prohibited</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">4.3 AI Tool Compliance</h3>
-              <p className="text-gray-300 mb-4">
-                Users are responsible for complying with the terms of service of the AI tools they use, ensuring they have rights to commercialize AI-generated content, and understanding licensing restrictions.
-              </p>
-            </section>
-
-            {/* Copyright and IP */}
-            <section id="copyright" className="mb-12">
-              <h2 className="text-2xl font-bold text-tank-accent mb-4">5. Copyright and Intellectual Property</h2>
-              
-              <h3 className="text-lg font-semibold mt-6 mb-3">5.1 Ownership</h3>
-              <p className="text-gray-300 mb-4">
-                You retain ownership of content you create and upload. By uploading, you grant AiMediaTank a non-exclusive license to display, distribute, and promote your content on the Platform.
-              </p>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">5.2 DMCA Compliance</h3>
-              <p className="text-gray-300 mb-4">
-                We respect intellectual property rights and comply with the Digital Millennium Copyright Act (DMCA). To file a takedown notice, contact support@aimediatank.com with the required information.
-              </p>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">5.3 Repeat Infringers</h3>
-              <p className="text-gray-300 mb-4">
-                Accounts with repeated copyright violations will be terminated.
-              </p>
-            </section>
-
-            {/* User Conduct */}
-            <section id="conduct" className="mb-12">
-              <h2 className="text-2xl font-bold text-tank-accent mb-4">6. User Conduct</h2>
-              
-              <h3 className="text-lg font-semibold mt-6 mb-3">6.1 Expected Behavior</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>Treat other users with respect</li>
-                <li>Provide accurate information</li>
-                <li>Protect your account credentials</li>
-                <li>Report violations and suspicious activity</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">6.2 Prohibited Activities</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>Harass, bully, or threaten other users</li>
-                <li>Create multiple accounts to evade bans</li>
-                <li>Attempt to hack or exploit the Platform</li>
-                <li>Scrape or collect user data without permission</li>
-                <li>Manipulate ratings or reviews</li>
-                <li>Engage in fraudulent transactions</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">6.3 Consequences</h3>
-              <p className="text-gray-300 mb-4">
-                Violations may result in warning, temporary suspension, permanent account termination, or legal action where appropriate.
-              </p>
-            </section>
-
-            {/* Payment and Refund Policy */}
-            <section id="payment" className="mb-12">
-              <h2 className="text-2xl font-bold text-tank-accent mb-4">7. Payment and Refund Policy</h2>
-              
-              <h3 className="text-lg font-semibold mt-6 mb-3">7.1 Pricing</h3>
-              <p className="text-gray-300 mb-4">
-                Content creators set their own prices. Membership plans are priced as displayed on the Platform. All prices are in US Dollars (USD).
-              </p>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">7.2 Membership Plans</h3>
-              <div className="overflow-x-auto mb-4">
-                <table className="w-full text-gray-300 text-sm">
-                  <thead>
-                    <tr className="border-b border-tank-light">
-                      <th className="text-left py-2 px-3">Plan</th>
-                      <th className="text-left py-2 px-3">Price</th>
-                      <th className="text-left py-2 px-3">Features</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-tank-light/50">
-                      <td className="py-2 px-3">Viewer</td>
-                      <td className="py-2 px-3">Free</td>
-                      <td className="py-2 px-3">Browse and purchase; 5 free uploads (upgrade to upload more)</td>
-                    </tr>
-                    <tr className="border-b border-tank-light/50">
-                      <td className="py-2 px-3">Basic</td>
-                      <td className="py-2 px-3">$2/month</td>
-                      <td className="py-2 px-3">5 free uploads; $1 per additional upload; sell content</td>
-                    </tr>
-                    <tr className="border-b border-tank-light/50">
-                      <td className="py-2 px-3">Advanced</td>
-                      <td className="py-2 px-3">$5/month</td>
-                      <td className="py-2 px-3">5 free uploads; $0.50 per additional upload; priority support</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-3">Premium</td>
-                      <td className="py-2 px-3">$8/month</td>
-                      <td className="py-2 px-3">Unlimited free uploads; featured placement; creator badge</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">7.3 Refund Policy</h3>
-              <p className="text-gray-300 mb-4">
-                Due to the nature of digital content, all sales are final. Refunds may be issued for technical issues preventing access. Refund requests must be submitted within 7 days of purchase. Purchased media remains available in your account while it is hosted on the Platform.
-              </p>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">7.4 Creator Payouts</h3>
-              <p className="text-gray-300 mb-4">
-                Creators receive 70% of content sales. Minimum payout threshold: $10. Payouts processed monthly via Stripe Connect.
-              </p>
-            </section>
-
-            {/* Account Terms */}
-            <section id="account" className="mb-12">
-              <h2 className="text-2xl font-bold text-tank-accent mb-4">8. Account Terms</h2>
-              
-              <h3 className="text-lg font-semibold mt-6 mb-3">8.1 Account Creation</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>One account per person</li>
-                <li>Accurate information required</li>
-                <li>You are responsible for maintaining account security</li>
-                <li>Notify us immediately of unauthorized access</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">8.2 Account Termination</h3>
-              <p className="text-gray-300 mb-4">
-                You may delete your account at any time. We may suspend or terminate accounts for Terms of Service violations, illegal activity, extended inactivity, or fraudulent activity.
-              </p>
-            </section>
-
-            {/* Data Retention Policy */}
-            <section id="data" className="mb-12">
-              <h2 className="text-2xl font-bold text-tank-accent mb-4">9. Data Retention Policy</h2>
-              
-              <h3 className="text-lg font-semibold mt-6 mb-3">9.1 Content Retention</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>Uploaded content: Retained while account is active</li>
-                <li>Purchased content: Remains available in your account while hosted on the Platform</li>
-                <li>Sold status: Displayed as a sales count and retained on the Platform</li>
-                <li>Inactive media: Removed after 60 days of no activity</li>
-                <li>Deleted content: Permanently removed within 30 days</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold mt-6 mb-3">9.2 User Data Retention</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-                <li>Account information: Retained while account is active</li>
-                <li>Transaction records: 7 years (legal requirement)</li>
-                <li>Usage logs: 90 days</li>
-                <li>Support communications: 2 years</li>
-              </ul>
-            </section>
-
-            {/* Contact Information */}
-            <section id="contact" className="mb-12">
-              <h2 className="text-2xl font-bold text-tank-accent mb-4">10. Contact Information</h2>
-              
-              <div className="bg-tank-dark rounded-xl p-4 space-y-3">
-                <p className="text-gray-300">
-                  <strong>General Support:</strong> support@aimediatank.com
-                </p>
-                <p className="text-gray-300">
-                  <strong>Website:</strong> https://www.aimediatank.com
-                </p>
-                <p className="text-gray-300">
-                  <strong>Legal Inquiries:</strong> support@aimediatank.com (Subject: "Legal Inquiry")
-                </p>
-                <p className="text-gray-300">
-                  <strong>DMCA/Copyright:</strong> support@aimediatank.com (Subject: "DMCA Notice")
-                </p>
-                <p className="text-gray-300">
-                  <strong>Privacy Concerns:</strong> support@aimediatank.com (Subject: "Privacy Request")
-                </p>
-              </div>
-            </section>
-
-            {/* Disclaimer */}
-            <section className="mb-8">
-              <h2 className="text-xl font-bold text-gray-400 mb-4">Disclaimer</h2>
-              <p className="text-gray-400 text-sm">
-                THE PLATFORM IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND. WE DO NOT GUARANTEE UNINTERRUPTED ACCESS OR THAT THE PLATFORM WILL BE ERROR-FREE. TO THE MAXIMUM EXTENT PERMITTED BY LAW, AIMEDIATANK SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES.
-              </p>
-            </section>
-
-            <div className="text-center text-gray-500 text-sm pt-8 border-t border-tank-light">
-              © 2026 AiMediaTank. All Rights Reserved.
-            </div>
-
-            {/* Back Button at bottom left */}
-            <div className="flex justify-start mt-8">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
-              >
-                ← Back
-              </button>
-            </div>
+          <div className="text-gray-300">
+            <span className="text-gray-400">Privacy Requests:</span><br />
+            support@aimediatank.com<br />
+            <span className="text-gray-500">Subject: &ldquo;Privacy Request&rdquo;</span>
+          </div>
+          <div className="text-gray-300">
+            <span className="text-gray-400">Legal Inquiries:</span><br />
+            support@aimediatank.com<br />
+            <span className="text-gray-500">Subject: &ldquo;Legal Inquiry&rdquo;</span>
+          </div>
+          <div className="text-gray-300">
+            <span className="text-gray-400">DMCA / Copyright:</span><br />
+            support@aimediatank.com<br />
+            <span className="text-gray-500">Subject: &ldquo;DMCA Notice&rdquo;</span>
           </div>
         </div>
+      </div>
+
+      {/* Footer */}
+      <div className="text-center text-gray-500 text-sm">
+        <p>&copy; 2025–2026 AiMediaTank. All Rights Reserved.</p>
+        <p className="mt-1 text-xs text-gray-600">These documents should be reviewed by qualified legal counsel. They do not constitute legal advice.</p>
+      </div>
+
+      <div className="flex justify-start mt-8">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+        >
+          &larr; Back
+        </button>
       </div>
     </div>
   )
 }
-
