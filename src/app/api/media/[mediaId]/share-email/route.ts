@@ -56,7 +56,7 @@ export async function POST(
     const thumbnailUrl = toAbsoluteUrl(baseUrl, media.thumbnailUrl)
 
     const title = media.title.replace(/#\w+/g, '').trim() || 'Media'
-    const subject = `${senderName} shared this for you!`
+    const subject = `${senderName} shared "${title}" with you — AiMediaTank`
     const html = generateShareMediaEmail({
       senderName,
       senderEmail,

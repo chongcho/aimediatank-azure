@@ -5,6 +5,8 @@ interface EmailOptions {
   to: string
   subject: string
   html: string
+  /** Optional plain-text version of the email body (improves deliverability). */
+  plainText?: string
   replyTo?: string
   /** Display name shown alongside the sender address (configured via AZURE_EMAIL_SENDER_NAME env var by default). */
   fromName?: string
@@ -39,18 +41,26 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
 
   try {
     const senderAddress = options.senderAddress || SENDER_ADDRESS
+    const displayName = options.fromName || DEFAULT_SENDER_NAME
+    const plainText = options.plainText || options.html.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()
+
     const poller = await client.beginSend({
       senderAddress,
       recipients: {
-        to: [{ address: options.to }],
+        to: [{ address: options.to, displayName: '' }],
       },
       content: {
         subject: options.subject,
         html: options.html,
+        plainText,
       },
-      ...(options.replyTo && {
-        replyTo: [{ address: options.replyTo, displayName: options.fromName || undefined }],
-      }),
+      headers: {
+        'X-Entity-Ref-ID': `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      },
+      ...(options.replyTo
+        ? { replyTo: [{ address: options.replyTo, displayName }] }
+        : { replyTo: [{ address: 'support@aimediatank.com', displayName: 'AiMediaTank Support' }] }
+      ),
     })
 
     const result = await poller.pollUntilDone()
@@ -98,11 +108,14 @@ export function generateCelebrationCardEmail(options: {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  ${imgBlock}
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+  <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">${escapeHtml(senderName)} sent you a celebration card on AiMediaTank.</p>
   ${messageBlock}
-  ${senderEmail ? `<p style="font-size: 14px; color: #666; margin: 16px 0 0 0;">Click <a href="mailto:${encodeURI(senderEmail)}${subject ? `?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent('Hi ' + senderName + ',\n\nThank you for the celebration card!\n\n')}` : ''}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a> to reply to ${escapeHtml(senderName)}</p>` : ''}
-  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
+  ${imgBlock}
+  <p style="font-size: 14px; color: #555; margin: 16px 0 0 0;">Click the image above to view the full card on <a href="https://www.aimediatank.com" style="color: #0066cc;">AiMediaTank</a>.</p>
+  ${senderEmail ? `<p style="font-size: 14px; color: #666; margin: 16px 0 0 0;">Reply to ${escapeHtml(senderName)} at <a href="mailto:${encodeURI(senderEmail)}${subject ? `?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent('Hi ' + senderName + ',\n\nThank you for the celebration card!\n\n')}` : ''}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a></p>` : ''}
+  <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0 16px 0;" />
+  <p style="font-size: 12px; color: #999; margin: 0;">This email was sent by ${escapeHtml(senderName)} via <a href="https://www.aimediatank.com" style="color: #999;">AiMediaTank</a>, an AI-generated media community. If you did not expect this email, you can safely ignore it.</p>
 </body>
 </html>
 `
@@ -138,12 +151,14 @@ export function generateShareMediaEmail(options: {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+  <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">${escapeHtml(senderName)} shared &ldquo;${escapeHtml(mediaTitle)}&rdquo; with you on AiMediaTank.</p>
   ${messageBlock}
-  <p style="font-size: 16px;">Click the image to see the media.</p>
+  <p style="font-size: 14px; color: #555; margin: 0 0 12px 0;">Click the image below to view the media:</p>
   ${thumbnailBlock}
   ${replyBlock}
-  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
+  <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0 16px 0;" />
+  <p style="font-size: 12px; color: #999; margin: 0;">This email was sent by ${escapeHtml(senderName)} via <a href="https://www.aimediatank.com" style="color: #999;">AiMediaTank</a>, an AI-generated media community. If you did not expect this email, you can safely ignore it.</p>
 </body>
 </html>
 `

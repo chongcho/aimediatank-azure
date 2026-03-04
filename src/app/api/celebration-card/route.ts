@@ -155,8 +155,8 @@ export async function POST(request: Request) {
       const thumbUrl = toAbsolute(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
       const mediaTitle = media.title.replace(/#\w+/g, '').trim()
       const subject = card.cardTitle && card.cardTitle.trim()
-        ? `${card.cardTitle.trim()} from ${senderDisplayName}`
-        : `You received a celebration card from ${senderDisplayName}`
+        ? `${card.cardTitle.trim()} — from ${senderDisplayName} via AiMediaTank`
+        : `${senderDisplayName} sent you a celebration card — AiMediaTank`
       const html = generateCelebrationCardEmail({
         senderName: senderDisplayName,
         senderEmail,
