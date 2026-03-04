@@ -152,13 +152,11 @@ export function generateShareMediaEmail(options: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-  <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">${escapeHtml(senderName)} shared &ldquo;${escapeHtml(mediaTitle)}&rdquo; with you on AiMediaTank.</p>
   ${messageBlock}
   <p style="font-size: 14px; color: #555; margin: 0 0 12px 0;">Click the image below to view the media:</p>
   ${thumbnailBlock}
   ${replyBlock}
-  <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0 16px 0;" />
-  <p style="font-size: 12px; color: #999; margin: 0;">This email was sent by ${escapeHtml(senderName)} via <a href="https://www.aimediatank.com" style="color: #999;">AiMediaTank</a>, an AI-generated media community. If you did not expect this email, you can safely ignore it.</p>
+  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
 </body>
 </html>
 `
