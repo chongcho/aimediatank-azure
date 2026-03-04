@@ -969,6 +969,8 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
         }
         window.location.href = href
       }
+    } else {
+      window.scrollTo({ top: 0, behavior: 'instant' })
     }
   }
 
