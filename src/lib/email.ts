@@ -110,7 +110,7 @@ export function generateCelebrationCardEmail(options: {
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
   ${messageBlock}
-  <p style="font-size: 14px; color: #555; margin: 0 0 12px 0;">Click the image below to view the full card:</p>
+  <p style="font-size: 14px; color: #555; margin: 0 0 12px 0;">Click the image/link below to view the media:</p>
   ${imgBlock}
   ${senderEmail ? `<p style="font-size: 14px; color: #666; margin: 16px 0 0 0;">Reply to ${escapeHtml(senderName)} at <a href="mailto:${encodeURI(senderEmail)}${subject ? `?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent('Hi ' + senderName + ',\n\nThank you for the celebration card!\n\n')}` : ''}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a></p>` : ''}
   <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
@@ -160,7 +160,7 @@ export function generateShareMediaEmail(options: {
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
   ${messageBlock}
-  <p style="font-size: 14px; color: #555; margin: 0 0 12px 0;">Click the image below to view the media:</p>
+  <p style="font-size: 14px; color: #555; margin: 0 0 12px 0;">Click the image/link below to view the media:</p>
   ${thumbnailBlock}
   ${replyBlock}
   <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
