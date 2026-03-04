@@ -421,7 +421,7 @@ function NavbarContent() {
               sessionStorage.removeItem('homeScrollState');
               clearHomeFeed();
               if (window.location.pathname === '/') {
-                window.scrollTo({ top: 0, behavior: 'instant' });
+                document.body.scrollTop = 0;
               } else {
                 window.location.href = '/';
               }
@@ -442,7 +442,7 @@ function NavbarContent() {
                 sessionStorage.removeItem('homeScrollState');
                 clearHomeFeed();
                 if (window.location.pathname === '/') {
-                  window.scrollTo({ top: 0, behavior: 'instant' });
+                  document.body.scrollTop = 0;
                   window.dispatchEvent(new Event('homeRefreshRequested'));
                 } else {
                   window.location.href = '/';
@@ -955,8 +955,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
         sessionStorage.removeItem('homeScrollState')
         clearHomeFeed()
 
-        window.scrollTo(0, 0)
-        document.documentElement.scrollTop = 0
+        document.body.scrollTop = 0
         const url = new URL(href, window.location.origin)
         window.dispatchEvent(new CustomEvent('homeFilterChange', {
           detail: { type: url.searchParams.get('type') }
@@ -969,8 +968,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
         window.location.href = href
       }
     } else {
-      window.scrollTo(0, 0)
-      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
     }
   }
 
@@ -1002,8 +1000,7 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
       sessionStorage.removeItem('homeScrollState')
       clearHomeFeed()
 
-      window.scrollTo(0, 0)
-      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
       const url = new URL(href, window.location.origin)
       window.dispatchEvent(new CustomEvent('homeFilterChange', {
         detail: { type: url.searchParams.get('type') }

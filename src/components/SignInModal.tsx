@@ -26,12 +26,12 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
 
   // Block body scroll when modal is open (iOS-safe method)
   useEffect(() => {
-    const scrollY = window.scrollY
+    const scrollY = document.body.scrollTop
     document.body.style.overflow = 'hidden'
     
     return () => {
       document.body.style.overflow = ''
-      window.scrollTo(0, scrollY)
+      document.body.scrollTop = scrollY
     }
   }, [])
 

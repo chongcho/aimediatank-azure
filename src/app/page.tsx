@@ -248,7 +248,7 @@ function HomeContent() {
       setMedia([])
       setHasMore(true)
       setLoading(true)
-      window.scrollTo(0, 0)
+      document.body.scrollTop = 0
 
       const s = filtersRef.current.sort
       const q = filtersRef.current.search
@@ -269,9 +269,9 @@ function HomeContent() {
         .finally(() => {
           setLoading(false)
           filterChangeFromNavRef.current = false
-          requestAnimationFrame(() => window.scrollTo(0, 0))
-          setTimeout(() => window.scrollTo(0, 0), 50)
-          setTimeout(() => window.scrollTo(0, 0), 150)
+          document.body.scrollTop = 0
+          requestAnimationFrame(() => { document.body.scrollTop = 0 })
+          setTimeout(() => { document.body.scrollTop = 0 }, 100)
         })
     }
     window.addEventListener('homeFilterChange', handler)
@@ -291,7 +291,7 @@ function HomeContent() {
       sessionStorage.removeItem('homeScrollState')
     } else {
       // No scroll restoration - scroll to top
-      window.scrollTo({ top: 0, behavior: 'instant' })
+      document.body.scrollTop = 0
     }
   }, [])
 
@@ -362,8 +362,8 @@ function HomeContent() {
         const scrollToTarget = (el: HTMLElement) => {
           const rect = el.getBoundingClientRect()
           const headerOffset = 80
-          const top = window.scrollY + rect.top - headerOffset
-          window.scrollTo({ top, behavior: 'auto' })
+          const top = document.body.scrollTop + rect.top - headerOffset
+          document.body.scrollTo({ top, behavior: 'auto' })
         }
         const attemptScrollToTarget = (attempts: number) => {
           if (attempts <= 0) {
@@ -391,7 +391,7 @@ function HomeContent() {
             let correctionCount = 0
             const maxCorrections = 15
             const correctionInterval = 200
-            let lastTop = window.scrollY
+            let lastTop = document.body.scrollTop
             const correctScroll = () => {
               correctionCount++
               if (correctionCount > maxCorrections) return
@@ -400,9 +400,9 @@ function HomeContent() {
               if (!el) return
               const rect = el.getBoundingClientRect()
               const headerOffset = 80
-              const idealTop = window.scrollY + rect.top - headerOffset
+              const idealTop = document.body.scrollTop + rect.top - headerOffset
               if (Math.abs(idealTop - lastTop) > 5) {
-                window.scrollTo({ top: idealTop, behavior: 'auto' })
+                document.body.scrollTo({ top: idealTop, behavior: 'auto' })
                 lastTop = idealTop
               }
               setTimeout(correctScroll, correctionInterval)
@@ -471,8 +471,8 @@ function HomeContent() {
         const scrollToTarget = (el: HTMLElement) => {
           const rect = el.getBoundingClientRect()
           const headerOffset = 80
-          const top = window.scrollY + rect.top - headerOffset
-          window.scrollTo({ top, behavior: 'auto' })
+          const top = document.body.scrollTop + rect.top - headerOffset
+          document.body.scrollTo({ top, behavior: 'auto' })
         }
 
         const attemptScrollToTarget = (attempts: number) => {
@@ -485,13 +485,10 @@ function HomeContent() {
             setRestoringScroll(false)
             setContentReady(true)
 
-            // Keep correcting scroll position as images load and shift the layout.
-            // This is especially important on mobile where a single column means every
-            // image above the target affects its vertical position.
             let correctionCount = 0
-            const maxCorrections = 15          // check for up to ~3 seconds
-            const correctionInterval = 200     // every 200ms
-            let lastTop = window.scrollY
+            const maxCorrections = 15
+            const correctionInterval = 200
+            let lastTop = document.body.scrollTop
 
             const correctScroll = () => {
               correctionCount++
@@ -501,10 +498,9 @@ function HomeContent() {
               if (!el) return
               const rect = el.getBoundingClientRect()
               const headerOffset = 80
-              const idealTop = window.scrollY + rect.top - headerOffset
-              // Only re-scroll if the position drifted by more than 5px
+              const idealTop = document.body.scrollTop + rect.top - headerOffset
               if (Math.abs(idealTop - lastTop) > 5) {
-                window.scrollTo({ top: idealTop, behavior: 'auto' })
+                document.body.scrollTo({ top: idealTop, behavior: 'auto' })
                 lastTop = idealTop
               }
               setTimeout(correctScroll, correctionInterval)
@@ -753,9 +749,7 @@ function HomeContent() {
           setContentReady(true)
           // After a reset (e.g. refetch on return from sleep/tab), list may be shorter;
           // scroll to top so user sees content instead of being parked at the bottom.
-          requestAnimationFrame(() => {
-            window.scrollTo({ top: 0, behavior: 'instant' })
-          })
+          requestAnimationFrame(() => { document.body.scrollTop = 0 })
         }
       }
     }
