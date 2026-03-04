@@ -1,14 +1,32 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+
+const AUTH_PATHS = ['/login', '/register', '/terms', '/privacy']
 
 export default function PolicyPage() {
   const router = useRouter()
   const { data: session } = useSession()
   const [policyStatus, setPolicyStatus] = useState<{ agreed: boolean; agreedAt: string | null }>({ agreed: false, agreedAt: null })
+
+  const handleClose = useCallback(() => {
+    try {
+      const referrer = document.referrer
+      if (referrer) {
+        const url = new URL(referrer)
+        const isSameOrigin = url.origin === window.location.origin
+        const isFromAuthPage = AUTH_PATHS.some(p => url.pathname.startsWith(p))
+        if (isSameOrigin && isFromAuthPage) {
+          router.back()
+          return
+        }
+      }
+    } catch {}
+    router.push('/')
+  }, [router])
 
   useEffect(() => {
     if (session) {
@@ -59,7 +77,7 @@ export default function PolicyPage() {
         </div>
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={handleClose}
           className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors self-start md:self-auto"
           aria-label="Close"
         >
@@ -272,7 +290,7 @@ export default function PolicyPage() {
       <div className="flex justify-start mt-8">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={handleClose}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
           &larr; Back
