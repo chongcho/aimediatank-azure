@@ -239,13 +239,16 @@ function HomeContent() {
 
       filterChangeFromNavRef.current = true
       filterOwnedByNavRef.current = true
+      restoreStateRef.current = null
+      isRestoringRef.current = false
+      activeRestoreRunIdRef.current = null
+      scrollRestoredRef.current = false
       setType(newType)
       setPage(1)
       setMedia([])
       setHasMore(true)
       setLoading(true)
-      restoreStateRef.current = null
-      window.scrollTo({ top: 0, behavior: 'instant' })
+      window.scrollTo(0, 0)
 
       const s = filtersRef.current.sort
       const q = filtersRef.current.search
@@ -266,7 +269,9 @@ function HomeContent() {
         .finally(() => {
           setLoading(false)
           filterChangeFromNavRef.current = false
-          requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' }))
+          requestAnimationFrame(() => window.scrollTo(0, 0))
+          setTimeout(() => window.scrollTo(0, 0), 50)
+          setTimeout(() => window.scrollTo(0, 0), 150)
         })
     }
     window.addEventListener('homeFilterChange', handler)
