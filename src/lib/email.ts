@@ -109,10 +109,9 @@ export function generateCelebrationCardEmail(options: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-  <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">${escapeHtml(senderName)} sent you a celebration card on AiMediaTank.</p>
   ${messageBlock}
+  <p style="font-size: 14px; color: #555; margin: 0 0 12px 0;">Click the image below to view the full card:</p>
   ${imgBlock}
-  <p style="font-size: 14px; color: #555; margin: 16px 0 0 0;">Click the link to view the full card on AiMediaTank: <a href="${escapeHtml(mediaPageUrl)}" style="color: #0066cc;">${escapeHtml(mediaPageUrl)}</a></p>
   ${senderEmail ? `<p style="font-size: 14px; color: #666; margin: 16px 0 0 0;">Reply to ${escapeHtml(senderName)} at <a href="mailto:${encodeURI(senderEmail)}${subject ? `?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent('Hi ' + senderName + ',\n\nThank you for the celebration card!\n\n')}` : ''}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a></p>` : ''}
   <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
 </body>
@@ -120,7 +119,6 @@ export function generateCelebrationCardEmail(options: {
 `
 
   const plainText = [
-    `${senderName} sent you a celebration card on AiMediaTank.\n`,
     message ? `${message}\n` : '',
     `View the card: ${mediaPageUrl}\n`,
     senderEmail ? `Reply to ${senderName}: ${senderEmail}\n` : '',
