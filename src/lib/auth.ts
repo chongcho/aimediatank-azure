@@ -222,6 +222,12 @@ export const authOptions: NextAuthOptions = {
         token.avatar = dbUser.avatar
       }
 
+      // Backfill legalName for tokens created before the field was added
+      if (token.id && token.legalName === undefined) {
+        const u = await prisma.user.findUnique({ where: { id: token.id as string }, select: { legalName: true } })
+        token.legalName = u?.legalName ?? null
+      }
+
       // Handle session updates (e.g., when username is changed)
       if (trigger === 'update' && session?.user) {
         if (session.user.username) token.username = session.user.username
