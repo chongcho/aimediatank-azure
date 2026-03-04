@@ -16,6 +16,7 @@ const SNS_LINKS = (cardUrl: string, message: string) => {
     twitter: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`,
     whatsapp: `https://wa.me/?text=${encodedText}%20${encodedUrl}`,
     linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+    kakao: `https://story.kakao.com/share?url=${encodedUrl}`,
   }
 }
 
@@ -195,6 +196,9 @@ export default function CelebrationCardModal({ mediaId, mediaTitle, onClose }: C
                   </button>
                   <button type="button" onClick={() => openSns(sns.linkedin)} className="px-3 py-2 rounded-lg bg-[#0A66C2]/90 text-white text-sm hover:opacity-90">
                     LinkedIn
+                  </button>
+                  <button type="button" onClick={() => openSns(sns.kakao)} className="px-3 py-2 rounded-lg bg-[#FEE500]/90 text-black text-sm hover:opacity-90">
+                    Kakao
                   </button>
                 </>
               )}

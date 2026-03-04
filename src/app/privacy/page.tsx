@@ -409,6 +409,7 @@ export default function PrivacyPage() {
           <li><strong>TikTok</strong> — <a href="https://www.tiktok.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">TikTok Privacy Policy</a></li>
           <li><strong>X (Twitter)</strong> — <a href="https://x.com/en/privacy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">X Privacy Policy</a></li>
           <li><strong>Facebook, LinkedIn, Reddit, WhatsApp</strong> — governed by each platform&apos;s respective policy</li>
+          <li><strong>KakaoTalk</strong> — <a href="https://www.kakao.com/policy/privacy?lang=en" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">Kakao Privacy Policy</a></li>
         </ul>
 
         <h3 className="text-lg font-semibold mt-6 mb-3">Payment &amp; Infrastructure</h3>
@@ -417,7 +418,7 @@ export default function PrivacyPage() {
         </p>
 
         <p className="text-gray-300 mb-4 text-sm">
-          AiMediaTank is not affiliated with or endorsed by Google LLC, ByteDance Ltd., X Corp., Meta Platforms, Inc., Apple Inc., or Microsoft Corporation.
+          AiMediaTank is not affiliated with or endorsed by Google LLC, ByteDance Ltd., X Corp., Meta Platforms, Inc., Apple Inc., Microsoft Corporation, or Kakao Corp.
         </p>
 
         {/* 14. DNT */}

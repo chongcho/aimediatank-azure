@@ -945,6 +945,19 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 <span className="text-xs">LinkedIn</span>
               </a>
               <a
+                href={`https://story.kakao.com/share?url=${encodeURIComponent(shareUrl)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={recordShareAction}
+                className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
+                title="KakaoTalk"
+              >
+                <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3c-5.243 0-9.5 3.478-9.5 7.77 0 2.756 1.833 5.178 4.592 6.563-.144.525-.926 3.387-.96 3.607 0 0-.02.164.086.227.107.063.232.03.232.03.305-.043 3.54-2.317 4.1-2.715.467.065.943.098 1.45.098 5.243 0 9.5-3.478 9.5-7.77S17.243 3 12 3z" />
+                </svg>
+                <span className="text-xs">Kakao</span>
+              </a>
+              <a
                 href={`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(shareTitle)}`}
                 target="_blank"
                 rel="noopener noreferrer"

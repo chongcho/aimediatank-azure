@@ -276,7 +276,7 @@ export default function TermsPage() {
         {/* 10. Third-Party */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">10. Third-Party Platforms</h2>
         <p className="text-gray-300 mb-4">
-          The Platform allows sharing to <strong>YouTube</strong>, <strong>TikTok</strong>, <strong>X (formerly Twitter)</strong>, Facebook, LinkedIn, Reddit, and WhatsApp. When sharing, you are subject to that platform&apos;s terms and privacy policy. We are not responsible for third-party data handling.
+          The Platform allows sharing to <strong>YouTube</strong>, <strong>TikTok</strong>, <strong>X (formerly Twitter)</strong>, Facebook, LinkedIn, Reddit, WhatsApp, and <strong>KakaoTalk</strong>. When sharing, you are subject to that platform&apos;s terms and privacy policy. We are not responsible for third-party data handling.
         </p>
         <p className="text-gray-300 mb-4">
           Social login via Google, Microsoft, Facebook, and Apple provides limited profile data only (name, email, picture). We do not access your posts, friends, or messages. See our <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link> for details.
@@ -286,9 +286,10 @@ export default function TermsPage() {
           <li><strong>YouTube:</strong> <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">YouTube Terms</a> &amp; <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">Google Privacy</a></li>
           <li><strong>TikTok:</strong> <a href="https://www.tiktok.com/legal/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">TikTok Terms</a> &amp; <a href="https://www.tiktok.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">TikTok Privacy</a></li>
           <li><strong>X:</strong> <a href="https://x.com/en/tos" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">X Terms</a> &amp; <a href="https://x.com/en/privacy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">X Privacy</a></li>
+          <li><strong>KakaoTalk:</strong> <a href="https://www.kakao.com/policy/terms?lang=en" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">Kakao Terms</a> &amp; <a href="https://www.kakao.com/policy/privacy?lang=en" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">Kakao Privacy</a></li>
         </ul>
         <p className="text-gray-300 mb-4 text-sm">
-          AiMediaTank is not affiliated with or endorsed by Google LLC, ByteDance Ltd., X Corp., Meta Platforms, Inc., Apple Inc., or Microsoft Corporation.
+          AiMediaTank is not affiliated with or endorsed by Google LLC, ByteDance Ltd., X Corp., Meta Platforms, Inc., Apple Inc., Microsoft Corporation, or Kakao Corp.
         </p>
 
         {/* 11. Disclaimer */}
