@@ -1063,9 +1063,9 @@ export default function RegisterPage() {
                   className="mt-1 w-5 h-5 rounded border-tank-light bg-tank-dark text-tank-accent focus:ring-tank-accent focus:ring-offset-0 cursor-pointer"
                 />
                 <span className="text-sm text-gray-300">
-                  By creating an account, you agree to the{' '}
+                  By creating an account, you agree to the AiMediaTank{' '}
                   <Link href="/terms" target="_blank" className="text-tank-accent hover:underline font-medium">
-                    AiMediaTank Terms of Service
+                    Terms of Service
                   </Link>
                   {' '}and{' '}
                   <Link href="/privacy" target="_blank" className="text-tank-accent hover:underline font-medium">
@@ -1120,9 +1120,9 @@ export default function RegisterPage() {
           )}
 
           <p className="mt-6 text-center text-sm text-gray-400">
-            By creating an account, you agree to the{' '}
+            By creating an account, you agree to the AiMediaTank{' '}
             <Link href="/terms" className="text-tank-accent hover:underline font-medium">
-              AiMediaTank Terms of Service
+              Terms of Service
             </Link>
             {' '}and{' '}
             <Link href="/privacy" className="text-tank-accent hover:underline font-medium">
