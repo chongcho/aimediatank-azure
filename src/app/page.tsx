@@ -245,6 +245,7 @@ function HomeContent() {
       setHasMore(true)
       setLoading(true)
       restoreStateRef.current = null
+      window.scrollTo({ top: 0, behavior: 'instant' })
 
       const s = filtersRef.current.sort
       const q = filtersRef.current.search
@@ -265,6 +266,7 @@ function HomeContent() {
         .finally(() => {
           setLoading(false)
           filterChangeFromNavRef.current = false
+          requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' }))
         })
     }
     window.addEventListener('homeFilterChange', handler)
