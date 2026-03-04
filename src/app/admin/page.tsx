@@ -1466,33 +1466,33 @@ export default function AdminPage() {
               <>
                 <input
                   type="text"
-                  placeholder="Path contains..."
+                  placeholder="Path..."
                   value={accessLogsPathFilter}
                   onChange={(e) => { setAccessLogsPathFilter(e.target.value); setAccessLogsPage(1) }}
-                  className="input flex-1 min-w-[120px] max-w-[200px] h-9 text-sm"
+                  className="input h-8 text-xs w-24 sm:w-32"
                 />
                 <input
                   type="text"
-                  placeholder="IP contains..."
+                  placeholder="IP..."
                   value={accessLogsIpFilter}
                   onChange={(e) => { setAccessLogsIpFilter(e.target.value); setAccessLogsPage(1) }}
-                  className="input w-28 h-9 text-sm shrink-0"
+                  className="input h-8 text-xs w-20 sm:w-24"
                 />
                 <input
                   type="date"
                   value={accessLogsFrom}
                   onChange={(e) => { setAccessLogsFrom(e.target.value); setAccessLogsPage(1) }}
-                  className="input w-32 h-9 text-sm shrink-0"
+                  className="input h-8 text-xs w-[110px]"
                   title="From date"
                 />
                 <input
                   type="date"
                   value={accessLogsTo}
                   onChange={(e) => { setAccessLogsTo(e.target.value); setAccessLogsPage(1) }}
-                  className="input w-32 h-9 text-sm shrink-0"
+                  className="input h-8 text-xs w-[110px]"
                   title="To date"
                 />
-                <span className="text-sm text-gray-400 whitespace-nowrap shrink-0 ml-auto">
+                <span className="text-xs text-gray-400 whitespace-nowrap shrink-0 ml-auto">
                   {accessLogsTotal} hits
                   {accessLogsSummary != null && ` · ${accessLogsSummary.uniqueIps} IPs · ${accessLogsSummary.uniqueSessions} sessions`}
                 </span>

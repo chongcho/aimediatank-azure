@@ -36,7 +36,6 @@ export async function middleware(request: NextRequest) {
     sessionId = crypto.randomUUID()
   }
 
-  const origin = request.nextUrl.origin
   const payload = {
     ipAddress: ip ?? undefined,
     userAgent,
@@ -59,10 +58,11 @@ export async function middleware(request: NextRequest) {
     })
   }
 
-  // Fire-and-forget: do NOT await. Awaiting a self-referencing fetch on
-  // Azure App Service deadlocks the single Node.js process because the
-  // inner request can't be handled while the outer request is suspended.
-  fetch(`${origin}${LOG_ACCESS_PATH}`, {
+  const logUrl =
+    (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin) +
+    LOG_ACCESS_PATH
+
+  fetch(logUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
