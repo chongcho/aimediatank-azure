@@ -699,12 +699,10 @@ function NavbarContent() {
                 {isNavbarItemEnabled('upload') && (
                   <Link
                     href={isSubscriber ? "/upload" : "/pricing"}
-                    className="upload-btn flex items-center justify-center h-9 rounded-lg
-                      hover:scale-105 active:scale-95 transition-transform duration-200 ease-out
-                      relative overflow-hidden"
-                    style={{ paddingLeft: '7px', paddingRight: '7px' }}
+                    className="upload-btn flex items-center justify-center h-9 px-1 rounded-lg
+                      hover:scale-105 active:scale-95 transition-transform duration-200 ease-out"
                   >
-                    <span className="upload-text text-sm font-bold">
+                    <span className="text-sm font-bold text-gray-900">
                       Post
                     </span>
                   </Link>
