@@ -908,23 +908,23 @@ export default function Navbar() {
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [manualType, setManualType] = useState<string | null>(null)
+  const [manualType, setManualType] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     const onFilter = (e: Event) => {
-      const type = (e as CustomEvent).detail?.type ?? null
-      setManualType(type)
+      const type = (e as CustomEvent).detail?.type
+      setManualType(type ?? '')
     }
     window.addEventListener('homeFilterChange', onFilter)
     return () => window.removeEventListener('homeFilterChange', onFilter)
   }, [])
 
   useEffect(() => {
-    setManualType(null)
+    setManualType(undefined)
   }, [pathname, searchParams])
 
   const isActive = (() => {
-    const currentSearch = manualType !== null
+    const currentSearch = manualType !== undefined
       ? (manualType ? `?type=${manualType}` : '')
       : (searchParams.toString() ? `?${searchParams.toString()}` : '')
 
