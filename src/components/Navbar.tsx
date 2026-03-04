@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
+import { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import MediaMessageModal from './MediaMessageModal'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
@@ -30,6 +30,14 @@ interface NavbarMenuItem {
 }
 
 export default function Navbar() {
+  return (
+    <Suspense fallback={null}>
+      <NavbarContent />
+    </Suspense>
+  )
+}
+
+function NavbarContent() {
   const { data: session, status } = useSession()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
