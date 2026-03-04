@@ -109,10 +109,6 @@ function CelebrationCardForm({ sessionName, userId }: { sessionName: string; use
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (!selectedMedia) {
-      setError('Please select a media')
-      return
-    }
     const email = deliveryMethod === 'email' ? recipientEmail.trim() : ''
     if (deliveryMethod === 'email' && !email) {
       setError('Email address is required')
@@ -120,6 +116,14 @@ function CelebrationCardForm({ sessionName, userId }: { sessionName: string; use
     }
     if (deliveryMethod === 'phone' && !recipientPhone.trim()) {
       setError('Phone number is required')
+      return
+    }
+    if (!cardTitle.trim()) {
+      setError('Please choose a title')
+      return
+    }
+    if (!selectedMedia) {
+      setError('Please select a media')
       return
     }
     setSending(true)
@@ -381,7 +385,7 @@ function CelebrationCardForm({ sessionName, userId }: { sessionName: string; use
             </button>
             <button
               type="submit"
-              disabled={sending || !selectedMedia}
+              disabled={sending || !selectedMedia || !cardTitle.trim() || (deliveryMethod === 'email' ? !recipientEmail.trim() : !recipientPhone.trim())}
               className="flex-1 bg-[#14555e] hover:bg-[#175f69] disabled:opacity-50 px-5 py-4 text-white font-bold text-lg transition-colors"
             >
               {sending ? 'Sending...' : 'Send'}
