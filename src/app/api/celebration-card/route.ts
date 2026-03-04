@@ -166,7 +166,7 @@ export async function POST(request: Request) {
         thumbnailUrl: thumbUrl,
         message: card.ttsMessage || undefined,
       })
-      const celebrateSender = process.env.AZURE_EMAIL_CELEBRATE_SENDER || 'Celebrate@aimediatank.com'
+      const celebrateSender = process.env.AZURE_EMAIL_CELEBRATE_SENDER || 'aimediatank@aimediatank.com'
       emailSent = await sendEmail({
         to: card.recipientEmail,
         subject,
