@@ -37,7 +37,7 @@ body {
   color: #ffffff;
   -webkit-text-size-adjust: 100%;
   scrollbar-width: thin;
-  scrollbar-color: #6b6b75 #1a1a1e;
+  scrollbar-color: #6b6b75 #e0e0e0;
   text-size-adjust: 100%;
 }
 
@@ -171,7 +171,7 @@ main:has(> :not(#initial-loading)) > #initial-loading {
 }
 
 ::-webkit-scrollbar-track {
-  background: #1a1a1e;
+  background: #e0e0e0;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -198,7 +198,7 @@ body.scrollbar-active::-webkit-scrollbar-thumb:hover {
 html.scrollbar-active,
 body.scrollbar-active {
   scrollbar-width: thin;
-  scrollbar-color: #00ff88 #1a1a1e;
+  scrollbar-color: #00ff88 #e0e0e0;
 }
 
 /* Grid pattern */
