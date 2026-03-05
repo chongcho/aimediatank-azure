@@ -50,6 +50,8 @@ export async function POST(request: Request) {
       referrer,
       sessionId,
       userId,
+      userName,
+      userEmail,
       statusCode,
     } = body as {
       ipAddress?: string
@@ -60,6 +62,8 @@ export async function POST(request: Request) {
       referrer?: string
       sessionId?: string
       userId?: string
+      userName?: string
+      userEmail?: string
       statusCode?: number
     }
 
@@ -101,6 +105,8 @@ export async function POST(request: Request) {
         referrer: referrer ? String(referrer).substring(0, 2048) : null,
         sessionId: sessionId ?? null,
         userId: userId ?? null,
+        userName: userName ?? null,
+        userEmail: userEmail ?? null,
         statusCode: statusCode ?? null,
       },
     })

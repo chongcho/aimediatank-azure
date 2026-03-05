@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
 
 const LOG_ACCESS_PATH = '/api/admin/log-access'
 const SESSION_COOKIE = '_sa_sid'
@@ -43,6 +44,18 @@ export async function middleware(request: NextRequest) {
     sessionId = crypto.randomUUID()
   }
 
+  let userId: string | undefined
+  let userName: string | undefined
+  let userEmail: string | undefined
+  try {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+    if (token) {
+      userId = (token.id as string) || undefined
+      userName = (token.name as string) || undefined
+      userEmail = (token.email as string) || undefined
+    }
+  } catch {}
+
   const payload = {
     ipAddress: ip ?? undefined,
     userAgent,
@@ -51,6 +64,9 @@ export async function middleware(request: NextRequest) {
     query,
     referrer,
     sessionId: sessionId ?? undefined,
+    userId,
+    userName,
+    userEmail,
   }
 
   const response = NextResponse.next()

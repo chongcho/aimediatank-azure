@@ -261,6 +261,88 @@ function ColumnFilter({ label, options, selected, onApply }: {
   )
 }
 
+const TIME_PERIODS = [
+  { label: 'All time', value: '' },
+  { label: 'Last 1 hour', value: '1h' },
+  { label: 'Last 6 hours', value: '6h' },
+  { label: 'Last 24 hours', value: '24h' },
+  { label: 'Today', value: 'today' },
+  { label: 'Yesterday', value: 'yesterday' },
+  { label: 'Last 7 days', value: '7d' },
+  { label: 'Last 30 days', value: '30d' },
+  { label: 'Last 90 days', value: '90d' },
+] as const
+
+function timePeriodToRange(value: string): { from: string; to: string } {
+  const now = new Date()
+  const pad = (d: Date) => d.toISOString().split('T')[0]
+  if (!value) return { from: '', to: '' }
+  if (value === 'today') {
+    const s = pad(now)
+    return { from: s, to: '' }
+  }
+  if (value === 'yesterday') {
+    const y = new Date(now); y.setDate(y.getDate() - 1)
+    return { from: pad(y), to: pad(now) }
+  }
+  const match = value.match(/^(\d+)(h|d)$/)
+  if (match) {
+    const n = parseInt(match[1])
+    const unit = match[2]
+    const from = new Date(now)
+    if (unit === 'h') from.setHours(from.getHours() - n)
+    else from.setDate(from.getDate() - n)
+    return { from: from.toISOString(), to: '' }
+  }
+  return { from: '', to: '' }
+}
+
+function TimePeriodFilter({ selected, onApply }: {
+  selected: string
+  onApply: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLTableHeaderCellElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const isFiltered = selected !== ''
+  const currentLabel = TIME_PERIODS.find(p => p.value === selected)?.label ?? 'Time'
+
+  return (
+    <th ref={ref} className="text-left p-3 font-medium whitespace-nowrap relative">
+      <button onClick={() => setOpen(!open)} className={`flex items-center gap-1 ${isFiltered ? 'text-tank-accent' : 'text-gray-400'}`}>
+        {isFiltered ? currentLabel : 'Time'}
+        <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 bg-tank-dark border border-tank-light/30 rounded-lg shadow-xl min-w-[160px] flex flex-col">
+          <div className="p-1">
+            {TIME_PERIODS.map(p => (
+              <button
+                key={p.value}
+                onClick={() => { onApply(p.value); setOpen(false) }}
+                className={`w-full text-left px-3 py-1.5 rounded text-xs hover:bg-tank-light/10 ${selected === p.value ? 'text-tank-accent font-medium' : 'text-gray-300'}`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </th>
+  )
+}
+
 export default function AdminPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -408,6 +490,8 @@ export default function AdminPage() {
     referrer: string | null
     sessionId: string | null
     userId: string | null
+    userName: string | null
+    userEmail: string | null
     statusCode: number | null
     createdAt: string
   }>>([])
@@ -419,6 +503,7 @@ export default function AdminPage() {
   const [accessLogsIpFilter, setAccessLogsIpFilter] = useState('')
   const [accessLogsFrom, setAccessLogsFrom] = useState('')
   const [accessLogsTo, setAccessLogsTo] = useState('')
+  const [alTimePeriod, setAlTimePeriod] = useState('')
   const [alBrowserFilter, setAlBrowserFilter] = useState<string[]>([])
   const [alOsFilter, setAlOsFilter] = useState<string[]>([])
   const [alCountryFilter, setAlCountryFilter] = useState<string[]>([])
@@ -630,7 +715,7 @@ export default function AdminPage() {
     if (session?.user?.role === 'ADMIN' && reauthVerified === true) {
       fetchData()
     }
-  }, [session, reauthVerified, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter])
+  }, [session, reauthVerified, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter])
 
   const fetchData = async () => {
     setLoading(true)
@@ -678,15 +763,17 @@ export default function AdminPage() {
         const params = new URLSearchParams({ action: 'accessLogs', page: String(accessLogsPage), limit: '50' })
         if (accessLogsPathFilter) params.set('path', accessLogsPathFilter)
         if (accessLogsIpFilter) params.set('ip', accessLogsIpFilter)
-        if (accessLogsFrom) params.set('from', accessLogsFrom)
-        if (accessLogsTo) params.set('to', accessLogsTo)
+        const effectiveFrom = alTimePeriod ? timePeriodToRange(alTimePeriod).from : accessLogsFrom
+        const effectiveTo = alTimePeriod ? timePeriodToRange(alTimePeriod).to : accessLogsTo
+        if (effectiveFrom) params.set('from', effectiveFrom)
+        if (effectiveTo) params.set('to', effectiveTo)
         if (alBrowserFilter.length) params.set('browser', alBrowserFilter.join(','))
         if (alOsFilter.length) params.set('os', alOsFilter.join(','))
         if (alCountryFilter.length) params.set('country', alCountryFilter.join(','))
         if (alMethodFilter.length) params.set('method', alMethodFilter.join(','))
         const dParams = new URLSearchParams({ action: 'accessLogsDistinct' })
-        if (accessLogsFrom) dParams.set('from', accessLogsFrom)
-        if (accessLogsTo) dParams.set('to', accessLogsTo)
+        if (effectiveFrom) dParams.set('from', effectiveFrom)
+        if (effectiveTo) dParams.set('to', effectiveTo)
         const [res, dRes] = await Promise.all([
           fetch(`/api/admin?${params}`),
           fetch(`/api/admin?${dParams}`),
@@ -1552,40 +1639,12 @@ export default function AdminPage() {
 
             {activeTab === 'accessLogs' && (
               <>
-                <input
-                  type="text"
-                  placeholder="Path..."
-                  value={accessLogsPathFilter}
-                  onChange={(e) => { setAccessLogsPathFilter(e.target.value); setAccessLogsPage(1) }}
-                  className="input h-8 text-xs w-24 sm:w-32"
-                />
-                <input
-                  type="text"
-                  placeholder="IP..."
-                  value={accessLogsIpFilter}
-                  onChange={(e) => { setAccessLogsIpFilter(e.target.value); setAccessLogsPage(1) }}
-                  className="input h-8 text-xs w-20 sm:w-24"
-                />
-                <input
-                  type="date"
-                  value={accessLogsFrom}
-                  onChange={(e) => { setAccessLogsFrom(e.target.value); setAccessLogsPage(1) }}
-                  className="input h-8 text-xs w-[110px]"
-                  title="From date"
-                />
-                <input
-                  type="date"
-                  value={accessLogsTo}
-                  onChange={(e) => { setAccessLogsTo(e.target.value); setAccessLogsPage(1) }}
-                  className="input h-8 text-xs w-[110px]"
-                  title="To date"
-                />
-                {(alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0) && (
+                {(alTimePeriod || alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0) && (
                   <button
-                    onClick={() => { setAlBrowserFilter([]); setAlOsFilter([]); setAlCountryFilter([]); setAlMethodFilter([]); setAccessLogsPage(1) }}
+                    onClick={() => { setAlTimePeriod(''); setAlBrowserFilter([]); setAlOsFilter([]); setAlCountryFilter([]); setAlMethodFilter([]); setAccessLogsPage(1) }}
                     className="text-xs text-red-400 hover:text-red-300 whitespace-nowrap"
                   >
-                    ✕ Clear column filters
+                    ✕ Clear all filters
                   </button>
                 )}
                 <span className="text-xs text-gray-400 whitespace-nowrap shrink-0 ml-auto">
@@ -1615,8 +1674,10 @@ export default function AdminPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-tank-light/30">
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Time</th>
+                      <TimePeriodFilter selected={alTimePeriod} onApply={(v) => { setAlTimePeriod(v); if (v) { setAccessLogsFrom(''); setAccessLogsTo('') }; setAccessLogsPage(1) }} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">IP</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Name</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email</th>
                       <ColumnFilter label="Browser" options={alDistinct.browsers} selected={alBrowserFilter} onApply={(v) => { setAlBrowserFilter(v); setAccessLogsPage(1) }} />
                       <ColumnFilter label="OS" options={alDistinct.oses} selected={alOsFilter} onApply={(v) => { setAlOsFilter(v); setAccessLogsPage(1) }} />
                       <ColumnFilter label="Country" options={alDistinct.countries} selected={alCountryFilter} onApply={(v) => { setAlCountryFilter(v); setAccessLogsPage(1) }} />
@@ -1628,7 +1689,7 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {accessLogs.length === 0 && !loading && (
-                      <tr><td colSpan={9} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
+                      <tr><td colSpan={11} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
                     )}
                     {accessLogs.map((log) => (
                       <tr key={log.id} className="border-b border-tank-light/10 hover:bg-tank-light/5">
@@ -1636,6 +1697,8 @@ export default function AdminPage() {
                           {new Date(log.createdAt).toLocaleString()}
                         </td>
                         <td className="p-3 text-gray-300 font-mono text-xs">{log.ipAddress ?? '-'}</td>
+                        <td className="p-3 text-gray-300 whitespace-nowrap">{log.userName ?? <span className="text-gray-600">-</span>}</td>
+                        <td className="p-3 text-gray-300 text-xs">{log.userEmail ?? <span className="text-gray-600">-</span>}</td>
                         <td className="p-3 text-gray-300">
                           <span className="text-tank-accent">{log.browser ?? '-'}</span>
                           {log.device && <span className="text-gray-500 text-xs ml-1">/ {log.device}</span>}

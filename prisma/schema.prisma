@@ -254,6 +254,8 @@ model SiteAccessLog {
   referrer    String?  @db.Text
   sessionId   String?
   userId      String?
+  userName    String?
+  userEmail   String?
   statusCode  Int?
   createdAt   DateTime @default(now())
 
