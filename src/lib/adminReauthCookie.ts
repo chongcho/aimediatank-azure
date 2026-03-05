@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 
 const COOKIE_NAME = 'admin_reauth'
 const MAX_AGE_SEC = 30 * 60 // 30 minutes
-const SECRET = process.env.NEXTAUTH_SECRET || ''
+const SECRET = process.env.NEXTAUTH_SECRET ?? ''
 
 export interface AdminReauthPayload {
   userId: string
@@ -13,6 +13,9 @@ export interface AdminReauthPayload {
 }
 
 function getSecret(): string {
+  if (!SECRET && process.env.NODE_ENV === 'production') {
+    throw new Error('NEXTAUTH_SECRET must be set in production for admin re-auth cookie signing.')
+  }
   if (!SECRET) {
     console.warn('[adminReauthCookie] NEXTAUTH_SECRET not set; admin re-auth cookie is insecure.')
   }

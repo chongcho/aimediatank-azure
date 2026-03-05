@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { processMedia } from '@/lib/mediaProcessor'
+import { requireCronAuth } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,13 +9,8 @@ export const dynamic = 'force-dynamic'
 // Called by Azure Function timer trigger every ~1 minute
 export async function GET(request: Request) {
   try {
-    // Verify cron secret
-    const authHeader = request.headers.get('authorization') || request.headers.get('x-cron-secret') || ''
-    const cronSecret = process.env.CRON_SECRET
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}` && authHeader !== cronSecret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authError = requireCronAuth(request)
+    if (authError) return authError
 
     // Find the oldest pending video (FIFO queue)
     const pendingMedia = await prisma.media.findFirst({

@@ -34,9 +34,13 @@ async function lookupGeo(rawIp: string): Promise<{ city: string | null; region: 
   }
 }
 
+const LOG_ACCESS_SECRET_HEADER = 'x-log-access-secret'
+
 /**
  * POST /api/admin/log-access
  * Called by middleware (fire-and-forget) to record page visits.
+ * Geo lookup is only performed when the request includes the trusted LOG_ACCESS_SECRET
+ * header (set by our middleware) to prevent SSRF via client-supplied IP.
  */
 export async function POST(request: Request) {
   try {
@@ -77,12 +81,16 @@ export async function POST(request: Request) {
     let region: string | null = null
     let country: string | null = null
 
+    const expectedSecret = process.env.LOG_ACCESS_SECRET
+    const providedSecret = request.headers.get(LOG_ACCESS_SECRET_HEADER)?.trim()
+    const isTrustedCaller = Boolean(expectedSecret && providedSecret === expectedSecret)
+
     const isPrivateIp = (ip: string) =>
       ip.startsWith('10.') || ip.startsWith('127.') || ip.startsWith('192.168.') ||
       ip === '::1' || ip.startsWith('fc') || ip.startsWith('fd') ||
       /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
 
-    if (ipAddress && !isPrivateIp(ipAddress)) {
+    if (isTrustedCaller && ipAddress && !isPrivateIp(ipAddress)) {
       const geo = await lookupGeo(ipAddress)
       city = geo.city
       region = geo.region

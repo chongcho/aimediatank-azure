@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { BlobServiceClient } from '@azure/storage-blob'
+import { requireCronAuth } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,13 +28,8 @@ function getBlobNameFromUrl(url: string): string | null {
 // This endpoint should be called by a cron job daily
 export async function GET(request: Request) {
   try {
-    // Verify the request is from Vercel Cron (optional security check)
-    const authHeader = request.headers.get('authorization')
-    const cronSecret = process.env.CRON_SECRET
-    
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authError = requireCronAuth(request)
+    if (authError) return authError
 
     const now = new Date()
 

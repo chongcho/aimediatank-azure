@@ -85,9 +85,15 @@ export async function middleware(request: NextRequest) {
     (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin) +
     LOG_ACCESS_PATH
 
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const logAccessSecret = process.env.LOG_ACCESS_SECRET
+  if (logAccessSecret) {
+    headers['x-log-access-secret'] = logAccessSecret
+  }
+
   fetch(logUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(payload),
   }).catch(() => {})
 

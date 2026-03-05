@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, generateDownloadReminderEmail } from '@/lib/email'
+import { requireCronAuth } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,12 +9,8 @@ export const dynamic = 'force-dynamic'
 // Run daily - sends reminders at 7 days, 3 days, and 1 day before deletion
 
 export async function GET(request: Request) {
-  // Verify cron secret for security
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    // Allow without auth for testing, but log warning
-    console.log('Warning: Cron job called without proper authorization')
-  }
+  const authError = requireCronAuth(request)
+  if (authError) return authError
 
   const now = new Date()
   const results: any[] = []

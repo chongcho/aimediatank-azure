@@ -220,7 +220,7 @@ export function generatePurchaseEmail(
   items: Array<{ title: string; price: number }>
 ): string {
   const itemsList = items
-    .map(item => `<li style="margin-bottom: 8px;">${item.title} - $${item.price.toFixed(2)}</li>`)
+    .map(item => `<li style="margin-bottom: 8px;">${escapeHtml(item.title)} - $${item.price.toFixed(2)}</li>`)
     .join('')
 
   return `
@@ -707,7 +707,7 @@ export function generateDownloadReminderEmail(
   items: Array<{ title: string; daysLeft: number }>
 ): string {
   const itemsList = items
-    .map(item => `<li style="margin-bottom: 8px;">${item.title} - <span style="color: #ff6b6b; font-weight: bold;">${item.daysLeft} days left</span></li>`)
+    .map(item => `<li style="margin-bottom: 8px;">${escapeHtml(item.title)} - <span style="color: #ff6b6b; font-weight: bold;">${item.daysLeft} days left</span></li>`)
     .join('')
 
   const urgencyColor = daysRemaining <= 2 ? '#ff0000' : daysRemaining <= 5 ? '#ff6b6b' : '#ffa500'
