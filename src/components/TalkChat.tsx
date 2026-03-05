@@ -2694,18 +2694,19 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         >
           <style>{`
             .chat-messages-scroll::-webkit-scrollbar {
-              width: 6px;
+              width: 10px;
             }
             .chat-messages-scroll::-webkit-scrollbar-track {
               background: #e0e0e0;
-              border-radius: 3px;
+              border-radius: 5px;
             }
             .chat-messages-scroll::-webkit-scrollbar-thumb {
-              background: #bbb;
-              border-radius: 3px;
+              background: #888;
+              border-radius: 5px;
+              min-height: 40px;
             }
             .chat-messages-scroll::-webkit-scrollbar-thumb:hover {
-              background: #999;
+              background: #666;
             }
           `}</style>
           {chatMode === 'private' && selectedRecipients.length === 0 ? (
@@ -3469,18 +3470,19 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               >
                 <style>{`
                   .media-picker-scroll::-webkit-scrollbar {
-                    width: 6px;
+                    width: 10px;
                   }
                   .media-picker-scroll::-webkit-scrollbar-track {
                     background: #f0f0f0;
-                    border-radius: 3px;
+                    border-radius: 5px;
                   }
                   .media-picker-scroll::-webkit-scrollbar-thumb {
-                    background: #ccc;
-                    border-radius: 3px;
+                    background: #888;
+                    border-radius: 5px;
+                    min-height: 40px;
                   }
                   .media-picker-scroll::-webkit-scrollbar-thumb:hover {
-                    background: #aaa;
+                    background: #666;
                   }
                 `}</style>
                 {loadingMedia ? (
@@ -3646,18 +3648,19 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               >
                 <style>{`
                   .emoji-picker-scroll::-webkit-scrollbar {
-                    width: 6px;
+                    width: 10px;
                   }
                   .emoji-picker-scroll::-webkit-scrollbar-track {
                     background: #f0f0f0;
-                    border-radius: 3px;
+                    border-radius: 5px;
                   }
                   .emoji-picker-scroll::-webkit-scrollbar-thumb {
-                    background: #ccc;
-                    border-radius: 3px;
+                    background: #888;
+                    border-radius: 5px;
+                    min-height: 40px;
                   }
                   .emoji-picker-scroll::-webkit-scrollbar-thumb:hover {
-                    background: #aaa;
+                    background: #666;
                   }
                 `}</style>
                 {EMOJI_LIST.map((emoji, index) => (

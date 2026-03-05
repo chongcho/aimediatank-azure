@@ -37,7 +37,7 @@ body {
   color: #ffffff;
   -webkit-text-size-adjust: 100%;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a32 #111113;
+  scrollbar-color: #6b6b75 #1a1a1e;
   text-size-adjust: 100%;
 }
 
@@ -166,17 +166,18 @@ main:has(> :not(#initial-loading)) > #initial-loading {
 
 /* Custom scrollbar - thumb turns green (active) when mouse is in right-edge area */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #111113;
+  background: #1a1a1e;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2a2a32;
-  border-radius: 2px;
+  background: #6b6b75;
+  border-radius: 5px;
+  min-height: 40px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -197,7 +198,7 @@ body.scrollbar-active::-webkit-scrollbar-thumb:hover {
 html.scrollbar-active,
 body.scrollbar-active {
   scrollbar-width: thin;
-  scrollbar-color: #00ff88 #111113;
+  scrollbar-color: #00ff88 #1a1a1e;
 }
 
 /* Grid pattern */
