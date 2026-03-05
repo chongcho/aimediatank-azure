@@ -393,6 +393,7 @@ The Platform allows you to share content to third-party social media platforms, 
 - **LinkedIn** (linkedin.com) — via share links
 - **Reddit** (reddit.com) — via share links
 - **WhatsApp** (whatsapp.com) — via share links
+- **KakaoTalk** (kakao.com) — via Kakao Talk Share (when enabled)
 
 When you share content to third-party platforms:
 - You are subject to that platform's terms of service, privacy policy, and community guidelines in addition to ours.

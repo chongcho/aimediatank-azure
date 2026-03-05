@@ -28,6 +28,10 @@ CRON_SECRET="your-cron-secret"
 # Optional: Google AdSense
 NEXT_PUBLIC_ADSENSE_CLIENT_ID="ca-pub-xxx"
 
+# Optional: Kakao Talk Share (adds KakaoTalk to the media Share list)
+# Get the JavaScript key from developer.kakao.com → your app → App → App key
+NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY="your_javascript_key_here"
+
 
 
 

@@ -326,6 +326,41 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
     fetch(`/api/media/${mediaId}/share`, { method: 'POST' }).catch(() => {})
   }
 
+  const handleKakaoShare = () => {
+    const w = typeof window !== 'undefined' ? window : null
+    const Kakao = w && (w as unknown as { Kakao?: { Share?: { sendDefault: (opts: unknown) => void } } }).Kakao
+    if (!Kakao?.Share?.sendDefault || !shareUrl || !media) return
+    const imageUrl = media.thumbnailUrl || undefined
+    try {
+      Kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+          title: shareTitle,
+          description: media.description || shareTitle,
+          imageUrl: imageUrl && imageUrl.startsWith('http') ? imageUrl : undefined,
+          link: {
+            mobileWebUrl: shareUrl,
+            webUrl: shareUrl,
+          },
+        },
+        buttons: [
+          {
+            title: 'View',
+            link: {
+              mobileWebUrl: shareUrl,
+              webUrl: shareUrl,
+            },
+          },
+        ],
+      })
+      recordShareAction()
+      setShowShareModal(false)
+    } catch {
+      // Fallback: copy link if Kakao fails
+      handleCopyLink()
+    }
+  }
+
   const handleSendByEmail = async () => {
     if (emailDeliveryMethod === 'email') {
       const to = emailTo.trim()
@@ -905,6 +940,19 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 </svg>
                 <span className="text-xs">WhatsApp</span>
               </a>
+              {process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY && (
+                <button
+                  type="button"
+                  onClick={handleKakaoShare}
+                  className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
+                  title="KakaoTalk"
+                >
+                  <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11l-4.408 2.883c-.501.328-1.235.044-1.235-.499V17.14c-3.336-1.725-5.63-4.592-5.63-5.955C0 6.665 4.701 3 12 3Z" />
+                  </svg>
+                  <span className="text-xs">KakaoTalk</span>
+                </button>
+              )}
               <a
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
                 target="_blank"
