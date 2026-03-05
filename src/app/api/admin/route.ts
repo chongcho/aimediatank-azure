@@ -324,6 +324,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ actions })
     }
 
+    if (action === 'accessLogsDistinct') {
+      const dateWhere: any = {}
+      const fromStr = searchParams.get('from')
+      const toStr = searchParams.get('to')
+      if (fromStr) dateWhere.createdAt = { gte: new Date(fromStr) }
+      if (toStr) dateWhere.createdAt = { ...(dateWhere.createdAt as object), lte: new Date(toStr) }
+
+      const [browsers, oses, countries, methods] = await Promise.all([
+        prisma.siteAccessLog.groupBy({ by: ['browser'], where: { ...dateWhere, browser: { not: null } } }).then(r => r.map(x => x.browser!).sort()),
+        prisma.siteAccessLog.groupBy({ by: ['os'], where: { ...dateWhere, os: { not: null } } }).then(r => r.map(x => x.os!).sort()),
+        prisma.siteAccessLog.groupBy({ by: ['country'], where: { ...dateWhere, country: { not: null } } }).then(r => r.map(x => x.country!).sort()),
+        prisma.siteAccessLog.groupBy({ by: ['method'], where: dateWhere }).then(r => r.map(x => x.method).sort()),
+      ])
+      return NextResponse.json({ browsers, oses, countries, methods })
+    }
+
     if (action === 'accessLogs') {
       const page = parseInt(searchParams.get('page') || '1')
       const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 200)
@@ -331,12 +347,20 @@ export async function GET(request: Request) {
       const ipFilter = searchParams.get('ip') || ''
       const fromStr = searchParams.get('from') // ISO date
       const toStr = searchParams.get('to') // ISO date
+      const browserFilter = searchParams.get('browser') || ''
+      const osFilter = searchParams.get('os') || ''
+      const countryFilter = searchParams.get('country') || ''
+      const methodFilter = searchParams.get('method') || ''
 
       const where: any = {}
       if (pathFilter) where.path = { contains: pathFilter, mode: 'insensitive' }
       if (ipFilter) where.ipAddress = { contains: ipFilter, mode: 'insensitive' }
       if (fromStr) where.createdAt = { ...(where.createdAt as object), gte: new Date(fromStr) }
       if (toStr) where.createdAt = { ...(where.createdAt as object), lte: new Date(toStr) }
+      if (browserFilter) where.browser = { in: browserFilter.split(',') }
+      if (osFilter) where.os = { in: osFilter.split(',') }
+      if (countryFilter) where.country = { in: countryFilter.split(',') }
+      if (methodFilter) where.method = { in: methodFilter.split(',') }
 
       const [logs, total, uniqueIps, uniqueSessions] = await Promise.all([
         prisma.siteAccessLog.findMany({

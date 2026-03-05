@@ -190,6 +190,77 @@ interface MediaBadgeItem {
   sortOrder: number
 }
 
+function ColumnFilter({ label, options, selected, onApply }: {
+  label: string
+  options: string[]
+  selected: string[]
+  onApply: (values: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [local, setLocal] = useState<Set<string>>(new Set())
+  const ref = useRef<HTMLTableHeaderCellElement>(null)
+
+  useEffect(() => {
+    if (open) setLocal(new Set(selected.length ? selected : options))
+  }, [open, selected, options])
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const isFiltered = selected.length > 0 && selected.length < options.length
+  const allChecked = local.size === options.length
+
+  const toggle = (val: string) => {
+    const next = new Set(local)
+    if (next.has(val)) next.delete(val); else next.add(val)
+    setLocal(next)
+  }
+
+  const apply = () => {
+    if (local.size === 0 || local.size === options.length) onApply([])
+    else onApply(Array.from(local))
+    setOpen(false)
+  }
+
+  return (
+    <th ref={ref} className="text-left p-3 font-medium whitespace-nowrap relative">
+      <button onClick={() => setOpen(!open)} className={`flex items-center gap-1 ${isFiltered ? 'text-tank-accent' : 'text-gray-400'}`}>
+        {label}
+        <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 bg-tank-dark border border-tank-light/30 rounded-lg shadow-xl min-w-[180px] max-h-[300px] flex flex-col">
+          <div className="overflow-y-auto flex-1 p-1">
+            <label className="flex items-center gap-2 px-2 py-1 hover:bg-tank-light/10 rounded cursor-pointer">
+              <input type="checkbox" checked={allChecked} onChange={() => setLocal(allChecked ? new Set() : new Set(options))} className="accent-[#2dd4bf]" />
+              <span className="text-xs text-gray-300 font-medium">(Select All)</span>
+            </label>
+            <div className="border-t border-tank-light/20 my-1" />
+            {options.map(opt => (
+              <label key={opt} className="flex items-center gap-2 px-2 py-1 hover:bg-tank-light/10 rounded cursor-pointer">
+                <input type="checkbox" checked={local.has(opt)} onChange={() => toggle(opt)} className="accent-[#2dd4bf]" />
+                <span className="text-xs text-gray-300">{opt}</span>
+              </label>
+            ))}
+          </div>
+          <div className="border-t border-tank-light/20 p-2 flex gap-2">
+            <button onClick={apply} className="flex-1 px-2 py-1 bg-tank-accent text-black rounded text-xs font-medium hover:opacity-90">OK</button>
+            <button onClick={() => setOpen(false)} className="flex-1 px-2 py-1 bg-tank-light/20 text-gray-300 rounded text-xs hover:bg-tank-light/30">Cancel</button>
+          </div>
+        </div>
+      )}
+    </th>
+  )
+}
+
 export default function AdminPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -348,6 +419,11 @@ export default function AdminPage() {
   const [accessLogsIpFilter, setAccessLogsIpFilter] = useState('')
   const [accessLogsFrom, setAccessLogsFrom] = useState('')
   const [accessLogsTo, setAccessLogsTo] = useState('')
+  const [alBrowserFilter, setAlBrowserFilter] = useState<string[]>([])
+  const [alOsFilter, setAlOsFilter] = useState<string[]>([])
+  const [alCountryFilter, setAlCountryFilter] = useState<string[]>([])
+  const [alMethodFilter, setAlMethodFilter] = useState<string[]>([])
+  const [alDistinct, setAlDistinct] = useState<{ browsers: string[]; oses: string[]; countries: string[]; methods: string[] }>({ browsers: [], oses: [], countries: [], methods: [] })
 
   // File size backfill status (Media tab)
   const [fileSizeStatus, setFileSizeStatus] = useState<{ missing: number } | null>(null)
@@ -554,7 +630,7 @@ export default function AdminPage() {
     if (session?.user?.role === 'ADMIN' && reauthVerified === true) {
       fetchData()
     }
-  }, [session, reauthVerified, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo])
+  }, [session, reauthVerified, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter])
 
   const fetchData = async () => {
     setLoading(true)
@@ -604,12 +680,24 @@ export default function AdminPage() {
         if (accessLogsIpFilter) params.set('ip', accessLogsIpFilter)
         if (accessLogsFrom) params.set('from', accessLogsFrom)
         if (accessLogsTo) params.set('to', accessLogsTo)
-        const res = await fetch(`/api/admin?${params}`)
+        if (alBrowserFilter.length) params.set('browser', alBrowserFilter.join(','))
+        if (alOsFilter.length) params.set('os', alOsFilter.join(','))
+        if (alCountryFilter.length) params.set('country', alCountryFilter.join(','))
+        if (alMethodFilter.length) params.set('method', alMethodFilter.join(','))
+        const dParams = new URLSearchParams({ action: 'accessLogsDistinct' })
+        if (accessLogsFrom) dParams.set('from', accessLogsFrom)
+        if (accessLogsTo) dParams.set('to', accessLogsTo)
+        const [res, dRes] = await Promise.all([
+          fetch(`/api/admin?${params}`),
+          fetch(`/api/admin?${dParams}`),
+        ])
         const data = await res.json()
+        const dData = await dRes.json()
         setAccessLogs(data.logs || [])
         setAccessLogsTotal(data.pagination?.total ?? 0)
         setAccessLogsTotalPages(data.pagination?.totalPages ?? 1)
         setAccessLogsSummary(data.summary ?? null)
+        setAlDistinct({ browsers: dData.browsers || [], oses: dData.oses || [], countries: dData.countries || [], methods: dData.methods || [] })
       } else if (activeTab === 'contentSales') {
         const res = await fetch('/api/admin?action=contentSales')
         const data = await res.json()
@@ -1492,6 +1580,14 @@ export default function AdminPage() {
                   className="input h-8 text-xs w-[110px]"
                   title="To date"
                 />
+                {(alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0) && (
+                  <button
+                    onClick={() => { setAlBrowserFilter([]); setAlOsFilter([]); setAlCountryFilter([]); setAlMethodFilter([]); setAccessLogsPage(1) }}
+                    className="text-xs text-red-400 hover:text-red-300 whitespace-nowrap"
+                  >
+                    ✕ Clear column filters
+                  </button>
+                )}
                 <span className="text-xs text-gray-400 whitespace-nowrap shrink-0 ml-auto">
                   {accessLogsTotal} hits
                   {accessLogsSummary != null && ` · ${accessLogsSummary.uniqueIps} IPs · ${accessLogsSummary.uniqueSessions} sessions`}
@@ -1521,17 +1617,18 @@ export default function AdminPage() {
                     <tr className="border-b border-tank-light/30">
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Time</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">IP</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Browser / OS / Device</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Location</th>
+                      <ColumnFilter label="Browser" options={alDistinct.browsers} selected={alBrowserFilter} onApply={(v) => { setAlBrowserFilter(v); setAccessLogsPage(1) }} />
+                      <ColumnFilter label="OS" options={alDistinct.oses} selected={alOsFilter} onApply={(v) => { setAlOsFilter(v); setAccessLogsPage(1) }} />
+                      <ColumnFilter label="Country" options={alDistinct.countries} selected={alCountryFilter} onApply={(v) => { setAlCountryFilter(v); setAccessLogsPage(1) }} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Path</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Method</th>
+                      <ColumnFilter label="Method" options={alDistinct.methods} selected={alMethodFilter} onApply={(v) => { setAlMethodFilter(v); setAccessLogsPage(1) }} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Referrer</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Session</th>
                     </tr>
                   </thead>
                   <tbody>
                     {accessLogs.length === 0 && !loading && (
-                      <tr><td colSpan={8} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
+                      <tr><td colSpan={9} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
                     )}
                     {accessLogs.map((log) => (
                       <tr key={log.id} className="border-b border-tank-light/10 hover:bg-tank-light/5">
@@ -1541,11 +1638,12 @@ export default function AdminPage() {
                         <td className="p-3 text-gray-300 font-mono text-xs">{log.ipAddress ?? '-'}</td>
                         <td className="p-3 text-gray-300">
                           <span className="text-tank-accent">{log.browser ?? '-'}</span>
-                          {log.os && ` / ${log.os}`}
-                          {log.device && ` / ${log.device}`}
+                          {log.device && <span className="text-gray-500 text-xs ml-1">/ {log.device}</span>}
                         </td>
-                        <td className="p-3 text-gray-300">
-                          {[log.city, log.region, log.country].filter(Boolean).join(', ') || '-'}
+                        <td className="p-3 text-gray-300">{log.os ?? '-'}</td>
+                        <td className="p-3 text-gray-300" title={[log.city, log.region, log.country].filter(Boolean).join(', ')}>
+                          {log.country ?? '-'}
+                          {log.city && <span className="text-gray-500 text-xs ml-1">({log.city})</span>}
                         </td>
                         <td className="p-3 text-gray-300 max-w-[200px] truncate" title={log.path}>{log.path}</td>
                         <td className="p-3 text-gray-400">{log.method}</td>
