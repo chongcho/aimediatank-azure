@@ -7,6 +7,7 @@ import InstallPrompt from '@/components/InstallPrompt'
 import RouteChangeMediaStopper from '@/components/RouteChangeMediaStopper'
 import ScrollbarEdgeReveal from '@/components/ScrollbarEdgeReveal'
 import KakaoScript from '@/components/KakaoScript'
+import { KakaoConfigProvider } from '@/components/KakaoConfigProvider'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -64,7 +65,6 @@ export default function RootLayout({
           crossOrigin="anonymous"
           strategy="afterInteractive"
         />
-        <KakaoScript />
         <Script id="register-sw" strategy="afterInteractive">
           {`
             if ('serviceWorker' in navigator) {
@@ -113,7 +113,9 @@ export default function RootLayout({
         <div className="landscape-padding-left" aria-hidden="true" />
         <div className="landscape-padding-right" aria-hidden="true" />
         <Providers>
-          <ScrollbarEdgeReveal />
+          <KakaoConfigProvider jsKey={process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY}>
+            <KakaoScript />
+            <ScrollbarEdgeReveal />
           <RouteChangeMediaStopper />
           <Navbar />
           <main className="pt-16 m-0 p-0">
@@ -149,6 +151,7 @@ export default function RootLayout({
             </div>
           </footer>
           <InstallPrompt />
+          </KakaoConfigProvider>
         </Providers>
       </body>
     </html>

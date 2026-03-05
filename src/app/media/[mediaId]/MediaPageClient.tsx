@@ -8,6 +8,7 @@ import MediaPlayer from '@/components/MediaPlayer'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
 import { stopAllMedia } from '@/lib/mediaStop'
 import { getMediaPlayCache } from '@/lib/mediaPlayCache'
+import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 
 interface MediaDetail {
   id: string
@@ -86,6 +87,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
   const [mediaDetailSendByEmailEnabled, setMediaDetailSendByEmailEnabled] = useState(true)
   const [retrying, setRetrying] = useState(false)
 
+  const kakaoJsKey = useKakaoJsKey()
   const isOwner = session?.user?.id === media?.user?.id
   const isAdmin = session?.user?.role === 'ADMIN'
   const canManage = isOwner || isAdmin
@@ -940,7 +942,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
                 </svg>
                 <span className="text-xs">WhatsApp</span>
               </a>
-              {process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY && (
+              {kakaoJsKey && (
                 <button
                   type="button"
                   onClick={handleKakaoShare}

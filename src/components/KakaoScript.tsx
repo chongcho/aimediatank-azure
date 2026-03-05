@@ -1,11 +1,12 @@
 'use client'
 
 import Script from 'next/script'
+import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 
 const KAKAO_SDK_URL = 'https://t1.kakaocdn.net/kakao_js_sdk/v2/2.7.2/kakao.min.js'
 
 export default function KakaoScript() {
-  const key = process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY
+  const key = useKakaoJsKey()
   if (!key) return null
 
   return (
