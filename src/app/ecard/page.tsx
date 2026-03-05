@@ -16,11 +16,11 @@ interface MediaItem {
 }
 
 const TITLE_OPTIONS = [
-  'Celebrate Birthday!',
-  'Celebrate Wedding!',
-  'Celebrate Anniversary!',
-  'Celebrate Graduation!',
-  'Celebrate Promotion!',
+  'Celebrate Birthday',
+  'Celebrate Wedding',
+  'Celebrate Anniversary',
+  'Celebrate Graduation',
+  'Celebrate Promotion',
 ]
 
 export default function EcardPage() {
