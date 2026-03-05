@@ -57,7 +57,7 @@ export async function POST(
 
     const title = media.title.replace(/#\w+/g, '').trim() || 'Media'
     const subject = `${senderName} shared this with you`
-    const { html } = generateShareMediaEmail({
+    const { html, plainText } = generateShareMediaEmail({
       senderName,
       senderEmail,
       mediaTitle: title,
@@ -71,6 +71,7 @@ export async function POST(
       to,
       subject,
       html,
+      plainText,
       senderAddress: shareSender,
       fromName: senderName,
     })

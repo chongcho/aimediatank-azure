@@ -43,20 +43,18 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     const senderAddress = options.senderAddress || SENDER_ADDRESS
     const displayName = options.fromName || DEFAULT_SENDER_NAME
 
-    const content: Record<string, string> = {
-      subject: options.subject,
-      html: options.html,
-    }
-    if (options.plainText) {
-      content.plainText = options.plainText
-    }
+    const plainText = options.plainText || options.html.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()
 
     const poller = await client.beginSend({
       senderAddress,
       recipients: {
         to: [{ address: options.to, displayName: '' }],
       },
-      content,
+      content: {
+        subject: options.subject,
+        html: options.html,
+        plainText,
+      },
       headers: {
         'X-Entity-Ref-ID': `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         'X-Auto-Response-Suppress': 'OOF, DR, RN, NRN',
