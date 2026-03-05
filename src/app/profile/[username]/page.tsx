@@ -396,20 +396,18 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-7xl mx-auto p-0 m-0 pb-[500px]">
-      <div className="flex justify-end px-2 pt-3 pb-1">
+      {/* Profile Header */}
+      <div className="card mb-8 relative mt-3">
         <button
           type="button"
           onClick={() => router.back()}
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
+          className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors z-10"
           aria-label="Close"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-      </div>
-      {/* Profile Header */}
-      <div className="card mb-8">
         <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
           {/* Avatar */}
           <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-4xl font-bold shrink-0">

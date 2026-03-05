@@ -56,6 +56,8 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       },
       headers: {
         'X-Entity-Ref-ID': `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        'X-Auto-Response-Suppress': 'All',
+        'Precedence': 'bulk',
       },
       ...(options.replyTo
         ? { replyTo: [{ address: options.replyTo, displayName }] }
@@ -94,29 +96,37 @@ export function generateCelebrationCardEmail(options: {
   const { senderName, senderEmail, subject, mediaPageUrl, mediaTitle, thumbnailUrl, message } = options
 
   const imgBlock = thumbnailUrl
-    ? `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" style="width: 100%; max-width: 400px; height: auto; border-radius: 12px; display: block; border: 1px solid #e0e0e0;" /></a>`
-    : `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 16px 0; color: #0f8; font-weight: bold;">View media</a>`
+    ? `<a href="${escapeHtml(mediaPageUrl)}" style="display:inline-block;margin:0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" width="400" style="width:100%;max-width:400px;height:auto;display:block;border:1px solid #e0e0e0;" /></a>`
+    : `<a href="${escapeHtml(mediaPageUrl)}" style="display:inline-block;margin:16px 0;color:#00ff88;font-weight:bold;">View media</a>`
 
   const messageBlock = message
-    ? `<p style="font-size: 16px; color: #444; margin: 16px 0; line-height: 1.6;">${escapeHtml(message)}</p>`
+    ? `<p style="font-size:16px;color:#444444;margin:16px 0;line-height:1.6;">${escapeHtml(message)}</p>`
     : ''
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-  ${messageBlock}
-  <p style="font-size: 14px; color: #555; margin: 0 0 12px 0;">Click the image/link below to view the media:</p>
-  ${imgBlock}
-  ${senderEmail ? `<p style="font-size: 14px; color: #666; margin: 16px 0 0 0;">Reply to ${escapeHtml(senderName)} at <a href="mailto:${encodeURI(senderEmail)}${subject ? `?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent('Hi ' + senderName + ',\n\nThank you for the celebration card!\n\n')}` : ''}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a></p>` : ''}
-  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
-</body>
-</html>
-`
+  const html = [
+    '<!DOCTYPE html>',
+    '<html xmlns="http://www.w3.org/1999/xhtml">',
+    '<head>',
+    '<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />',
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+    '</head>',
+    '<body style="margin:0;padding:0;background-color:#ffffff;">',
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#ffffff;">',
+    '<tr><td align="center">',
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;font-family:Segoe UI,Helvetica,Arial,sans-serif;line-height:1.6;color:#333333;">',
+    '<tr><td style="padding:20px;">',
+    messageBlock,
+    '<p style="font-size:14px;color:#555555;margin:0 0 12px 0;">Click the image/link below to view the media:</p>',
+    imgBlock,
+    senderEmail ? `<p style="font-size:14px;color:#666666;margin:16px 0 0 0;">Reply to ${escapeHtml(senderName)} at <a href="mailto:${encodeURI(senderEmail)}${subject ? `?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent('Hi ' + senderName + ',\n\nThank you for the celebration card!\n\n')}` : ''}" style="color:#0066cc;">${escapeHtml(senderEmail)}</a></p>` : '',
+    `<p style="font-size:14px;color:#666666;margin:24px 0 0 0;">Sincerely,<br /><strong>${escapeHtml(senderName)}</strong><br /><a href="https://www.aimediatank.com" style="color:#0066cc;">www.aimediatank.com</a></p>`,
+    '</td></tr>',
+    '</table>',
+    '</td></tr>',
+    '</table>',
+    '</body>',
+    '</html>',
+  ].filter(Boolean).join('')
 
   const plainText = [
     message ? `${message}\n` : '',
@@ -140,33 +150,41 @@ export function generateShareMediaEmail(options: {
   const { senderName, senderEmail, mediaTitle, mediaPageUrl, thumbnailUrl, message } = options
 
   const thumbnailBlock = thumbnailUrl
-    ? `<a href="${escapeHtml(mediaPageUrl)}" style="display: inline-block; margin: 0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" style="width: 100%; max-width: 400px; height: auto; border-radius: 12px; display: block; border: 1px solid #e0e0e0;" /></a>`
-    : `<a href="${escapeHtml(mediaPageUrl)}" style="color: #0f8; font-weight: bold;">View: ${escapeHtml(mediaTitle)}</a>`
+    ? `<a href="${escapeHtml(mediaPageUrl)}" style="display:inline-block;margin:0;"><img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(mediaTitle)}" width="400" style="width:100%;max-width:400px;height:auto;display:block;border:1px solid #e0e0e0;" /></a>`
+    : `<a href="${escapeHtml(mediaPageUrl)}" style="color:#00ff88;font-weight:bold;">View: ${escapeHtml(mediaTitle)}</a>`
 
   const messageBlock = message
-    ? `<p style="font-size: 16px; color: #444; margin: 16px 0; line-height: 1.6;">${escapeHtml(message)}</p>`
+    ? `<p style="font-size:16px;color:#444444;margin:16px 0;line-height:1.6;">${escapeHtml(message)}</p>`
     : ''
 
   const replyBlock = senderEmail
-    ? `<p style="font-size: 14px; color: #666; margin: 16px 0 0 0;">Click <a href="mailto:${encodeURI(senderEmail)}?subject=${encodeURIComponent('Re: ' + senderName + ' shared this for you!')}&body=${encodeURIComponent('Hi ' + senderName + ',\n\n')}" style="color: #0066cc;">${escapeHtml(senderEmail)}</a> to reply to ${escapeHtml(senderName)}</p>`
+    ? `<p style="font-size:14px;color:#666666;margin:16px 0 0 0;">Click <a href="mailto:${encodeURI(senderEmail)}?subject=${encodeURIComponent('Re: ' + senderName + ' shared this for you!')}&body=${encodeURIComponent('Hi ' + senderName + ',\n\n')}" style="color:#0066cc;">${escapeHtml(senderEmail)}</a> to reply to ${escapeHtml(senderName)}</p>`
     : ''
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-  ${messageBlock}
-  <p style="font-size: 14px; color: #555; margin: 0 0 12px 0;">Click the image/link below to view the media:</p>
-  ${thumbnailBlock}
-  ${replyBlock}
-  <p style="font-size: 14px; color: #666; margin: 24px 0 0 0;">Sincerely,<br><strong>${escapeHtml(senderName)}</strong><br><a href="https://www.aimediatank.com" style="color: #0066cc;">www.aimediatank.com</a></p>
-</body>
-</html>
-`
+  const html = [
+    '<!DOCTYPE html>',
+    '<html xmlns="http://www.w3.org/1999/xhtml">',
+    '<head>',
+    '<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />',
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+    '</head>',
+    '<body style="margin:0;padding:0;background-color:#ffffff;">',
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#ffffff;">',
+    '<tr><td align="center">',
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;font-family:Segoe UI,Helvetica,Arial,sans-serif;line-height:1.6;color:#333333;">',
+    '<tr><td style="padding:20px;">',
+    messageBlock,
+    '<p style="font-size:14px;color:#555555;margin:0 0 12px 0;">Click the image/link below to view the media:</p>',
+    thumbnailBlock,
+    replyBlock,
+    `<p style="font-size:14px;color:#666666;margin:24px 0 0 0;">Sincerely,<br /><strong>${escapeHtml(senderName)}</strong><br /><a href="https://www.aimediatank.com" style="color:#0066cc;">www.aimediatank.com</a></p>`,
+    '</td></tr>',
+    '</table>',
+    '</td></tr>',
+    '</table>',
+    '</body>',
+    '</html>',
+  ].filter(Boolean).join('')
 
   const plainText = [
     message ? `${message}\n` : '',
