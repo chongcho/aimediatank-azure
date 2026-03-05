@@ -994,7 +994,7 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
             <div className="bg-[#1a6e7a] px-5 py-3">
               <p className="text-white font-medium">
                 <span className="text-sm font-semibold text-white/80 uppercase tracking-wide">From: </span>
-                <span className="bg-[#0f3f47] px-2 py-0.5 rounded text-sm">Share&lt;share@aimediatank.com&gt;</span>
+                <span className="bg-[#0f3f47] px-2 py-0.5 rounded text-sm">AiMediaTank&lt;aimediatank@aimediatank.com&gt;</span>
               </p>
             </div>
 

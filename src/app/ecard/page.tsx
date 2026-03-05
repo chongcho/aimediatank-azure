@@ -182,7 +182,7 @@ function CelebrationCardForm({ sessionName, userId }: { sessionName: string; use
           <div className="bg-[#1a6e7a] px-5 py-3">
             <p className="text-white font-medium">
               <span className="text-sm font-semibold text-white/80 uppercase tracking-wide">From: </span>
-              {senderName} <span className="text-white/60 text-sm">via Celebrate@aimediatank.com</span>
+              {senderName} <span className="text-white/60 text-sm">via aimediatank@aimediatank.com</span>
             </p>
           </div>
 
