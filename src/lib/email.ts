@@ -42,22 +42,24 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
     const senderAddress = options.senderAddress || SENDER_ADDRESS
     const displayName = options.fromName || DEFAULT_SENDER_NAME
-    const plainText = options.plainText || options.html.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()
+
+    const content: Record<string, string> = {
+      subject: options.subject,
+      html: options.html,
+    }
+    if (options.plainText) {
+      content.plainText = options.plainText
+    }
 
     const poller = await client.beginSend({
       senderAddress,
       recipients: {
         to: [{ address: options.to, displayName: '' }],
       },
-      content: {
-        subject: options.subject,
-        html: options.html,
-        plainText,
-      },
+      content,
       headers: {
         'X-Entity-Ref-ID': `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        'X-Auto-Response-Suppress': 'All',
-        'Precedence': 'bulk',
+        'X-Auto-Response-Suppress': 'OOF, DR, RN, NRN',
       },
       ...(options.replyTo
         ? { replyTo: [{ address: options.replyTo, displayName }] }
@@ -126,7 +128,7 @@ export function generateCelebrationCardEmail(options: {
     '</table>',
     '</body>',
     '</html>',
-  ].filter(Boolean).join('')
+  ].filter(Boolean).join('\n')
 
   const plainText = [
     message ? `${message}\n` : '',
@@ -184,7 +186,7 @@ export function generateShareMediaEmail(options: {
     '</table>',
     '</body>',
     '</html>',
-  ].filter(Boolean).join('')
+  ].filter(Boolean).join('\n')
 
   const plainText = [
     message ? `${message}\n` : '',
