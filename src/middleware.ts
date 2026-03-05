@@ -12,10 +12,17 @@ const SKIP_PATHS = new Set([
   '/sw.js',
 ])
 
+function stripPort(ip: string): string {
+  if (ip.startsWith('[')) return ip.replace(/^\[([^\]]+)\].*$/, '$1')
+  const parts = ip.split(':')
+  if (parts.length === 2 && /^\d+$/.test(parts[1])) return parts[0]
+  return ip
+}
+
 function getClientIp(request: NextRequest): string | null {
   const forwarded = request.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0]?.trim() ?? null
-  return request.headers.get('x-real-ip') ?? null
+  const raw = forwarded ? forwarded.split(',')[0]?.trim() ?? null : request.headers.get('x-real-ip') ?? null
+  return raw ? stripPort(raw) : null
 }
 
 export async function middleware(request: NextRequest) {

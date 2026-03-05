@@ -9,7 +9,8 @@ const geoCache = new Map<string, { city: string | null; region: string | null; c
 const GEO_CACHE_TTL = 1000 * 60 * 60 * 24 // 24 hours
 const GEO_CACHE_MAX = 2000
 
-async function lookupGeo(ip: string): Promise<{ city: string | null; region: string | null; country: string | null }> {
+async function lookupGeo(rawIp: string): Promise<{ city: string | null; region: string | null; country: string | null }> {
+  const ip = rawIp.startsWith('[') ? rawIp.replace(/^\[([^\]]+)\].*$/, '$1') : rawIp.includes(':') && rawIp.split(':').length === 2 && /^\d+$/.test(rawIp.split(':')[1]) ? rawIp.split(':')[0] : rawIp
   const now = Date.now()
   const cached = geoCache.get(ip)
   if (cached && cached.expires > now) return cached
