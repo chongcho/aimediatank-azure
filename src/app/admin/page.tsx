@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -457,6 +457,10 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState('')
   const [userSearchDebounced, setUserSearchDebounced] = useState('')
   const [userFilter, setUserFilter] = useState('all')
+  const [userMembershipColFilter, setUserMembershipColFilter] = useState<string[]>([])
+  const [userStatusColFilter, setUserStatusColFilter] = useState<string[]>([])
+  const [userCountryColFilter, setUserCountryColFilter] = useState<string[]>([])
+  const [userRoleColFilter, setUserRoleColFilter] = useState<string[]>([])
   
   // Debounce timers
   const userSearchTimer = useRef<NodeJS.Timeout | null>(null)
@@ -472,6 +476,7 @@ export default function AdminPage() {
   const [mediaSearchDebounced, setMediaSearchDebounced] = useState('')
   const [mediaTypeFilter, setMediaTypeFilter] = useState('all')
   const [mediaStatusFilter, setMediaStatusFilter] = useState('all')
+  const [mediaTypeColFilter, setMediaTypeColFilter] = useState<string[]>([])
 
   // Access logs (Site analytics)
   const [accessLogs, setAccessLogs] = useState<Array<{
@@ -710,6 +715,32 @@ export default function AdminPage() {
       if (chatSearchTimer.current) clearTimeout(chatSearchTimer.current)
     }
   }, [chatSearch])
+
+  // Users: distinct values + client-side column filtering
+  const userDistinct = useMemo(() => ({
+    memberships: Array.from(new Set(users.map(u => u.membershipType))).sort(),
+    statuses: Array.from(new Set(users.map(u => u.isSuspended ? 'Suspended' : 'Active'))).sort(),
+    countries: Array.from(new Set(users.map(u => u.location).filter(Boolean) as string[])).sort(),
+    roles: Array.from(new Set(users.map(u => u.role))).sort(),
+  }), [users])
+
+  const filteredUsers = useMemo(() => users.filter(u => {
+    if (userMembershipColFilter.length && !userMembershipColFilter.includes(u.membershipType)) return false
+    if (userStatusColFilter.length && !userStatusColFilter.includes(u.isSuspended ? 'Suspended' : 'Active')) return false
+    if (userCountryColFilter.length && (!u.location || !userCountryColFilter.includes(u.location))) return false
+    if (userRoleColFilter.length && !userRoleColFilter.includes(u.role)) return false
+    return true
+  }), [users, userMembershipColFilter, userStatusColFilter, userCountryColFilter, userRoleColFilter])
+
+  // Media: distinct values + client-side column filtering
+  const mediaDistinct = useMemo(() => ({
+    types: Array.from(new Set(media.map(m => m.type))).sort(),
+  }), [media])
+
+  const filteredMedia = useMemo(() => media.filter(m => {
+    if (mediaTypeColFilter.length && !mediaTypeColFilter.includes(m.type)) return false
+    return true
+  }), [media, mediaTypeColFilter])
 
   useEffect(() => {
     if (session?.user?.role === 'ADMIN' && reauthVerified === true) {
@@ -1538,16 +1569,15 @@ export default function AdminPage() {
                   onChange={(e) => setMediaSearch(e.target.value)}
                   className="input flex-1 min-w-[200px] h-9 text-sm"
                 />
-                <select
-                  value={mediaTypeFilter}
-                  onChange={(e) => { setMediaTypeFilter(e.target.value); }}
-                  className="input w-auto h-9 text-sm"
-                >
-                  <option value="all">All Types</option>
-                  <option value="VIDEO">Video</option>
-                  <option value="IMAGE">Image</option>
-                  <option value="MUSIC">Music</option>
-                </select>
+                {mediaTypeColFilter.length > 0 && (
+                  <button
+                    onClick={() => setMediaTypeColFilter([])}
+                    className="text-xs text-red-400 hover:text-red-300 whitespace-nowrap"
+                  >
+                    ✕ Clear filters
+                  </button>
+                )}
+                <span className="text-sm text-gray-400">{filteredMedia.length === media.length ? `Total: ${media.length}` : `${filteredMedia.length} of ${media.length}`}</span>
                 
                 {/* File size tools - inline with filters */}
                 <div className="ml-auto flex items-center gap-3 bg-tank-dark/50 px-3 py-1.5 rounded-lg border border-tank-light/20">
@@ -1602,16 +1632,15 @@ export default function AdminPage() {
                   onChange={(e) => setUserSearch(e.target.value)}
                   className="input flex-1 min-w-[200px] h-9 text-sm"
                 />
-                <select
-                  value={userFilter}
-                  onChange={(e) => setUserFilter(e.target.value)}
-                  className="input w-auto h-9 text-sm"
-                >
-                  <option value="all">All Users</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="warned">With Warnings</option>
-                </select>
-                <span className="text-sm text-gray-400 ml-auto">Total: {users.length} users</span>
+                {(userMembershipColFilter.length > 0 || userStatusColFilter.length > 0 || userCountryColFilter.length > 0 || userRoleColFilter.length > 0) && (
+                  <button
+                    onClick={() => { setUserMembershipColFilter([]); setUserStatusColFilter([]); setUserCountryColFilter([]); setUserRoleColFilter([]) }}
+                    className="text-xs text-red-400 hover:text-red-300 whitespace-nowrap"
+                  >
+                    ✕ Clear all filters
+                  </button>
+                )}
+                <span className="text-sm text-gray-400 ml-auto">{filteredUsers.length === users.length ? `Total: ${users.length} users` : `${filteredUsers.length} of ${users.length} users`}</span>
               </>
             )}
 
@@ -1624,15 +1653,6 @@ export default function AdminPage() {
                   onChange={(e) => setChatSearch(e.target.value)}
                   className="input flex-1 min-w-[200px] h-9 text-sm"
                 />
-                <select
-                  value={chatFilter}
-                  onChange={(e) => setChatFilter(e.target.value)}
-                  className="input w-auto h-9 text-sm"
-                >
-                  <option value="all">All Users</option>
-                  <option value="warned">With Warnings</option>
-                  <option value="suspended">Suspended</option>
-                </select>
                 <span className="text-sm text-gray-400 ml-auto">Total: {chatMessages.length} messages</span>
               </>
             )}
@@ -1864,16 +1884,16 @@ export default function AdminPage() {
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">User Name</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email Address</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Phone Number</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Country</th>
+                      <ColumnFilter label="Country" options={userDistinct.countries} selected={userCountryColFilter} onApply={setUserCountryColFilter} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Subscription Date</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Membership Status</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Status</th>
+                      <ColumnFilter label="Membership" options={userDistinct.memberships} selected={userMembershipColFilter} onApply={setUserMembershipColFilter} />
+                      <ColumnFilter label="Status" options={userDistinct.statuses} selected={userStatusColFilter} onApply={setUserStatusColFilter} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Credits</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user, index) => (
+                    {filteredUsers.map((user, index) => (
                       <tr key={user.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
                         <td className="p-3 text-gray-500 text-xs">{index + 1}</td>
                         <td className="p-3">
@@ -2098,7 +2118,7 @@ export default function AdminPage() {
                     <tr className="border-b border-tank-light">
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">#</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Media Title</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Type</th>
+                      <ColumnFilter label="Type" options={mediaDistinct.types} selected={mediaTypeColFilter} onApply={setMediaTypeColFilter} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Creator</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Upload Date</th>
@@ -2113,7 +2133,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {media.map((item, index) => {
+                    {filteredMedia.map((item, index) => {
                       return (
                         <tr key={item.id} className="border-b border-tank-light/50 hover:bg-tank-light/20">
                           <td className="p-3 text-gray-500 text-xs">{index + 1}</td>
