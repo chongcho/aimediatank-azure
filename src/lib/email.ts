@@ -116,10 +116,11 @@ export function generateCelebrationCardEmail(options: {
     '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;font-family:Segoe UI,Helvetica,Arial,sans-serif;line-height:1.6;color:#333333;">',
     '<tr><td style="padding:20px;">',
     messageBlock,
-    '<p style="font-size:14px;color:#555555;margin:0 0 12px 0;">Click the image/link below to view the media:</p>',
+    '\n<p style="font-size:14px;color:#555555;margin:0 0 12px 0;">Click the image/link below to view the media:</p>\n',
     imgBlock,
-    senderEmail ? `<p style="font-size:14px;color:#666666;margin:16px 0 0 0;">Reply to ${escapeHtml(senderName)} at <a href="mailto:${encodeURI(senderEmail)}${subject ? `?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent('Hi ' + senderName + ',\n\nThank you for the celebration card!\n\n')}` : ''}" style="color:#0066cc;">${escapeHtml(senderEmail)}</a></p>` : '',
-    `<p style="font-size:14px;color:#666666;margin:24px 0 0 0;">Sincerely,<br /><strong>${escapeHtml(senderName)}</strong><br /><a href="https://www.aimediatank.com" style="color:#0066cc;">www.aimediatank.com</a></p>`,
+    '\n',
+    senderEmail ? `<p style="font-size:14px;color:#666666;margin:16px 0 0 0;">Reply to ${escapeHtml(senderName)} at <a href="mailto:${encodeURI(senderEmail)}${subject ? `?subject=${encodeURIComponent('Re: ' + subject)}&body=${encodeURIComponent('Hi ' + senderName + ',\n\nThank you for the celebration card!\n\n')}` : ''}" style="color:#0066cc;">${escapeHtml(senderEmail)}</a></p>\n` : '',
+    `<p style="font-size:14px;color:#666666;margin:24px 0 0 0;">Sincerely,<br />\n<strong>${escapeHtml(senderName)}</strong><br />\n<a href="https://www.aimediatank.com" style="color:#0066cc;">www.aimediatank.com</a></p>`,
     '</td></tr>',
     '</table>',
     '</td></tr>',
@@ -129,11 +130,14 @@ export function generateCelebrationCardEmail(options: {
   ].filter(Boolean).join('\n')
 
   const plainText = [
-    message ? `${message}\n` : '',
-    `View the card: ${mediaPageUrl}\n`,
-    senderEmail ? `Reply to ${senderName}: ${senderEmail}\n` : '',
-    `Sincerely,\n${senderName}\nwww.aimediatank.com`,
-  ].filter(Boolean).join('\n')
+    message ? `${message}\n\n` : '',
+    'Click the image/link below to view the media:\n',
+    mediaPageUrl,
+    senderEmail ? `\n\nReply to ${senderName}: ${senderEmail}` : '',
+    '\n\nSincerely,\n',
+    senderName,
+    '\nhttps://www.aimediatank.com',
+  ].filter(Boolean).join('')
 
   return { html, plainText }
 }
@@ -174,10 +178,12 @@ export function generateShareMediaEmail(options: {
     '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;font-family:Segoe UI,Helvetica,Arial,sans-serif;line-height:1.6;color:#333333;">',
     '<tr><td style="padding:20px;">',
     messageBlock,
-    '<p style="font-size:14px;color:#555555;margin:0 0 12px 0;">Click the image/link below to view the media:</p>',
+    '\n<p style="font-size:14px;color:#555555;margin:0 0 12px 0;">Click the image/link below to view the media:</p>\n',
     thumbnailBlock,
+    '\n',
     replyBlock,
-    `<p style="font-size:14px;color:#666666;margin:24px 0 0 0;">Sincerely,<br /><strong>${escapeHtml(senderName)}</strong><br /><a href="https://www.aimediatank.com" style="color:#0066cc;">www.aimediatank.com</a></p>`,
+    replyBlock ? '\n' : '',
+    `<p style="font-size:14px;color:#666666;margin:24px 0 0 0;">Sincerely,<br />\n<strong>${escapeHtml(senderName)}</strong><br />\n<a href="https://www.aimediatank.com" style="color:#0066cc;">www.aimediatank.com</a></p>`,
     '</td></tr>',
     '</table>',
     '</td></tr>',
@@ -187,11 +193,14 @@ export function generateShareMediaEmail(options: {
   ].filter(Boolean).join('\n')
 
   const plainText = [
-    message ? `${message}\n` : '',
-    `View the media: ${mediaPageUrl}\n`,
-    senderEmail ? `Reply to ${senderName}: ${senderEmail}\n` : '',
-    `Sincerely,\n${senderName}\nwww.aimediatank.com`,
-  ].filter(Boolean).join('\n')
+    message ? `${message}\n\n` : '',
+    'Click the image/link below to view the media:\n',
+    mediaPageUrl,
+    senderEmail ? `\n\nClick ${senderEmail} to reply to ${senderName}.` : '',
+    '\n\nSincerely,\n',
+    senderName,
+    '\nhttps://www.aimediatank.com',
+  ].filter(Boolean).join('')
 
   return { html, plainText }
 }
