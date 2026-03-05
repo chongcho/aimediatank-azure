@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar'
 import InstallPrompt from '@/components/InstallPrompt'
 import RouteChangeMediaStopper from '@/components/RouteChangeMediaStopper'
 import ScrollbarEdgeReveal from '@/components/ScrollbarEdgeReveal'
+import KakaoScript from '@/components/KakaoScript'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -63,19 +64,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
           strategy="afterInteractive"
         />
-        {process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY && (
-          <Script
-            src="https://t1.kakaocdn.net/kakao_js_sdk/v2/2.7.2/kakao.min.js"
-            crossOrigin="anonymous"
-            strategy="afterInteractive"
-            onLoad={() => {
-              const key = process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY
-              if (typeof window !== 'undefined' && key && (window as unknown as { Kakao?: { init: (k: string) => void } }).Kakao) {
-                (window as unknown as { Kakao: { init: (k: string) => void } }).Kakao.init(key)
-              }
-            }}
-          />
-        )}
+        <KakaoScript />
         <Script id="register-sw" strategy="afterInteractive">
           {`
             if ('serviceWorker' in navigator) {
