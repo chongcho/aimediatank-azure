@@ -785,7 +785,7 @@ function NavbarContent() {
                         Support
                       </Link>
                       <Link
-                        href="/policy"
+                        href="/policy?from=navbar"
                         className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
                         onClick={() => setIsProfileOpen(false)}
                       >

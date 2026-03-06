@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function PolicyPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const fromNavbar = searchParams.get('from') === 'navbar'
   const { data: session } = useSession()
   const [policyStatus, setPolicyStatus] = useState<{ agreed: boolean; agreedAt: string | null }>({ agreed: false, agreedAt: null })
 
@@ -57,9 +59,33 @@ export default function PolicyPage() {
           <h1 className="text-3xl font-bold mb-2">Policy Documents</h1>
           <p className="text-gray-400">Effective: December 20, 2024 &middot; Last Updated: March 4, 2026</p>
         </div>
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-tank-accent/20 hover:bg-tank-accent/30 text-tank-accent text-sm font-medium transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download Terms
+          </a>
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-tank-accent/20 hover:bg-tank-accent/30 text-tank-accent text-sm font-medium transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download Privacy
+          </a>
+        </div>
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => fromNavbar ? router.push('/') : router.back()}
           className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors self-start md:self-auto"
           aria-label="Close"
         >
@@ -272,7 +298,7 @@ export default function PolicyPage() {
       <div className="flex justify-start mt-8">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => fromNavbar ? router.push('/') : router.back()}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
           &larr; Back
