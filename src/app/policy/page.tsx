@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function PolicyPage() {
+function PolicyPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const fromNavbar = searchParams.get('from') === 'navbar'
@@ -305,5 +305,33 @@ export default function PolicyPage() {
         </button>
       </div>
     </div>
+  )
+}
+
+function PolicyPageFallback() {
+  return (
+    <div className="max-w-4xl mx-auto p-0 m-0 pb-[500px]">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Policy Documents</h1>
+          <p className="text-gray-400">Effective: December 20, 2024 &middot; Last Updated: March 4, 2026</p>
+        </div>
+      </div>
+      <p className="text-gray-300 mb-8">
+        AiMediaTank maintains two standalone policy documents that govern your use of the Platform and how we handle your data. Please review both documents carefully.
+      </p>
+      <div className="animate-pulse flex gap-4">
+        <div className="h-32 flex-1 rounded-lg bg-tank-light/30" />
+        <div className="h-32 flex-1 rounded-lg bg-tank-light/30" />
+      </div>
+    </div>
+  )
+}
+
+export default function PolicyPage() {
+  return (
+    <Suspense fallback={<PolicyPageFallback />}>
+      <PolicyPageContent />
+    </Suspense>
   )
 }
