@@ -112,6 +112,11 @@ model Media {
   soldAt        DateTime?                  // when item was sold/downloaded
   deleteAfter   DateTime?                  // scheduled deletion date (10 days after download)
   ageRestriction String   @default("ALL")  // "ALL" = all ages, "18+" = adults only
+
+  // Automatic content inspection for age rating (admin review)
+  contentInspectionStatus  String    @default("pending")  // "pending" | "pass" | "review"
+  contentInspectionAlertAt DateTime?                      // When alert was first set
+  contentInspectionSummary String?                        // Short reason for review (e.g. "Text may suggest mature content")
   
   // Soft delete fields (content hidden but record kept)
   isDeleted     Boolean   @default(false)
@@ -140,6 +145,7 @@ model Media {
   @@index([isSold])
   @@index([deleteAfter])
   @@index([isDeleted])
+  @@index([contentInspectionStatus])
 }
 
 // Per-resolution video variant (YouTube-style: 144p–1080p + HQ)

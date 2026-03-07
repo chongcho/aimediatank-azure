@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/email'
+import { inspectMediaForAgeRating } from '@/lib/contentInspection'
 // Video processing is now handled by Azure Function cron (process-videos)
 // import { processMedia } from '@/lib/mediaProcessor'
 import { BlobServiceClient } from '@azure/storage-blob'
@@ -554,6 +555,45 @@ export async function POST(request: Request) {
           await prisma.notification.create({
             data: { userId: user.id, type: 'system', title: '🎬 Upload Successful', message: notificationMessage }
           })
+        }
+
+        // Automatic content inspection for age rating: if review needed, mark media and notify admins
+        try {
+          const inspection = await inspectMediaForAgeRating({ title: media.title, description: media.description ?? undefined })
+          if (inspection.status === 'review') {
+            await prisma.media.update({
+              where: { id: media.id },
+              data: {
+                contentInspectionStatus: 'review',
+                contentInspectionAlertAt: new Date(),
+                contentInspectionSummary: inspection.summary ?? 'Content may need age rating review.',
+              },
+            })
+            const admins = await prisma.user.findMany({
+              where: { role: 'ADMIN' },
+              select: { id: true },
+            })
+            const safeTitle = (media.title || 'Untitled').slice(0, 80)
+            for (const admin of admins) {
+              await prisma.notification.create({
+                data: {
+                  userId: admin.id,
+                  type: 'system',
+                  title: '⚠️ Age rating review',
+                  message: `Media "${safeTitle}" may need age rating review. Check Admin → Media.`,
+                  link: '/admin?tab=media',
+                },
+              })
+            }
+          } else {
+            await prisma.media.update({
+              where: { id: media.id },
+              data: { contentInspectionStatus: 'pass' },
+            })
+          }
+        } catch (inspectionErr) {
+          console.error('Content inspection failed:', inspectionErr)
+          // Leave status as "pending" so cron or manual re-run can retry
         }
       } catch (e) {
         console.error('Background email/notification failed:', e)

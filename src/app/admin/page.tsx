@@ -69,6 +69,9 @@ interface Media {
   processingStatus: string
   processingError?: string | null
   ageRestriction: string
+  contentInspectionStatus?: string
+  contentInspectionAlertAt?: string | null
+  contentInspectionSummary?: string | null
   createdAt: string
   user: { id: string; username: string; name: string | null; email: string }
   purchases: Array<{
@@ -1569,6 +1572,27 @@ export default function AdminPage() {
                   onChange={(e) => setMediaSearch(e.target.value)}
                   className="input flex-1 min-w-[200px] h-9 text-sm"
                 />
+                <select
+                  value={mediaStatusFilter}
+                  onChange={(e) => { setMediaStatusFilter(e.target.value); setMediaPage(1) }}
+                  className="bg-tank-dark border border-tank-light/50 rounded px-2 py-1.5 text-sm text-gray-200"
+                >
+                  <option value="all">All status</option>
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                  <option value="deleted">Deleted</option>
+                  <option value="review">Needs age review</option>
+                </select>
+                <select
+                  value={mediaTypeFilter}
+                  onChange={(e) => { setMediaTypeFilter(e.target.value); setMediaPage(1) }}
+                  className="bg-tank-dark border border-tank-light/50 rounded px-2 py-1.5 text-sm text-gray-200"
+                >
+                  <option value="all">All types</option>
+                  <option value="VIDEO">Video</option>
+                  <option value="IMAGE">Image</option>
+                  <option value="MUSIC">Music</option>
+                </select>
                 {mediaTypeColFilter.length > 0 && (
                   <button
                     onClick={() => setMediaTypeColFilter([])}
@@ -2126,6 +2150,7 @@ export default function AdminPage() {
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Processing</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Files</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Age Filter</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Age alert</th>
                       <th className="text-right p-3 text-gray-400 font-medium whitespace-nowrap">Downloads</th>
                       <th className="text-right p-3 text-gray-400 font-medium whitespace-nowrap">Shares</th>
                       <th className="text-right p-3 text-gray-400 font-medium whitespace-nowrap">Sold</th>
@@ -2230,6 +2255,30 @@ export default function AdminPage() {
                               <option value="ALL">All Ages</option>
                               <option value="18+">18+</option>
                             </select>
+                          </td>
+                          <td className="p-3 whitespace-nowrap max-w-[180px]">
+                            {item.contentInspectionStatus === 'review' ? (
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-900/50 text-amber-400" title={item.contentInspectionSummary ?? undefined}>
+                                  ⚠️ Review
+                                </span>
+                                {item.contentInspectionSummary && (
+                                  <span className="text-[10px] text-gray-500 line-clamp-2" title={item.contentInspectionSummary}>
+                                    {item.contentInspectionSummary}
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => handleAction('clearContentInspectionAlert', item.id)}
+                                  className="text-xs text-gray-400 hover:text-green-400"
+                                >
+                                  Clear alert
+                                </button>
+                              </div>
+                            ) : item.contentInspectionStatus === 'pending' ? (
+                              <span className="text-gray-500 text-xs">Pending</span>
+                            ) : (
+                              <span className="text-gray-600 text-xs">—</span>
+                            )}
                           </td>
                           <td className="p-3 text-right text-gray-400 whitespace-nowrap">
                             {item.downloadCount || 0}

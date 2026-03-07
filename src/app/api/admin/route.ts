@@ -434,6 +434,9 @@ export async function GET(request: Request) {
         where.isDeleted = false
       } else if (status === 'deleted') {
         where.isDeleted = true
+      } else if (status === 'review') {
+        where.contentInspectionStatus = 'review'
+        where.isDeleted = false
       } else {
         // "all" - show non-deleted by default
         where.isDeleted = false
@@ -884,6 +887,18 @@ export async function POST(request: Request) {
         })
         await logAdminAction(adminId, 'UPDATE_MEDIA_AGE_RESTRICTION', 'MEDIA', targetId, { ageRestriction: data?.ageRestriction })
         return NextResponse.json({ message: 'Media age restriction updated' })
+
+      case 'clearContentInspectionAlert':
+        await prisma.media.update({
+          where: { id: targetId },
+          data: {
+            contentInspectionStatus: 'pass',
+            contentInspectionAlertAt: null,
+            contentInspectionSummary: null,
+          },
+        })
+        await logAdminAction(adminId, 'CLEAR_CONTENT_INSPECTION_ALERT', 'MEDIA', targetId)
+        return NextResponse.json({ message: 'Content inspection alert cleared' })
 
       case 'restoreMedia':
         await prisma.media.update({
