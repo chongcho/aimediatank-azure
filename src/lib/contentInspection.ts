@@ -20,9 +20,18 @@ function normalizeText(s: string): string {
   return s.toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
+/** Escape special regex characters so a keyword can be used in a RegExp safely */
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Match only whole words to avoid false positives (e.g. "sex" in "Essex", "weed" in "seaweed"). */
 function keywordCheck(text: string): { flagged: boolean; matched: string[] } {
   const normalized = normalizeText(text)
-  const matched = MATURE_KEYWORDS.filter((kw) => normalized.includes(kw))
+  const matched = MATURE_KEYWORDS.filter((kw) => {
+    const re = new RegExp('\\b' + escapeRegex(kw) + '\\b', 'i')
+    return re.test(normalized)
+  })
   return { flagged: matched.length > 0, matched }
 }
 

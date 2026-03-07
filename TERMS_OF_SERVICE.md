@@ -214,7 +214,7 @@ The Platform may offer optional paid membership tiers.
 | Plan | Price | Features |
 |------|-------|----------|
 | Viewer | Free | Browse, purchase, limited uploads |
-| Basic | $2/month | 10 uploads, additional upload fees, selling access |
+| Basic | $2/month | 5 uploads, additional upload fees, selling access |
 | Advanced | $5/month | reduced upload cost, priority support |
 | Premium | $8/month | unlimited uploads, featured listings |
 
