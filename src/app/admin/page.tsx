@@ -1565,34 +1565,36 @@ export default function AdminPage() {
             
             {activeTab === 'media' && (
               <>
-                <input
-                  type="text"
-                  placeholder="Search title or creator..."
-                  value={mediaSearch}
-                  onChange={(e) => setMediaSearch(e.target.value)}
-                  className="input flex-1 min-w-[200px] h-9 text-sm"
-                />
-                <select
-                  value={mediaStatusFilter}
-                  onChange={(e) => { setMediaStatusFilter(e.target.value); setMediaPage(1) }}
-                  className="bg-tank-dark border border-tank-light/50 rounded px-2 py-1.5 text-sm text-gray-200"
-                >
-                  <option value="all">All status</option>
-                  <option value="approved">Approved</option>
-                  <option value="pending">Pending</option>
-                  <option value="deleted">Deleted</option>
-                  <option value="review">Needs age review</option>
-                </select>
-                <select
-                  value={mediaTypeFilter}
-                  onChange={(e) => { setMediaTypeFilter(e.target.value); setMediaPage(1) }}
-                  className="bg-tank-dark border border-tank-light/50 rounded px-2 py-1.5 text-sm text-gray-200"
-                >
-                  <option value="all">All types</option>
-                  <option value="VIDEO">Video</option>
-                  <option value="IMAGE">Image</option>
-                  <option value="MUSIC">Music</option>
-                </select>
+                <div className="flex flex-nowrap items-center gap-2 shrink-0">
+                  <input
+                    type="text"
+                    placeholder="Search title or creator..."
+                    value={mediaSearch}
+                    onChange={(e) => setMediaSearch(e.target.value)}
+                    className="input w-36 sm:w-44 max-w-[200px] h-8 text-xs"
+                  />
+                  <select
+                    value={mediaStatusFilter}
+                    onChange={(e) => { setMediaStatusFilter(e.target.value); setMediaPage(1) }}
+                    className="bg-tank-dark border border-tank-light/50 rounded px-2 py-1 h-8 text-xs text-gray-200 shrink-0"
+                  >
+                    <option value="all">All status</option>
+                    <option value="approved">Approved</option>
+                    <option value="pending">Pending</option>
+                    <option value="deleted">Deleted</option>
+                    <option value="review">Needs age review</option>
+                  </select>
+                  <select
+                    value={mediaTypeFilter}
+                    onChange={(e) => { setMediaTypeFilter(e.target.value); setMediaPage(1) }}
+                    className="bg-tank-dark border border-tank-light/50 rounded px-2 py-1 h-8 text-xs text-gray-200 shrink-0"
+                  >
+                    <option value="all">All types</option>
+                    <option value="VIDEO">Video</option>
+                    <option value="IMAGE">Image</option>
+                    <option value="MUSIC">Music</option>
+                  </select>
+                </div>
                 {mediaTypeColFilter.length > 0 && (
                   <button
                     onClick={() => setMediaTypeColFilter([])}
