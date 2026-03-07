@@ -1,26 +1,48 @@
 'use client'
 
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
 export default function TermsPage() {
+  const searchParams = useSearchParams()
+  const fromLogin = searchParams.get('from') === 'login'
+  const fromRegister = searchParams.get('from') === 'register'
+  const fromPolicy = searchParams.get('from') === 'policy'
+  const fromAuth = fromLogin || fromRegister
+
   return (
     <div className="max-w-4xl mx-auto p-0 m-0 pb-[500px]">
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <Link href="/policy" className="text-tank-accent hover:underline">
-          ← Policy Documents
-        </Link>
-        <span className="text-gray-500">|</span>
-        <Link href="/privacy" className="text-tank-accent hover:underline">
-          Privacy Policy
-        </Link>
-        <div className="ml-auto flex gap-2">
-          <Link href="/login" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">
-            Back to Sign in
+        {fromPolicy && (
+          <Link href="/policy" className="text-tank-accent hover:underline">
+            ← Policy Home
           </Link>
-          <Link href="/register" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">
-            Back to Sign up
-          </Link>
-        </div>
+        )}
+        {!fromAuth && !fromPolicy && (
+          <>
+            <Link href="/policy" className="text-tank-accent hover:underline">
+              ← Policy Home
+            </Link>
+            <span className="text-gray-500">|</span>
+            <Link href="/privacy" className="text-tank-accent hover:underline">
+              Privacy Policy
+            </Link>
+          </>
+        )}
+        {!fromPolicy && (
+          <div className={`flex gap-2 ${fromAuth ? '' : 'ml-auto'}`}>
+            {(!fromAuth || fromLogin) && (
+              <Link href="/login" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">
+                Back to Sign in
+              </Link>
+            )}
+            {(!fromAuth || fromRegister) && (
+              <Link href="/register" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">
+                Back to Sign up
+              </Link>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="card prose prose-invert max-w-none">
@@ -36,7 +58,7 @@ export default function TermsPage() {
           If you do not agree to these Terms, you must immediately discontinue use of the Platform.
         </p>
         <p className="text-gray-300 mb-4">
-          These Terms constitute a legally binding agreement between you and AiMediaTank. Your use of the Platform is also governed by our <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link> and any additional policies, guidelines, or rules posted on the Platform.
+          These Terms constitute a legally binding agreement between you and AiMediaTank. Your use of the Platform is also governed by our <Link href={fromLogin ? '/privacy?from=login' : fromRegister ? '/privacy?from=register' : fromPolicy ? '/privacy?from=policy' : '/privacy'} className="text-tank-accent hover:underline">Privacy Policy</Link> and any additional policies, guidelines, or rules posted on the Platform.
         </p>
 
         {/* 2. Eligibility */}
@@ -314,24 +336,38 @@ export default function TermsPage() {
         </div>
 
         <div className="mt-8 pt-6 border-t border-tank-light flex flex-wrap gap-3">
-          <Link
-            href="/privacy"
-            className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
-          >
-            Privacy Policy
-          </Link>
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
-          >
-            Back to Sign in
-          </Link>
-          <Link
-            href="/register"
-            className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
-          >
-            Back to Sign up
-          </Link>
+          {fromPolicy && (
+            <Link
+              href="/policy"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
+            >
+              ← Policy Home
+            </Link>
+          )}
+          {!fromAuth && !fromPolicy && (
+            <Link
+              href="/privacy"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
+            >
+              Privacy Policy
+            </Link>
+          )}
+          {(!fromAuth || fromLogin) && !fromPolicy && (
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
+            >
+              Back to Sign in
+            </Link>
+          )}
+          {(!fromAuth || fromRegister) && !fromPolicy && (
+            <Link
+              href="/register"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
+            >
+              Back to Sign up
+            </Link>
+          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-# AiMediaTank — Policy Documents
+# AiMediaTank — Policy Home
 
 **Effective Date:** December 20, 2024
 **Last Updated:** March 4, 2026

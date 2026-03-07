@@ -282,11 +282,11 @@ function LoginContent() {
 
           <p className="mt-6 text-center text-sm text-gray-400">
             By signing in, you agree to the AiMediaTank{' '}
-            <Link href="/terms" className="text-tank-accent hover:underline font-medium">
+            <Link href="/terms?from=login" className="text-tank-accent hover:underline font-medium">
               Terms of Service
             </Link>
             {' '}and{' '}
-            <Link href="/privacy" className="text-tank-accent hover:underline font-medium">
+            <Link href="/privacy?from=login" className="text-tank-accent hover:underline font-medium">
               Privacy Policy
             </Link>
             {' '}and acknowledge that you have read and accepted all applicable rules and regulations.

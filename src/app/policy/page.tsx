@@ -46,7 +46,7 @@ function PolicyPageContent() {
           <div>
             <p className="text-green-400 font-medium">Policy Agreement Confirmed</p>
             <p className="text-sm text-gray-400">
-              You agreed to the <Link href="/terms" className="text-tank-accent hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link> on {formatDate(policyStatus.agreedAt!)}
+              You agreed to the <Link href="/terms?from=policy" className="text-tank-accent hover:underline">Terms of Service</Link> and <Link href="/privacy?from=policy" className="text-tank-accent hover:underline">Privacy Policy</Link> on {formatDate(policyStatus.agreedAt!)}
             </p>
           </div>
         </div>
@@ -54,12 +54,12 @@ function PolicyPageContent() {
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Policy Documents</h1>
+          <h1 className="text-3xl font-bold mb-2">Policy Home</h1>
           <p className="text-gray-400">Effective: December 20, 2024 &middot; Last Updated: March 4, 2026</p>
         </div>
         <div className="flex items-center gap-2 self-start md:self-auto">
           <a
-            href="/terms"
+            href="/terms?from=policy"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-tank-accent/20 hover:bg-tank-accent/30 text-tank-accent text-sm font-medium transition-colors"
@@ -70,7 +70,7 @@ function PolicyPageContent() {
             Download Terms
           </a>
           <a
-            href="/privacy"
+            href="/privacy?from=policy"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-tank-accent/20 hover:bg-tank-accent/30 text-tank-accent text-sm font-medium transition-colors"
@@ -99,7 +99,7 @@ function PolicyPageContent() {
 
       <div className="grid gap-6 md:grid-cols-2 mb-12">
         {/* Terms of Service Card */}
-        <Link href="/terms" className="group block">
+        <Link href="/terms?from=policy" className="group block">
           <div className="card h-full border border-tank-light hover:border-tank-accent/50 transition-colors">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-lg bg-tank-accent/20 flex items-center justify-center">
@@ -147,7 +147,7 @@ function PolicyPageContent() {
         </Link>
 
         {/* Privacy Policy Card */}
-        <Link href="/privacy" className="group block">
+        <Link href="/privacy?from=policy" className="group block">
           <div className="card h-full border border-tank-light hover:border-tank-accent/50 transition-colors">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-lg bg-tank-accent/20 flex items-center justify-center">
@@ -311,7 +311,7 @@ function PolicyPageFallback() {
     <div className="max-w-4xl mx-auto p-0 m-0 pb-[500px]">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Policy Documents</h1>
+          <h1 className="text-3xl font-bold mb-2">Policy Home</h1>
           <p className="text-gray-400">Effective: December 20, 2024 &middot; Last Updated: March 4, 2026</p>
         </div>
       </div>
