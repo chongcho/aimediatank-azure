@@ -399,7 +399,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 /* Card styles */
 .card {
-  @apply bg-tank-gray rounded-2xl border border-tank-light p-3;
+  @apply bg-tank-gray rounded-lg border border-tank-light p-3;
 }
 
 /* Badge styles */

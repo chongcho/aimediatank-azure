@@ -127,7 +127,7 @@ export default function RootLayout({
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 px-4">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-                  <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
+                  <div key={i} className="bg-tank-gray rounded-lg overflow-hidden">
                     <div className="aspect-video rounded-t-2xl bg-tank-light animate-pulse" />
                     <div className="p-4">
                       <div className="h-5 rounded bg-tank-light animate-pulse mb-2 w-3/4" />

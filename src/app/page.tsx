@@ -766,7 +766,7 @@ function HomeContent() {
   return (
     <div className="w-full p-0 m-0 pb-[500px]">
       {/* Hero Section with Search - Single Row */}
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mb-2 py-2 px-[10px]">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mt-1 mb-1 py-2 px-[10px]">
         {/* Left: Title */}
         <div className="flex-shrink-0 overflow-visible">
           <div className="flex items-end gap-0">
@@ -949,7 +949,7 @@ function HomeContent() {
             const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
               'aspect-square', 'aspect-video', 'aspect-[4/5]', 'aspect-video', 'aspect-square', 'aspect-[3/4]']
             return (
-              <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
+              <div key={i} className="bg-tank-gray rounded-lg overflow-hidden">
                 <div className={`${ratios[i]} skeleton`} />
                 <div className="p-4">
                   <div className="h-5 skeleton mb-2 w-3/4" />
@@ -980,7 +980,7 @@ function HomeContent() {
                   const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
                     'aspect-square', 'aspect-video', 'aspect-[4/5]', 'aspect-video', 'aspect-square', 'aspect-[3/4]']
                   return (
-                    <div key={i} className="bg-tank-gray rounded-2xl overflow-hidden">
+                    <div key={i} className="bg-tank-gray rounded-lg overflow-hidden">
                       <div className={`${ratios[i]} skeleton`} />
                       <div className="p-4">
                         <div className="h-5 skeleton mb-2 w-3/4" />

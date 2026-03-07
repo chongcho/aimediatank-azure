@@ -390,7 +390,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       data-media-id={media.id}
       className="group cursor-pointer block focus:outline-none no-touch-callout [-webkit-tap-highlight-color:transparent]"
     >
-      <div ref={cardRef} className="media-card-inner bg-tank-gray rounded-xl overflow-hidden border border-tank-light transition-all duration-300 [@media(hover:hover)]:hover:border-tank-accent/50 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:shadow-tank-accent/10">
+      <div ref={cardRef} className="media-card-inner bg-tank-gray rounded-md overflow-hidden border border-tank-light transition-all duration-300 [@media(hover:hover)]:hover:border-tank-accent/50 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:shadow-tank-accent/10">
         {/* Thumbnail — natural aspect ratio for masonry layout */}
         <div
           className="relative bg-tank-dark overflow-hidden outline-none [-webkit-tap-highlight-color:transparent]"
