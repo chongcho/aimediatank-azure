@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { inspectMediaForAgeRating } from '@/lib/contentInspection'
 
 export const dynamic = 'force-dynamic'
 
@@ -166,6 +167,49 @@ export async function POST(request: Request) {
         },
       },
     })
+
+    // Open Chat only: run content inspection for age rating in background; flag and notify admins if review needed
+    if (!message.isPrivate) {
+      const runInspection = async () => {
+        try {
+          const inspection = await inspectMediaForAgeRating({ title: message.content, description: undefined })
+          if (inspection.status === 'review') {
+            await prisma.chatMessage.update({
+              where: { id: message.id },
+              data: {
+                contentInspectionStatus: 'review',
+                contentInspectionAlertAt: new Date(),
+                contentInspectionSummary: inspection.summary ?? 'Message may need age rating review.',
+              },
+            })
+            const admins = await prisma.user.findMany({
+              where: { role: 'ADMIN' },
+              select: { id: true },
+            })
+            const preview = (message.content || '').slice(0, 50)
+            for (const admin of admins) {
+              await prisma.notification.create({
+                data: {
+                  userId: admin.id,
+                  type: 'system',
+                  title: '⚠️ Chat age rating review',
+                  message: `Open Chat message may need review: "${preview}${message.content.length > 50 ? '…' : ''}". Check Admin → Chat.`,
+                  link: '/admin?tab=chat',
+                },
+              })
+            }
+          } else {
+            await prisma.chatMessage.update({
+              where: { id: message.id },
+              data: { contentInspectionStatus: 'pass' },
+            })
+          }
+        } catch (e) {
+          console.error('Chat content inspection failed:', e)
+        }
+      }
+      runInspection().catch((e) => console.error('Chat inspection promise rejected:', e))
+    }
 
     // Create notification ONLY for private message recipient
     // Open/Public chat messages do NOT trigger notifications

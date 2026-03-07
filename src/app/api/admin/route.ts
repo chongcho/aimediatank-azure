@@ -223,7 +223,7 @@ export async function GET(request: Request) {
       // Handle search - search by username
       if (search) {
         const searchTerm = search.startsWith('@') ? search.slice(1) : search
-        where.user = { username: { contains: searchTerm, mode: 'insensitive' } }
+        where.user = { ...where.user, username: { contains: searchTerm, mode: 'insensitive' } }
       }
       
       // Handle filter
@@ -231,6 +231,8 @@ export async function GET(request: Request) {
         where.user = { ...where.user, warningCount: { gt: 0 } }
       } else if (filter === 'suspended') {
         where.user = { ...where.user, isSuspended: true }
+      } else if (filter === 'review') {
+        where.contentInspectionStatus = 'review'
       }
       
       const [messages, total] = await Promise.all([
@@ -899,6 +901,18 @@ export async function POST(request: Request) {
         })
         await logAdminAction(adminId, 'CLEAR_CONTENT_INSPECTION_ALERT', 'MEDIA', targetId)
         return NextResponse.json({ message: 'Content inspection alert cleared' })
+
+      case 'clearChatInspectionAlert':
+        await prisma.chatMessage.update({
+          where: { id: targetId },
+          data: {
+            contentInspectionStatus: 'pass',
+            contentInspectionAlertAt: null,
+            contentInspectionSummary: null,
+          },
+        })
+        await logAdminAction(adminId, 'CLEAR_CHAT_INSPECTION_ALERT', 'CHAT_MESSAGE', targetId)
+        return NextResponse.json({ message: 'Chat inspection alert cleared' })
 
       case 'restoreMedia':
         await prisma.media.update({

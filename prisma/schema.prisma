@@ -402,6 +402,11 @@ model ChatMessage {
   conversationId String?   // Link to conversation for group/private chat
   createdAt      DateTime  @default(now())
 
+  // Automatic content inspection for age rating (Open Chat only; admin review)
+  contentInspectionStatus  String    @default("pending")  // "pending" | "pass" | "review"
+  contentInspectionAlertAt DateTime?
+  contentInspectionSummary String?
+
   // Relations
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -412,6 +417,7 @@ model ChatMessage {
   @@index([isPrivate])
   @@index([recipientId])
   @@index([conversationId])
+  @@index([contentInspectionStatus])
 }
 
 // Email verification codes (persisted for serverless environments)

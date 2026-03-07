@@ -100,6 +100,9 @@ interface ChatMessage {
   id: string
   content: string
   createdAt: string
+  contentInspectionStatus?: string
+  contentInspectionAlertAt?: string | null
+  contentInspectionSummary?: string | null
   user: {
     id: string
     username: string
@@ -1679,6 +1682,16 @@ export default function AdminPage() {
                   onChange={(e) => setChatSearch(e.target.value)}
                   className="input flex-1 min-w-[200px] h-9 text-sm"
                 />
+                <select
+                  value={chatFilter}
+                  onChange={(e) => { setChatFilter(e.target.value) }}
+                  className="bg-tank-dark border border-tank-light/50 rounded px-2 py-1.5 text-sm text-gray-200"
+                >
+                  <option value="all">All</option>
+                  <option value="warned">Warned users</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="review">Needs age review</option>
+                </select>
                 <span className="text-sm text-gray-400 ml-auto">Total: {chatMessages.length} messages</span>
               </>
             )}
@@ -2037,6 +2050,7 @@ export default function AdminPage() {
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Date</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Nickname</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Open Chat Messages</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Age alert</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
@@ -2076,6 +2090,30 @@ export default function AdminPage() {
                           <p className="text-gray-300 text-sm break-words line-clamp-2" title={msg.content}>
                             {msg.content}
                           </p>
+                        </td>
+                        <td className="p-3 whitespace-nowrap max-w-[180px]">
+                          {msg.contentInspectionStatus === 'review' ? (
+                            <div className="flex flex-col gap-1">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-900/50 text-amber-400" title={msg.contentInspectionSummary ?? undefined}>
+                                ⚠️ Review
+                              </span>
+                              {msg.contentInspectionSummary && (
+                                <span className="text-[10px] text-gray-500 line-clamp-2" title={msg.contentInspectionSummary}>
+                                  {msg.contentInspectionSummary}
+                                </span>
+                              )}
+                              <button
+                                onClick={() => handleAction('clearChatInspectionAlert', msg.id)}
+                                className="text-xs text-gray-400 hover:text-green-400"
+                              >
+                                Clear alert
+                              </button>
+                            </div>
+                          ) : msg.contentInspectionStatus === 'pending' ? (
+                            <span className="text-gray-500 text-xs">Pending</span>
+                          ) : (
+                            <span className="text-gray-600 text-xs">—</span>
+                          )}
                         </td>
                         <td className="p-3">
                           <div className="flex gap-2 whitespace-nowrap">
