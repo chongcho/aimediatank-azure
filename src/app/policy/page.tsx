@@ -2,13 +2,11 @@
 
 import { Suspense, useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 function PolicyPageContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const fromNavbar = searchParams.get('from') === 'navbar'
   const { data: session } = useSession()
   const [policyStatus, setPolicyStatus] = useState<{ agreed: boolean; agreedAt: string | null }>({ agreed: false, agreedAt: null })
 
@@ -85,7 +83,7 @@ function PolicyPageContent() {
         </div>
         <button
           type="button"
-          onClick={() => fromNavbar ? router.push('/') : router.back()}
+          onClick={() => router.push('/')}
           className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors self-start md:self-auto"
           aria-label="Close"
         >
@@ -298,7 +296,7 @@ function PolicyPageContent() {
       <div className="flex justify-start mt-8">
         <button
           type="button"
-          onClick={() => fromNavbar ? router.push('/') : router.back()}
+          onClick={() => router.push('/')}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
           &larr; Back
