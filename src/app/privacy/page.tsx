@@ -1,9 +1,10 @@
 'use client'
 
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
-export default function PrivacyPage() {
+function PrivacyPageContent() {
   const searchParams = useSearchParams()
   const fromLogin = searchParams.get('from') === 'login'
   const fromRegister = searchParams.get('from') === 'register'
@@ -304,5 +305,34 @@ export default function PrivacyPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function PrivacyPageFallback() {
+  return (
+    <div className="max-w-4xl mx-auto p-0 m-0 pb-[500px]">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <Link href="/policy" className="text-tank-accent hover:underline">← Policy Home</Link>
+        <span className="text-gray-500">|</span>
+        <Link href="/terms" className="text-tank-accent hover:underline">Terms of Service</Link>
+        <div className="ml-auto flex gap-2">
+          <Link href="/login" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">Back to Sign in</Link>
+          <Link href="/register" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">Back to Sign up</Link>
+        </div>
+      </div>
+      <div className="card prose prose-invert max-w-none">
+        <h1 className="text-2xl font-bold text-tank-accent mb-2">Privacy Policy</h1>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 · Last Updated: March 6, 2026</p>
+        <p className="text-gray-400">Loading...</p>
+      </div>
+    </div>
+  )
+}
+
+export default function PrivacyPage() {
+  return (
+    <Suspense fallback={<PrivacyPageFallback />}>
+      <PrivacyPageContent />
+    </Suspense>
   )
 }
