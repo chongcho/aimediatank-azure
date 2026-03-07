@@ -1201,13 +1201,17 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
         </div>
       )}
 
-      {/* Back Button — always go to homepage to avoid Detail ↔ Edit loop after Cancel */}
+      {/* Back Button */}
       <div className="max-w-4xl mx-auto px-4 mt-8">
         <button
           type="button"
           onClick={() => {
             stopAllMedia()
-            router.replace('/')
+            if (window.history.length > 1) {
+              router.back()
+            } else {
+              router.replace('/')
+            }
           }}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
