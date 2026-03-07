@@ -1,12 +1,12 @@
 'use client'
 
 import InterceptedPageWrapper from '@/components/InterceptedPageWrapper'
-import EditMediaPage from '@/app/media/[mediaId]/edit/page'
+import EditMediaPageContent from '@/app/media/[mediaId]/edit/EditMediaPageContent'
 
 export default function MediaEditModal() {
   return (
     <InterceptedPageWrapper>
-      <EditMediaPage intercepted />
+      <EditMediaPageContent intercepted />
     </InterceptedPageWrapper>
   )
 }
