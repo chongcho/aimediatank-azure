@@ -6,7 +6,7 @@ import MediaPageClient from '@/app/media/[mediaId]/MediaPageClient'
 export default function MediaModal({ params }: { params: { mediaId: string } }) {
   return (
     <InterceptedPageWrapper>
-      <MediaPageClient mediaId={params.mediaId} />
+      <MediaPageClient mediaId={params.mediaId} intercepted />
     </InterceptedPageWrapper>
   )
 }

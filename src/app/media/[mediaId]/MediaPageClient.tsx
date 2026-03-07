@@ -60,7 +60,7 @@ interface MediaDetail {
   }
 }
 
-export default function MediaPageClient({ mediaId }: { mediaId: string }) {
+export default function MediaPageClient({ mediaId, intercepted = false }: { mediaId: string; intercepted?: boolean }) {
   const { data: session } = useSession()
   const router = useRouter()
   const [media, setMedia] = useState<MediaDetail | null>(null)
@@ -1201,13 +1201,17 @@ export default function MediaPageClient({ mediaId }: { mediaId: string }) {
         </div>
       )}
 
-      {/* Back Button - hard navigate home to avoid Detail <-> Edit history loop */}
+      {/* Back Button - close intercepted modal to preserve home context, otherwise go home */}
       <div className="max-w-4xl mx-auto px-4 mt-8">
         <button
           type="button"
           onClick={() => {
             stopAllMedia()
-            window.location.href = '/'
+            if (intercepted) {
+              router.back()
+            } else {
+              router.replace('/')
+            }
           }}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >

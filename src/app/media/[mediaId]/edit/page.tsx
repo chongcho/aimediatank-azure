@@ -23,7 +23,7 @@ interface MediaData {
   }
 }
 
-export default function EditMediaPage() {
+export default function EditMediaPage({ intercepted = false }: { intercepted?: boolean }) {
   const { mediaId } = useParams()
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -42,6 +42,15 @@ export default function EditMediaPage() {
   const [hashtags, setHashtags] = useState('')
   const [price, setPrice] = useState('')
   const [isPublic, setIsPublic] = useState(true)
+  const mediaPath = `/media/${mediaId}`
+
+  const returnToDetail = () => {
+    if (intercepted) {
+      router.back()
+    } else {
+      window.location.href = mediaPath
+    }
+  }
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -65,7 +74,7 @@ export default function EditMediaPage() {
 
       // Check if user is owner or admin
       if (data.user.id !== session?.user?.id && session?.user?.role !== 'ADMIN') {
-        window.location.href = `/media/${mediaId}`
+        returnToDetail()
         return
       }
 
@@ -124,7 +133,7 @@ export default function EditMediaPage() {
       })
 
       if (res.ok) {
-        window.location.href = `/media/${mediaId}`
+        returnToDetail()
         return
       } else {
         const data = await res.json()
@@ -192,15 +201,16 @@ export default function EditMediaPage() {
     <div className="max-w-3xl mx-auto p-0 m-0 pb-[500px]">
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
-        <a
-          href={`/media/${mediaId}`}
+        <button
+          type="button"
+          onClick={returnToDetail}
           className="w-10 h-10 rounded-full bg-tank-gray hover:bg-tank-light flex items-center justify-center transition-colors no-touch-callout"
           onContextMenu={(e) => e.preventDefault()}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-        </a>
+        </button>
           <h1 className="text-2xl font-bold">Edit Media</h1>
         <span className="text-gray-400">— Update your content details</span>
       </div>
@@ -395,13 +405,14 @@ export default function EditMediaPage() {
 
         {/* Actions */}
         <div className="flex gap-4 pt-4 border-t border-tank-light">
-          <a
-            href={`/media/${mediaId}`}
+          <button
+            type="button"
+            onClick={returnToDetail}
             className="btn-secondary flex-1 text-center no-touch-callout"
             onContextMenu={(e) => e.preventDefault()}
           >
             Cancel
-          </a>
+          </button>
           <button
             type="submit"
             disabled={saving || !title.trim()}

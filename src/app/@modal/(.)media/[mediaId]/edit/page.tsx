@@ -6,7 +6,7 @@ import EditMediaPage from '@/app/media/[mediaId]/edit/page'
 export default function MediaEditModal() {
   return (
     <InterceptedPageWrapper>
-      <EditMediaPage />
+      <EditMediaPage intercepted />
     </InterceptedPageWrapper>
   )
 }
