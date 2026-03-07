@@ -25,422 +25,219 @@ export default function PrivacyPage() {
 
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Privacy Policy</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: March 4, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: March 6, 2026</p>
 
-        {/* 1. Scope */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">1. Scope and Compliance</h2>
-        <p className="text-gray-300 mb-4">
-          This Privacy Policy describes how AiMediaTank (&quot;the Platform,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), located at https://www.aimediatank.com, collects, uses, stores, shares, and protects your personal information. It applies to all users worldwide and complies with:
+        <p className="text-gray-300 mb-6">
+          AiMediaTank LLC (&quot;AiMediaTank,&quot; &quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates the website and platform available at <strong>https://www.aimediatank.com</strong> (the &quot;Platform&quot;). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you access or use the Platform and related services.
         </p>
+        <p className="text-gray-300 mb-8">
+          By accessing or using the Platform, you acknowledge that you have read and understood this Privacy Policy and agree to the collection and use of information as described herein.
+        </p>
+
+        {/* 1. Information We Collect */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">1. Information We Collect</h2>
+        <p className="text-gray-300 mb-4">We may collect several categories of information depending on how you interact with the Platform.</p>
+
+        <h3 className="text-lg font-semibold mt-6 mb-3">1.1 Account Information</h3>
+        <p className="text-gray-300 mb-2">When you register for an account, we may collect:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>GDPR</strong> — EU General Data Protection Regulation</li>
-          <li><strong>UK DPA 2018</strong> — UK Data Protection Act</li>
-          <li><strong>CCPA / CPRA</strong> — California Consumer Privacy Act / California Privacy Rights Act</li>
-          <li><strong>COPPA</strong> — Children&apos;s Online Privacy Protection Act (U.S.)</li>
-          <li><strong>LGPD</strong> — Brazil&apos;s Lei Geral de Proteção de Dados</li>
-          <li><strong>PIPEDA</strong> — Canada&apos;s Personal Information Protection and Electronic Documents Act</li>
-          <li>Other applicable national, state, and local privacy laws</li>
-        </ul>
-        <p className="text-gray-300 mb-4">
-          This policy should be read alongside our <Link href="/terms" className="text-tank-accent hover:underline">Terms of Service</Link>.
-        </p>
-
-        {/* 2. Data Controller */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">2. Data Controller</h2>
-        <p className="text-gray-300 mb-4">
-          AiMediaTank is the data controller responsible for your personal information. Contact: <strong>support@aimediatank.com</strong> (Subject: &quot;Privacy Request&quot;).
-        </p>
-
-        {/* 3. Information We Collect */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">3. Information We Collect</h2>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">3.1 Information You Provide</h3>
-        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>Account:</strong> Name, legal name, username, email, phone, date of birth</li>
-          <li><strong>Profile:</strong> Avatar, biography, location</li>
-          <li><strong>Payment:</strong> Billing info via Stripe (card details never stored on our servers)</li>
-          <li><strong>Content:</strong> Uploads with metadata, tags, AI tool disclosures, prompts</li>
-          <li><strong>Communications:</strong> Messages, comments, ratings, support requests</li>
-          <li><strong>Parental consent records</strong> for users aged 13–17</li>
+          <li>name or username</li>
+          <li>email address</li>
+          <li>encrypted password</li>
+          <li>profile information such as biography, avatar, or social media links</li>
+          <li>account preferences</li>
         </ul>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">3.2 Automatically Collected</h3>
+        <h3 className="text-lg font-semibold mt-6 mb-3">1.2 Transaction Information</h3>
+        <p className="text-gray-300 mb-2">When marketplace transactions occur, we may collect information related to purchases or sales, including:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>IP address and approximate geolocation</li>
-          <li>Device type, OS, browser type and version</li>
-          <li>Pages visited, content viewed, features used, timestamps</li>
-          <li>Referring URLs, search queries</li>
-          <li>Upload, purchase, and transaction history</li>
-          <li>Session duration, interaction patterns</li>
-          <li>Cookies and similar tracking technologies</li>
+          <li>purchase history</li>
+          <li>transaction amounts</li>
+          <li>payout records</li>
+          <li>billing information</li>
+          <li>licensing details associated with purchased content</li>
+        </ul>
+        <p className="text-gray-300 mb-4">Payment card or financial details are processed by third-party payment processors and are generally not stored directly by AiMediaTank.</p>
+
+        <h3 className="text-lg font-semibold mt-6 mb-3">1.3 Creator Content and Metadata</h3>
+        <p className="text-gray-300 mb-2">When creators upload media to the Platform, we may collect:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li>digital media files (videos, images, music, or other content)</li>
+          <li>associated metadata</li>
+          <li>titles, descriptions, and tags</li>
+          <li>pricing and licensing information</li>
+          <li>usage or download statistics</li>
         </ul>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">3.3 From Third Parties</h3>
+        <h3 className="text-lg font-semibold mt-6 mb-3">1.4 Device and Technical Information</h3>
+        <p className="text-gray-300 mb-2">We automatically collect certain technical information when you access the Platform, including:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>Social login</strong> (Google, Microsoft, Facebook, Apple): name, email, profile picture</li>
-          <li><strong>Stripe:</strong> Payment status, transaction confirmations, fraud signals</li>
-          <li><strong>Fraud prevention services:</strong> Identity verification data</li>
+          <li>IP address</li>
+          <li>browser type and version</li>
+          <li>device type</li>
+          <li>operating system</li>
+          <li>referring website or URLs</li>
+          <li>access timestamps</li>
+          <li>session identifiers</li>
+        </ul>
+        <p className="text-gray-300 mb-4">This information helps maintain platform performance, security, and reliability.</p>
+
+        <h3 className="text-lg font-semibold mt-6 mb-3">1.5 Usage and Analytics Data</h3>
+        <p className="text-gray-300 mb-2">We may collect information regarding how users interact with the Platform, including:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li>pages visited</li>
+          <li>media viewed, downloaded, or purchased</li>
+          <li>search queries</li>
+          <li>clicks, interactions, or engagement with listings</li>
+        </ul>
+        <p className="text-gray-300 mb-4">This information helps us improve functionality, usability, and recommendations.</p>
+
+        {/* 2. How We Use Information */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">2. How We Use Information</h2>
+        <p className="text-gray-300 mb-2">We may use collected information for purposes including:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li>creating and managing user accounts</li>
+          <li>operating and maintaining the Platform</li>
+          <li>processing marketplace transactions</li>
+          <li>enabling creators to publish and sell digital media</li>
+          <li>delivering purchased content to buyers</li>
+          <li>communicating with users regarding accounts or services</li>
+          <li>providing customer support</li>
+          <li>improving platform features and performance</li>
+          <li>detecting fraud, abuse, or security incidents</li>
+          <li>enforcing our <Link href="/terms" className="text-tank-accent hover:underline">Terms of Service</Link></li>
+          <li>complying with legal obligations</li>
         </ul>
 
-        {/* 4. Legal Bases */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">4. Legal Bases for Processing</h2>
-        <h3 className="text-lg font-semibold mt-6 mb-3">GDPR (EU/EEA/UK)</h3>
-        <div className="overflow-x-auto mb-4">
-          <table className="w-full text-gray-300 text-sm">
-            <thead>
-              <tr className="border-b border-tank-light">
-                <th className="text-left py-2 px-3">Legal Basis</th>
-                <th className="text-left py-2 px-3">Purpose</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">Contract</td>
-                <td className="py-2 px-3">Provide Platform, manage accounts, process transactions</td>
-              </tr>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">Consent</td>
-                <td className="py-2 px-3">Marketing, non-essential cookies, children&apos;s data processing</td>
-              </tr>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">Legitimate Interests</td>
-                <td className="py-2 px-3">Improve Platform, prevent fraud, enforce terms, analytics</td>
-              </tr>
-              <tr>
-                <td className="py-2 px-3 font-medium">Legal Obligation</td>
-                <td className="py-2 px-3">Tax/financial reporting, law enforcement, DMCA</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p className="text-gray-300 mb-4">
-          You may withdraw consent at any time without affecting the lawfulness of prior processing.
-        </p>
-
-        {/* 5. How We Use */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">5. How We Use Your Information</h2>
+        {/* 3. AI and Automated Processing */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">3. AI and Automated Processing</h2>
+        <p className="text-gray-300 mb-2">AiMediaTank may use automated systems and algorithms to process platform data and uploaded content for purposes such as:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>Create and manage accounts, authenticate identity, verify age</li>
-          <li>Provide, maintain, operate, and improve Platform features</li>
-          <li>Process payments, subscriptions, uploads, and creator payouts</li>
-          <li>Enable messaging, comments, ratings, and notifications</li>
-          <li>Send transactional emails, service updates, and security alerts</li>
-          <li>Marketing and promotions (consent-based; opt out any time)</li>
-          <li>Personalize experience and recommend content</li>
-          <li>Detect, prevent, and address fraud, abuse, and security incidents</li>
-          <li>Comply with legal obligations and enforce terms</li>
-          <li>Conduct analytics and research</li>
+          <li>content moderation</li>
+          <li>indexing and search functionality</li>
+          <li>recommendation systems</li>
+          <li>fraud detection</li>
+          <li>platform integrity and security monitoring</li>
+        </ul>
+        <p className="text-gray-300 mb-4">AiMediaTank does not use user-uploaded content to train artificial intelligence models without explicit permission from the content owner.</p>
+
+        {/* 4. How We Share Information */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">4. How We Share Information</h2>
+        <p className="text-gray-300 mb-4">We do not sell personal information. However, we may share information under the following circumstances.</p>
+
+        <h3 className="text-lg font-semibold mt-6 mb-3">4.1 Service Providers</h3>
+        <p className="text-gray-300 mb-2">We may share information with trusted third-party vendors that help operate the Platform, including providers of:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li>payment processing</li>
+          <li>cloud hosting</li>
+          <li>analytics services</li>
+          <li>email delivery</li>
+          <li>infrastructure and security</li>
+          <li>customer support tools</li>
+        </ul>
+        <p className="text-gray-300 mb-4">These providers may access information only as necessary to perform services on our behalf.</p>
+
+        <h3 className="text-lg font-semibold mt-6 mb-3">4.2 Legal Compliance and Protection</h3>
+        <p className="text-gray-300 mb-2">We may disclose information when necessary to:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li>comply with legal obligations or court orders</li>
+          <li>respond to lawful requests from government authorities</li>
+          <li>enforce our Terms of Service</li>
+          <li>investigate fraud or illegal activities</li>
+          <li>protect the rights, property, or safety of AiMediaTank, our users, or the public</li>
         </ul>
 
-        {/* 6. Sharing */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">6. Information Sharing and Disclosure</h2>
-        <p className="text-gray-300 mb-4">
-          <strong>We do not sell your personal information.</strong> Under CCPA, we confirm we have not sold personal information in the preceding 12 months and do not intend to.
-        </p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">4.3 Business Transfers</h3>
+        <p className="text-gray-300 mb-4">If AiMediaTank undergoes a merger, acquisition, financing, reorganization, or sale of assets, user information may be transferred as part of that transaction.</p>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">Service Providers</h3>
-        <div className="overflow-x-auto mb-4">
-          <table className="w-full text-gray-300 text-sm">
-            <thead>
-              <tr className="border-b border-tank-light">
-                <th className="text-left py-2 px-3">Recipient</th>
-                <th className="text-left py-2 px-3">Purpose</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3">Stripe</td>
-                <td className="py-2 px-3">Payments, subscriptions, creator payouts</td>
-              </tr>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3">Microsoft Azure</td>
-                <td className="py-2 px-3">Cloud hosting, storage, database, CDN</td>
-              </tr>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3">Auth providers (Google, Microsoft, Facebook, Apple)</td>
-                <td className="py-2 px-3">Authentication only</td>
-              </tr>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3">Azure Communication Services</td>
-                <td className="py-2 px-3">Email and SMS notifications</td>
-              </tr>
-              <tr>
-                <td className="py-2 px-3">Analytics providers</td>
-                <td className="py-2 px-3">Anonymized/aggregated usage data</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">Other Disclosures</h3>
+        {/* 5. Cookies */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">5. Cookies and Tracking Technologies</h2>
+        <p className="text-gray-300 mb-2">We use cookies and similar tracking technologies to:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>Legal requirements:</strong> Law, subpoena, court order, government request</li>
-          <li><strong>Law enforcement:</strong> CSAM reporting to NCMEC</li>
-          <li><strong>Business transfers:</strong> Mergers, acquisitions, asset sales (same protections apply)</li>
-          <li><strong>With your consent:</strong> Any other explicit consent scenarios</li>
+          <li>maintain login sessions</li>
+          <li>remember user preferences</li>
+          <li>analyze website traffic</li>
+          <li>improve performance and reliability</li>
         </ul>
+        <p className="text-gray-300 mb-4">Users may control cookie preferences through their browser settings. Disabling cookies may affect certain platform functionality.</p>
 
-        {/* 7. Cookies */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">7. Cookies and Tracking Technologies</h2>
-        <div className="overflow-x-auto mb-4">
-          <table className="w-full text-gray-300 text-sm">
-            <thead>
-              <tr className="border-b border-tank-light">
-                <th className="text-left py-2 px-3">Type</th>
-                <th className="text-left py-2 px-3">Purpose</th>
-                <th className="text-left py-2 px-3">Duration</th>
-                <th className="text-left py-2 px-3">Consent</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3">Strictly Necessary</td>
-                <td className="py-2 px-3">Auth, session, security</td>
-                <td className="py-2 px-3">Session–30 days</td>
-                <td className="py-2 px-3">No</td>
-              </tr>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3">Functional</td>
-                <td className="py-2 px-3">Preferences (language, theme)</td>
-                <td className="py-2 px-3">Up to 1 year</td>
-                <td className="py-2 px-3">No</td>
-              </tr>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3">Analytics</td>
-                <td className="py-2 px-3">Usage, errors, performance</td>
-                <td className="py-2 px-3">Up to 2 years</td>
-                <td className="py-2 px-3">Yes*</td>
-              </tr>
-              <tr>
-                <td className="py-2 px-3">Marketing</td>
-                <td className="py-2 px-3">Promotions</td>
-                <td className="py-2 px-3">Up to 1 year</td>
-                <td className="py-2 px-3">Yes</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p className="text-gray-400 text-sm mb-4">* Where required by law (e.g., GDPR/ePrivacy).</p>
-        <p className="text-gray-300 mb-4">
-          Manage cookies via browser settings or our consent banner. Disabling essential cookies may impair functionality.
-        </p>
-
-        {/* 8. Security */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">8. Data Security</h2>
+        {/* 6. Data Retention */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">6. Data Retention</h2>
+        <p className="text-gray-300 mb-2">We retain personal information only for as long as reasonably necessary to:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>HTTPS/TLS encryption in transit</li>
-          <li>Encrypted data at rest (Azure services)</li>
-          <li>Bcrypt password hashing</li>
-          <li>Role-based access controls, least privilege</li>
-          <li>Regular vulnerability testing and security reviews</li>
-          <li>Automated threat detection and monitoring</li>
-          <li>Incident response and breach notification (GDPR Art. 33/34 compliant)</li>
+          <li>operate and maintain the Platform</li>
+          <li>complete marketplace transactions</li>
+          <li>comply with legal obligations</li>
+          <li>resolve disputes</li>
+          <li>enforce agreements</li>
+          <li>prevent fraud and abuse</li>
         </ul>
-        <p className="text-gray-300 mb-4">
-          No system is 100% secure. You are responsible for safeguarding your credentials and reporting unauthorized access.
-        </p>
+        <p className="text-gray-300 mb-4">Uploaded media and associated metadata may remain stored while accounts are active or as necessary to support completed transactions.</p>
 
-        {/* 9. Your Rights */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">9. Your Privacy Rights</h2>
-        <p className="text-gray-300 mb-4">
-          To exercise any right: email <strong>support@aimediatank.com</strong> (Subject: &quot;Privacy Request&quot;). Response within <strong>30 days</strong>. Identity verification may be required.
-        </p>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">9.1 All Users</h3>
-        <div className="overflow-x-auto mb-4">
-          <table className="w-full text-gray-300 text-sm">
-            <thead>
-              <tr className="border-b border-tank-light">
-                <th className="text-left py-2 px-3">Right</th>
-                <th className="text-left py-2 px-3">Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">Access</td>
-                <td className="py-2 px-3">Request a copy of your personal data</td>
-              </tr>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">Correction</td>
-                <td className="py-2 px-3">Correct inaccurate or incomplete data</td>
-              </tr>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">Deletion</td>
-                <td className="py-2 px-3">Delete your account and personal data</td>
-              </tr>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">Portability</td>
-                <td className="py-2 px-3">Data in machine-readable format (JSON/CSV)</td>
-              </tr>
-              <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">Opt-Out</td>
-                <td className="py-2 px-3">Unsubscribe from marketing any time</td>
-              </tr>
-              <tr>
-                <td className="py-2 px-3 font-medium">Withdraw Consent</td>
-                <td className="py-2 px-3">Withdraw consent for consent-based processing</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">9.2 EU/EEA/UK (GDPR)</h3>
+        {/* 7. Data Security */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">7. Data Security</h2>
+        <p className="text-gray-300 mb-2">AiMediaTank implements reasonable administrative, technical, and organizational safeguards designed to protect user information, including:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>Restriction</strong> — restrict processing in certain circumstances</li>
-          <li><strong>Objection</strong> — object to legitimate-interest processing</li>
-          <li><strong>Automated Decisions</strong> — not subject to solely automated decisions with legal effects</li>
-          <li><strong>Supervisory Authority</strong> — lodge complaint with your local data protection authority</li>
+          <li>encryption where appropriate</li>
+          <li>access controls</li>
+          <li>monitoring systems</li>
+          <li>security logging</li>
         </ul>
+        <p className="text-gray-300 mb-4">However, no method of transmission or storage over the internet can be guaranteed to be completely secure.</p>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">9.3 California (CCPA/CPRA)</h3>
+        {/* 8. Children's Privacy */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">8. Children&apos;s Privacy</h2>
+        <p className="text-gray-300 mb-4">The Platform is not intended for children under the age of 13.</p>
+        <p className="text-gray-300 mb-4">We do not knowingly collect personal information from children under 13 in accordance with the Children&apos;s Online Privacy Protection Act (COPPA).</p>
+        <p className="text-gray-300 mb-4">If we become aware that such information has been collected, we will take reasonable steps to delete it.</p>
+
+        {/* 9. California Privacy Rights */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">9. California Privacy Rights (CCPA / CPRA)</h2>
+        <p className="text-gray-300 mb-4">Residents of California may have rights under the California Consumer Privacy Act (CCPA) and the California Privacy Rights Act (CPRA), including the right to:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>Right to Know</strong> — categories and specific data collected</li>
-          <li><strong>Right to Delete</strong> — request deletion</li>
-          <li><strong>No Sale</strong> — we do not sell personal information</li>
-          <li><strong>Non-Discrimination</strong> — no penalties for exercising rights</li>
-          <li><strong>Correct</strong> — fix inaccurate data</li>
-          <li><strong>Limit Sensitive Data</strong> — restrict sensitive data use</li>
-          <li><strong>Authorized Agent</strong> — designate someone to act on your behalf</li>
+          <li>request access to personal information collected about them</li>
+          <li>request deletion of personal information</li>
+          <li>request disclosure of categories of personal data collected</li>
+          <li>request disclosure of categories of data shared with third parties</li>
+          <li>correct inaccurate personal information</li>
         </ul>
+        <p className="text-gray-300 mb-4">AiMediaTank does not sell personal information.</p>
+        <p className="text-gray-300 mb-4">Requests may be submitted by contacting: <strong>support@aimediatank.com</strong></p>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">9.4 Brazil (LGPD) &amp; Canada (PIPEDA)</h3>
-        <p className="text-gray-300 mb-4">
-          <strong>Brazil:</strong> Rights similar to GDPR; right to petition ANPD.<br />
-          <strong>Canada:</strong> Access, correct, and challenge accuracy; complain to the Privacy Commissioner of Canada.
-        </p>
+        {/* 10. International Data Transfers */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">10. International Data Transfers</h2>
+        <p className="text-gray-300 mb-4">AiMediaTank operates from the United States.</p>
+        <p className="text-gray-300 mb-4">If you access the Platform from outside the United States, your information may be transferred to and processed in the United States or other jurisdictions where our service providers operate. By using the Platform, you consent to such transfers.</p>
+        <p className="text-gray-300 mb-4">Users located in regions governed by the General Data Protection Regulation (GDPR) may have additional rights including: access to personal data; correction of inaccurate information; deletion of personal data; restriction of processing; data portability.</p>
 
-        {/* 10. Children */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">10. Children&apos;s Privacy</h2>
-        <h3 className="text-lg font-semibold mt-6 mb-3">Under 13</h3>
-        <p className="text-gray-300 mb-4">
-          We do not knowingly collect data from children under 13. The Platform is not for children under 13. If you believe a child under 13 has provided personal information, contact us immediately — we will delete it.
-        </p>
-        <h3 className="text-lg font-semibold mt-6 mb-3">Ages 13–17</h3>
+        {/* 11. User Rights and Account Control */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">11. User Rights and Account Control</h2>
+        <p className="text-gray-300 mb-2">Users may:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>Data collected <strong>only with verifiable parental consent</strong>.</li>
-          <li>Parents/guardians may: review data, request deletion, refuse further collection, restrict features.</li>
-          <li>Contact: support@aimediatank.com (Subject: &quot;Parental Request&quot;).</li>
+          <li>update account or profile information</li>
+          <li>download certain account data</li>
+          <li>request deletion of their account</li>
+          <li>request access to stored personal information</li>
         </ul>
-        <h3 className="text-lg font-semibold mt-6 mb-3">Protections for All Minors</h3>
-        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>No</strong> targeted advertising, profiling, or behavioral tracking for under-18 users.</li>
-          <li>Automatic content filtering for ages 13–17 (cannot be disabled).</li>
-          <li>Minor data is <strong>not</strong> shared with third parties for marketing.</li>
-        </ul>
+        <p className="text-gray-300 mb-4">Requests can be submitted to: <strong>support@aimediatank.com</strong></p>
+        <p className="text-gray-300 mb-4">We may require verification of identity before fulfilling certain requests.</p>
 
-        {/* 11. Retention */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">11. Data Retention</h2>
-        <h3 className="text-lg font-semibold mt-6 mb-3">Content</h3>
-        <div className="overflow-x-auto mb-4">
-          <table className="w-full text-gray-300 text-sm">
-            <thead>
-              <tr className="border-b border-tank-light">
-                <th className="text-left py-2 px-3">Data</th>
-                <th className="text-left py-2 px-3">Retention</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-tank-light/50"><td className="py-2 px-3">Uploaded content</td><td className="py-2 px-3">While account active</td></tr>
-              <tr className="border-b border-tank-light/50"><td className="py-2 px-3">Purchased content</td><td className="py-2 px-3">While hosted on Platform</td></tr>
-              <tr className="border-b border-tank-light/50"><td className="py-2 px-3">Inactive media</td><td className="py-2 px-3">Archived/removed after 60 days (with notice)</td></tr>
-              <tr><td className="py-2 px-3">Deleted content</td><td className="py-2 px-3">Removed within 30 days</td></tr>
-            </tbody>
-          </table>
-        </div>
+        {/* 12. Do Not Track */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">12. Do Not Track Signals</h2>
+        <p className="text-gray-300 mb-4">Some browsers include a &quot;Do Not Track&quot; feature. Because there is not yet a universally accepted standard for responding to such signals, AiMediaTank currently does not respond to Do Not Track requests.</p>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">User Data</h3>
-        <div className="overflow-x-auto mb-4">
-          <table className="w-full text-gray-300 text-sm">
-            <thead>
-              <tr className="border-b border-tank-light">
-                <th className="text-left py-2 px-3">Data</th>
-                <th className="text-left py-2 px-3">Retention</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-tank-light/50"><td className="py-2 px-3">Account info</td><td className="py-2 px-3">While active; 30 days post-termination</td></tr>
-              <tr className="border-b border-tank-light/50"><td className="py-2 px-3">Transaction records</td><td className="py-2 px-3">7 years (legal/tax)</td></tr>
-              <tr className="border-b border-tank-light/50"><td className="py-2 px-3">Usage logs</td><td className="py-2 px-3">90 days</td></tr>
-              <tr className="border-b border-tank-light/50"><td className="py-2 px-3">Support communications</td><td className="py-2 px-3">2 years</td></tr>
-              <tr className="border-b border-tank-light/50"><td className="py-2 px-3">Parental consent records</td><td className="py-2 px-3">Account + 3 years</td></tr>
-              <tr><td className="py-2 px-3">Security/fraud logs</td><td className="py-2 px-3">2 years</td></tr>
-            </tbody>
-          </table>
-        </div>
+        {/* 13. Changes */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">13. Changes to This Privacy Policy</h2>
+        <p className="text-gray-300 mb-4">We may update this Privacy Policy from time to time.</p>
+        <p className="text-gray-300 mb-4">If changes are made, the updated policy will be posted on the Platform with a revised Effective Date.</p>
+        <p className="text-gray-300 mb-4">Continued use of the Platform after such changes constitutes acceptance of the revised Privacy Policy.</p>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">Backups</h3>
-        <p className="text-gray-300 mb-4">
-          Encrypted backups retained 30 days. Deleted data purged from backups within 60 days.
-        </p>
-
-        {/* 12. International Transfers */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">12. International Data Transfers</h2>
-        <p className="text-gray-300 mb-4">
-          Infrastructure on <strong>Microsoft Azure</strong> (data centers in the US and other regions). By using the Platform, you acknowledge data may be processed in the US and other countries.
-        </p>
-        <h3 className="text-lg font-semibold mt-6 mb-3">Safeguards</h3>
-        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>EU-approved Standard Contractual Clauses (SCCs)</li>
-          <li>Data Processing Agreements with all providers</li>
-          <li>Azure certifications: EU-U.S. Data Privacy Framework, ISO 27001, SOC 1/2/3</li>
-          <li>Stripe PCI DSS Level 1</li>
-          <li>Encryption in transit (TLS) and at rest</li>
-        </ul>
-        <h3 className="text-lg font-semibold mt-6 mb-3">Regional Details</h3>
-        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>EU/EEA/UK:</strong> GDPR compliant; SCCs for transfers; ROPA maintained; lodge complaints with local authority.</li>
-          <li><strong>California:</strong> CCPA/CPRA compliant; no sale of data; authorized agent requests accepted.</li>
-          <li><strong>Brazil:</strong> LGPD compliant; petition ANPD.</li>
-          <li><strong>Canada:</strong> PIPEDA compliant; complain to Privacy Commissioner.</li>
-        </ul>
-
-        {/* 13. Third-Party */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">13. Third-Party Services and Social Platforms</h2>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">Social Login</h3>
-        <p className="text-gray-300 mb-4">
-          Sign in via Google, Microsoft, Facebook, or Apple. We receive limited data (name, email, picture) as authorized. We do not access posts, friends, or messages. Revoke access via the provider&apos;s settings.
-        </p>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">Social Sharing</h3>
-        <p className="text-gray-300 mb-2">When you share content, the destination platform&apos;s privacy policy governs their data collection:</p>
-        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>YouTube</strong> — <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">Google Privacy Policy</a></li>
-          <li><strong>TikTok</strong> — <a href="https://www.tiktok.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">TikTok Privacy Policy</a></li>
-          <li><strong>X (Twitter)</strong> — <a href="https://x.com/en/privacy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">X Privacy Policy</a></li>
-          <li><strong>Facebook, LinkedIn, Reddit, WhatsApp</strong> — governed by each platform&apos;s respective policy</li>
-        </ul>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">Payment &amp; Infrastructure</h3>
-        <p className="text-gray-300 mb-4">
-          <strong>Stripe</strong> handles payments (<a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">Stripe Privacy</a>). <strong>Microsoft Azure</strong> provides hosting (<a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">Azure Privacy</a>). We do not store card details.
-        </p>
-
-        <p className="text-gray-300 mb-4 text-sm">
-          AiMediaTank is not affiliated with or endorsed by Google LLC, ByteDance Ltd., X Corp., Meta Platforms, Inc., Apple Inc., or Microsoft Corporation.
-        </p>
-
-        {/* 14. DNT */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">14. Do Not Track Signals</h2>
-        <p className="text-gray-300 mb-4">
-          We do not currently respond to DNT browser signals (no uniform standard exists). Regardless: we do not sell data and do not track across third-party sites for advertising. Control cookies via Section 7.
-        </p>
-
-        {/* 15. Changes */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">15. Changes to This Privacy Policy</h2>
-        <p className="text-gray-300 mb-4">
-          We may update this policy. Material changes communicated via email or prominent notice at least <strong>14 days</strong> before taking effect. Continued use constitutes acceptance. If you disagree, discontinue use and request data deletion.
-        </p>
-
-        {/* 16. Contact */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">16. Contact Information</h2>
+        {/* 14. Contact */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">14. Contact Information</h2>
         <div className="bg-tank-dark rounded-xl p-4 space-y-2 mb-4">
-          <p className="text-gray-300"><strong>Privacy / Data Requests:</strong> support@aimediatank.com (Subject: &quot;Privacy Request&quot;)</p>
-          <p className="text-gray-300"><strong>Parental Rights:</strong> support@aimediatank.com (Subject: &quot;Parental Request&quot;)</p>
-          <p className="text-gray-300"><strong>General Support:</strong> support@aimediatank.com</p>
-          <p className="text-gray-300"><strong>Law Enforcement:</strong> support@aimediatank.com (Subject: &quot;Law Enforcement Request&quot;)</p>
-          <p className="text-gray-300"><strong>Website:</strong> https://www.aimediatank.com</p>
-          <p className="text-gray-400 text-sm mt-2">Response: within 2 business days. Data requests: within 30 days.</p>
+          <p className="text-gray-300"><strong>AiMediaTank LLC</strong></p>
+          <p className="text-gray-300">Email: support@aimediatank.com</p>
+          <p className="text-gray-300">Website: https://www.aimediatank.com</p>
         </div>
 
         {/* Footer */}

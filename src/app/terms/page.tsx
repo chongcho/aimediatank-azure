@@ -25,209 +25,148 @@ export default function TermsPage() {
 
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Terms of Service</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: March 4, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: March 6, 2026</p>
 
         {/* 1. Acceptance */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">1. Acceptance of Terms</h2>
         <p className="text-gray-300 mb-4">
-          By accessing, browsing, or using AiMediaTank (&quot;the Platform,&quot; &quot;Service,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), located at https://www.aimediatank.com, you (&quot;User,&quot; &quot;you,&quot; or &quot;your&quot;) acknowledge that you have read, understood, and agree to be bound by these Terms of Service. If you do not agree, you must immediately stop using the Platform.
+          By accessing, browsing, or using AiMediaTank (the &quot;Platform&quot;, &quot;Service&quot;, &quot;Company&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;), located at https://www.aimediatank.com, you (&quot;User&quot;, &quot;you&quot;, or &quot;your&quot;) acknowledge that you have read, understood, and agree to be bound by these Terms of Service (&quot;Terms&quot;).
         </p>
         <p className="text-gray-300 mb-4">
-          These Terms constitute a legally binding agreement between you and AiMediaTank. Your use is also governed by our <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link> and any supplemental guidelines posted on the Platform.
+          If you do not agree to these Terms, you must immediately discontinue use of the Platform.
         </p>
         <p className="text-gray-300 mb-4">
-          We may modify these Terms at any time. Material changes will be communicated via email or a prominent notice at least <strong>14 days</strong> before taking effect. For changes affecting your rights, we may require re-acceptance. Continued use after the effective date constitutes acceptance.
+          These Terms constitute a legally binding agreement between you and AiMediaTank. Your use of the Platform is also governed by our <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link> and any additional policies, guidelines, or rules posted on the Platform.
         </p>
 
         {/* 2. Eligibility */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">2. Eligibility</h2>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">2.1 Minimum Age</h3>
-        <p className="text-gray-300 mb-4">
-          You must be at least <strong>13 years of age</strong> to create an account or use the Platform. By using the Platform, you represent and warrant that you meet this requirement.
-        </p>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">2.2 Users Aged 13–17</h3>
-        <ul className="list-disc list-inside text-gray-300 space-y-2 mb-4">
-          <li>Must have verifiable parental or legal guardian consent before creating an account.</li>
-          <li>Parents/guardians are responsible for monitoring usage and agree to these Terms on the minor&apos;s behalf.</li>
-          <li>Filtered access to age-appropriate content; mature/adult content is restricted.</li>
-          <li>Financial transactions require parental authorization.</li>
-          <li>Content filtering is automatic and cannot be disabled by the minor.</li>
-        </ul>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">2.3 Users 18+</h3>
+        <p className="text-gray-300 mb-2">To create an account or use the Platform, you must:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>Full access to all content, including age-restricted material.</li>
-          <li>Upload, purchase, sell, rate, comment, and access all Platform features.</li>
+          <li>be at least thirteen (13) years of age</li>
+          <li>have the legal capacity to enter into a binding agreement</li>
+          <li>not be located in a jurisdiction restricted by U.S. sanctions or applicable law</li>
         </ul>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">2.4 Users Under 13</h3>
         <p className="text-gray-300 mb-4">
-          <strong>Not permitted to use the Platform.</strong> If we learn personal information has been collected from a child under 13, we will delete it promptly.
+          Users under the age of 13 are strictly prohibited from using the Platform.
         </p>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">2.5 General Requirements</h3>
-        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>Legal capacity to enter a binding agreement (or parental consent if a minor).</li>
-          <li>Not barred under applicable local, national, or international law.</li>
-          <li>Not located in a U.S.-embargoed country or on a restricted parties list.</li>
-        </ul>
+        <p className="text-gray-300 mb-4">
+          If you are under the age of 18, you represent that you have permission from a parent or legal guardian.
+        </p>
 
         {/* 3. Description */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">3. Description of Service</h2>
         <p className="text-gray-300 mb-4">
-          AiMediaTank is a global community platform for sharing, discovering, showcasing, and purchasing AI-generated and real media content — videos, images, and music — with built-in tools to publish, showcase, and monetize creative work.
+          AiMediaTank is a global digital media marketplace and community platform where users may upload, share, discover, showcase, license, and purchase digital media including but not limited to: videos, images, music, AI-generated media, AI-assisted media, and real-world creative media.
         </p>
         <p className="text-gray-300 mb-4">
-          You acknowledge that AI-generated content is an emerging technology with an evolving legal landscape around ownership, copyright, and liability. You use the Platform at your own risk.
+          The Platform provides tools for creators to publish, distribute, and monetize their content.
+        </p>
+        <p className="text-gray-300 mb-4">
+          You acknowledge that AI-generated content technologies are evolving, and the legal framework surrounding authorship, copyright, and ownership may change over time. Use of such content is undertaken at your own risk.
         </p>
 
         {/* 4. User Accounts */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">4. User Accounts</h2>
-
         <h3 className="text-lg font-semibold mt-6 mb-3">4.1 Account Creation</h3>
+        <p className="text-gray-300 mb-2">To access certain features, users must create an account and:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>One account per person</strong> — multiple accounts are prohibited.</li>
-          <li>Accurate, current, and complete information required.</li>
-          <li>You are solely responsible for credential security and all account activity.</li>
-          <li>Report unauthorized access immediately to support@aimediatank.com.</li>
+          <li>provide accurate information</li>
+          <li>maintain the security of login credentials</li>
+          <li>promptly update account information when necessary</li>
         </ul>
-
+        <p className="text-gray-300 mb-4">You are responsible for all activities conducted under your account.</p>
         <h3 className="text-lg font-semibold mt-6 mb-3">4.2 Verification</h3>
+        <p className="text-gray-300 mb-2">AiMediaTank may require verification including:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>Email verification required for all accounts.</li>
-          <li>Age verification for restricted content/features.</li>
-          <li>Additional ID verification for sellers, high-value transactions, or flagged accounts.</li>
+          <li>email verification</li>
+          <li>phone verification</li>
+          <li>identity verification</li>
+          <li>payment verification for sellers</li>
         </ul>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">4.3 Suspension &amp; Termination</h3>
-        <p className="text-gray-300 mb-2"><strong>By You:</strong> Delete your account any time via settings or support. Deletion is permanent.</p>
-        <p className="text-gray-300 mb-2"><strong>By AiMediaTank:</strong> We may suspend or terminate accounts for Terms violations, illegal activity, inactivity (24+ months), fraud, or at law enforcement request. Appeals accepted within 30 days.</p>
-        <p className="text-gray-300 mb-4">
-          After termination: transaction records retained 7 years (legal compliance); personal data deleted within 30 days; purchased content may remain in buyers&apos; libraries.
-        </p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">4.3 Account Suspension or Termination</h3>
+        <p className="text-gray-300 mb-2">We may suspend or terminate accounts that:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li>violate these Terms</li>
+          <li>engage in fraud or illegal activity</li>
+          <li>upload prohibited or infringing content</li>
+          <li>misuse the Platform</li>
+        </ul>
+        <p className="text-gray-300 mb-4">Users may request account deletion at any time.</p>
 
         {/* 5. User Conduct */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">5. User Conduct</h2>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">5.1 Expected Behavior</h3>
+        <p className="text-gray-300 mb-2">Users agree to:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>Treat all users with respect, civility, and professionalism.</li>
-          <li>Provide accurate and truthful information.</li>
-          <li>Safeguard credentials and report violations.</li>
-          <li>Respect intellectual property and privacy rights.</li>
-          <li>Comply with all applicable laws.</li>
+          <li>comply with all applicable laws</li>
+          <li>respect intellectual property rights</li>
+          <li>interact respectfully with other users</li>
+          <li>refrain from abusive or harassing behavior</li>
         </ul>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">5.2 Prohibited Activities</h3>
+        <p className="text-gray-300 mb-2">Prohibited activities include:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>Harassment, bullying, threats, stalking, discrimination.</li>
-          <li>Multiple accounts to circumvent bans.</li>
-          <li>Impersonation of users, public figures, or entities.</li>
-          <li>Hacking, exploiting, or reverse-engineering the Platform.</li>
-          <li>Introducing malware or harmful code.</li>
-          <li>Scraping data without permission.</li>
-          <li>Manipulating ratings, reviews, or engagement metrics.</li>
-          <li>Fraudulent transactions or financial crimes.</li>
-          <li>Unauthorized bots, scripts, or automated tools.</li>
-          <li>Circumventing content filters, age restrictions, or safety mechanisms.</li>
+          <li>hacking or attempting to exploit the Platform</li>
+          <li>impersonating other users or public figures</li>
+          <li>fraudulent transactions</li>
+          <li>automated scraping or data harvesting</li>
+          <li>distribution of malware or harmful code</li>
+          <li>manipulation of engagement metrics</li>
+          <li>doxxing or unauthorized disclosure of personal information</li>
+          <li>illegal surveillance or unauthorized recording</li>
         </ul>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">5.3 Consequences</h3>
-        <p className="text-gray-300 mb-4">
-          Violations may result in: warning, content removal, temporary suspension (7–90 days), permanent termination, legal action, or financial consequences (payout withholding/forfeit).
-        </p>
+        <p className="text-gray-300 mb-4">Violations may result in warnings, suspension, or permanent account termination.</p>
 
         {/* 6. Content Guidelines */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">6. Content Guidelines</h2>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">6.1 Acceptable Content</h3>
+        <p className="text-gray-300 mb-2">Users may upload content that is:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>AI-generated, AI-assisted, or original real-world content you created.</li>
-          <li>Original or properly licensed with legal right to distribute.</li>
-          <li>Accurately labeled (AI tool or capture device disclosed).</li>
-          <li>Appropriate for general audiences unless rated otherwise.</li>
-          <li>Compliant with all applicable laws.</li>
+          <li>AI-generated, AI-assisted, or original content</li>
+          <li>lawfully owned or licensed by the uploader</li>
+          <li>compliant with all applicable laws</li>
         </ul>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">6.2 Prohibited Content</h3>
+        <p className="text-gray-300 mb-2">Prohibited content includes:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>CSAM</strong> — reported to NCMEC and law enforcement.</li>
-          <li>Non-consensual intimate imagery (including AI deepfakes).</li>
-          <li>Deepfakes of real individuals without explicit consent.</li>
-          <li>Violence, terrorism, or self-harm promotion.</li>
-          <li>Hate speech targeting protected characteristics.</li>
-          <li>Intellectual property infringement.</li>
-          <li>Malware, phishing, spam, or deceptive content.</li>
-          <li>Illegal activity or misleading AI/real attribution.</li>
-          <li>Content violating AI tool terms of service.</li>
-          <li>Export control or sanctions violations.</li>
+          <li>child sexual exploitation material</li>
+          <li>non-consensual intimate imagery</li>
+          <li>deepfakes of real individuals without consent</li>
+          <li>hate speech or extremist content</li>
+          <li>terrorism-related material</li>
+          <li>malware or phishing content</li>
+          <li>intellectual property infringement</li>
         </ul>
+        <p className="text-gray-300 mb-4">AiMediaTank may utilize automated systems and manual moderation to review content.</p>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">6.3 Moderation</h3>
-        <p className="text-gray-300 mb-4">
-          Automated + human review. Reports reviewed within 48 hours. Appeals accepted within 14 days. Repeated violations lead to termination.
-        </p>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">6.4 Age-Restricted Content</h3>
-        <p className="text-gray-300 mb-4">
-          Mature (18+) content must be labeled using the rating system. Age verification required. Minors&apos; filtering is automatic and mandatory. Failure to label is a violation.
-        </p>
-
-        {/* 7. AI Content */}
+        {/* 7. AI-Generated Content */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">7. AI-Generated Content Policy</h2>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">7.1 Definition</h3>
-        <p className="text-gray-300 mb-4">
-          Media created wholly or partially using AI tools: image generators (Midjourney, DALL-E, Stable Diffusion, Adobe Firefly, Leonardo AI), video generators (Runway, Pika, Sora, Kling, Luma, HailuoAI), music generators (Suno, Udio, AIVA, Soundraw), and other generative AI technologies.
-        </p>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">7.2 Disclosure</h3>
+        <p className="text-gray-300 mb-4">AI-generated media must be clearly disclosed during upload.</p>
+        <p className="text-gray-300 mb-2">Examples include content created using:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>AI content <strong>must</strong> be identified as AI-generated at upload.</li>
-          <li>Primary AI tool(s) <strong>must</strong> be specified.</li>
-          <li>Sharing prompts/techniques is encouraged.</li>
-          <li>Misrepresentation is prohibited. Aligns with EU AI Act transparency obligations.</li>
+          <li>image generation tools</li>
+          <li>video generation tools</li>
+          <li>music generation tools</li>
+          <li>AI-assisted editing software</li>
+        </ul>
+        <p className="text-gray-300 mb-4">Users are solely responsible for ensuring they have the legal rights to distribute such content.</p>
+        <p className="text-gray-300 mb-4">AiMediaTank does not claim ownership of AI-generated media and will not use uploaded content to train AI models without user consent.</p>
+        <p className="text-gray-300 mb-2">Content uploaded to the Platform may be processed by automated systems for purposes including:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li>moderation</li>
+          <li>indexing</li>
+          <li>recommendation algorithms</li>
+          <li>search functionality</li>
+          <li>platform security</li>
         </ul>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">7.3 Compliance &amp; Ethics</h3>
-        <p className="text-gray-300 mb-4">
-          You are responsible for AI tool TOS compliance, commercialization rights, and ensuring no third-party infringement. Do not upload content from unauthorized training data. AiMediaTank does not use uploads to train AI without consent.
-        </p>
-
-        {/* 8. Copyright */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">8. Copyright and Intellectual Property</h2>
-
+        {/* 8. Intellectual Property */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">8. Intellectual Property</h2>
         <h3 className="text-lg font-semibold mt-6 mb-3">8.1 Ownership</h3>
-        <p className="text-gray-300 mb-4">
-          You retain ownership. By uploading, you grant AiMediaTank a worldwide, non-exclusive, royalty-free, sublicensable license to display, distribute, and promote your content on the Platform. License continues until content/account deletion. We do not claim ownership.
-        </p>
+        <p className="text-gray-300 mb-4">Creators retain ownership of the media they upload. Uploading media to the Platform does not transfer ownership to AiMediaTank or other users.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">8.2 License Grant to Platform</h3>
+        <p className="text-gray-300 mb-2">By uploading media to the Platform, you grant AiMediaTank a worldwide, non-exclusive, royalty-free, sublicensable license to: host, store, reproduce, display, distribute, and promote the media solely for the purposes of operating, marketing, and improving the Platform. This license does not transfer ownership of the media.</p>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">8.2 DMCA</h3>
-        <p className="text-gray-300 mb-4">
-          We comply with the DMCA and international copyright frameworks. Takedown notices: provide contact info, copyrighted work identification, infringing material location, good faith and perjury statements, and signature. Send to support@aimediatank.com (Subject: &quot;DMCA Notice&quot;). Counter-notifications follow the same channel.
-        </p>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">8.3 Repeat Infringers</h3>
-        <p className="text-gray-300 mb-4">
-          Three-strike policy: accounts with three valid DMCA notices are permanently terminated.
-        </p>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">8.4 AI Content &amp; Copyright</h3>
-        <p className="text-gray-300 mb-4">
-          Copyright status of AI-generated content varies by jurisdiction. AiMediaTank does not guarantee AI-generated uploads are eligible for copyright protection.
-        </p>
-
-        {/* 9. Payments */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">9. Payment and Refund Policy</h2>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">9.1 Pricing &amp; Processing</h3>
-        <p className="text-gray-300 mb-4">
-          All prices in USD. Taxes (VAT, GST, sales tax) may apply. Processed via <strong>Stripe</strong> (PCI DSS Level 1). We never store card details. 30 days&apos; notice for price increases.
-        </p>
-
-        <h3 className="text-lg font-semibold mt-6 mb-3">9.2 Membership Plans</h3>
+        {/* 9. Membership Plans */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">9. Membership Plans</h2>
+        <p className="text-gray-300 mb-4">The Platform may offer optional paid membership tiers.</p>
         <div className="overflow-x-auto mb-4">
           <table className="w-full text-gray-300 text-sm">
             <thead>
@@ -241,113 +180,131 @@ export default function TermsPage() {
               <tr className="border-b border-tank-light/50">
                 <td className="py-2 px-3">Viewer</td>
                 <td className="py-2 px-3">Free</td>
-                <td className="py-2 px-3">Browse &amp; purchase; 5 free uploads</td>
+                <td className="py-2 px-3">Browse, purchase, limited uploads</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-2 px-3">Basic</td>
-                <td className="py-2 px-3">$2/mo</td>
-                <td className="py-2 px-3">5 free uploads; $1/extra; sell content</td>
+                <td className="py-2 px-3">$2/month</td>
+                <td className="py-2 px-3">10 uploads, additional upload fees, selling access</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-2 px-3">Advanced</td>
-                <td className="py-2 px-3">$5/mo</td>
-                <td className="py-2 px-3">5 free uploads; $0.50/extra; priority support</td>
+                <td className="py-2 px-3">$5/month</td>
+                <td className="py-2 px-3">reduced upload cost, priority support</td>
               </tr>
               <tr>
                 <td className="py-2 px-3">Premium</td>
-                <td className="py-2 px-3">$8/mo</td>
-                <td className="py-2 px-3">Unlimited uploads; featured; creator badge</td>
+                <td className="py-2 px-3">$8/month</td>
+                <td className="py-2 px-3">unlimited uploads, featured listings</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <p className="text-gray-300 mb-4">Membership fees are non-refundable except where required by law. Users may cancel at any time, but no partial refunds will be issued.</p>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">9.3 Refunds</h3>
+        {/* 10. Marketplace Trade Terms */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">10. Marketplace Trade Terms</h2>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.1 Seller Pricing Rights</h3>
+        <p className="text-gray-300 mb-4">Sellers retain full control over pricing of their media (&quot;Tag Price&quot;). Prices may be modified at any time but will not affect completed transactions. AiMediaTank does not verify or control seller pricing.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.2 Payment Processing</h3>
+        <p className="text-gray-300 mb-4">Buyers pay the Tag Price plus applicable taxes through the Platform. Payments may be processed through third-party payment providers. AiMediaTank acts as a marketplace facilitator and payment intermediary. Use of payment services may also be subject to the terms of the applicable payment processor.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.3 Platform Processing Fee</h3>
+        <p className="text-gray-300 mb-4">For each completed sale: AiMediaTank retains 30% Processing Fee; 70% is credited to the Seller. Processing fees may be modified for future transactions at the Company&apos;s discretion.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.4 Seller Payouts</h3>
+        <p className="text-gray-300 mb-4">Seller earnings accumulate in their account. Withdrawals occur when the account balance reaches $50 USD or more. If a seller withdraws below $50: the seller is responsible for transaction fees; fees may be up to 10% depending on payment method. Sellers are responsible for any applicable taxes and reporting obligations related to their earnings.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.5 No Refunds</h3>
+        <p className="text-gray-300 mb-4">Due to the nature of digital media, all purchases are final. No refunds, returns, cancellations, or exchanges are permitted once the media has been downloaded.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.6 Seller Representations</h3>
+        <p className="text-gray-300 mb-4">Sellers represent and warrant that they are the original creator or they possess all rights necessary to distribute the media. Sellers are solely responsible for copyright compliance.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.7 License to Buyers</h3>
+        <p className="text-gray-300 mb-4">Upon lawful purchase and download, buyers receive a non-exclusive, perpetual, worldwide, royalty-free license to use, reproduce, display, modify, and distribute the media for personal or commercial purposes, unless otherwise restricted. Ownership remains with the creator.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.8 Prohibited Uses</h3>
+        <p className="text-gray-300 mb-4">Buyers may not: claim authorship of the media; resell the media as a competing stock asset; use media for illegal or defamatory purposes.</p>
+
+        {/* 11. Content Moderation */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">11. Content Moderation</h2>
+        <p className="text-gray-300 mb-4">AiMediaTank reserves the right to remove or disable access to any content at its sole discretion. Where possible, users will be notified regarding the reason for removal.</p>
+
+        {/* 12. Copyright and DMCA */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">12. Copyright and DMCA</h2>
+        <p className="text-gray-300 mb-4">AiMediaTank complies with the Digital Millennium Copyright Act (DMCA). Copyright owners may submit takedown requests. Repeat infringers may have their accounts permanently terminated.</p>
+
+        {/* 13. Third-Party Platforms */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">13. Third-Party Platforms</h2>
+        <p className="text-gray-300 mb-2">The Platform allows sharing to third-party services including: YouTube, TikTok, X (formerly Twitter), Facebook, LinkedIn, Reddit, WhatsApp.</p>
+        <p className="text-gray-300 mb-4">When sharing content to these services, users are subject to the terms and privacy policies of those platforms. AiMediaTank is not affiliated with or endorsed by the companies operating these services.</p>
+
+        {/* 14. Disclaimer */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">14. Disclaimer of Warranties</h2>
+        <p className="text-gray-300 mb-4 text-sm">
+          THE PLATFORM IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE.&quot; AiMediaTank makes no warranties, express or implied, including: merchantability, fitness for a particular purpose, non-infringement, uninterrupted service. Use of the Platform is at your own risk.
+        </p>
+
+        {/* 15. Limitation of Liability */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">15. Limitation of Liability</h2>
+        <p className="text-gray-300 mb-4 text-sm">
+          To the maximum extent permitted by law, AiMediaTank shall not be liable for: disputes between buyers and sellers; misuse of media by third parties; intellectual property claims arising from uploaded content; indirect or consequential damages. Total liability shall not exceed the greater of: $100 USD, or the total processing fees paid to the Company in the previous 12 months.
+        </p>
+
+        {/* 16. Indemnification */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">16. Indemnification</h2>
+        <p className="text-gray-300 mb-4">You agree to indemnify, defend, and hold harmless AiMediaTank and its officers, employees, and affiliates from any claims arising from: your use of the Platform; content you upload; violations of these Terms; infringement of third-party rights.</p>
+
+        {/* 17. Service Availability */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">17. Service Availability</h2>
+        <p className="text-gray-300 mb-4">AiMediaTank reserves the right to modify, suspend, or discontinue any part of the Platform at any time without liability. The Company does not guarantee uninterrupted availability.</p>
+
+        {/* 18. Export Compliance */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">18. Export Compliance</h2>
+        <p className="text-gray-300 mb-4">Users may not use the Platform in violation of United States export control or sanctions laws. Users represent that they are not located in, or acting on behalf of, any sanctioned jurisdiction.</p>
+
+        {/* 19. Dispute Resolution */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">19. Dispute Resolution</h2>
+        <p className="text-gray-300 mb-4">These Terms are governed by the laws of the State of Washington, United States. Users agree to attempt informal resolution by contacting support@aimediatank.com before initiating formal proceedings.</p>
+
+        {/* 20. Arbitration */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">20. Arbitration Agreement</h2>
+        <p className="text-gray-300 mb-4">Any dispute arising from these Terms shall be resolved through binding arbitration administered by the American Arbitration Association (AAA). Arbitration shall be conducted: by a single arbitrator; in English; in Washington State or via virtual hearing. Small claims court actions remain permitted where applicable.</p>
+
+        {/* 21. Class Action Waiver */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">21. Class Action Waiver</h2>
+        <p className="text-gray-300 mb-4">Users agree that disputes will be resolved individually. You waive any right to participate in: class actions; class arbitration; representative lawsuits.</p>
+
+        {/* 22. Force Majeure */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">22. Force Majeure</h2>
+        <p className="text-gray-300 mb-4">AiMediaTank shall not be liable for delays or failures caused by events beyond its reasonable control including: natural disasters; war; cyberattacks; infrastructure failures; government actions.</p>
+
+        {/* 23. Survival */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">23. Survival of Terms</h2>
+        <p className="text-gray-300 mb-4">The following sections survive termination: Intellectual Property; Limitation of Liability; Indemnification; Dispute Resolution; Arbitration; Class Action Waiver.</p>
+
+        {/* 24. User Content Responsibility and Safe Harbor */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">24. User Content Responsibility and Safe Harbor</h2>
+        <p className="text-gray-300 mb-4">Users are solely responsible for the media, files, text, and other content they upload, publish, or distribute through the Platform (&quot;User Content&quot;). AiMediaTank does not review all uploaded content and does not guarantee the legality, accuracy, or ownership of User Content.</p>
+        <p className="text-gray-300 mb-4">By uploading content to the Platform, you represent and warrant that: you own the content or you have obtained all necessary licenses, rights, and permissions to upload and distribute the content.</p>
+        <p className="text-gray-300 mb-4">AiMediaTank operates as an online service provider under the Digital Millennium Copyright Act (DMCA) and qualifies for safe harbor protection under 17 U.S.C. §512. The Company shall not be held liable for infringing content uploaded by users, provided that it responds to valid takedown notices and removes infringing material when notified.</p>
+
+        {/* 25. User Liability for Uploaded Media */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">25. User Liability for Uploaded Media</h2>
+        <p className="text-gray-300 mb-2">Users are solely responsible for ensuring that media uploaded to the Platform:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>Digital content:</strong> All sales final once accessed. Refunds at discretion for technical issues, misrepresentation, or duplicates within 7 days.</li>
-          <li><strong>Subscriptions:</strong> Cancel any time; no partial refunds. Access through paid period. No refund if terminated for violations.</li>
+          <li>does not infringe copyrights</li>
+          <li>does not violate trademarks</li>
+          <li>does not violate rights of publicity or privacy</li>
+          <li>does not contain unauthorized third-party material</li>
         </ul>
+        <p className="text-gray-300 mb-4">The Company does not independently verify ownership of uploaded media. If any claim, lawsuit, or legal dispute arises from uploaded media, the User agrees to indemnify and hold harmless AiMediaTank from any damages, costs, or legal fees resulting from such claims. The Company reserves the right to: remove disputed media; suspend accounts; cooperate with law enforcement when required.</p>
 
-        <h3 className="text-lg font-semibold mt-6 mb-3">9.4 Creator Payouts</h3>
-        <p className="text-gray-300 mb-4">
-          Creators receive <strong>70%</strong> net revenue (30% platform commission). Minimum payout $10. Monthly via Stripe Connect. Creators responsible for tax reporting. Fraudulent chargebacks may lead to termination.
-        </p>
+        {/* 26. Changes to Terms */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">26. Changes to Terms</h2>
+        <p className="text-gray-300 mb-4">The Company reserves the right to modify these Terms at any time. Updated versions will be posted on the Platform and will become effective upon publication.</p>
 
-        {/* 10. Third-Party */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">10. Third-Party Platforms</h2>
-        <p className="text-gray-300 mb-4">
-          The Platform allows sharing to <strong>YouTube</strong>, <strong>TikTok</strong>, <strong>X (formerly Twitter)</strong>, Facebook, LinkedIn, Reddit, and WhatsApp. When sharing, you are subject to that platform&apos;s terms and privacy policy. We are not responsible for third-party data handling.
-        </p>
-        <p className="text-gray-300 mb-4">
-          Social login via Google, Microsoft, Facebook, and Apple provides limited profile data only (name, email, picture). We do not access your posts, friends, or messages. See our <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link> for details.
-        </p>
-        <p className="text-gray-300 mb-2">Platform-specific terms apply:</p>
-        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li><strong>YouTube:</strong> <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">YouTube Terms</a> &amp; <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">Google Privacy</a></li>
-          <li><strong>TikTok:</strong> <a href="https://www.tiktok.com/legal/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">TikTok Terms</a> &amp; <a href="https://www.tiktok.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">TikTok Privacy</a></li>
-          <li><strong>X:</strong> <a href="https://x.com/en/tos" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">X Terms</a> &amp; <a href="https://x.com/en/privacy" target="_blank" rel="noopener noreferrer" className="text-tank-accent hover:underline">X Privacy</a></li>
-        </ul>
-        <p className="text-gray-300 mb-4 text-sm">
-          AiMediaTank is not affiliated with or endorsed by Google LLC, ByteDance Ltd., X Corp., Meta Platforms, Inc., Apple Inc., or Microsoft Corporation.
-        </p>
-
-        {/* 11. Disclaimer */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">11. Disclaimer of Warranties</h2>
-        <p className="text-gray-300 mb-4 text-sm">
-          THE PLATFORM IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, OR AVAILABILITY. WE DO NOT GUARANTEE UNINTERRUPTED, SECURE, OR ERROR-FREE ACCESS. RELIANCE ON PLATFORM CONTENT IS AT YOUR OWN RISK.
-        </p>
-
-        {/* 12. Liability */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">12. Limitation of Liability</h2>
-        <p className="text-gray-300 mb-4 text-sm">
-          TO THE MAXIMUM EXTENT PERMITTED BY LAW, AIMEDIATANK SHALL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, PUNITIVE, OR EXEMPLARY DAMAGES. TOTAL AGGREGATE LIABILITY SHALL NOT EXCEED THE GREATER OF AMOUNTS PAID IN THE PRECEDING 12 MONTHS OR $100 USD. SOME JURISDICTIONS DO NOT ALLOW THESE LIMITATIONS; IN SUCH CASES, LIABILITY IS LIMITED TO THE FULLEST EXTENT PERMITTED BY LAW.
-        </p>
-
-        {/* 13. Indemnification */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">13. Indemnification</h2>
-        <p className="text-gray-300 mb-4">
-          You agree to indemnify, defend, and hold harmless AiMediaTank and its officers, directors, employees, and affiliates from claims arising from your use of the Platform, violations of these Terms, content you upload, or infringement of third-party rights.
-        </p>
-
-        {/* 14. Dispute Resolution */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">14. Dispute Resolution</h2>
-        <p className="text-gray-300 mb-4">
-          <strong>Governing Law:</strong> State of Washington, United States (except where superseded by mandatory local consumer protection laws).
-        </p>
-        <p className="text-gray-300 mb-4">
-          <strong>Informal Resolution First:</strong> Contact support@aimediatank.com; 30-day resolution period.
-        </p>
-        <p className="text-gray-300 mb-4">
-          <strong>Arbitration:</strong> Binding individual arbitration under AAA Consumer Rules. English, virtual or King County, WA. We pay filing fees for non-frivolous claims under $10,000.
-        </p>
-        <p className="text-gray-300 mb-4">
-          <strong>Class Action Waiver:</strong> To the fullest extent permitted by law, you waive the right to participate in class actions or class arbitration. May not be enforceable in all jurisdictions.
-        </p>
-        <p className="text-gray-300 mb-4">
-          <strong>Exceptions:</strong> IP injunctive relief, small claims court, and mandated local forums.
-        </p>
-
-        {/* 15. General */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">15. General Provisions</h2>
-        <ul className="list-disc list-inside text-gray-300 space-y-2 mb-4">
-          <li><strong>Entire Agreement:</strong> These Terms + <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link> constitute the entire agreement.</li>
-          <li><strong>Severability:</strong> Invalid provisions are modified minimally; remaining provisions continue.</li>
-          <li><strong>Assignment:</strong> We may assign without restriction; you may not without consent.</li>
-          <li><strong>Waiver:</strong> Failure to enforce does not constitute waiver; waivers must be written.</li>
-          <li><strong>Force Majeure:</strong> Not liable for failures beyond reasonable control (disasters, wars, pandemics, cyberattacks).</li>
-          <li><strong>Export Compliance:</strong> Platform subject to U.S. export controls and sanctions.</li>
-          <li><strong>Accessibility:</strong> Committed to accessibility. Contact support@aimediatank.com (Subject: &quot;Accessibility&quot;).</li>
-        </ul>
-
-        {/* 16. Contact */}
-        <h2 className="text-xl font-bold mt-10 mb-4 text-white">16. Contact Information</h2>
+        {/* 27. Contact */}
+        <h2 className="text-xl font-bold mt-10 mb-4 text-white">27. Contact Information</h2>
         <div className="bg-tank-dark rounded-xl p-4 space-y-2 mb-4">
-          <p className="text-gray-300"><strong>General Support:</strong> support@aimediatank.com</p>
-          <p className="text-gray-300"><strong>Legal Inquiries:</strong> support@aimediatank.com (Subject: &quot;Legal Inquiry&quot;)</p>
-          <p className="text-gray-300"><strong>DMCA / Copyright:</strong> support@aimediatank.com (Subject: &quot;DMCA Notice&quot;)</p>
-          <p className="text-gray-300"><strong>Trust &amp; Safety:</strong> support@aimediatank.com (Subject: &quot;Trust &amp; Safety Report&quot;)</p>
-          <p className="text-gray-300"><strong>Website:</strong> https://www.aimediatank.com</p>
-          <p className="text-gray-400 text-sm mt-2">Response time: within 2 business days.</p>
+          <p className="text-gray-300"><strong>AiMediaTank Support</strong></p>
+          <p className="text-gray-300">Email: support@aimediatank.com</p>
+          <p className="text-gray-300">Website: https://www.aimediatank.com</p>
         </div>
 
         {/* Footer */}
