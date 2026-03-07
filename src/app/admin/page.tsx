@@ -1597,6 +1597,7 @@ export default function AdminPage() {
                     <option value="IMAGE">Image</option>
                     <option value="MUSIC">Music</option>
                   </select>
+                  <span className="text-sm text-gray-400 whitespace-nowrap shrink-0 ml-1">{filteredMedia.length === media.length ? `Total: ${media.length}` : `${filteredMedia.length} of ${media.length}`}</span>
                 </div>
                 {mediaTypeColFilter.length > 0 && (
                   <button
@@ -1606,7 +1607,6 @@ export default function AdminPage() {
                     ✕ Clear filters
                   </button>
                 )}
-                <span className="text-sm text-gray-400">{filteredMedia.length === media.length ? `Total: ${media.length}` : `${filteredMedia.length} of ${media.length}`}</span>
                 
                 {/* File size tools - inline with filters */}
                 <div className="ml-auto flex items-center gap-3 bg-tank-dark/50 px-3 py-1.5 rounded-lg border border-tank-light/20">
