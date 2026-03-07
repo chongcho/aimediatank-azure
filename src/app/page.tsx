@@ -766,7 +766,7 @@ function HomeContent() {
   return (
     <div className="w-full p-0 m-0 pb-[500px]">
       {/* Hero Section with Search - Single Row */}
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mb-8 py-2 px-[10px]">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mb-4 py-2 px-[10px]">
         {/* Left: Title */}
         <div className="flex-shrink-0 overflow-visible">
           <div className="flex items-end gap-0">

@@ -1201,7 +1201,6 @@ function UploadPageContent() {
                       src={preview}
                       controls
                       playsInline
-                      muted
                       preload="metadata"
                       className="max-h-64 mx-auto rounded-lg"
                       onLoadedMetadata={(e) => {
