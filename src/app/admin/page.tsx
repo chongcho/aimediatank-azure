@@ -1574,12 +1574,12 @@ export default function AdminPage() {
                     placeholder="Search title or creator..."
                     value={mediaSearch}
                     onChange={(e) => setMediaSearch(e.target.value)}
-                    className="input w-36 sm:w-44 max-w-[200px] h-8 text-xs"
+                    className="w-36 sm:w-44 max-w-[200px] h-8 text-xs px-2 py-1 rounded border bg-gray-800 border-gray-500 text-gray-100 placeholder-gray-400 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent/50"
                   />
                   <select
                     value={mediaStatusFilter}
                     onChange={(e) => { setMediaStatusFilter(e.target.value); setMediaPage(1) }}
-                    className="bg-tank-dark border border-tank-light/50 rounded px-2 py-1 h-8 text-xs text-gray-200 shrink-0"
+                    className="bg-gray-800 border border-gray-500 rounded px-2 py-1 h-8 text-xs text-gray-100 shrink-0 focus:border-tank-accent focus:outline-none"
                   >
                     <option value="all">All status</option>
                     <option value="approved">Approved</option>
@@ -1590,7 +1590,7 @@ export default function AdminPage() {
                   <select
                     value={mediaTypeFilter}
                     onChange={(e) => { setMediaTypeFilter(e.target.value); setMediaPage(1) }}
-                    className="bg-tank-dark border border-tank-light/50 rounded px-2 py-1 h-8 text-xs text-gray-200 shrink-0"
+                    className="bg-gray-800 border border-gray-500 rounded px-2 py-1 h-8 text-xs text-gray-100 shrink-0 focus:border-tank-accent focus:outline-none"
                   >
                     <option value="all">All types</option>
                     <option value="VIDEO">Video</option>
