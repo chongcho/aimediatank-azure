@@ -29,7 +29,11 @@ function escapeRegex(s: string): string {
 function keywordCheck(text: string): { flagged: boolean; matched: string[] } {
   const normalized = normalizeText(text)
   const matched = MATURE_KEYWORDS.filter((kw) => {
-    const re = new RegExp('\\b' + escapeRegex(kw) + '\\b', 'i')
+    // Trailing \b only works when keyword ends with a word char; "18+" ends with "+" (non-word),
+    // so \b after "+" never matches (space after "+" is also non-word). Use (?=\s|$) for those.
+    const endsWithWordChar = /\w$/.test(kw)
+    const endAnchor = endsWithWordChar ? '\\b' : '(?=\\s|$)'
+    const re = new RegExp('\\b' + escapeRegex(kw) + endAnchor, 'i')
     return re.test(normalized)
   })
   return { flagged: matched.length > 0, matched }
