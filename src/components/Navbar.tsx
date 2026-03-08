@@ -112,10 +112,16 @@ function NavbarContent() {
     return () => window.removeEventListener('homeLayoutUpdated', handler as EventListener)
   }, [fetchHomeLayout])
 
-  // If chat is disabled via Navbar Control, force-close it.
+  // If an interactive navbar item is disabled via Navbar Control, force-close it.
   useEffect(() => {
     if (!isNavbarItemEnabled('chat')) {
       setIsTalkChatOpen(false)
+    }
+    if (!isNavbarItemEnabled('notification')) {
+      setIsAlertsOpen(false)
+      setExpandedNotificationId(null)
+      setIsSelectMode(false)
+      setSelectedIds(new Set())
     }
   }, [isNavbarItemEnabled])
 
@@ -469,7 +475,7 @@ function NavbarContent() {
           {/* Right Side */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Notification Bell - signed-in users */}
-            {session && (
+            {session && isNavbarItemEnabled('notification') && (
               <div className="relative" ref={alertsRef}>
                 <button
                   onClick={(e) => {

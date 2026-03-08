@@ -15,6 +15,7 @@ const defaultItems = [
   { itemKey: 'upload', label: 'Post', isEnabled: true, sortOrder: 8 },
   { itemKey: 'signIn', label: 'Sign In', isEnabled: true, sortOrder: 9 },
   { itemKey: 'signUp', label: 'Sign Up', isEnabled: true, sortOrder: 10 },
+  { itemKey: 'notification', label: 'Notification', isEnabled: true, sortOrder: 11 },
 ]
 
 export async function GET() {
