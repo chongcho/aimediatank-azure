@@ -2254,7 +2254,8 @@ export default function AdminPage() {
                               item.versions && item.versions.length > 0 ? (
                                 <div className="text-xs space-y-0.5 max-w-[180px]">
                                   {item.versions
-                                    .filter((v) => ![144, 240, 360].includes(v.height))
+                                    // Show all modern variants including 360p; hide only old 144p/240p legacy rungs.
+                                    .filter((v) => ![144, 240].includes(v.height))
                                     .map((v) => (
                                     <div key={v.id} className="flex items-center justify-between gap-2">
                                       <span className={v.label === '720p' ? 'text-green-400' : v.label === 'HQ' ? 'text-blue-400' : 'text-gray-400'}>
