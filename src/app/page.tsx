@@ -682,10 +682,17 @@ function HomeContent() {
     window.location.href = `/media/${suggestion.id}`
   }
 
-  const fetchMedia = async (pageNum: number = 1, isReset: boolean = false, isRetry: boolean = false, signal?: AbortSignal) => {
+  const fetchMedia = async (
+    pageNum: number = 1,
+    isReset: boolean = false,
+    isRetry: boolean = false,
+    signal?: AbortSignal,
+    isBackground: boolean = false,
+  ) => {
     if (isReset) {
       setLoading(true)
-    } else {
+    } else if (!isBackground) {
+      // Only show the \"Loading more…\" spinner for user-initiated pagination, not background refresh
       setLoadingMore(true)
     }
 
@@ -731,13 +738,16 @@ function HomeContent() {
           const deduped = newMedia.filter((m: Media) => !existingIds.has(m.id))
           if (!deduped.length) return prev
           // When refreshing page 1 (e.g. background poll), prepend new items so newest appear at top.
-          if (pageNum === 1) {
+          if (!isBackground && pageNum === 1) {
             return [...deduped, ...prev]
           }
           return [...prev, ...deduped]
         })
       }
-      setHasMore(pageNum < totalPages)
+      // Background refresh shouldn't re-open pagination once the user has reached the end
+      if (!isBackground) {
+        setHasMore(pageNum < totalPages)
+      }
     } catch (error) {
       if ((error as Error).name === 'AbortError') return
       console.error('Error fetching media:', error)
@@ -747,7 +757,9 @@ function HomeContent() {
     } finally {
       if (!signal?.aborted) {
         setLoading(false)
-        setLoadingMore(false)
+        if (!isBackground) {
+          setLoadingMore(false)
+        }
         // Mark content ready after initial load (not during scroll restoration —
         // the restore path sets contentReady after scroll position is restored).
         if (isReset && !isRestoringRef.current) {
@@ -764,14 +776,25 @@ function HomeContent() {
   useEffect(() => {
     // Only auto-refresh on the main recent feed without extra filters.
     if (sort !== 'recent' || search || type) return
+    const ac = new AbortController()
+    let backgroundRefreshing = false
     const interval = setInterval(() => {
       if (document.visibilityState !== 'visible') return
       if (loading || loadingMore || isRestoringRef.current) return
-      fetchMedia(1, false).catch(() => {
-        // Errors are already logged inside fetchMedia
-      })
+      if (backgroundRefreshing) return
+      backgroundRefreshing = true
+      fetchMedia(1, false, false, ac.signal, true)
+        .catch(() => {
+          // Errors are already logged inside fetchMedia
+        })
+        .finally(() => {
+          backgroundRefreshing = false
+        })
     }, 30000) // 30s cadence
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      ac.abort()
+    }
   }, [sort, type, search, loading, loadingMore])
 
   const handleSearch = (e: React.FormEvent) => {
