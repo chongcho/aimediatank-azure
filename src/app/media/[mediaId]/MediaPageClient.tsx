@@ -567,20 +567,14 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </div>
           </div>
         ) : hasPreviewStream ? (
-          <div className="relative">
-            <div className="no-touch-callout" onContextMenu={(e) => e.preventDefault()}>
-              <MediaPlayer
-                type={media.type}
-                url={(media as any).streamUrl ?? media.url}
-                title={media.title}
-                thumbnailUrl={media.thumbnailUrl}
-                autoUnmuteOnMount
-              />
-            </div>
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/70 text-gray-300 text-xs font-medium flex items-center gap-2">
-              <div className="w-3 h-3 border-2 border-tank-accent/50 border-t-tank-accent rounded-full animate-spin" />
-              Encoding higher quality…
-            </div>
+          <div className="no-touch-callout" onContextMenu={(e) => e.preventDefault()}>
+            <MediaPlayer
+              type={media.type}
+              url={(media as any).streamUrl ?? media.url}
+              title={media.title}
+              thumbnailUrl={media.thumbnailUrl}
+              autoUnmuteOnMount
+            />
           </div>
         ) : media.processingStatus === 'failed' ? (
           <div className="flex flex-col items-center justify-center py-20 px-4 text-center">

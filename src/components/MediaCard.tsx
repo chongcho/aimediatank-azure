@@ -530,7 +530,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             </div>
           )}
           {/* Small badge when 480p is playing but HD is still encoding */}
-          {hasPreviewStream && (
+          {!homeScrollContext && hasPreviewStream && (
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded-full bg-black/70 text-white/90 text-[10px] font-medium flex items-center gap-1.5 z-10">
               <div className="w-2 h-2 border-2 border-tank-accent/50 border-t-white/80 rounded-full animate-spin" />
               Encoding HD…
