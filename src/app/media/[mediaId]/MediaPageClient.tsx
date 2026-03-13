@@ -527,7 +527,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     media.type === 'VIDEO' &&
     media.processingStatus === 'processing' &&
     media.url &&
-    (/-480p\.mp4|/-720p\.mp4|/-1080p\.mp4|/-hq\.mp4)/i.test(media.url)
+    /-(?:480p|720p|1080p|hq)\.mp4/i.test(media.url)
 
   return (
     <div className="pb-[500px]">
