@@ -296,56 +296,91 @@ async function transcodeVideo(
 
   const dir = join(tmpdir(), 'media-processor')
 
-  // Use FFmpeg's built-in input dimensions (in_w / in_h) to guarantee the crop
-  // never exceeds coded pixel size — even when the client sends display-size crop
-  // data (e.g. SAR ≠ 1:1 → display width ≠ coded width).
+  // Crop filter for filter_complex (same clamp logic as buildVideoFilter).
+  const cropFilterStr = cropData
+    ? (() => {
+        const cx = Math.max(0, Math.round(cropData.x))
+        const cy = Math.max(0, Math.round(cropData.y))
+        const cw = Math.round(cropData.width)
+        const ch = Math.round(cropData.height)
+        return `crop='min(${cw},in_w-${cx})':'min(${ch},in_h-${cy})':'min(${cx},in_w-1)':'min(${cy},in_h-1)'`
+      })()
+    : null
+
   const buildVideoFilter = (scaleHeight?: number): string[] => {
     const filters: string[] = []
-    if (cropData) {
-      const cx = Math.max(0, Math.round(cropData.x))
-      const cy = Math.max(0, Math.round(cropData.y))
-      const cw = Math.round(cropData.width)
-      const ch = Math.round(cropData.height)
-      // Clamp with min(value, in_w/in_h - offset) using FFmpeg expressions
-      // so it never exceeds coded pixel dimensions regardless of SAR.
-      filters.push(`crop='min(${cw},in_w-${cx})':'min(${ch},in_h-${cy})':'min(${cx},in_w-1)':'min(${cy},in_h-1)'`)
-    }
+    if (cropData && cropFilterStr) filters.push(cropFilterStr)
     if (scaleHeight) filters.push(`scale=-2:${scaleHeight}`)
     return filters.length > 0 ? ['-vf', filters.join(',')] : []
   }
 
   const variants: VariantResult[] = []
 
-  // 1) First, create a fast preview variant (480p where possible) so the app
-  // can start playback quickly while higher resolutions encode.
+  // 1) Single-pass 480p + 720p + 1080p: one decode, multiple outputs (YouTube-style).
+  // Targets: only resolutions <= effectiveHeight (no upscale).
+  const multiTargets = [
+    ...(effectiveHeight >= 480 ? [480] : []),
+    ...(effectiveHeight >= 720 ? [720] : []),
+    ...(effectiveHeight >= 1080 ? [1080] : []),
+  ] as number[]
+
   let previewVariant: VariantResult | null = null
-  if (effectiveHeight >= 480) {
-    const height = 480
-    const label = '480p'
-    const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
-    const args: string[] = [
+
+  if (multiTargets.length > 0) {
+    const N = multiTargets.length
+    // Filter: [0:v] crop? -> [c]; split into N streams; scale each to target height.
+    const videoChain = cropFilterStr
+      ? `[0:v]${cropFilterStr}[c];[c]split=${N}${multiTargets.map((_, i) => `[v${i}]`).join('')};` +
+        multiTargets.map((h, i) => `[v${i}]scale=-2:${h}[v${h}]`).join(';')
+      : `[0:v]split=${N}${multiTargets.map((_, i) => `[v${i}]`).join('')};` +
+        multiTargets.map((h, i) => `[v${i}]scale=-2:${h}[v${h}]`).join(';')
+    const audioChain = probe.hasAudio
+      ? `;[0:a]asplit=${N}${multiTargets.map((_, i) => `[a${i}]`).join('')}`
+      : ''
+    const filterComplex = videoChain + audioChain
+
+    const baseArgs: string[] = [
       ...trimArgs,
-      '-i', rawLocalPath, '-y',
-      ...buildVideoFilter(effectiveHeight > height ? height : undefined),
-      '-c:v', 'libx264', '-preset', 'fast',
-      '-crf', '26',
-      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '96k'] : ['-an']),
-      '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
-      outPath,
+      '-i', rawLocalPath,
+      '-filter_complex', filterComplex,
+      '-y',
+      '-max_muxing_queue_size', '1024',
     ]
-    await runFfmpeg(args)
-    const url = await uploadBlob(outPath, `${baseBlobName}-${label}.mp4`, 'video/mp4')
-    const fileSize = (await readFile(outPath)).length
-    await safeUnlink(outPath)
-    previewVariant = { label, height, url, fileSize }
-    variants.push(previewVariant)
-    console.log(`[MediaProcessor] ${label} (preview): ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
+
+    const outputArgs: string[] = []
+    for (let i = 0; i < multiTargets.length; i++) {
+      const height = multiTargets[i]
+      const label = height === 1080 ? '1080p' : `${height}p`
+      const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
+      outputArgs.push(
+        '-map', `[v${height}]`,
+        '-c:v', 'libx264',
+        '-preset', height === 480 ? 'veryfast' : 'fast',
+        '-crf', height === 480 ? '26' : '23',
+        ...(probe.hasAudio ? ['-map', `[a${i}]`, '-c:a', 'aac', '-b:a', height === 480 ? '96k' : '128k'] : ['-an']),
+        '-movflags', '+faststart',
+        outPath,
+      )
+    }
+
+    console.log(`[MediaProcessor] Single-pass encoding: ${multiTargets.join(', ')}p (one decode)`)
+    await runFfmpeg([...baseArgs, ...outputArgs])
+
+    for (let i = 0; i < multiTargets.length; i++) {
+      const height = multiTargets[i]
+      const label = height === 1080 ? '1080p' : `${height}p`
+      const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
+      const url = await uploadBlob(outPath, `${baseBlobName}-${label}.mp4`, 'video/mp4')
+      const fileSize = (await readFile(outPath)).length
+      await safeUnlink(outPath)
+      const v = { label, height, url, fileSize }
+      variants.push(v)
+      if (height === 480) previewVariant = v
+      console.log(`[MediaProcessor] ${label}: ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
+    }
   }
 
-  // 2) Thumbnail — generate once, using crop/trim if provided.
-  // When trim is applied, always regenerate thumbnail from the trimmed segment start.
-  // The client-uploaded thumbnail is from the original video start (0.01s), which would
-  // show content that was cut out. Backend FFmpeg generates at trimData.start + offset.
+  // 2) Thumbnail — one frame, -ss before -i for fast input seeking.
   let thumbnailUrl = existingThumbnail
   if (!existingThumbnail || trimDuration > 0) {
     const thumbPath = join(dir, `${baseBlobName}-thumb.jpg`)
@@ -353,17 +388,11 @@ async function transcodeVideo(
       ? trimData!.start + Math.min(trimDuration * 0.1, 2)
       : Math.min(probe.duration * 0.1, 5)
     const thumbFilters: string[] = []
-    if (cropData) {
-      const cx = Math.max(0, Math.round(cropData.x))
-      const cy = Math.max(0, Math.round(cropData.y))
-      const cw = Math.round(cropData.width)
-      const ch = Math.round(cropData.height)
-      thumbFilters.push(`crop='min(${cw},in_w-${cx})':'min(${ch},in_h-${cy})':'min(${cx},in_w-1)':'min(${cy},in_h-1)'`)
-    }
+    if (cropFilterStr) thumbFilters.push(cropFilterStr)
     thumbFilters.push('scale=640:-2')
     try {
       await runFfmpeg([
-        '-i', rawLocalPath, '-y', '-ss', seekTime.toString(), '-frames:v', '1',
+        '-ss', seekTime.toString(), '-i', rawLocalPath, '-y', '-frames:v', '1',
         '-vf', thumbFilters.join(','), '-q:v', '3', thumbPath,
       ])
       thumbnailUrl = await uploadBlob(thumbPath, `${baseBlobName}-thumb.jpg`, 'image/jpeg')
@@ -373,7 +402,6 @@ async function transcodeVideo(
     }
   }
 
-  // Notify caller that preview + thumbnail are ready so the app can start playback.
   if (onPreviewReady && previewVariant) {
     try {
       await onPreviewReady(previewVariant, thumbnailUrl ?? null)
@@ -382,38 +410,14 @@ async function transcodeVideo(
     }
   }
 
-  // 3) Remaining encoded resolutions: only where source height >= target (no upscale)
-  for (const height of TARGET_HEIGHTS) {
-    if (height === 480) continue
-    if (effectiveHeight < height) continue
-    const label = height === 1080 ? '1080p' : `${height}p`
-    const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
-    const args: string[] = [
-      ...trimArgs,
-      '-i', rawLocalPath, '-y',
-      ...buildVideoFilter(effectiveHeight > height ? height : undefined),
-      '-c:v', 'libx264', '-preset', 'medium',
-      '-crf', '23',
-      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '128k'] : ['-an']),
-      '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
-      outPath,
-    ]
-    await runFfmpeg(args)
-    const url = await uploadBlob(outPath, `${baseBlobName}-${label}.mp4`, 'video/mp4')
-    const fileSize = (await readFile(outPath)).length
-    await safeUnlink(outPath)
-    variants.push({ label, height, url, fileSize })
-    console.log(`[MediaProcessor] ${label}: ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
-  }
-
-  // 4) HQ (source resolution, high quality)
+  // 4) HQ (source resolution, high quality). Use 'medium' for balance; 'slow' was ~2–3x longer.
   const hqHeight = effectiveHeight
   const hqLabel = hqHeight >= 2160 ? '4K' : hqHeight >= 1080 ? '1080p' : hqHeight >= 720 ? '720p' : 'HQ'
   const hqPath = join(dir, `${baseBlobName}-hq.mp4`)
-  const argsHq = [
+  const argsHq: string[] = [
     ...trimArgs,
     '-i', rawLocalPath, '-y', ...buildVideoFilter(),
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', '18',
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
     ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '256k'] : ['-an']),
     '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
     hqPath,
