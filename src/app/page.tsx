@@ -729,7 +729,12 @@ function HomeContent() {
         setMedia((prev) => {
           const existingIds = new Set(prev.map((m) => m.id))
           const deduped = newMedia.filter((m: Media) => !existingIds.has(m.id))
-          return deduped.length ? [...prev, ...deduped] : prev
+          if (!deduped.length) return prev
+          // When refreshing page 1 (e.g. background poll), prepend new items so newest appear at top.
+          if (pageNum === 1) {
+            return [...deduped, ...prev]
+          }
+          return [...prev, ...deduped]
         })
       }
       setHasMore(pageNum < totalPages)
@@ -754,6 +759,20 @@ function HomeContent() {
       }
     }
   }
+
+  // Auto-refresh the first page periodically so newly preview-ready videos (e.g. 360p) appear without manual sort changes.
+  useEffect(() => {
+    // Only auto-refresh on the main recent feed without extra filters.
+    if (sort !== 'recent' || search || type) return
+    const interval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      if (loading || loadingMore || isRestoringRef.current) return
+      fetchMedia(1, false).catch(() => {
+        // Errors are already logged inside fetchMedia
+      })
+    }, 30000) // 30s cadence
+    return () => clearInterval(interval)
+  }, [sort, type, search, loading, loadingMore])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
