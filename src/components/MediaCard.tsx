@@ -100,7 +100,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     media.type === 'VIDEO' &&
     media.processingStatus === 'processing' &&
     !!media.url &&
-    /-(?:360p|480p|720p|1080p|hq)\\.mp4/i.test(media.url)
+    /-(?:360p|480p|720p|1080p|hq)\.mp4/i.test(media.url)
   const isPlayable = !media.processingStatus || media.processingStatus === 'completed' || hasPreviewStream
 
   useEffect(() => {
