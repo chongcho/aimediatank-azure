@@ -264,6 +264,11 @@ interface TranscodeResult {
  * Transcode a video into multiple resolutions (YouTube-style) + HQ.
  * If cropData is provided, it is applied before scaling.
  * If trimData is provided, only the segment [start, end] is encoded (-ss before -i for fast seek).
+ *
+ * If onPreviewReady is provided, it will be called after the first playable
+ * 480p variant and thumbnail are uploaded, but before higher resolutions and
+ * HQ are processed. This allows the app to start playback quickly while HD
+ * variants continue encoding in the background.
  */
 async function transcodeVideo(
   rawLocalPath: string,
@@ -271,6 +276,7 @@ async function transcodeVideo(
   existingThumbnail: string | null,
   cropData?: { x: number; y: number; width: number; height: number },
   trimData?: { start: number; end: number },
+  onPreviewReady?: (preview: VariantResult, thumbnailUrl: string | null) => Promise<void>,
 ): Promise<TranscodeResult> {
   const probe = await probeVideo(rawLocalPath)
   const effectiveHeight = cropData
@@ -310,18 +316,20 @@ async function transcodeVideo(
 
   const variants: VariantResult[] = []
 
-  // 1) Encoded resolutions: only where source height >= target (no upscale)
-  for (const height of TARGET_HEIGHTS) {
-    if (effectiveHeight < height) continue
-    const label = height === 1080 ? '1080p' : `${height}p`
+  // 1) First, create a fast preview variant (480p where possible) so the app
+  // can start playback quickly while higher resolutions encode.
+  let previewVariant: VariantResult | null = null
+  if (effectiveHeight >= 480) {
+    const height = 480
+    const label = '480p'
     const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
     const args = [
       ...trimArgs,
       '-i', rawLocalPath, '-y',
       ...buildVideoFilter(effectiveHeight > height ? height : undefined),
-      '-c:v', 'libx264', '-preset', height <= 480 ? 'fast' : 'medium',
-      '-crf', height <= 480 ? '26' : '23',
-      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', height <= 480 ? '96k' : '128k'] : ['-an']),
+      '-c:v', 'libx264', '-preset', 'fast',
+      '-crf', 26,
+      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '96k'] : ['-an']),
       '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
       outPath,
     ]
@@ -329,31 +337,12 @@ async function transcodeVideo(
     const url = await uploadBlob(outPath, `${baseBlobName}-${label}.mp4`, 'video/mp4')
     const fileSize = (await readFile(outPath)).length
     await safeUnlink(outPath)
-    variants.push({ label, height, url, fileSize })
-    console.log(`[MediaProcessor] ${label}: ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
+    previewVariant = { label, height, url, fileSize }
+    variants.push(previewVariant)
+    console.log(`[MediaProcessor] ${label} (preview): ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
   }
 
-  // 2) HQ (source resolution, high quality)
-  const hqHeight = effectiveHeight
-  const hqLabel = hqHeight >= 2160 ? '4K' : hqHeight >= 1080 ? '1080p' : hqHeight >= 720 ? '720p' : 'HQ'
-  const hqPath = join(dir, `${baseBlobName}-hq.mp4`)
-  const argsHq = [
-    ...trimArgs,
-    '-i', rawLocalPath, '-y', ...buildVideoFilter(),
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', '18',
-    ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '256k'] : ['-an']),
-    '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
-    hqPath,
-  ]
-  await runFfmpeg(argsHq)
-  const urlHq = await uploadBlob(hqPath, `${baseBlobName}-hq.mp4`, 'video/mp4')
-  const fileSizeHq = (await readFile(hqPath)).length
-  await safeUnlink(hqPath)
-  variants.push({ label: 'HQ', height: hqHeight, url: urlHq, fileSize: fileSizeHq })
-
-  const url720p = variants.find(v => v.height === 720)?.url ?? variants[0]?.url ?? urlHq
-
-  // 3) Thumbnail
+  // 2) Thumbnail — generate once, using crop/trim if provided.
   // When trim is applied, always regenerate thumbnail from the trimmed segment start.
   // The client-uploaded thumbnail is from the original video start (0.01s), which would
   // show content that was cut out. Backend FFmpeg generates at trimData.start + offset.
@@ -383,6 +372,59 @@ async function transcodeVideo(
       console.error('[MediaProcessor] Thumbnail generation failed (non-fatal):', e)
     }
   }
+
+  // Notify caller that preview + thumbnail are ready so the app can start playback.
+  if (onPreviewReady && previewVariant) {
+    try {
+      await onPreviewReady(previewVariant, thumbnailUrl ?? null)
+    } catch (e) {
+      console.error('[MediaProcessor] onPreviewReady callback failed (non-fatal):', e)
+    }
+  }
+
+  // 3) Remaining encoded resolutions: only where source height >= target (no upscale)
+  for (const height of TARGET_HEIGHTS) {
+    if (height === 480) continue
+    if (effectiveHeight < height) continue
+    const label = height === 1080 ? '1080p' : `${height}p`
+    const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
+    const args = [
+      ...trimArgs,
+      '-i', rawLocalPath, '-y',
+      ...buildVideoFilter(effectiveHeight > height ? height : undefined),
+      '-c:v', 'libx264', '-preset', 'medium',
+      '-crf', 23,
+      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '128k'] : ['-an']),
+      '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
+      outPath,
+    ]
+    await runFfmpeg(args)
+    const url = await uploadBlob(outPath, `${baseBlobName}-${label}.mp4`, 'video/mp4')
+    const fileSize = (await readFile(outPath)).length
+    await safeUnlink(outPath)
+    variants.push({ label, height, url, fileSize })
+    console.log(`[MediaProcessor] ${label}: ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
+  }
+
+  // 4) HQ (source resolution, high quality)
+  const hqHeight = effectiveHeight
+  const hqLabel = hqHeight >= 2160 ? '4K' : hqHeight >= 1080 ? '1080p' : hqHeight >= 720 ? '720p' : 'HQ'
+  const hqPath = join(dir, `${baseBlobName}-hq.mp4`)
+  const argsHq = [
+    ...trimArgs,
+    '-i', rawLocalPath, '-y', ...buildVideoFilter(),
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', '18',
+    ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '256k'] : ['-an']),
+    '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
+    hqPath,
+  ]
+  await runFfmpeg(argsHq)
+  const urlHq = await uploadBlob(hqPath, `${baseBlobName}-hq.mp4`, 'video/mp4')
+  const fileSizeHq = (await readFile(hqPath)).length
+  await safeUnlink(hqPath)
+  variants.push({ label: 'HQ', height: hqHeight, url: urlHq, fileSize: fileSizeHq })
+
+  const url720p = variants.find(v => v.height === 720)?.url ?? variants[0]?.url ?? urlHq
 
   return { variants, url720p, urlHq, thumbnailUrl }
 }
@@ -449,8 +491,36 @@ export async function processMedia(
     const rawLocalPath = await downloadBlob(rawUrl)
 
     try {
-      // Transcode (with optional crop and trim) — multiple resolutions + HQ
-      const result = await transcodeVideo(rawLocalPath, baseName, media.thumbnailUrl, cropData, trimData)
+      // Transcode (with optional crop and trim) — multiple resolutions + HQ.
+      // onPreviewReady allows us to expose a fast 480p preview + thumbnail
+      // as soon as they are ready, while higher resolutions continue encoding.
+      const result = await transcodeVideo(
+        rawLocalPath,
+        baseName,
+        media.thumbnailUrl,
+        cropData,
+        trimData,
+        async (preview, thumbnailUrl) => {
+          try {
+            await prisma.media.update({
+              where: { id: mediaId },
+              data: {
+                url: preview.url,
+                // Keep processingStatus='processing' here; we only mark
+                // 'completed' after all variants are done below.
+                processingStatus: 'processing',
+                processingError: null,
+                ...(thumbnailUrl && !media.thumbnailUrl ? { thumbnailUrl } : {}),
+              },
+            })
+            console.log(
+              `[MediaProcessor] Preview ready for media ${mediaId}: ${preview.label} (${preview.height}p)`
+            )
+          } catch (e) {
+            console.error('[MediaProcessor] Failed to update media with preview (non-fatal):', e)
+          }
+        }
+      )
 
       // Replace any existing variants (e.g. from older pipeline) and create new ones
       await prisma.mediaVersion.deleteMany({ where: { mediaId } })
