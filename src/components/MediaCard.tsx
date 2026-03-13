@@ -95,12 +95,12 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   // Local view count so we can update immediately when a preplay view is recorded (no refetch)
   const [displayViews, setDisplayViews] = useState(media.views)
 
-  // When processing but 480p (or first variant) is already uploaded, we have a playable stream (used in effects and render)
+  // When processing but 360p/480p (or first variant) is already uploaded, we have a playable stream (used in effects and render)
   const hasPreviewStream =
     media.type === 'VIDEO' &&
     media.processingStatus === 'processing' &&
     !!media.url &&
-    /-(?:480p|720p|1080p|hq)\.mp4/i.test(media.url)
+    /-(?:360p|480p|720p|1080p|hq)\\.mp4/i.test(media.url)
   const isPlayable = !media.processingStatus || media.processingStatus === 'completed' || hasPreviewStream
 
   useEffect(() => {

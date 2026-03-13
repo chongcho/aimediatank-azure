@@ -522,12 +522,12 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     )
   }
 
-  // During processing, show the video as soon as we have a transcoded stream (e.g. 480p from fast first-pass)
+  // During processing, show the video as soon as we have a transcoded stream (e.g. 360p/480p from fast first-pass)
   const hasPreviewStream =
     media.type === 'VIDEO' &&
     media.processingStatus === 'processing' &&
     media.url &&
-    /-(?:480p|720p|1080p|hq)\.mp4/i.test(media.url)
+    /-(?:360p|480p|720p|1080p|hq)\.mp4/i.test(media.url)
 
   return (
     <div className="pb-[500px]">

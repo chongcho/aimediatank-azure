@@ -43,11 +43,12 @@ export async function GET(request: Request) {
       isDeleted: false,
     }
     if (!allowProcessingStatuses) {
-      // Completed, or still processing but already have a transcoded stream URL (480p/720p/1080p/hq)
+      // Completed, or still processing but already have a transcoded stream URL (360p/480p/720p/1080p/hq)
       where.AND = [
         {
           OR: [
             { processingStatus: 'completed' },
+            { processingStatus: 'processing', url: { contains: '-360p', mode: 'insensitive' } },
             { processingStatus: 'processing', url: { contains: '-480p', mode: 'insensitive' } },
             { processingStatus: 'processing', url: { contains: '-720p', mode: 'insensitive' } },
             { processingStatus: 'processing', url: { contains: '-1080p', mode: 'insensitive' } },

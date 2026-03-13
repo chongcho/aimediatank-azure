@@ -317,7 +317,9 @@ async function transcodeVideo(
   const variants: VariantResult[] = []
 
   // Targets: only resolutions <= effectiveHeight (no upscale).
+  // Include 360p as the very first rung for even faster preview, then 480p/720p/1080p.
   const multiTargets = [
+    ...(effectiveHeight >= 360 ? [360] : []),
     ...(effectiveHeight >= 480 ? [480] : []),
     ...(effectiveHeight >= 720 ? [720] : []),
     ...(effectiveHeight >= 1080 ? [1080] : []),
@@ -325,7 +327,7 @@ async function transcodeVideo(
 
   let previewVariant: VariantResult | null = null
 
-  // 1) FAST FIRST DISPLAY: Encode only the lowest resolution (480p when available) and thumbnail first,
+  // 1) FAST FIRST DISPLAY: Encode only the lowest resolution (360p/480p when available) and thumbnail first,
   //    then call onPreviewReady so the app can show the video while we encode the rest in the background.
   const firstTarget = multiTargets[0]
   if (firstTarget !== undefined) {
@@ -338,8 +340,8 @@ async function transcodeVideo(
       '-y',
       '-c:v', 'libx264',
       '-preset', 'veryfast',
-      '-crf', firstTarget === 480 ? '26' : '23',
-      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', firstTarget === 480 ? '96k' : '128k'] : ['-an']),
+      '-crf', firstTarget <= 480 ? '26' : '23',
+      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', firstTarget <= 480 ? '96k' : '128k'] : ['-an']),
       '-movflags', '+faststart',
       '-max_muxing_queue_size', '1024',
       outPath,
