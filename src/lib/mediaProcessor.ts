@@ -323,12 +323,12 @@ async function transcodeVideo(
     const height = 480
     const label = '480p'
     const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
-    const args = [
+    const args: string[] = [
       ...trimArgs,
       '-i', rawLocalPath, '-y',
       ...buildVideoFilter(effectiveHeight > height ? height : undefined),
       '-c:v', 'libx264', '-preset', 'fast',
-      '-crf', 26,
+      '-crf', '26',
       ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '96k'] : ['-an']),
       '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
       outPath,
@@ -388,12 +388,12 @@ async function transcodeVideo(
     if (effectiveHeight < height) continue
     const label = height === 1080 ? '1080p' : `${height}p`
     const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
-    const args = [
+    const args: string[] = [
       ...trimArgs,
       '-i', rawLocalPath, '-y',
       ...buildVideoFilter(effectiveHeight > height ? height : undefined),
       '-c:v', 'libx264', '-preset', 'medium',
-      '-crf', 23,
+      '-crf', '23',
       ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '128k'] : ['-an']),
       '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
       outPath,
