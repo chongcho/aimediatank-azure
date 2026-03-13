@@ -151,8 +151,8 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
       })
 
       if (res.ok) {
-        const username = session?.user?.username || media.user.username
-        router.push(`/profile/${username}`)
+        // After delete, return to Homepage instead of My Contents
+        router.push('/')
       } else {
         const data = await res.json()
         setError(data.error || 'Failed to delete media')
