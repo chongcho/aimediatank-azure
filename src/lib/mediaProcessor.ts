@@ -541,7 +541,8 @@ export async function processMedia(
                 // 'completed' after all variants are done below.
                 processingStatus: 'processing',
                 processingError: null,
-                ...(thumbnailUrl && !media.thumbnailUrl ? { thumbnailUrl } : {}),
+                // Always prefer the freshly generated server-side thumbnail during processing
+                ...(thumbnailUrl ? { thumbnailUrl } : {}),
               },
             })
             console.log(
