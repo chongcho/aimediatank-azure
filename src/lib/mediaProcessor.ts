@@ -316,7 +316,6 @@ async function transcodeVideo(
 
   const variants: VariantResult[] = []
 
-  // 1) Single-pass 480p + 720p + 1080p: one decode, multiple outputs (YouTube-style).
   // Targets: only resolutions <= effectiveHeight (no upscale).
   const multiTargets = [
     ...(effectiveHeight >= 480 ? [480] : []),
@@ -326,61 +325,37 @@ async function transcodeVideo(
 
   let previewVariant: VariantResult | null = null
 
-  if (multiTargets.length > 0) {
-    const N = multiTargets.length
-    // Filter: [0:v] crop? -> [c]; split into N streams; scale each to target height.
-    const videoChain = cropFilterStr
-      ? `[0:v]${cropFilterStr}[c];[c]split=${N}${multiTargets.map((_, i) => `[v${i}]`).join('')};` +
-        multiTargets.map((h, i) => `[v${i}]scale=-2:${h}[v${h}]`).join(';')
-      : `[0:v]split=${N}${multiTargets.map((_, i) => `[v${i}]`).join('')};` +
-        multiTargets.map((h, i) => `[v${i}]scale=-2:${h}[v${h}]`).join(';')
-    const audioChain = probe.hasAudio
-      ? `;[0:a]asplit=${N}${multiTargets.map((_, i) => `[a${i}]`).join('')}`
-      : ''
-    const filterComplex = videoChain + audioChain
-
-    const baseArgs: string[] = [
+  // 1) FAST FIRST DISPLAY: Encode only the lowest resolution (480p when available) and thumbnail first,
+  //    then call onPreviewReady so the app can show the video while we encode the rest in the background.
+  const firstTarget = multiTargets[0]
+  if (firstTarget !== undefined) {
+    const label = firstTarget === 1080 ? '1080p' : `${firstTarget}p`
+    const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
+    const firstArgs: string[] = [
       ...trimArgs,
       '-i', rawLocalPath,
-      '-filter_complex', filterComplex,
+      '-vf', [...(cropFilterStr ? [cropFilterStr] : []), `scale=-2:${firstTarget}`].filter(Boolean).join(','),
       '-y',
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-crf', firstTarget === 480 ? '26' : '23',
+      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', firstTarget === 480 ? '96k' : '128k'] : ['-an']),
+      '-movflags', '+faststart',
       '-max_muxing_queue_size', '1024',
+      outPath,
     ]
-
-    const outputArgs: string[] = []
-    for (let i = 0; i < multiTargets.length; i++) {
-      const height = multiTargets[i]
-      const label = height === 1080 ? '1080p' : `${height}p`
-      const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
-      outputArgs.push(
-        '-map', `[v${height}]`,
-        '-c:v', 'libx264',
-        '-preset', height === 480 ? 'veryfast' : 'fast',
-        '-crf', height === 480 ? '26' : '23',
-        ...(probe.hasAudio ? ['-map', `[a${i}]`, '-c:a', 'aac', '-b:a', height === 480 ? '96k' : '128k'] : ['-an']),
-        '-movflags', '+faststart',
-        outPath,
-      )
-    }
-
-    console.log(`[MediaProcessor] Single-pass encoding: ${multiTargets.join(', ')}p (one decode)`)
-    await runFfmpeg([...baseArgs, ...outputArgs])
-
-    for (let i = 0; i < multiTargets.length; i++) {
-      const height = multiTargets[i]
-      const label = height === 1080 ? '1080p' : `${height}p`
-      const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
-      const url = await uploadBlob(outPath, `${baseBlobName}-${label}.mp4`, 'video/mp4')
-      const fileSize = (await readFile(outPath)).length
-      await safeUnlink(outPath)
-      const v = { label, height, url, fileSize }
-      variants.push(v)
-      if (height === 480) previewVariant = v
-      console.log(`[MediaProcessor] ${label}: ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
-    }
+    console.log(`[MediaProcessor] Fast first-pass: ${label} only (for quick display)`)
+    await runFfmpeg(firstArgs)
+    const url = await uploadBlob(outPath, `${baseBlobName}-${label}.mp4`, 'video/mp4')
+    const fileSize = (await readFile(outPath)).length
+    await safeUnlink(outPath)
+    const v: VariantResult = { label, height: firstTarget, url, fileSize }
+    variants.push(v)
+    previewVariant = v
+    console.log(`[MediaProcessor] ${label}: ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
   }
 
-  // 2) Thumbnail — one frame, -ss before -i for fast input seeking.
+  // 2) Thumbnail — one frame, -ss before -i for fast input seeking (quick; run right after first variant).
   let thumbnailUrl = existingThumbnail
   if (!existingThumbnail || trimDuration > 0) {
     const thumbPath = join(dir, `${baseBlobName}-thumb.jpg`)
@@ -402,11 +377,61 @@ async function transcodeVideo(
     }
   }
 
+  // Notify app so it can show the video immediately (480p or lowest variant + thumbnail).
   if (onPreviewReady && previewVariant) {
     try {
       await onPreviewReady(previewVariant, thumbnailUrl ?? null)
     } catch (e) {
       console.error('[MediaProcessor] onPreviewReady callback failed (non-fatal):', e)
+    }
+  }
+
+  // 3) Remaining resolutions (720p, 1080p) in a single pass so we don't re-encode the first target.
+  const remainingTargets = multiTargets.slice(1)
+  if (remainingTargets.length > 0) {
+    const N = remainingTargets.length
+    const videoChain = cropFilterStr
+      ? `[0:v]${cropFilterStr}[c];[c]split=${N}${remainingTargets.map((_, i) => `[v${i}]`).join('')};` +
+        remainingTargets.map((h, i) => `[v${i}]scale=-2:${h}[v${h}]`).join(';')
+      : `[0:v]split=${N}${remainingTargets.map((_, i) => `[v${i}]`).join('')};` +
+        remainingTargets.map((h, i) => `[v${i}]scale=-2:${h}[v${h}]`).join(';')
+    const audioChain = probe.hasAudio
+      ? `;[0:a]asplit=${N}${remainingTargets.map((_, i) => `[a${i}]`).join('')}`
+      : ''
+    const filterComplex = videoChain + audioChain
+    const baseArgs: string[] = [
+      ...trimArgs,
+      '-i', rawLocalPath,
+      '-filter_complex', filterComplex,
+      '-y',
+      '-max_muxing_queue_size', '1024',
+    ]
+    const outputArgs: string[] = []
+    for (let i = 0; i < remainingTargets.length; i++) {
+      const height = remainingTargets[i]
+      const label = height === 1080 ? '1080p' : `${height}p`
+      const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
+      outputArgs.push(
+        '-map', `[v${height}]`,
+        '-c:v', 'libx264',
+        '-preset', 'fast',
+        '-crf', '23',
+        ...(probe.hasAudio ? ['-map', `[a${i}]`, '-c:a', 'aac', '-b:a', '128k'] : ['-an']),
+        '-movflags', '+faststart',
+        outPath,
+      )
+    }
+    console.log(`[MediaProcessor] Single-pass encoding remaining: ${remainingTargets.join(', ')}p`)
+    await runFfmpeg([...baseArgs, ...outputArgs])
+    for (let i = 0; i < remainingTargets.length; i++) {
+      const height = remainingTargets[i]
+      const label = height === 1080 ? '1080p' : `${height}p`
+      const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
+      const url = await uploadBlob(outPath, `${baseBlobName}-${label}.mp4`, 'video/mp4')
+      const fileSize = (await readFile(outPath)).length
+      await safeUnlink(outPath)
+      variants.push({ label, height, url, fileSize })
+      console.log(`[MediaProcessor] ${label}: ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
     }
   }
 

@@ -522,11 +522,18 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     )
   }
 
+  // During processing, show the video as soon as we have a transcoded stream (e.g. 480p from fast first-pass)
+  const hasPreviewStream =
+    media.type === 'VIDEO' &&
+    media.processingStatus === 'processing' &&
+    media.url &&
+    (/-480p\.mp4|/-720p\.mp4|/-1080p\.mp4|/-hq\.mp4)/i.test(media.url)
+
   return (
     <div className="pb-[500px]">
       {/* Media Player - Full Width with top padding, content aligned to top */}
       <div className="w-full bg-black pt-5">
-        {media.processingStatus === 'pending' || media.processingStatus === 'processing' ? (
+        {media.processingStatus === 'pending' || (media.processingStatus === 'processing' && !hasPreviewStream) ? (
           <div className="flex justify-center px-4">
             <div className="relative w-full max-w-2xl aspect-video bg-black overflow-hidden rounded-xl border border-tank-light">
               {/* Processing thumbnail: uploader can check status here; hidden from homepage until completed */}
@@ -557,6 +564,22 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   </p>
                 )}
               </div>
+            </div>
+          </div>
+        ) : hasPreviewStream ? (
+          <div className="relative">
+            <div className="no-touch-callout" onContextMenu={(e) => e.preventDefault()}>
+              <MediaPlayer
+                type={media.type}
+                url={(media as any).streamUrl ?? media.url}
+                title={media.title}
+                thumbnailUrl={media.thumbnailUrl}
+                autoUnmuteOnMount
+              />
+            </div>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/70 text-gray-300 text-xs font-medium flex items-center gap-2">
+              <div className="w-3 h-3 border-2 border-tank-accent/50 border-t-tank-accent rounded-full animate-spin" />
+              Encoding higher quality…
             </div>
           </div>
         ) : media.processingStatus === 'failed' ? (
