@@ -36,14 +36,25 @@ export async function GET(request: Request) {
     }
 
     // Build where clause
-    // Show all public, approved, non-deleted items; hide pending/processing from public listing unless owner requested includeProcessing
+    // Show all public, approved, non-deleted items. Include completed OR processing-with-preview (480p ready) so 480p shows on feed as soon as ready.
     const where: any = {
       isPublic: true,
       isApproved: true,
       isDeleted: false,
     }
     if (!allowProcessingStatuses) {
-      where.processingStatus = 'completed'
+      // Completed, or still processing but already have a transcoded stream URL (480p/720p/1080p/hq)
+      where.AND = [
+        {
+          OR: [
+            { processingStatus: 'completed' },
+            { processingStatus: 'processing', url: { contains: '-480p', mode: 'insensitive' } },
+            { processingStatus: 'processing', url: { contains: '-720p', mode: 'insensitive' } },
+            { processingStatus: 'processing', url: { contains: '-1080p', mode: 'insensitive' } },
+            { processingStatus: 'processing', url: { contains: '-hq.mp4', mode: 'insensitive' } },
+          ],
+        },
+      ]
     }
 
     // Filter by username if provided

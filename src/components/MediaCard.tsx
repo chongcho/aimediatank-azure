@@ -95,6 +95,14 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   // Local view count so we can update immediately when a preplay view is recorded (no refetch)
   const [displayViews, setDisplayViews] = useState(media.views)
 
+  // When processing but 480p (or first variant) is already uploaded, we have a playable stream (used in effects and render)
+  const hasPreviewStream =
+    media.type === 'VIDEO' &&
+    media.processingStatus === 'processing' &&
+    !!media.url &&
+    /-(?:480p|720p|1080p|hq)\.mp4/i.test(media.url)
+  const isPlayable = !media.processingStatus || media.processingStatus === 'completed' || hasPreviewStream
+
   useEffect(() => {
     setDisplayViews(media.views)
   }, [media.id, media.views])
@@ -166,10 +174,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   // Mobile: pre-play all cards in extended zone (on-screen + one up/down); no single "focused" card
   useEffect(() => {
     if (!isMobile) return
-    const isPreplay =
-      preplay &&
-      media.type === 'VIDEO' &&
-      (!media.processingStatus || media.processingStatus === 'completed')
+    const isPreplay = preplay && media.type === 'VIDEO' && isPlayable
     if (!isPreplay) return
     const hasThumb = !!(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
     const useOverlayVideo = hasThumb && !thumbnailError
@@ -184,7 +189,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       if (useOverlayVideo) preplayVideoRef.current?.pause()
       else if (useFallbackVideo) videoRef.current?.pause()
     }
-  }, [isMobile, isInView, preplay, media.type, media.processingStatus, media.thumbnailUrl, media.url, thumbnailError])
+  }, [isMobile, isInView, preplay, media.type, isPlayable, media.thumbnailUrl, media.url, thumbnailError])
 
   useEffect(() => {
     let isMounted = true
@@ -296,7 +301,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
 
   const thumbnailSrc = getThumbnailSrc()
-  
+
   // For videos without thumbnail, we'll show the video element directly
   const showVideoElement = media.type === 'VIDEO' && !thumbnailSrc && !thumbnailError
 
@@ -328,7 +333,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     router.push(`/media/${media.id}`)
   }
 
-  const isPreplayVideo = preplay && media.type === 'VIDEO' && (!media.processingStatus || media.processingStatus === 'completed')
+  const isPreplayVideo = preplay && media.type === 'VIDEO' && isPlayable
 
   const recordPreplayView = useCallback(() => {
     if (preplayViewCountedRef.current || !media.id) return
@@ -461,7 +466,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 />
               )}
               {/* When Preplay is OFF, still preload metadata so media detail page loads faster when user clicks */}
-              {!preplay && media.type === 'VIDEO' && isInView && (!media.processingStatus || media.processingStatus === 'completed') && (
+              {!preplay && media.type === 'VIDEO' && isInView && isPlayable && (
                 <video
                   src={media.streamUrl ?? media.url}
                   preload="metadata"
@@ -511,8 +516,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           )}
 
 
-          {/* Processing overlay: thumbnail visible beneath (same idea as media detail page) */}
-          {media.processingStatus && media.processingStatus !== 'completed' && (
+          {/* Processing overlay: only when no playable stream yet (pending or processing before 480p ready) */}
+          {media.processingStatus && media.processingStatus !== 'completed' && !hasPreviewStream && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20">
               {media.processingStatus === 'failed' ? (
                 <p className="text-red-400 text-xs font-medium">Processing failed</p>
@@ -522,6 +527,13 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   <p className="text-white/80 text-xs font-medium">Processing...</p>
                 </>
               )}
+            </div>
+          )}
+          {/* Small badge when 480p is playing but HD is still encoding */}
+          {hasPreviewStream && (
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded-full bg-black/70 text-white/90 text-[10px] font-medium flex items-center gap-1.5 z-10">
+              <div className="w-2 h-2 border-2 border-tank-accent/50 border-t-white/80 rounded-full animate-spin" />
+              Encoding HD…
             </div>
           )}
 
