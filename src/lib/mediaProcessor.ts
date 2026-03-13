@@ -354,8 +354,11 @@ async function transcodeVideo(
   const url720p = variants.find(v => v.height === 720)?.url ?? variants[0]?.url ?? urlHq
 
   // 3) Thumbnail
+  // When trim is applied, always regenerate thumbnail from the trimmed segment start.
+  // The client-uploaded thumbnail is from the original video start (0.01s), which would
+  // show content that was cut out. Backend FFmpeg generates at trimData.start + offset.
   let thumbnailUrl = existingThumbnail
-  if (!existingThumbnail) {
+  if (!existingThumbnail || trimDuration > 0) {
     const thumbPath = join(dir, `${baseBlobName}-thumb.jpg`)
     const seekTime = trimDuration > 0
       ? trimData!.start + Math.min(trimDuration * 0.1, 2)
@@ -470,7 +473,8 @@ export async function processMedia(
         processingStatus: 'completed',
         processingError: null,
       }
-      if (result.thumbnailUrl && !media.thumbnailUrl) updateData.thumbnailUrl = result.thumbnailUrl
+      // Always use result.thumbnailUrl when present (e.g. regenerated for trim)
+      if (result.thumbnailUrl) updateData.thumbnailUrl = result.thumbnailUrl
       if (hqVariant && hqVariant.fileSize > 0) updateData.fileSize = BigInt(hqVariant.fileSize)
 
       await prisma.media.update({
