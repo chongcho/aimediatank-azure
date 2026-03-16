@@ -772,10 +772,10 @@ function HomeContent() {
     }
   }
 
-  // Auto-refresh the first page periodically so newly preview-ready videos (e.g. 360p) appear without manual sort changes.
+  // Auto-refresh the first page periodically so newly preview-ready videos (e.g. 360p) appear without manual refresh.
   useEffect(() => {
-    // Only auto-refresh on the main recent feed without extra filters.
-    if (sort !== 'recent' || search || type) return
+    // Run on main feed (any sort) when no search/type filter so uploader sees their video once 360p is ready.
+    if (search || type) return
     const ac = new AbortController()
     let backgroundRefreshing = false
     const interval = setInterval(() => {
