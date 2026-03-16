@@ -738,7 +738,7 @@ function HomeContent() {
           const deduped = newMedia.filter((m: Media) => !existingIds.has(m.id))
           if (!deduped.length) return prev
           // When refreshing page 1 (e.g. background poll), prepend new items so newest appear at top.
-          if (!isBackground && pageNum === 1) {
+          if (pageNum === 1) {
             return [...deduped, ...prev]
           }
           return [...prev, ...deduped]

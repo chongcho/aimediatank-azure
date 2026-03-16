@@ -231,11 +231,11 @@ async function probeVideo(filePath: string): Promise<ProbeResult> {
           hasAudio: !!audioStream,
         })
       } catch {
-        // Fallback defaults
-        resolve({ width: 1920, height: 1080, duration: 0, hasAudio: true })
+        // Fallback defaults (assume no audio so filtergraph never references [0:a] on video-only files)
+        resolve({ width: 1920, height: 1080, duration: 0, hasAudio: false })
       }
     })
-    proc.on('error', () => resolve({ width: 1920, height: 1080, duration: 0, hasAudio: true }))
+    proc.on('error', () => resolve({ width: 1920, height: 1080, duration: 0, hasAudio: false }))
   })
 }
 
