@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -86,6 +86,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const [mediaDetailShareEnabled, setMediaDetailShareEnabled] = useState(true)
   const [mediaDetailSendByEmailEnabled, setMediaDetailSendByEmailEnabled] = useState(true)
   const [retrying, setRetrying] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const [overlayReveal, setOverlayReveal] = useState(false)
+  const backNavigatingRef = useRef(false)
 
   const kakaoJsKey = useKakaoJsKey()
   const isOwner = session?.user?.id === media?.user?.id
@@ -111,6 +114,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       window.location.href = '/'
     }
   }, [loading, media])
+
+  // Trigger overlay opacity after paint so CSS transition runs (avoids flash on router.back()).
+  useEffect(() => {
+    if (!closing) return
+    const id = requestAnimationFrame(() => setOverlayReveal(true))
+    return () => cancelAnimationFrame(id)
+  }, [closing])
 
   // Prefetch home so Back transition is fast and avoids black screen
   useEffect(() => {
@@ -531,6 +541,18 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
   return (
     <div className="pb-[500px]">
+      {/* Fade-to-black overlay before router.back() when closing from intercepted modal (avoids flash). */}
+      {intercepted && closing && (
+        <div
+          className={`fixed inset-0 z-[70] bg-tank-black transition-opacity duration-200 ${overlayReveal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          onTransitionEnd={() => {
+            if (backNavigatingRef.current) return
+            backNavigatingRef.current = true
+            router.back()
+          }}
+          aria-hidden
+        />
+      )}
       {/* Media Player - Full Width with top padding, content aligned to top */}
       <div className="w-full bg-black pt-5">
         {media.processingStatus === 'pending' || (media.processingStatus === 'processing' && !hasPreviewStream) ? (
@@ -1218,13 +1240,17 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         </div>
       )}
 
-      {/* Back Button - always go to homepage (e.g. after upload/processing) */}
+      {/* Back Button - when intercepted, fade out then router.back() to avoid flash; else go to homepage */}
       <div className="max-w-4xl mx-auto px-4 mt-8">
         <button
           type="button"
           onClick={() => {
             stopAllMedia()
-            router.replace('/')
+            if (intercepted) {
+              setClosing(true)
+            } else {
+              router.replace('/')
+            }
           }}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >

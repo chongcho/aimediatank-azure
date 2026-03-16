@@ -347,7 +347,8 @@ function HomeContent() {
         page: restoreState.page,
       })
       if (prefetched) {
-        const skipOverlay = cachedInitUsedRef.current
+        // Skip skeleton overlay when we have cached data (e.g. back from modal) to avoid flash.
+        const skipOverlay = cachedInitUsedRef.current || true
         cachedInitUsedRef.current = false
         isRestoringRef.current = true
         if (!skipOverlay) setRestoringScroll(true)
