@@ -1218,17 +1218,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         </div>
       )}
 
-      {/* Back Button - close intercepted modal to preserve home context, otherwise go home */}
+      {/* Back Button - always go to homepage (e.g. after upload/processing) */}
       <div className="max-w-4xl mx-auto px-4 mt-8">
         <button
           type="button"
           onClick={() => {
             stopAllMedia()
-            if (intercepted) {
-              router.back()
-            } else {
-              router.replace('/')
-            }
+            router.replace('/')
           }}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
