@@ -231,11 +231,11 @@ async function probeVideo(filePath: string): Promise<ProbeResult> {
           hasAudio: !!audioStream,
         })
       } catch {
-        // Fallback defaults (assume no audio so filtergraph never references [0:a] on video-only files)
-        resolve({ width: 1920, height: 1080, duration: 0, hasAudio: false })
+        // Fallback: assume audio present so we don't drop it when probe fails; filter_complex pass will retry without audio if needed
+        resolve({ width: 1920, height: 1080, duration: 0, hasAudio: true })
       }
     })
-    proc.on('error', () => resolve({ width: 1920, height: 1080, duration: 0, hasAudio: false }))
+    proc.on('error', () => resolve({ width: 1920, height: 1080, duration: 0, hasAudio: true }))
   })
 }
 
@@ -333,15 +333,17 @@ async function transcodeVideo(
   if (firstTarget !== undefined) {
     const label = firstTarget === 1080 ? '1080p' : `${firstTarget}p`
     const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
+    // Use optional audio map (0:a?) so audio is included when present without relying on probe
     const firstArgs: string[] = [
       ...trimArgs,
       '-i', rawLocalPath,
+      '-map', '0:v', '-map', '0:a?',
       '-vf', [...(cropFilterStr ? [cropFilterStr] : []), `scale=-2:${firstTarget}`].filter(Boolean).join(','),
       '-y',
       '-c:v', 'libx264',
       '-preset', 'veryfast',
       '-crf', firstTarget <= 480 ? '26' : '23',
-      ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', firstTarget <= 480 ? '96k' : '128k'] : ['-an']),
+      '-c:a', 'aac', '-b:a', firstTarget <= 480 ? '96k' : '128k',
       '-movflags', '+faststart',
       '-max_muxing_queue_size', '1024',
       outPath,
@@ -397,34 +399,53 @@ async function transcodeVideo(
         remainingTargets.map((h, i) => `[v${i}]scale=-2:${h}[v${h}]`).join(';')
       : `[0:v]split=${N}${remainingTargets.map((_, i) => `[v${i}]`).join('')};` +
         remainingTargets.map((h, i) => `[v${i}]scale=-2:${h}[v${h}]`).join(';')
-    const audioChain = probe.hasAudio
-      ? `;[0:a]asplit=${N}${remainingTargets.map((_, i) => `[a${i}]`).join('')}`
-      : ''
-    const filterComplex = videoChain + audioChain
-    const baseArgs: string[] = [
-      ...trimArgs,
-      '-i', rawLocalPath,
-      '-filter_complex', filterComplex,
-      '-y',
-      '-max_muxing_queue_size', '1024',
-    ]
-    const outputArgs: string[] = []
-    for (let i = 0; i < remainingTargets.length; i++) {
-      const height = remainingTargets[i]
-      const label = height === 1080 ? '1080p' : `${height}p`
-      const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
-      outputArgs.push(
-        '-map', `[v${height}]`,
-        '-c:v', 'libx264',
-        '-preset', 'fast',
-        '-crf', '23',
-        ...(probe.hasAudio ? ['-map', `[a${i}]`, '-c:a', 'aac', '-b:a', '128k'] : ['-an']),
-        '-movflags', '+faststart',
-        outPath,
-      )
+
+    const runRemainingPass = (withAudio: boolean) => {
+      const audioChain = withAudio
+        ? `;[0:a]asplit=${N}${remainingTargets.map((_, i) => `[a${i}]`).join('')}`
+        : ''
+      const filterComplex = videoChain + audioChain
+      const baseArgs: string[] = [
+        ...trimArgs,
+        '-i', rawLocalPath,
+        '-filter_complex', filterComplex,
+        '-y',
+        '-max_muxing_queue_size', '1024',
+      ]
+      const outputArgs: string[] = []
+      for (let i = 0; i < remainingTargets.length; i++) {
+        const height = remainingTargets[i]
+        const label = height === 1080 ? '1080p' : `${height}p`
+        const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
+        outputArgs.push(
+          '-map', `[v${height}]`,
+          '-c:v', 'libx264',
+          '-preset', 'fast',
+          '-crf', '23',
+          ...(withAudio ? ['-map', `[a${i}]`, '-c:a', 'aac', '-b:a', '128k'] : ['-an']),
+          '-movflags', '+faststart',
+          outPath,
+        )
+      }
+      return runFfmpeg([...baseArgs, ...outputArgs])
     }
+
+    const isNoAudioStreamError = (err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err)
+      return /matches no streams|Error binding filtergraph|Invalid argument/i.test(msg)
+    }
+
     console.log(`[MediaProcessor] Single-pass encoding remaining: ${remainingTargets.join(', ')}p`)
-    await runFfmpeg([...baseArgs, ...outputArgs])
+    try {
+      await runRemainingPass(probe.hasAudio)
+    } catch (err) {
+      if (probe.hasAudio && isNoAudioStreamError(err)) {
+        console.log('[MediaProcessor] No audio stream in file; re-encoding remaining variants without audio')
+        await runRemainingPass(false)
+      } else {
+        throw err
+      }
+    }
     for (let i = 0; i < remainingTargets.length; i++) {
       const height = remainingTargets[i]
       const label = height === 1080 ? '1080p' : `${height}p`
@@ -441,11 +462,14 @@ async function transcodeVideo(
   const hqHeight = effectiveHeight
   const hqLabel = hqHeight >= 2160 ? '4K' : hqHeight >= 1080 ? '1080p' : hqHeight >= 720 ? '720p' : 'HQ'
   const hqPath = join(dir, `${baseBlobName}-hq.mp4`)
+  // Use optional audio map (0:a?) so audio is included when present without relying on probe
   const argsHq: string[] = [
     ...trimArgs,
-    '-i', rawLocalPath, '-y', ...buildVideoFilter(),
+    '-i', rawLocalPath, '-y',
+    '-map', '0:v', '-map', '0:a?',
+    ...buildVideoFilter(),
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
-    ...(probe.hasAudio ? ['-c:a', 'aac', '-b:a', '256k'] : ['-an']),
+    '-c:a', 'aac', '-b:a', '256k',
     '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
     hqPath,
   ]
