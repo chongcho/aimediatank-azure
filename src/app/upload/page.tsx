@@ -1021,7 +1021,8 @@ function UploadPageContent() {
         setError(result.error || 'Failed to save media')
       } else {
         setUploadStatus('Upload complete!')
-        router.push(`/media/${result.media.id}`)
+        // Replace so Back on media page goes to home (skip Upload page).
+        router.replace(`/media/${result.media.id}`)
       }
     } catch (err) {
       console.error('Upload error:', err)
