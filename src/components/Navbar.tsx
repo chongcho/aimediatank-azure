@@ -435,7 +435,7 @@ function NavbarContent() {
             <img 
               src="/logo.png" 
               alt="AiMediaTank" 
-              className="h-10 w-auto"
+              className="h-10 w-auto rounded-[2px]"
             />
             </Link>
             {/* Home Icon - wireframe only */}
