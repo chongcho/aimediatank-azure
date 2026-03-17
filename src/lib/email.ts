@@ -15,8 +15,15 @@ interface EmailOptions {
 }
 
 const CONNECTION_STRING = process.env.AZURE_EMAIL_CONNECTION_STRING || ''
-const SENDER_ADDRESS = process.env.AZURE_EMAIL_SENDER || ''
-const DEFAULT_SENDER_NAME = process.env.AZURE_EMAIL_SENDER_NAME || 'AI Media Tank'
+
+// Prefer AiMediaTank over DoNotReply for sender address; default to AiMediaTank@aimediatank.com
+const rawSender = process.env.AZURE_EMAIL_SENDER || 'AiMediaTank@aimediatank.com'
+const SENDER_ADDRESS =
+  rawSender.toLowerCase().includes('donotreply')
+    ? rawSender.replace(/donotreply/gi, 'AiMediaTank')
+    : rawSender
+
+const DEFAULT_SENDER_NAME = process.env.AZURE_EMAIL_SENDER_NAME || 'AiMediaTank'
 
 let cachedClient: EmailClient | null = null
 
