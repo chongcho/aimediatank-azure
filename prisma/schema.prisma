@@ -651,11 +651,13 @@ model HomeLayoutSetting {
 }
 
 // Media detail page: show/hide Download, Share, and Send by email buttons (admin)
+// shareAppsEnabled: JSON object e.g. { email: true, whatsapp: true, ... } — which share options to show in Share modal
 model MediaDetailSetting {
   id                  String   @id @default(uuid())
   downloadEnabled     Boolean  @default(true)
   shareEnabled        Boolean  @default(true)
   sendByEmailEnabled  Boolean  @default(true)
+  shareAppsEnabled    Json?    // { email, whatsapp, kakao, facebook, x, linkedin, reddit, youtube, tiktok }
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

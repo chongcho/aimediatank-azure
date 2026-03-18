@@ -376,6 +376,9 @@ export default function AdminPage() {
   const [mediaDetailDownload, setMediaDetailDownload] = useState(true)
   const [mediaDetailShare, setMediaDetailShare] = useState(true)
   const [mediaDetailSendByEmail, setMediaDetailSendByEmail] = useState(true)
+  const [mediaDetailShareApps, setMediaDetailShareApps] = useState<Record<string, boolean>>({
+    email: true, whatsapp: true, kakao: true, facebook: true, x: true, linkedin: true, reddit: true, youtube: true, tiktok: true,
+  })
   const [mediaDetailLoading, setMediaDetailLoading] = useState(false)
   const [mediaDetailSaving, setMediaDetailSaving] = useState(false)
   const [mediaBadgeItems, setMediaBadgeItems] = useState<MediaBadgeItem[]>([])
@@ -864,6 +867,9 @@ export default function AdminPage() {
           setMediaDetailDownload(data.downloadEnabled !== false)
           setMediaDetailShare(data.shareEnabled !== false)
           setMediaDetailSendByEmail(data.sendByEmailEnabled !== false)
+          if (data.shareAppsEnabled && typeof data.shareAppsEnabled === 'object' && !Array.isArray(data.shareAppsEnabled)) {
+            setMediaDetailShareApps((prev) => ({ ...prev, ...data.shareAppsEnabled }))
+          }
         } finally {
           setMediaDetailLoading(false)
         }
@@ -3027,6 +3033,35 @@ export default function AdminPage() {
                       <option value="off">Off</option>
                     </select>
                   </div>
+                  <div className="pt-2">
+                    <p className="text-gray-400 text-sm mb-2">Share modal — which apps to show</p>
+                    <div className="flex flex-wrap gap-3">
+                      {[
+                        { key: 'email', label: 'Email' },
+                        { key: 'whatsapp', label: 'WhatsApp' },
+                        { key: 'kakao', label: 'KakaoTalk' },
+                        { key: 'facebook', label: 'Facebook' },
+                        { key: 'x', label: 'X' },
+                        { key: 'linkedin', label: 'LinkedIn' },
+                        { key: 'reddit', label: 'Reddit' },
+                        { key: 'youtube', label: 'YouTube' },
+                        { key: 'tiktok', label: 'TikTok' },
+                      ].map(({ key, label }) => (
+                        <div key={key} className="flex items-center gap-2">
+                          <label className="text-gray-300 text-sm">{label}</label>
+                          <select
+                            value={mediaDetailShareApps[key as keyof typeof mediaDetailShareApps] !== false ? 'on' : 'off'}
+                            onChange={(e) => setMediaDetailShareApps((prev) => ({ ...prev, [key]: e.target.value === 'on' }))}
+                            disabled={mediaDetailSaving}
+                            className="bg-tank-dark border border-tank-light rounded px-2 py-1 text-white text-sm"
+                          >
+                            <option value="on">On</option>
+                            <option value="off">Off</option>
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   <button
                     onClick={async () => {
                       setMediaDetailSaving(true)
@@ -3036,7 +3071,12 @@ export default function AdminPage() {
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
                             action: 'setMediaDetail',
-                            data: { downloadEnabled: mediaDetailDownload, shareEnabled: mediaDetailShare, sendByEmailEnabled: mediaDetailSendByEmail },
+                            data: {
+                              downloadEnabled: mediaDetailDownload,
+                              shareEnabled: mediaDetailShare,
+                              sendByEmailEnabled: mediaDetailSendByEmail,
+                              shareAppsEnabled: mediaDetailShareApps,
+                            },
                           }),
                         })
                         const data = await res.json()
@@ -3047,6 +3087,9 @@ export default function AdminPage() {
                         if (typeof data.downloadEnabled === 'boolean') setMediaDetailDownload(data.downloadEnabled)
                         if (typeof data.shareEnabled === 'boolean') setMediaDetailShare(data.shareEnabled)
                         if (typeof data.sendByEmailEnabled === 'boolean') setMediaDetailSendByEmail(data.sendByEmailEnabled)
+                        if (data.shareAppsEnabled && typeof data.shareAppsEnabled === 'object') {
+                          setMediaDetailShareApps((prev) => ({ ...prev, ...data.shareAppsEnabled }))
+                        }
                         if (typeof window !== 'undefined') window.dispatchEvent(new Event('mediaDetailUpdated'))
                       } finally {
                         setMediaDetailSaving(false)

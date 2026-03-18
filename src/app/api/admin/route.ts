@@ -668,22 +668,31 @@ export async function GET(request: Request) {
       }
     }
 
-    // Get media detail page settings (Download/Share visibility)
+    // Get media detail page settings (Download/Share visibility + share apps)
     if (action === 'mediaDetailSettings') {
       try {
         let row = await prisma.mediaDetailSetting.findFirst()
         if (!row) {
           row = await prisma.mediaDetailSetting.create({ data: {} })
         }
-        const rowWithEmail = row as { sendByEmailEnabled?: boolean }
+        const rowWithExtras = row as { sendByEmailEnabled?: boolean; shareAppsEnabled?: unknown }
+        const { normalizeShareAppsEnabled, DEFAULT_SHARE_APPS } = await import('@/app/api/ui/media-detail/route')
+        const shareAppsEnabled = normalizeShareAppsEnabled(rowWithExtras.shareAppsEnabled ?? DEFAULT_SHARE_APPS)
         return NextResponse.json({
           downloadEnabled: row.downloadEnabled ?? true,
           shareEnabled: row.shareEnabled ?? true,
-          sendByEmailEnabled: rowWithEmail.sendByEmailEnabled ?? true,
+          sendByEmailEnabled: rowWithExtras.sendByEmailEnabled ?? true,
+          shareAppsEnabled,
         })
       } catch (error) {
         console.error('Media detail settings unavailable:', error)
-        return NextResponse.json({ downloadEnabled: true, shareEnabled: true, sendByEmailEnabled: true })
+        const { DEFAULT_SHARE_APPS } = await import('@/app/api/ui/media-detail/route')
+        return NextResponse.json({
+          downloadEnabled: true,
+          shareEnabled: true,
+          sendByEmailEnabled: true,
+          shareAppsEnabled: { ...DEFAULT_SHARE_APPS },
+        })
       }
     }
 
@@ -1936,40 +1945,44 @@ export async function POST(request: Request) {
       }
 
       case 'setMediaDetail': {
-        const { downloadEnabled: downloadPayload, shareEnabled: sharePayload, sendByEmailEnabled: sendByEmailPayload } = data || {}
+        const { downloadEnabled: downloadPayload, shareEnabled: sharePayload, sendByEmailEnabled: sendByEmailPayload, shareAppsEnabled: shareAppsPayload } = data || {}
         const downloadBool = typeof downloadPayload === 'boolean' ? downloadPayload : undefined
         const shareBool = typeof sharePayload === 'boolean' ? sharePayload : undefined
         const sendByEmailBool = typeof sendByEmailPayload === 'boolean' ? sendByEmailPayload : undefined
+        const shareAppsObj = shareAppsPayload && typeof shareAppsPayload === 'object' && !Array.isArray(shareAppsPayload)
+          ? (shareAppsPayload as Record<string, boolean>)
+          : undefined
         let row = await prisma.mediaDetailSetting.findFirst()
+        const updateData: { downloadEnabled?: boolean; shareEnabled?: boolean; sendByEmailEnabled?: boolean; shareAppsEnabled?: unknown } = {}
+        if (downloadBool !== undefined) updateData.downloadEnabled = downloadBool
+        if (shareBool !== undefined) updateData.shareEnabled = shareBool
+        if (sendByEmailBool !== undefined) updateData.sendByEmailEnabled = sendByEmailBool
+        if (shareAppsObj !== undefined) updateData.shareAppsEnabled = shareAppsObj
         if (!row) {
           row = await prisma.mediaDetailSetting.create({
-            data: {
-              ...(downloadBool !== undefined && { downloadEnabled: downloadBool }),
-              ...(shareBool !== undefined && { shareEnabled: shareBool }),
-              ...(sendByEmailBool !== undefined && { sendByEmailEnabled: sendByEmailBool }),
-            },
+            data: updateData,
           })
         } else {
           row = await prisma.mediaDetailSetting.update({
             where: { id: row.id },
-            data: {
-              ...(downloadBool !== undefined && { downloadEnabled: downloadBool }),
-              ...(shareBool !== undefined && { shareEnabled: shareBool }),
-              ...(sendByEmailBool !== undefined && { sendByEmailEnabled: sendByEmailBool }),
-            },
+            data: updateData,
           })
         }
-        const updated = row as { sendByEmailEnabled: boolean }
+        const updated = row as { sendByEmailEnabled: boolean; shareAppsEnabled?: unknown }
+        const { normalizeShareAppsEnabled, DEFAULT_SHARE_APPS } = await import('@/app/api/ui/media-detail/route')
+        const shareAppsEnabled = normalizeShareAppsEnabled(updated.shareAppsEnabled ?? DEFAULT_SHARE_APPS)
         await logAdminAction(adminId, 'SET_MEDIA_DETAIL', 'MEDIA_DETAIL', row.id, {
           downloadEnabled: row.downloadEnabled,
           shareEnabled: row.shareEnabled,
           sendByEmailEnabled: updated.sendByEmailEnabled,
+          shareAppsEnabled,
         })
         return NextResponse.json({
           message: 'Media detail settings updated',
           downloadEnabled: row.downloadEnabled,
           shareEnabled: row.shareEnabled,
           sendByEmailEnabled: updated.sendByEmailEnabled,
+          shareAppsEnabled,
         })
       }
 
