@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
+import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
 
@@ -676,7 +677,7 @@ export async function GET(request: Request) {
           row = await prisma.mediaDetailSetting.create({ data: {} })
         }
         const rowWithExtras = row as { sendByEmailEnabled?: boolean; shareAppsEnabled?: unknown }
-        const { normalizeShareAppsEnabled, DEFAULT_SHARE_APPS } = await import('@/app/api/ui/media-detail/route')
+        const { normalizeShareAppsEnabled, DEFAULT_SHARE_APPS } = await import('@/app/api/ui/media-detail/shareAppsConfig')
         const shareAppsEnabled = normalizeShareAppsEnabled(rowWithExtras.shareAppsEnabled ?? DEFAULT_SHARE_APPS)
         return NextResponse.json({
           downloadEnabled: row.downloadEnabled ?? true,
@@ -686,7 +687,7 @@ export async function GET(request: Request) {
         })
       } catch (error) {
         console.error('Media detail settings unavailable:', error)
-        const { DEFAULT_SHARE_APPS } = await import('@/app/api/ui/media-detail/route')
+        const { DEFAULT_SHARE_APPS } = await import('@/app/api/ui/media-detail/shareAppsConfig')
         return NextResponse.json({
           downloadEnabled: true,
           shareEnabled: true,
@@ -1953,14 +1954,20 @@ export async function POST(request: Request) {
           ? (shareAppsPayload as Record<string, boolean>)
           : undefined
         let row = await prisma.mediaDetailSetting.findFirst()
-        const updateData: { downloadEnabled?: boolean; shareEnabled?: boolean; sendByEmailEnabled?: boolean; shareAppsEnabled?: unknown } = {}
+        const shareAppsJson: Prisma.InputJsonValue | undefined = shareAppsObj ? (shareAppsObj as unknown as Prisma.InputJsonValue) : undefined
+        const updateData: Prisma.MediaDetailSettingUncheckedUpdateInput = {}
         if (downloadBool !== undefined) updateData.downloadEnabled = downloadBool
         if (shareBool !== undefined) updateData.shareEnabled = shareBool
         if (sendByEmailBool !== undefined) updateData.sendByEmailEnabled = sendByEmailBool
-        if (shareAppsObj !== undefined) updateData.shareAppsEnabled = shareAppsObj
+        if (shareAppsJson !== undefined) updateData.shareAppsEnabled = shareAppsJson
         if (!row) {
+          const createData: Prisma.MediaDetailSettingUncheckedCreateInput = {}
+          if (downloadBool !== undefined) createData.downloadEnabled = downloadBool
+          if (shareBool !== undefined) createData.shareEnabled = shareBool
+          if (sendByEmailBool !== undefined) createData.sendByEmailEnabled = sendByEmailBool
+          if (shareAppsJson !== undefined) createData.shareAppsEnabled = shareAppsJson
           row = await prisma.mediaDetailSetting.create({
-            data: updateData,
+            data: createData,
           })
         } else {
           row = await prisma.mediaDetailSetting.update({
@@ -1969,7 +1976,7 @@ export async function POST(request: Request) {
           })
         }
         const updated = row as { sendByEmailEnabled: boolean; shareAppsEnabled?: unknown }
-        const { normalizeShareAppsEnabled, DEFAULT_SHARE_APPS } = await import('@/app/api/ui/media-detail/route')
+        const { normalizeShareAppsEnabled, DEFAULT_SHARE_APPS } = await import('@/app/api/ui/media-detail/shareAppsConfig')
         const shareAppsEnabled = normalizeShareAppsEnabled(updated.shareAppsEnabled ?? DEFAULT_SHARE_APPS)
         await logAdminAction(adminId, 'SET_MEDIA_DETAIL', 'MEDIA_DETAIL', row.id, {
           downloadEnabled: row.downloadEnabled,
