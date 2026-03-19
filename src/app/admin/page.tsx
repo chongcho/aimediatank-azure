@@ -1543,33 +1543,45 @@ export default function AdminPage() {
           { id: 'contentSales', label: 'Contents Sales Reports' },
           { id: 'adSales', label: 'Ad Sales Reports' },
           { id: 'accessLogs', label: 'Access Logs' },
-        ] as { id: TabType; label: string }[]).map((tab) => (
-          <button
-            type="button"
-            key={tab.id}
-            onClick={() => {
-              if (tab.id === 'standaloneCropTool') {
-                router.push('/crop-tool')
-                return
-              }
-              setActiveTab(tab.id)
-              if (tab.id === 'media') {
-                setMediaPage(1)
-                setMediaSearch('')
-                setMediaTypeFilter('all')
-                setMediaStatusFilter('all')
-              }
-              if (tab.id === 'accessLogs') setAccessLogsPage(1)
-            }}
-            className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'bg-tank-accent text-tank-black'
-                : 'bg-tank-gray text-gray-400 hover:text-white'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        ] as { id: TabType; label: string }[]).map((tab) => {
+          const baseClass = `px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
+            activeTab === tab.id
+              ? 'bg-tank-accent text-tank-black'
+              : 'bg-tank-gray text-gray-400 hover:text-white'
+          }`
+
+          if (tab.id === 'standaloneCropTool') {
+            return (
+              <Link
+                key={tab.id}
+                href="/crop-tool"
+                className={baseClass}
+              >
+                {tab.label}
+              </Link>
+            )
+          }
+
+          return (
+            <button
+              type="button"
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id)
+                if (tab.id === 'media') {
+                  setMediaPage(1)
+                  setMediaSearch('')
+                  setMediaTypeFilter('all')
+                  setMediaStatusFilter('all')
+                }
+                if (tab.id === 'accessLogs') setAccessLogsPage(1)
+              }}
+              className={baseClass}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* Filter Bar - styled as menu bar */}
