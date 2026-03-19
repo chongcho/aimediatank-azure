@@ -39,7 +39,6 @@ type OriginalVideoInfo = {
 }
 
 const minCropSize = 80
-const VIDEO_CONTROLS_RESERVE_PX = 50
 const CANVAS_MAX_DIM = 8192
 
 const IDB_DB_NAME = 'aimediatank-crop-tool'
@@ -65,16 +64,6 @@ function roundEvenCoord(n: number) {
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
-}
-
-function formatBytes(bytes: number) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '-'
-  const kb = bytes / 1024
-  if (kb < 1024) return `${kb.toFixed(1)} KB`
-  const mb = kb / 1024
-  if (mb < 1024) return `${mb.toFixed(1)} MB`
-  const gb = mb / 1024
-  return `${gb.toFixed(2)} GB`
 }
 
 function formatTimeSec(t: number) {
@@ -593,179 +582,189 @@ export default function CropToolPage() {
     video.src = inputUrl
     video.preload = 'auto'
     video.playsInline = true
+    try {
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve()
+        video.onerror = () => reject(new Error('Failed to load video metadata'))
+      })
 
-    await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve()
-      video.onerror = () => reject(new Error('Failed to load video metadata'))
-    })
+      const canvas = document.createElement('canvas')
+      canvas.width = roundEvenDim(output.width)
+      canvas.height = roundEvenDim(output.height)
 
-    const canvas = document.createElement('canvas')
-    canvas.width = roundEvenDim(output.width)
-    canvas.height = roundEvenDim(output.height)
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Cannot create canvas context')
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Cannot create canvas context')
+      const fps = settings.videoFps ?? 30
+      const stream = canvas.captureStream(fps)
 
-    const fps = settings.videoFps ?? 30
-    const stream = canvas.captureStream(fps)
+      // When we route audio through WebAudio -> MediaStream, we must keep the
+      // AudioContext alive until MediaRecorder finishes; closing it early can
+      // cut the destination tracks (resulting in silent recordings).
+      let audioCtxToClose: AudioContext | null = null
 
-    // When we route audio through WebAudio -> MediaStream, we must keep the
-    // AudioContext alive until MediaRecorder finishes; closing it early can
-    // cut the destination tracks (resulting in silent recordings).
-    let audioCtxToClose: AudioContext | null = null
+      // Prefer WebAudio routing for audio tracks.
+      const addAudioTracks = async () => {
+        let audioTracksAdded = false
 
-    // Prefer WebAudio routing for audio tracks.
-    const addAudioTracks = async () => {
-      let audioTracksAdded = false
+        try {
+          const AudioContextCtor =
+            (window.AudioContext || (window as any).webkitAudioContext) as
+              | (new () => AudioContext)
+              | undefined
+          if (AudioContextCtor) {
+            const audioCtx = new AudioContextCtor()
+            if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {})
 
-      try {
-        const AudioContextCtor =
-          (window.AudioContext || (window as any).webkitAudioContext) as
-            | (new () => AudioContext)
-            | undefined
-        if (AudioContextCtor) {
-          const audioCtx = new AudioContextCtor()
-          if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {})
+            const sourceNode = audioCtx.createMediaElementSource(video)
+            const dest = audioCtx.createMediaStreamDestination()
+            sourceNode.connect(dest)
 
-          const sourceNode = audioCtx.createMediaElementSource(video)
-          const dest = audioCtx.createMediaStreamDestination()
-          sourceNode.connect(dest)
+            video.muted = false
+            video.volume = 1
 
-          video.muted = false
-          video.volume = 1
+            const destTracks = dest.stream.getAudioTracks()
+            if (destTracks.length > 0) {
+              destTracks.forEach((t) => stream.addTrack(t))
+              audioTracksAdded = true
+              audioCtxToClose = audioCtx
+            } else {
+              // No audio tracks produced; close immediately to avoid leaks.
+              audioCtx.close().catch(() => {})
+            }
+          }
+        } catch {
+          // ignore
+        }
 
-          const destTracks = dest.stream.getAudioTracks()
-          if (destTracks.length > 0) {
-            destTracks.forEach((t) => stream.addTrack(t))
-            audioTracksAdded = true
-            audioCtxToClose = audioCtx
-          } else {
-            // No audio tracks produced; close immediately to avoid leaks.
-            audioCtx.close().catch(() => {})
+        if (audioTracksAdded) return
+
+        try {
+          const audioStream = (video as any).captureStream?.() as MediaStream | undefined
+          if (audioStream) {
+            audioStream.getAudioTracks().forEach((t) => stream.addTrack(t))
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      const preferred = [
+        'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+        'video/mp4;codecs="avc1.4D401E,mp4a.40.2"',
+        'video/mp4',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+      ]
+      const mime = preferred.find((m) => MediaRecorder.isTypeSupported(m)) || 'video/webm'
+
+      const videoBitsPerSecond = (settings.videoBitrateMbps ?? 8) * 1_000_000
+      const audioBitsPerSecond = (settings.audioBitrateKbps ?? 256) * 1000
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType: mime,
+        videoBitsPerSecond: videoBitsPerSecond,
+        audioBitsPerSecond: audioBitsPerSecond,
+      })
+
+      const chunks: Blob[] = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data)
+      }
+
+      const targetEnd = Math.max(0, Math.min(endSec, video.duration || endSec))
+      const total = Math.max(0.1, targetEnd - startSec)
+
+      if (targetEnd <= startSec) throw new Error('Trim end must be greater than trim start')
+
+      let intervalId: number | null = null
+      const stop = () => {
+        if (stopped) return
+        stopped = true
+        if (intervalId != null) clearInterval(intervalId)
+        try {
+          video.pause()
+        } catch {}
+        try {
+          recorder.stop()
+        } catch {}
+      }
+
+      let stopped = false
+
+      await addAudioTracks()
+
+      await new Promise<void>((resolve, reject) => {
+        recorder.onstop = () => {
+          audioCtxToClose?.close().catch(() => {})
+          audioCtxToClose = null
+          resolve()
+        }
+        recorder.onerror = () => {
+          audioCtxToClose?.close().catch(() => {})
+          audioCtxToClose = null
+          reject(new Error('MediaRecorder failed'))
+        }
+
+        const tick = () => {
+          if (stopped) return
+
+          // Stop conditions
+          if (video.currentTime >= targetEnd || video.ended) {
+            stop()
+            return
+          }
+
+          const videoW = video.videoWidth || 0
+          const videoH = video.videoHeight || 0
+
+          // Round crop to even coordinates, and clamp so drawImage source rect stays valid.
+          const sx = clamp(roundEvenCoord(crop.x), 0, Math.max(0, videoW - 2))
+          const sy = clamp(roundEvenCoord(crop.y), 0, Math.max(0, videoH - 2))
+
+          const maxSw = Math.max(2, videoW - sx)
+          const maxSh = Math.max(2, videoH - sy)
+
+          const sw = roundEvenDim(Math.min(crop.width, maxSw))
+          const sh = roundEvenDim(Math.min(crop.height, maxSh))
+
+          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+
+          const pct = Math.round(((video.currentTime - startSec) / total) * 100)
+          onProgress(clamp(pct, 0, 100))
+        }
+
+        intervalId = window.setInterval(tick, Math.max(1, Math.round(1000 / fps)))
+
+        video.currentTime = Math.max(0, startSec)
+        video.onseeked = async () => {
+          try {
+            recorder.start(500)
+            onProgress(0)
+            await video.play()
+            tick()
+          } catch (e) {
+            stop()
+            reject(new Error('Unable to play video for client processing'))
           }
         }
-      } catch {
-        // ignore
-      }
+      })
 
-      if (audioTracksAdded) return
+      const outputType = recorder.mimeType || mime
+      const outputExt = outputType.includes('mp4') ? '.mp4' : '.webm'
 
-      try {
-        const audioStream = (video as any).captureStream?.() as MediaStream | undefined
-        if (audioStream) {
-          audioStream.getAudioTracks().forEach((t) => stream.addTrack(t))
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    const preferred = [
-      'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
-      'video/mp4;codecs="avc1.4D401E,mp4a.40.2"',
-      'video/mp4',
-      'video/webm;codecs=vp8,opus',
-      'video/webm',
-    ]
-    const mime = preferred.find((m) => MediaRecorder.isTypeSupported(m)) || 'video/webm'
-
-    const videoBitsPerSecond = (settings.videoBitrateMbps ?? 8) * 1_000_000
-    const audioBitsPerSecond = (settings.audioBitrateKbps ?? 256) * 1000
-
-    const recorder = new MediaRecorder(stream, {
-      mimeType: mime,
-      videoBitsPerSecond: videoBitsPerSecond,
-      audioBitsPerSecond: audioBitsPerSecond,
-    })
-
-    const chunks: Blob[] = []
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunks.push(e.data)
-    }
-
-    const targetEnd = Math.max(0, Math.min(endSec, video.duration || endSec))
-    const total = Math.max(0.1, targetEnd - startSec)
-
-    if (targetEnd <= startSec) throw new Error('Trim end must be greater than trim start')
-
-    let intervalId: number | null = null
-    const stop = () => {
-      if (stopped) return
-      stopped = true
-      if (intervalId != null) clearInterval(intervalId)
+      const outputBlob = new Blob(chunks, { type: outputType })
+      return new File(
+        [outputBlob],
+        source.name.replace(/\.[^.]+$/, outputExt),
+        { type: outputType, lastModified: Date.now() }
+      )
+    } finally {
       try {
         video.pause()
       } catch {}
-      try {
-        recorder.stop()
-      } catch {}
+      URL.revokeObjectURL(inputUrl)
     }
-
-    let stopped = false
-
-    await addAudioTracks()
-
-    await new Promise<void>((resolve, reject) => {
-      recorder.onstop = () => {
-        audioCtxToClose?.close().catch(() => {})
-        audioCtxToClose = null
-        resolve()
-      }
-      recorder.onerror = () => {
-        audioCtxToClose?.close().catch(() => {})
-        audioCtxToClose = null
-        reject(new Error('MediaRecorder failed'))
-      }
-
-      const tick = () => {
-        if (stopped) return
-
-        // Stop conditions
-        if (video.currentTime >= targetEnd || video.ended) {
-          stop()
-          return
-        }
-
-        // Round crop to even coordinates (safer for yuv/video encoders).
-        const sx = roundEvenCoord(crop.x)
-        const sy = roundEvenCoord(crop.y)
-        const sw = roundEvenDim(Math.min(crop.width, (video.videoWidth || 0) - sx))
-        const sh = roundEvenDim(Math.min(crop.height, (video.videoHeight || 0) - sy))
-
-        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
-
-        const pct = Math.round(((video.currentTime - startSec) / total) * 100)
-        onProgress(clamp(pct, 0, 100))
-      }
-
-      intervalId = window.setInterval(tick, Math.max(1, Math.round(1000 / fps)))
-
-      video.currentTime = Math.max(0, startSec)
-      video.onseeked = async () => {
-        try {
-          recorder.start(500)
-          onProgress(0)
-          await video.play()
-          tick()
-        } catch (e) {
-          stop()
-          reject(new Error('Unable to play video for client processing'))
-        }
-      }
-    })
-
-    video.pause()
-    URL.revokeObjectURL(inputUrl)
-
-    const outputType = recorder.mimeType || mime
-    const outputExt = outputType.includes('mp4') ? '.mp4' : '.webm'
-
-    const outputBlob = new Blob(chunks, { type: outputType })
-    return new File(
-      [outputBlob],
-      source.name.replace(/\.[^.]+$/, outputExt),
-      { type: outputType, lastModified: Date.now() }
-    )
   }
 
   const canProcess = useMemo(() => {
@@ -882,26 +881,28 @@ export default function CropToolPage() {
                       <h3 className="font-medium text-white mb-3">Crop Tool Setting</h3>
 
                       <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <label className="text-sm text-gray-300">Output Resolution</label>
-                          <select
-                            value={outputResolution}
-                            onChange={(e) => setOutputResolution(e.target.value as CropOutputResolution)}
-                            className="bg-tank-gray border border-tank-light px-3 py-2 text-white"
-                          >
-                            {resolutionOptions.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        {mediaType === 'image' && (
+                          <div className="flex items-center gap-3 w-full">
+                            <label className="text-sm text-gray-300 whitespace-nowrap">Output Resolution</label>
+                            <select
+                              value={outputResolution}
+                              onChange={(e) => setOutputResolution(e.target.value as CropOutputResolution)}
+                              className="bg-tank-gray border border-tank-light px-3 py-2 text-white flex-1 rounded"
+                            >
+                              {resolutionOptions.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
 
                         {mediaType === 'video' && (
                           <>
                             <div>
                               <label className="text-sm text-gray-300">Frame Rate</label>
-                              <div className="flex items-center gap-3 mt-1">
+                              <div className="flex items-center gap-3">
                                 <input
                                   type="number"
                                   min={15}
@@ -909,15 +910,17 @@ export default function CropToolPage() {
                                   step={1}
                                   value={userVideoFps}
                                   onChange={(e) => setUserVideoFps(clamp(Number(e.target.value) || 30, 15, 60))}
-                                  className="w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                                  className="flex-1 bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
                                 />
-                                <span className="text-sm text-gray-300 whitespace-nowrap">{Math.round(userVideoFps)} fps</span>
+                                <span className="text-sm text-gray-300 whitespace-nowrap min-w-[88px] text-right">
+                                  {Math.round(userVideoFps)} fps
+                                </span>
                               </div>
                             </div>
 
                             <div>
                               <label className="text-sm text-gray-300">Video Bitrate</label>
-                              <div className="flex items-center gap-3 mt-1">
+                              <div className="flex items-center gap-3">
                                 <input
                                   type="number"
                                   min={1}
@@ -925,9 +928,9 @@ export default function CropToolPage() {
                                   step={0.5}
                                   value={userVideoBitrateMbps}
                                   onChange={(e) => setUserVideoBitrateMbps(clamp(Number(e.target.value) || 8, 1, 50))}
-                                  className="w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                                  className="flex-1 bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
                                 />
-                                <span className="text-sm text-gray-300 whitespace-nowrap">
+                                <span className="text-sm text-gray-300 whitespace-nowrap min-w-[88px] text-right">
                                   {userVideoBitrateMbps.toFixed(1)} Mbps
                                 </span>
                               </div>
@@ -935,7 +938,7 @@ export default function CropToolPage() {
 
                             <div>
                               <label className="text-sm text-gray-300">Audio Bitrate</label>
-                              <div className="flex items-center gap-3 mt-1">
+                              <div className="flex items-center gap-3">
                                 <input
                                   type="number"
                                   min={64}
@@ -945,9 +948,9 @@ export default function CropToolPage() {
                                   onChange={(e) =>
                                     setUserAudioBitrateKbps(clamp(Number(e.target.value) || 256, 64, 512))
                                   }
-                                  className="w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                                  className="flex-1 bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
                                 />
-                                <span className="text-sm text-gray-300 whitespace-nowrap">
+                                <span className="text-sm text-gray-300 whitespace-nowrap min-w-[88px] text-right">
                                   {Math.round(userAudioBitrateKbps)} kbps
                                 </span>
                               </div>
@@ -993,7 +996,7 @@ export default function CropToolPage() {
                   <button
                     type="button"
                     onClick={() => router.push('/')}
-                    className="px-5 py-2 bg-tank-gray text-white font-semibold hover:bg-tank-light"
+                    className="px-5 py-2 bg-tank-gray border border-tank-light/30 text-white font-semibold rounded-lg hover:bg-tank-light/40"
                   >
                     Close
                   </button>
@@ -1154,6 +1157,26 @@ export default function CropToolPage() {
                         onChange={(e) => scrubTrimPreview(Number(e.target.value))}
                         className="flex-1 w-full accent-tank-light"
                       />
+                    </div>
+                  </div>
+                )}
+
+                {/* Request #2: move Output Resolution between Play and Trim start/end */}
+                {mediaType === 'video' && videoDuration > 0 && (
+                  <div className="card p-3 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm text-gray-300 whitespace-nowrap">Output Resolution</label>
+                      <select
+                        value={outputResolution}
+                        onChange={(e) => setOutputResolution(e.target.value as CropOutputResolution)}
+                        className="bg-tank-gray border border-tank-light px-3 py-2 text-white flex-1 rounded"
+                      >
+                        {resolutionOptions.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 )}
