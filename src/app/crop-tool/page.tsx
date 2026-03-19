@@ -53,8 +53,14 @@ type CropOutputResolution =
   | '720'
   | '1080'
 
-function roundEven(n: number) {
+// Used for dimensions (width/height): keep at least 2px to avoid encoder/canvas issues.
+function roundEvenDim(n: number) {
   return Math.max(2, Math.round(n / 2) * 2)
+}
+
+// Used for coordinates (x/y): do NOT clamp away from 0; only round to even pixels.
+function roundEvenCoord(n: number) {
+  return Math.round(n / 2) * 2
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -594,8 +600,8 @@ export default function CropToolPage() {
     })
 
     const canvas = document.createElement('canvas')
-    canvas.width = roundEven(output.width)
-    canvas.height = roundEven(output.height)
+    canvas.width = roundEvenDim(output.width)
+    canvas.height = roundEvenDim(output.height)
 
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Cannot create canvas context')
@@ -721,10 +727,10 @@ export default function CropToolPage() {
         }
 
         // Round crop to even coordinates (safer for yuv/video encoders).
-        const sx = roundEven(crop.x)
-        const sy = roundEven(crop.y)
-        const sw = roundEven(Math.min(crop.width, (video.videoWidth || 0) - sx))
-        const sh = roundEven(Math.min(crop.height, (video.videoHeight || 0) - sy))
+        const sx = roundEvenCoord(crop.x)
+        const sy = roundEvenCoord(crop.y)
+        const sw = roundEvenDim(Math.min(crop.width, (video.videoWidth || 0) - sx))
+        const sh = roundEvenDim(Math.min(crop.height, (video.videoHeight || 0) - sy))
 
         ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
 
