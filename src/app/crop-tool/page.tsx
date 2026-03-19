@@ -33,6 +33,7 @@ export default function CropToolPage() {
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const visualRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
+  const previewObjectUrlRef = useRef<string | null>(null)
   const dragRef = useRef<{ active: boolean; startX: number; startY: number; startTop: number; startLeft: number }>({
     active: false,
     startX: 0,
@@ -54,6 +55,14 @@ export default function CropToolPage() {
         })
       })
       .catch(() => {})
+  }, [])
+
+  // Revoke preview blob URLs to avoid memory leaks.
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current)
+      previewObjectUrlRef.current = null
+    }
   }, [])
 
   useEffect(() => {
@@ -161,7 +170,10 @@ export default function CropToolPage() {
     if (!nextFile) return
     setError('')
     setFile(nextFile)
-    setPreviewUrl(URL.createObjectURL(nextFile))
+    if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current)
+    const objectUrl = URL.createObjectURL(nextFile)
+    previewObjectUrlRef.current = objectUrl
+    setPreviewUrl(objectUrl)
     const isVideo = nextFile.type.startsWith('video/')
     setMediaType(isVideo ? 'video' : 'image')
     setMediaSize(null)
