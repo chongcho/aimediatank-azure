@@ -818,7 +818,7 @@ export default function CropToolPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 pb-24">
+    <div className="min-h-screen w-full p-4 sm:p-6 pb-10">
       <div className="mb-4">
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-2xl font-bold text-white">Crop Tool</h1>
@@ -1004,7 +1004,7 @@ export default function CropToolPage() {
               <div className="space-y-4">
                 <div
                   ref={containerRef}
-                  className="relative w-full h-[220px] sm:h-[320px] md:h-[420px] bg-black overflow-hidden rounded-lg"
+                  className="relative w-full h-[clamp(260px,45vh,560px)] bg-black overflow-hidden rounded-lg"
                 >
                   {mediaType === 'image' ? (
                     <img
@@ -1124,6 +1124,35 @@ export default function CropToolPage() {
                 </div>
 
                 {mediaType === 'video' && videoDuration > 0 && (
+                  <div className="card p-4 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={toggleTrimPreview}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold px-3 py-2 rounded-lg"
+                        aria-label={previewPlaying ? 'Pause trim preview' : 'Play trim preview'}
+                      >
+                        {previewPlaying ? 'Pause' : 'Play'}
+                      </button>
+
+                      <div className="text-sm font-semibold text-white bg-tank-gray px-3 py-1 rounded-lg whitespace-nowrap">
+                        {formatTimeSec(previewTime)} / {formatTimeSec(effectiveTrimEnd)}
+                      </div>
+
+                      <input
+                        type="range"
+                        min={trimStart}
+                        max={effectiveTrimEnd}
+                        step={0.01}
+                        value={clamp(previewTime, trimStart, effectiveTrimEnd)}
+                        onChange={(e) => scrubTrimPreview(Number(e.target.value))}
+                        className="flex-1 w-full accent-tank-light"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {mediaType === 'video' && videoDuration > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-sm text-gray-300">Trim Start (sec)</label>
@@ -1150,46 +1179,6 @@ export default function CropToolPage() {
                         }
                         className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
                       />
-                    </div>
-                  </div>
-                )}
-
-                {mediaType === 'video' && videoDuration > 0 && (
-                  <div className="card p-4 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div>
-                        <h3 className="font-medium text-white">Trim Preview</h3>
-                        <div className="text-xs text-gray-300 mt-1">
-                          {formatTimeSec(trimStart)} - {formatTimeSec(effectiveTrimEnd)}
-                        </div>
-                      </div>
-                      <div className="text-sm font-semibold text-white bg-tank-gray px-3 py-1 rounded-lg whitespace-nowrap">
-                        {formatTimeSec(previewTime)} / {formatTimeSec(effectiveTrimEnd)}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 mb-3">
-                      <button
-                        type="button"
-                        onClick={toggleTrimPreview}
-                        className="bg-tank-light hover:brightness-110 text-black font-semibold px-3 py-2 rounded-lg"
-                        aria-label={previewPlaying ? 'Pause trim preview' : 'Play trim preview'}
-                      >
-                        {previewPlaying ? 'Pause' : 'Play'}
-                      </button>
-                    </div>
-
-                    <input
-                      type="range"
-                      min={trimStart}
-                      max={effectiveTrimEnd}
-                      step={0.01}
-                      value={clamp(previewTime, trimStart, effectiveTrimEnd)}
-                      onChange={(e) => scrubTrimPreview(Number(e.target.value))}
-                      className="w-full accent-tank-light"
-                    />
-                    <div className="text-xs text-gray-400 mt-1">
-                      Drag to scrub inside your trim range.
                     </div>
                   </div>
                 )}
