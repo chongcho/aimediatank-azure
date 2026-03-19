@@ -71,6 +71,14 @@ function formatBytes(bytes: number) {
   return `${gb.toFixed(2)} GB`
 }
 
+function formatTimeSec(t: number) {
+  if (!Number.isFinite(t) || t < 0) return '0:00'
+  const totalSeconds = Math.floor(t)
+  const m = Math.floor(totalSeconds / 60)
+  const s = totalSeconds % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 export default function CropToolPage() {
   const router = useRouter()
   const { data: session } = useSession()
@@ -110,8 +118,13 @@ export default function CropToolPage() {
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const visualRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null)
   const previewObjectUrlRef = useRef<string | null>(null)
   const selectedFileRef = useRef<File | null>(null)
+
+  const [previewPlaying, setPreviewPlaying] = useState(false)
+  const [previewTime, setPreviewTime] = useState(0)
+  const previewPlaybackTimerRef = useRef<number | null>(null)
 
   const dragRef = useRef<{
     active: boolean
@@ -178,6 +191,16 @@ export default function CropToolPage() {
     return () => {
       if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current)
       previewObjectUrlRef.current = null
+    }
+  }, [])
+
+  // Cleanup trim-preview playback timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (previewPlaybackTimerRef.current != null) {
+        clearInterval(previewPlaybackTimerRef.current)
+        previewPlaybackTimerRef.current = null
+      }
     }
   }, [])
 
@@ -274,6 +297,68 @@ export default function CropToolPage() {
     return () => ro.disconnect()
   }, [previewUrl, mediaSize, mediaType])
 
+  const effectiveTrimEnd = Math.max(trimStart + 0.01, trimEnd || videoDuration || trimStart + 0.01)
+
+  // Drive custom trim-preview playback progress.
+  useEffect(() => {
+    if (!previewPlaying) return
+    const v = previewVideoRef.current
+    if (!v) {
+      setPreviewPlaying(false)
+      return
+    }
+
+    // Clamp playback time to the selected trim range.
+    const nextStart = clamp(v.currentTime || trimStart, trimStart, effectiveTrimEnd)
+    if (Math.abs(v.currentTime - nextStart) > 0.02) v.currentTime = nextStart
+
+    const tick = () => {
+      const vv = previewVideoRef.current
+      if (!vv) return
+      const t = vv.currentTime
+      setPreviewTime(t)
+
+      if (t >= effectiveTrimEnd - 0.01 || t >= (videoDuration || effectiveTrimEnd) - 0.01) {
+        try {
+          vv.pause()
+        } catch {}
+        setPreviewPlaying(false)
+      }
+    }
+
+    tick()
+    previewPlaybackTimerRef.current = window.setInterval(tick, 100)
+
+    return () => {
+      if (previewPlaybackTimerRef.current != null) {
+        clearInterval(previewPlaybackTimerRef.current)
+        previewPlaybackTimerRef.current = null
+      }
+    }
+  }, [previewPlaying, trimStart, effectiveTrimEnd, videoDuration])
+
+  // If user adjusts trim start/end while preview is open, keep the playhead clamped.
+  useEffect(() => {
+    const v = previewVideoRef.current
+    if (!v) return
+    const end = effectiveTrimEnd
+    if (v.currentTime < trimStart) {
+      v.currentTime = trimStart
+      setPreviewTime(trimStart)
+    } else if (v.currentTime > end) {
+      v.currentTime = end
+      setPreviewTime(end)
+      if (previewPlaying) {
+        try {
+          v.pause()
+        } catch {}
+        setPreviewPlaying(false)
+      }
+    } else {
+      setPreviewTime(v.currentTime)
+    }
+  }, [trimStart, effectiveTrimEnd, previewPlaying])
+
   useEffect(() => {
     const move = (clientX: number, clientY: number) => {
       if (!dragRef.current.active || !mediaSize || !cropArea || !renderBox) return
@@ -349,6 +434,41 @@ export default function CropToolPage() {
     })
   }
 
+  const toggleTrimPreview = async () => {
+    const v = previewVideoRef.current
+    if (!v) return
+
+    if (previewPlaying) {
+      try {
+        v.pause()
+      } catch {}
+      setPreviewPlaying(false)
+      return
+    }
+
+    try {
+      // If current time is out of the trim range, jump to the trim start.
+      if (v.currentTime < trimStart || v.currentTime > effectiveTrimEnd) v.currentTime = trimStart
+      await v.play()
+      setPreviewPlaying(true)
+    } catch {
+      setPreviewPlaying(false)
+    }
+  }
+
+  const scrubTrimPreview = (nextTime: number) => {
+    const v = previewVideoRef.current
+    if (!v) return
+
+    const t = clamp(nextTime, trimStart, effectiveTrimEnd)
+    try {
+      v.pause()
+      v.currentTime = t
+    } catch {}
+    setPreviewPlaying(false)
+    setPreviewTime(t)
+  }
+
   const onSelectFile = (nextFile: File | null) => {
     if (!nextFile) return
 
@@ -369,6 +489,13 @@ export default function CropToolPage() {
     setCropArea(null)
     setCropInsets({ top: 0, right: 0, bottom: 0, left: 0 })
     setCropRatio('free')
+
+    // Reset preview state (native controls are off).
+    try {
+      previewVideoRef.current?.pause()
+    } catch {}
+    setPreviewPlaying(false)
+    setPreviewTime(0)
 
     setVideoDuration(0)
     setTrimStart(0)
@@ -758,6 +885,7 @@ export default function CropToolPage() {
                 ) : (
                   <video
                     ref={(el) => {
+                      previewVideoRef.current = el
                       visualRef.current = el
                     }}
                     src={previewUrl}
@@ -787,6 +915,12 @@ export default function CropToolPage() {
                       }
                       setTrimStart(0)
                       setTrimEnd(v.duration || 0)
+                      setPreviewTime(0)
+                      setPreviewPlaying(false)
+                      if (previewPlaybackTimerRef.current != null) {
+                        clearInterval(previewPlaybackTimerRef.current)
+                        previewPlaybackTimerRef.current = null
+                      }
                       requestAnimationFrame(updateRenderBox)
                     }}
                   />
@@ -884,6 +1018,46 @@ export default function CropToolPage() {
                       onChange={(e) => setTrimEnd(Math.max(trimStart + 0.1, Number(e.target.value) || videoDuration))}
                       className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
                     />
+                  </div>
+                </div>
+              )}
+
+              {mediaType === 'video' && videoDuration > 0 && (
+                <div className="card p-4 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <h3 className="font-medium text-white">Trim Preview</h3>
+                      <div className="text-xs text-gray-300 mt-1">
+                        {formatTimeSec(trimStart)} - {formatTimeSec(effectiveTrimEnd)}
+                      </div>
+                    </div>
+                    <div className="text-sm font-semibold text-white bg-tank-gray px-3 py-1 rounded-lg whitespace-nowrap">
+                      {formatTimeSec(previewTime)} / {formatTimeSec(effectiveTrimEnd)}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 mb-3">
+                    <button
+                      type="button"
+                      onClick={toggleTrimPreview}
+                      className="bg-tank-light hover:brightness-110 text-black font-semibold px-3 py-2 rounded-lg"
+                      aria-label={previewPlaying ? 'Pause trim preview' : 'Play trim preview'}
+                    >
+                      {previewPlaying ? 'Pause' : 'Play'}
+                    </button>
+                  </div>
+
+                  <input
+                    type="range"
+                    min={trimStart}
+                    max={effectiveTrimEnd}
+                    step={0.01}
+                    value={clamp(previewTime, trimStart, effectiveTrimEnd)}
+                    onChange={(e) => scrubTrimPreview(Number(e.target.value))}
+                    className="w-full accent-tank-light"
+                  />
+                  <div className="text-xs text-gray-400 mt-1">
+                    Drag to scrub inside your trim range.
                   </div>
                 </div>
               )}
