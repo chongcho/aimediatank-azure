@@ -245,11 +245,12 @@ export default function CropToolPage() {
 
     const rect = container.getBoundingClientRect()
 
-    // Reserve space at the bottom for native video controls so the green crop
-    // box doesn't overlap them.
-    const reservePx = mediaType === 'video' ? VIDEO_CONTROLS_RESERVE_PX : 0
-    const effectiveHeightPx = Math.max(1, rect.height - reservePx)
-    const scale = Math.min(rect.width / naturalW, effectiveHeightPx / naturalH)
+    // Compute the exact object-fit "contain" rendering box within the container.
+    // We intentionally do NOT subtract any "controls reserve" here, because the
+    // <video> element still renders pixels into the full area; the browser UI
+    // overlays on top of it. This makes the crop rectangle align to the full
+    // original media frame.
+    const scale = Math.min(rect.width / naturalW, rect.height / naturalH)
 
     const width = naturalW * scale
     const height = naturalH * scale
@@ -258,7 +259,7 @@ export default function CropToolPage() {
       width,
       height,
       offsetX: (rect.width - width) / 2,
-      offsetY: (effectiveHeightPx - height) / 2,
+      offsetY: (rect.height - height) / 2,
     })
   }
 
@@ -795,7 +796,7 @@ export default function CropToolPage() {
                 {cropArea && mediaSize && renderBox && (
                   <div
                     className="absolute left-0 right-0 top-0 z-10 pointer-events-none overflow-hidden"
-                    style={{ bottom: mediaType === 'video' ? VIDEO_CONTROLS_RESERVE_PX : 0 }}
+                    style={{ bottom: 0 }}
                   >
                     {(() => {
                       const scaleX = renderBox.width / mediaSize.width
