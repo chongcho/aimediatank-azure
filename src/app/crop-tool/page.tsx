@@ -917,6 +917,13 @@ export default function CropToolPage() {
                       setTrimEnd(v.duration || 0)
                       setPreviewTime(0)
                       setPreviewPlaying(false)
+                      // Native controls are removed, but the browser may still
+                      // initialize `currentTime` to a non-zero value. For trim
+                      // preview, ensure the playhead starts at `trimStart`.
+                      try {
+                        v.pause()
+                        v.currentTime = 0
+                      } catch {}
                       if (previewPlaybackTimerRef.current != null) {
                         clearInterval(previewPlaybackTimerRef.current)
                         previewPlaybackTimerRef.current = null
