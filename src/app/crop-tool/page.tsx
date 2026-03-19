@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { compressImage, type QualitySettings } from '@/lib/mediaCompression'
 
 type Area = { x: number; y: number; width: number; height: number }
@@ -13,8 +14,10 @@ type RenderBox = {
 }
 
 const minCropSize = 80
+const VIDEO_CONTROLS_RESERVE_PX = 50
 
 export default function CropToolPage() {
+  const router = useRouter()
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null)
@@ -86,14 +89,18 @@ export default function CropToolPage() {
     const naturalH = mediaSize?.height
     if (!container || !el || !naturalW || !naturalH) return
     const rect = container.getBoundingClientRect()
-    const scale = Math.min(rect.width / naturalW, rect.height / naturalH)
+    // Reserve space at the bottom for native video controls so the green crop box
+    // doesn't overlap them (matches the UI expectation in the screenshot).
+    const reservePx = mediaType === 'video' ? VIDEO_CONTROLS_RESERVE_PX : 0
+    const effectiveHeightPx = Math.max(1, rect.height - reservePx)
+    const scale = Math.min(rect.width / naturalW, effectiveHeightPx / naturalH)
     const width = naturalW * scale
     const height = naturalH * scale
     setRenderBox({
       width,
       height,
       offsetX: (rect.width - width) / 2,
-      offsetY: (rect.height - height) / 2,
+      offsetY: (effectiveHeightPx - height) / 2,
     })
   }
 
@@ -105,7 +112,7 @@ export default function CropToolPage() {
     const ro = new ResizeObserver(() => updateRenderBox())
     ro.observe(c)
     return () => ro.disconnect()
-  }, [previewUrl, mediaSize])
+  }, [previewUrl, mediaSize, mediaType])
 
   useEffect(() => {
     const move = (clientX: number, clientY: number) => {
@@ -338,7 +345,20 @@ export default function CropToolPage() {
   return (
     <div className="max-w-4xl mx-auto p-4 pb-24">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-white">Crop Tool</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold text-white">Crop Tool</h1>
+          <button
+            type="button"
+            onClick={() => router.push('/')}
+            className="w-10 h-10 rounded-md bg-tank-gray hover:bg-tank-light text-white flex items-center justify-center"
+            aria-label="Close Crop Tool"
+            title="Close"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
         <p className="text-sm text-gray-400">Independent client-side crop/trim/re-encode tool. Processing happens on your device.</p>
       </div>
 
