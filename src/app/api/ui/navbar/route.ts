@@ -43,10 +43,7 @@ export async function GET() {
           if (item.label !== expected.label || item.sortOrder !== expected.sortOrder) {
             await prisma.navbarMenuSetting.update({
               where: { id: item.id },
-              data: {
-                label: expected.label,
-                sortOrder: expected.sortOrder,
-              },
+              data: { label: expected.label, sortOrder: expected.sortOrder },
             })
           }
         }
