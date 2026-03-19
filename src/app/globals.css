@@ -330,6 +330,7 @@ input[type="date"]::-webkit-datetime-edit-year-field {
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   margin-left: 10px;
+  margin-top: 2px;
   opacity: 1;
 }
 
