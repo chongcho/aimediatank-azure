@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { compressImage, type QualitySettings } from '@/lib/mediaCompression'
@@ -116,6 +116,7 @@ export default function CropToolPage() {
   const previewVideoRef = useRef<HTMLVideoElement | null>(null)
   const previewObjectUrlRef = useRef<string | null>(null)
   const selectedFileRef = useRef<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [previewPlaying, setPreviewPlaying] = useState(false)
   const [previewTime, setPreviewTime] = useState(0)
@@ -198,6 +199,49 @@ export default function CropToolPage() {
       }
     }
   }, [])
+
+  const resetCropWorkspace = useCallback(() => {
+    setError('')
+    setFile(null)
+    selectedFileRef.current = null
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current)
+      previewObjectUrlRef.current = null
+    }
+    setPreviewUrl(null)
+    setMediaType(null)
+    setMediaSize(null)
+    setRenderBox(null)
+    setCropInsets({ top: 0, right: 0, bottom: 0, left: 0 })
+    setCropArea(null)
+    setCropRatio('free')
+    setVideoDuration(0)
+    setTrimStart(0)
+    setTrimEnd(0)
+    setProcessing(false)
+    setProgress(0)
+    setOutputResolution('auto')
+    setOriginalVideoInfo(null)
+    setLastSavedName(null)
+    setPreviewPlaying(false)
+    setPreviewTime(0)
+    try {
+      previewVideoRef.current?.pause()
+    } catch {
+      // ignore
+    }
+    dragRef.current.active = false
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }, [])
+
+  // BFCache restore (Back/Forward) can resurrect a half-torn-down crop session; reset the UI.
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) resetCropWorkspace()
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [resetCropWorkspace])
 
   const isSubscriber = useMemo(() => session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN', [session?.user?.role])
 
@@ -836,6 +880,7 @@ export default function CropToolPage() {
           <div>
             <label className="block text-sm mb-2 text-gray-300">Select media</label>
             <input
+              ref={fileInputRef}
               type="file"
               accept="image/*,video/*"
               onChange={(e) => onSelectFile(e.target.files?.[0] || null)}

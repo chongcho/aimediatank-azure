@@ -951,6 +951,18 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 
   const handleClick = (e: React.MouseEvent) => {
     const isOnHomePage = window.location.pathname === '/'
+    // Leaving the standalone crop tool via client-side navigation can leave video/audio
+    // capture + file inputs in a bad state; force a full load so other routes and Admin links
+    // keep working reliably.
+    if (pathname === '/crop-tool' && href !== '/crop-tool') {
+      e.preventDefault()
+      if (href === '/' || href.startsWith('/?')) {
+        sessionStorage.removeItem('homeScrollState')
+        clearHomeFeed()
+      }
+      window.location.assign(href)
+      return
+    }
 
     if (href === '/' || href.startsWith('/?')) {
       e.preventDefault()
@@ -994,9 +1006,19 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 }
 
 function MobileNavLink({ href, onClick, children }: { href: string; onClick: () => void; children: React.ReactNode }) {
+  const pathname = usePathname()
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     onClick()
+
+    if (pathname === '/crop-tool' && href !== '/crop-tool') {
+      if (href === '/' || href.startsWith('/?')) {
+        sessionStorage.removeItem('homeScrollState')
+        clearHomeFeed()
+      }
+      window.location.assign(href)
+      return
+    }
 
     const isOnHomePage = window.location.pathname === '/'
 

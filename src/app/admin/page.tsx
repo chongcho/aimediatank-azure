@@ -1557,6 +1557,13 @@ export default function AdminPage() {
                 key={tab.id}
                 href="/crop-tool"
                 className={baseClass}
+                onClick={(e) => {
+                  // Full navigation avoids a stuck crop-tool client session (media + file input)
+                  // after the user left that page without fully unloading the document.
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+                  e.preventDefault()
+                  window.location.assign('/crop-tool')
+                }}
               >
                 {tab.label}
               </Link>
