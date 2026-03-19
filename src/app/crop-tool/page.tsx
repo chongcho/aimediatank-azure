@@ -29,6 +29,15 @@ type CropToolSettingsFromApi = {
   paidDownloadQuality?: string
 }
 
+type OriginalVideoInfo = {
+  width: number
+  height: number
+  durationSec: number
+  fileSizeBytes: number
+  mime: string
+  approxOverallBitrateKbps: number | null
+}
+
 const minCropSize = 80
 const VIDEO_CONTROLS_RESERVE_PX = 50
 const CANVAS_MAX_DIM = 8192
@@ -50,6 +59,16 @@ function roundEven(n: number) {
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '-'
+  const kb = bytes / 1024
+  if (kb < 1024) return `${kb.toFixed(1)} KB`
+  const mb = kb / 1024
+  if (mb < 1024) return `${mb.toFixed(1)} MB`
+  const gb = mb / 1024
+  return `${gb.toFixed(2)} GB`
 }
 
 export default function CropToolPage() {
@@ -80,11 +99,19 @@ export default function CropToolPage() {
   const [cropSettings, setCropSettings] = useState<CropToolSettingsFromApi | null>(null)
 
   const [outputResolution, setOutputResolution] = useState<CropOutputResolution>('auto')
+
+  const [originalVideoInfo, setOriginalVideoInfo] = useState<OriginalVideoInfo | null>(null)
+  // Client-side encoding overrides (user-selected).
+  const [userVideoFps, setUserVideoFps] = useState<number>(30)
+  const [userVideoBitrateMbps, setUserVideoBitrateMbps] = useState<number>(8)
+  const [userAudioBitrateKbps, setUserAudioBitrateKbps] = useState<number>(256)
+
   const [lastSavedName, setLastSavedName] = useState<string | null>(null)
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const visualRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
   const previewObjectUrlRef = useRef<string | null>(null)
+  const selectedFileRef = useRef<File | null>(null)
 
   const dragRef = useRef<{
     active: boolean
@@ -137,6 +164,14 @@ export default function CropToolPage() {
       .catch(() => {})
     // We intentionally want settings to refresh when subscription changes.
   }, [session?.user?.role])
+
+  // Initialize user-selected encoding overrides from admin settings.
+  useEffect(() => {
+    if (mediaType !== 'video') return
+    setUserVideoFps(qualitySettings.videoFps ?? 30)
+    setUserVideoBitrateMbps(qualitySettings.videoBitrateMbps ?? 8)
+    setUserAudioBitrateKbps(qualitySettings.audioBitrateKbps ?? 256)
+  }, [qualitySettings, mediaType])
 
   // Revoke preview blob URLs to avoid memory leaks.
   useEffect(() => {
@@ -318,6 +353,7 @@ export default function CropToolPage() {
 
     setError('')
     setFile(nextFile)
+    selectedFileRef.current = nextFile
 
     if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current)
     const objectUrl = URL.createObjectURL(nextFile)
@@ -326,6 +362,7 @@ export default function CropToolPage() {
 
     const isVideo = nextFile.type.startsWith('video/')
     setMediaType(isVideo ? 'video' : 'image')
+    setOriginalVideoInfo(null)
 
     setMediaSize(null)
     setCropArea(null)
@@ -625,12 +662,18 @@ export default function CropToolPage() {
         downloadFile(out, out.name || 'cropped-image.jpg')
         setProgress(100)
       } else if (mediaType === 'video') {
+        const encodingQuality: QualitySettings = {
+          ...qualitySettings,
+          videoFps: Math.round(clamp(userVideoFps, 15, 60)),
+          videoBitrateMbps: clamp(userVideoBitrateMbps, 1, 50),
+          audioBitrateKbps: Math.round(clamp(userAudioBitrateKbps, 64, 512)),
+        }
         const out = await processVideoClientSide(
           file,
           cropArea,
           trimStart,
           trimEnd || videoDuration,
-          qualitySettings,
+          encodingQuality,
           { width: outputDims.width, height: outputDims.height },
           setProgress
         )
@@ -721,6 +764,20 @@ export default function CropToolPage() {
                       const v = e.currentTarget
                       setMediaSize({ width: v.videoWidth, height: v.videoHeight })
                       setVideoDuration(v.duration || 0)
+                      const f = selectedFileRef.current
+                      if (f) {
+                        const durationSec = v.duration || 0
+                        const approxOverallBitrateKbps =
+                          durationSec > 0 ? (f.size * 8) / durationSec / 1000 : null
+                        setOriginalVideoInfo({
+                          width: v.videoWidth,
+                          height: v.videoHeight,
+                          durationSec,
+                          fileSizeBytes: f.size,
+                          mime: f.type,
+                          approxOverallBitrateKbps,
+                        })
+                      }
                       setTrimStart(0)
                       setTrimEnd(v.duration || 0)
                       requestAnimationFrame(updateRenderBox)
@@ -824,6 +881,36 @@ export default function CropToolPage() {
                 </div>
               )}
 
+              {mediaType === 'video' && originalVideoInfo && videoDuration > 0 && (
+                <div className="card p-4 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
+                  <h3 className="font-medium text-white mb-2">Original Video (Reference)</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-gray-400">Resolution</span>
+                      <div className="text-white font-semibold">
+                        {originalVideoInfo.width}x{originalVideoInfo.height}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Duration</span>
+                      <div className="text-white font-semibold">{originalVideoInfo.durationSec.toFixed(2)} sec</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">File Size</span>
+                      <div className="text-white font-semibold">{formatBytes(originalVideoInfo.fileSizeBytes)}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Approx. Overall Bitrate</span>
+                      <div className="text-white font-semibold">
+                        {originalVideoInfo.approxOverallBitrateKbps != null
+                          ? `${(originalVideoInfo.approxOverallBitrateKbps / 1000).toFixed(2)} Mbps`
+                          : '-'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {mediaType === 'image' || mediaType === 'video' ? (
                 <div className="flex items-center gap-3">
                   <label className="text-sm text-gray-300">Output Resolution</label>
@@ -840,6 +927,80 @@ export default function CropToolPage() {
                   </select>
                 </div>
               ) : null}
+
+              {mediaType === 'video' && (
+                <div className="card p-4 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
+                  <h3 className="font-medium text-white mb-3">Re-encoding Settings (Client-side)</h3>
+
+                  <div className="space-y-5">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-sm font-medium text-gray-300">Frame Rate</label>
+                        <span className="text-sm font-bold text-white bg-tank-gray px-3 py-1 rounded-lg">
+                          {Math.round(userVideoFps)} fps
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={15}
+                        max={60}
+                        step={1}
+                        value={userVideoFps}
+                        onChange={(e) => setUserVideoFps(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>15</span>
+                        <span>60</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-sm font-medium text-gray-300">Video Bitrate</label>
+                        <span className="text-sm font-bold text-white bg-tank-gray px-3 py-1 rounded-lg">
+                          {userVideoBitrateMbps.toFixed(1)} Mbps
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={50}
+                        step={0.5}
+                        value={userVideoBitrateMbps}
+                        onChange={(e) => setUserVideoBitrateMbps(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>1 Mbps</span>
+                        <span>50 Mbps</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-sm font-medium text-gray-300">Audio Bitrate</label>
+                        <span className="text-sm font-bold text-white bg-tank-gray px-3 py-1 rounded-lg">
+                          {Math.round(userAudioBitrateKbps)} kbps
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={64}
+                        max={512}
+                        step={32}
+                        value={userAudioBitrateKbps}
+                        onChange={(e) => setUserAudioBitrateKbps(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>64</span>
+                        <span>512</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {mediaSize && (

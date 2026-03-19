@@ -729,23 +729,6 @@ function NavbarContent() {
                   </Link>
                 )}
 
-                {/* Crop Tool button - standalone, client-side processing */}
-                {session && isNavbarItemEnabled('cropTool') && (
-                  <Link
-                    href="/crop-tool"
-                    className="h-9 w-9 flex items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700
-                      hover:scale-105 active:scale-95 transition-all duration-200 ease-out"
-                    aria-label="Crop Tool"
-                    title="Crop Tool"
-                  >
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 3v14a4 4 0 004 4h10" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h14a4 4 0 014 4v10" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M14 14l7 7" />
-                    </svg>
-                  </Link>
-                )}
-
                 {/* Nickname Dropdown */}
                 <div className="relative" ref={profileRef}>
                   <button
