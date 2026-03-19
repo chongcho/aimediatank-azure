@@ -819,26 +819,6 @@ export default function CropToolPage() {
 
   return (
     <div className="min-h-screen w-full p-4 sm:p-6 pb-10">
-      <div className="mb-4">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="text-2xl font-bold text-white">Crop Tool</h1>
-          <button
-            type="button"
-            onClick={() => router.push('/')}
-            className="w-10 h-10 rounded-md bg-tank-gray hover:bg-tank-light text-white flex items-center justify-center"
-            aria-label="Close Crop Tool"
-            title="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <p className="text-sm text-gray-400">
-          Standalone, client-side crop/trim/re-encode tool. Processing happens on your device.
-        </p>
-      </div>
-
       {!toolEnabled || !navbarEnabled ? (
         <div className="card p-6 border border-red-500/30 bg-red-500/10">
           <h2 className="text-lg font-bold text-white mb-2">Crop Tool is Disabled</h2>
@@ -990,6 +970,16 @@ export default function CropToolPage() {
                     className="px-5 py-2 bg-emerald-500 text-black font-semibold disabled:opacity-50"
                   >
                     {processing ? `Processing... ${progress}%` : 'Process & Save Locally'}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/')}
+                    className="px-5 py-2 bg-tank-gray text-white font-semibold hover:bg-tank-light"
+                  >
+                    Close
                   </button>
                 </div>
 
