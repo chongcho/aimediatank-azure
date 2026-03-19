@@ -438,6 +438,11 @@ export default function CropToolPage() {
     const fps = settings.videoFps ?? 30
     const stream = canvas.captureStream(fps)
 
+    // When we route audio through WebAudio -> MediaStream, we must keep the
+    // AudioContext alive until MediaRecorder finishes; closing it early can
+    // cut the destination tracks (resulting in silent recordings).
+    let audioCtxToClose: AudioContext | null = null
+
     // Prefer WebAudio routing for audio tracks.
     const addAudioTracks = async () => {
       let audioTracksAdded = false
@@ -462,11 +467,11 @@ export default function CropToolPage() {
           if (destTracks.length > 0) {
             destTracks.forEach((t) => stream.addTrack(t))
             audioTracksAdded = true
+            audioCtxToClose = audioCtx
+          } else {
+            // No audio tracks produced; close immediately to avoid leaks.
+            audioCtx.close().catch(() => {})
           }
-
-          // Close audio context after encoding; MediaStreamTracks may still be used after close.
-          // We'll also try to close again on stop.
-          audioCtx.close().catch(() => {})
         }
       } catch {
         // ignore
@@ -512,10 +517,11 @@ export default function CropToolPage() {
 
     if (targetEnd <= startSec) throw new Error('Trim end must be greater than trim start')
 
+    let intervalId: number | null = null
     const stop = () => {
       if (stopped) return
       stopped = true
-      clearInterval(intervalId)
+      if (intervalId != null) clearInterval(intervalId)
       try {
         video.pause()
       } catch {}
@@ -525,13 +531,20 @@ export default function CropToolPage() {
     }
 
     let stopped = false
-    let intervalId = window.setInterval(() => {}, 1000 / Math.max(1, fps))
 
     await addAudioTracks()
 
     await new Promise<void>((resolve, reject) => {
-      recorder.onstop = () => resolve()
-      recorder.onerror = () => reject(new Error('MediaRecorder failed'))
+      recorder.onstop = () => {
+        audioCtxToClose?.close().catch(() => {})
+        audioCtxToClose = null
+        resolve()
+      }
+      recorder.onerror = () => {
+        audioCtxToClose?.close().catch(() => {})
+        audioCtxToClose = null
+        reject(new Error('MediaRecorder failed'))
+      }
 
       const tick = () => {
         if (stopped) return
