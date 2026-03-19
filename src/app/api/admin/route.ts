@@ -629,12 +629,13 @@ export async function GET(request: Request) {
           for (const item of items) {
             const expected = defaultByKey.get(item.itemKey)
             if (!expected) continue
-            if (item.label !== expected.label || item.sortOrder !== expected.sortOrder) {
+            // Preserve admin/custom ordering: only sync labels (and only for existing items).
+            // sortOrder is user-controlled and should not be overwritten on every GET.
+            if (item.label !== expected.label) {
               await prisma.navbarMenuSetting.update({
                 where: { id: item.id },
                 data: {
                   label: expected.label,
-                  sortOrder: expected.sortOrder,
                 },
               })
             }
