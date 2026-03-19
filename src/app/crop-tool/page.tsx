@@ -745,10 +745,12 @@ export default function CropToolPage() {
                     alt="preview"
                     className="w-full h-full object-contain"
                     onLoad={(e) => {
-                      setMediaSize({
-                        width: e.currentTarget.naturalWidth,
-                        height: e.currentTarget.naturalHeight,
-                      })
+                      const w = e.currentTarget.naturalWidth
+                      const h = e.currentTarget.naturalHeight
+                      setMediaSize({ width: w, height: h })
+                      // Default crop selection: cover the entire original media.
+                      setCropInsets({ top: 0, right: 0, bottom: 0, left: 0 })
+                      setCropArea({ x: 0, y: 0, width: w, height: h })
                       requestAnimationFrame(updateRenderBox)
                     }}
                   />
@@ -762,7 +764,12 @@ export default function CropToolPage() {
                     className="w-full h-full object-contain"
                     onLoadedMetadata={(e) => {
                       const v = e.currentTarget
-                      setMediaSize({ width: v.videoWidth, height: v.videoHeight })
+                      const w = v.videoWidth
+                      const h = v.videoHeight
+                      setMediaSize({ width: w, height: h })
+                      // Default crop selection: cover the entire original media.
+                      setCropInsets({ top: 0, right: 0, bottom: 0, left: 0 })
+                      setCropArea({ x: 0, y: 0, width: w, height: h })
                       setVideoDuration(v.duration || 0)
                       const f = selectedFileRef.current
                       if (f) {
