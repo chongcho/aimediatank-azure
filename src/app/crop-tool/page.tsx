@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { compressImage, type QualitySettings } from '@/lib/mediaCompression'
 
 type Area = { x: number; y: number; width: number; height: number }
@@ -16,7 +15,6 @@ type RenderBox = {
 const minCropSize = 80
 
 export default function CropToolPage() {
-  const router = useRouter()
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null)
@@ -205,11 +203,8 @@ export default function CropToolPage() {
     })
 
     const canvas = document.createElement('canvas')
-    // Keep output at source resolution while applying crop + trim.
-    const outputWidth = Math.max(2, Math.round(video.videoWidth / 2) * 2)
-    const outputHeight = Math.max(2, Math.round(video.videoHeight / 2) * 2)
-    canvas.width = outputWidth
-    canvas.height = outputHeight
+    canvas.width = Math.round(crop.width / 2) * 2
+    canvas.height = Math.round(crop.height / 2) * 2
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Cannot create canvas context')
 
@@ -274,8 +269,8 @@ export default function CropToolPage() {
           Math.round(crop.height),
           0,
           0,
-          outputWidth,
-          outputHeight
+          canvas.width,
+          canvas.height
         )
         const pct = Math.round(((video.currentTime - startSec) / total) * 100)
         onProgress(Math.max(0, Math.min(100, pct)))
@@ -330,21 +325,10 @@ export default function CropToolPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 pb-24">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-white">Crop Tool</h1>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="w-10 h-10 rounded-md bg-tank-gray hover:bg-tank-light text-white flex items-center justify-center"
-          aria-label="Close Crop Tool"
-          title="Close"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <p className="text-sm text-gray-400">Independent client-side crop/trim/re-encode tool. Processing happens on your device.</p>
       </div>
-      <p className="text-sm text-gray-400 mb-4">Independent client-side crop/trim/re-encode tool. Processing happens on your device.</p>
 
       <div className="card space-y-4">
         <div>
@@ -379,6 +363,7 @@ export default function CropToolPage() {
                     visualRef.current = el
                   }}
                   src={previewUrl}
+                  controls
                   className="w-full h-full object-contain"
                   onLoadedMetadata={(e) => {
                     const v = e.currentTarget
@@ -434,14 +419,6 @@ export default function CropToolPage() {
                 </div>
               )}
             </div>
-            {mediaType === 'video' && (
-              <video
-                src={previewUrl}
-                controls
-                className="w-full bg-black rounded-md"
-                preload="metadata"
-              />
-            )}
 
             <div className="flex items-center gap-3">
               <label className="text-sm text-gray-300">Ratio</label>
