@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { compressImage, type QualitySettings } from '@/lib/mediaCompression'
 
@@ -75,7 +74,6 @@ function formatTimeSec(t: number) {
 }
 
 export default function CropToolPage() {
-  const router = useRouter()
   const { data: session } = useSession()
 
   const [navbarEnabled, setNavbarEnabled] = useState(true)
@@ -866,26 +864,54 @@ export default function CropToolPage() {
     }
   }
 
+  const exitCropTool = () => {
+    // Full navigation matches navbar/admin behavior so media + file-input state cannot strand.
+    window.location.assign('/')
+  }
+
+  const closeButton = (
+    <button
+      type="button"
+      onClick={exitCropTool}
+      className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg border border-tank-light/40 bg-tank-gray/80 text-gray-200 hover:bg-tank-light/40 hover:text-white focus:outline-none focus:ring-2 focus:ring-tank-accent"
+      aria-label="Close crop tool"
+      title="Close"
+    >
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  )
+
   return (
     <div className="min-h-screen w-full p-4 sm:p-6 pb-10">
       {!toolEnabled || !navbarEnabled ? (
-        <div className="card p-6 border border-red-500/30 bg-red-500/10">
-          <h2 className="text-lg font-bold text-white mb-2">Crop Tool is Disabled</h2>
-          <p className="text-sm text-gray-200">
-            Ask an admin to enable it in <span className="font-semibold">Navbar Control</span> and/or <span className="font-semibold">Upload & Download</span>.
-          </p>
+        <div className="card p-6 border border-red-500/30 bg-red-500/10 relative">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-bold text-white mb-2">Crop Tool is Disabled</h2>
+              <p className="text-sm text-gray-200">
+                Ask an admin to enable it in <span className="font-semibold">Navbar Control</span> and/or{' '}
+                <span className="font-semibold">Upload & Download</span>.
+              </p>
+            </div>
+            {closeButton}
+          </div>
         </div>
       ) : (
         <div className="card space-y-4">
-          <div>
-            <label className="block text-sm mb-2 text-gray-300">Select media</label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*"
-              onChange={(e) => onSelectFile(e.target.files?.[0] || null)}
-              className="text-sm"
-            />
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <label className="block text-sm mb-2 text-gray-300">Select media</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                onChange={(e) => onSelectFile(e.target.files?.[0] || null)}
+                className="text-sm"
+              />
+            </div>
+            {closeButton}
           </div>
 
           {previewUrl && mediaType && (
@@ -1034,16 +1060,6 @@ export default function CropToolPage() {
                     className="px-5 py-2 bg-emerald-500 text-black font-semibold disabled:opacity-50"
                   >
                     {processing ? `Processing... ${progress}%` : 'Process & Save Locally'}
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => router.push('/')}
-                    className="px-5 py-2 bg-tank-gray border border-tank-light/30 text-white font-semibold rounded-lg hover:bg-tank-light/40"
-                  >
-                    Close
                   </button>
                 </div>
 
