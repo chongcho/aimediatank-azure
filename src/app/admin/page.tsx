@@ -1545,6 +1545,7 @@ export default function AdminPage() {
           { id: 'accessLogs', label: 'Access Logs' },
         ] as { id: TabType; label: string }[]).map((tab) => (
           <button
+            type="button"
             key={tab.id}
             onClick={() => {
               if (tab.id === 'standaloneCropTool') {
