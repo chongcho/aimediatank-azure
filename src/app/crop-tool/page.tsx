@@ -761,7 +761,6 @@ export default function CropToolPage() {
                       visualRef.current = el
                     }}
                     src={previewUrl}
-                    controls
                     className="w-full h-full object-contain"
                     onLoadedMetadata={(e) => {
                       const v = e.currentTarget
