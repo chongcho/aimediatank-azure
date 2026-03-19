@@ -859,397 +859,393 @@ export default function CropToolPage() {
           </div>
 
           {previewUrl && mediaType && (
-            <>
-              <div
-                ref={containerRef}
-                className="relative w-full h-[220px] sm:h-[320px] md:h-[420px] bg-black overflow-hidden rounded-lg"
-              >
-                {mediaType === 'image' ? (
-                  <img
-                    ref={(el) => {
-                      visualRef.current = el
-                    }}
-                    src={previewUrl}
-                    alt="preview"
-                    className="w-full h-full object-contain"
-                    onLoad={(e) => {
-                      const w = e.currentTarget.naturalWidth
-                      const h = e.currentTarget.naturalHeight
-                      setMediaSize({ width: w, height: h })
-                      // Default crop selection: cover the entire original media.
-                      setCropInsets({ top: 0, right: 0, bottom: 0, left: 0 })
-                      setCropArea({ x: 0, y: 0, width: w, height: h })
-                      requestAnimationFrame(updateRenderBox)
-                    }}
-                  />
-                ) : (
-                  <video
-                    ref={(el) => {
-                      previewVideoRef.current = el
-                      visualRef.current = el
-                    }}
-                    src={previewUrl}
-                    className="w-full h-full object-contain"
-                    onLoadedMetadata={(e) => {
-                      const v = e.currentTarget
-                      const w = v.videoWidth
-                      const h = v.videoHeight
-                      setMediaSize({ width: w, height: h })
-                      // Default crop selection: cover the entire original media.
-                      setCropInsets({ top: 0, right: 0, bottom: 0, left: 0 })
-                      setCropArea({ x: 0, y: 0, width: w, height: h })
-                      setVideoDuration(v.duration || 0)
-                      const f = selectedFileRef.current
-                      if (f) {
-                        const durationSec = v.duration || 0
-                        const approxOverallBitrateKbps =
-                          durationSec > 0 ? (f.size * 8) / durationSec / 1000 : null
-                        setOriginalVideoInfo({
-                          width: v.videoWidth,
-                          height: v.videoHeight,
-                          durationSec,
-                          fileSizeBytes: f.size,
-                          mime: f.type,
-                          approxOverallBitrateKbps,
-                        })
-                      }
-                      setTrimStart(0)
-                      setTrimEnd(v.duration || 0)
-                      setPreviewTime(0)
-                      setPreviewPlaying(false)
-                      // Native controls are removed, but the browser may still
-                      // initialize `currentTime` to a non-zero value. For trim
-                      // preview, ensure the playhead starts at `trimStart`.
-                      try {
-                        v.pause()
-                        v.currentTime = 0
-                      } catch {}
-                      if (previewPlaybackTimerRef.current != null) {
-                        clearInterval(previewPlaybackTimerRef.current)
-                        previewPlaybackTimerRef.current = null
-                      }
-                      requestAnimationFrame(updateRenderBox)
-                    }}
-                  />
-                )}
-
-                {cropArea && mediaSize && renderBox && (
-                  <div
-                    className="absolute left-0 right-0 top-0 z-10 pointer-events-none overflow-hidden"
-                    style={{ bottom: 0 }}
-                  >
-                    {(() => {
-                      const scaleX = renderBox.width / mediaSize.width
-                      const scaleY = renderBox.height / mediaSize.height
-                      const left = renderBox.offsetX + cropArea.x * scaleX
-                      const top = renderBox.offsetY + cropArea.y * scaleY
-                      const width = cropArea.width * scaleX
-                      const height = cropArea.height * scaleY
-
-                      return (
-                        <div
-                          role="presentation"
-                          onMouseDown={(e) => {
-                            dragRef.current.active = true
-                            dragRef.current.startX = e.clientX
-                            dragRef.current.startY = e.clientY
-                            dragRef.current.startTop = cropInsets.top
-                            dragRef.current.startLeft = cropInsets.left
-                          }}
-                          onTouchStart={(e) => {
-                            dragRef.current.active = true
-                            dragRef.current.startX = e.touches[0].clientX
-                            dragRef.current.startY = e.touches[0].clientY
-                            dragRef.current.startTop = cropInsets.top
-                            dragRef.current.startLeft = cropInsets.left
-                          }}
-                          style={{
-                            position: 'absolute',
-                            left,
-                            top,
-                            width,
-                            height,
-                            border: '2px solid rgba(0,255,136,0.95)',
-                            boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)',
-                            pointerEvents: 'auto',
-                            cursor: 'move',
-                          }}
-                        />
-                      )
-                    })()}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3">
-                <label className="text-sm text-gray-300">Ratio</label>
-                <select
-                  value={cropRatio}
-                  onChange={(e) => {
-                    const r = e.target.value
-                    setCropRatio(r)
-                    applyRatio(r)
-                  }}
-                  className="bg-tank-gray border border-tank-light px-3 py-2 text-white"
-                >
-                  <option value="free">Free</option>
-                  <option value="16:9">16:9</option>
-                  <option value="9:16">9:16</option>
-                  <option value="4:3">4:3</option>
-                  <option value="1:1">1:1</option>
-                </select>
-              </div>
-
-              {mediaType === 'video' && videoDuration > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm text-gray-300">Trim Start (sec)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={Math.max(0, trimEnd - 0.1)}
-                      step={0.1}
-                      value={trimStart}
-                      onChange={(e) => setTrimStart(Math.max(0, Number(e.target.value) || 0))}
-                      className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-300">Trim End (sec)</label>
-                    <input
-                      type="number"
-                      min={Math.max(0.1, trimStart + 0.1)}
-                      max={videoDuration}
-                      step={0.1}
-                      value={trimEnd}
-                      onChange={(e) => setTrimEnd(Math.max(trimStart + 0.1, Number(e.target.value) || videoDuration))}
-                      className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {mediaType === 'video' && videoDuration > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left sidebar: original + crop tool setting + ratio + process */}
+              <div className="space-y-4">
                 <div className="card p-4 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
-                  <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="space-y-4">
                     <div>
-                      <h3 className="font-medium text-white">Trim Preview</h3>
-                      <div className="text-xs text-gray-300 mt-1">
-                        {formatTimeSec(trimStart)} - {formatTimeSec(effectiveTrimEnd)}
+                      <h3 className="font-medium text-white mb-2">Original Video</h3>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-gray-400">Resolution</span>
+                          <div className="text-white font-semibold">
+                            {mediaSize ? `${mediaSize.width}x${mediaSize.height}` : '0x0'}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Duration</span>
+                          <div className="text-white font-semibold">
+                            {originalVideoInfo ? `${originalVideoInfo.durationSec.toFixed(2)} sec` : '0 sec'}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-sm font-semibold text-white bg-tank-gray px-3 py-1 rounded-lg whitespace-nowrap">
-                      {formatTimeSec(previewTime)} / {formatTimeSec(effectiveTrimEnd)}
+
+                    <div>
+                      <h3 className="font-medium text-white mb-3">Crop Tool Setting</h3>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <label className="text-sm text-gray-300">Output Resolution</label>
+                          <select
+                            value={outputResolution}
+                            onChange={(e) => setOutputResolution(e.target.value as CropOutputResolution)}
+                            className="bg-tank-gray border border-tank-light px-3 py-2 text-white"
+                          >
+                            {resolutionOptions.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {mediaType === 'video' && (
+                          <>
+                            <div>
+                              <label className="text-sm text-gray-300">Frame Rate</label>
+                              <div className="flex items-center gap-3 mt-1">
+                                <input
+                                  type="number"
+                                  min={15}
+                                  max={60}
+                                  step={1}
+                                  value={userVideoFps}
+                                  onChange={(e) => setUserVideoFps(clamp(Number(e.target.value) || 30, 15, 60))}
+                                  className="w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                                />
+                                <span className="text-sm text-gray-300 whitespace-nowrap">{Math.round(userVideoFps)} fps</span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-sm text-gray-300">Video Bitrate</label>
+                              <div className="flex items-center gap-3 mt-1">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={50}
+                                  step={0.5}
+                                  value={userVideoBitrateMbps}
+                                  onChange={(e) => setUserVideoBitrateMbps(clamp(Number(e.target.value) || 8, 1, 50))}
+                                  className="w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                                />
+                                <span className="text-sm text-gray-300 whitespace-nowrap">
+                                  {userVideoBitrateMbps.toFixed(1)} Mbps
+                                </span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-sm text-gray-300">Audio Bitrate</label>
+                              <div className="flex items-center gap-3 mt-1">
+                                <input
+                                  type="number"
+                                  min={64}
+                                  max={512}
+                                  step={32}
+                                  value={userAudioBitrateKbps}
+                                  onChange={(e) =>
+                                    setUserAudioBitrateKbps(clamp(Number(e.target.value) || 256, 64, 512))
+                                  }
+                                  className="w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                                />
+                                <span className="text-sm text-gray-300 whitespace-nowrap">
+                                  {Math.round(userAudioBitrateKbps)} kbps
+                                </span>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-3">
-                    <button
-                      type="button"
-                      onClick={toggleTrimPreview}
-                      className="bg-tank-light hover:brightness-110 text-black font-semibold px-3 py-2 rounded-lg"
-                      aria-label={previewPlaying ? 'Pause trim preview' : 'Play trim preview'}
-                    >
-                      {previewPlaying ? 'Pause' : 'Play'}
-                    </button>
-                  </div>
-
-                  <input
-                    type="range"
-                    min={trimStart}
-                    max={effectiveTrimEnd}
-                    step={0.01}
-                    value={clamp(previewTime, trimStart, effectiveTrimEnd)}
-                    onChange={(e) => scrubTrimPreview(Number(e.target.value))}
-                    className="w-full accent-tank-light"
-                  />
-                  <div className="text-xs text-gray-400 mt-1">
-                    Drag to scrub inside your trim range.
                   </div>
                 </div>
-              )}
 
-              {mediaType === 'video' && originalVideoInfo && videoDuration > 0 && (
-                <div className="card p-4 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
-                  <h3 className="font-medium text-white mb-2">Original Video (Reference)</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-gray-400">Resolution</span>
-                      <div className="text-white font-semibold">
-                        {originalVideoInfo.width}x{originalVideoInfo.height}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Duration</span>
-                      <div className="text-white font-semibold">{originalVideoInfo.durationSec.toFixed(2)} sec</div>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">File Size</span>
-                      <div className="text-white font-semibold">{formatBytes(originalVideoInfo.fileSizeBytes)}</div>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Approx. Overall Bitrate</span>
-                      <div className="text-white font-semibold">
-                        {originalVideoInfo.approxOverallBitrateKbps != null
-                          ? `${(originalVideoInfo.approxOverallBitrateKbps / 1000).toFixed(2)} Mbps`
-                          : '-'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {mediaType === 'image' || mediaType === 'video' ? (
                 <div className="flex items-center gap-3">
-                  <label className="text-sm text-gray-300">Output Resolution</label>
+                  <label className="text-sm text-gray-300">Ratio</label>
                   <select
-                    value={outputResolution}
-                    onChange={(e) => setOutputResolution(e.target.value as CropOutputResolution)}
+                    value={cropRatio}
+                    onChange={(e) => {
+                      const r = e.target.value
+                      setCropRatio(r)
+                      applyRatio(r)
+                    }}
                     className="bg-tank-gray border border-tank-light px-3 py-2 text-white"
                   >
-                    {resolutionOptions.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
+                    <option value="free">Free</option>
+                    <option value="16:9">16:9</option>
+                    <option value="9:16">9:16</option>
+                    <option value="4:3">4:3</option>
+                    <option value="1:1">1:1</option>
                   </select>
                 </div>
-              ) : null}
 
-              {mediaType === 'video' && (
-                <div className="card p-4 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
-                  <h3 className="font-medium text-white mb-3">Re-encoding Settings (Client-side)</h3>
-
-                  <div className="space-y-5">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-sm font-medium text-gray-300">Frame Rate</label>
-                        <span className="text-sm font-bold text-white bg-tank-gray px-3 py-1 rounded-lg">
-                          {Math.round(userVideoFps)} fps
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={15}
-                        max={60}
-                        step={1}
-                        value={userVideoFps}
-                        onChange={(e) => setUserVideoFps(Number(e.target.value))}
-                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                      />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>15</span>
-                        <span>60</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-sm font-medium text-gray-300">Video Bitrate</label>
-                        <span className="text-sm font-bold text-white bg-tank-gray px-3 py-1 rounded-lg">
-                          {userVideoBitrateMbps.toFixed(1)} Mbps
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={1}
-                        max={50}
-                        step={0.5}
-                        value={userVideoBitrateMbps}
-                        onChange={(e) => setUserVideoBitrateMbps(Number(e.target.value))}
-                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                      />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>1 Mbps</span>
-                        <span>50 Mbps</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-sm font-medium text-gray-300">Audio Bitrate</label>
-                        <span className="text-sm font-bold text-white bg-tank-gray px-3 py-1 rounded-lg">
-                          {Math.round(userAudioBitrateKbps)} kbps
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={64}
-                        max={512}
-                        step={32}
-                        value={userAudioBitrateKbps}
-                        onChange={(e) => setUserAudioBitrateKbps(Number(e.target.value))}
-                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                      />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>64</span>
-                        <span>512</span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={!canProcess}
+                    onClick={handleProcessAndSave}
+                    className="px-5 py-2 bg-emerald-500 text-black font-semibold disabled:opacity-50"
+                  >
+                    {processing ? `Processing... ${progress}%` : 'Process & Save Locally'}
+                  </button>
                 </div>
-              )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {mediaSize && (
-                  <>
-                    <div>
-                      <label className="text-sm text-gray-300">Top</label>
-                      <input
-                        type="number"
-                        value={cropInsets.top}
-                        onChange={(e) => setCropInsets((p) => ({ ...p, top: Number(e.target.value) || 0 }))}
-                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-300">Bottom</label>
-                      <input
-                        type="number"
-                        value={cropInsets.bottom}
-                        onChange={(e) => setCropInsets((p) => ({ ...p, bottom: Number(e.target.value) || 0 }))}
-                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-300">Left</label>
-                      <input
-                        type="number"
-                        value={cropInsets.left}
-                        onChange={(e) => setCropInsets((p) => ({ ...p, left: Number(e.target.value) || 0 }))}
-                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-300">Right</label>
-                      <input
-                        type="number"
-                        value={cropInsets.right}
-                        onChange={(e) => setCropInsets((p) => ({ ...p, right: Number(e.target.value) || 0 }))}
-                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
-                      />
-                    </div>
-                  </>
+                {lastSavedName && (
+                  <p className="text-sm text-green-300">
+                    Saved locally: <span className="font-semibold">{lastSavedName}</span>
+                  </p>
                 )}
               </div>
 
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  disabled={!canProcess}
-                  onClick={handleProcessAndSave}
-                  className="px-5 py-2 bg-emerald-500 text-black font-semibold disabled:opacity-50"
+              {/* Right panel: preview + trim + crop insets */}
+              <div className="space-y-4">
+                <div
+                  ref={containerRef}
+                  className="relative w-full h-[220px] sm:h-[320px] md:h-[420px] bg-black overflow-hidden rounded-lg"
                 >
-                  {processing ? `Processing... ${progress}%` : 'Process & Save Locally'}
-                </button>
-              </div>
+                  {mediaType === 'image' ? (
+                    <img
+                      ref={(el) => {
+                        visualRef.current = el
+                      }}
+                      src={previewUrl}
+                      alt="preview"
+                      className="w-full h-full object-contain"
+                      onLoad={(e) => {
+                        const w = e.currentTarget.naturalWidth
+                        const h = e.currentTarget.naturalHeight
+                        setMediaSize({ width: w, height: h })
+                        // Default crop selection: cover the entire original media.
+                        setCropInsets({ top: 0, right: 0, bottom: 0, left: 0 })
+                        setCropArea({ x: 0, y: 0, width: w, height: h })
+                        requestAnimationFrame(updateRenderBox)
+                      }}
+                    />
+                  ) : (
+                    <video
+                      ref={(el) => {
+                        previewVideoRef.current = el
+                        visualRef.current = el
+                      }}
+                      src={previewUrl}
+                      className="w-full h-full object-contain"
+                      onLoadedMetadata={(e) => {
+                        const v = e.currentTarget
+                        const w = v.videoWidth
+                        const h = v.videoHeight
+                        setMediaSize({ width: w, height: h })
+                        // Default crop selection: cover the entire original media.
+                        setCropInsets({ top: 0, right: 0, bottom: 0, left: 0 })
+                        setCropArea({ x: 0, y: 0, width: w, height: h })
+                        setVideoDuration(v.duration || 0)
+                        const f = selectedFileRef.current
+                        if (f) {
+                          const durationSec = v.duration || 0
+                          const approxOverallBitrateKbps =
+                            durationSec > 0 ? (f.size * 8) / durationSec / 1000 : null
+                          setOriginalVideoInfo({
+                            width: v.videoWidth,
+                            height: v.videoHeight,
+                            durationSec,
+                            fileSizeBytes: f.size,
+                            mime: f.type,
+                            approxOverallBitrateKbps,
+                          })
+                        }
+                        setTrimStart(0)
+                        setTrimEnd(v.duration || 0)
+                        setPreviewTime(0)
+                        setPreviewPlaying(false)
+                        // Native controls are removed, but the browser may still
+                        // initialize `currentTime` to a non-zero value. For trim
+                        // preview, ensure the playhead starts at `trimStart`.
+                        try {
+                          v.pause()
+                          v.currentTime = 0
+                        } catch {}
+                        if (previewPlaybackTimerRef.current != null) {
+                          clearInterval(previewPlaybackTimerRef.current)
+                          previewPlaybackTimerRef.current = null
+                        }
+                        requestAnimationFrame(updateRenderBox)
+                      }}
+                    />
+                  )}
 
-              {lastSavedName && (
-                <p className="text-sm text-green-300">
-                  Saved locally: <span className="font-semibold">{lastSavedName}</span>
-                </p>
-              )}
-            </>
+                  {cropArea && mediaSize && renderBox && (
+                    <div
+                      className="absolute left-0 right-0 top-0 z-10 pointer-events-none overflow-hidden"
+                      style={{ bottom: 0 }}
+                    >
+                      {(() => {
+                        const scaleX = renderBox.width / mediaSize.width
+                        const scaleY = renderBox.height / mediaSize.height
+                        const left = renderBox.offsetX + cropArea.x * scaleX
+                        const top = renderBox.offsetY + cropArea.y * scaleY
+                        const width = cropArea.width * scaleX
+                        const height = cropArea.height * scaleY
+
+                        return (
+                          <div
+                            role="presentation"
+                            onMouseDown={(e) => {
+                              dragRef.current.active = true
+                              dragRef.current.startX = e.clientX
+                              dragRef.current.startY = e.clientY
+                              dragRef.current.startTop = cropInsets.top
+                              dragRef.current.startLeft = cropInsets.left
+                            }}
+                            onTouchStart={(e) => {
+                              dragRef.current.active = true
+                              dragRef.current.startX = e.touches[0].clientX
+                              dragRef.current.startY = e.touches[0].clientY
+                              dragRef.current.startTop = cropInsets.top
+                              dragRef.current.startLeft = cropInsets.left
+                            }}
+                            style={{
+                              position: 'absolute',
+                              left,
+                              top,
+                              width,
+                              height,
+                              border: '2px solid rgba(0,255,136,0.95)',
+                              boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)',
+                              pointerEvents: 'auto',
+                              cursor: 'move',
+                            }}
+                          />
+                        )
+                      })()}
+                    </div>
+                  )}
+                </div>
+
+                {mediaType === 'video' && videoDuration > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm text-gray-300">Trim Start (sec)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={Math.max(0, trimEnd - 0.1)}
+                        step={0.1}
+                        value={trimStart}
+                        onChange={(e) => setTrimStart(Math.max(0, Number(e.target.value) || 0))}
+                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-300">Trim End (sec)</label>
+                      <input
+                        type="number"
+                        min={Math.max(0.1, trimStart + 0.1)}
+                        max={videoDuration}
+                        step={0.1}
+                        value={trimEnd}
+                        onChange={(e) =>
+                          setTrimEnd(Math.max(trimStart + 0.1, Number(e.target.value) || videoDuration))
+                        }
+                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {mediaType === 'video' && videoDuration > 0 && (
+                  <div className="card p-4 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <h3 className="font-medium text-white">Trim Preview</h3>
+                        <div className="text-xs text-gray-300 mt-1">
+                          {formatTimeSec(trimStart)} - {formatTimeSec(effectiveTrimEnd)}
+                        </div>
+                      </div>
+                      <div className="text-sm font-semibold text-white bg-tank-gray px-3 py-1 rounded-lg whitespace-nowrap">
+                        {formatTimeSec(previewTime)} / {formatTimeSec(effectiveTrimEnd)}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 mb-3">
+                      <button
+                        type="button"
+                        onClick={toggleTrimPreview}
+                        className="bg-tank-light hover:brightness-110 text-black font-semibold px-3 py-2 rounded-lg"
+                        aria-label={previewPlaying ? 'Pause trim preview' : 'Play trim preview'}
+                      >
+                        {previewPlaying ? 'Pause' : 'Play'}
+                      </button>
+                    </div>
+
+                    <input
+                      type="range"
+                      min={trimStart}
+                      max={effectiveTrimEnd}
+                      step={0.01}
+                      value={clamp(previewTime, trimStart, effectiveTrimEnd)}
+                      onChange={(e) => scrubTrimPreview(Number(e.target.value))}
+                      className="w-full accent-tank-light"
+                    />
+                    <div className="text-xs text-gray-400 mt-1">
+                      Drag to scrub inside your trim range.
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {mediaSize && (
+                    <>
+                      <div>
+                        <label className="text-sm text-gray-300">Top</label>
+                        <input
+                          type="number"
+                          value={cropInsets.top}
+                          onChange={(e) =>
+                            setCropInsets((p) => ({ ...p, top: Number(e.target.value) || 0 }))
+                          }
+                          className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-gray-300">Bottom</label>
+                        <input
+                          type="number"
+                          value={cropInsets.bottom}
+                          onChange={(e) =>
+                            setCropInsets((p) => ({ ...p, bottom: Number(e.target.value) || 0 }))
+                          }
+                          className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-gray-300">Left</label>
+                        <input
+                          type="number"
+                          value={cropInsets.left}
+                          onChange={(e) =>
+                            setCropInsets((p) => ({ ...p, left: Number(e.target.value) || 0 }))
+                          }
+                          className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-gray-300">Right</label>
+                        <input
+                          type="number"
+                          value={cropInsets.right}
+                          onChange={(e) =>
+                            setCropInsets((p) => ({ ...p, right: Number(e.target.value) || 0 }))
+                          }
+                          className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
 
           {error && <p className="text-red-400 text-sm">{error}</p>}
