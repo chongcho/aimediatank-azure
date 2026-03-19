@@ -409,7 +409,10 @@ export default function CropToolPage() {
               )}
 
               {cropArea && mediaSize && renderBox && (
-                <div className="absolute inset-0 z-10 pointer-events-none">
+                <div
+                  className="absolute left-0 right-0 top-0 z-10 pointer-events-none overflow-hidden"
+                  style={{ bottom: mediaType === 'video' ? VIDEO_CONTROLS_RESERVE_PX : 0 }}
+                >
                   {(() => {
                     const scaleX = renderBox.width / mediaSize.width
                     const scaleY = renderBox.height / mediaSize.height
