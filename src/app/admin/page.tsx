@@ -113,7 +113,7 @@ interface ChatMessage {
   }
 }
 
-type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool' | 'accessLogs'
+type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool' | 'standaloneCropTool' | 'accessLogs'
 
 interface CropToolSettings {
   id?: string
@@ -1538,6 +1538,7 @@ export default function AdminPage() {
           { id: 'mediaDetail', label: 'Media Detail' },
           { id: 'badges', label: 'Media Badge Control' },
           { id: 'cropTool', label: 'Upload & Download' },
+          { id: 'standaloneCropTool', label: 'Standalone Crop Tool' },
           { id: 'membershipSales', label: 'Membership Sales Reports' },
           { id: 'contentSales', label: 'Contents Sales Reports' },
           { id: 'adSales', label: 'Ad Sales Reports' },
@@ -1546,6 +1547,10 @@ export default function AdminPage() {
           <button
             key={tab.id}
             onClick={() => {
+              if (tab.id === 'standaloneCropTool') {
+                router.push('/crop-tool')
+                return
+              }
               setActiveTab(tab.id)
               if (tab.id === 'media') {
                 setMediaPage(1)
