@@ -851,20 +851,30 @@ export default function CropToolPage() {
                 <div className="card p-4 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
                   <div className="space-y-4">
                     <div>
-                      <h3 className="font-medium text-white mb-2">Original Video</h3>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
+                      <h3 className="font-medium text-white mb-2">
+                        {mediaType === 'video' ? 'Original Video' : 'Original Image'}
+                      </h3>
+                      <div
+                        className={
+                          mediaType === 'video'
+                            ? 'grid grid-cols-2 gap-2 text-sm'
+                            : 'grid grid-cols-1 gap-2 text-sm'
+                        }
+                      >
                         <div>
                           <span className="text-gray-400">Resolution</span>
                           <div className="text-white font-semibold">
                             {mediaSize ? `${mediaSize.width}x${mediaSize.height}` : '0x0'}
                           </div>
                         </div>
-                        <div>
-                          <span className="text-gray-400">Duration</span>
-                          <div className="text-white font-semibold">
-                            {originalVideoInfo ? `${originalVideoInfo.durationSec.toFixed(2)} sec` : '0 sec'}
+                        {mediaType === 'video' && (
+                          <div>
+                            <span className="text-gray-400">Duration</span>
+                            <div className="text-white font-semibold">
+                              {originalVideoInfo ? `${originalVideoInfo.durationSec.toFixed(2)} sec` : '0 sec'}
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </div>
 
