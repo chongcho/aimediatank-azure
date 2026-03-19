@@ -684,7 +684,9 @@ export async function GET(request: Request) {
           orderBy: { sortOrder: 'asc' },
         })
 
-        const filteredItems = items.filter((item) => item.itemKey !== 'marketing')
+        const filteredItems = items.filter(
+          (item) => item.itemKey !== 'marketing' && item.itemKey !== 'cropTool'
+        )
         return NextResponse.json({ items: filteredItems })
       } catch (error) {
         console.error('Navbar settings unavailable, returning defaults:', error)

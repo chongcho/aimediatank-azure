@@ -844,7 +844,8 @@ export default function AdminPage() {
       } else if (activeTab === 'navbar') {
         const res = await fetch('/api/admin?action=navbarSettings')
         const data = await res.json()
-        setNavbarMenuItems(data.items || [])
+        const items = (Array.isArray(data.items) ? data.items : []) as NavbarMenuItem[]
+        setNavbarMenuItems(items.filter((item) => item.itemKey !== 'cropTool'))
       } else if (activeTab === 'layout') {
         setHomeLayoutLoading(true)
         try {
