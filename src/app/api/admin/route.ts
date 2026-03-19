@@ -625,13 +625,17 @@ export async function GET(request: Request) {
           for (const item of missingItems) {
             await prisma.navbarMenuSetting.create({ data: item })
           }
-          const defaultLabelMap = new Map(defaultItems.map((d) => [d.itemKey, d.label]))
+          const defaultByKey = new Map(defaultItems.map((d) => [d.itemKey, d]))
           for (const item of items) {
-            const expected = defaultLabelMap.get(item.itemKey)
-            if (expected && item.label !== expected) {
+            const expected = defaultByKey.get(item.itemKey)
+            if (!expected) continue
+            if (item.label !== expected.label || item.sortOrder !== expected.sortOrder) {
               await prisma.navbarMenuSetting.update({
                 where: { id: item.id },
-                data: { label: expected },
+                data: {
+                  label: expected.label,
+                  sortOrder: expected.sortOrder,
+                },
               })
             }
           }

@@ -715,7 +715,7 @@ function NavbarContent() {
                 )}
                 {isNavbarItemEnabled('cropTool') && (
                   <Link
-                    href={isSubscriber ? "/upload" : "/pricing"}
+                    href="/crop-tool"
                     className="h-9 w-9 flex items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700
                       hover:scale-105 active:scale-95 transition-all duration-200 ease-out"
                     aria-label="Crop Tool"

@@ -110,6 +110,12 @@ function UploadPageContent() {
   const [cropEnabled, setCropEnabled] = useState(true)
   const [paidQuality, setPaidQuality] = useState<QualitySettings>({})
   const [freeQuality, setFreeQuality] = useState<QualitySettings>({})
+  const cropDragRef = useRef<{
+    active: boolean
+    startClientY: number
+    startTop: number
+    startBottom: number
+  }>({ active: false, startClientY: 0, startTop: 0, startBottom: 0 })
 
   // Pick quality based on whether the media has a price (selling) or not (free)
   const isFreeContent = !formData.price || parseFloat(formData.price) <= 0
@@ -202,6 +208,55 @@ function UploadPageContent() {
     updateCropRenderBox()
     return () => ro.disconnect()
   }, [showCropper, cropSource, mediaSize, updateCropRenderBox])
+
+  // Drag green crop box vertically (up/down) while preserving current crop size.
+  useEffect(() => {
+    const onMove = (clientY: number) => {
+      if (!cropDragRef.current.active || !mediaSize || !renderBox) return
+      const cropHeight = mediaSize.height - cropDragRef.current.startTop - cropDragRef.current.startBottom
+      const scaleY = renderBox.height / mediaSize.height
+      if (!scaleY) return
+
+      const deltaMediaY = (clientY - cropDragRef.current.startClientY) / scaleY
+      const maxTop = Math.max(0, mediaSize.height - cropHeight)
+      const nextTop = Math.min(Math.max(0, cropDragRef.current.startTop + deltaMediaY), maxTop)
+      const nextBottom = mediaSize.height - cropHeight - nextTop
+
+      setCropInsets((prev) => ({
+        ...prev,
+        top: Math.round(nextTop),
+        bottom: Math.round(nextBottom),
+      }))
+    }
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!cropDragRef.current.active) return
+      e.preventDefault()
+      onMove(e.clientY)
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!cropDragRef.current.active) return
+      e.preventDefault()
+      onMove(e.touches[0].clientY)
+    }
+
+    const endDrag = () => {
+      cropDragRef.current.active = false
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', endDrag)
+    window.addEventListener('touchmove', onTouchMove, { passive: false })
+    window.addEventListener('touchend', endDrag)
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', endDrag)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', endDrag)
+    }
+  }, [mediaSize, renderBox])
 
   // Trim time format: mm:ss (or h:mm:ss for videos >= 1 hour)
   const formatTrimTime = (seconds: number): string => {
@@ -1370,6 +1425,19 @@ function UploadPageContent() {
                         const height = cropAreaPixels.height * scaleY
                         return (
                           <div
+                            role="presentation"
+                            onMouseDown={(e) => {
+                              cropDragRef.current.active = true
+                              cropDragRef.current.startClientY = e.clientY
+                              cropDragRef.current.startTop = cropInsets.top
+                              cropDragRef.current.startBottom = cropInsets.bottom
+                            }}
+                            onTouchStart={(e) => {
+                              cropDragRef.current.active = true
+                              cropDragRef.current.startClientY = e.touches[0].clientY
+                              cropDragRef.current.startTop = cropInsets.top
+                              cropDragRef.current.startBottom = cropInsets.bottom
+                            }}
                             style={{
                               position: 'absolute',
                               left,
@@ -1378,6 +1446,8 @@ function UploadPageContent() {
                               height,
                               border: '2px solid rgba(0, 255, 136, 0.95)',
                               boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)',
+                              pointerEvents: 'auto',
+                              cursor: 'ns-resize',
                             }}
                           />
                         )
