@@ -604,9 +604,10 @@ export async function GET(request: Request) {
         { itemKey: 'chat', label: 'Chat', isEnabled: true, sortOrder: 6 },
         { itemKey: 'mediaMessage', label: 'Celebration Card', isEnabled: true, sortOrder: 7 },
         { itemKey: 'upload', label: 'Post', isEnabled: true, sortOrder: 8 },
-        { itemKey: 'signIn', label: 'Sign In', isEnabled: true, sortOrder: 9 },
-        { itemKey: 'signUp', label: 'Sign Up', isEnabled: true, sortOrder: 10 },
-        { itemKey: 'notification', label: 'Notification', isEnabled: true, sortOrder: 11 },
+        { itemKey: 'cropTool', label: 'Crop Tool', isEnabled: true, sortOrder: 9 },
+        { itemKey: 'signIn', label: 'Sign In', isEnabled: true, sortOrder: 10 },
+        { itemKey: 'signUp', label: 'Sign Up', isEnabled: true, sortOrder: 11 },
+        { itemKey: 'notification', label: 'Notification', isEnabled: true, sortOrder: 12 },
       ]
 
       try {
@@ -624,13 +625,17 @@ export async function GET(request: Request) {
           for (const item of missingItems) {
             await prisma.navbarMenuSetting.create({ data: item })
           }
-          const defaultLabelMap = new Map(defaultItems.map((d) => [d.itemKey, d.label]))
+          const defaultByKey = new Map(defaultItems.map((d) => [d.itemKey, d]))
           for (const item of items) {
-            const expected = defaultLabelMap.get(item.itemKey)
-            if (expected && item.label !== expected) {
+            const expected = defaultByKey.get(item.itemKey)
+            if (!expected) continue
+            if (item.label !== expected.label || item.sortOrder !== expected.sortOrder) {
               await prisma.navbarMenuSetting.update({
                 where: { id: item.id },
-                data: { label: expected },
+                data: {
+                  label: expected.label,
+                  sortOrder: expected.sortOrder,
+                },
               })
             }
           }
