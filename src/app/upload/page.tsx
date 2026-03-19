@@ -572,6 +572,69 @@ function UploadPageContent() {
     })
   }
 
+  const saveFileToDevice = (fileToSave: File, fallbackName: string) => {
+    const downloadName = fileToSave.name?.trim() ? fileToSave.name : fallbackName
+    const objectUrl = URL.createObjectURL(fileToSave)
+    const a = document.createElement('a')
+    a.href = objectUrl
+    a.download = downloadName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+  }
+
+  const handleSaveEditedLocally = async () => {
+    if (!cropAreaPixels || !cropSource) {
+      setError('No edited media to save yet.')
+      return
+    }
+
+    try {
+      if (cropMediaType === 'image') {
+        const croppedFile = await getCroppedImageFile(cropSource, cropAreaPixels)
+        if (!croppedFile) {
+          setError('Failed to save edited image.')
+          return
+        }
+        saveFileToDevice(croppedFile, 'cropped-image.jpg')
+        return
+      }
+
+      if (cropMediaType === 'video') {
+        let derivedCrop = videoCrop
+        if (!derivedCrop && mediaSize && videoSize) {
+          const ratioX = cropAreaPixels.x / mediaSize.width
+          const ratioY = cropAreaPixels.y / mediaSize.height
+          const ratioW = cropAreaPixels.width / mediaSize.width
+          const ratioH = cropAreaPixels.height / mediaSize.height
+          derivedCrop = {
+            x: Math.round(ratioX * videoSize.width),
+            y: Math.round(ratioY * videoSize.height),
+            width: Math.round(ratioW * videoSize.width),
+            height: Math.round(ratioH * videoSize.height),
+          }
+        }
+        if (file) {
+          saveFileToDevice(file, file.name || 'video-source.mp4')
+        }
+        const trimPayload = {
+          crop: derivedCrop ?? null,
+          trimStart: videoTrimStart,
+          trimEnd: videoTrimEnd,
+          ratio: cropAspectRatio ?? 'free',
+          updatedAt: new Date().toISOString(),
+        }
+        const presetBlob = new Blob([JSON.stringify(trimPayload, null, 2)], { type: 'application/json' })
+        const presetFile = new File([presetBlob], 'video-crop-trim-settings.json', { type: 'application/json' })
+        saveFileToDevice(presetFile, 'video-crop-trim-settings.json')
+      }
+    } catch (err) {
+      console.error('Failed to save edited media locally:', err)
+      setError('Failed to save edited media locally.')
+    }
+  }
+
   const readFileAsDataUrl = (fileToRead: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -1630,6 +1693,13 @@ function UploadPageContent() {
                   </p>
                 )}
                 <div className="flex flex-col sm:flex-row gap-3 justify-end mt-6">
+                  <button
+                    type="button"
+                    onClick={handleSaveEditedLocally}
+                    className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-all"
+                  >
+                    Save to Device
+                  </button>
                   <button
                     type="button"
                     onClick={handleUseOriginal}

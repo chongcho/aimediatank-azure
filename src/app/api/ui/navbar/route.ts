@@ -13,9 +13,10 @@ const defaultItems = [
   { itemKey: 'chat', label: 'Chat', isEnabled: true, sortOrder: 6 },
   { itemKey: 'mediaMessage', label: 'Celebration Card', isEnabled: true, sortOrder: 7 },
   { itemKey: 'upload', label: 'Post', isEnabled: true, sortOrder: 8 },
-  { itemKey: 'signIn', label: 'Sign In', isEnabled: true, sortOrder: 9 },
-  { itemKey: 'signUp', label: 'Sign Up', isEnabled: true, sortOrder: 10 },
-  { itemKey: 'notification', label: 'Notification', isEnabled: true, sortOrder: 11 },
+  { itemKey: 'cropTool', label: 'Crop Tool', isEnabled: true, sortOrder: 9 },
+  { itemKey: 'signIn', label: 'Sign In', isEnabled: true, sortOrder: 10 },
+  { itemKey: 'signUp', label: 'Sign Up', isEnabled: true, sortOrder: 11 },
+  { itemKey: 'notification', label: 'Notification', isEnabled: true, sortOrder: 12 },
 ]
 
 export async function GET() {
