@@ -839,9 +839,9 @@ export default function CropToolPage() {
           </div>
 
           {previewUrl && mediaType && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex flex-col md:flex-row gap-6">
               {/* Left sidebar: original + crop tool setting + ratio + process */}
-              <div className="space-y-4">
+              <div className="space-y-4 order-2 md:order-1 md:flex-1">
                 <div className="card p-4 bg-tank-dark/50 border border-tank-light/20 rounded-xl">
                   <div className="space-y-4">
                     <div>
@@ -991,7 +991,7 @@ export default function CropToolPage() {
               </div>
 
               {/* Right panel: preview + trim + crop insets */}
-              <div className="space-y-4">
+              <div className="space-y-4 order-1 md:order-2 md:flex-1">
                 <div
                   ref={containerRef}
                   className="relative w-full h-[clamp(260px,45vh,560px)] bg-black overflow-hidden rounded-lg"
