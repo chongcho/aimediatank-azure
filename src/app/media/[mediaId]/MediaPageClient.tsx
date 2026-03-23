@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaPlayer from '@/components/MediaPlayer'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
-import { stopAllMedia } from '@/lib/mediaStop'
+import { pauseAllMedia, stopAllMedia } from '@/lib/mediaStop'
 import { getMediaPlayCache } from '@/lib/mediaPlayCache'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 
@@ -325,6 +325,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const shareTitle = media ? stripHashtags(media.title) : 'Check this out'
 
   const handleShareClick = () => {
+    pauseAllMedia()
     setShowShareModal(true)
   }
 
