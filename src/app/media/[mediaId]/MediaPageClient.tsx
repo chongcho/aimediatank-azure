@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -329,6 +329,12 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     setShowShareModal(true)
   }
 
+  // After paint, pause again so feed-card / preplay videos (intercepted modal) stop even if something raced play().
+  useLayoutEffect(() => {
+    if (!showShareModal) return
+    pauseAllMedia()
+  }, [showShareModal])
+
   const handleCopyLink = async () => {
     if (!shareUrl) return
     try {
@@ -603,6 +609,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               title={media.title}
               thumbnailUrl={media.thumbnailUrl}
               autoUnmuteOnMount
+              playbackSuspended={showShareModal}
             />
           </div>
         ) : media.processingStatus === 'failed' ? (
@@ -659,6 +666,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               title={media.title}
               thumbnailUrl={media.thumbnailUrl}
               autoUnmuteOnMount
+              playbackSuspended={showShareModal}
             />
           </div>
         )}

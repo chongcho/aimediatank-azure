@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { stopAllMedia } from '@/lib/mediaStop'
 import { isInstalledPWA } from '@/lib/appBadge'
 
@@ -11,9 +11,11 @@ interface MediaPlayerProps {
   thumbnailUrl?: string | null
   /** When true (e.g. on media detail page), start unmuted and try unmuted autoplay first. */
   autoUnmuteOnMount?: boolean
+  /** When true, pause immediately (e.g. share modal open). Ref-synced so async autoplay cannot resume playback. */
+  playbackSuspended?: boolean
 }
 
-export default function MediaPlayer({ type, url, title, thumbnailUrl, autoUnmuteOnMount }: MediaPlayerProps) {
+export default function MediaPlayer({ type, url, title, thumbnailUrl, autoUnmuteOnMount, playbackSuspended = false }: MediaPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -37,6 +39,19 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl, autoUnmute
   const videoRef = useRef<HTMLVideoElement>(null)
   const fullscreenRef = useRef<HTMLDivElement>(null)
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
+  const playbackSuspendedRef = useRef(playbackSuspended)
+  playbackSuspendedRef.current = playbackSuspended
+
+  // Pause as soon as parent requests (e.g. share dialog) — runs before useEffect autoplay so we beat in-flight play() races.
+  useLayoutEffect(() => {
+    if (!playbackSuspended) return
+    try {
+      videoRef.current?.pause()
+      audioRef.current?.pause()
+    } catch {
+      // ignore
+    }
+  }, [playbackSuspended])
 
   // Stop all video/audio when navigating away. Must run BEFORE Next.js unmounts the page so we actually stop the playing element.
   useEffect(() => {
@@ -118,32 +133,34 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl, autoUnmute
     // This is faster because play() signals "I need data NOW" to the browser's
     // preload heuristic, whereas canplay waits for the browser's conservative threshold.
     const tryAutoplay = async () => {
-      if (cancelled) return
+      if (cancelled || playbackSuspendedRef.current) return
       // On media detail (autoUnmuteOnMount): try unmuted first even on mobile so sound is on when user lands.
       if (isMobileBrowser && !autoUnmuteOnMount) {
         video.muted = true
         setIsMuted(true)
         try {
-          if (!cancelled) await video.play()
+          if (!cancelled && !playbackSuspendedRef.current) await video.play()
         } catch (e) {
           console.log('Mobile browser autoplay blocked')
         }
+        if (playbackSuspendedRef.current) video.pause()
         return
       }
       try {
         video.muted = false
         setIsMuted(false)
-        if (!cancelled) await video.play()
+        if (!cancelled && !playbackSuspendedRef.current) await video.play()
       } catch (error) {
         console.log('Unmuted autoplay blocked, falling back to muted')
         video.muted = true
         setIsMuted(true)
         try {
-          if (!cancelled) await video.play()
+          if (!cancelled && !playbackSuspendedRef.current) await video.play()
         } catch (e) {
           console.log('Autoplay blocked entirely')
         }
       }
+      if (playbackSuspendedRef.current) video.pause()
     }
 
     // Use loadedmetadata instead of canplay — metadata loads much faster (just the
