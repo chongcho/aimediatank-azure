@@ -9,21 +9,19 @@ export function isBadgeSupported(): boolean {
 }
 
 /**
- * Check if the app is running as an installed PWA (standalone mode)
+ * Check if the app is running as an installed PWA.
+ * Checks display-mode (standalone/overlay), iOS navigator.standalone,
+ * and the install cookie set by the standalone session bridge.
  */
 export function isInstalledPWA(): boolean {
   if (typeof window === 'undefined') return false
-  
-  // Check display-mode media query
+
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-  
-  // Check iOS standalone mode
   const isIOSStandalone = (window.navigator as any).standalone === true
-  
-  // Check if running in window-controls-overlay mode
   const isOverlay = window.matchMedia('(display-mode: window-controls-overlay)').matches
-  
-  return isStandalone || isIOSStandalone || isOverlay
+  const hasCookie = document.cookie.includes('pwa_installed=')
+
+  return isStandalone || isIOSStandalone || isOverlay || hasCookie
 }
 
 /**

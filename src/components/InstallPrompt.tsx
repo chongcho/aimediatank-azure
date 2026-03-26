@@ -1,14 +1,52 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-// Unique identifier for this PWA
 const PWA_APP_ID = 'aimediatank-pwa-v1'
+const COOKIE_KEY = 'pwa_installed'
+const COOKIE_MAX_AGE = 365 * 24 * 60 * 60 // 1 year in seconds
+const PROMPT_WAIT_MS = 3500 // time to wait for beforeinstallprompt before inferring installed
+
+function setCookie(name: string, value: string, maxAge: number) {
+  document.cookie = `${name}=${value}; path=/; max-age=${maxAge}; SameSite=Lax`
+}
+
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+function markInstalledLocally() {
+  const ts = Date.now().toString()
+  try { localStorage.setItem(`${PWA_APP_ID}-installed`, ts) } catch {}
+  setCookie(COOKIE_KEY, ts, COOKIE_MAX_AGE)
+}
+
+async function reportInstallToServer(action: 'install' | 'uninstall' = 'install') {
+  try {
+    await fetch('/api/pwa/install-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    })
+  } catch {}
+}
+
+async function checkServerInstallStatus(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/pwa/install-status')
+    if (!res.ok) return false
+    const data = await res.json()
+    return !!data.installed
+  } catch {
+    return false
+  }
+}
 
 export default function InstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false)
@@ -17,53 +55,79 @@ export default function InstallPrompt() {
   const [isAndroid, setIsAndroid] = useState(false)
   const [isAlreadyInstalled, setIsAlreadyInstalled] = useState(false)
   const [showInstalledMessage, setShowInstalledMessage] = useState(false)
+  const promptFiredRef = useRef(false)
 
   useEffect(() => {
     checkInstallationStatus()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const checkInstallationStatus = async () => {
-    // Method 1: Check if running in standalone mode (already opened as PWA)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-                         (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+    // --- Layer 1: Running inside the installed PWA (standalone / window-controls-overlay) ---
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: window-controls-overlay)').matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true
 
     if (isStandalone) {
-      console.log('PWA: App is running in standalone mode')
+      console.log('PWA: Running in standalone mode — syncing install record')
       setIsAlreadyInstalled(true)
+      markInstalledLocally()
+      reportInstallToServer('install')
       return
     }
 
-    // Method 2: Check localStorage for installation record
-    const installRecord = localStorage.getItem(`${PWA_APP_ID}-installed`)
-    if (installRecord) {
-      console.log('PWA: Installation record found in localStorage')
+    // --- Layer 2: Cookie bridge (set by standalone sessions, survives some data-clears) ---
+    if (getCookie(COOKIE_KEY)) {
+      console.log('PWA: Install cookie found')
       setIsAlreadyInstalled(true)
-      // Show brief "already installed" message
       setShowInstalledMessage(true)
       setTimeout(() => setShowInstalledMessage(false), 3000)
       return
     }
 
-    // Method 3: Try getInstalledRelatedApps API (Chrome 80+)
+    // --- Layer 3: localStorage flag ---
+    const installRecord = localStorage.getItem(`${PWA_APP_ID}-installed`)
+    if (installRecord) {
+      console.log('PWA: localStorage install record found')
+      setIsAlreadyInstalled(true)
+      setCookie(COOKIE_KEY, installRecord, COOKIE_MAX_AGE)
+      setShowInstalledMessage(true)
+      setTimeout(() => setShowInstalledMessage(false), 3000)
+      return
+    }
+
+    // --- Layer 4: getInstalledRelatedApps (Chrome 80+) ---
     if ('getInstalledRelatedApps' in navigator) {
       try {
-        const relatedApps = await (navigator as Navigator & { getInstalledRelatedApps: () => Promise<Array<{ platform: string; url: string; id?: string }>> }).getInstalledRelatedApps()
+        const relatedApps = await (navigator as Navigator & {
+          getInstalledRelatedApps: () => Promise<Array<{ platform: string; url: string; id?: string }>>
+        }).getInstalledRelatedApps()
         if (relatedApps.length > 0) {
-          console.log('PWA: Found installed related apps:', relatedApps)
+          console.log('PWA: getInstalledRelatedApps detected install:', relatedApps)
           setIsAlreadyInstalled(true)
-          localStorage.setItem(`${PWA_APP_ID}-installed`, Date.now().toString())
+          markInstalledLocally()
+          reportInstallToServer('install')
           return
         }
       } catch (err) {
-        console.log('PWA: getInstalledRelatedApps not supported or failed:', err)
+        console.log('PWA: getInstalledRelatedApps failed:', err)
       }
     }
 
-    // Check dismissal status
-    const isDismissed = localStorage.getItem('pwa-install-dismissed')
+    // --- Layer 5: Server-side install record (logged-in users) ---
+    const serverInstalled = await checkServerInstallStatus()
+    if (serverInstalled) {
+      console.log('PWA: Server reports app previously installed')
+      setIsAlreadyInstalled(true)
+      markInstalledLocally()
+      setShowInstalledMessage(true)
+      setTimeout(() => setShowInstalledMessage(false), 3000)
+      return
+    }
+
+    // --- Check dismissal cooldown ---
     const dismissedTime = localStorage.getItem('pwa-install-dismissed-time')
-    
-    // Show again after 7 days
     if (dismissedTime) {
       const daysSinceDismissed = (Date.now() - parseInt(dismissedTime)) / (1000 * 60 * 60 * 24)
       if (daysSinceDismissed > 7) {
@@ -71,31 +135,28 @@ export default function InstallPrompt() {
         localStorage.removeItem('pwa-install-dismissed-time')
       }
     }
+    if (localStorage.getItem('pwa-install-dismissed')) return
 
-    if (isDismissed) {
-      return
-    }
-
-    // Detect device and browser
+    // --- Device detection ---
     const userAgent = navigator.userAgent.toLowerCase()
     const isIOSDevice = /iphone|ipad|ipod/.test(userAgent)
     const isAndroidDevice = /android/.test(userAgent)
-    
     setIsIOS(isIOSDevice)
     setIsAndroid(isAndroidDevice)
 
-    // Listen for beforeinstallprompt (Chrome/Edge on Android)
+    // --- Layer 6: beforeinstallprompt event + absence inference (Chromium) ---
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault()
-      console.log('PWA: beforeinstallprompt event fired')
+      promptFiredRef.current = true
+      console.log('PWA: beforeinstallprompt fired — app is NOT installed')
       setDeferredPrompt(e as BeforeInstallPromptEvent)
       setShowPrompt(true)
     }
 
-    // Listen for successful installation
     const handleAppInstalled = () => {
-      console.log('PWA: App was installed successfully')
-      localStorage.setItem(`${PWA_APP_ID}-installed`, Date.now().toString())
+      console.log('PWA: appinstalled event — recording install')
+      markInstalledLocally()
+      reportInstallToServer('install')
       setIsAlreadyInstalled(true)
       setShowPrompt(false)
       setDeferredPrompt(null)
@@ -104,9 +165,23 @@ export default function InstallPrompt() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
     window.addEventListener('appinstalled', handleAppInstalled)
 
-    // Show prompt for iOS (no beforeinstallprompt event)
-    // But first check if they've already installed via localStorage
-    if (isIOSDevice && !localStorage.getItem(`${PWA_APP_ID}-installed`)) {
+    // Chromium absence inference: if the browser is Chromium-based, meets PWA
+    // criteria, and beforeinstallprompt does NOT fire within a few seconds,
+    // the app is likely already installed (Chrome suppresses the event).
+    const isChromium = /chrome|chromium|crios|edg/i.test(navigator.userAgent)
+      && !/opera|opr/i.test(navigator.userAgent)
+    if (isChromium && !isIOSDevice) {
+      setTimeout(() => {
+        if (!promptFiredRef.current) {
+          console.log('PWA: beforeinstallprompt absent on Chromium — likely installed')
+          setIsAlreadyInstalled(true)
+          markInstalledLocally()
+        }
+      }, PROMPT_WAIT_MS)
+    }
+
+    // iOS: no beforeinstallprompt exists
+    if (isIOSDevice) {
       setTimeout(() => setShowPrompt(true), 2000)
     }
 
@@ -122,7 +197,8 @@ export default function InstallPrompt() {
       const { outcome } = await deferredPrompt.userChoice
       console.log('PWA: User choice:', outcome)
       if (outcome === 'accepted') {
-        localStorage.setItem(`${PWA_APP_ID}-installed`, Date.now().toString())
+        markInstalledLocally()
+        reportInstallToServer('install')
         setIsAlreadyInstalled(true)
         setShowPrompt(false)
       }
@@ -131,8 +207,8 @@ export default function InstallPrompt() {
   }
 
   const handleIOSInstallDone = () => {
-    // User indicates they've completed iOS installation
-    localStorage.setItem(`${PWA_APP_ID}-installed`, Date.now().toString())
+    markInstalledLocally()
+    reportInstallToServer('install')
     setIsAlreadyInstalled(true)
     setShowPrompt(false)
   }
