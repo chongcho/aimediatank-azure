@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -10,7 +10,6 @@ interface BeforeInstallPromptEvent extends Event {
 const PWA_APP_ID = 'aimediatank-pwa-v1'
 const COOKIE_KEY = 'pwa_installed'
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60 // 1 year in seconds
-const PROMPT_WAIT_MS = 3500 // time to wait for beforeinstallprompt before inferring installed
 
 function setCookie(name: string, value: string, maxAge: number) {
   document.cookie = `${name}=${value}; path=/; max-age=${maxAge}; SameSite=Lax`
@@ -55,7 +54,6 @@ export default function InstallPrompt() {
   const [isAndroid, setIsAndroid] = useState(false)
   const [isAlreadyInstalled, setIsAlreadyInstalled] = useState(false)
   const [showInstalledMessage, setShowInstalledMessage] = useState(false)
-  const promptFiredRef = useRef(false)
 
   useEffect(() => {
     checkInstallationStatus()
@@ -144,11 +142,11 @@ export default function InstallPrompt() {
     setIsIOS(isIOSDevice)
     setIsAndroid(isAndroidDevice)
 
-    // --- Layer 6: beforeinstallprompt event + absence inference (Chromium) ---
+    // --- beforeinstallprompt / appinstalled (Chromium; no absence inference — slow SW
+    // or not-yet-installable sites also omit the event, which would false-positive) ---
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault()
-      promptFiredRef.current = true
-      console.log('PWA: beforeinstallprompt fired — app is NOT installed')
+      console.log('PWA: beforeinstallprompt fired')
       setDeferredPrompt(e as BeforeInstallPromptEvent)
       setShowPrompt(true)
     }
@@ -164,21 +162,6 @@ export default function InstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
     window.addEventListener('appinstalled', handleAppInstalled)
-
-    // Chromium absence inference: if the browser is Chromium-based, meets PWA
-    // criteria, and beforeinstallprompt does NOT fire within a few seconds,
-    // the app is likely already installed (Chrome suppresses the event).
-    const isChromium = /chrome|chromium|crios|edg/i.test(navigator.userAgent)
-      && !/opera|opr/i.test(navigator.userAgent)
-    if (isChromium && !isIOSDevice) {
-      setTimeout(() => {
-        if (!promptFiredRef.current) {
-          console.log('PWA: beforeinstallprompt absent on Chromium — likely installed')
-          setIsAlreadyInstalled(true)
-          markInstalledLocally()
-        }
-      }, PROMPT_WAIT_MS)
-    }
 
     // iOS: no beforeinstallprompt exists
     if (isIOSDevice) {

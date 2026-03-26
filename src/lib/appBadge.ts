@@ -9,9 +9,9 @@ export function isBadgeSupported(): boolean {
 }
 
 /**
- * Check if the app is running as an installed PWA.
- * Checks display-mode (standalone/overlay), iOS navigator.standalone,
- * and the install cookie set by the standalone session bridge.
+ * True only when this document is running in the installed PWA shell (standalone /
+ * window-controls-overlay or iOS home-screen). Do not use install cookies here —
+ * a normal browser tab can still have those while not being the standalone app.
  */
 export function isInstalledPWA(): boolean {
   if (typeof window === 'undefined') return false
@@ -19,9 +19,8 @@ export function isInstalledPWA(): boolean {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches
   const isIOSStandalone = (window.navigator as any).standalone === true
   const isOverlay = window.matchMedia('(display-mode: window-controls-overlay)').matches
-  const hasCookie = document.cookie.includes('pwa_installed=')
 
-  return isStandalone || isIOSStandalone || isOverlay || hasCookie
+  return isStandalone || isIOSStandalone || isOverlay
 }
 
 /**
