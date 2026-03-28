@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -68,8 +68,30 @@ export default function InstallPrompt() {
   const [isIOS, setIsIOS] = useState(false)
   const [isAndroid, setIsAndroid] = useState(false)
   const [isAlreadyInstalled, setIsAlreadyInstalled] = useState(false)
+  /** Set in useLayoutEffect before paint so useEffect does not attach listeners or schedule iOS prompt. */
+  const skipInstallProbeRef = useRef(false)
+
+  useLayoutEffect(() => {
+    if (isRunningAsInstalledPwa()) {
+      skipInstallProbeRef.current = true
+      markInstalledLocally()
+      reportInstallToServer('install')
+      setIsAlreadyInstalled(true)
+      setShowPrompt(false)
+      setDeferredPrompt(null)
+      return
+    }
+    if (hasLocalInstallMarker()) {
+      skipInstallProbeRef.current = true
+      setIsAlreadyInstalled(true)
+      setShowPrompt(false)
+      setDeferredPrompt(null)
+    }
+  }, [])
 
   useEffect(() => {
+    if (skipInstallProbeRef.current) return
+
     let cancelled = false
     let iosTimer: ReturnType<typeof setTimeout> | undefined
     let listenersAttached = false
@@ -78,24 +100,13 @@ export default function InstallPrompt() {
 
     const markInstalledAndHide = () => {
       if (cancelled) return
+      skipInstallProbeRef.current = true
       setIsAlreadyInstalled(true)
       setShowPrompt(false)
       setDeferredPrompt(null)
     }
 
     ;(async () => {
-      if (isRunningAsInstalledPwa()) {
-        markInstalledLocally()
-        reportInstallToServer('install')
-        markInstalledAndHide()
-        return
-      }
-
-      if (hasLocalInstallMarker()) {
-        markInstalledAndHide()
-        return
-      }
-
       if ('getInstalledRelatedApps' in navigator) {
         try {
           const relatedApps = await (navigator as Navigator & {
@@ -165,7 +176,7 @@ export default function InstallPrompt() {
 
       if (isIOSDevice) {
         iosTimer = setTimeout(() => {
-          if (cancelled) return
+          if (cancelled || skipInstallProbeRef.current) return
           if (isRunningAsInstalledPwa() || hasLocalInstallMarker()) return
           setShowPrompt(true)
         }, 2000)
@@ -210,7 +221,10 @@ export default function InstallPrompt() {
     localStorage.setItem('pwa-install-dismissed-time', Date.now().toString())
   }
 
-  if (!showPrompt || isAlreadyInstalled) return null
+  if (typeof window !== 'undefined') {
+    if (isRunningAsInstalledPwa() || hasLocalInstallMarker()) return null
+  }
+  if (isAlreadyInstalled || !showPrompt) return null
 
   return (
     <div
