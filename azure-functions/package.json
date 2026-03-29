@@ -1,7 +1,7 @@
 {
   "name": "aimediatank-azure-functions",
   "version": "1.0.0",
-  "description": "Azure Functions for AiMediaTank cron jobs",
+  "description": "Azure Functions for AI Media Tank cron jobs",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",

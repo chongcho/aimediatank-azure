@@ -1,13 +1,13 @@
-# AiMediaTank — Policy Home
+# AI Media Tank — Policy Home
 
-**Effective Date:** December 20, 2024
-**Last Updated:** March 4, 2026
+**Effective Date:** December 20, 2024  
+**Last Updated:** March 6, 2026
 
 ---
 
 ## Overview
 
-AiMediaTank maintains two standalone policy documents that govern the use of the Platform and the handling of user data. Both documents are available on the Platform at https://www.aimediatank.com and are incorporated into the user agreement.
+AI Media Tank, LLC maintains two standalone policy documents that govern the use of the Platform and the handling of user data. Both documents are available on the Platform at https://www.aimediatank.com and are incorporated into the user agreement.
 
 ---
 
@@ -15,7 +15,8 @@ AiMediaTank maintains two standalone policy documents that govern the use of the
 
 ### 1. [Terms of Service](TERMS_OF_SERVICE.md)
 
-Governs the use of the AiMediaTank Platform, including:
+Governs the use of the Platform, including:
+
 - Eligibility and age requirements (13+ minimum)
 - User accounts, conduct, and responsibilities
 - Content guidelines and AI-generated content policies
@@ -27,7 +28,8 @@ Governs the use of the AiMediaTank Platform, including:
 
 ### 2. [Privacy Policy](PRIVACY_POLICY.md)
 
-Describes how AiMediaTank collects, uses, stores, shares, and protects personal information, including:
+Describes how AI Media Tank, LLC collects, uses, stores, shares, and protects personal information, including:
+
 - Information collected (directly, automatically, and from third parties)
 - Legal bases for processing (GDPR compliance)
 - How information is used and shared
@@ -69,6 +71,6 @@ These documents are designed to comply with applicable regulations worldwide, in
 
 ---
 
-**© 2025–2026 AiMediaTank. All Rights Reserved.**
+**© 2025–2026 AI Media Tank, LLC. All rights reserved.**
 
 *These documents should be reviewed by qualified legal counsel. They do not constitute legal advice.*

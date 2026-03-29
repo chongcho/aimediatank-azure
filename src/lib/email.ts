@@ -16,14 +16,14 @@ interface EmailOptions {
 
 const CONNECTION_STRING = process.env.AZURE_EMAIL_CONNECTION_STRING || ''
 
-// Prefer AiMediaTank over DoNotReply for sender address; default to AiMediaTank@aimediatank.com
+// Prefer a branded local part over DoNotReply; default must match a verified MailFrom in Azure.
 const rawSender = process.env.AZURE_EMAIL_SENDER || 'AiMediaTank@aimediatank.com'
 const SENDER_ADDRESS =
   rawSender.toLowerCase().includes('donotreply')
     ? rawSender.replace(/donotreply/gi, 'AiMediaTank')
     : rawSender
 
-const DEFAULT_SENDER_NAME = process.env.AZURE_EMAIL_SENDER_NAME || 'AiMediaTank'
+const DEFAULT_SENDER_NAME = process.env.AZURE_EMAIL_SENDER_NAME || 'AI Media Tank'
 
 let cachedClient: EmailClient | null = null
 
@@ -68,7 +68,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       },
       ...(options.replyTo
         ? { replyTo: [{ address: options.replyTo, displayName }] }
-        : { replyTo: [{ address: 'support@aimediatank.com', displayName: 'AiMediaTank Support' }] }
+        : { replyTo: [{ address: 'support@aimediatank.com', displayName: 'AI Media Tank Support' }] }
       ),
     })
 

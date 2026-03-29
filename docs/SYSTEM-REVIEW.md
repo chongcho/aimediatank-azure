@@ -1,6 +1,6 @@
 # System Review: Stability, Reliability, Performance & Risks
 
-This document summarizes a review of the AiMediaTank Azure application across **database**, **storage**, **scroll/restore**, **upload/transcoding/download**, and **Azure services**, with identified weaknesses and recommendations.
+This document summarizes a review of the **AI Media Tank** (AI Media Tank, LLC) Azure application across **database**, **storage**, **scroll/restore**, **upload/transcoding/download**, and **Azure services**, with identified weaknesses and recommendations.
 
 ---
 

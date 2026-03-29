@@ -51,7 +51,7 @@ function PrivacyPageContent() {
         <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: March 6, 2026</p>
 
         <p className="text-gray-300 mb-6">
-          AiMediaTank LLC (&quot;AiMediaTank,&quot; &quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates the website and platform available at <strong>https://www.aimediatank.com</strong> (the &quot;Platform&quot;). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you access or use the Platform and related services.
+          AI Media Tank, LLC (&quot;AI Media Tank,&quot; &quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates the website and platform available at <strong>https://www.aimediatank.com</strong> (the &quot;Platform&quot;). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you access or use the Platform and related services.
         </p>
         <p className="text-gray-300 mb-8">
           By accessing or using the Platform, you acknowledge that you have read and understood this Privacy Policy and agree to the collection and use of information as described herein.
@@ -80,7 +80,7 @@ function PrivacyPageContent() {
           <li>billing information</li>
           <li>licensing details associated with purchased content</li>
         </ul>
-        <p className="text-gray-300 mb-4">Payment card or financial details are processed by third-party payment processors and are generally not stored directly by AiMediaTank.</p>
+        <p className="text-gray-300 mb-4">Payment card or financial details are processed by third-party payment processors and are generally not stored directly by AI Media Tank, LLC.</p>
 
         <h3 className="text-lg font-semibold mt-6 mb-3">1.3 Creator Content and Metadata</h3>
         <p className="text-gray-300 mb-2">When creators upload media to the Platform, we may collect:</p>
@@ -134,7 +134,7 @@ function PrivacyPageContent() {
 
         {/* 3. AI and Automated Processing */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">3. AI and Automated Processing</h2>
-        <p className="text-gray-300 mb-2">AiMediaTank may use automated systems and algorithms to process platform data and uploaded content for purposes such as:</p>
+        <p className="text-gray-300 mb-2">AI Media Tank, LLC may use automated systems and algorithms to process platform data and uploaded content for purposes such as:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
           <li>content moderation</li>
           <li>indexing and search functionality</li>
@@ -142,7 +142,7 @@ function PrivacyPageContent() {
           <li>fraud detection</li>
           <li>platform integrity and security monitoring</li>
         </ul>
-        <p className="text-gray-300 mb-4">AiMediaTank does not use user-uploaded content to train artificial intelligence models without explicit permission from the content owner.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC does not use user-uploaded content to train artificial intelligence models without explicit permission from the content owner.</p>
 
         {/* 4. How We Share Information */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">4. How We Share Information</h2>
@@ -167,11 +167,11 @@ function PrivacyPageContent() {
           <li>respond to lawful requests from government authorities</li>
           <li>enforce our Terms of Service</li>
           <li>investigate fraud or illegal activities</li>
-          <li>protect the rights, property, or safety of AiMediaTank, our users, or the public</li>
+          <li>protect the rights, property, or safety of AI Media Tank, LLC, our users, or the public</li>
         </ul>
 
         <h3 className="text-lg font-semibold mt-6 mb-3">4.3 Business Transfers</h3>
-        <p className="text-gray-300 mb-4">If AiMediaTank undergoes a merger, acquisition, financing, reorganization, or sale of assets, user information may be transferred as part of that transaction.</p>
+        <p className="text-gray-300 mb-4">If AI Media Tank, LLC undergoes a merger, acquisition, financing, reorganization, or sale of assets, user information may be transferred as part of that transaction.</p>
 
         {/* 5. Cookies */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">5. Cookies and Tracking Technologies</h2>
@@ -199,7 +199,7 @@ function PrivacyPageContent() {
 
         {/* 7. Data Security */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">7. Data Security</h2>
-        <p className="text-gray-300 mb-2">AiMediaTank implements reasonable administrative, technical, and organizational safeguards designed to protect user information, including:</p>
+        <p className="text-gray-300 mb-2">AI Media Tank, LLC implements reasonable administrative, technical, and organizational safeguards designed to protect user information, including:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
           <li>encryption where appropriate</li>
           <li>access controls</li>
@@ -224,12 +224,12 @@ function PrivacyPageContent() {
           <li>request disclosure of categories of data shared with third parties</li>
           <li>correct inaccurate personal information</li>
         </ul>
-        <p className="text-gray-300 mb-4">AiMediaTank does not sell personal information.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC does not sell personal information.</p>
         <p className="text-gray-300 mb-4">Requests may be submitted by contacting: <strong>support@aimediatank.com</strong></p>
 
         {/* 10. International Data Transfers */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">10. International Data Transfers</h2>
-        <p className="text-gray-300 mb-4">AiMediaTank operates from the United States.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC operates from the United States.</p>
         <p className="text-gray-300 mb-4">If you access the Platform from outside the United States, your information may be transferred to and processed in the United States or other jurisdictions where our service providers operate. By using the Platform, you consent to such transfers.</p>
         <p className="text-gray-300 mb-4">Users located in regions governed by the General Data Protection Regulation (GDPR) may have additional rights including: access to personal data; correction of inaccurate information; deletion of personal data; restriction of processing; data portability.</p>
 
@@ -247,7 +247,7 @@ function PrivacyPageContent() {
 
         {/* 12. Do Not Track */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">12. Do Not Track Signals</h2>
-        <p className="text-gray-300 mb-4">Some browsers include a &quot;Do Not Track&quot; feature. Because there is not yet a universally accepted standard for responding to such signals, AiMediaTank currently does not respond to Do Not Track requests.</p>
+        <p className="text-gray-300 mb-4">Some browsers include a &quot;Do Not Track&quot; feature. Because there is not yet a universally accepted standard for responding to such signals, AI Media Tank, LLC currently does not respond to Do Not Track requests.</p>
 
         {/* 13. Changes */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">13. Changes to This Privacy Policy</h2>
@@ -258,14 +258,14 @@ function PrivacyPageContent() {
         {/* 14. Contact */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">14. Contact Information</h2>
         <div className="bg-tank-dark rounded-xl p-4 space-y-2 mb-4">
-          <p className="text-gray-300"><strong>AiMediaTank LLC</strong></p>
+          <p className="text-gray-300"><strong>AI Media Tank, LLC</strong></p>
           <p className="text-gray-300">Email: support@aimediatank.com</p>
           <p className="text-gray-300">Website: https://www.aimediatank.com</p>
         </div>
 
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-tank-light text-center">
-          <p className="text-gray-500 text-sm">&copy; 2025–2026 AiMediaTank. All Rights Reserved.</p>
+          <p className="text-gray-500 text-sm">&copy; 2025–2026 AI Media Tank, LLC. All rights reserved.</p>
           <p className="text-gray-600 text-xs mt-1">This document should be reviewed by qualified legal counsel. It does not constitute legal advice.</p>
         </div>
 

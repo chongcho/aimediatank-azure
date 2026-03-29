@@ -1,6 +1,6 @@
-# AiMediaTank - Azure Deployment Guide
+# AI Media Tank — Azure Deployment Guide
 
-This guide explains how to deploy AiMediaTank to Microsoft Azure.
+This guide explains how to deploy **AI Media Tank** (AI Media Tank, LLC) to Microsoft Azure.
 
 ## 📋 Prerequisites
 

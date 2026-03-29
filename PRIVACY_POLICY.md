@@ -1,14 +1,10 @@
-# AiMediaTank — Privacy Policy
+# AI Media Tank — Privacy Policy
 
 **Effective:** December 20, 2024 · **Last Updated:** March 6, 2026
 
 ---
 
-AiMediaTank LLC ("AiMediaTank," "Company," "we," "us," or "our") operates the website and platform available at:
-
-**https://www.aimediatank.com** (the "Platform").
-
-This Privacy Policy explains how we collect, use, disclose, and safeguard information when you access or use the Platform and related services.
+AI Media Tank, LLC ("AI Media Tank," "Company," "we," "us," or "our") operates the website and platform available at **https://www.aimediatank.com** (the "Platform"). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you access or use the Platform and related services.
 
 By accessing or using the Platform, you acknowledge that you have read and understood this Privacy Policy and agree to the collection and use of information as described herein.
 
@@ -57,7 +53,7 @@ When marketplace transactions occur, we may collect information related to purch
 - billing information
 - licensing details associated with purchased content
 
-Payment card or financial details are processed by third-party payment processors and are generally not stored directly by AiMediaTank.
+Payment card or financial details are processed by third-party payment processors and are generally not stored directly by AI Media Tank, LLC.
 
 ### 1.3 Creator Content and Metadata
 
@@ -116,7 +112,7 @@ We may use collected information for purposes including:
 
 ## 3. AI and Automated Processing
 
-AiMediaTank may use automated systems and algorithms to process platform data and uploaded content for purposes such as:
+AI Media Tank, LLC may use automated systems and algorithms to process platform data and uploaded content for purposes such as:
 
 - content moderation
 - indexing and search functionality
@@ -124,7 +120,7 @@ AiMediaTank may use automated systems and algorithms to process platform data an
 - fraud detection
 - platform integrity and security monitoring
 
-AiMediaTank does not use user-uploaded content to train artificial intelligence models without explicit permission from the content owner.
+AI Media Tank, LLC does not use user-uploaded content to train artificial intelligence models without explicit permission from the content owner.
 
 ---
 
@@ -153,11 +149,11 @@ We may disclose information when necessary to:
 - respond to lawful requests from government authorities
 - enforce our Terms of Service
 - investigate fraud or illegal activities
-- protect the rights, property, or safety of AiMediaTank, our users, or the public
+- protect the rights, property, or safety of AI Media Tank, LLC, our users, or the public
 
 ### 4.3 Business Transfers
 
-If AiMediaTank undergoes a merger, acquisition, financing, reorganization, or sale of assets, user information may be transferred as part of that transaction.
+If AI Media Tank, LLC undergoes a merger, acquisition, financing, reorganization, or sale of assets, user information may be transferred as part of that transaction.
 
 ---
 
@@ -191,7 +187,7 @@ Uploaded media and associated metadata may remain stored while accounts are acti
 
 ## 7. Data Security
 
-AiMediaTank implements reasonable administrative, technical, and organizational safeguards designed to protect user information, including:
+AI Media Tank, LLC implements reasonable administrative, technical, and organizational safeguards designed to protect user information, including:
 
 - encryption where appropriate
 - access controls
@@ -222,7 +218,7 @@ Residents of California may have rights under the California Consumer Privacy Ac
 - request disclosure of categories of data shared with third parties
 - correct inaccurate personal information
 
-AiMediaTank does not sell personal information.
+AI Media Tank, LLC does not sell personal information.
 
 Requests may be submitted by contacting: **support@aimediatank.com**
 
@@ -230,7 +226,7 @@ Requests may be submitted by contacting: **support@aimediatank.com**
 
 ## 10. International Data Transfers
 
-AiMediaTank operates from the United States.
+AI Media Tank, LLC operates from the United States.
 
 If you access the Platform from outside the United States, your information may be transferred to and processed in the United States or other jurisdictions where our service providers operate.
 
@@ -263,7 +259,7 @@ We may require verification of identity before fulfilling certain requests.
 
 ## 12. Do Not Track Signals
 
-Some browsers include a "Do Not Track" feature. Because there is not yet a universally accepted standard for responding to such signals, AiMediaTank currently does not respond to Do Not Track requests.
+Some browsers include a "Do Not Track" feature. Because there is not yet a universally accepted standard for responding to such signals, AI Media Tank, LLC currently does not respond to Do Not Track requests.
 
 ---
 
@@ -281,7 +277,7 @@ Continued use of the Platform after such changes constitutes acceptance of the r
 
 If you have questions or concerns regarding this Privacy Policy, please contact:
 
-**AiMediaTank LLC**
+**AI Media Tank, LLC**
 
 - Email: support@aimediatank.com
 - Website: https://www.aimediatank.com
@@ -290,6 +286,6 @@ If you have questions or concerns regarding this Privacy Policy, please contact:
 
 This Privacy Policy should be read alongside our [Terms of Service](TERMS_OF_SERVICE.md), which governs your use of the Platform.
 
-**© 2025–2026 AiMediaTank. All Rights Reserved.**
+**© 2025–2026 AI Media Tank, LLC. All rights reserved.**
 
-*This document was last updated on March 6, 2026. It should be reviewed by qualified legal counsel before being relied upon. This document does not constitute legal advice.*
+*This document should be reviewed by qualified legal counsel. It does not constitute legal advice.*

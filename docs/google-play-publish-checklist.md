@@ -1,6 +1,6 @@
-# Google Play — Publish AiMediaTank Checklist
+# Google Play — Publish AI Media Tank Checklist
 
-Your app **AiMediaTank** (`com.aimediatank.app`) is in **Draft** with **Internal testing**. Use this checklist to get it listed on Google Play.
+Your app **AI Media Tank** (`com.aimediatank.app`; legal entity **AI Media Tank, LLC**) is in **Draft** with **Internal testing**. Use this checklist to get it listed on Google Play.
 
 ---
 
@@ -17,7 +17,7 @@ Your app **AiMediaTank** (`com.aimediatank.app`) is in **Draft** with **Internal
 
 In Play Console: **Grow** → **Main store listing** (and **Store settings**).
 
-- [ ] **App name** — Max 50 characters (e.g. “AiMediaTank”).
+- [ ] **App name** — Max 50 characters (e.g. “AI Media Tank”).
 - [ ] **Short description** — Max 80 characters; clear pitch.
 - [ ] **Full description** — Max 4,000 characters; what the app does, features, audience.
 - [ ] **App icon** — 512×512 px, PNG, max 1 MB (no transparency for main icon).
@@ -61,7 +61,7 @@ In Play Console: **Grow** → **Main store listing** (and **Store settings**).
 
 ## 6. Build & release
 
-- [ ] **App bundle** — You need at least one **Android App Bundle** (.aab) or APK. If AiMediaTank is a web app, this comes from a wrapper (e.g. TWA, Capacitor, PWA Builder).
+- [ ] **App bundle** — You need at least one **Android App Bundle** (.aab) or APK. If AI Media Tank is distributed as a web app, this comes from a wrapper (e.g. TWA, Capacitor, PWA Builder).
 - [ ] **Internal testing** — **Testing** → **Internal testing** → create a release, upload the .aab, add testers (email list). Install and smoke-test.
 - [ ] **Production release** — When ready:
   1. **Release** → **Production** → **Create new release**.
@@ -80,7 +80,7 @@ In Play Console: **Grow** → **Main store listing** (and **Store settings**).
 
 ---
 
-## Quick reference — AiMediaTank URLs
+## Quick reference — AI Media Tank URLs
 
 | Item        | URL |
 |------------|-----|

@@ -1,4 +1,4 @@
-# AiMediaTank — Terms of Service
+# AI Media Tank — Terms of Service
 
 **Effective:** December 20, 2024 · **Last Updated:** March 6, 2026
 
@@ -38,11 +38,11 @@
 
 ## 1. Acceptance of Terms
 
-By accessing, browsing, or using AiMediaTank (the "Platform", "Service", "Company", "we", "us", or "our"), located at https://www.aimediatank.com, you ("User", "you", or "your") acknowledge that you have read, understood, and agree to be bound by these Terms of Service ("Terms").
+By accessing, browsing, or using the Platform at https://www.aimediatank.com (the "Platform" and "Service"; AI Media Tank, LLC is referred to herein as "Company", "we", "us", or "our"), you ("User", "you", or "your") acknowledge that you have read, understood, and agree to be bound by these Terms of Service ("Terms").
 
 If you do not agree to these Terms, you must immediately discontinue use of the Platform.
 
-These Terms constitute a legally binding agreement between you and AiMediaTank. Your use of the Platform is also governed by our [Privacy Policy](PRIVACY_POLICY.md) and any additional policies, guidelines, or rules posted on the Platform.
+These Terms constitute a legally binding agreement between you and AI Media Tank, LLC. Your use of the Platform is also governed by our [Privacy Policy](PRIVACY_POLICY.md) and any additional policies, guidelines, or rules posted on the Platform.
 
 ---
 
@@ -62,14 +62,7 @@ If you are under the age of 18, you represent that you have permission from a pa
 
 ## 3. Description of Service
 
-AiMediaTank is a global digital media marketplace and community platform where users may upload, share, discover, showcase, license, and purchase digital media including but not limited to:
-
-- videos
-- images
-- music
-- AI-generated media
-- AI-assisted media
-- real-world creative media
+AI Media Tank, LLC operates a global digital media marketplace and community platform where users may upload, share, discover, showcase, license, and purchase digital media including but not limited to: videos, images, music, AI-generated media, AI-assisted media, and real-world creative media.
 
 The Platform provides tools for creators to publish, distribute, and monetize their content.
 
@@ -91,7 +84,7 @@ You are responsible for all activities conducted under your account.
 
 ### 4.2 Verification
 
-AiMediaTank may require verification including:
+AI Media Tank, LLC may require verification including:
 
 - email verification
 - phone verification
@@ -153,7 +146,7 @@ Prohibited content includes:
 - malware or phishing content
 - intellectual property infringement
 
-AiMediaTank may utilize automated systems and manual moderation to review content.
+AI Media Tank, LLC may utilize automated systems and manual moderation to review content.
 
 ---
 
@@ -170,7 +163,7 @@ Examples include content created using:
 
 Users are solely responsible for ensuring they have the legal rights to distribute such content.
 
-AiMediaTank does not claim ownership of AI-generated media and will not use uploaded content to train AI models without user consent.
+AI Media Tank, LLC does not claim ownership of AI-generated media and will not use uploaded content to train AI models without user consent.
 
 Content uploaded to the Platform may be processed by automated systems for purposes including:
 
@@ -188,11 +181,11 @@ Content uploaded to the Platform may be processed by automated systems for purpo
 
 Creators retain ownership of the media they upload.
 
-Uploading media to the Platform does not transfer ownership to AiMediaTank or other users.
+Uploading media to the Platform does not transfer ownership to AI Media Tank, LLC or other users.
 
 ### 8.2 License Grant to Platform
 
-By uploading media to the Platform, you grant AiMediaTank a worldwide, non-exclusive, royalty-free, sublicensable license to:
+By uploading media to the Platform, you grant AI Media Tank, LLC a worldwide, non-exclusive, royalty-free, sublicensable license to:
 
 - host
 - store
@@ -214,7 +207,7 @@ The Platform may offer optional paid membership tiers.
 | Plan | Price | Features |
 |------|-------|----------|
 | Viewer | Free | Browse, purchase, limited uploads |
-| Basic | $2/month | 5 uploads, additional upload fees, selling access |
+| Basic | $2/month | 10 uploads, additional upload fees, selling access |
 | Advanced | $5/month | reduced upload cost, priority support |
 | Premium | $8/month | unlimited uploads, featured listings |
 
@@ -232,7 +225,7 @@ Sellers retain full control over pricing of their media ("Tag Price").
 
 Prices may be modified at any time but will not affect completed transactions.
 
-AiMediaTank does not verify or control seller pricing.
+AI Media Tank, LLC does not verify or control seller pricing.
 
 ### 10.2 Payment Processing
 
@@ -240,7 +233,7 @@ Buyers pay the Tag Price plus applicable taxes through the Platform.
 
 Payments may be processed through third-party payment providers.
 
-AiMediaTank acts as a marketplace facilitator and payment intermediary.
+AI Media Tank, LLC acts as a marketplace facilitator and payment intermediary.
 
 Use of payment services may also be subject to the terms of the applicable payment processor.
 
@@ -248,7 +241,7 @@ Use of payment services may also be subject to the terms of the applicable payme
 
 For each completed sale:
 
-- AiMediaTank retains 30% Processing Fee
+- AI Media Tank, LLC retains 30% Processing Fee
 - 70% is credited to the Seller
 
 Processing fees may be modified for future transactions at the Company's discretion.
@@ -307,7 +300,7 @@ Buyers may not:
 
 ## 11. Content Moderation
 
-AiMediaTank reserves the right to remove or disable access to any content at its sole discretion.
+AI Media Tank, LLC reserves the right to remove or disable access to any content at its sole discretion.
 
 Where possible, users will be notified regarding the reason for removal.
 
@@ -315,7 +308,7 @@ Where possible, users will be notified regarding the reason for removal.
 
 ## 12. Copyright and DMCA
 
-AiMediaTank complies with the Digital Millennium Copyright Act (DMCA).
+AI Media Tank, LLC complies with the Digital Millennium Copyright Act (DMCA).
 
 Copyright owners may submit takedown requests.
 
@@ -337,7 +330,7 @@ The Platform allows sharing to third-party services including:
 
 When sharing content to these services, users are subject to the terms and privacy policies of those platforms.
 
-AiMediaTank is not affiliated with or endorsed by the companies operating these services.
+AI Media Tank, LLC is not affiliated with or endorsed by the companies operating these services.
 
 ---
 
@@ -345,7 +338,7 @@ AiMediaTank is not affiliated with or endorsed by the companies operating these 
 
 THE PLATFORM IS PROVIDED "AS IS" AND "AS AVAILABLE."
 
-AiMediaTank makes no warranties, express or implied, including:
+AI Media Tank, LLC makes no warranties, express or implied, including:
 
 - merchantability
 - fitness for a particular purpose
@@ -358,7 +351,7 @@ Use of the Platform is at your own risk.
 
 ## 15. Limitation of Liability
 
-To the maximum extent permitted by law, AiMediaTank shall not be liable for:
+To the maximum extent permitted by law, AI Media Tank, LLC shall not be liable for:
 
 - disputes between buyers and sellers
 - misuse of media by third parties
@@ -374,7 +367,7 @@ Total liability shall not exceed the greater of:
 
 ## 16. Indemnification
 
-You agree to indemnify, defend, and hold harmless AiMediaTank and its officers, employees, and affiliates from any claims arising from:
+You agree to indemnify, defend, and hold harmless AI Media Tank, LLC and its officers, employees, and affiliates from any claims arising from:
 
 - your use of the Platform
 - content you upload
@@ -385,7 +378,7 @@ You agree to indemnify, defend, and hold harmless AiMediaTank and its officers, 
 
 ## 17. Service Availability
 
-AiMediaTank reserves the right to modify, suspend, or discontinue any part of the Platform at any time without liability.
+AI Media Tank, LLC reserves the right to modify, suspend, or discontinue any part of the Platform at any time without liability.
 
 The Company does not guarantee uninterrupted availability.
 
@@ -435,7 +428,7 @@ You waive any right to participate in:
 
 ## 22. Force Majeure
 
-AiMediaTank shall not be liable for delays or failures caused by events beyond its reasonable control including:
+AI Media Tank, LLC shall not be liable for delays or failures caused by events beyond its reasonable control including:
 
 - natural disasters
 - war
@@ -462,14 +455,14 @@ The following sections survive termination:
 
 Users are solely responsible for the media, files, text, and other content they upload, publish, or distribute through the Platform ("User Content").
 
-AiMediaTank does not review all uploaded content and does not guarantee the legality, accuracy, or ownership of User Content.
+AI Media Tank, LLC does not review all uploaded content and does not guarantee the legality, accuracy, or ownership of User Content.
 
 By uploading content to the Platform, you represent and warrant that:
 
 - you own the content or
 - you have obtained all necessary licenses, rights, and permissions to upload and distribute the content.
 
-AiMediaTank operates as an online service provider under the Digital Millennium Copyright Act (DMCA) and qualifies for safe harbor protection under 17 U.S.C. §512.
+AI Media Tank, LLC operates as an online service provider under the Digital Millennium Copyright Act (DMCA) and qualifies for safe harbor protection under 17 U.S.C. §512.
 
 The Company shall not be held liable for infringing content uploaded by users, provided that it responds to valid takedown notices and removes infringing material when notified.
 
@@ -486,7 +479,7 @@ Users are solely responsible for ensuring that media uploaded to the Platform:
 
 The Company does not independently verify ownership of uploaded media.
 
-If any claim, lawsuit, or legal dispute arises from uploaded media, the User agrees to indemnify and hold harmless AiMediaTank from any damages, costs, or legal fees resulting from such claims.
+If any claim, lawsuit, or legal dispute arises from uploaded media, the User agrees to indemnify and hold harmless AI Media Tank, LLC from any damages, costs, or legal fees resulting from such claims.
 
 The Company reserves the right to:
 
@@ -504,13 +497,13 @@ The Company reserves the right to modify these Terms at any time. Updated versio
 
 ## 27. Contact Information
 
-**AiMediaTank Support**
+**AI Media Tank Support**
 
 - Email: support@aimediatank.com
 - Website: https://www.aimediatank.com
 
 ---
 
-**© 2025–2026 AiMediaTank. All Rights Reserved.**
+**© 2025–2026 AI Media Tank, LLC. All rights reserved.**
 
-*This document was last updated on March 6, 2026. It should be reviewed by qualified legal counsel before being relied upon. This document does not constitute legal advice.*
+*This document should be reviewed by qualified legal counsel. It does not constitute legal advice.*

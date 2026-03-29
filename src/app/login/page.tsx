@@ -281,7 +281,7 @@ function LoginContent() {
           )}
 
           <p className="mt-6 text-center text-sm text-gray-400">
-            By signing in, you agree to the AiMediaTank{' '}
+            By signing in, you agree to the AI Media Tank{' '}
             <Link href="/terms?from=login" className="text-tank-accent hover:underline font-medium">
               Terms of Service
             </Link>

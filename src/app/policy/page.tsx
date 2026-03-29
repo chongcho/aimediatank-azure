@@ -92,7 +92,7 @@ function PolicyPageContent() {
       </div>
 
       <p className="text-gray-300 mb-8">
-        AiMediaTank maintains two standalone policy documents that govern your use of the Platform and how we handle your data. Please review both documents carefully.
+        AI Media Tank, LLC maintains two standalone policy documents that govern your use of the Platform and how we handle your data. Please review both documents carefully.
       </p>
 
       <div className="grid gap-6 md:grid-cols-2 mb-12">
@@ -108,7 +108,7 @@ function PolicyPageContent() {
               <h2 className="text-xl font-bold text-white group-hover:text-tank-accent transition-colors">Terms of Service</h2>
             </div>
             <p className="text-gray-400 text-sm mb-4">
-              Governs your use of the AiMediaTank Platform, including:
+              Governs your use of the Platform, including:
             </p>
             <ul className="text-gray-400 text-sm space-y-1.5 mb-4">
               <li className="flex items-start gap-2">
@@ -287,7 +287,7 @@ function PolicyPageContent() {
 
       {/* Footer */}
       <div className="text-center text-gray-500 text-sm">
-        <p>&copy; 2025–2026 AiMediaTank. All Rights Reserved.</p>
+        <p>&copy; 2025–2026 AI Media Tank, LLC. All rights reserved.</p>
         <p className="mt-1 text-xs text-gray-600">These documents should be reviewed by qualified legal counsel. They do not constitute legal advice.</p>
       </div>
 
@@ -314,7 +314,7 @@ function PolicyPageFallback() {
         </div>
       </div>
       <p className="text-gray-300 mb-8">
-        AiMediaTank maintains two standalone policy documents that govern your use of the Platform and how we handle your data. Please review both documents carefully.
+        AI Media Tank, LLC maintains two standalone policy documents that govern your use of the Platform and how we handle your data. Please review both documents carefully.
       </p>
       <div className="animate-pulse flex gap-4">
         <div className="h-32 flex-1 rounded-lg bg-tank-light/30" />

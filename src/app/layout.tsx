@@ -19,15 +19,15 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'AiMediaTank | AI-Generated Media Community',
+  title: 'AI Media Tank | AI-Generated Media Community',
   description: 'Discover and share stunning AI-generated videos, images, and music. Join our community of AI creators and enthusiasts.',
   keywords: 'AI media, AI art, AI music, AI video, AI generated content, media sharing',
-  authors: [{ name: 'AiMediaTank' }],
+  authors: [{ name: 'AI Media Tank, LLC' }],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black',
-    title: 'AiMediaTank',
+    title: 'AI Media Tank',
   },
   icons: {
     icon: '/logo.png',
@@ -35,10 +35,10 @@ export const metadata: Metadata = {
     apple: '/logo.png',
   },
   openGraph: {
-    title: 'AiMediaTank | AI-Generated Media Community',
+    title: 'AI Media Tank | AI-Generated Media Community',
     description: 'Discover and share stunning AI-generated videos, images, and music.',
     url: 'https://aimediatank.com',
-    siteName: 'AiMediaTank',
+    siteName: 'AI Media Tank, LLC',
     type: 'website',
   },
 }
@@ -57,7 +57,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-        <meta name="apple-mobile-web-app-title" content="AiMediaTank" />
+        <meta name="apple-mobile-web-app-title" content="AI Media Tank" />
         <link rel="apple-touch-icon" href="/logo.png" />
         <Script
           async
@@ -147,7 +147,7 @@ export default function RootLayout({
           />
           <footer className="w-full py-6 mt-8 border-t border-tank-light">
             <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
-              © {new Date().getFullYear()} AiMediaTank. All Rights Reserved.
+              © {new Date().getFullYear()} AI Media Tank, LLC. All rights reserved.
             </div>
           </footer>
           <InstallPrompt />

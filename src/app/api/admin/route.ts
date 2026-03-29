@@ -908,13 +908,13 @@ export async function POST(request: Request) {
             const { sendEmail } = await import('@/lib/email')
             await sendEmail({
               to: data.creatorEmail,
-              subject: 'AiMediaTank - Content Suspended',
+              subject: 'AI Media Tank — Content suspended',
               html: `
                 <h2>Content Suspended</h2>
-                <p>Your content "<strong>${data?.mediaTitle || 'Untitled'}</strong>" has been suspended on AiMediaTank.</p>
+                <p>Your content "<strong>${data?.mediaTitle || 'Untitled'}</strong>" has been suspended on AI Media Tank.</p>
                 <p><strong>Reason:</strong> ${suspendReason}</p>
                 <p>Please review our community guidelines. If you believe this was a mistake, please contact our support team.</p>
-                <p>Best regards,<br>AiMediaTank Team</p>
+                <p>Best regards,<br>AI Media Tank Team</p>
               `,
             })
           } catch (emailError) {
@@ -1026,13 +1026,13 @@ export async function POST(request: Request) {
             const { sendEmail } = await import('@/lib/email')
             emailSent = await sendEmail({
               to: data.creatorEmail,
-              subject: 'AiMediaTank - Content Removed',
+              subject: 'AI Media Tank — Content removed',
               html: `
                 <h2>Content Removed</h2>
-                <p>Your content "<strong>${data?.mediaTitle || 'Untitled'}</strong>" has been removed from AiMediaTank.</p>
+                <p>Your content "<strong>${data?.mediaTitle || 'Untitled'}</strong>" has been removed from AI Media Tank.</p>
                 <p><strong>Reason:</strong> ${deletionReason}</p>
                 <p>If you believe this was a mistake, please contact our support team.</p>
-                <p>Best regards,<br>AiMediaTank Team</p>
+                <p>Best regards,<br>AI Media Tank Team</p>
               `,
             })
           } catch (err) {
