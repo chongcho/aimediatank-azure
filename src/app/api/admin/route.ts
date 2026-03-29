@@ -751,7 +751,7 @@ export async function GET(request: Request) {
         { itemKey: 'sold', label: 'Times Sold', isEnabled: true, sortOrder: 2 },
         { itemKey: 'views', label: 'View', isEnabled: true, sortOrder: 3 },
         { itemKey: 'postDate', label: 'Post Date', isEnabled: true, sortOrder: 4 },
-        { itemKey: 'smileRate', label: 'Smile Rate', isEnabled: true, sortOrder: 5 },
+        { itemKey: 'smileRate', label: 'Likes', isEnabled: true, sortOrder: 5 },
       ]
 
       try {

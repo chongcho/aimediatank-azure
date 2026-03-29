@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
+import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
 
 interface MediaCardProps {
   media: {
@@ -589,15 +590,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               )}
 
               {isBadgeEnabled('smileRate') && (
-                <span className="flex items-center gap-2">
-                  <span className="flex items-center gap-1">
-                    <span>😄</span>
-                    <span>{media.reactions?.happy ?? 0}</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span>😞</span>
-                    <span>{media.reactions?.sad ?? 0}</span>
-                  </span>
+                <span className="flex items-center gap-1">
+                  <ThumbsUpIcon className="w-4 h-4 shrink-0 text-gray-400" />
+                  <span>{media.reactions?.happy ?? 0}</span>
                 </span>
               )}
             </div>

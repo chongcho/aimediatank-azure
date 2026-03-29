@@ -9,6 +9,7 @@ import { formatMediaTitle, stripHashtags } from '@/lib/text'
 import { pauseAllMedia, stopAllMedia } from '@/lib/mediaStop'
 import { getMediaPlayCache } from '@/lib/mediaPlayCache'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
+import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
 
 interface MediaDetail {
   id: string
@@ -67,7 +68,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [reactions, setReactions] = useState({ happy: 0, sad: 0 })
-  const [userReaction, setUserReaction] = useState<'happy' | 'sad' | null>(null)
+  const [userReaction, setUserReaction] = useState<'happy' | 'sad' | 'neutral' | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
@@ -233,7 +234,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     }
   }
 
-  const handleReaction = async (type: 'happy' | 'sad') => {
+  const handleReaction = async (type: 'happy') => {
     // Allow reactions without sign-in using visitorId
     const visitorId = getVisitorId()
 
@@ -747,47 +748,28 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   <span>{media.views.toLocaleString()} views</span>
                 </div>
 
-                {/* Reactions */}
+                {/* Reactions (like only — thumbs up) */}
                 <button
+                  type="button"
                   onClick={() => handleReaction('happy')}
-                  className={`flex items-center gap-1 transition-transform hover:scale-110 ${
+                  className={`flex items-center gap-1.5 transition-transform hover:scale-110 ${
                     userReaction === 'happy' ? 'scale-110' : ''
                   }`}
+                  aria-label={userReaction === 'happy' ? 'Remove like' : 'Like'}
                 >
-                  <span
-                    className={`text-2xl ${
-                      userReaction === 'happy' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
+                  <ThumbsUpIcon
+                    className={`w-7 h-7 shrink-0 ${
+                      userReaction === 'happy'
+                        ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]'
+                        : 'text-gray-400'
                     }`}
-                  >
-                    😄
-                  </span>
+                  />
                   <span
                     className={`text-sm font-medium ${
                       userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'
                     }`}
                   >
                     {reactions.happy}
-                  </span>
-                </button>
-                <button
-                  onClick={() => handleReaction('sad')}
-                  className={`flex items-center gap-1 transition-transform hover:scale-110 ${
-                    userReaction === 'sad' ? 'scale-110' : ''
-                  }`}
-                >
-                  <span
-                    className={`text-2xl ${
-                      userReaction === 'sad' ? 'drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]' : ''
-                    }`}
-                  >
-                    😞
-                  </span>
-                  <span
-                    className={`text-sm font-medium ${
-                      userReaction === 'sad' ? 'text-yellow-400' : 'text-gray-400'
-                    }`}
-                  >
-                    {reactions.sad}
                   </span>
                 </button>
               </div>
