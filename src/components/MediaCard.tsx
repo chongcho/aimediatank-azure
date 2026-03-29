@@ -558,47 +558,46 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
 
         </div>
 
-        {/* Content */}
-        <div className="p-4">
-          {/* Title and Type Badge */}
-          <div className="flex items-center gap-2 mb-2">
-            <h3
-              className="font-semibold text-white transition-colors truncate flex-1 min-w-0"
-              title={stripHashtags(media.title)}
-            >
-              {renderTitle(media.title)}
-            </h3>
-            {/* Media Type Badge */}
-            <div className={`px-2 py-1 ${typeStyle.text} text-xs font-bold flex items-center gap-1 shrink-0`}>
-              {getTypeIcon()}
-              <span>{media.type}</span>
-            </div>
+        {/* Content: grid so type + date share one right column (aligned right edges, same gray as date) */}
+        <div className="p-4 grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-2 items-start">
+          <h3
+            className="font-semibold text-white transition-colors truncate min-w-0 col-start-1 row-start-1"
+            title={stripHashtags(media.title)}
+          >
+            {renderTitle(media.title)}
+          </h3>
+          <div className="col-start-2 row-start-1 justify-self-end flex items-center gap-1 text-xs font-bold text-gray-300 tabular-nums">
+            {getTypeIcon()}
+            <span className="uppercase">{media.type}</span>
           </div>
 
-          {/* Stats */}
-          <div className="flex items-center justify-between text-sm text-gray-300">
-            <div className="flex items-center gap-3">
-              {/* Views */}
-              {isBadgeEnabled('views') && (
-                <span className="flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  {formatViews(displayViews)}
-                </span>
-              )}
-
-              {isBadgeEnabled('smileRate') && (
-                <span className="flex items-center gap-1">
-                  <ThumbsUpIcon className="w-4 h-4 shrink-0 text-gray-400" />
-                  <span>{media.reactions?.happy ?? 0}</span>
-                </span>
-              )}
-            </div>
-
-            {isBadgeEnabled('postDate') && <span>{formatDate(media.createdAt)}</span>}
+          <div
+            className={`row-start-2 flex items-center gap-3 text-sm text-gray-300 min-w-0 ${
+              isBadgeEnabled('postDate') ? 'col-start-1' : 'col-span-2'
+            }`}
+          >
+            {isBadgeEnabled('views') && (
+              <span className="flex items-center gap-1 shrink-0">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                {formatViews(displayViews)}
+              </span>
+            )}
+            {isBadgeEnabled('smileRate') && (
+              <span className="flex items-center gap-1 shrink-0">
+                <ThumbsUpIcon className="w-4 h-4 shrink-0 text-gray-400" />
+                <span>{media.reactions?.happy ?? 0}</span>
+              </span>
+            )}
           </div>
+
+          {isBadgeEnabled('postDate') && (
+            <span className="col-start-2 row-start-2 justify-self-end text-sm text-gray-300 whitespace-nowrap tabular-nums">
+              {formatDate(media.createdAt)}
+            </span>
+          )}
         </div>
       </div>
     </Link>
