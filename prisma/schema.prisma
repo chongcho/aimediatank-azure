@@ -263,14 +263,21 @@ model SiteAccessLog {
   userId      String?
   userName    String?
   userEmail   String?
-  statusCode  Int?
-  createdAt   DateTime @default(now())
+  statusCode     Int?
+  abnormalFlags  String?  @db.Text // JSON string[] — security / probe detection codes (see accessLogAbnormal)
+  createdAt      DateTime @default(now())
 
   @@index([createdAt])
   @@index([sessionId])
   @@index([userId])
   @@index([path])
   @@index([ipAddress])
+}
+
+// Throttle security alert emails: one send per bucket key per flag family per hour
+model SecurityAccessAlertDedup {
+  bucket    String   @id
+  createdAt DateTime @default(now())
 }
 
 // Track all admin actions for audit

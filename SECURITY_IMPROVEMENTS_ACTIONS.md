@@ -14,6 +14,7 @@ Add these in your **production** (and staging) environment (e.g. Azure App Servi
 | **CRON_SECRET** | Yes (production) | Protects `/api/cron/*` (process-videos, send-reminders, cleanup). Azure Functions must send `Authorization: Bearer <CRON_SECRET>` or `x-cron-secret: <CRON_SECRET>`. If missing in production, cron routes return 503. |
 | **LOG_ACCESS_SECRET** | Recommended | Used so only your middleware can trigger geo lookup in `/api/admin/log-access`. Set to a random string; middleware will send it in `x-log-access-secret`. If unset, log-access still works but geo is never looked up (no SSRF from untrusted callers). |
 | **ADMIN_SETUP_SECRET** | Only if using set-admin | One-time admin promotion. Set only when you need to call `/api/admin/set-admin`; use a strong random value. After creating your first admin, unset it or delete the route. |
+| **ADMIN_ACCESS_SECURITY_EMAIL** | Optional | If set (e.g. your admin inbox), the app sends at most **one email per UTC hour** when an access log row is flagged as abnormal (common probes: `.git`, `.env`, WordPress paths, etc.). Uses the same Azure email sender as other app mail. |
 
 **Check:** In production, ensure `NEXTAUTH_SECRET` and `CRON_SECRET` are set. Otherwise auth and cron will fail as designed.
 
@@ -68,6 +69,7 @@ Then run tests and a quick smoke test of auth and cron.
 
 - [ ] **Production env:** `NEXTAUTH_SECRET` and `CRON_SECRET` set.
 - [ ] **Optional:** `LOG_ACCESS_SECRET` set (recommended for geo in access logs).
+- [ ] **Optional:** `ADMIN_ACCESS_SECURITY_EMAIL` set if you want hourly-throttled alerts for flagged access log entries.
 - [ ] **Azure Functions:** Sending `Authorization: Bearer <CRON_SECRET>` (or `x-cron-secret`) when calling cron URLs.
 - [ ] **One-time:** If you use set-admin, set `ADMIN_SETUP_SECRET`, create admin, then unset or delete the route.
 - [ ] **Dependencies:** Run `npm audit` / `npm audit fix` and upgrade Next.js if needed.
@@ -84,6 +86,7 @@ Then run tests and a quick smoke test of auth and cron.
 | **add-legal-name** | Requires admin session (`getServerSession` + role ADMIN). |
 | **log-access** | Geo lookup only when request has valid `x-log-access-secret` (set by middleware when `LOG_ACCESS_SECRET` is set). Prevents SSRF via client-supplied IP. |
 | **Middleware** | Sends `x-log-access-secret` when calling log-access if `LOG_ACCESS_SECRET` is set. |
+| **Access logs** | Suspicious paths get JSON `abnormalFlags` on `SiteAccessLog`; optional `ADMIN_ACCESS_SECURITY_EMAIL` for throttled alerts; Admin → Access Logs has **Abnormal only** filter. |
 | **adminReauthCookie** | In production, throws if `NEXTAUTH_SECRET` is empty (no silent fallback to empty string). |
 
 For full findings and context, see **SECURITY_ASSESSMENT.md**.

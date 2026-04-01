@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseUserAgent } from '@/lib/parseUserAgent'
+import { detectAbnormalAccess, maybeNotifyAbnormalAccess } from '@/lib/accessLogAbnormal'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,6 +98,14 @@ export async function POST(request: Request) {
       country = geo.country
     }
 
+    const pathStored = path.substring(0, 2048)
+    const methodStored = method.substring(0, 16)
+    const abnormalFlagsArr = detectAbnormalAccess({
+      path: pathStored,
+      method: methodStored,
+      statusCode: statusCode ?? null,
+    })
+
     await prisma.siteAccessLog.create({
       data: {
         ipAddress: ipAddress ?? null,
@@ -107,8 +116,8 @@ export async function POST(request: Request) {
         city,
         region,
         country,
-        path: path.substring(0, 2048),
-        method: method.substring(0, 16),
+        path: pathStored,
+        method: methodStored,
         query: query ? String(query).substring(0, 2048) : null,
         referrer: referrer ? String(referrer).substring(0, 2048) : null,
         sessionId: sessionId ?? null,
@@ -116,8 +125,20 @@ export async function POST(request: Request) {
         userName: userName ?? null,
         userEmail: userEmail ?? null,
         statusCode: statusCode ?? null,
+        abnormalFlags: abnormalFlagsArr.length ? JSON.stringify(abnormalFlagsArr) : null,
       },
     })
+
+    if (abnormalFlagsArr.length > 0) {
+      void maybeNotifyAbnormalAccess({
+        flags: abnormalFlagsArr,
+        path: pathStored,
+        method: methodStored,
+        ipAddress: ipAddress ?? null,
+        country,
+        city,
+      }).catch((err) => console.error('[log-access] abnormal notify', err))
+    }
 
     return NextResponse.json({ ok: true })
   } catch (e) {

@@ -4,6 +4,17 @@ import { useEffect, useState, useRef, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
+
+function parseAccessLogAbnormalFlags(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  try {
+    const v = JSON.parse(raw) as unknown
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
 
 interface Stats {
   totalUsers: number
@@ -507,6 +518,7 @@ export default function AdminPage() {
     userName: string | null
     userEmail: string | null
     statusCode: number | null
+    abnormalFlags: string | null
     createdAt: string
   }>>([])
   const [accessLogsPage, setAccessLogsPage] = useState(1)
@@ -522,6 +534,7 @@ export default function AdminPage() {
   const [alOsFilter, setAlOsFilter] = useState<string[]>([])
   const [alCountryFilter, setAlCountryFilter] = useState<string[]>([])
   const [alMethodFilter, setAlMethodFilter] = useState<string[]>([])
+  const [alAbnormalOnly, setAlAbnormalOnly] = useState(false)
   const [alDistinct, setAlDistinct] = useState<{ browsers: string[]; oses: string[]; countries: string[]; methods: string[] }>({ browsers: [], oses: [], countries: [], methods: [] })
 
   // File size backfill status (Media tab)
@@ -755,7 +768,7 @@ export default function AdminPage() {
     if (session?.user?.role === 'ADMIN' && reauthVerified === true) {
       fetchData()
     }
-  }, [session, reauthVerified, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter])
+  }, [session, reauthVerified, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter, alAbnormalOnly])
 
   const fetchData = async () => {
     setLoading(true)
@@ -811,6 +824,7 @@ export default function AdminPage() {
         if (alOsFilter.length) params.set('os', alOsFilter.join(','))
         if (alCountryFilter.length) params.set('country', alCountryFilter.join(','))
         if (alMethodFilter.length) params.set('method', alMethodFilter.join(','))
+        if (alAbnormalOnly) params.set('abnormalOnly', '1')
         const dParams = new URLSearchParams({ action: 'accessLogsDistinct' })
         if (effectiveFrom) dParams.set('from', effectiveFrom)
         if (effectiveTo) dParams.set('to', effectiveTo)
@@ -1730,9 +1744,18 @@ export default function AdminPage() {
 
             {activeTab === 'accessLogs' && (
               <>
-                {(alTimePeriod || alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0) && (
+                <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={alAbnormalOnly}
+                    onChange={(e) => { setAlAbnormalOnly(e.target.checked); setAccessLogsPage(1) }}
+                    className="rounded border-tank-light/50"
+                  />
+                  Abnormal only
+                </label>
+                {(alTimePeriod || alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0 || alAbnormalOnly) && (
                   <button
-                    onClick={() => { setAlTimePeriod(''); setAlBrowserFilter([]); setAlOsFilter([]); setAlCountryFilter([]); setAlMethodFilter([]); setAccessLogsPage(1) }}
+                    onClick={() => { setAlTimePeriod(''); setAlBrowserFilter([]); setAlOsFilter([]); setAlCountryFilter([]); setAlMethodFilter([]); setAlAbnormalOnly(false); setAccessLogsPage(1) }}
                     className="text-xs text-red-400 hover:text-red-300 whitespace-nowrap"
                   >
                     ✕ Clear all filters
@@ -1760,6 +1783,7 @@ export default function AdminPage() {
               <h2 className="text-xl font-bold text-white mb-4">Access Logs (site analytics, support, security)</h2>
               <p className="text-gray-400 text-sm mb-4">
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
+                Rows with <span className="text-amber-400/90">security flags</span> match common probe patterns (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>, WordPress paths). Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1773,6 +1797,7 @@ export default function AdminPage() {
                       <ColumnFilter label="OS" options={alDistinct.oses} selected={alOsFilter} onApply={(v) => { setAlOsFilter(v); setAccessLogsPage(1) }} />
                       <ColumnFilter label="Country" options={alDistinct.countries} selected={alCountryFilter} onApply={(v) => { setAlCountryFilter(v); setAccessLogsPage(1) }} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Path</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap min-w-[140px]">Flags</th>
                       <ColumnFilter label="Method" options={alDistinct.methods} selected={alMethodFilter} onApply={(v) => { setAlMethodFilter(v); setAccessLogsPage(1) }} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Referrer</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Session</th>
@@ -1780,10 +1805,10 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {accessLogs.length === 0 && !loading && (
-                      <tr><td colSpan={11} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
+                      <tr><td colSpan={12} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
                     )}
                     {accessLogs.map((log) => (
-                      <tr key={log.id} className="border-b border-tank-light/10 hover:bg-tank-light/5">
+                      <tr key={log.id} className={`border-b border-tank-light/10 hover:bg-tank-light/5 ${parseAccessLogAbnormalFlags(log.abnormalFlags).length ? 'bg-amber-950/15' : ''}`}>
                         <td className="p-3 text-gray-300 whitespace-nowrap" title={log.createdAt}>
                           {new Date(log.createdAt).toLocaleString()}
                         </td>
@@ -1800,6 +1825,23 @@ export default function AdminPage() {
                           {log.city && <span className="text-gray-500 text-xs ml-1">({log.city})</span>}
                         </td>
                         <td className="p-3 text-gray-300 max-w-[200px] truncate" title={log.path}>{log.path}</td>
+                        <td className="p-3 text-gray-300 align-top">
+                          {parseAccessLogAbnormalFlags(log.abnormalFlags).length === 0 ? (
+                            <span className="text-gray-600">—</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1 max-w-[220px]">
+                              {parseAccessLogAbnormalFlags(log.abnormalFlags).map((code) => (
+                                <span
+                                  key={code}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-200/95 border border-amber-700/40"
+                                  title={ABNORMAL_FLAG_LABELS[code] || code}
+                                >
+                                  {code}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
                         <td className="p-3 text-gray-400">{log.method}</td>
                         <td className="p-3 text-gray-400 max-w-[150px] truncate" title={log.referrer ?? ''}>{log.referrer || '-'}</td>
                         <td className="p-3 text-gray-500 font-mono text-xs">{log.sessionId ? log.sessionId.slice(0, 8) + '…' : '-'}</td>

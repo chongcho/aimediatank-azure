@@ -354,8 +354,11 @@ export async function GET(request: Request) {
       const osFilter = searchParams.get('os') || ''
       const countryFilter = searchParams.get('country') || ''
       const methodFilter = searchParams.get('method') || ''
+      const abnormalOnly =
+        searchParams.get('abnormalOnly') === '1' || searchParams.get('abnormalOnly') === 'true'
 
       const where: any = {}
+      if (abnormalOnly) where.abnormalFlags = { not: null }
       if (pathFilter) where.path = { contains: pathFilter, mode: 'insensitive' }
       if (ipFilter) where.ipAddress = { contains: ipFilter, mode: 'insensitive' }
       if (fromStr) where.createdAt = { ...(where.createdAt as object), gte: new Date(fromStr) }
