@@ -672,6 +672,7 @@ export default function AdminPage() {
   const [reauthSendLoading, setReauthSendLoading] = useState(false)
   const [reauthVerifyLoading, setReauthVerifyLoading] = useState(false)
   const [reauthError, setReauthError] = useState('')
+  const [reauthAdminPanelPasswordConfigured, setReauthAdminPanelPasswordConfigured] = useState(false)
   
   // Auto-hide toast after 3 seconds
   useEffect(() => {
@@ -694,12 +695,22 @@ export default function AdminPage() {
     if (status !== 'authenticated' || !session?.user || session.user.role !== 'ADMIN') return
     let cancelled = false
     fetch('/api/admin/verify-access', { credentials: 'include' })
-      .then((res) => {
+      .then(async (res) => {
         if (cancelled) return
-        setReauthVerified(res.ok)
+        if (!res.ok) {
+          setReauthVerified(false)
+          setReauthAdminPanelPasswordConfigured(false)
+          return
+        }
+        const data = await res.json().catch(() => ({}))
+        setReauthVerified(data.verified === true)
+        setReauthAdminPanelPasswordConfigured(!!data.adminPanelPasswordConfigured)
       })
       .catch(() => {
-        if (!cancelled) setReauthVerified(false)
+        if (!cancelled) {
+          setReauthVerified(false)
+          setReauthAdminPanelPasswordConfigured(false)
+        }
       })
     return () => { cancelled = true }
   }, [status, session?.user?.role])
@@ -1426,17 +1437,23 @@ export default function AdminPage() {
       <div data-initial-content className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-8">
           <h1 className="text-2xl font-bold text-white mb-1">Admin Panel</h1>
-          <p className="text-gray-400 text-sm mb-6">Re-enter your password and complete two-step verification to continue.</p>
+          <p className="text-gray-400 text-sm mb-6">
+            {reauthAdminPanelPasswordConfigured
+              ? 'Enter the admin panel password (configured on the server—different from your account login) and complete two-step verification.'
+              : 'Re-enter your account password and complete two-step verification to continue.'}
+          </p>
           <form onSubmit={handleVerify} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {reauthAdminPanelPasswordConfigured ? 'Admin panel password' : 'Password'}
+              </label>
               <input
                 type="password"
                 value={reauthPassword}
                 onChange={(e) => { setReauthPassword(e.target.value); setReauthError('') }}
                 className="input w-full"
-                placeholder="Your password"
-                autoComplete="current-password"
+                placeholder={reauthAdminPanelPasswordConfigured ? 'Dedicated admin passphrase' : 'Your account password'}
+                autoComplete={reauthAdminPanelPasswordConfigured ? 'off' : 'current-password'}
               />
             </div>
             <div>

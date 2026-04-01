@@ -3,6 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { compare } from 'bcryptjs'
+import {
+  isAdminPanelAccessPasswordConfigured,
+  verifyAdminPanelAccessPassword,
+} from '@/lib/adminPanelAccessPassword'
 import { createAdminReauthCookie, getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
 import { verifyCode } from '@/lib/verificationCodes'
 import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
@@ -17,10 +21,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const payload = getAdminReauthFromRequest(request)
-    if (!payload || payload.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Re-authentication required' }, { status: 403 })
+    const adminPanelPasswordConfigured = isAdminPanelAccessPasswordConfigured()
+    const verified = !!(payload && payload.userId === session.user.id)
+    if (!verified) {
+      return NextResponse.json({ verified: false, adminPanelPasswordConfigured })
     }
-    return NextResponse.json({ verified: true })
+    return NextResponse.json({ verified: true, adminPanelPasswordConfigured })
   } catch (e) {
     console.error('Admin verify-access GET error:', e)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
@@ -47,15 +53,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Require password for credentials users (non-empty hash)
-    const hasPassword = user.password && user.password.length > 0
-    if (hasPassword) {
+    const useAdminPanelPassword = isAdminPanelAccessPasswordConfigured()
+    if (useAdminPanelPassword) {
       if (!password) {
-        return NextResponse.json({ error: 'Password is required' }, { status: 400 })
+        return NextResponse.json({ error: 'Admin panel password is required' }, { status: 400 })
       }
-      const valid = await compare(password, user.password)
-      if (!valid) {
-        return NextResponse.json({ error: 'Invalid password' }, { status: 400 })
+      const validPanel = await verifyAdminPanelAccessPassword(password)
+      if (!validPanel) {
+        return NextResponse.json({ error: 'Invalid admin panel password' }, { status: 400 })
+      }
+    } else {
+      // Legacy: same as account login password for credential-based accounts
+      const hasPassword = user.password && user.password.length > 0
+      if (hasPassword) {
+        if (!password) {
+          return NextResponse.json({ error: 'Password is required' }, { status: 400 })
+        }
+        const valid = await compare(password, user.password)
+        if (!valid) {
+          return NextResponse.json({ error: 'Invalid password' }, { status: 400 })
+        }
       }
     }
 

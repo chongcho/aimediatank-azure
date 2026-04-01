@@ -1,4 +1,4 @@
-// Signed cookie for admin re-authentication (password + 2FA). Short-lived so admins
+// Signed cookie for admin re-authentication (account or ADMIN_PANEL_ACCESS_PASSWORD_HASH password + 2FA). Short-lived so admins
 // must re-verify periodically when accessing the panel.
 
 import { createHmac, timingSafeEqual } from 'crypto'
