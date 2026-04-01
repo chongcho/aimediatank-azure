@@ -280,6 +280,17 @@ model SecurityAccessAlertDedup {
   createdAt DateTime @default(now())
 }
 
+// Banned client IPs (enforced in middleware when BLOCKED_IP_LIST_SECRET is set)
+model BlockedIp {
+  id         String   @id @default(uuid())
+  ipAddress  String   @unique
+  note       String?  @db.Text
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  @@index([ipAddress])
+}
+
 // Track all admin actions for audit
 model AdminAction {
   id            String    @id @default(uuid())

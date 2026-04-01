@@ -124,7 +124,7 @@ interface ChatMessage {
   }
 }
 
-type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool' | 'standaloneCropTool' | 'accessLogs'
+type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool' | 'standaloneCropTool' | 'accessLogs' | 'blockedIps'
 
 interface CropToolSettings {
   id?: string
@@ -537,6 +537,18 @@ export default function AdminPage() {
   const [alAbnormalOnly, setAlAbnormalOnly] = useState(false)
   const [alDistinct, setAlDistinct] = useState<{ browsers: string[]; oses: string[]; countries: string[]; methods: string[] }>({ browsers: [], oses: [], countries: [], methods: [] })
 
+  const [blockedIps, setBlockedIps] = useState<Array<{
+    id: string
+    ipAddress: string
+    note: string | null
+    createdAt: string
+    createdBy: string | null
+  }>>([])
+  const [ipBlockingActive, setIpBlockingActive] = useState(false)
+  const [blockIpInput, setBlockIpInput] = useState('')
+  const [blockIpNote, setBlockIpNote] = useState('')
+  const [blockIpSubmitting, setBlockIpSubmitting] = useState(false)
+
   // File size backfill status (Media tab)
   const [fileSizeStatus, setFileSizeStatus] = useState<{ missing: number } | null>(null)
   const [fileSizeStatusLoading, setFileSizeStatusLoading] = useState(false)
@@ -850,6 +862,11 @@ export default function AdminPage() {
         setAccessLogsTotalPages(data.pagination?.totalPages ?? 1)
         setAccessLogsSummary(data.summary ?? null)
         setAlDistinct({ browsers: dData.browsers || [], oses: dData.oses || [], countries: dData.countries || [], methods: dData.methods || [] })
+      } else if (activeTab === 'blockedIps') {
+        const res = await fetch('/api/admin?action=blockedIps')
+        const data = await res.json()
+        setBlockedIps(data.blocked || [])
+        setIpBlockingActive(!!data.blockingActive)
       } else if (activeTab === 'contentSales') {
         const res = await fetch('/api/admin?action=contentSales')
         const data = await res.json()
@@ -1374,6 +1391,60 @@ export default function AdminPage() {
     }
   }
 
+  const blockIpApi = async (ipAddress: string, note: string) => {
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        action: 'blockIp',
+        targetId: '',
+        data: { ipAddress, note: note.trim() || undefined },
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    return { ok: res.ok, data }
+  }
+
+  const handleBlockedIpFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBlockIpSubmitting(true)
+    try {
+      const { ok, data } = await blockIpApi(blockIpInput, blockIpNote)
+      if (ok) {
+        setToast({ message: 'IP added to blocklist', type: 'success' })
+        setBlockIpInput('')
+        setBlockIpNote('')
+        fetchData()
+      } else {
+        setToast({ message: (data as { error?: string }).error || 'Failed to block IP', type: 'error' })
+      }
+    } finally {
+      setBlockIpSubmitting(false)
+    }
+  }
+
+  const handleUnblockIp = async (id: string) => {
+    if (!confirm('Remove this IP from the blocklist?')) return
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'unblockIp', targetId: id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setToast({ message: 'IP unblocked', type: 'success' })
+        fetchData()
+      } else {
+        setToast({ message: (data as { error?: string }).error || 'Failed', type: 'error' })
+      }
+    } catch {
+      setToast({ message: 'Failed to unblock', type: 'error' })
+    }
+  }
+
   if (status === 'loading' || !session?.user || session.user.role !== 'ADMIN' || reauthVerified === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1575,6 +1646,7 @@ export default function AdminPage() {
           { id: 'contentSales', label: 'Contents Sales Reports' },
           { id: 'adSales', label: 'Ad Sales Reports' },
           { id: 'accessLogs', label: 'Access Logs' },
+          { id: 'blockedIps', label: 'Blocked IPs' },
         ] as { id: TabType; label: string }[]).map((tab) => {
           const baseClass = `px-4 py-2 rounded-xl font-medium whitespace-nowrap ${
             activeTab === tab.id
@@ -1614,6 +1686,10 @@ export default function AdminPage() {
                   setMediaStatusFilter('all')
                 }
                 if (tab.id === 'accessLogs') setAccessLogsPage(1)
+                if (tab.id === 'blockedIps') {
+                  setBlockIpInput('')
+                  setBlockIpNote('')
+                }
               }}
               className={baseClass}
             >
@@ -1829,7 +1905,28 @@ export default function AdminPage() {
                         <td className="p-3 text-gray-300 whitespace-nowrap" title={log.createdAt}>
                           {new Date(log.createdAt).toLocaleString()}
                         </td>
-                        <td className="p-3 text-gray-300 font-mono text-xs">{log.ipAddress ?? '-'}</td>
+                        <td className="p-3 text-gray-300 font-mono text-xs">
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                            <span>{log.ipAddress ?? '-'}</span>
+                            {log.ipAddress ? (
+                              <button
+                                type="button"
+                                className="text-xs text-amber-400 hover:text-amber-300 whitespace-nowrap shrink-0"
+                                onClick={async () => {
+                                  const { ok, data } = await blockIpApi(log.ipAddress!, 'From access logs')
+                                  if (ok) {
+                                    setToast({ message: 'IP added to blocklist', type: 'success' })
+                                    fetchData()
+                                  } else {
+                                    setToast({ message: (data as { error?: string }).error || 'Failed to block IP', type: 'error' })
+                                  }
+                                }}
+                              >
+                                Block IP
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
                         <td className="p-3 text-gray-300 whitespace-nowrap">{log.userName ?? <span className="text-gray-600">-</span>}</td>
                         <td className="p-3 text-gray-300 text-xs">{log.userEmail ?? <span className="text-gray-600">-</span>}</td>
                         <td className="p-3 text-gray-300">
@@ -1888,6 +1985,78 @@ export default function AdminPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'blockedIps' && (
+            <div className="card overflow-hidden">
+              <h2 className="text-xl font-bold text-white mb-2">Blocked IPs</h2>
+              <p className="text-gray-400 text-sm mb-4">
+                Blocked addresses get <strong className="text-gray-300">403 Forbidden</strong> on pages and API routes, except auth, Stripe webhooks, cron, health, and this list endpoint.
+                {ipBlockingActive ? (
+                  <span className="text-green-400/90"> Enforcement is on (<code className="text-gray-500">BLOCKED_IP_LIST_SECRET</code> is set).</span>
+                ) : (
+                  <span className="text-amber-400/90"> Set <code className="text-gray-500">BLOCKED_IP_LIST_SECRET</code> in Application settings (random string) to turn on enforcement. You can still manage the list below.</span>
+                )}
+              </p>
+              <form onSubmit={handleBlockedIpFormSubmit} className="flex flex-wrap gap-3 items-end mb-6">
+                <div className="flex-1 min-w-[140px]">
+                  <label className="block text-sm text-gray-400 mb-1">IP address</label>
+                  <input
+                    className="input w-full font-mono text-sm"
+                    value={blockIpInput}
+                    onChange={(e) => setBlockIpInput(e.target.value)}
+                    placeholder="e.g. 203.0.113.42"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="flex-[2] min-w-[180px]">
+                  <label className="block text-sm text-gray-400 mb-1">Note (optional)</label>
+                  <input
+                    className="input w-full text-sm"
+                    value={blockIpNote}
+                    onChange={(e) => setBlockIpNote(e.target.value)}
+                    placeholder="Reason / scanner ref"
+                    maxLength={2000}
+                  />
+                </div>
+                <button type="submit" disabled={blockIpSubmitting} className="btn-primary px-4 py-2">
+                  {blockIpSubmitting ? 'Adding…' : 'Block IP'}
+                </button>
+              </form>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-tank-light/30">
+                      <th className="text-left p-3 text-gray-400 font-medium">IP</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Note</th>
+                      <th className="text-left p-3 text-gray-400 font-medium">Added</th>
+                      <th className="text-left p-3 text-gray-400 font-medium w-28">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {blockedIps.length === 0 && !loading && (
+                      <tr><td colSpan={4} className="p-6 text-center text-gray-500">No blocked IPs yet.</td></tr>
+                    )}
+                    {blockedIps.map((row) => (
+                      <tr key={row.id} className="border-b border-tank-light/10">
+                        <td className="p-3 font-mono text-gray-200">{row.ipAddress}</td>
+                        <td className="p-3 text-gray-400 max-w-md truncate" title={row.note ?? ''}>{row.note || '—'}</td>
+                        <td className="p-3 text-gray-500 whitespace-nowrap">{new Date(row.createdAt).toLocaleString()}</td>
+                        <td className="p-3">
+                          <button
+                            type="button"
+                            className="text-sm text-red-400 hover:text-red-300"
+                            onClick={() => void handleUnblockIp(row.id)}
+                          >
+                            Unblock
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

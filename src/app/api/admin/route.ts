@@ -393,6 +393,15 @@ export async function GET(request: Request) {
       })
     }
 
+    if (action === 'blockedIps') {
+      const blocked = await prisma.blockedIp.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      })
+      const blockingActive = Boolean(process.env.BLOCKED_IP_LIST_SECRET?.trim())
+      return NextResponse.json({ blocked, blockingActive })
+    }
+
     if (action === 'contentSales') {
       // Get content/media sales (completed purchases)
       const sales = await prisma.purchase.findMany({
@@ -2105,6 +2114,47 @@ export async function POST(request: Request) {
 
         await logAdminAction(adminId, 'UPDATE_CROP_TOOL_SETTINGS', 'CROP_TOOL', existing.id, updateData)
         return NextResponse.json({ message: 'Crop tool settings updated', settings })
+      }
+
+      case 'blockIp': {
+        const { ipAddress, note } = data ?? {}
+        const raw = typeof ipAddress === 'string' ? ipAddress : ''
+        const { normalizeStoredIp, isPlausibleIpAddress } = await import('@/lib/ipBlockUtils')
+        const normalized = normalizeStoredIp(raw)
+        if (!normalized || !isPlausibleIpAddress(normalized)) {
+          return NextResponse.json({ error: 'Invalid IP address' }, { status: 400 })
+        }
+        try {
+          const row = await prisma.blockedIp.create({
+            data: {
+              ipAddress: normalized,
+              note: typeof note === 'string' && note.trim() ? note.trim().slice(0, 2000) : null,
+              createdBy: adminId,
+            },
+          })
+          await logAdminAction(adminId, 'BLOCK_IP', 'BLOCKED_IP', row.id, { ipAddress: normalized })
+          return NextResponse.json({ message: 'IP blocked', blocked: row })
+        } catch (e: unknown) {
+          const code = e && typeof e === 'object' && 'code' in e ? (e as { code?: string }).code : ''
+          if (code === 'P2002') {
+            return NextResponse.json({ error: 'This IP is already blocked' }, { status: 409 })
+          }
+          throw e
+        }
+      }
+
+      case 'unblockIp': {
+        const id = typeof targetId === 'string' ? targetId : ''
+        if (!id) {
+          return NextResponse.json({ error: 'targetId required' }, { status: 400 })
+        }
+        const existing = await prisma.blockedIp.findUnique({ where: { id } })
+        if (!existing) {
+          return NextResponse.json({ error: 'Not found' }, { status: 404 })
+        }
+        await prisma.blockedIp.delete({ where: { id } })
+        await logAdminAction(adminId, 'UNBLOCK_IP', 'BLOCKED_IP', id, { ipAddress: existing.ipAddress })
+        return NextResponse.json({ message: 'IP unblocked' })
       }
 
       default:

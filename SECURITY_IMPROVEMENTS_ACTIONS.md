@@ -17,6 +17,7 @@ Add these in your **production** (and staging) environment (e.g. Azure App Servi
 | **ADMIN_ACCESS_SECURITY_EMAIL** | Optional | If set (e.g. your admin inbox), the app sends at most **one email per UTC hour** when an access log row is flagged as abnormal (common probes: `.git`, `.env`, WordPress paths, etc.). Uses the same Azure email sender as other app mail. |
 | **ADMIN_PANEL_ACCESS_PASSWORD_HASH** | Recommended for admin hardening | Bcrypt hash of a **dedicated** admin panel passphrase (not the user’s login password). When set, `/admin` re-auth checks this value instead of the account password (email/SMS 2FA unchanged). Generate: `node -e "require('bcryptjs').hash('YourStrongPhrase',12).then(console.log)"`. |
 | **ADMIN_PANEL_ACCESS_PASSWORD** | Dev only (avoid in prod) | Plaintext admin panel passphrase if you do not use the hash. Prefer **ADMIN_PANEL_ACCESS_PASSWORD_HASH** in production. If neither hash nor plain env is set, re-auth uses the **account password** as today. |
+| **BLOCKED_IP_LIST_SECRET** | Optional (IP blocking) | Random string. When set, middleware loads the DB blocklist (via `/api/internal/blocked-ip-list`) and returns **403** for matching client IPs. Must match between env and what the server expects—generate e.g. `openssl rand -hex 32`. Without this, Admin → **Blocked IPs** still stores rows but **does not enforce** blocking. |
 
 **Check:** In production, ensure `NEXTAUTH_SECRET` and `CRON_SECRET` are set. Otherwise auth and cron will fail as designed.
 
@@ -73,6 +74,7 @@ Then run tests and a quick smoke test of auth and cron.
 - [ ] **Optional:** `LOG_ACCESS_SECRET` set (recommended for geo in access logs).
 - [ ] **Optional:** `ADMIN_ACCESS_SECURITY_EMAIL` set if you want hourly-throttled alerts for flagged access log entries.
 - [ ] **Optional:** `ADMIN_PANEL_ACCESS_PASSWORD_HASH` (or dev-only plain `ADMIN_PANEL_ACCESS_PASSWORD`) if you want a **separate** passphrase for `/admin` re-auth instead of reusing the account password.
+- [ ] **Optional:** `BLOCKED_IP_LIST_SECRET` if you use Admin → **Blocked IPs** and want enforcement (403) at the edge.
 - [ ] **Azure Functions:** Sending `Authorization: Bearer <CRON_SECRET>` (or `x-cron-secret`) when calling cron URLs.
 - [ ] **One-time:** If you use set-admin, set `ADMIN_SETUP_SECRET`, create admin, then unset or delete the route.
 - [ ] **Dependencies:** Run `npm audit` / `npm audit fix` and upgrade Next.js if needed.
@@ -90,6 +92,7 @@ Then run tests and a quick smoke test of auth and cron.
 | **log-access** | Geo lookup only when request has valid `x-log-access-secret` (set by middleware when `LOG_ACCESS_SECRET` is set). Prevents SSRF via client-supplied IP. |
 | **Middleware** | Sends `x-log-access-secret` when calling log-access if `LOG_ACCESS_SECRET` is set. |
 | **Access logs** | Suspicious paths get JSON `abnormalFlags` on `SiteAccessLog`; optional `ADMIN_ACCESS_SECURITY_EMAIL` for throttled alerts; Admin → Access Logs has **Abnormal only** filter. |
+| **Blocked IPs** | `BlockedIp` model; Admin → **Blocked IPs**; middleware enforces when `BLOCKED_IP_LIST_SECRET` is set (exempts `/api/auth/*`, Stripe webhook, cron, health, internal list). |
 | **adminReauthCookie** | In production, throws if `NEXTAUTH_SECRET` is empty (no silent fallback to empty string). |
 
 For full findings and context, see **SECURITY_ASSESSMENT.md**.

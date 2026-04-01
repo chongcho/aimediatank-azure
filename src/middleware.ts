@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
+import { isClientIpBlocked } from '@/lib/blockedIpListClient'
 
 const LOG_ACCESS_PATH = '/api/admin/log-access'
 const SESSION_COOKIE = '_sa_sid'
@@ -12,6 +13,16 @@ const SKIP_PATHS = new Set([
   '/manifest.json',
   '/sw.js',
 ])
+
+/** Paths that must stay reachable even when IP is on the blocklist (auth, webhooks, cron, internal list). */
+function isIpBlockExemptPath(pathname: string): boolean {
+  if (pathname.startsWith('/api/internal/blocked-ip-list')) return true
+  if (pathname.startsWith('/api/auth')) return true
+  if (pathname.startsWith('/api/stripe/webhook')) return true
+  if (pathname.startsWith('/api/cron/')) return true
+  if (pathname === '/api/health') return true
+  return false
+}
 
 function stripPort(ip: string): string {
   if (ip.startsWith('[')) return ip.replace(/^\[([^\]]+)\].*$/, '$1')
@@ -28,12 +39,23 @@ function getClientIp(request: NextRequest): string | null {
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
+  const clientIp = getClientIp(request)
+
+  if (!isIpBlockExemptPath(pathname) && clientIp) {
+    const blocked = await isClientIpBlocked(clientIp, request.nextUrl.origin)
+    if (blocked) {
+      return new NextResponse('Forbidden', {
+        status: 403,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      })
+    }
+  }
 
   if (SKIP_PATHS.has(pathname) || pathname.startsWith('/api/')) {
     return NextResponse.next()
   }
 
-  const ip = getClientIp(request)
+  const ip = clientIp
   const userAgent = request.headers.get('user-agent') ?? undefined
   const referrer = request.headers.get('referer') ?? undefined
   const method = request.method
