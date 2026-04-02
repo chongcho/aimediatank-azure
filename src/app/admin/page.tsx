@@ -1876,7 +1876,7 @@ export default function AdminPage() {
               <h2 className="text-xl font-bold text-white mb-4">Access Logs (site analytics, support, security)</h2>
               <p className="text-gray-400 text-sm mb-4">
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
-                Rows with <span className="text-amber-400/90">security flags</span> match common probe patterns (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>, WordPress paths). Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
+                Rows with <span className="text-amber-400/90">security flags</span> match common probe patterns (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>, WordPress paths). Use the <strong className="text-gray-300">Block</strong> column to add an IP to the blocklist (see the <strong className="text-gray-300">Blocked IPs</strong> tab). Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1884,6 +1884,7 @@ export default function AdminPage() {
                     <tr className="border-b border-tank-light/30">
                       <TimePeriodFilter selected={alTimePeriod} onApply={(v) => { setAlTimePeriod(v); if (v) { setAccessLogsFrom(''); setAccessLogsTo('') }; setAccessLogsPage(1) }} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">IP</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap w-24">Block</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Name</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email</th>
                       <ColumnFilter label="Browser" options={alDistinct.browsers} selected={alBrowserFilter} onApply={(v) => { setAlBrowserFilter(v); setAccessLogsPage(1) }} />
@@ -1898,34 +1899,36 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {accessLogs.length === 0 && !loading && (
-                      <tr><td colSpan={12} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
+                      <tr><td colSpan={13} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
                     )}
                     {accessLogs.map((log) => (
                       <tr key={log.id} className={`border-b border-tank-light/10 hover:bg-tank-light/5 ${parseAccessLogAbnormalFlags(log.abnormalFlags).length ? 'bg-amber-950/15' : ''}`}>
                         <td className="p-3 text-gray-300 whitespace-nowrap" title={log.createdAt}>
                           {new Date(log.createdAt).toLocaleString()}
                         </td>
-                        <td className="p-3 text-gray-300 font-mono text-xs">
-                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-                            <span>{log.ipAddress ?? '-'}</span>
-                            {log.ipAddress ? (
-                              <button
-                                type="button"
-                                className="text-xs text-amber-400 hover:text-amber-300 whitespace-nowrap shrink-0"
-                                onClick={async () => {
-                                  const { ok, data } = await blockIpApi(log.ipAddress!, 'From access logs')
-                                  if (ok) {
-                                    setToast({ message: 'IP added to blocklist', type: 'success' })
-                                    fetchData()
-                                  } else {
-                                    setToast({ message: (data as { error?: string }).error || 'Failed to block IP', type: 'error' })
-                                  }
-                                }}
-                              >
-                                Block IP
-                              </button>
-                            ) : null}
-                          </div>
+                        <td className="p-3 text-gray-300 font-mono text-xs whitespace-nowrap" title={log.ipAddress ?? ''}>
+                          {log.ipAddress ?? '-'}
+                        </td>
+                        <td className="p-3 text-gray-300 align-top">
+                          {log.ipAddress ? (
+                            <button
+                              type="button"
+                              className="text-xs font-medium px-2 py-1 rounded border border-amber-600/50 text-amber-400 hover:bg-amber-950/40 hover:text-amber-300 whitespace-nowrap"
+                              onClick={async () => {
+                                const { ok, data } = await blockIpApi(log.ipAddress!, 'From access logs')
+                                if (ok) {
+                                  setToast({ message: 'IP added to blocklist (see Blocked IPs tab)', type: 'success' })
+                                  fetchData()
+                                } else {
+                                  setToast({ message: (data as { error?: string }).error || 'Failed to block IP', type: 'error' })
+                                }
+                              }}
+                            >
+                              Block
+                            </button>
+                          ) : (
+                            <span className="text-gray-600 text-xs">—</span>
+                          )}
                         </td>
                         <td className="p-3 text-gray-300 whitespace-nowrap">{log.userName ?? <span className="text-gray-600">-</span>}</td>
                         <td className="p-3 text-gray-300 text-xs">{log.userEmail ?? <span className="text-gray-600">-</span>}</td>
@@ -1992,6 +1995,7 @@ export default function AdminPage() {
             <div className="card overflow-hidden">
               <h2 className="text-xl font-bold text-white mb-2">Blocked IPs</h2>
               <p className="text-gray-400 text-sm mb-4">
+                Every address in the table below is on your blocklist—added here or via the <strong className="text-gray-300">Block</strong> column on <strong className="text-gray-300">Access Logs</strong>.
                 Blocked addresses get <strong className="text-gray-300">403 Forbidden</strong> on pages and API routes, except auth, Stripe webhooks, cron, health, and this list endpoint.
                 {ipBlockingActive ? (
                   <span className="text-green-400/90"> Enforcement is on (<code className="text-gray-500">BLOCKED_IP_LIST_SECRET</code> is set).</span>
