@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseUserAgent } from '@/lib/parseUserAgent'
-import { detectAbnormalAccess, maybeNotifyAbnormalAccess } from '@/lib/accessLogAbnormal'
+import { detectAbnormalAccess, detectBadBotUserAgent, maybeNotifyAbnormalAccess } from '@/lib/accessLogAbnormal'
 
 export const dynamic = 'force-dynamic'
 
@@ -100,11 +100,13 @@ export async function POST(request: Request) {
 
     const pathStored = path.substring(0, 2048)
     const methodStored = method.substring(0, 16)
-    const abnormalFlagsArr = detectAbnormalAccess({
+    const pathFlags = detectAbnormalAccess({
       path: pathStored,
       method: methodStored,
       statusCode: statusCode ?? null,
     })
+    const botFlags = detectBadBotUserAgent(userAgent)
+    const abnormalFlagsArr = Array.from(new Set([...pathFlags, ...botFlags])).sort()
 
     await prisma.siteAccessLog.create({
       data: {

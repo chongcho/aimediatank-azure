@@ -18,7 +18,8 @@ function isPrivateIp(ip: string): boolean {
 }
 
 /**
- * Called from middleware when a probe path is denied. Adds client IP to BlockedIp (note: Auto: …).
+ * Called from middleware when a probe path or bad-bot UA is denied.
+ * Adds client IP to BlockedIp (note: Auto (probe) / Auto (bad-bot)).
  * Secured with the same header secret as other internal blocklist routes.
  */
 export async function POST(request: Request) {
@@ -31,6 +32,8 @@ export async function POST(request: Request) {
   const rawIp = typeof body.ipAddress === 'string' ? body.ipAddress : ''
   const path = typeof body.path === 'string' ? body.path : ''
   const flags = Array.isArray(body.flags) ? body.flags.filter((x: unknown) => typeof x === 'string') : []
+  const category = body.category === 'bad_bot' ? 'bad_bot' : 'probe'
+  const uaRaw = typeof body.userAgent === 'string' ? body.userAgent : ''
 
   const normalized = normalizeStoredIp(rawIp)
   if (!normalized || !isPlausibleIpAddress(normalized) || isPrivateIp(normalized)) {
@@ -38,7 +41,10 @@ export async function POST(request: Request) {
   }
 
   const flagStr = flags.slice(0, 10).join(', ') + (flags.length > 10 ? '…' : '')
-  const note = `Auto (probe): ${flagStr || '?'} · ${path.slice(0, 400)}`.slice(0, 2000)
+  const prefix = category === 'bad_bot' ? 'Auto (bad-bot)' : 'Auto (probe)'
+  const uaSnip =
+    category === 'bad_bot' && uaRaw ? ` · UA ${uaRaw.replace(/\s+/g, ' ').trim().slice(0, 160)}` : ''
+  const note = `${prefix}: ${flagStr || '?'} · ${path.slice(0, 320)}${uaSnip}`.slice(0, 2000)
 
   try {
     await prisma.blockedIp.create({

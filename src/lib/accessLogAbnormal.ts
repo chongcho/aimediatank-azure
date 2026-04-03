@@ -1,10 +1,12 @@
 /**
- * Abnormal access notifications (server-only). Detection lives in accessLogAbnormalDetect (Edge-safe).
+ * Abnormal access notifications (server-only). Path detection: accessLogAbnormalDetect; bad-bot UAs: badBotDetect (Edge-safe).
  */
 
-export { ABNORMAL_FLAG_LABELS, detectAbnormalAccess } from './accessLogAbnormalDetect'
+import { ABNORMAL_FLAG_LABELS as PATH_FLAG_LABELS, detectAbnormalAccess } from './accessLogAbnormalDetect'
+import { BAD_BOT_FLAG_LABELS, detectBadBotUserAgent } from './badBotDetect'
 
-import { ABNORMAL_FLAG_LABELS } from './accessLogAbnormalDetect'
+export const ABNORMAL_FLAG_LABELS = { ...PATH_FLAG_LABELS, ...BAD_BOT_FLAG_LABELS }
+export { detectAbnormalAccess, detectBadBotUserAgent }
 
 function flagSummaryHtml(flags: string[]): string {
   return flags

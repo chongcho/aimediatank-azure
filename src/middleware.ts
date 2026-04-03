@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 import { BLOCKED_IP_LIST_HEADER, isClientIpBlocked } from '@/lib/blockedIpListClient'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
+import { detectBadBotUserAgent } from '@/lib/badBotDetect'
 
 const LOG_ACCESS_PATH = '/api/admin/log-access'
 const SESSION_COOKIE = '_sa_sid'
@@ -38,11 +39,13 @@ function isPrivateIp(ip: string): boolean {
   )
 }
 
-function enqueueAutoBlockProbe(params: {
+function enqueueAutoBlockSecurity(params: {
   clientIp: string | null
   pathname: string
   flags: string[]
   origin: string
+  category: 'probe' | 'bad_bot'
+  userAgent?: string | null
 }) {
   const secret = process.env.BLOCKED_IP_LIST_SECRET?.trim()
   if (!secret || !params.clientIp) return
@@ -58,6 +61,10 @@ function enqueueAutoBlockProbe(params: {
       ipAddress: ip,
       path: params.pathname,
       flags: params.flags,
+      category: params.category,
+      ...(params.category === 'bad_bot' && params.userAgent
+        ? { userAgent: params.userAgent.slice(0, 1024) }
+        : {}),
     }),
   }).catch(() => {})
 }
@@ -92,11 +99,28 @@ export async function middleware(request: NextRequest) {
   if (!isSecurityExemptPath(pathname) && !SKIP_PATHS.has(pathname)) {
     const abnormalFlags = detectAbnormalAccess({ path: pathname, method: request.method })
     if (abnormalFlags.length > 0) {
-      enqueueAutoBlockProbe({
+      enqueueAutoBlockSecurity({
         clientIp,
         pathname,
         flags: abnormalFlags,
         origin: request.nextUrl.origin,
+        category: 'probe',
+      })
+      return new NextResponse('Forbidden', {
+        status: 403,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      })
+    }
+
+    const botFlags = detectBadBotUserAgent(request.headers.get('user-agent'))
+    if (botFlags.length > 0) {
+      enqueueAutoBlockSecurity({
+        clientIp,
+        pathname,
+        flags: botFlags,
+        origin: request.nextUrl.origin,
+        category: 'bad_bot',
+        userAgent: request.headers.get('user-agent'),
       })
       return new NextResponse('Forbidden', {
         status: 403,

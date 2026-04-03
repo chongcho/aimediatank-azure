@@ -1876,7 +1876,7 @@ export default function AdminPage() {
               <h2 className="text-xl font-bold text-white mb-4">Access Logs (site analytics, support, security)</h2>
               <p className="text-gray-400 text-sm mb-4">
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
-                Rows with <span className="text-amber-400/90">security flags</span> match common probe patterns (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>, WordPress paths). Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—manage the list on the <strong className="text-gray-300">Blocked IPs</strong> tab. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
+                Rows with <span className="text-amber-400/90">security flags</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—manage the list on the <strong className="text-gray-300">Blocked IPs</strong> tab. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1978,7 +1978,7 @@ export default function AdminPage() {
               <p className="text-gray-400 text-sm mb-4">
                 Blocked IPs are listed only here; their requests no longer appear in <strong className="text-gray-300">Access Logs</strong>.
                 Blocked addresses get <strong className="text-gray-300">403 Forbidden</strong> on pages and API routes, except auth, Stripe webhooks, cron, health, and internal list/auto-block endpoints.
-                Requests that match <strong className="text-gray-300">abnormal probe paths</strong> (same patterns as Access Logs flags) are denied with 403; when <code className="text-gray-500">BLOCKED_IP_LIST_SECRET</code> is set, the client IP is also added here automatically with note <code className="text-gray-500">Auto (probe): …</code>.
+                Requests that match <strong className="text-gray-300">abnormal probe paths</strong> or <strong className="text-gray-300">known bad-bot User-Agents</strong> (sqlmap, nuclei, shodan, etc.; same flags as Access Logs) get 403; when <code className="text-gray-500">BLOCKED_IP_LIST_SECRET</code> is set, the IP is added with <code className="text-gray-500">Auto (probe): …</code> or <code className="text-gray-500">Auto (bad-bot): …</code>. Optional: set <code className="text-gray-500">BLOCK_EMPTY_USER_AGENT=true</code> to also treat missing/empty User-Agent as a bot (can block odd legitimate clients).
                 {ipBlockingActive ? (
                   <span className="text-green-400/90"> Enforcement is on (<code className="text-gray-500">BLOCKED_IP_LIST_SECRET</code> is set).</span>
                 ) : (
