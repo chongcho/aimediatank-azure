@@ -1977,7 +1977,8 @@ export default function AdminPage() {
               <h2 className="text-xl font-bold text-white mb-2">Blocked IPs</h2>
               <p className="text-gray-400 text-sm mb-4">
                 Blocked IPs are listed only here; their requests no longer appear in <strong className="text-gray-300">Access Logs</strong>.
-                Blocked addresses get <strong className="text-gray-300">403 Forbidden</strong> on pages and API routes, except auth, Stripe webhooks, cron, health, and this list endpoint.
+                Blocked addresses get <strong className="text-gray-300">403 Forbidden</strong> on pages and API routes, except auth, Stripe webhooks, cron, health, and internal list/auto-block endpoints.
+                Requests that match <strong className="text-gray-300">abnormal probe paths</strong> (same patterns as Access Logs flags) are denied with 403; when <code className="text-gray-500">BLOCKED_IP_LIST_SECRET</code> is set, the client IP is also added here automatically with note <code className="text-gray-500">Auto (probe): …</code>.
                 {ipBlockingActive ? (
                   <span className="text-green-400/90"> Enforcement is on (<code className="text-gray-500">BLOCKED_IP_LIST_SECRET</code> is set).</span>
                 ) : (

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
-import { isClientIpBlocked } from '@/lib/blockedIpListClient'
+import { BLOCKED_IP_LIST_HEADER, isClientIpBlocked } from '@/lib/blockedIpListClient'
+import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
 
 const LOG_ACCESS_PATH = '/api/admin/log-access'
 const SESSION_COOKIE = '_sa_sid'
@@ -14,14 +15,51 @@ const SKIP_PATHS = new Set([
   '/sw.js',
 ])
 
-/** Paths that must stay reachable even when IP is on the blocklist (auth, webhooks, cron, internal list). */
-function isIpBlockExemptPath(pathname: string): boolean {
+/** Paths reachable despite blocklist / skipped for abnormal-path denial (auth, webhooks, cron, internal APIs). */
+function isSecurityExemptPath(pathname: string): boolean {
   if (pathname.startsWith('/api/internal/blocked-ip-list')) return true
+  if (pathname.startsWith('/api/internal/auto-block-probe')) return true
   if (pathname.startsWith('/api/auth')) return true
   if (pathname.startsWith('/api/stripe/webhook')) return true
   if (pathname.startsWith('/api/cron/')) return true
   if (pathname === '/api/health') return true
   return false
+}
+
+function isPrivateIp(ip: string): boolean {
+  return (
+    ip.startsWith('10.') ||
+    ip.startsWith('127.') ||
+    ip.startsWith('192.168.') ||
+    ip === '::1' ||
+    ip.startsWith('fc') ||
+    ip.startsWith('fd') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
+  )
+}
+
+function enqueueAutoBlockProbe(params: {
+  clientIp: string | null
+  pathname: string
+  flags: string[]
+  origin: string
+}) {
+  const secret = process.env.BLOCKED_IP_LIST_SECRET?.trim()
+  if (!secret || !params.clientIp) return
+  const ip = stripPort(params.clientIp)
+  if (isPrivateIp(ip)) return
+  fetch(`${params.origin}/api/internal/auto-block-probe`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      [BLOCKED_IP_LIST_HEADER]: secret,
+    },
+    body: JSON.stringify({
+      ipAddress: ip,
+      path: params.pathname,
+      flags: params.flags,
+    }),
+  }).catch(() => {})
 }
 
 function stripPort(ip: string): string {
@@ -41,9 +79,25 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const clientIp = getClientIp(request)
 
-  if (!isIpBlockExemptPath(pathname) && clientIp) {
+  if (!isSecurityExemptPath(pathname) && clientIp) {
     const blocked = await isClientIpBlocked(clientIp, request.nextUrl.origin)
     if (blocked) {
+      return new NextResponse('Forbidden', {
+        status: 403,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      })
+    }
+  }
+
+  if (!isSecurityExemptPath(pathname) && !SKIP_PATHS.has(pathname)) {
+    const abnormalFlags = detectAbnormalAccess({ path: pathname, method: request.method })
+    if (abnormalFlags.length > 0) {
+      enqueueAutoBlockProbe({
+        clientIp,
+        pathname,
+        flags: abnormalFlags,
+        origin: request.nextUrl.origin,
+      })
       return new NextResponse('Forbidden', {
         status: 403,
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },
