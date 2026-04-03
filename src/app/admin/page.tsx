@@ -1876,7 +1876,7 @@ export default function AdminPage() {
               <h2 className="text-xl font-bold text-white mb-4">Access Logs (site analytics, support, security)</h2>
               <p className="text-gray-400 text-sm mb-4">
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
-                Rows with <span className="text-amber-400/90">security flags</span> match common probe patterns (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>, WordPress paths). Use the <strong className="text-gray-300">Block</strong> column to add an IP to the blocklist (see the <strong className="text-gray-300">Blocked IPs</strong> tab). Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
+                Rows with <span className="text-amber-400/90">security flags</span> match common probe patterns (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>, WordPress paths). <strong className="text-gray-300">Block</strong> appears only on flagged rows with an IP—use it to add that IP to the blocklist (see the <strong className="text-gray-300">Blocked IPs</strong> tab). You can still block any IP manually on that tab. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1901,8 +1901,11 @@ export default function AdminPage() {
                     {accessLogs.length === 0 && !loading && (
                       <tr><td colSpan={13} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
                     )}
-                    {accessLogs.map((log) => (
-                      <tr key={log.id} className={`border-b border-tank-light/10 hover:bg-tank-light/5 ${parseAccessLogAbnormalFlags(log.abnormalFlags).length ? 'bg-amber-950/15' : ''}`}>
+                    {accessLogs.map((log) => {
+                      const rowFlags = parseAccessLogAbnormalFlags(log.abnormalFlags)
+                      const canBlockFromRow = Boolean(log.ipAddress && rowFlags.length > 0)
+                      return (
+                      <tr key={log.id} className={`border-b border-tank-light/10 hover:bg-tank-light/5 ${rowFlags.length ? 'bg-amber-950/15' : ''}`}>
                         <td className="p-3 text-gray-300 whitespace-nowrap" title={log.createdAt}>
                           {new Date(log.createdAt).toLocaleString()}
                         </td>
@@ -1910,7 +1913,7 @@ export default function AdminPage() {
                           {log.ipAddress ?? '-'}
                         </td>
                         <td className="p-3 text-gray-300 align-top">
-                          {log.ipAddress ? (
+                          {canBlockFromRow ? (
                             <button
                               type="button"
                               className="text-xs font-medium px-2 py-1 rounded border border-amber-600/50 text-amber-400 hover:bg-amber-950/40 hover:text-amber-300 whitespace-nowrap"
@@ -1943,11 +1946,11 @@ export default function AdminPage() {
                         </td>
                         <td className="p-3 text-gray-300 max-w-[200px] truncate" title={log.path}>{log.path}</td>
                         <td className="p-3 text-gray-300 align-top">
-                          {parseAccessLogAbnormalFlags(log.abnormalFlags).length === 0 ? (
+                          {rowFlags.length === 0 ? (
                             <span className="text-gray-600">—</span>
                           ) : (
                             <div className="flex flex-wrap gap-1 max-w-[220px]">
-                              {parseAccessLogAbnormalFlags(log.abnormalFlags).map((code) => (
+                              {rowFlags.map((code) => (
                                 <span
                                   key={code}
                                   className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-200/95 border border-amber-700/40"
@@ -1963,7 +1966,8 @@ export default function AdminPage() {
                         <td className="p-3 text-gray-400 max-w-[150px] truncate" title={log.referrer ?? ''}>{log.referrer || '-'}</td>
                         <td className="p-3 text-gray-500 font-mono text-xs">{log.sessionId ? log.sessionId.slice(0, 8) + '…' : '-'}</td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1995,7 +1999,7 @@ export default function AdminPage() {
             <div className="card overflow-hidden">
               <h2 className="text-xl font-bold text-white mb-2">Blocked IPs</h2>
               <p className="text-gray-400 text-sm mb-4">
-                Every address in the table below is on your blocklist—added here or via the <strong className="text-gray-300">Block</strong> column on <strong className="text-gray-300">Access Logs</strong>.
+                Every address in the table below is on your blocklist—added here or via <strong className="text-gray-300">Block</strong> on flagged rows in <strong className="text-gray-300">Access Logs</strong>.
                 Blocked addresses get <strong className="text-gray-300">403 Forbidden</strong> on pages and API routes, except auth, Stripe webhooks, cron, health, and this list endpoint.
                 {ipBlockingActive ? (
                   <span className="text-green-400/90"> Enforcement is on (<code className="text-gray-500">BLOCKED_IP_LIST_SECRET</code> is set).</span>
