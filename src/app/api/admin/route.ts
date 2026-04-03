@@ -15,6 +15,24 @@ function requireAdminReauth(request: Request, session: { user: { id: string } })
   return null
 }
 
+/** Hide blocked client IPs from Access Logs (they remain visible only under Blocked IPs). */
+async function blockedIpAddressList(): Promise<string[]> {
+  const rows = await prisma.blockedIp.findMany({ select: { ipAddress: true } })
+  return rows.map((r) => r.ipAddress)
+}
+
+function whereExcludingBlockedIps(baseWhere: Record<string, unknown>, blocked: string[]): Record<string, unknown> {
+  if (blocked.length === 0) return baseWhere
+  return {
+    AND: [
+      baseWhere,
+      {
+        OR: [{ ipAddress: null }, { ipAddress: { notIn: blocked } }],
+      },
+    ],
+  }
+}
+
 // Helper to log admin actions
 async function logAdminAction(adminId: string, action: string, targetType: string, targetId: string, details?: any) {
   try {
@@ -334,11 +352,14 @@ export async function GET(request: Request) {
       if (fromStr) dateWhere.createdAt = { gte: new Date(fromStr) }
       if (toStr) dateWhere.createdAt = { ...(dateWhere.createdAt as object), lte: new Date(toStr) }
 
+      const blocked = await blockedIpAddressList()
+      const whereDistinct = whereExcludingBlockedIps(dateWhere, blocked)
+
       const [browsers, oses, countries, methods] = await Promise.all([
-        prisma.siteAccessLog.groupBy({ by: ['browser'], where: { ...dateWhere, browser: { not: null } } }).then(r => r.map(x => x.browser!).sort()),
-        prisma.siteAccessLog.groupBy({ by: ['os'], where: { ...dateWhere, os: { not: null } } }).then(r => r.map(x => x.os!).sort()),
-        prisma.siteAccessLog.groupBy({ by: ['country'], where: { ...dateWhere, country: { not: null } } }).then(r => r.map(x => x.country!).sort()),
-        prisma.siteAccessLog.groupBy({ by: ['method'], where: dateWhere }).then(r => r.map(x => x.method).sort()),
+        prisma.siteAccessLog.groupBy({ by: ['browser'], where: { ...whereDistinct, browser: { not: null } } }).then(r => r.map(x => x.browser!).sort()),
+        prisma.siteAccessLog.groupBy({ by: ['os'], where: { ...whereDistinct, os: { not: null } } }).then(r => r.map(x => x.os!).sort()),
+        prisma.siteAccessLog.groupBy({ by: ['country'], where: { ...whereDistinct, country: { not: null } } }).then(r => r.map(x => x.country!).sort()),
+        prisma.siteAccessLog.groupBy({ by: ['method'], where: whereDistinct }).then(r => r.map(x => x.method).sort()),
       ])
       return NextResponse.json({ browsers, oses, countries, methods })
     }
@@ -368,21 +389,24 @@ export async function GET(request: Request) {
       if (countryFilter) where.country = { in: countryFilter.split(',') }
       if (methodFilter) where.method = { in: methodFilter.split(',') }
 
+      const blocked = await blockedIpAddressList()
+      const whereLogs = whereExcludingBlockedIps(where, blocked)
+
       const [logs, total, uniqueIps, uniqueSessions] = await Promise.all([
         prisma.siteAccessLog.findMany({
-          where,
+          where: whereLogs,
           orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit,
           take: limit,
         }),
-        prisma.siteAccessLog.count({ where }),
+        prisma.siteAccessLog.count({ where: whereLogs }),
         prisma.siteAccessLog.groupBy({
           by: ['ipAddress'],
-          where: { ...where, ipAddress: { not: null } },
+          where: { ...whereLogs, ipAddress: { not: null } },
         }).then((r) => r.length),
         prisma.siteAccessLog.groupBy({
           by: ['sessionId'],
-          where: { ...where, sessionId: { not: null } },
+          where: { ...whereLogs, sessionId: { not: null } },
         }).then((r) => r.length),
       ])
 
