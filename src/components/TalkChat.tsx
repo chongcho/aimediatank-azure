@@ -1320,8 +1320,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     try {
       const allMedia: MediaItem[] = []
       
-      // Fetch uploads
-      const uploadsRes = await fetch(`/api/media?user=${username}&limit=20`, { cache: 'no-store' })
+      // Fetch uploads — match profile My Contents: recent-first, full cap, include processing for owner
+      // (default API sort is popular + limit 20, which hides low-view new uploads from the picker)
+      const uploadsParams = new URLSearchParams({
+        user: username,
+        limit: '100',
+        sort: 'recent',
+        includeProcessing: '1',
+      })
+      const uploadsRes = await fetch(`/api/media?${uploadsParams}`, { cache: 'no-store' })
       if (uploadsRes.ok) {
         const data = await uploadsRes.json()
         if (Array.isArray(data.media)) {
