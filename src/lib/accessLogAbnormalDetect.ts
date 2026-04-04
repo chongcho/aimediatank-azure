@@ -47,6 +47,8 @@ const WP_RES = [
   /wp-login/i,
   /wp-content/i,
   /wp-includes/i,
+  /\/wp-json(\/|$)/i, // WP REST API — scanners hit this even on non-WP sites
+  /wp-config/i, // wp-config.php / backups — credential probe
   /xmlrpc\.php/i,
   /wlwmanifest\.xml/i,
   /wordpress/i,
