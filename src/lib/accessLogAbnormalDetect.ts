@@ -74,6 +74,7 @@ const CONFIG_RES = [
   /\/\.kube\//i,
   /\/\.docker\//i,
   /\/actuator\//i,
+  /\/debug\/default(\/|$)/i, // Yii2 debug module (e.g. /debug/default/view)
   /\/server-status$/i,
   /\/\.svn\//i,
   /\/\.hg\//i,
