@@ -198,6 +198,18 @@ interface ProbeResult {
   height: number
   duration: number // seconds
   hasAudio: boolean
+  /** Demuxer stream index for -map 0:N (first non–attached-pic video). */
+  videoStreamIndex: number
+  /** Demuxer stream index for first audio, or null. */
+  audioStreamIndex: number | null
+}
+
+function pickPrimaryVideoStream(streams: any[]): any | undefined {
+  const isAttachedPic = (s: any) => Number(s?.disposition?.attached_pic) === 1
+  return (
+    streams.find((s: any) => s.codec_type === 'video' && !isAttachedPic(s))
+    || streams.find((s: any) => s.codec_type === 'video')
+  )
 }
 
 async function probeVideo(filePath: string): Promise<ProbeResult> {
@@ -220,22 +232,54 @@ async function probeVideo(filePath: string): Promise<ProbeResult> {
     let stdout = ''
     proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
     proc.on('close', (code: number) => {
+      if (code !== 0 || !stdout) {
+        resolve({
+          width: 1920,
+          height: 1080,
+          duration: 0,
+          hasAudio: false,
+          videoStreamIndex: 0,
+          audioStreamIndex: null,
+        })
+        return
+      }
       try {
         const info = JSON.parse(stdout)
-        const videoStream = info.streams?.find((s: any) => s.codec_type === 'video')
-        const audioStream = info.streams?.find((s: any) => s.codec_type === 'audio')
+        const streams = info.streams || []
+        const videoStream = pickPrimaryVideoStream(streams)
+        const audioStream = streams.find((s: any) => s.codec_type === 'audio')
+        const videoStreamIndex = Number(videoStream?.index ?? 0)
+        const audioStreamIndex = audioStream != null ? Number(audioStream.index) : null
         resolve({
           width: videoStream?.width ?? 1920,
           height: videoStream?.height ?? 1080,
           duration: parseFloat(info.format?.duration || '0'),
-          hasAudio: !!audioStream,
+          hasAudio: audioStream != null,
+          videoStreamIndex: Number.isFinite(videoStreamIndex) ? videoStreamIndex : 0,
+          audioStreamIndex: audioStreamIndex != null && Number.isFinite(audioStreamIndex) ? audioStreamIndex : null,
         })
       } catch {
-        // Fallback: assume audio present so we don't drop it when probe fails; filter_complex pass will retry without audio if needed
-        resolve({ width: 1920, height: 1080, duration: 0, hasAudio: true })
+        // Fallback: avoid mapping a guessed audio index that may not exist
+        resolve({
+          width: 1920,
+          height: 1080,
+          duration: 0,
+          hasAudio: false,
+          videoStreamIndex: 0,
+          audioStreamIndex: null,
+        })
       }
     })
-    proc.on('error', () => resolve({ width: 1920, height: 1080, duration: 0, hasAudio: true }))
+    proc.on('error', () =>
+      resolve({
+        width: 1920,
+        height: 1080,
+        duration: 0,
+        hasAudio: false,
+        videoStreamIndex: 0,
+        audioStreamIndex: null,
+      }),
+    )
   })
 }
 
@@ -329,27 +373,51 @@ async function transcodeVideo(
 
   // 1) FAST FIRST DISPLAY: Encode only the lowest resolution (360p/480p when available) and thumbnail first,
   //    then call onPreviewReady so the app can show the video while we encode the rest in the background.
+  const vi = probe.videoStreamIndex
+  const ai = probe.audioStreamIndex
+  const isNoDecoderOrMuxError = (err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err)
+    return /no decoder found|Invalid argument|Error (initializing|binding) filtergraph|matches no streams/i.test(msg)
+  }
+
   const firstTarget = multiTargets[0]
   if (firstTarget !== undefined) {
     const label = firstTarget === 1080 ? '1080p' : `${firstTarget}p`
     const outPath = join(dir, `${baseBlobName}-${label}.mp4`)
-    // Use optional audio map (0:a?) so audio is included when present without relying on probe
-    const firstArgs: string[] = [
-      ...trimArgs,
-      '-i', rawLocalPath,
-      '-map', '0:v', '-map', '0:a?',
-      '-vf', [...(cropFilterStr ? [cropFilterStr] : []), `scale=-2:${firstTarget}`].filter(Boolean).join(','),
-      '-y',
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', firstTarget <= 480 ? '26' : '23',
-      '-c:a', 'aac', '-b:a', firstTarget <= 480 ? '96k' : '128k',
-      '-movflags', '+faststart',
-      '-max_muxing_queue_size', '1024',
-      outPath,
-    ]
+    // Map only the primary video + first audio stream. `-map 0:v` maps *all* video tracks
+    // (cover art, motion-photo sidecars, etc.) and can trigger "no decoder found for: none".
+    const buildFirstPassArgs = (withAudio: boolean): string[] => {
+      const maps: string[] = ['-map', `0:${vi}`]
+      const audioOpts: string[] =
+        withAudio && ai != null
+          ? ['-map', `0:${ai}`, '-c:a', 'aac', '-b:a', firstTarget <= 480 ? '96k' : '128k']
+          : ['-an']
+      return [
+        ...trimArgs,
+        '-i', rawLocalPath,
+        ...maps,
+        '-vf', [...(cropFilterStr ? [cropFilterStr] : []), `scale=-2:${firstTarget}`].filter(Boolean).join(','),
+        '-y',
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', firstTarget <= 480 ? '26' : '23',
+        ...audioOpts,
+        '-movflags', '+faststart',
+        '-max_muxing_queue_size', '1024',
+        outPath,
+      ]
+    }
     console.log(`[MediaProcessor] Fast first-pass: ${label} only (for quick display)`)
-    await runFfmpeg(firstArgs)
+    try {
+      await runFfmpeg(buildFirstPassArgs(ai != null))
+    } catch (err) {
+      if (ai != null && isNoDecoderOrMuxError(err)) {
+        console.log('[MediaProcessor] First pass failed with audio; retrying video-only')
+        await runFfmpeg(buildFirstPassArgs(false))
+      } else {
+        throw err
+      }
+    }
     const url = await uploadBlob(outPath, `${baseBlobName}-${label}.mp4`, 'video/mp4')
     const fileSize = (await readFile(outPath)).length
     await safeUnlink(outPath)
@@ -371,7 +439,9 @@ async function transcodeVideo(
     thumbFilters.push('scale=640:-2')
     try {
       await runFfmpeg([
-        '-ss', seekTime.toString(), '-i', rawLocalPath, '-y', '-frames:v', '1',
+        '-ss', seekTime.toString(), '-i', rawLocalPath, '-y',
+        '-map', `0:${vi}`,
+        '-frames:v', '1',
         '-vf', thumbFilters.join(','), '-q:v', '3', thumbPath,
       ])
       thumbnailUrl = await uploadBlob(thumbPath, `${baseBlobName}-thumb.jpg`, 'image/jpeg')
@@ -394,16 +464,18 @@ async function transcodeVideo(
   const remainingTargets = multiTargets.slice(1)
   if (remainingTargets.length > 0) {
     const N = remainingTargets.length
+    const vIn = `[0:${vi}]`
     const videoChain = cropFilterStr
-      ? `[0:v]${cropFilterStr}[c];[c]split=${N}${remainingTargets.map((_, i) => `[v${i}]`).join('')};` +
+      ? `${vIn}${cropFilterStr}[c];[c]split=${N}${remainingTargets.map((_, i) => `[v${i}]`).join('')};` +
         remainingTargets.map((h, i) => `[v${i}]scale=-2:${h}[v${h}]`).join(';')
-      : `[0:v]split=${N}${remainingTargets.map((_, i) => `[v${i}]`).join('')};` +
+      : `${vIn}split=${N}${remainingTargets.map((_, i) => `[v${i}]`).join('')};` +
         remainingTargets.map((h, i) => `[v${i}]scale=-2:${h}[v${h}]`).join(';')
 
     const runRemainingPass = (withAudio: boolean) => {
-      const audioChain = withAudio
-        ? `;[0:a]asplit=${N}${remainingTargets.map((_, i) => `[a${i}]`).join('')}`
-        : ''
+      const audioChain =
+        withAudio && ai != null
+          ? `;[0:${ai}]asplit=${N}${remainingTargets.map((_, i) => `[a${i}]`).join('')}`
+          : ''
       const filterComplex = videoChain + audioChain
       const baseArgs: string[] = [
         ...trimArgs,
@@ -432,15 +504,17 @@ async function transcodeVideo(
 
     const isNoAudioStreamError = (err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err)
-      return /matches no streams|Error binding filtergraph|Invalid argument/i.test(msg)
+      return /matches no streams|Error (initializing|binding) filtergraph|Invalid argument|no decoder found/i.test(
+        msg,
+      )
     }
 
     console.log(`[MediaProcessor] Single-pass encoding remaining: ${remainingTargets.join(', ')}p`)
     try {
-      await runRemainingPass(probe.hasAudio)
+      await runRemainingPass(ai != null)
     } catch (err) {
-      if (probe.hasAudio && isNoAudioStreamError(err)) {
-        console.log('[MediaProcessor] No audio stream in file; re-encoding remaining variants without audio')
+      if (ai != null && isNoAudioStreamError(err)) {
+        console.log('[MediaProcessor] No usable audio in multi-output pass; re-encoding remaining variants without audio')
         await runRemainingPass(false)
       } else {
         throw err
@@ -462,18 +536,33 @@ async function transcodeVideo(
   const hqHeight = effectiveHeight
   const hqLabel = hqHeight >= 2160 ? '4K' : hqHeight >= 1080 ? '1080p' : hqHeight >= 720 ? '720p' : 'HQ'
   const hqPath = join(dir, `${baseBlobName}-hq.mp4`)
-  // Use optional audio map (0:a?) so audio is included when present without relying on probe
-  const argsHq: string[] = [
-    ...trimArgs,
-    '-i', rawLocalPath, '-y',
-    '-map', '0:v', '-map', '0:a?',
-    ...buildVideoFilter(),
-    '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
-    '-c:a', 'aac', '-b:a', '256k',
-    '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
-    hqPath,
-  ]
-  await runFfmpeg(argsHq)
+  const buildHqArgs = (withAudio: boolean): string[] => {
+    const maps: string[] = ['-map', `0:${vi}`]
+    const tail: string[] =
+      withAudio && ai != null
+        ? ['-map', `0:${ai}`, '-c:a', 'aac', '-b:a', '256k']
+        : ['-an']
+    return [
+      ...trimArgs,
+      '-i', rawLocalPath, '-y',
+      ...maps,
+      ...buildVideoFilter(),
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
+      ...tail,
+      '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
+      hqPath,
+    ]
+  }
+  try {
+    await runFfmpeg(buildHqArgs(ai != null))
+  } catch (err) {
+    if (ai != null && isNoDecoderOrMuxError(err)) {
+      console.log('[MediaProcessor] HQ pass failed with audio; retrying video-only')
+      await runFfmpeg(buildHqArgs(false))
+    } else {
+      throw err
+    }
+  }
   const urlHq = await uploadBlob(hqPath, `${baseBlobName}-hq.mp4`, 'video/mp4')
   const fileSizeHq = (await readFile(hqPath)).length
   await safeUnlink(hqPath)
