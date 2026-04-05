@@ -90,6 +90,20 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
       return
     }
 
+    // Only users who went through deferred video upload flow have uploadSuccessNotifySource set at
+    // create time. Legacy / imported media must not get "your video is ready" backfill emails.
+    const notifySource = media.uploadSuccessNotifySource?.trim()
+    if (!notifySource) {
+      await prisma.media.update({
+        where: { id: mediaId },
+        data: { uploadLiveNotifiedAt: new Date() },
+      })
+      console.log(
+        `[DeferredUploadNotify] Skip live notify for ${mediaId}: no uploadSuccessNotifySource (legacy/non-upload path); marked notified without email`
+      )
+      return
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: media.userId },
       select: {
@@ -129,7 +143,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
     const uploadCost = config.costPerUpload
     const stripeFee = user.membershipType === 'ADVANCED' ? 0.5 : 1.0
 
-    const source = media.uploadSuccessNotifySource
+    const source = notifySource
     let mail: LiveEmailPayload | null = null
 
     const mediaLink = `/media/${media.id}`
