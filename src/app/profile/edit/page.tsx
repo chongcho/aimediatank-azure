@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
+import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 
 interface ProfileData {
   name: string
@@ -49,6 +50,7 @@ export default function EditProfilePage() {
   const [originalPhone, setOriginalPhone] = useState('')
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [maxUploadBytes, setMaxUploadBytes] = useState(10 * 1024 * 1024)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   // Username verification state
@@ -103,6 +105,17 @@ export default function EditProfilePage() {
       fetchProfile()
     }
   }, [status])
+
+  useEffect(() => {
+    fetch('/api/ui/crop-settings')
+      .then((r) => r.json())
+      .then((d) => {
+        if (typeof d.maxUploadFileBytes === 'number' && d.maxUploadFileBytes > 0) {
+          setMaxUploadBytes(d.maxUploadFileBytes)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const fetchProfile = async () => {
     try {
@@ -355,6 +368,14 @@ export default function EditProfilePage() {
       return
     }
 
+    if (file.size > maxUploadBytes) {
+      const msg = buildUploadFileSizeExceededMessage(maxUploadBytes)
+      setError(msg)
+      window.alert(msg)
+      e.target.value = ''
+      return
+    }
+
     // Show immediate local preview
     const localPreview = URL.createObjectURL(file)
     setAvatarPreview(localPreview)
@@ -369,6 +390,15 @@ export default function EditProfilePage() {
         maxHeight: 400,
         quality: 0.8,
       })
+
+      if (compressedFile.size > maxUploadBytes) {
+        const msg = buildUploadFileSizeExceededMessage(maxUploadBytes)
+        setError(msg)
+        window.alert(msg)
+        setAvatarPreview(formData.avatar)
+        URL.revokeObjectURL(localPreview)
+        return
+      }
 
       // Get SAS token for upload
       const sasResponse = await fetch('/api/upload/sas', {

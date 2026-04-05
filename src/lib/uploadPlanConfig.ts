@@ -1,10 +1,20 @@
-/** Max size (bytes) for a single uploaded media file or thumbnail. Adjust after staging tests. */
-export const MAX_UPLOAD_FILE_BYTES = 10 * 1024 * 1024
+/** Admin clamp for CropToolSetting.maxUploadSizeMb */
+export const UPLOAD_MAX_SIZE_MB_MIN = 1
+export const UPLOAD_MAX_SIZE_MB_MAX = 512
+export const DEFAULT_MAX_UPLOAD_SIZE_MB = 10
 
-/** Human-readable limit for UI and API errors (keep in sync with MAX_UPLOAD_FILE_BYTES). */
-export const MAX_UPLOAD_FILE_LABEL = '10 MB'
+export function clampUploadSizeMb(mb: number): number {
+  const n = Math.round(Number(mb))
+  if (!Number.isFinite(n)) return DEFAULT_MAX_UPLOAD_SIZE_MB
+  return Math.min(UPLOAD_MAX_SIZE_MB_MAX, Math.max(UPLOAD_MAX_SIZE_MB_MIN, n))
+}
 
-export const UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE = `File size exceeds the maximum allowed (${MAX_UPLOAD_FILE_LABEL}). You cannot upload this file.`
+/** Error copy when a file exceeds the configured max (pass resolved max bytes from server or client). */
+export function buildUploadFileSizeExceededMessage(maxAllowedBytes: number): string {
+  const mb = maxAllowedBytes / (1024 * 1024)
+  const label = Number.isInteger(mb) ? `${mb} MB` : `${mb.toFixed(1)} MB`
+  return `File size exceeds the maximum allowed (${label}). You cannot upload this file.`
+}
 
 /** Upload limits and costs per plan — shared by upload complete API and deferred video notifications */
 export const UPLOAD_CONFIG: Record<

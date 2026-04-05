@@ -824,6 +824,7 @@ export async function GET(request: Request) {
         imageQuality: 0.92, videoBitrateMbps: 8.0, videoFps: 30, audioBitrateKbps: 256,
         freeImageQuality: 0.75, freeVideoBitrateMbps: 4.0, freeVideoFps: 24, freeAudioBitrateKbps: 128,
         freeStreamMaxHeight: 720, freeDownloadMaxHeight: 720, paidDownloadQuality: 'hq' as const,
+        maxUploadSizeMb: 10,
       }
       try {
         let settings = await prisma.cropToolSetting.findFirst()
@@ -2095,8 +2096,10 @@ export async function POST(request: Request) {
         const {
           isEnabled, imageQuality, videoBitrateMbps, videoFps, audioBitrateKbps,
           freeImageQuality, freeVideoBitrateMbps, freeVideoFps, freeAudioBitrateKbps,
-          freeStreamMaxHeight, freeDownloadMaxHeight, paidDownloadQuality,
+          freeStreamMaxHeight, freeDownloadMaxHeight, paidDownloadQuality, maxUploadSizeMb,
         } = data || {}
+
+        const { clampUploadSizeMb } = await import('@/lib/uploadPlanConfig')
 
         // Find existing row or create one
         let existing = await prisma.cropToolSetting.findFirst()
@@ -2107,6 +2110,7 @@ export async function POST(request: Request) {
               imageQuality: 0.92, videoBitrateMbps: 8.0, videoFps: 30, audioBitrateKbps: 256,
               freeImageQuality: 0.75, freeVideoBitrateMbps: 4.0, freeVideoFps: 24, freeAudioBitrateKbps: 128,
               freeStreamMaxHeight: 720, freeDownloadMaxHeight: 720, paidDownloadQuality: 'hq',
+              maxUploadSizeMb: 10,
             },
           })
         }
@@ -2129,6 +2133,9 @@ export async function POST(request: Request) {
         if (freeDownloadMaxHeight !== undefined) updateData.freeDownloadMaxHeight = Math.round(clamp(freeDownloadMaxHeight, 480, 1080))
         if (paidDownloadQuality !== undefined && ['hq', '1080p', '720p'].includes(String(paidDownloadQuality))) {
           updateData.paidDownloadQuality = String(paidDownloadQuality)
+        }
+        if (maxUploadSizeMb !== undefined) {
+          updateData.maxUploadSizeMb = clampUploadSizeMb(Number(maxUploadSizeMb))
         }
 
         const settings = await prisma.cropToolSetting.update({

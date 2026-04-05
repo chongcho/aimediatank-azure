@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
+import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX } from '@/lib/uploadPlanConfig'
 
 function parseAccessLogAbnormalFlags(raw: string | null | undefined): string[] {
   if (!raw) return []
@@ -140,6 +141,7 @@ interface CropToolSettings {
   freeStreamMaxHeight?: number
   freeDownloadMaxHeight?: number
   paidDownloadQuality?: string
+  maxUploadSizeMb?: number
 }
 
 // Membership Plan type
@@ -399,6 +401,7 @@ export default function AdminPage() {
     imageQuality: 0.92, videoBitrateMbps: 8.0, videoFps: 30, audioBitrateKbps: 256,
     freeImageQuality: 0.75, freeVideoBitrateMbps: 4.0, freeVideoFps: 24, freeAudioBitrateKbps: 128,
     freeStreamMaxHeight: 720, freeDownloadMaxHeight: 720, paidDownloadQuality: 'hq',
+    maxUploadSizeMb: 10,
   })
   const [cropToolLoading, setCropToolLoading] = useState(false)
   const [cropToolSaving, setCropToolSaving] = useState(false)
@@ -3494,6 +3497,44 @@ export default function AdminPage() {
                 <div className="flex justify-center py-12"><div className="spinner" /></div>
               ) : (
                 <>
+                {/* Full width at top so this control is always visible (not lost between columns or scroll) */}
+                <div className="card border-2 border-tank-accent/50 bg-tank-accent/5">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-bold text-white">Max upload file size</h2>
+                      <p className="text-sm text-gray-400 mt-1 max-w-2xl">
+                        Applies to each file: main media upload, optional thumbnail, and profile avatar. Allowed range {UPLOAD_MAX_SIZE_MB_MIN}–{UPLOAD_MAX_SIZE_MB_MAX} MB.
+                      </p>
+                    </div>
+                    <div className="shrink-0 w-full sm:w-40">
+                      <label htmlFor="admin-max-upload-mb" className="block text-sm font-medium text-gray-300 mb-1">
+                        Megabytes (MB)
+                      </label>
+                      <input
+                        id="admin-max-upload-mb"
+                        type="number"
+                        min={UPLOAD_MAX_SIZE_MB_MIN}
+                        max={UPLOAD_MAX_SIZE_MB_MAX}
+                        step={1}
+                        value={cropToolSettings.maxUploadSizeMb ?? 10}
+                        onChange={(e) =>
+                          setCropToolSettings((prev) => ({
+                            ...prev,
+                            maxUploadSizeMb: Number(e.target.value),
+                          }))
+                        }
+                        onBlur={(e) => {
+                          const v = clampUploadSizeMb(Number(e.target.value))
+                          setCropToolSettings((prev) => ({ ...prev, maxUploadSizeMb: v }))
+                          saveCropToolSettings({ maxUploadSizeMb: v })
+                        }}
+                        disabled={cropToolSaving}
+                        className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white text-lg font-semibold tabular-nums"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Left: Upload Setting - Crop Tool */}
                   <div className="space-y-6">

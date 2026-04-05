@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { compressMedia, type QualitySettings } from '@/lib/mediaCompression'
-import { MAX_UPLOAD_FILE_BYTES, UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE } from '@/lib/uploadPlanConfig'
+import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 
 type Area = { x: number; y: number; width: number; height: number }
 
@@ -111,6 +111,7 @@ function UploadPageContent() {
   const [cropEnabled, setCropEnabled] = useState(true)
   const [paidQuality, setPaidQuality] = useState<QualitySettings>({})
   const [freeQuality, setFreeQuality] = useState<QualitySettings>({})
+  const [maxUploadBytes, setMaxUploadBytes] = useState(10 * 1024 * 1024)
   const cropDragRef = useRef<{
     active: boolean
     startClientY: number
@@ -132,6 +133,9 @@ function UploadPageContent() {
     fetch('/api/ui/crop-settings')
       .then(res => res.json())
       .then(data => {
+        if (typeof data.maxUploadFileBytes === 'number' && data.maxUploadFileBytes > 0) {
+          setMaxUploadBytes(data.maxUploadFileBytes)
+        }
         if (data.settings) {
           setCropEnabled(data.settings.isEnabled !== false)
           setPaidQuality({
@@ -414,9 +418,9 @@ function UploadPageContent() {
         )
       }
 
-      if (compressedFile.size > MAX_UPLOAD_FILE_BYTES) {
-        setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
-        window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+      if (compressedFile.size > maxUploadBytes) {
+        setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
+        window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
         setShowPaymentModal(false)
         return
       }
@@ -430,9 +434,9 @@ function UploadPageContent() {
       if (thumbnail) {
         setUploadStatus('Uploading thumbnail...')
         const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE', undefined, undefined, qualitySettings)
-        if (compressedThumbnail.size > MAX_UPLOAD_FILE_BYTES) {
-          setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
-          window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+        if (compressedThumbnail.size > maxUploadBytes) {
+          setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
+          window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
           setShowPaymentModal(false)
           return
         }
@@ -511,9 +515,9 @@ function UploadPageContent() {
     const selectedFile = e.target.files?.[0]
     console.log('handleFileChange called, file:', selectedFile?.name, selectedFile?.type)
     if (selectedFile) {
-      if (selectedFile.size > MAX_UPLOAD_FILE_BYTES) {
-        setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
-        window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+      if (selectedFile.size > maxUploadBytes) {
+        setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
+        window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
         return
       }
       setError('')
@@ -742,9 +746,9 @@ function UploadPageContent() {
     if (cropMediaType === 'image') {
       const croppedFile = await getCroppedImageFile(cropSource, cropAreaPixels)
       if (croppedFile) {
-        if (croppedFile.size > MAX_UPLOAD_FILE_BYTES) {
-          setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
-          window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+        if (croppedFile.size > maxUploadBytes) {
+          setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
+          window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
           return
         }
         setFile(croppedFile)
@@ -1117,9 +1121,9 @@ function UploadPageContent() {
       if (!compressedFile || compressedFile.size === 0) {
         throw new Error('File preparation failed - file is empty')
       }
-      if (compressedFile.size > MAX_UPLOAD_FILE_BYTES) {
-        setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
-        window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+      if (compressedFile.size > maxUploadBytes) {
+        setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
+        window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
         return
       }
 
@@ -1134,9 +1138,9 @@ function UploadPageContent() {
       if (thumbnail) {
         setUploadStatus('Compressing thumbnail...')
         const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE', undefined, undefined, qualitySettings)
-        if (compressedThumbnail.size > MAX_UPLOAD_FILE_BYTES) {
-          setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
-          window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+        if (compressedThumbnail.size > maxUploadBytes) {
+          setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
+          window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
           return
         }
         setUploadStatus('Uploading thumbnail...')
@@ -1854,9 +1858,9 @@ function UploadPageContent() {
                     setThumbnail(null)
                     return
                   }
-                  if (next.size > MAX_UPLOAD_FILE_BYTES) {
-                    setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
-                    window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+                  if (next.size > maxUploadBytes) {
+                    setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
+                    window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
                     e.target.value = ''
                     return
                   }

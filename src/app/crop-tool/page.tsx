@@ -26,6 +26,7 @@ type CropToolSettingsFromApi = {
   freeStreamMaxHeight?: number
   freeDownloadMaxHeight?: number
   paidDownloadQuality?: string
+  maxUploadSizeMb?: number
 }
 
 type OriginalVideoInfo = {

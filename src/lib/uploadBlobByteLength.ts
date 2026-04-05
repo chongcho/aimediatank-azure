@@ -1,5 +1,6 @@
 import { BlobServiceClient } from '@azure/storage-blob'
-import { MAX_UPLOAD_FILE_BYTES, UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE } from '@/lib/uploadPlanConfig'
+import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
+import { getMaxUploadFileBytes } from '@/lib/uploadMaxFileSize'
 
 function getAzureBlobClient() {
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
@@ -88,6 +89,7 @@ export async function uploadBlobExceedsLimitMessage(blobUrl: string | null | und
   if (!blobUrl?.trim()) return null
   const len = await getUploadedBlobByteLength(blobUrl.trim())
   if (len === null || !Number.isFinite(len)) return null
-  if (len <= MAX_UPLOAD_FILE_BYTES) return null
-  return UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE
+  const maxBytes = await getMaxUploadFileBytes()
+  if (len <= maxBytes) return null
+  return buildUploadFileSizeExceededMessage(maxBytes)
 }

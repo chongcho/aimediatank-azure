@@ -3,7 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } from '@azure/storage-blob'
 import { v4 as uuidv4 } from 'uuid'
-import { MAX_UPLOAD_FILE_BYTES, UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE } from '@/lib/uploadPlanConfig'
+import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
+import { getMaxUploadFileBytes } from '@/lib/uploadMaxFileSize'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,8 +40,12 @@ export async function POST(request: Request) {
       )
     }
 
-    if (fileSize > MAX_UPLOAD_FILE_BYTES) {
-      return NextResponse.json({ error: UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE }, { status: 400 })
+    const maxBytes = await getMaxUploadFileBytes()
+    if (fileSize > maxBytes) {
+      return NextResponse.json(
+        { error: buildUploadFileSizeExceededMessage(maxBytes) },
+        { status: 400 }
+      )
     }
 
     // Validate file type
