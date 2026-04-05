@@ -22,30 +22,41 @@ const LIVE_UPLOAD_NOTIFY_TITLES = [
 
 type LiveEmailPayload = { subject: string; html: string }
 
+const BACKFILL_MAX_PER_TICK = 15
+
 /**
- * Pick one completed video that never received the deferred "live" notify (email + in-app).
- * Called from process-videos cron so missed/failed first attempts are repaired within ~1 minute.
+ * Completed videos with uploadLiveNotifiedAt null — send deferred "live" notify (in-app + email).
+ * Runs at the **start** of each process-videos cron tick (before FFmpeg) so ACS runs in a short request.
  */
 export async function backfillMissedUploadLiveNotification(): Promise<{
   backfilled: boolean
-  mediaId?: string
+  backfilledCount: number
+  mediaIds: string[]
 }> {
+  const mediaIds: string[] = []
   try {
-    const row = await prisma.media.findFirst({
-      where: {
-        type: VIDEO_TYPE_FILTER,
-        processingStatus: 'completed',
-        uploadLiveNotifiedAt: null,
-      },
-      orderBy: { updatedAt: 'asc' },
-      select: { id: true },
-    })
-    if (!row) return { backfilled: false }
-    await notifyUploadLiveAfterVideoProcessing(row.id)
-    return { backfilled: true, mediaId: row.id }
+    for (let i = 0; i < BACKFILL_MAX_PER_TICK; i++) {
+      const row = await prisma.media.findFirst({
+        where: {
+          type: VIDEO_TYPE_FILTER,
+          processingStatus: 'completed',
+          uploadLiveNotifiedAt: null,
+        },
+        orderBy: { updatedAt: 'asc' },
+        select: { id: true },
+      })
+      if (!row) break
+      await notifyUploadLiveAfterVideoProcessing(row.id)
+      mediaIds.push(row.id)
+    }
+    return {
+      backfilled: mediaIds.length > 0,
+      backfilledCount: mediaIds.length,
+      mediaIds,
+    }
   } catch (e) {
     console.error('[DeferredUploadNotify] backfillMissedUploadLiveNotification failed:', e)
-    return { backfilled: false }
+    return { backfilled: false, backfilledCount: 0, mediaIds }
   }
 }
 

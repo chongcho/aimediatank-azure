@@ -309,8 +309,7 @@ export async function POST(request: Request) {
       ? 'Unlimited' 
       : newFreeUploadsRemaining
 
-    // Return response immediately — send emails & notifications in background
-    // (fire-and-forget so the client progress bar completes without waiting for SMTP)
+    // Build JSON response; for non-video we await backgroundTasks() before return so upload emails are not dropped on Azure.
     const response = NextResponse.json({ 
       media,
       uploadInfo: {
@@ -327,8 +326,8 @@ export async function POST(request: Request) {
       }
     })
 
-    // Fire-and-forget: send email + notification in background.
-    // Must attach .catch() so an unhandled rejection does not crash the process (e.g. under azure-run.js).
+    // Email + notifications (+ content inspection). Awaited for non-video; video defers success mail to cron.
+    // Must attach .catch() when not awaited so an unhandled rejection does not crash the process.
     const backgroundTasks = async () => {
       try {
         const userName = user.name || user.username || 'User'
@@ -435,10 +434,16 @@ export async function POST(request: Request) {
       }
     }
 
-    // Start background tasks without awaiting; .catch() prevents unhandledRejection → process exit in production
-    backgroundTasks().catch((e) => {
-      console.error('Background tasks promise rejected:', e)
-    })
+    // IMAGE/MUSIC: await so ACS sendEmail finishes before the HTTP response closes — on App Service,
+    // fire-and-forget work after return is often dropped (admin "Content removed" awaits and works).
+    // VIDEO: still fire-and-forget here (success email is deferred until transcoding; this only runs inspection etc.).
+    if (isVideoUpload) {
+      backgroundTasks().catch((e) => {
+        console.error('Background tasks promise rejected:', e)
+      })
+    } else {
+      await backgroundTasks()
+    }
 
     // Video processing is now handled by Azure Function (process-videos timer)
     // which calls /api/cron/process-videos every minute.

@@ -1,0 +1,11 @@
+{
+  "bindings": [
+    {
+      "name": "uploadLiveNotifyTimer",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "30 */1 * * * *"
+    }
+  ],
+  "scriptFile": "../dist/upload-live-notify/index.js"
+}

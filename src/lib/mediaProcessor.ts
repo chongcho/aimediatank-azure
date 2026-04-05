@@ -12,7 +12,6 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { notifyUploadLiveAfterVideoProcessing } from '@/lib/deferredUploadNotifications'
 import { BlobServiceClient } from '@azure/storage-blob'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -702,8 +701,9 @@ export async function processMedia(
       await deleteBlob(rawUrl)
 
       console.log(`[MediaProcessor] ✅ Media ${mediaId} processed: ${result.variants.length} versions`)
-
-      await notifyUploadLiveAfterVideoProcessing(mediaId)
+      // Deferred upload email + in-app: do NOT run here — this request can run FFmpeg for 25+ minutes and
+      // App Service often drops tail work. Cron calls backfillMissedUploadLiveNotification() at the start of
+      // each /api/cron/process-videos tick (fast path) instead.
     } finally {
       // Always clean up the local raw file
       await safeUnlink(rawLocalPath)
