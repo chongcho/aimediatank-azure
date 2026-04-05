@@ -4,6 +4,10 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { unlink } from 'fs/promises'
 import { join } from 'path'
+import {
+  deleteAzureBlobByUrlIfExists,
+  isHttpOrHttpsUrl,
+} from '@/lib/azureBlobDelete'
 
 // Force dynamic rendering to always get fresh data
 export const dynamic = 'force-dynamic'
@@ -247,6 +251,7 @@ export async function DELETE(
 
     const media = await prisma.media.findUnique({
       where: { id: mediaId },
+      include: { versions: { select: { url: true } } },
     })
 
     if (!media) {
@@ -258,13 +263,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Delete files from filesystem
+    // Azure URLs must use Blob API; local dev may still use paths under /public
+    const storageUrls = new Set<string>()
+    storageUrls.add(media.url)
+    if (media.thumbnailUrl) storageUrls.add(media.thumbnailUrl)
+    if (media.urlHq) storageUrls.add(media.urlHq)
+    for (const v of media.versions) storageUrls.add(v.url)
+
     try {
-      const filePath = join(process.cwd(), 'public', media.url)
-      await unlink(filePath)
-      if (media.thumbnailUrl) {
-        const thumbPath = join(process.cwd(), 'public', media.thumbnailUrl)
-        await unlink(thumbPath)
+      for (const u of Array.from(storageUrls)) {
+        if (!u?.trim()) continue
+        if (isHttpOrHttpsUrl(u)) {
+          await deleteAzureBlobByUrlIfExists(u)
+        } else {
+          const rel = u.replace(/^\/+/, '')
+          await unlink(join(process.cwd(), 'public', rel))
+        }
       }
     } catch (e) {
       console.error('Error deleting files:', e)
