@@ -25,6 +25,12 @@ const SENDER_ADDRESS =
 
 const DEFAULT_SENDER_NAME = process.env.AZURE_EMAIL_SENDER_NAME || 'AI Media Tank'
 
+/** Avoid hanging forever on beginSend poller (e.g. long cron requests); backfill can retry */
+const ACS_POLL_TIMEOUT_MS = Math.max(
+  10_000,
+  Number.parseInt(process.env.AZURE_EMAIL_POLL_TIMEOUT_MS || '120000', 10) || 120_000
+)
+
 let cachedClient: EmailClient | null = null
 
 function getClient(): EmailClient | null {
@@ -72,7 +78,20 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       ),
     })
 
-    const result = await poller.pollUntilDone()
+    const pollPromise = poller.pollUntilDone()
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error(`ACS poll exceeded ${ACS_POLL_TIMEOUT_MS}ms`)), ACS_POLL_TIMEOUT_MS)
+    })
+    let result: Awaited<typeof pollPromise>
+    try {
+      result = await Promise.race([pollPromise, timeoutPromise])
+    } catch (pollErr) {
+      console.error(
+        `Email poll failed or timed out (to=${options.to}, subject=${options.subject.slice(0, 60)}…):`,
+        pollErr instanceof Error ? pollErr.message : pollErr
+      )
+      return false
+    }
 
     if (result.status === 'Succeeded') {
       console.log(`Email sent to ${options.to}: ${options.subject}`)

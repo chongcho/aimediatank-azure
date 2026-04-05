@@ -6,6 +6,8 @@ import { backfillMissedUploadLiveNotification } from '@/lib/deferredUploadNotifi
 
 export const dynamic = 'force-dynamic'
 
+const VIDEO_TYPE = { equals: 'VIDEO' as const, mode: 'insensitive' as const }
+
 // Maximum runtime for serverless: process one video per invocation
 // Called by Azure Function timer trigger every ~1 minute
 export async function GET(request: Request) {
@@ -19,7 +21,7 @@ export async function GET(request: Request) {
     // Find the oldest pending video (FIFO queue)
     const pendingMedia = await prisma.media.findFirst({
       where: {
-        type: 'VIDEO',
+        type: VIDEO_TYPE,
         processingStatus: 'pending',
       },
       orderBy: { createdAt: 'asc' },
@@ -56,7 +58,7 @@ export async function GET(request: Request) {
     // Also check if something is already processing (avoid parallel processing)
     const currentlyProcessing = await prisma.media.findFirst({
       where: {
-        type: 'VIDEO',
+        type: VIDEO_TYPE,
         processingStatus: 'processing',
       },
       select: { id: true, updatedAt: true },

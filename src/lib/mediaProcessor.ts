@@ -615,8 +615,9 @@ export async function processMedia(
       return
     }
 
-    // Only process VIDEO — images and music are already fine
-    if (media.type !== 'VIDEO') {
+    // Only process VIDEO — images and music are already fine (match DB casing)
+    const isVideo = media.type.toUpperCase() === 'VIDEO'
+    if (!isVideo) {
       await prisma.media.update({
         where: { id: mediaId },
         data: { processingStatus: 'completed' },
