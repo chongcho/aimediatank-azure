@@ -78,7 +78,10 @@ export default function CropToolPage() {
   const { data: session } = useSession()
 
   const [navbarEnabled, setNavbarEnabled] = useState(true)
-  const [toolEnabled, setToolEnabled] = useState(true)
+
+  const isAdmin = session?.user?.role === 'ADMIN'
+  /** Subscribers follow navbar visibility; admins can always use standalone (e.g. from Admin panel). */
+  const standaloneCropAllowed = navbarEnabled || isAdmin
 
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -148,7 +151,7 @@ export default function CropToolPage() {
         const settings = data?.settings as CropToolSettingsFromApi | undefined
         if (!settings) return
         setCropSettings(settings)
-        setToolEnabled(settings.isEnabled !== false)
+        // Upload & Download → "Crop/Re-encoding" only gates /upload, not this standalone page.
 
         const isSubscriber =
           session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'
@@ -811,8 +814,8 @@ export default function CropToolPage() {
   }
 
   const canProcess = useMemo(() => {
-    return toolEnabled && navbarEnabled && !!file && !!cropArea && !processing
-  }, [toolEnabled, navbarEnabled, file, cropArea, processing])
+    return standaloneCropAllowed && !!file && !!cropArea && !processing
+  }, [standaloneCropAllowed, file, cropArea, processing])
 
   const handleProcessAndSave = async () => {
     if (!file || !cropArea) return
@@ -886,14 +889,14 @@ export default function CropToolPage() {
 
   return (
     <div className="min-h-screen w-full p-4 sm:p-6 pb-10">
-      {!toolEnabled || !navbarEnabled ? (
+      {!standaloneCropAllowed ? (
         <div className="card p-6 border border-red-500/30 bg-red-500/10 relative">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <h2 className="text-lg font-bold text-white mb-2">Crop Tool is Disabled</h2>
               <p className="text-sm text-gray-200">
-                Ask an admin to enable it in <span className="font-semibold">Navbar Control</span> and/or{' '}
-                <span className="font-semibold">Upload & Download</span>.
+                The Crop Tool link is hidden in <span className="font-semibold">Navbar Control</span>. Ask an admin to
+                enable the Crop Tool menu item, or sign in as an admin to use the standalone tool from the admin panel.
               </p>
             </div>
             {closeButton}

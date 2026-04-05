@@ -3542,9 +3542,11 @@ export default function AdminPage() {
                     <div className="card">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-bold text-white text-lg">Crop/Re-encoding</h3>
+                          <h3 className="font-bold text-white text-lg">Crop/Re-encoding (Upload Media only)</h3>
                           <p className="text-sm text-gray-400 mt-1">
-                            Allow users to crop, trim, and re-encode images and videos during upload
+                            When off, the crop/trim step is skipped on the <span className="text-gray-300">Upload Media</span>{' '}
+                            page only. The <span className="text-gray-300">Standalone Crop Tool</span> (navbar / admin) is
+                            not affected.
                           </p>
                         </div>
                         <button
