@@ -11,6 +11,36 @@ import {
 /** Match stored type regardless of casing (defensive) */
 const VIDEO_TYPE_FILTER = { equals: 'VIDEO' as const, mode: 'insensitive' as const }
 
+type LiveEmailPayload = { subject: string; html: string }
+
+/**
+ * Do not await ACS — pollUntilDone() can hang and would block uploadLiveNotifiedAt + invite cron backfill spam.
+ * Log clearly when staging has no AZURE_EMAIL_CONNECTION_STRING (sendEmail returns false without throwing).
+ */
+function queueLiveEmail(mediaId: string, userId: string, role: string | null, to: string | null | undefined, mail: LiveEmailPayload | null) {
+  if (!mail) return
+  const addr = to?.trim()
+  if (!addr) {
+    console.warn(
+      `[DeferredUploadNotify] media=${mediaId} user=${userId} role=${role ?? 'n/a'}: in-app sent; no email address — skipped mail`
+    )
+    return
+  }
+  void (async () => {
+    try {
+      const sent = await sendEmail({ to: addr, subject: mail.subject, html: mail.html })
+      if (!sent) {
+        console.warn(
+          `[DeferredUploadNotify] ACS did not send mail media=${mediaId} user=${userId} role=${role ?? 'n/a'} to=${addr} — ` +
+            `if this is staging, set AZURE_EMAIL_CONNECTION_STRING (and verified AZURE_EMAIL_SENDER) on the web app; admin uploads use the same path as any user`
+        )
+      }
+    } catch (err) {
+      console.error(`[DeferredUploadNotify] Email error media=${mediaId} user=${userId}`, err)
+    }
+  })()
+}
+
 /**
  * Pick one completed video that never received the deferred "live" notify (email + in-app).
  * Called from process-videos cron so missed/failed first attempts are repaired within ~1 minute.
@@ -40,7 +70,7 @@ export async function backfillMissedUploadLiveNotification(): Promise<{
 
 /**
  * After server-side video processing completes, the home feed can show the item.
- * Send in-app notification first (always), then email when configured — email polling must not block the bell icon.
+ * In-app notification + uploadLiveNotifiedAt first; email queued async (same behavior for all roles, including ADMIN).
  */
 export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Promise<void> {
   try {
@@ -71,6 +101,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
       select: {
         id: true,
         email: true,
+        role: true,
         name: true,
         username: true,
         membershipType: true,
@@ -105,9 +136,9 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
     const stripeFee = user.membershipType === 'ADVANCED' ? 0.5 : 1.0
 
     const source = media.uploadSuccessNotifySource
+    let mail: LiveEmailPayload | null = null
 
     try {
-      // In-app first so a slow/hung email client never blocks the user-visible notification
       switch (source) {
         case 'stripe_fee': {
           await prisma.notification.create({
@@ -119,19 +150,9 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               link: `/media/${media.id}`,
             },
           })
-          if (user.email) {
-            const html = generateStripeUploadFeeCompleteEmail(
-              userName,
-              media.title,
-              'VIDEO',
-              stripeFee,
-              media.id
-            )
-            await sendEmail({
-              to: user.email,
-              subject: `🎉 Upload Complete: "${media.title}" | AI Media Tank`,
-              html,
-            })
+          mail = {
+            subject: `🎉 Upload Complete: "${media.title}" | AI Media Tank`,
+            html: generateStripeUploadFeeCompleteEmail(userName, media.title, 'VIDEO', stripeFee, media.id),
           }
           break
         }
@@ -145,8 +166,9 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               link: `/media/${media.id}`,
             },
           })
-          if (user.email) {
-            const creditUploadEmailHtml = generateUploadConfirmationEmail(
+          mail = {
+            subject: '✅ Upload Complete (Credit Used) | AI Media Tank',
+            html: generateUploadConfirmationEmail(
               userName,
               media.title,
               totalUploads,
@@ -154,12 +176,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               true,
               0,
               planName
-            )
-            await sendEmail({
-              to: user.email,
-              subject: '✅ Upload Complete (Credit Used) | AI Media Tank',
-              html: creditUploadEmailHtml,
-            })
+            ),
           }
           break
         }
@@ -173,19 +190,9 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               link: '/pricing',
             },
           })
-          if (user.email) {
-            const paidEmailHtml = generatePaidUploadEmail(
-              userName,
-              media.title,
-              uploadCost,
-              paidUploadsCount,
-              totalPaidCost
-            )
-            await sendEmail({
-              to: user.email,
-              subject: '💳 Paid Upload Processed | AI Media Tank',
-              html: paidEmailHtml,
-            })
+          mail = {
+            subject: '💳 Paid Upload Processed | AI Media Tank',
+            html: generatePaidUploadEmail(userName, media.title, uploadCost, paidUploadsCount, totalPaidCost),
           }
           break
         }
@@ -204,10 +211,11 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               link: `/media/${media.id}`,
             },
           })
-          if (user.email) {
-            const freeRemaining =
-              user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
-            const confirmationEmailHtml = generateUploadConfirmationEmail(
+          const freeRemaining =
+            user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
+          mail = {
+            subject: '🎬 Upload Successful! | AI Media Tank',
+            html: generateUploadConfirmationEmail(
               userName,
               media.title,
               totalUploads,
@@ -215,12 +223,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               true,
               0,
               planName
-            )
-            await sendEmail({
-              to: user.email,
-              subject: '🎬 Upload Successful! | AI Media Tank',
-              html: confirmationEmailHtml,
-            })
+            ),
           }
           break
         }
@@ -234,13 +237,9 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               link: `/media/${media.id}`,
             },
           })
-          if (user.email) {
-            const html = generateGenericVideoLiveEmail(userName, media.title, media.id)
-            await sendEmail({
-              to: user.email,
-              subject: `🎬 Your video is ready: "${media.title}" | AI Media Tank`,
-              html,
-            })
+          mail = {
+            subject: `🎬 Your video is ready: "${media.title}" | AI Media Tank`,
+            html: generateGenericVideoLiveEmail(userName, media.title, media.id),
           }
         }
       }
@@ -249,7 +248,11 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
         where: { id: mediaId },
         data: { uploadLiveNotifiedAt: new Date() },
       })
-      console.log(`[DeferredUploadNotify] Sent live notification for media ${mediaId} (source=${source ?? 'unknown'})`)
+      console.log(
+        `[DeferredUploadNotify] In-app + marked notified media=${mediaId} source=${source ?? 'unknown'} user=${user.id} role=${user.role ?? 'n/a'}`
+      )
+
+      queueLiveEmail(mediaId, user.id, user.role, user.email, mail)
     } catch (e) {
       console.error(`[DeferredUploadNotify] Failed to notify for media ${mediaId}:`, e)
     }
