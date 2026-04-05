@@ -378,6 +378,7 @@ export default function EditProfilePage() {
           fileName: `avatar-${Date.now()}.jpg`,
           contentType: 'image/jpeg',
           fileType: 'IMAGE',
+          fileSize: compressedFile.size,
         }),
       })
 

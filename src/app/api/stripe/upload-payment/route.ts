@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getStripe, isStripeConfigured } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
+import { uploadBlobExceedsLimitMessage } from '@/lib/uploadBlobByteLength'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,6 +52,15 @@ export async function POST(request: Request) {
         { error: 'Missing required upload data (title, type, url)' },
         { status: 400 }
       )
+    }
+
+    const mainTooLarge = await uploadBlobExceedsLimitMessage(url)
+    if (mainTooLarge) {
+      return NextResponse.json({ error: mainTooLarge }, { status: 400 })
+    }
+    const thumbTooLarge = await uploadBlobExceedsLimitMessage(thumbnailUrl)
+    if (thumbTooLarge) {
+      return NextResponse.json({ error: thumbTooLarge }, { status: 400 })
     }
 
     const user = await prisma.user.findUnique({

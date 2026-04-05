@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { uploadBlobExceedsLimitMessage } from '@/lib/uploadBlobByteLength'
 import Stripe from 'stripe'
 import { sendEmail, generatePurchaseEmail, generateMembershipPurchaseEmail } from '@/lib/email'
 // Video processing is now handled by Azure Function cron (process-videos)
@@ -146,6 +147,16 @@ export async function POST(request: Request) {
           
           if (!pendingUpload) {
             console.error(`Pending upload ${pendingUploadId} not found`)
+            break
+          }
+
+          const mainTooLarge = await uploadBlobExceedsLimitMessage(pendingUpload.url)
+          const thumbTooLarge = await uploadBlobExceedsLimitMessage(pendingUpload.thumbnailUrl)
+          if (mainTooLarge || thumbTooLarge) {
+            console.error(
+              `Upload_fee webhook: blob over size limit; pendingUploadId=${pendingUploadId}`,
+              mainTooLarge || thumbTooLarge
+            )
             break
           }
           

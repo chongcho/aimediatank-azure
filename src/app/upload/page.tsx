@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { compressMedia, type QualitySettings } from '@/lib/mediaCompression'
+import { MAX_UPLOAD_FILE_BYTES, UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE } from '@/lib/uploadPlanConfig'
 
 type Area = { x: number; y: number; width: number; height: number }
 
@@ -413,6 +414,13 @@ function UploadPageContent() {
         )
       }
 
+      if (compressedFile.size > MAX_UPLOAD_FILE_BYTES) {
+        setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+        window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+        setShowPaymentModal(false)
+        return
+      }
+
       // Step 2: Upload to Azure Blob Storage
       setUploadStatus('Uploading to cloud storage...')
       const fileUrl = await uploadToAzure(compressedFile, formData.type)
@@ -422,6 +430,12 @@ function UploadPageContent() {
       if (thumbnail) {
         setUploadStatus('Uploading thumbnail...')
         const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE', undefined, undefined, qualitySettings)
+        if (compressedThumbnail.size > MAX_UPLOAD_FILE_BYTES) {
+          setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+          window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+          setShowPaymentModal(false)
+          return
+        }
         thumbnailUrl = await uploadToAzure(compressedThumbnail, 'IMAGE')
       }
       
@@ -497,6 +511,12 @@ function UploadPageContent() {
     const selectedFile = e.target.files?.[0]
     console.log('handleFileChange called, file:', selectedFile?.name, selectedFile?.type)
     if (selectedFile) {
+      if (selectedFile.size > MAX_UPLOAD_FILE_BYTES) {
+        setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+        window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+        return
+      }
+      setError('')
       fileChangeTokenRef.current += 1
       const changeToken = fileChangeTokenRef.current
       skipCompressionRef.current = false // reset for new file
@@ -722,6 +742,11 @@ function UploadPageContent() {
     if (cropMediaType === 'image') {
       const croppedFile = await getCroppedImageFile(cropSource, cropAreaPixels)
       if (croppedFile) {
+        if (croppedFile.size > MAX_UPLOAD_FILE_BYTES) {
+          setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+          window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+          return
+        }
         setFile(croppedFile)
         setPreview(URL.createObjectURL(croppedFile))
       }
@@ -993,6 +1018,7 @@ function UploadPageContent() {
         fileName: fileToUpload.name,
         contentType: fileToUpload.type,
         fileType: fileType,
+        fileSize: fileToUpload.size,
       }),
     })
 
@@ -1091,6 +1117,11 @@ function UploadPageContent() {
       if (!compressedFile || compressedFile.size === 0) {
         throw new Error('File preparation failed - file is empty')
       }
+      if (compressedFile.size > MAX_UPLOAD_FILE_BYTES) {
+        setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+        window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+        return
+      }
 
       // Step 2: Upload main file to Azure
       console.log('Starting Azure upload...')
@@ -1103,6 +1134,11 @@ function UploadPageContent() {
       if (thumbnail) {
         setUploadStatus('Compressing thumbnail...')
         const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE', undefined, undefined, qualitySettings)
+        if (compressedThumbnail.size > MAX_UPLOAD_FILE_BYTES) {
+          setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+          window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+          return
+        }
         setUploadStatus('Uploading thumbnail...')
         thumbnailUrl = await uploadToAzure(compressedThumbnail, 'IMAGE')
       }
@@ -1812,7 +1848,20 @@ function UploadPageContent() {
                 id="thumbnail-input"
                 type="file"
                 accept="image/*"
-                onChange={(e) => setThumbnail(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  const next = e.target.files?.[0]
+                  if (!next) {
+                    setThumbnail(null)
+                    return
+                  }
+                  if (next.size > MAX_UPLOAD_FILE_BYTES) {
+                    setError(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+                    window.alert(UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE)
+                    e.target.value = ''
+                    return
+                  }
+                  setThumbnail(next)
+                }}
                 className="text-sm"
                 aria-label="Upload a thumbnail image"
               />

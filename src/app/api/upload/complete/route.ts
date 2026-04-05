@@ -9,6 +9,7 @@ import { inspectMediaForAgeRating } from '@/lib/contentInspection'
 import { BlobServiceClient } from '@azure/storage-blob'
 import { pingProcessVideosCron } from '@/lib/pingAzureCron'
 import { UPLOAD_CONFIG } from '@/lib/uploadPlanConfig'
+import { uploadBlobExceedsLimitMessage } from '@/lib/uploadBlobByteLength'
 import {
   generateFreeUploadsExhaustedEmail,
   generatePaidUploadEmail,
@@ -164,6 +165,15 @@ export async function POST(request: Request) {
     // Validate type
     if (!['VIDEO', 'IMAGE', 'MUSIC'].includes(type)) {
       return NextResponse.json({ error: 'Invalid media type' }, { status: 400 })
+    }
+
+    const mainTooLarge = await uploadBlobExceedsLimitMessage(url)
+    if (mainTooLarge) {
+      return NextResponse.json({ error: mainTooLarge }, { status: 400 })
+    }
+    const thumbTooLarge = await uploadBlobExceedsLimitMessage(thumbnailUrl)
+    if (thumbTooLarge) {
+      return NextResponse.json({ error: thumbTooLarge }, { status: 400 })
     }
 
     // Calculate upload cost for this upload

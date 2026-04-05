@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } from '@azure/storage-blob'
 import { v4 as uuidv4 } from 'uuid'
+import { MAX_UPLOAD_FILE_BYTES, UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE } from '@/lib/uploadPlanConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,13 +23,24 @@ export async function POST(request: Request) {
       )
     }
 
-    const { fileName, contentType, fileType } = await request.json()
+    const { fileName, contentType, fileType, fileSize } = await request.json()
 
     if (!fileName || !contentType || !fileType) {
       return NextResponse.json(
         { error: 'fileName, contentType, and fileType are required' },
         { status: 400 }
       )
+    }
+
+    if (typeof fileSize !== 'number' || !Number.isFinite(fileSize) || fileSize < 0) {
+      return NextResponse.json(
+        { error: 'fileSize is required and must be a non-negative number' },
+        { status: 400 }
+      )
+    }
+
+    if (fileSize > MAX_UPLOAD_FILE_BYTES) {
+      return NextResponse.json({ error: UPLOAD_FILE_SIZE_EXCEEDED_MESSAGE }, { status: 400 })
     }
 
     // Validate file type
