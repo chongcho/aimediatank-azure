@@ -12,7 +12,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { pingUploadLiveNotifyCron } from '@/lib/pingUploadLiveNotifyCron'
+import { pingUploadLiveNotifyCron } from '@/lib/pingAzureCron'
 import { BlobServiceClient } from '@azure/storage-blob'
 import { tmpdir } from 'os'
 import { join } from 'path'

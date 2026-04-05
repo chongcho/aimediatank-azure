@@ -7,6 +7,7 @@ import { inspectMediaForAgeRating } from '@/lib/contentInspection'
 // Video processing is now handled by Azure Function cron (process-videos)
 // import { processMedia } from '@/lib/mediaProcessor'
 import { BlobServiceClient } from '@azure/storage-blob'
+import { pingProcessVideosCron } from '@/lib/pingAzureCron'
 import { UPLOAD_CONFIG } from '@/lib/uploadPlanConfig'
 import {
   generateFreeUploadsExhaustedEmail,
@@ -261,6 +262,12 @@ export async function POST(request: Request) {
       }
       return created
     })
+
+    // VIDEO: start transcoding on this App Service even if Azure Functions timers only call production.
+    // Without this, staging stays pending and the public home feed never lists the item (feed requires completed or processing+variant URL).
+    if (isVideoUpload) {
+      pingProcessVideosCron('upload_complete')
+    }
 
     // Best-effort: persist fileSize once at upload time (do not block upload if Azure is unavailable)
     try {
