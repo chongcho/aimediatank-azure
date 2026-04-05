@@ -112,6 +112,13 @@ function UploadPageContent() {
   const [paidQuality, setPaidQuality] = useState<QualitySettings>({})
   const [freeQuality, setFreeQuality] = useState<QualitySettings>({})
   const [maxUploadBytes, setMaxUploadBytes] = useState(10 * 1024 * 1024)
+  const [fileSizeModalMessage, setFileSizeModalMessage] = useState<string | null>(null)
+
+  const notifyFileSizeExceeded = () => {
+    const msg = buildUploadFileSizeExceededMessage(maxUploadBytes)
+    setError(msg)
+    setFileSizeModalMessage(msg)
+  }
   const cropDragRef = useRef<{
     active: boolean
     startClientY: number
@@ -419,8 +426,7 @@ function UploadPageContent() {
       }
 
       if (compressedFile.size > maxUploadBytes) {
-        setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
-        window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
+        notifyFileSizeExceeded()
         setShowPaymentModal(false)
         return
       }
@@ -435,8 +441,7 @@ function UploadPageContent() {
         setUploadStatus('Uploading thumbnail...')
         const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE', undefined, undefined, qualitySettings)
         if (compressedThumbnail.size > maxUploadBytes) {
-          setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
-          window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
+          notifyFileSizeExceeded()
           setShowPaymentModal(false)
           return
         }
@@ -516,8 +521,7 @@ function UploadPageContent() {
     console.log('handleFileChange called, file:', selectedFile?.name, selectedFile?.type)
     if (selectedFile) {
       if (selectedFile.size > maxUploadBytes) {
-        setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
-        window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
+        notifyFileSizeExceeded()
         return
       }
       setError('')
@@ -747,8 +751,7 @@ function UploadPageContent() {
       const croppedFile = await getCroppedImageFile(cropSource, cropAreaPixels)
       if (croppedFile) {
         if (croppedFile.size > maxUploadBytes) {
-          setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
-          window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
+          notifyFileSizeExceeded()
           return
         }
         setFile(croppedFile)
@@ -1122,8 +1125,7 @@ function UploadPageContent() {
         throw new Error('File preparation failed - file is empty')
       }
       if (compressedFile.size > maxUploadBytes) {
-        setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
-        window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
+        notifyFileSizeExceeded()
         return
       }
 
@@ -1139,8 +1141,7 @@ function UploadPageContent() {
         setUploadStatus('Compressing thumbnail...')
         const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE', undefined, undefined, qualitySettings)
         if (compressedThumbnail.size > maxUploadBytes) {
-          setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
-          window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
+          notifyFileSizeExceeded()
           return
         }
         setUploadStatus('Uploading thumbnail...')
@@ -1859,8 +1860,7 @@ function UploadPageContent() {
                     return
                   }
                   if (next.size > maxUploadBytes) {
-                    setError(buildUploadFileSizeExceededMessage(maxUploadBytes))
-                    window.alert(buildUploadFileSizeExceededMessage(maxUploadBytes))
+                    notifyFileSizeExceeded()
                     e.target.value = ''
                     return
                   }
@@ -2046,6 +2046,38 @@ function UploadPageContent() {
           </div>
         </form>
       </div>
+      )}
+
+      {/* File size limit — in-app dialog (replaces browser alert) */}
+      {fileSizeModalMessage && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4"
+          onClick={() => setFileSizeModalMessage(null)}
+          role="presentation"
+        >
+          <div
+            className="bg-tank-dark border border-tank-light rounded-2xl max-w-md w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="upload-file-size-modal-title"
+          >
+            <div className="text-center">
+              <div className="text-5xl mb-3" aria-hidden>📁</div>
+              <h3 id="upload-file-size-modal-title" className="text-xl font-bold text-white mb-3">
+                File too large
+              </h3>
+              <p className="text-gray-300 text-sm leading-relaxed mb-6">{fileSizeModalMessage}</p>
+              <button
+                type="button"
+                onClick={() => setFileSizeModalMessage(null)}
+                className="w-full py-3 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Payment Required Modal */}
