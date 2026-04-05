@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const maxBytes = await getMaxUploadFileBytes()
     if (fileSize > maxBytes) {
       return NextResponse.json(
-        { error: buildUploadFileSizeExceededMessage(maxBytes) },
+        { error: buildUploadFileSizeExceededMessage(maxBytes, fileSize) },
         { status: 400 }
       )
     }

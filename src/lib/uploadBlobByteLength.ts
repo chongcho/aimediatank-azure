@@ -91,5 +91,5 @@ export async function uploadBlobExceedsLimitMessage(blobUrl: string | null | und
   if (len === null || !Number.isFinite(len)) return null
   const maxBytes = await getMaxUploadFileBytes()
   if (len <= maxBytes) return null
-  return buildUploadFileSizeExceededMessage(maxBytes)
+  return buildUploadFileSizeExceededMessage(maxBytes, len)
 }

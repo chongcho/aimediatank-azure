@@ -51,13 +51,10 @@ export default function EditProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [maxUploadBytes, setMaxUploadBytes] = useState(10 * 1024 * 1024)
-  const [fileSizeModalMessage, setFileSizeModalMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const notifyAvatarFileSizeExceeded = () => {
-    const msg = buildUploadFileSizeExceededMessage(maxUploadBytes)
-    setError(msg)
-    setFileSizeModalMessage(msg)
+  const notifyAvatarFileSizeExceeded = (actualFileBytes: number) => {
+    setError(buildUploadFileSizeExceededMessage(maxUploadBytes, actualFileBytes))
   }
   
   // Username verification state
@@ -376,7 +373,7 @@ export default function EditProfilePage() {
     }
 
     if (file.size > maxUploadBytes) {
-      notifyAvatarFileSizeExceeded()
+      notifyAvatarFileSizeExceeded(file.size)
       e.target.value = ''
       return
     }
@@ -397,7 +394,7 @@ export default function EditProfilePage() {
       })
 
       if (compressedFile.size > maxUploadBytes) {
-        notifyAvatarFileSizeExceeded()
+        notifyAvatarFileSizeExceeded(compressedFile.size)
         setAvatarPreview(formData.avatar)
         URL.revokeObjectURL(localPreview)
         return
@@ -1215,36 +1212,6 @@ export default function EditProfilePage() {
         </div>
       )}
 
-      {fileSizeModalMessage && (
-        <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4"
-          onClick={() => setFileSizeModalMessage(null)}
-          role="presentation"
-        >
-          <div
-            className="bg-tank-dark border border-tank-light rounded-2xl max-w-md w-full p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="profile-file-size-modal-title"
-          >
-            <div className="text-center">
-              <div className="text-5xl mb-3" aria-hidden>📁</div>
-              <h3 id="profile-file-size-modal-title" className="text-xl font-bold text-white mb-3">
-                File too large
-              </h3>
-              <p className="text-gray-300 text-sm leading-relaxed mb-6">{fileSizeModalMessage}</p>
-              <button
-                type="button"
-                onClick={() => setFileSizeModalMessage(null)}
-                className="w-full py-3 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

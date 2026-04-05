@@ -112,12 +112,8 @@ function UploadPageContent() {
   const [paidQuality, setPaidQuality] = useState<QualitySettings>({})
   const [freeQuality, setFreeQuality] = useState<QualitySettings>({})
   const [maxUploadBytes, setMaxUploadBytes] = useState(10 * 1024 * 1024)
-  const [fileSizeModalMessage, setFileSizeModalMessage] = useState<string | null>(null)
-
-  const notifyFileSizeExceeded = () => {
-    const msg = buildUploadFileSizeExceededMessage(maxUploadBytes)
-    setError(msg)
-    setFileSizeModalMessage(msg)
+  const notifyFileSizeExceeded = (actualFileBytes: number) => {
+    setError(buildUploadFileSizeExceededMessage(maxUploadBytes, actualFileBytes))
   }
   const cropDragRef = useRef<{
     active: boolean
@@ -426,7 +422,7 @@ function UploadPageContent() {
       }
 
       if (compressedFile.size > maxUploadBytes) {
-        notifyFileSizeExceeded()
+        notifyFileSizeExceeded(compressedFile.size)
         setShowPaymentModal(false)
         return
       }
@@ -441,7 +437,7 @@ function UploadPageContent() {
         setUploadStatus('Uploading thumbnail...')
         const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE', undefined, undefined, qualitySettings)
         if (compressedThumbnail.size > maxUploadBytes) {
-          notifyFileSizeExceeded()
+          notifyFileSizeExceeded(compressedThumbnail.size)
           setShowPaymentModal(false)
           return
         }
@@ -521,7 +517,7 @@ function UploadPageContent() {
     console.log('handleFileChange called, file:', selectedFile?.name, selectedFile?.type)
     if (selectedFile) {
       if (selectedFile.size > maxUploadBytes) {
-        notifyFileSizeExceeded()
+        notifyFileSizeExceeded(selectedFile.size)
         return
       }
       setError('')
@@ -751,7 +747,7 @@ function UploadPageContent() {
       const croppedFile = await getCroppedImageFile(cropSource, cropAreaPixels)
       if (croppedFile) {
         if (croppedFile.size > maxUploadBytes) {
-          notifyFileSizeExceeded()
+          notifyFileSizeExceeded(croppedFile.size)
           return
         }
         setFile(croppedFile)
@@ -1125,7 +1121,7 @@ function UploadPageContent() {
         throw new Error('File preparation failed - file is empty')
       }
       if (compressedFile.size > maxUploadBytes) {
-        notifyFileSizeExceeded()
+        notifyFileSizeExceeded(compressedFile.size)
         return
       }
 
@@ -1141,7 +1137,7 @@ function UploadPageContent() {
         setUploadStatus('Compressing thumbnail...')
         const compressedThumbnail = await compressMedia(thumbnail, 'IMAGE', undefined, undefined, qualitySettings)
         if (compressedThumbnail.size > maxUploadBytes) {
-          notifyFileSizeExceeded()
+          notifyFileSizeExceeded(compressedThumbnail.size)
           return
         }
         setUploadStatus('Uploading thumbnail...')
@@ -1860,7 +1856,7 @@ function UploadPageContent() {
                     return
                   }
                   if (next.size > maxUploadBytes) {
-                    notifyFileSizeExceeded()
+                    notifyFileSizeExceeded(next.size)
                     e.target.value = ''
                     return
                   }
@@ -2046,38 +2042,6 @@ function UploadPageContent() {
           </div>
         </form>
       </div>
-      )}
-
-      {/* File size limit — in-app dialog (replaces browser alert) */}
-      {fileSizeModalMessage && (
-        <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4"
-          onClick={() => setFileSizeModalMessage(null)}
-          role="presentation"
-        >
-          <div
-            className="bg-tank-dark border border-tank-light rounded-2xl max-w-md w-full p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="upload-file-size-modal-title"
-          >
-            <div className="text-center">
-              <div className="text-5xl mb-3" aria-hidden>📁</div>
-              <h3 id="upload-file-size-modal-title" className="text-xl font-bold text-white mb-3">
-                File too large
-              </h3>
-              <p className="text-gray-300 text-sm leading-relaxed mb-6">{fileSizeModalMessage}</p>
-              <button
-                type="button"
-                onClick={() => setFileSizeModalMessage(null)}
-                className="w-full py-3 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Payment Required Modal */}

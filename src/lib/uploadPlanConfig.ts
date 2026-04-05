@@ -9,11 +9,31 @@ export function clampUploadSizeMb(mb: number): number {
   return Math.min(UPLOAD_MAX_SIZE_MB_MAX, Math.max(UPLOAD_MAX_SIZE_MB_MIN, n))
 }
 
-/** Error copy when a file exceeds the configured max (pass resolved max bytes from server or client). */
-export function buildUploadFileSizeExceededMessage(maxAllowedBytes: number): string {
-  const mb = maxAllowedBytes / (1024 * 1024)
-  const label = Number.isInteger(mb) ? `${mb} MB` : `${mb.toFixed(1)} MB`
-  return `File size exceeds the maximum allowed (${label}). You cannot upload this file.`
+/** Human-readable MB label for error copy (e.g. "50 MB", "62.3 MB"). */
+export function formatUploadSizeMbLabel(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '0 MB'
+  const mb = bytes / (1024 * 1024)
+  return Number.isInteger(mb) ? `${mb} MB` : `${mb.toFixed(1)} MB`
+}
+
+/**
+ * Error copy when a file exceeds the configured max.
+ * When `actualFileSizeBytes` is set, message includes both sizes for clarity.
+ */
+export function buildUploadFileSizeExceededMessage(
+  maxAllowedBytes: number,
+  actualFileSizeBytes?: number | null
+): string {
+  const maxLabel = formatUploadSizeMbLabel(maxAllowedBytes)
+  if (
+    actualFileSizeBytes != null &&
+    Number.isFinite(actualFileSizeBytes) &&
+    actualFileSizeBytes > 0
+  ) {
+    const actualLabel = formatUploadSizeMbLabel(actualFileSizeBytes)
+    return `This file is ${actualLabel}. The maximum allowed is ${maxLabel}. You cannot upload this file.`
+  }
+  return `File size exceeds the maximum allowed (${maxLabel}). You cannot upload this file.`
 }
 
 /** Upload limits and costs per plan — shared by upload complete API and deferred video notifications */
