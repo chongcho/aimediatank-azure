@@ -33,6 +33,7 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      # Must target the same Postgres as App Service "DATABASE_URL" / connection string, or the app will 500 (P2022) after deploy.
       - name: Push database schema changes
         run: npx prisma db push --skip-generate --accept-data-loss
         env:
