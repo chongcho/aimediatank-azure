@@ -11,35 +11,16 @@ import {
 /** Match stored type regardless of casing (defensive) */
 const VIDEO_TYPE_FILTER = { equals: 'VIDEO' as const, mode: 'insensitive' as const }
 
-type LiveEmailPayload = { subject: string; html: string }
+/** In-app titles written by this flow — used to avoid duplicates when email fails and cron retries */
+const LIVE_UPLOAD_NOTIFY_TITLES = [
+  '🎉 Upload Complete!',
+  '✅ Upload Complete (Credit Used)',
+  '💳 Paid Upload',
+  '🎬 Upload Successful',
+  '🎬 Your video is ready',
+] as const
 
-/**
- * Do not await ACS — pollUntilDone() can hang and would block uploadLiveNotifiedAt + invite cron backfill spam.
- * Log clearly when staging has no AZURE_EMAIL_CONNECTION_STRING (sendEmail returns false without throwing).
- */
-function queueLiveEmail(mediaId: string, userId: string, role: string | null, to: string | null | undefined, mail: LiveEmailPayload | null) {
-  if (!mail) return
-  const addr = to?.trim()
-  if (!addr) {
-    console.warn(
-      `[DeferredUploadNotify] media=${mediaId} user=${userId} role=${role ?? 'n/a'}: in-app sent; no email address — skipped mail`
-    )
-    return
-  }
-  void (async () => {
-    try {
-      const sent = await sendEmail({ to: addr, subject: mail.subject, html: mail.html })
-      if (!sent) {
-        console.warn(
-          `[DeferredUploadNotify] ACS did not send mail media=${mediaId} user=${userId} role=${role ?? 'n/a'} to=${addr} — ` +
-            `if this is staging, set AZURE_EMAIL_CONNECTION_STRING (and verified AZURE_EMAIL_SENDER) on the web app; admin uploads use the same path as any user`
-        )
-      }
-    } catch (err) {
-      console.error(`[DeferredUploadNotify] Email error media=${mediaId} user=${userId}`, err)
-    }
-  })()
-}
+type LiveEmailPayload = { subject: string; html: string }
 
 /**
  * Pick one completed video that never received the deferred "live" notify (email + in-app).
@@ -70,7 +51,8 @@ export async function backfillMissedUploadLiveNotification(): Promise<{
 
 /**
  * After server-side video processing completes, the home feed can show the item.
- * In-app notification + uploadLiveNotifiedAt first; email queued async (same behavior for all roles, including ADMIN).
+ * In-app notification first, then email. uploadLiveNotifiedAt is set only after email succeeds
+ * (or there is no email on file — in-app only). Otherwise backfill could never retry.
  */
 export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Promise<void> {
   try {
@@ -138,18 +120,31 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
     const source = media.uploadSuccessNotifySource
     let mail: LiveEmailPayload | null = null
 
+    const mediaLink = `/media/${media.id}`
+    const hasInAppLiveNotify = await prisma.notification.findFirst({
+      where: {
+        userId: user.id,
+        type: 'system',
+        link: mediaLink,
+        title: { in: [...LIVE_UPLOAD_NOTIFY_TITLES] },
+      },
+      select: { id: true },
+    })
+
     try {
       switch (source) {
         case 'stripe_fee': {
-          await prisma.notification.create({
-            data: {
-              userId: user.id,
-              type: 'system',
-              title: '🎉 Upload Complete!',
-              message: `Your paid upload "${media.title}" is now live!`,
-              link: `/media/${media.id}`,
-            },
-          })
+          if (!hasInAppLiveNotify) {
+            await prisma.notification.create({
+              data: {
+                userId: user.id,
+                type: 'system',
+                title: '🎉 Upload Complete!',
+                message: `Your paid upload "${media.title}" is now live!`,
+                link: mediaLink,
+              },
+            })
+          }
           mail = {
             subject: `🎉 Upload Complete: "${media.title}" | AI Media Tank`,
             html: generateStripeUploadFeeCompleteEmail(userName, media.title, 'VIDEO', stripeFee, media.id),
@@ -157,15 +152,17 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
           break
         }
         case 'credit': {
-          await prisma.notification.create({
-            data: {
-              userId: user.id,
-              type: 'system',
-              title: '✅ Upload Complete (Credit Used)',
-              message: `"${media.title}" uploaded using credit. ${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''} remaining.`,
-              link: `/media/${media.id}`,
-            },
-          })
+          if (!hasInAppLiveNotify) {
+            await prisma.notification.create({
+              data: {
+                userId: user.id,
+                type: 'system',
+                title: '✅ Upload Complete (Credit Used)',
+                message: `"${media.title}" uploaded using credit. ${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''} remaining.`,
+                link: mediaLink,
+              },
+            })
+          }
           mail = {
             subject: '✅ Upload Complete (Credit Used) | AI Media Tank',
             html: generateUploadConfirmationEmail(
@@ -181,15 +178,17 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
           break
         }
         case 'per_upload': {
-          await prisma.notification.create({
-            data: {
-              userId: user.id,
-              type: 'system',
-              title: '💳 Paid Upload',
-              message: `Upload charged: $${uploadCost.toFixed(2)}. Total this period: $${totalPaidCost.toFixed(2)}`,
-              link: '/pricing',
-            },
-          })
+          if (!hasInAppLiveNotify) {
+            await prisma.notification.create({
+              data: {
+                userId: user.id,
+                type: 'system',
+                title: '💳 Paid Upload',
+                message: `Upload charged: $${uploadCost.toFixed(2)}. Total this period: $${totalPaidCost.toFixed(2)}`,
+                link: mediaLink,
+              },
+            })
+          }
           mail = {
             subject: '💳 Paid Upload Processed | AI Media Tank',
             html: generatePaidUploadEmail(userName, media.title, uploadCost, paidUploadsCount, totalPaidCost),
@@ -202,15 +201,17 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
             user.membershipType === 'PREMIUM'
               ? `"${media.title}" uploaded successfully! Unlimited uploads available.`
               : `"${media.title}" uploaded! ${newFreeUploadsRemaining} free upload${newFreeUploadsRemaining !== 1 ? 's' : ''} remaining.`
-          await prisma.notification.create({
-            data: {
-              userId: user.id,
-              type: 'system',
-              title: '🎬 Upload Successful',
-              message: notificationMessage,
-              link: `/media/${media.id}`,
-            },
-          })
+          if (!hasInAppLiveNotify) {
+            await prisma.notification.create({
+              data: {
+                userId: user.id,
+                type: 'system',
+                title: '🎬 Upload Successful',
+                message: notificationMessage,
+                link: mediaLink,
+              },
+            })
+          }
           const freeRemaining =
             user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
           mail = {
@@ -228,15 +229,17 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
           break
         }
         default: {
-          await prisma.notification.create({
-            data: {
-              userId: user.id,
-              type: 'system',
-              title: '🎬 Your video is ready',
-              message: `"${media.title}" finished processing and appears on the home feed.`,
-              link: `/media/${media.id}`,
-            },
-          })
+          if (!hasInAppLiveNotify) {
+            await prisma.notification.create({
+              data: {
+                userId: user.id,
+                type: 'system',
+                title: '🎬 Your video is ready',
+                message: `"${media.title}" finished processing and appears on the home feed.`,
+                link: mediaLink,
+              },
+            })
+          }
           mail = {
             subject: `🎬 Your video is ready: "${media.title}" | AI Media Tank`,
             html: generateGenericVideoLiveEmail(userName, media.title, media.id),
@@ -244,15 +247,34 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
         }
       }
 
+      const addr = user.email?.trim()
+      if (mail && addr) {
+        try {
+          const sent = await sendEmail({ to: addr, subject: mail.subject, html: mail.html })
+          if (!sent) {
+            console.warn(
+              `[DeferredUploadNotify] ACS did not send mail media=${mediaId} user=${user.id} role=${user.role ?? 'n/a'} to=${addr} — ` +
+                `uploadLiveNotifiedAt left null for cron backfill. Check AZURE_EMAIL_* on the app that runs process-videos.`
+            )
+            return
+          }
+        } catch (err) {
+          console.error(`[DeferredUploadNotify] Email error media=${mediaId} user=${user.id}`, err)
+          return
+        }
+      } else if (mail && !addr) {
+        console.warn(
+          `[DeferredUploadNotify] media=${mediaId} user=${user.id} role=${user.role ?? 'n/a'}: no email on account — in-app only; marking notified`
+        )
+      }
+
       await prisma.media.update({
         where: { id: mediaId },
         data: { uploadLiveNotifiedAt: new Date() },
       })
       console.log(
-        `[DeferredUploadNotify] In-app + marked notified media=${mediaId} source=${source ?? 'unknown'} user=${user.id} role=${user.role ?? 'n/a'}`
+        `[DeferredUploadNotify] Live notify complete media=${mediaId} source=${source ?? 'unknown'} user=${user.id} role=${user.role ?? 'n/a'} email=${addr ? 'sent' : 'skipped'}`
       )
-
-      queueLiveEmail(mediaId, user.id, user.role, user.email, mail)
     } catch (e) {
       console.error(`[DeferredUploadNotify] Failed to notify for media ${mediaId}:`, e)
     }
