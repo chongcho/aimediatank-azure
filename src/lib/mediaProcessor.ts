@@ -12,6 +12,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { notifyUploadLiveAfterVideoProcessing } from '@/lib/deferredUploadNotifications'
 import { pingUploadLiveNotifyCron } from '@/lib/pingAzureCron'
 import { BlobServiceClient } from '@azure/storage-blob'
 import { tmpdir } from 'os'
@@ -663,7 +664,10 @@ export async function processMedia(
             console.log(
               `[MediaProcessor] Preview ready for media ${mediaId}: ${preview.label} (${preview.height}p)`
             )
-            // Home feed can list this row now; run deferred upload email in a short HTTP request (not this long one).
+            // Home-feed eligible; try notify without blocking remaining FFmpeg (idempotent via uploadLiveNotifiedAt).
+            void notifyUploadLiveAfterVideoProcessing(mediaId).catch((err) => {
+              console.error('[MediaProcessor] Deferred notify after preview failed:', err)
+            })
             pingUploadLiveNotifyCron('preview')
           } catch (e) {
             console.error('[MediaProcessor] Failed to update media with preview (non-fatal):', e)
@@ -701,12 +705,17 @@ export async function processMedia(
         data: updateData,
       })
 
+      // Await here so ACS sendEmail runs before this cron HTTP response completes (self-HTTP ping alone can fail).
+      try {
+        await notifyUploadLiveAfterVideoProcessing(mediaId)
+      } catch (err) {
+        console.error('[MediaProcessor] notifyUploadLiveAfterVideoProcessing after complete failed:', err)
+      }
       pingUploadLiveNotifyCron('complete')
 
       await deleteBlob(rawUrl)
 
       console.log(`[MediaProcessor] ✅ Media ${mediaId} processed: ${result.variants.length} versions`)
-      // Deferred upload email: ping short /api/cron/upload-live-notify (above); do not call notify inline here.
     } finally {
       // Always clean up the local raw file
       await safeUnlink(rawLocalPath)
