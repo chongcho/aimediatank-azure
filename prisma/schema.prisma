@@ -104,6 +104,9 @@ model Media {
   shareCount    Int       @default(0)
   processingStatus String @default("completed") // "pending", "processing", "completed", "failed"
   processingError  String?                      // Error message if processing failed
+  // VIDEO: success email/notification deferred until processing completes (home feed ready)
+  uploadSuccessNotifySource String?            // free | premium | credit | stripe_fee | per_upload
+  uploadLiveNotifiedAt     DateTime?           // set after deferred user-facing "live" notify sent
   cropData         Json?                        // { x, y, width, height } from crop tool — used by cron processor
   trimStart        Float?                       // video trim start (seconds); used by cron processor
   trimEnd          Float?                      // video trim end (seconds)

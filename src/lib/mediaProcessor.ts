@@ -12,6 +12,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { notifyUploadLiveAfterVideoProcessing } from '@/lib/deferredUploadNotifications'
 import { BlobServiceClient } from '@azure/storage-blob'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -700,6 +701,8 @@ export async function processMedia(
       await deleteBlob(rawUrl)
 
       console.log(`[MediaProcessor] ✅ Media ${mediaId} processed: ${result.variants.length} versions`)
+
+      await notifyUploadLiveAfterVideoProcessing(mediaId)
     } finally {
       // Always clean up the local raw file
       await safeUnlink(rawLocalPath)

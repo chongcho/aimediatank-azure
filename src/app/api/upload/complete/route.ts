@@ -7,201 +7,14 @@ import { inspectMediaForAgeRating } from '@/lib/contentInspection'
 // Video processing is now handled by Azure Function cron (process-videos)
 // import { processMedia } from '@/lib/mediaProcessor'
 import { BlobServiceClient } from '@azure/storage-blob'
+import { UPLOAD_CONFIG } from '@/lib/uploadPlanConfig'
+import {
+  generateFreeUploadsExhaustedEmail,
+  generatePaidUploadEmail,
+  generateUploadConfirmationEmail,
+} from '@/lib/uploadEmailTemplates'
 
 export const dynamic = 'force-dynamic'
-
-// Upload limits and costs per plan
-const UPLOAD_CONFIG: Record<string, { 
-  freeUploads: number; 
-  costPerUpload: number; 
-  canUploadAfterFree: boolean;
-}> = {
-  VIEWER: { freeUploads: 5, costPerUpload: 0, canUploadAfterFree: false },
-  BASIC: { freeUploads: 5, costPerUpload: 1.00, canUploadAfterFree: true },
-  ADVANCED: { freeUploads: 5, costPerUpload: 0.50, canUploadAfterFree: true },
-  PREMIUM: { freeUploads: Infinity, costPerUpload: 0, canUploadAfterFree: true },
-}
-
-// Generate upload confirmation email
-function generateUploadConfirmationEmail(
-  userName: string,
-  mediaTitle: string,
-  uploadNumber: number,
-  freeUploadsRemaining: number | string,
-  isFreeUpload: boolean,
-  uploadCost: number,
-  planName: string
-): string {
-  const remainingText = freeUploadsRemaining === 'Unlimited' 
-    ? 'Unlimited' 
-    : `${freeUploadsRemaining} remaining`
-
-  const costSection = isFreeUpload 
-    ? `<p style="color: #0f8; font-weight: bold;">✅ This was a FREE upload!</p>`
-    : `<p style="color: #ffa500; font-weight: bold;">💳 Upload cost: $${uploadCost.toFixed(2)}</p>`
-
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
-    <h1 style="color: #0f8; margin: 0; font-size: 24px;">🎬 Upload Successful!</h1>
-  </div>
-  
-  <p style="font-size: 16px;">Hi ${userName},</p>
-  
-  <p style="font-size: 16px;">Your content "<strong>${mediaTitle}</strong>" has been uploaded successfully!</p>
-  
-  <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8;">
-    <h3 style="margin: 0 0 15px 0; color: #1a1a2e;">Upload Summary</h3>
-    <table style="width: 100%; border-collapse: collapse;">
-      <tr>
-        <td style="padding: 8px 0; color: #666;">Plan:</td>
-        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${planName}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px 0; color: #666;">Upload #:</td>
-        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${uploadNumber}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px 0; color: #666;">Free Uploads:</td>
-        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${remainingText}</td>
-      </tr>
-    </table>
-    ${costSection}
-  </div>
-  
-  <div style="text-align: center; margin: 30px 0;">
-    <a href="https://aimediatank.com" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-      View Your Content
-    </a>
-  </div>
-  
-  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-  
-  <p style="font-size: 14px; color: #666;">
-    Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
-  </p>
-</body>
-</html>
-  `
-}
-
-// Generate free uploads exhausted email
-function generateFreeUploadsExhaustedEmail(
-  userName: string,
-  planName: string,
-  costPerUpload: number
-): string {
-  const nextStepSection = costPerUpload > 0
-    ? `<p style="font-size: 16px;">Future uploads will cost <strong>$${costPerUpload.toFixed(2)} per upload</strong>.</p>
-       <p style="font-size: 16px;">Consider upgrading to <strong>Premium Plan</strong> for unlimited free uploads!</p>`
-    : `<p style="font-size: 16px;">You've reached the upload limit for your plan. <strong>Upgrade now</strong> to continue uploading!</p>`
-
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
-    <h1 style="color: #ffa500; margin: 0; font-size: 24px;">⚠️ Free Uploads Exhausted</h1>
-  </div>
-  
-  <p style="font-size: 16px;">Hi ${userName},</p>
-  
-  <p style="font-size: 16px;">You've used all <strong>5 free uploads</strong> included with your <strong>${planName}</strong>.</p>
-  
-  <div style="background: #fff8e6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffa500;">
-    ${nextStepSection}
-  </div>
-  
-  <div style="text-align: center; margin: 30px 0;">
-    <a href="https://aimediatank.com/pricing" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-      View Plans
-    </a>
-  </div>
-  
-  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-  
-  <p style="font-size: 14px; color: #666;">
-    Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
-  </p>
-</body>
-</html>
-  `
-}
-
-// Generate paid upload email
-function generatePaidUploadEmail(
-  userName: string,
-  mediaTitle: string,
-  uploadCost: number,
-  totalPaidUploads: number,
-  totalCost: number
-): string {
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px;">
-    <h1 style="color: #ffa500; margin: 0; font-size: 24px;">💳 Paid Upload Processed</h1>
-  </div>
-  
-  <p style="font-size: 16px;">Hi ${userName},</p>
-  
-  <p style="font-size: 16px;">Your paid upload "<strong>${mediaTitle}</strong>" has been processed.</p>
-  
-  <div style="background: #fff8e6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffa500;">
-    <h3 style="margin: 0 0 15px 0; color: #1a1a2e;">Upload Charge</h3>
-    <table style="width: 100%; border-collapse: collapse;">
-      <tr>
-        <td style="padding: 8px 0; color: #666;">This Upload:</td>
-        <td style="padding: 8px 0; font-weight: bold; text-align: right;">$${uploadCost.toFixed(2)}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px 0; color: #666;">Paid Uploads This Period:</td>
-        <td style="padding: 8px 0; font-weight: bold; text-align: right;">${totalPaidUploads}</td>
-      </tr>
-      <tr style="border-top: 1px solid #ddd;">
-        <td style="padding: 8px 0; color: #666; font-weight: bold;">Total Charges:</td>
-        <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #ffa500;">$${totalCost.toFixed(2)}</td>
-      </tr>
-    </table>
-  </div>
-
-  <p style="font-size: 14px; color: #666;">
-    💡 <strong>Tip:</strong> Upgrade to Premium for unlimited free uploads and save on upload costs!
-  </p>
-  
-  <div style="text-align: center; margin: 30px 0;">
-    <a href="https://aimediatank.com/pricing" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-      Upgrade to Premium
-    </a>
-  </div>
-  
-  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-  
-  <p style="font-size: 14px; color: #666;">
-    Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
-  </p>
-</body>
-</html>
-  `
-}
 
 function getAzureBlobClient() {
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
@@ -377,6 +190,20 @@ export async function POST(request: Request) {
       }
     }
 
+    // VIDEO: defer "upload successful" email/notification until transcoding completes (see deferredUploadNotifications)
+    let videoUploadNotifySource: string | undefined
+    if (isVideoUpload) {
+      if (isFreeUpload) {
+        videoUploadNotifySource = user.membershipType === 'PREMIUM' ? 'premium' : 'free'
+      } else if (isPaidWithCredit) {
+        videoUploadNotifySource = 'credit'
+      } else if (uploadCost > 0) {
+        videoUploadNotifySource = 'per_upload'
+      } else {
+        videoUploadNotifySource = 'free'
+      }
+    }
+
     // Atomic: create media + update user counts in one transaction so we never have media without updated counts
     const media = await prisma.$transaction(async (tx) => {
       const created = await tx.media.create({
@@ -394,6 +221,7 @@ export async function POST(request: Request) {
           isApproved: true,
           userId: session.user.id,
           processingStatus: isVideoUpload ? 'pending' : 'completed',
+          uploadSuccessNotifySource: videoUploadNotifySource,
           cropData: isVideoUpload && cropData ? cropData : undefined,
           trimStart: isVideoUpload && (typeof trimStart === 'number' || typeof trimStart === 'string') && !Number.isNaN(Number(trimStart)) && Number(trimStart) >= 0 ? Number(trimStart) : undefined,
           trimEnd: isVideoUpload && (typeof trimEnd === 'number' || typeof trimEnd === 'string') && !Number.isNaN(Number(trimEnd)) && Number(trimEnd) > 0 ? Number(trimEnd) : undefined,
@@ -504,6 +332,7 @@ export async function POST(request: Request) {
     const backgroundTasks = async () => {
       try {
         const userName = user.name || user.username || 'User'
+        const deferVideoSuccessNotify = isVideoUpload
         const justExhaustedFreeUploads = isFreeUpload && 
                                           newFreeUploadsUsed === config.freeUploads && 
                                           user.membershipType !== 'PREMIUM'
@@ -521,40 +350,46 @@ export async function POST(request: Request) {
             }
           })
         } else if (isPaidWithCredit) {
-          const remainingCredits = newPaidUploadCredits + newBonusCredits
-          const creditUploadEmailHtml = generateUploadConfirmationEmail(
-            userName, title, totalUploads,
-            `${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''}`,
-            true, 0, planName
-          )
-          await sendEmail({ to: user.email, subject: '✅ Upload Complete (Credit Used) | AI Media Tank', html: creditUploadEmailHtml })
-          await prisma.notification.create({
-            data: {
-              userId: user.id, type: 'system', title: '✅ Upload Complete (Credit Used)',
-              message: `"${title}" uploaded using credit. ${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''} remaining.`,
-              link: `/media/${media.id}`,
-            }
-          })
+          if (!deferVideoSuccessNotify) {
+            const remainingCredits = newPaidUploadCredits + newBonusCredits
+            const creditUploadEmailHtml = generateUploadConfirmationEmail(
+              userName, title, totalUploads,
+              `${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''}`,
+              true, 0, planName
+            )
+            await sendEmail({ to: user.email, subject: '✅ Upload Complete (Credit Used) | AI Media Tank', html: creditUploadEmailHtml })
+            await prisma.notification.create({
+              data: {
+                userId: user.id, type: 'system', title: '✅ Upload Complete (Credit Used)',
+                message: `"${title}" uploaded using credit. ${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''} remaining.`,
+                link: `/media/${media.id}`,
+              }
+            })
+          }
         } else if (!isFreeUpload && uploadCost > 0) {
-          const paidEmailHtml = generatePaidUploadEmail(userName, title, uploadCost, paidUploadsCount, totalPaidCost)
-          await sendEmail({ to: user.email, subject: '💳 Paid Upload Processed | AI Media Tank', html: paidEmailHtml })
-          await prisma.notification.create({
-            data: {
-              userId: user.id, type: 'system', title: '💳 Paid Upload',
-              message: `Upload charged: $${uploadCost.toFixed(2)}. Total this period: $${totalPaidCost.toFixed(2)}`,
-              link: '/pricing',
-            }
-          })
+          if (!deferVideoSuccessNotify) {
+            const paidEmailHtml = generatePaidUploadEmail(userName, title, uploadCost, paidUploadsCount, totalPaidCost)
+            await sendEmail({ to: user.email, subject: '💳 Paid Upload Processed | AI Media Tank', html: paidEmailHtml })
+            await prisma.notification.create({
+              data: {
+                userId: user.id, type: 'system', title: '💳 Paid Upload',
+                message: `Upload charged: $${uploadCost.toFixed(2)}. Total this period: $${totalPaidCost.toFixed(2)}`,
+                link: '/pricing',
+              }
+            })
+          }
         } else {
-          const freeRemaining = user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
-          const confirmationEmailHtml = generateUploadConfirmationEmail(userName, title, totalUploads, freeRemaining, true, 0, planName)
-          await sendEmail({ to: user.email, subject: '🎬 Upload Successful! | AI Media Tank', html: confirmationEmailHtml })
-          const notificationMessage = user.membershipType === 'PREMIUM'
-            ? `"${title}" uploaded successfully! Unlimited uploads available.`
-            : `"${title}" uploaded! ${newFreeUploadsRemaining} free upload${newFreeUploadsRemaining !== 1 ? 's' : ''} remaining.`
-          await prisma.notification.create({
-            data: { userId: user.id, type: 'system', title: '🎬 Upload Successful', message: notificationMessage }
-          })
+          if (!deferVideoSuccessNotify) {
+            const freeRemaining = user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
+            const confirmationEmailHtml = generateUploadConfirmationEmail(userName, title, totalUploads, freeRemaining, true, 0, planName)
+            await sendEmail({ to: user.email, subject: '🎬 Upload Successful! | AI Media Tank', html: confirmationEmailHtml })
+            const notificationMessage = user.membershipType === 'PREMIUM'
+              ? `"${title}" uploaded successfully! Unlimited uploads available.`
+              : `"${title}" uploaded! ${newFreeUploadsRemaining} free upload${newFreeUploadsRemaining !== 1 ? 's' : ''} remaining.`
+            await prisma.notification.create({
+              data: { userId: user.id, type: 'system', title: '🎬 Upload Successful', message: notificationMessage }
+            })
+          }
         }
 
         // Automatic content inspection for age rating: if review needed, mark media and notify admins

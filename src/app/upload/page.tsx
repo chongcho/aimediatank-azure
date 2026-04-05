@@ -1170,9 +1170,9 @@ function UploadPageContent() {
       {showPaymentSuccess && (
         <div className="mb-6 p-6 bg-green-500/10 border border-green-500/30 rounded-xl text-center">
           <div className="text-5xl mb-4">🎉</div>
-          <h2 className="font-bold text-green-400 text-2xl mb-2">Upload Complete!</h2>
+          <h2 className="font-bold text-green-400 text-2xl mb-2">Payment received</h2>
           <p className="text-gray-300 mb-4">
-            Your payment was successful and your media has been published!
+            Your upload fee was processed. Videos finish encoding shortly; you will get an email and in-app notice when your media appears on the home feed.
           </p>
           <p className="text-gray-400 text-sm">
             Redirecting to home page in 3 seconds...

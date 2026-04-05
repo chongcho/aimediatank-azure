@@ -166,6 +166,7 @@ export async function POST(request: Request) {
               isApproved: true,
               userId: pendingUpload.userId,
               processingStatus: isVideoUpload ? 'pending' : 'completed',
+              uploadSuccessNotifySource: isVideoUpload ? 'stripe_fee' : undefined,
               cropData: isVideoUpload && cropData ? cropData : undefined,
               trimStart: isVideoUpload && typeof trimStart === 'number' && trimStart >= 0 ? trimStart : undefined,
               trimEnd: isVideoUpload && typeof trimEnd === 'number' && trimEnd > 0 ? trimEnd : undefined,
@@ -188,11 +189,11 @@ export async function POST(request: Request) {
             select: { email: true, name: true, username: true, membershipType: true }
           })
           
-          if (user) {
+          if (user && !isVideoUpload) {
             const userName = user.name || user.username || 'User'
             const uploadCost = user.membershipType === 'ADVANCED' ? 0.50 : 1.00
             
-            // Send success email
+            // IMAGE/MUSIC: already complete — notify immediately. VIDEO: deferred until transcoding (deferredUploadNotifications).
             const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -243,7 +244,6 @@ export async function POST(request: Request) {
             
             console.log(`Sent upload complete email to ${user.email}`)
             
-            // Create in-app notification
             await prisma.notification.create({
               data: {
                 userId: userId,
