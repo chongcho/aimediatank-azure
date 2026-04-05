@@ -12,6 +12,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { pingUploadLiveNotifyCron } from '@/lib/pingUploadLiveNotifyCron'
 import { BlobServiceClient } from '@azure/storage-blob'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -662,6 +663,8 @@ export async function processMedia(
             console.log(
               `[MediaProcessor] Preview ready for media ${mediaId}: ${preview.label} (${preview.height}p)`
             )
+            // Home feed can list this row now; run deferred upload email in a short HTTP request (not this long one).
+            pingUploadLiveNotifyCron('preview')
           } catch (e) {
             console.error('[MediaProcessor] Failed to update media with preview (non-fatal):', e)
           }
@@ -698,12 +701,12 @@ export async function processMedia(
         data: updateData,
       })
 
+      pingUploadLiveNotifyCron('complete')
+
       await deleteBlob(rawUrl)
 
       console.log(`[MediaProcessor] ✅ Media ${mediaId} processed: ${result.variants.length} versions`)
-      // Deferred upload email + in-app: do NOT run here — this request can run FFmpeg for 25+ minutes and
-      // App Service often drops tail work. Cron calls backfillMissedUploadLiveNotification() at the start of
-      // each /api/cron/process-videos tick (fast path) instead.
+      // Deferred upload email: ping short /api/cron/upload-live-notify (above); do not call notify inline here.
     } finally {
       // Always clean up the local raw file
       await safeUnlink(rawLocalPath)
