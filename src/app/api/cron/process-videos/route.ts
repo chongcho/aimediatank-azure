@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { processMedia } from '@/lib/mediaProcessor'
 import { requireCronAuth } from '@/lib/cronAuth'
+import { backfillMissedUploadLiveNotification } from '@/lib/deferredUploadNotifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,9 @@ export async function GET(request: Request) {
   try {
     const authError = requireCronAuth(request)
     if (authError) return authError
+
+    // Repair completed videos that never got deferred "live" notify (e.g. email hang on first attempt)
+    const uploadNotifyBackfill = await backfillMissedUploadLiveNotification()
 
     // Find the oldest pending video (FIFO queue)
     const pendingMedia = await prisma.media.findFirst({
@@ -23,7 +27,11 @@ export async function GET(request: Request) {
     })
 
     if (!pendingMedia) {
-      return NextResponse.json({ status: 'idle', message: 'No pending videos' })
+      return NextResponse.json({
+        status: 'idle',
+        message: 'No pending videos',
+        uploadNotifyBackfill,
+      })
     }
 
     // If this pending item has been waiting too long, cron likely wasn't running — mark failed so UI shows error
@@ -41,6 +49,7 @@ export async function GET(request: Request) {
         status: 'stale_pending_failed',
         mediaId: pendingMedia.id,
         message: 'Marked stale pending as failed',
+        uploadNotifyBackfill,
       })
     }
 
@@ -69,6 +78,7 @@ export async function GET(request: Request) {
         return NextResponse.json({
           status: 'busy',
           message: `Already processing media ${currentlyProcessing.id}`,
+          uploadNotifyBackfill,
         })
       }
     }
@@ -90,6 +100,7 @@ export async function GET(request: Request) {
       status: 'processed',
       mediaId: pendingMedia.id,
       title: pendingMedia.title,
+      uploadNotifyBackfill,
     })
   } catch (error) {
     console.error('[ProcessVideos] Cron error:', error)

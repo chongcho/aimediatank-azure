@@ -8,17 +8,46 @@ import {
   generateUploadConfirmationEmail,
 } from '@/lib/uploadEmailTemplates'
 
+/** Match stored type regardless of casing (defensive) */
+const VIDEO_TYPE_FILTER = { equals: 'VIDEO' as const, mode: 'insensitive' as const }
+
+/**
+ * Pick one completed video that never received the deferred "live" notify (email + in-app).
+ * Called from process-videos cron so missed/failed first attempts are repaired within ~1 minute.
+ */
+export async function backfillMissedUploadLiveNotification(): Promise<{
+  backfilled: boolean
+  mediaId?: string
+}> {
+  try {
+    const row = await prisma.media.findFirst({
+      where: {
+        type: VIDEO_TYPE_FILTER,
+        processingStatus: 'completed',
+        uploadLiveNotifiedAt: null,
+      },
+      orderBy: { updatedAt: 'asc' },
+      select: { id: true },
+    })
+    if (!row) return { backfilled: false }
+    await notifyUploadLiveAfterVideoProcessing(row.id)
+    return { backfilled: true, mediaId: row.id }
+  } catch (e) {
+    console.error('[DeferredUploadNotify] backfillMissedUploadLiveNotification failed:', e)
+    return { backfilled: false }
+  }
+}
+
 /**
  * After server-side video processing completes, the home feed can show the item.
- * Send the same user-facing success email + in-app notification that we used to send
- * right after blob upload / Stripe checkout (which was wrong while processing could still fail).
+ * Send in-app notification first (always), then email when configured — email polling must not block the bell icon.
  */
 export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Promise<void> {
   try {
     const media = await prisma.media.findFirst({
       where: {
         id: mediaId,
-        type: 'VIDEO',
+        type: VIDEO_TYPE_FILTER,
         processingStatus: 'completed',
         uploadLiveNotifiedAt: null,
       },
@@ -27,11 +56,15 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
         title: true,
         userId: true,
         uploadSuccessNotifySource: true,
-        type: true,
       },
     })
 
-    if (!media || media.type !== 'VIDEO') return
+    if (!media) {
+      console.warn(
+        `[DeferredUploadNotify] Skip live notify for ${mediaId}: not found, not a video, not completed, or already notified`
+      )
+      return
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: media.userId },
@@ -49,8 +82,8 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
       },
     })
 
-    if (!user?.email) {
-      console.warn(`[DeferredUploadNotify] No email for user ${media.userId}, skip`)
+    if (!user) {
+      console.warn(`[DeferredUploadNotify] User ${media.userId} missing, skip live notify for media ${mediaId}`)
       return
     }
 
@@ -74,20 +107,9 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
     const source = media.uploadSuccessNotifySource
 
     try {
+      // In-app first so a slow/hung email client never blocks the user-visible notification
       switch (source) {
         case 'stripe_fee': {
-          const html = generateStripeUploadFeeCompleteEmail(
-            userName,
-            media.title,
-            'VIDEO',
-            stripeFee,
-            media.id
-          )
-          await sendEmail({
-            to: user.email,
-            subject: `🎉 Upload Complete: "${media.title}" | AI Media Tank`,
-            html,
-          })
           await prisma.notification.create({
             data: {
               userId: user.id,
@@ -97,23 +119,23 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               link: `/media/${media.id}`,
             },
           })
+          if (user.email) {
+            const html = generateStripeUploadFeeCompleteEmail(
+              userName,
+              media.title,
+              'VIDEO',
+              stripeFee,
+              media.id
+            )
+            await sendEmail({
+              to: user.email,
+              subject: `🎉 Upload Complete: "${media.title}" | AI Media Tank`,
+              html,
+            })
+          }
           break
         }
         case 'credit': {
-          const creditUploadEmailHtml = generateUploadConfirmationEmail(
-            userName,
-            media.title,
-            totalUploads,
-            `${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''}`,
-            true,
-            0,
-            planName
-          )
-          await sendEmail({
-            to: user.email,
-            subject: '✅ Upload Complete (Credit Used) | AI Media Tank',
-            html: creditUploadEmailHtml,
-          })
           await prisma.notification.create({
             data: {
               userId: user.id,
@@ -123,21 +145,25 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               link: `/media/${media.id}`,
             },
           })
+          if (user.email) {
+            const creditUploadEmailHtml = generateUploadConfirmationEmail(
+              userName,
+              media.title,
+              totalUploads,
+              `${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''}`,
+              true,
+              0,
+              planName
+            )
+            await sendEmail({
+              to: user.email,
+              subject: '✅ Upload Complete (Credit Used) | AI Media Tank',
+              html: creditUploadEmailHtml,
+            })
+          }
           break
         }
         case 'per_upload': {
-          const paidEmailHtml = generatePaidUploadEmail(
-            userName,
-            media.title,
-            uploadCost,
-            paidUploadsCount,
-            totalPaidCost
-          )
-          await sendEmail({
-            to: user.email,
-            subject: '💳 Paid Upload Processed | AI Media Tank',
-            html: paidEmailHtml,
-          })
           await prisma.notification.create({
             data: {
               userId: user.id,
@@ -147,26 +173,24 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               link: '/pricing',
             },
           })
+          if (user.email) {
+            const paidEmailHtml = generatePaidUploadEmail(
+              userName,
+              media.title,
+              uploadCost,
+              paidUploadsCount,
+              totalPaidCost
+            )
+            await sendEmail({
+              to: user.email,
+              subject: '💳 Paid Upload Processed | AI Media Tank',
+              html: paidEmailHtml,
+            })
+          }
           break
         }
         case 'free':
         case 'premium': {
-          const freeRemaining =
-            user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
-          const confirmationEmailHtml = generateUploadConfirmationEmail(
-            userName,
-            media.title,
-            totalUploads,
-            freeRemaining,
-            true,
-            0,
-            planName
-          )
-          await sendEmail({
-            to: user.email,
-            subject: '🎬 Upload Successful! | AI Media Tank',
-            html: confirmationEmailHtml,
-          })
           const notificationMessage =
             user.membershipType === 'PREMIUM'
               ? `"${media.title}" uploaded successfully! Unlimited uploads available.`
@@ -180,15 +204,27 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               link: `/media/${media.id}`,
             },
           })
+          if (user.email) {
+            const freeRemaining =
+              user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
+            const confirmationEmailHtml = generateUploadConfirmationEmail(
+              userName,
+              media.title,
+              totalUploads,
+              freeRemaining,
+              true,
+              0,
+              planName
+            )
+            await sendEmail({
+              to: user.email,
+              subject: '🎬 Upload Successful! | AI Media Tank',
+              html: confirmationEmailHtml,
+            })
+          }
           break
         }
         default: {
-          const html = generateGenericVideoLiveEmail(userName, media.title, media.id)
-          await sendEmail({
-            to: user.email,
-            subject: `🎬 Your video is ready: "${media.title}" | AI Media Tank`,
-            html,
-          })
           await prisma.notification.create({
             data: {
               userId: user.id,
@@ -198,6 +234,14 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
               link: `/media/${media.id}`,
             },
           })
+          if (user.email) {
+            const html = generateGenericVideoLiveEmail(userName, media.title, media.id)
+            await sendEmail({
+              to: user.email,
+              subject: `🎬 Your video is ready: "${media.title}" | AI Media Tank`,
+              html,
+            })
+          }
         }
       }
 
