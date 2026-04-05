@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/email'
+import { wherePublicHomeFeedVisible } from '@/lib/homeFeedVisibility'
 import { UPLOAD_CONFIG } from '@/lib/uploadPlanConfig'
 import {
   generateGenericVideoLiveEmail,
@@ -25,8 +26,8 @@ type LiveEmailPayload = { subject: string; html: string }
 const BACKFILL_MAX_PER_TICK = 15
 
 /**
- * Completed videos with uploadLiveNotifiedAt null — send deferred "live" notify (in-app + email).
- * Runs at the **start** of each process-videos cron tick (before FFmpeg) so ACS runs in a short request.
+ * Videos that would appear on the public home feed (same rule as GET /api/media) but have not been
+ * "live" notified yet — send deferred in-app + email. Runs in short cron requests.
  */
 export async function backfillMissedUploadLiveNotification(): Promise<{
   backfilled: boolean
@@ -38,8 +39,8 @@ export async function backfillMissedUploadLiveNotification(): Promise<{
     for (let i = 0; i < BACKFILL_MAX_PER_TICK; i++) {
       const row = await prisma.media.findFirst({
         where: {
+          ...wherePublicHomeFeedVisible(),
           type: VIDEO_TYPE_FILTER,
-          processingStatus: 'completed',
           uploadLiveNotifiedAt: null,
         },
         orderBy: { updatedAt: 'asc' },
@@ -61,17 +62,17 @@ export async function backfillMissedUploadLiveNotification(): Promise<{
 }
 
 /**
- * After server-side video processing completes, the home feed can show the item.
- * In-app notification first, then email. uploadLiveNotifiedAt is set only after email succeeds
- * (or there is no email on file — in-app only). Otherwise backfill could never retry.
+ * When the item is eligible for the public home feed (completed or processing-with-preview, same as
+ * GET /api/media), send deferred in-app + email. uploadLiveNotifiedAt only after email succeeds
+ * (or no email on account).
  */
 export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Promise<void> {
   try {
     const media = await prisma.media.findFirst({
       where: {
         id: mediaId,
+        ...wherePublicHomeFeedVisible(),
         type: VIDEO_TYPE_FILTER,
-        processingStatus: 'completed',
         uploadLiveNotifiedAt: null,
       },
       select: {
@@ -84,7 +85,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
 
     if (!media) {
       console.warn(
-        `[DeferredUploadNotify] Skip live notify for ${mediaId}: not found, not a video, not completed, or already notified`
+        `[DeferredUploadNotify] Skip live notify for ${mediaId}: not found, not a video, not public home-feed visible yet, or already notified`
       )
       return
     }
