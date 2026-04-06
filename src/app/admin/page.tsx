@@ -8,8 +8,13 @@ import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
 import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX } from '@/lib/uploadPlanConfig'
 import { ADMIN_FRESH_STEP2_PARAM } from '@/lib/adminFreshStep2'
 
-function isAppAdminRole(role: string | undefined): boolean {
-  return role === 'ADMIN'
+function isAppAdminRole(role: string | undefined | null): boolean {
+  if (role == null || typeof role !== 'string') return false
+  return role.trim().toUpperCase() === 'ADMIN'
+}
+
+function sessionRoleIsLoaded(role: string | undefined | null): boolean {
+  return typeof role === 'string' && role.length > 0
 }
 
 function parseAccessLogAbnormalFlags(raw: string | null | undefined): string[] {
@@ -712,14 +717,20 @@ export default function AdminPage() {
       const safeReturn =
         path.startsWith('/') && !path.startsWith('//') ? path : '/admin'
       router.push(`/login?callbackUrl=${encodeURIComponent(safeReturn)}`)
-    } else if (status === 'authenticated' && !isAppAdminRole(session?.user?.role)) {
+    } else if (
+      status === 'authenticated' &&
+      session?.user &&
+      sessionRoleIsLoaded(session.user.role) &&
+      !isAppAdminRole(session.user.role)
+    ) {
       router.push('/')
     }
   }, [status, session, router])
 
   // Single AdminPage (no @modal duplicate). ?init=1 clears admin_reauth on the server response and returns verified:false atomically.
   useEffect(() => {
-    if (status !== 'authenticated' || !session?.user || !isAppAdminRole(session.user.role)) return
+    if (status !== 'authenticated' || !session?.user || !sessionRoleIsLoaded(session.user.role)) return
+    if (!isAppAdminRole(session.user.role)) return
     let cancelled = false
 
     ;(async () => {
@@ -734,7 +745,10 @@ export default function AdminPage() {
           }
         }
         if (cancelled) return
-        const res = await fetch('/api/admin/verify-access?init=1', { credentials: 'include' })
+        const res = await fetch('/api/admin/verify-access?init=1', {
+          credentials: 'include',
+          cache: 'no-store',
+        })
         if (cancelled) return
         if (!res.ok) {
           setReauthVerified(false)
@@ -1478,7 +1492,7 @@ export default function AdminPage() {
     }
   }
 
-  if (status === 'loading' || !session?.user || !isAppAdminRole(session.user.role) || reauthVerified === null) {
+  if (status === 'loading' || !session?.user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="spinner" />
@@ -1486,8 +1500,25 @@ export default function AdminPage() {
     )
   }
 
-  // Re-authentication gate: password + two-step verification (email or phone code)
-  if (reauthVerified === false) {
+  // Wait until JWT/session includes role (otherwise we used to spin forever or redirect real admins home).
+  if (status === 'authenticated' && !sessionRoleIsLoaded(session.user.role)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="spinner" />
+      </div>
+    )
+  }
+
+  if (!isAppAdminRole(session.user.role)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="spinner" />
+      </div>
+    )
+  }
+
+  // Admin: main panel only after explicit success; show Step 2 for false OR null (do not block on verify-access fetch).
+  if (reauthVerified !== true) {
     const handleSendCode = async () => {
       setReauthError('')
       setReauthSendLoading(true)
@@ -1637,6 +1668,7 @@ export default function AdminPage() {
     )
   }
 
+  /* reauthVerified === true */
   return (
     <div data-initial-content className="w-full px-4 lg:px-8 pb-[500px]">
       {/* Toast Notification */}

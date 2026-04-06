@@ -18,11 +18,16 @@ function dedicatedAdminPanelPasswordRequired(): boolean {
   return process.env.ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD === 'true'
 }
 
+function sessionUserIsAdmin(session: { user?: { role?: string | null } } | null): boolean {
+  const r = session?.user?.role
+  return typeof r === 'string' && r.trim().toUpperCase() === 'ADMIN'
+}
+
 // GET: Check admin re-auth cookie, or ?init=1 = atomically clear cookie + require Step 2 (no race with client POST clear).
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as { role?: string }).role !== 'ADMIN') {
+    if (!session?.user || !sessionUserIsAdmin(session)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const adminPanelPasswordConfigured = isAdminPanelAccessPasswordConfigured()
@@ -64,7 +69,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as { role?: string }).role !== 'ADMIN') {
+    if (!session?.user || !sessionUserIsAdmin(session)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const body = await request.json()
