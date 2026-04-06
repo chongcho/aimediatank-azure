@@ -743,26 +743,24 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   <span>{media.views.toLocaleString()} views</span>
                 </div>
 
-                {/* Reactions (like only — thumbs up) */}
+                {/* Reactions (like only) — same ThumbsUpIcon + sizing as MediaCard home feed */}
                 <button
                   type="button"
                   onClick={() => handleReaction('happy')}
-                  className={`flex items-center gap-1.5 transition-transform hover:scale-110 ${
+                  className={`flex items-center gap-1 text-sm transition-transform hover:scale-110 ${
                     userReaction === 'happy' ? 'scale-110' : ''
                   }`}
                   aria-label={userReaction === 'happy' ? 'Remove like' : 'Like'}
                 >
                   <ThumbsUpIcon
-                    className={`w-7 h-7 shrink-0 ${
+                    className={`w-4 h-4 shrink-0 ${
                       userReaction === 'happy'
                         ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]'
                         : 'text-gray-400'
                     }`}
                   />
                   <span
-                    className={`text-sm font-medium ${
-                      userReaction === 'happy' ? 'text-yellow-400' : 'text-gray-400'
-                    }`}
+                    className={userReaction === 'happy' ? 'text-yellow-400 font-medium' : 'text-gray-300'}
                   >
                     {reactions.happy}
                   </span>
@@ -791,7 +789,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                 ) : (
                   <svg
-                    className="w-5 h-5 shrink-0"
+                    className="w-5 h-5"
                     fill={isSaved ? 'currentColor' : 'none'}
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -804,23 +802,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     />
                   </svg>
                 )}
-                <span>{isSaved ? 'Saved to My Contents' : 'Save to My Contents'}</span>
-                {!savingMedia && (
-                  <svg
-                    className="w-5 h-5 shrink-0 opacity-90"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
-                )}
+                {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
               </button>
 
               {/* Download & Share row */}
