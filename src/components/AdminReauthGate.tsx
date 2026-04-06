@@ -12,6 +12,34 @@ function sessionRoleIsLoaded(role: string | undefined | null): boolean {
   return typeof role === 'string' && role.length > 0
 }
 
+/** Same chrome as Step 2 card so session hydration does not flash a full-screen spinner. */
+function AdminReauthPlaceholder({ message }: { message?: string }) {
+  return (
+    <div data-initial-content className="min-h-screen flex items-center justify-center px-4">
+      <div
+        className="w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-8"
+        aria-busy={message ? undefined : true}
+        aria-label={message ?? 'Loading admin verification'}
+      >
+        {message ? (
+          <p className="text-gray-400 text-sm text-center">{message}</p>
+        ) : (
+          <div className="animate-pulse space-y-4">
+            <div className="h-3 w-20 bg-tank-light rounded" />
+            <div className="h-8 w-56 bg-tank-light rounded" />
+            <div className="h-4 w-full bg-tank-light/80 rounded" />
+            <div className="h-4 w-full bg-tank-light/80 rounded" />
+            <div className="h-4 w-3/4 bg-tank-light/80 rounded" />
+            <div className="h-11 w-full bg-tank-light rounded mt-6" />
+            <div className="h-11 w-full bg-tank-light rounded" />
+            <div className="h-12 w-full bg-tank-accent/20 rounded" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /**
  * Step 2: admin passphrase + email/phone code. Used on /admin/reauth (outside dashboard layout).
  */
@@ -96,20 +124,20 @@ export default function AdminReauthGate({ onVerified }: { onVerified: () => void
     }
   }
 
-  if (status === 'loading' || !session?.user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="spinner" />
-      </div>
-    )
+  if (status === 'loading') {
+    return <AdminReauthPlaceholder />
   }
 
-  if (status === 'authenticated' && !sessionRoleIsLoaded(session.user.role)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="spinner" />
-      </div>
-    )
+  if (status === 'unauthenticated') {
+    return <AdminReauthPlaceholder message="Redirecting to sign in…" />
+  }
+
+  if (!session?.user) {
+    return <AdminReauthPlaceholder />
+  }
+
+  if (!sessionRoleIsLoaded(session.user.role)) {
+    return <AdminReauthPlaceholder />
   }
 
   if (!isAppAdminRole(session.user.role)) {
@@ -228,7 +256,7 @@ export default function AdminReauthGate({ onVerified }: { onVerified: () => void
           </div>
           {reauthError && <p className="text-red-400 text-sm">{reauthError}</p>}
           <button type="submit" disabled={reauthVerifyLoading} className="btn-primary w-full">
-            {reauthVerifyLoading ? 'Verifying…' : 'Verify and enter Admin Panel'}
+            {reauthVerifyLoading ? 'Verifying…' : 'Verify and continue'}
           </button>
         </form>
       </div>
