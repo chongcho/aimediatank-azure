@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
+import { ADMIN_FRESH_STEP2_PARAM } from '@/lib/adminFreshStep2'
+import { buildExpiredAdminReauthCookie } from '@/lib/adminReauthConstants'
 import { BLOCKED_IP_LIST_HEADER, isClientIpBlocked } from '@/lib/blockedIpListClient'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
 import { detectBadBotUserAgent } from '@/lib/badBotDetect'
@@ -127,6 +129,16 @@ export async function middleware(request: NextRequest) {
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       })
     }
+  }
+
+  // Force Admin Step 2: clear admin_reauth before /admin renders (see appendAdminFreshStep2Param).
+  if (pathname === '/admin' && request.nextUrl.searchParams.get(ADMIN_FRESH_STEP2_PARAM) === '1') {
+    const url = request.nextUrl.clone()
+    url.searchParams.delete(ADMIN_FRESH_STEP2_PARAM)
+    const res = NextResponse.redirect(url)
+    const c = buildExpiredAdminReauthCookie()
+    res.cookies.set(c.name, c.value, c.options)
+    return res
   }
 
   if (SKIP_PATHS.has(pathname) || pathname.startsWith('/api/')) {

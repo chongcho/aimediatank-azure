@@ -5,6 +5,7 @@ import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { SocialSignIn } from '@/components/SocialSignIn'
+import { appendAdminFreshStep2Param } from '@/lib/adminFreshStep2'
 
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthCallback: 'Social sign-in failed. You can try again or sign in with email below.',
@@ -92,10 +93,10 @@ function LoginContent() {
         setError(ERROR_MESSAGES[result.error] ?? result.error)
         setLoading(false)
       } else if (result?.ok) {
-        window.location.replace(safeCallbackUrl)
+        window.location.replace(appendAdminFreshStep2Param(safeCallbackUrl))
         return
       } else {
-        window.location.replace(safeCallbackUrl)
+        window.location.replace(appendAdminFreshStep2Param(safeCallbackUrl))
         return
       }
     } catch (err) {
@@ -306,7 +307,11 @@ function LoginContent() {
                   <span className="bg-tank-gray px-3 text-gray-400">Or continue with</span>
                 </div>
               </div>
-              <SocialSignIn mode="signin" callbackUrl={safeCallbackUrl} hideDividerAbove />
+              <SocialSignIn
+                mode="signin"
+                callbackUrl={appendAdminFreshStep2Param(safeCallbackUrl)}
+                hideDividerAbove
+              />
               <p className="text-xs text-gray-500 text-center mt-3">
                 Social sign-in only if your admin account uses that provider. Email/password above is recommended for admin access.
               </p>

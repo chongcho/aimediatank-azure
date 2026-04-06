@@ -8,6 +8,7 @@ import dynamic from 'next/dynamic'
 import MediaMessageModal from './MediaMessageModal'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
 import { clearHomeFeed } from '@/lib/homePrefetchCache'
+import { appendAdminFreshStep2Param } from '@/lib/adminFreshStep2'
 
 // Dynamic import TalkChat to prevent SSR issues
 const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
@@ -802,7 +803,8 @@ function NavbarContent() {
                       </Link>
                       {isAdmin && (
                         <Link
-                          href="/admin"
+                          prefetch={false}
+                          href={appendAdminFreshStep2Param('/admin')}
                           className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors text-red-400"
                           onClick={() => setIsProfileOpen(false)}
                         >
@@ -816,7 +818,12 @@ function NavbarContent() {
                       <button
                         onClick={() => {
                           clearAppBadge() // Clear badge on sign out
-                          signOut({ callbackUrl: '/' })
+                          void fetch('/api/admin/clear-reauth-cookie', {
+                            method: 'POST',
+                            credentials: 'include',
+                          }).finally(() => {
+                            signOut({ callbackUrl: '/' })
+                          })
                         }}
                         className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors w-full text-left text-gray-400"
                       >

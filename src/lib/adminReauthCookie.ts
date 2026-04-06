@@ -2,8 +2,9 @@
 // must re-verify periodically when accessing the panel.
 
 import { createHmac, timingSafeEqual } from 'crypto'
+import { ADMIN_REAUTH_COOKIE_NAME } from './adminReauthConstants'
 
-const COOKIE_NAME = 'admin_reauth'
+const COOKIE_NAME = ADMIN_REAUTH_COOKIE_NAME
 const MAX_AGE_SEC = 30 * 60 // 30 minutes
 const SECRET = process.env.NEXTAUTH_SECRET ?? ''
 
