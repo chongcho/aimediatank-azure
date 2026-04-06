@@ -27,8 +27,21 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
+      # ffmpeg-static postinstall downloads from GitHub releases; that endpoint often returns 5xx.
+      # Point FFMPEG_BIN at apt's ffmpeg so install skips the download, then copy the binary into
+      # the package so the Azure bundle still contains node_modules/ffmpeg-static/ffmpeg.
+      - name: Install system FFmpeg (CI)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Install dependencies
-        run: npm ci
+        run: |
+          export FFMPEG_BIN=/usr/bin/ffmpeg
+          npm ci
+          cp -L "$(command -v ffmpeg)" node_modules/ffmpeg-static/ffmpeg
+          chmod +x node_modules/ffmpeg-static/ffmpeg
+          test -x node_modules/ffmpeg-static/ffmpeg
 
       - name: Generate Prisma Client
         run: npx prisma generate
