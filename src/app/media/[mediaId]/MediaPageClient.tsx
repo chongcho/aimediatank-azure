@@ -553,6 +553,15 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     media.url &&
     /-(?:360p|480p|720p|1080p|hq)\.mp4/i.test(media.url)
 
+  const handleLeaveDetail = () => {
+    stopAllMedia()
+    if (intercepted) {
+      setClosing(true)
+    } else {
+      router.replace('/')
+    }
+  }
+
   return (
     <div className="pb-[500px]">
       {/* Fade-to-black overlay before router.back() when closing from intercepted modal (avoids flash). */}
@@ -677,30 +686,40 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       <div className="max-w-4xl mx-auto px-4 pt-5 space-y-6">
         {/* Info Card - Two Column Layout */}
         <div className="card">
-          <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-8">
-            {/* Left Column: Title, Metadata, Reactions */}
-            <div className="min-w-0 lg:flex-1">
-              {/* Title Row */}
-              <div className="flex items-center gap-2 mb-2 overflow-hidden">
-                <h1
-                  className="font-semibold text-white truncate min-w-0"
-                  title={stripHashtags(media.title)}
+          {/* Title row + close — full width at top of card */}
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="min-w-0 flex-1 flex items-center gap-2 overflow-hidden">
+              <h1
+                className="font-semibold text-white truncate min-w-0"
+                title={stripHashtags(media.title)}
+              >
+                {formatMediaTitle(media.title, 60)}
+              </h1>
+              {canManage && (
+                <a
+                  href={`/media/${mediaId}/edit`}
+                  className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold no-touch-callout"
+                  onContextMenu={(e) => e.preventDefault()}
                 >
-                  {formatMediaTitle(media.title, 60)}
-                </h1>
+                  Edit
+                </a>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleLeaveDetail}
+              className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:text-white hover:bg-tank-light/40 transition-colors -mt-0.5 -mr-0.5"
+              aria-label="Close"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-                {/* Edit Button - for owners (hard navigation to exit intercepting-route modal) */}
-                {canManage && (
-                  <a
-                    href={`/media/${mediaId}/edit`}
-                    className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold no-touch-callout"
-                    onContextMenu={(e) => e.preventDefault()}
-                  >
-                    Edit
-                  </a>
-                )}
-              </div>
-
+          <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-8">
+            {/* Left Column: Metadata, Views, Reactions */}
+            <div className="min-w-0 lg:flex-1">
               {/* Metadata Row - Diamond, Type, Date, Creator, AI Tool */}
               <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 mb-4">
                 {media.price && media.price > 0 && (
@@ -732,7 +751,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 )}
               </div>
 
-              {/* Views + Reactions Row — above description */}
+              {/* Views + Reactions Row */}
               <div className="flex items-center gap-6 mb-4">
                 {/* Views */}
                 <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -762,11 +781,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   <span>{reactions.happy}</span>
                 </button>
               </div>
-
-              {/* Description Row */}
-              {media.description && (
-                <p className="text-gray-300 mb-4 whitespace-pre-wrap break-words">{media.description}</p>
-              )}
             </div>
 
             {/* Right Column: Save, Download */}
@@ -866,6 +880,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               </div>
             </div>
           </div>
+
+          {/* Description — below action buttons (Save / Download / Share / Send by email) */}
+          {media.description && (
+            <p className="text-gray-300 mt-6 whitespace-pre-wrap break-words w-full border-t border-tank-light/20 pt-6">
+              {media.description}
+            </p>
+          )}
 
           {/* Buy Now Button - Only show for paid content that user doesn't own */}
           {media.price && media.price > 0 && !isOwner && (
@@ -1263,14 +1284,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       <div className="max-w-4xl mx-auto px-4 mt-8">
         <button
           type="button"
-          onClick={() => {
-            stopAllMedia()
-            if (intercepted) {
-              setClosing(true)
-            } else {
-              router.replace('/')
-            }
-          }}
+          onClick={handleLeaveDetail}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
           ← Back
