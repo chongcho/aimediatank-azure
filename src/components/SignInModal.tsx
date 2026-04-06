@@ -2,9 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { signIn } from 'next-auth/react'
+import { signIn, getSession } from 'next-auth/react'
 import Link from 'next/link'
 import { SocialSignIn } from '@/components/SocialSignIn'
+import {
+  appendAdminFreshStep2Param,
+  ADMIN_FORCE_STEP2_STORAGE_KEY,
+  isAppAdminRole,
+} from '@/lib/adminFreshStep2'
 
 interface SignInModalProps {
   isOpen: boolean
@@ -50,10 +55,24 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
       if (result?.error) {
         setError('Invalid email or password')
         setLoading(false)
-      } else {
+      } else if (result?.ok) {
         onClose()
-        window.location.replace('/')
+        const session = await getSession()
+        const dest = isAppAdminRole(session?.user?.role)
+          ? appendAdminFreshStep2Param('/admin')
+          : '/'
+        try {
+          if (dest.startsWith('/admin')) {
+            sessionStorage.setItem(ADMIN_FORCE_STEP2_STORAGE_KEY, '1')
+          }
+        } catch {
+          /* private mode */
+        }
+        window.location.replace(dest)
         return
+      } else {
+        setError('An error occurred. Please try again.')
+        setLoading(false)
       }
     } catch (err) {
       setError('An error occurred. Please try again.')

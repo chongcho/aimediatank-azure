@@ -14,3 +14,9 @@ export function appendAdminFreshStep2Param(callbackPathWithQuery: string): strin
   if (new RegExp(`(?:^|[?&])${ADMIN_FRESH_STEP2_PARAM}=1(?:&|$)`).test(p)) return p
   return p.includes('?') ? `${p}&${ADMIN_FRESH_STEP2_PARAM}=1` : `${p}?${ADMIN_FRESH_STEP2_PARAM}=1`
 }
+
+/** Matches server-side admin checks (case-insensitive). */
+export function isAppAdminRole(role: string | undefined | null): boolean {
+  if (role == null || typeof role !== 'string') return false
+  return role.trim().toUpperCase() === 'ADMIN'
+}

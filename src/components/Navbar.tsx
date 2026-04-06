@@ -8,7 +8,11 @@ import dynamic from 'next/dynamic'
 import MediaMessageModal from './MediaMessageModal'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
 import { clearHomeFeed } from '@/lib/homePrefetchCache'
-import { appendAdminFreshStep2Param, ADMIN_FORCE_STEP2_STORAGE_KEY } from '@/lib/adminFreshStep2'
+import {
+  appendAdminFreshStep2Param,
+  ADMIN_FORCE_STEP2_STORAGE_KEY,
+  isAppAdminRole,
+} from '@/lib/adminFreshStep2'
 
 // Dynamic import TalkChat to prevent SSR issues
 const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
@@ -130,7 +134,7 @@ function NavbarContent() {
   const isSubscriber = userData?.role === 'SUBSCRIBER' || userData?.role === 'ADMIN' || 
                        userData?.membershipType === 'BASIC' || userData?.membershipType === 'ADVANCED' || userData?.membershipType === 'PREMIUM' ||
                        session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'
-  const isAdmin = userData?.role === 'ADMIN' || session?.user?.role === 'ADMIN'
+  const isAdmin = isAppAdminRole(userData?.role) || isAppAdminRole(session?.user?.role)
   
   // Display name - show Nickname (username) in navbar
   const displayName = userData?.username || session?.user?.username || 'User'
