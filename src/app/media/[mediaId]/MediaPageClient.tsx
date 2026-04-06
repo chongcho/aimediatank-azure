@@ -743,11 +743,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   <span>{media.views.toLocaleString()} views</span>
                 </div>
 
-                {/* Reactions (like only) — same ThumbsUpIcon + sizing as MediaCard home feed */}
+                {/* Reactions (like only) — icon sizing matches MediaCard; count text matches views row */}
                 <button
                   type="button"
                   onClick={() => handleReaction('happy')}
-                  className={`flex items-center gap-1 text-sm transition-transform hover:scale-110 ${
+                  className={`flex items-center gap-2 text-sm text-gray-400 transition-transform hover:scale-110 ${
                     userReaction === 'happy' ? 'scale-110' : ''
                   }`}
                   aria-label={userReaction === 'happy' ? 'Remove like' : 'Like'}
@@ -759,11 +759,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                         : 'text-gray-400'
                     }`}
                   />
-                  <span
-                    className={userReaction === 'happy' ? 'text-yellow-400 font-medium' : 'text-gray-300'}
-                  >
-                    {reactions.happy}
-                  </span>
+                  <span>{reactions.happy}</span>
                 </button>
               </div>
 
