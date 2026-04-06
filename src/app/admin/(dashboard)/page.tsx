@@ -696,6 +696,8 @@ export default function AdminPage() {
   }, [toast])
 
   useEffect(() => {
+    if (status === 'loading') return
+
     if (status === 'unauthenticated') {
       const path =
         typeof window !== 'undefined'

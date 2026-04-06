@@ -20,7 +20,8 @@ export default function AdminReauthClient({
       initialAdminPanelPasswordConfigured={initialAdminPanelPasswordConfigured}
       initialDedicatedPasswordRequired={initialDedicatedPasswordRequired}
       onVerified={() => {
-        window.location.assign('/')
+        // Plain /admin so middleware does not clear admin_reauth (?ar=1) right after verify sets it.
+        window.location.assign('/admin')
       }}
     />
   )

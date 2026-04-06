@@ -2,14 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { signIn, getSession } from 'next-auth/react'
+import { signIn } from 'next-auth/react'
 import Link from 'next/link'
 import { SocialSignIn } from '@/components/SocialSignIn'
-import {
-  appendAdminFreshStep2Param,
-  ADMIN_FORCE_STEP2_STORAGE_KEY,
-  isAppAdminRole,
-} from '@/lib/adminFreshStep2'
 
 interface SignInModalProps {
   isOpen: boolean
@@ -57,18 +52,8 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
         setLoading(false)
       } else if (result?.ok) {
         onClose()
-        const session = await getSession()
-        const dest = isAppAdminRole(session?.user?.role)
-          ? appendAdminFreshStep2Param('/admin')
-          : '/'
-        try {
-          if (dest.startsWith('/admin')) {
-            sessionStorage.setItem(ADMIN_FORCE_STEP2_STORAGE_KEY, '1')
-          }
-        } catch {
-          /* private mode */
-        }
-        window.location.replace(dest)
+        // App sign-in only — use Admin Panel in the menu for admin Step 2 (separate from normal login).
+        window.location.replace('/')
         return
       } else {
         setError('An error occurred. Please try again.')

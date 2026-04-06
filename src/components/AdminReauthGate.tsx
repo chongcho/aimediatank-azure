@@ -305,7 +305,7 @@ export default function AdminReauthGate({
           </div>
           {reauthError && <p className="text-red-400 text-sm">{reauthError}</p>}
           <button type="submit" disabled={reauthVerifyLoading} className="btn-primary w-full">
-            {reauthVerifyLoading ? 'Verifying…' : 'Verify and continue'}
+            {reauthVerifyLoading ? 'Verifying…' : 'Verify and enter Admin Panel'}
           </button>
         </form>
       </div>
