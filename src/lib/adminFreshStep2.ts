@@ -5,6 +5,9 @@
  */
 export const ADMIN_FRESH_STEP2_PARAM = 'ar'
 
+/** sessionStorage: client clears admin_reauth before verify-access when this flag is set. */
+export const ADMIN_FORCE_STEP2_STORAGE_KEY = 'adminForceStep2'
+
 export function appendAdminFreshStep2Param(callbackPathWithQuery: string): string {
   const p = callbackPathWithQuery.trim()
   if (p !== '/admin' && !p.startsWith('/admin?')) return p

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
 import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX } from '@/lib/uploadPlanConfig'
+import { ADMIN_FRESH_STEP2_PARAM, ADMIN_FORCE_STEP2_STORAGE_KEY } from '@/lib/adminFreshStep2'
 
 function parseAccessLogAbnormalFlags(raw: string | null | undefined): string[] {
   if (!raw) return []
@@ -712,12 +713,42 @@ export default function AdminPage() {
     }
   }, [status, session, router])
 
-  // Check if admin has already passed re-auth (cookie valid)
+  // Check if admin has already passed re-auth; clear cookie first when forcing Step 2 (ar=1 or post-login flag).
   useEffect(() => {
     if (status !== 'authenticated' || !session?.user || session.user.role !== 'ADMIN') return
     let cancelled = false
-    fetch('/api/admin/verify-access', { credentials: 'include' })
-      .then(async (res) => {
+
+    ;(async () => {
+      try {
+        let needClear = false
+        if (typeof window !== 'undefined') {
+          try {
+            if (sessionStorage.getItem(ADMIN_FORCE_STEP2_STORAGE_KEY) === '1') {
+              needClear = true
+              sessionStorage.removeItem(ADMIN_FORCE_STEP2_STORAGE_KEY)
+            }
+          } catch {
+            /* private mode */
+          }
+          if (new URLSearchParams(window.location.search).get(ADMIN_FRESH_STEP2_PARAM) === '1') {
+            needClear = true
+          }
+        }
+        if (needClear && !cancelled) {
+          await fetch('/api/admin/clear-reauth-cookie', { method: 'POST', credentials: 'include' })
+        }
+        if (cancelled) return
+        if (typeof window !== 'undefined') {
+          const sp = new URLSearchParams(window.location.search)
+          if (sp.get(ADMIN_FRESH_STEP2_PARAM) === '1') {
+            sp.delete(ADMIN_FRESH_STEP2_PARAM)
+            const qs = sp.toString()
+            const path = window.location.pathname
+            window.history.replaceState({}, '', qs ? `${path}?${qs}` : path)
+          }
+        }
+        if (cancelled) return
+        const res = await fetch('/api/admin/verify-access', { credentials: 'include' })
         if (cancelled) return
         if (!res.ok) {
           setReauthVerified(false)
@@ -729,16 +760,19 @@ export default function AdminPage() {
         setReauthVerified(data.verified === true)
         setReauthAdminPanelPasswordConfigured(!!data.adminPanelPasswordConfigured)
         setReauthDedicatedPasswordRequired(!!data.dedicatedPasswordRequired)
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setReauthVerified(false)
           setReauthAdminPanelPasswordConfigured(false)
           setReauthDedicatedPasswordRequired(false)
         }
-      })
-    return () => { cancelled = true }
-  }, [status, session?.user?.role])
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [status, session?.user?.id, session?.user?.role])
 
   // Debounce user search
   useEffect(() => {

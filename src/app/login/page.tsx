@@ -5,7 +5,7 @@ import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { SocialSignIn } from '@/components/SocialSignIn'
-import { appendAdminFreshStep2Param } from '@/lib/adminFreshStep2'
+import { appendAdminFreshStep2Param, ADMIN_FORCE_STEP2_STORAGE_KEY } from '@/lib/adminFreshStep2'
 
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthCallback: 'Social sign-in failed. You can try again or sign in with email below.',
@@ -93,9 +93,23 @@ function LoginContent() {
         setError(ERROR_MESSAGES[result.error] ?? result.error)
         setLoading(false)
       } else if (result?.ok) {
+        try {
+          if (safeCallbackUrl === '/admin' || safeCallbackUrl.startsWith('/admin?')) {
+            sessionStorage.setItem(ADMIN_FORCE_STEP2_STORAGE_KEY, '1')
+          }
+        } catch {
+          /* private mode */
+        }
         window.location.replace(appendAdminFreshStep2Param(safeCallbackUrl))
         return
       } else {
+        try {
+          if (safeCallbackUrl === '/admin' || safeCallbackUrl.startsWith('/admin?')) {
+            sessionStorage.setItem(ADMIN_FORCE_STEP2_STORAGE_KEY, '1')
+          }
+        } catch {
+          /* private mode */
+        }
         window.location.replace(appendAdminFreshStep2Param(safeCallbackUrl))
         return
       }

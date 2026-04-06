@@ -131,11 +131,10 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Force Admin Step 2: clear admin_reauth before /admin renders (see appendAdminFreshStep2Param).
+  // Force Admin Step 2: clear admin_reauth on this response (same navigation as the page).
+  // Redirect was unreliable with App Router soft navigation (verify-access could run before Set-Cookie applied).
   if (pathname === '/admin' && request.nextUrl.searchParams.get(ADMIN_FRESH_STEP2_PARAM) === '1') {
-    const url = request.nextUrl.clone()
-    url.searchParams.delete(ADMIN_FRESH_STEP2_PARAM)
-    const res = NextResponse.redirect(url)
+    const res = NextResponse.next()
     const c = buildExpiredAdminReauthCookie()
     res.cookies.set(c.name, c.value, c.options)
     return res

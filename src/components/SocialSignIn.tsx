@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { signIn, getProviders } from 'next-auth/react'
+import { ADMIN_FORCE_STEP2_STORAGE_KEY } from '@/lib/adminFreshStep2'
 
 const SOCIAL_BUTTONS: { id: string; label: string; icon: 'google' | 'facebook' | 'apple' | 'microsoft' }[] = [
   { id: 'entra-external-id-google', label: 'Google', icon: 'google' },
@@ -73,6 +74,14 @@ export function SocialSignIn({ mode, callbackUrl = '/', hideDividerAbove = false
 
   const handleSocialSignIn = (providerId: string) => {
     setLoadingId(providerId)
+    const dest = callbackUrl ?? '/'
+    if (/^\/admin(\?|$)/.test(dest)) {
+      try {
+        sessionStorage.setItem(ADMIN_FORCE_STEP2_STORAGE_KEY, '1')
+      } catch {
+        /* private mode */
+      }
+    }
     signIn(providerId, { callbackUrl })
   }
 
