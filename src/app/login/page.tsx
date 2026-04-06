@@ -74,6 +74,8 @@ function LoginContent() {
   const returningToAdmin =
     safeCallbackUrl === '/admin' || safeCallbackUrl.startsWith('/admin?')
 
+  const showCredentialsForm = returningToAdmin || showEmailForm
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -113,6 +115,11 @@ function LoginContent() {
               <span className="text-sky-400">T</span>ank
             </span>
           </Link>
+          {returningToAdmin && (
+            <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-2">
+              Step 1 of 2 · Account sign-in
+            </p>
+          )}
           <div className="flex items-center justify-center relative">
             <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
             <button
@@ -128,8 +135,8 @@ function LoginContent() {
           </div>
           <p className="text-gray-400">Sign in to your account</p>
           {returningToAdmin && (
-            <p className="text-sm text-tank-accent/90 mt-3 max-w-md mx-auto">
-              Step 1 of 2: After you sign in, you will complete a separate Admin Panel verification (password and code) before the panel opens.
+            <p className="text-sm text-gray-300 mt-3 max-w-md mx-auto">
+              Use your email and password here first. Step 2 (after sign-in) is Admin Panel verification: a server-configured admin passphrase plus email or phone code.
             </p>
           )}
         </div>
@@ -196,7 +203,7 @@ function LoginContent() {
                 ← Back to Sign In
               </button>
             </form>
-          ) : !showEmailForm ? (
+          ) : !showCredentialsForm ? (
             <>
               <SocialSignIn mode="signin" callbackUrl={safeCallbackUrl} hideDividerAbove />
 
@@ -219,16 +226,18 @@ function LoginContent() {
             </>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              <button
-                type="button"
-                onClick={() => {
-                  setError('')
-                  setShowEmailForm(false)
-                }}
-                className="text-sm text-gray-400 hover:text-gray-200 transition-colors -mb-2"
-              >
-                ← Back
-              </button>
+              {!returningToAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError('')
+                    setShowEmailForm(false)
+                  }}
+                  className="text-sm text-gray-400 hover:text-gray-200 transition-colors -mb-2"
+                >
+                  ← Back
+                </button>
+              )}
 
               <div>
                 <div className="flex justify-between items-center mb-2">
@@ -285,6 +294,23 @@ function LoginContent() {
                 )}
               </button>
             </form>
+          )}
+
+          {returningToAdmin && showCredentialsForm && !showForgotEmail && (
+            <>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-tank-light" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="bg-tank-gray px-3 text-gray-400">Or continue with</span>
+                </div>
+              </div>
+              <SocialSignIn mode="signin" callbackUrl={safeCallbackUrl} hideDividerAbove />
+              <p className="text-xs text-gray-500 text-center mt-3">
+                Social sign-in only if your admin account uses that provider. Email/password above is recommended for admin access.
+              </p>
+            </>
           )}
 
           <p className="mt-6 text-center text-sm text-gray-400">

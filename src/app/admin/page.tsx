@@ -688,6 +688,7 @@ export default function AdminPage() {
   const [reauthVerifyLoading, setReauthVerifyLoading] = useState(false)
   const [reauthError, setReauthError] = useState('')
   const [reauthAdminPanelPasswordConfigured, setReauthAdminPanelPasswordConfigured] = useState(false)
+  const [reauthDedicatedPasswordRequired, setReauthDedicatedPasswordRequired] = useState(false)
   
   // Auto-hide toast after 3 seconds
   useEffect(() => {
@@ -721,16 +722,19 @@ export default function AdminPage() {
         if (!res.ok) {
           setReauthVerified(false)
           setReauthAdminPanelPasswordConfigured(false)
+          setReauthDedicatedPasswordRequired(false)
           return
         }
         const data = await res.json().catch(() => ({}))
         setReauthVerified(data.verified === true)
         setReauthAdminPanelPasswordConfigured(!!data.adminPanelPasswordConfigured)
+        setReauthDedicatedPasswordRequired(!!data.dedicatedPasswordRequired)
       })
       .catch(() => {
         if (!cancelled) {
           setReauthVerified(false)
           setReauthAdminPanelPasswordConfigured(false)
+          setReauthDedicatedPasswordRequired(false)
         }
       })
     return () => { cancelled = true }
@@ -1527,6 +1531,23 @@ export default function AdminPage() {
               ? 'Enter the admin panel password (configured on the server—different from your account login) and complete two-step verification.'
               : 'Re-enter your account password and complete two-step verification to continue.'}
           </p>
+          {reauthDedicatedPasswordRequired && !reauthAdminPanelPasswordConfigured && (
+            <div className="mb-4 p-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-200 text-sm">
+              This environment requires a dedicated admin passphrase on the server. Set{' '}
+              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_PANEL_ACCESS_PASSWORD_HASH</code>{' '}
+              or disable the requirement with{' '}
+              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD=false</code>.
+            </div>
+          )}
+          {!reauthDedicatedPasswordRequired && !reauthAdminPanelPasswordConfigured && (
+            <div className="mb-4 p-3 rounded-xl border border-amber-500/35 bg-amber-500/10 text-amber-100 text-sm">
+              <strong className="font-semibold text-amber-50">Stronger admin security:</strong> set{' '}
+              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_PANEL_ACCESS_PASSWORD_HASH</code>{' '}
+              so this step uses a passphrase separate from your login password (recommended for production). Optional: set{' '}
+              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD=true</code>{' '}
+              to block verification until that hash is configured.
+            </div>
+          )}
           <form onSubmit={handleVerify} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">

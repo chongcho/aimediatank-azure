@@ -7,6 +7,10 @@ import {
   isAdminPanelAccessPasswordConfigured,
   verifyAdminPanelAccessPassword,
 } from '@/lib/adminPanelAccessPassword'
+
+function dedicatedAdminPanelPasswordRequired(): boolean {
+  return process.env.ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD === 'true'
+}
 import { createAdminReauthCookie, getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
 import { verifyCode } from '@/lib/verificationCodes'
 import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
@@ -22,11 +26,20 @@ export async function GET(request: Request) {
     }
     const payload = getAdminReauthFromRequest(request)
     const adminPanelPasswordConfigured = isAdminPanelAccessPasswordConfigured()
+    const dedicatedPasswordRequired = dedicatedAdminPanelPasswordRequired()
     const verified = !!(payload && payload.userId === session.user.id)
     if (!verified) {
-      return NextResponse.json({ verified: false, adminPanelPasswordConfigured })
+      return NextResponse.json({
+        verified: false,
+        adminPanelPasswordConfigured,
+        dedicatedPasswordRequired,
+      })
     }
-    return NextResponse.json({ verified: true, adminPanelPasswordConfigured })
+    return NextResponse.json({
+      verified: true,
+      adminPanelPasswordConfigured,
+      dedicatedPasswordRequired,
+    })
   } catch (e) {
     console.error('Admin verify-access GET error:', e)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
@@ -51,6 +64,16 @@ export async function POST(request: Request) {
     })
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    if (dedicatedAdminPanelPasswordRequired() && !isAdminPanelAccessPasswordConfigured()) {
+      return NextResponse.json(
+        {
+          error:
+            'Server policy requires a dedicated admin panel password. Set ADMIN_PANEL_ACCESS_PASSWORD_HASH (or ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD=false to allow legacy account-password verification).',
+        },
+        { status: 503 }
+      )
     }
 
     const useAdminPanelPassword = isAdminPanelAccessPasswordConfigured()
