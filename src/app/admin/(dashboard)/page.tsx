@@ -6,8 +6,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
 import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX } from '@/lib/uploadPlanConfig'
-import { ADMIN_FRESH_STEP2_PARAM } from '@/lib/adminFreshStep2'
-
 function isAppAdminRole(role: string | undefined | null): boolean {
   if (role == null || typeof role !== 'string') return false
   return role.trim().toUpperCase() === 'ADMIN'
@@ -689,17 +687,6 @@ export default function AdminPage() {
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
-  // Admin re-authentication (password + 2FA) — required before accessing panel
-  const [reauthVerified, setReauthVerified] = useState<boolean | null>(null)
-  const [reauthPassword, setReauthPassword] = useState('')
-  const [reauthChannel, setReauthChannel] = useState<'email' | 'phone'>('email')
-  const [reauthCode, setReauthCode] = useState('')
-  const [reauthSendLoading, setReauthSendLoading] = useState(false)
-  const [reauthVerifyLoading, setReauthVerifyLoading] = useState(false)
-  const [reauthError, setReauthError] = useState('')
-  const [reauthAdminPanelPasswordConfigured, setReauthAdminPanelPasswordConfigured] = useState(false)
-  const [reauthDedicatedPasswordRequired, setReauthDedicatedPasswordRequired] = useState(false)
-  
   // Auto-hide toast after 3 seconds
   useEffect(() => {
     if (toast) {
@@ -726,53 +713,6 @@ export default function AdminPage() {
       router.push('/')
     }
   }, [status, session, router])
-
-  // Single AdminPage (no @modal duplicate). ?init=1 clears admin_reauth on the server response and returns verified:false atomically.
-  useEffect(() => {
-    if (status !== 'authenticated' || !session?.user || !sessionRoleIsLoaded(session.user.role)) return
-    if (!isAppAdminRole(session.user.role)) return
-    let cancelled = false
-
-    ;(async () => {
-      try {
-        if (typeof window !== 'undefined') {
-          const sp = new URLSearchParams(window.location.search)
-          if (sp.get(ADMIN_FRESH_STEP2_PARAM) === '1') {
-            sp.delete(ADMIN_FRESH_STEP2_PARAM)
-            const qs = sp.toString()
-            const path = window.location.pathname
-            window.history.replaceState({}, '', qs ? `${path}?${qs}` : path)
-          }
-        }
-        if (cancelled) return
-        const res = await fetch('/api/admin/verify-access?init=1', {
-          credentials: 'include',
-          cache: 'no-store',
-        })
-        if (cancelled) return
-        if (!res.ok) {
-          setReauthVerified(false)
-          setReauthAdminPanelPasswordConfigured(false)
-          setReauthDedicatedPasswordRequired(false)
-          return
-        }
-        const data = await res.json().catch(() => ({}))
-        setReauthVerified(data.verified === true)
-        setReauthAdminPanelPasswordConfigured(!!data.adminPanelPasswordConfigured)
-        setReauthDedicatedPasswordRequired(!!data.dedicatedPasswordRequired)
-      } catch {
-        if (!cancelled) {
-          setReauthVerified(false)
-          setReauthAdminPanelPasswordConfigured(false)
-          setReauthDedicatedPasswordRequired(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [status, session?.user?.role])
 
   // Debounce user search
   useEffect(() => {
@@ -835,10 +775,10 @@ export default function AdminPage() {
   }), [media, mediaTypeColFilter])
 
   useEffect(() => {
-    if (session?.user?.role === 'ADMIN' && reauthVerified === true) {
+    if (isAppAdminRole(session?.user?.role)) {
       fetchData()
     }
-  }, [session, reauthVerified, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter, alAbnormalOnly])
+  }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter, alAbnormalOnly])
 
   const fetchData = async () => {
     setLoading(true)
@@ -1517,158 +1457,6 @@ export default function AdminPage() {
     )
   }
 
-  // Admin: main panel only after explicit success; show Step 2 for false OR null (do not block on verify-access fetch).
-  if (reauthVerified !== true) {
-    const handleSendCode = async () => {
-      setReauthError('')
-      setReauthSendLoading(true)
-      try {
-        const res = await fetch('/api/admin/send-verification', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ channel: reauthChannel }),
-        })
-        const data = await res.json()
-        if (!res.ok) {
-          setReauthError(data.error || 'Failed to send code')
-          return
-        }
-        setReauthCode('')
-        setToast({ message: data.message || 'Code sent', type: 'success' })
-      } catch {
-        setReauthError('Failed to send code')
-      } finally {
-        setReauthSendLoading(false)
-      }
-    }
-    const handleVerify = async (e: React.FormEvent) => {
-      e.preventDefault()
-      setReauthError('')
-      setReauthVerifyLoading(true)
-      try {
-        const res = await fetch('/api/admin/verify-access', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ password: reauthPassword, channel: reauthChannel, code: reauthCode }),
-        })
-        const data = await res.json()
-        if (!res.ok) {
-          setReauthError(data.error || 'Verification failed')
-          return
-        }
-        setReauthVerified(true)
-        setReauthPassword('')
-        setReauthCode('')
-        setToast({ message: 'Access granted', type: 'success' })
-      } catch {
-        setReauthError('Verification failed')
-      } finally {
-        setReauthVerifyLoading(false)
-      }
-    }
-    const adminUsername = session.user.username ?? session.user.name ?? 'your account'
-    return (
-      <div data-initial-content className="min-h-screen flex items-center justify-center px-4">
-        <div className="w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-8">
-          <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-2">Step 2 of 2</p>
-          <h1 className="text-2xl font-bold text-white mb-1">Admin Panel access</h1>
-          <p className="text-gray-300 text-sm mb-1">
-            Signed in as <span className="font-medium text-white">{adminUsername}</span>. App sign-in is complete; verify below to open the panel.
-          </p>
-          <p className="text-gray-400 text-sm mb-6">
-            {reauthAdminPanelPasswordConfigured
-              ? 'Enter the admin panel password (configured on the server—different from your account login) and complete two-step verification.'
-              : 'Re-enter your account password and complete two-step verification to continue.'}
-          </p>
-          {reauthDedicatedPasswordRequired && !reauthAdminPanelPasswordConfigured && (
-            <div className="mb-4 p-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-200 text-sm">
-              This environment requires a dedicated admin passphrase on the server. Set{' '}
-              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_PANEL_ACCESS_PASSWORD_HASH</code>{' '}
-              or disable the requirement with{' '}
-              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD=false</code>.
-            </div>
-          )}
-          {!reauthDedicatedPasswordRequired && !reauthAdminPanelPasswordConfigured && (
-            <div className="mb-4 p-3 rounded-xl border border-amber-500/35 bg-amber-500/10 text-amber-100 text-sm">
-              <strong className="font-semibold text-amber-50">Stronger admin security:</strong> set{' '}
-              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_PANEL_ACCESS_PASSWORD_HASH</code>{' '}
-              so this step uses a passphrase separate from your login password (recommended for production). Optional: set{' '}
-              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD=true</code>{' '}
-              to block verification until that hash is configured.
-            </div>
-          )}
-          <form onSubmit={handleVerify} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                {reauthAdminPanelPasswordConfigured ? 'Admin panel password' : 'Password'}
-              </label>
-              <input
-                type="password"
-                value={reauthPassword}
-                onChange={(e) => { setReauthPassword(e.target.value); setReauthError('') }}
-                className="input w-full"
-                placeholder={reauthAdminPanelPasswordConfigured ? 'Dedicated admin passphrase' : 'Your account password'}
-                autoComplete={reauthAdminPanelPasswordConfigured ? 'off' : 'current-password'}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Verification method</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="channel"
-                    checked={reauthChannel === 'email'}
-                    onChange={() => { setReauthChannel('email'); setReauthError('') }}
-                  />
-                  <span className="text-gray-300">Email</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="channel"
-                    checked={reauthChannel === 'phone'}
-                    onChange={() => { setReauthChannel('phone'); setReauthError('') }}
-                  />
-                  <span className="text-gray-300">Phone</span>
-                </label>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleSendCode}
-                disabled={reauthSendLoading}
-                className="btn-secondary flex-1"
-              >
-                {reauthSendLoading ? 'Sending…' : 'Send verification code'}
-              </button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Verification code</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={reauthCode}
-                onChange={(e) => { setReauthCode(e.target.value.replace(/\D/g, '')); setReauthError('') }}
-                className="input w-full font-mono text-lg tracking-widest"
-                placeholder="000000"
-              />
-            </div>
-            {reauthError && <p className="text-red-400 text-sm">{reauthError}</p>}
-            <button type="submit" disabled={reauthVerifyLoading} className="btn-primary w-full">
-              {reauthVerifyLoading ? 'Verifying…' : 'Verify and enter Admin Panel'}
-            </button>
-          </form>
-        </div>
-      </div>
-    )
-  }
-
-  /* reauthVerified === true */
   return (
     <div data-initial-content className="w-full px-4 lg:px-8 pb-[500px]">
       {/* Toast Notification */}
