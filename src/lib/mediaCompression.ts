@@ -1,5 +1,12 @@
 // Client-side media compression utilities
 
+import type { PrivacyMaskRequest } from '@/lib/privacyMask'
+import {
+  applyPrivacyMasksAfterDraw,
+  getCroppedOutputMaskRects,
+  preloadPrivacyModels,
+} from '@/lib/privacyMask'
+
 interface CompressionOptions {
   maxWidth?: number
   maxHeight?: number
@@ -35,7 +42,8 @@ export async function compressImage(
   file: File,
   options: CompressionOptions = {},
   crop?: { x: number; y: number; width: number; height: number },
-  qualitySettings?: QualitySettings
+  qualitySettings?: QualitySettings,
+  privacy?: PrivacyMaskRequest
 ): Promise<File> {
   const opts = { ...DEFAULT_IMAGE_OPTIONS, ...options }
   // Apply admin quality setting if provided
@@ -54,57 +62,75 @@ export async function compressImage(
     }
 
     img.onload = () => {
-      // Compute source crop (defaults to full image)
-      const sourceWidth = img.width
-      const sourceHeight = img.height
-      const sourceX = crop ? Math.max(0, Math.min(Math.round(crop.x), sourceWidth - 1)) : 0
-      const sourceY = crop ? Math.max(0, Math.min(Math.round(crop.y), sourceHeight - 1)) : 0
-      const sourceW = crop ? Math.max(1, Math.min(Math.round(crop.width), sourceWidth - sourceX)) : sourceWidth
-      const sourceH = crop ? Math.max(1, Math.min(Math.round(crop.height), sourceHeight - sourceY)) : sourceHeight
+      void (async () => {
+        try {
+          // Compute source crop (defaults to full image)
+          const sourceWidth = img.width
+          const sourceHeight = img.height
+          const sourceX = crop ? Math.max(0, Math.min(Math.round(crop.x), sourceWidth - 1)) : 0
+          const sourceY = crop ? Math.max(0, Math.min(Math.round(crop.y), sourceHeight - 1)) : 0
+          const sourceW = crop ? Math.max(1, Math.min(Math.round(crop.width), sourceWidth - sourceX)) : sourceWidth
+          const sourceH = crop ? Math.max(1, Math.min(Math.round(crop.height), sourceHeight - sourceY)) : sourceHeight
 
-      // Calculate new dimensions while maintaining aspect ratio (based on cropped region)
-      let width = sourceW
-      let height = sourceH
-      const maxW = opts.maxWidth || 1920
-      const maxH = opts.maxHeight || 1080
+          // Calculate new dimensions while maintaining aspect ratio (based on cropped region)
+          let width = sourceW
+          let height = sourceH
+          const maxW = opts.maxWidth || 1920
+          const maxH = opts.maxHeight || 1080
 
-      if (width > maxW) {
-        height = (height * maxW) / width
-        width = maxW
-      }
-      if (height > maxH) {
-        width = (width * maxH) / height
-        height = maxH
-      }
-
-      canvas.width = width
-      canvas.height = height
-
-      // Draw and compress
-      ctx.drawImage(img, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error('Failed to compress image'))
-            return
+          if (width > maxW) {
+            height = (height * maxW) / width
+            width = maxW
+          }
+          if (height > maxH) {
+            width = (width * maxH) / height
+            height = maxH
           }
 
-          // Create new file with same name
-          const compressedFile = new File([blob], file.name, {
-            type: 'image/jpeg',
-            lastModified: Date.now(),
-          })
+          canvas.width = width
+          canvas.height = height
 
-          console.log(
-            `Image compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`
+          // Draw and compress
+          ctx.drawImage(img, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
+
+          if (privacy && (privacy.maskFaces || privacy.maskPlates)) {
+            await preloadPrivacyModels(privacy)
+            const rects = await getCroppedOutputMaskRects(
+              img,
+              { x: sourceX, y: sourceY, width: sourceW, height: sourceH },
+              width,
+              height,
+              { maskFaces: privacy.maskFaces, maskPlates: privacy.maskPlates }
+            )
+            applyPrivacyMasksAfterDraw(ctx, canvas, rects, privacy.style)
+          }
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Failed to compress image'))
+                return
+              }
+
+              // Create new file with same name
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              })
+
+              console.log(
+                `Image compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`
+              )
+
+              resolve(compressedFile)
+            },
+            'image/jpeg',
+            opts.quality || 0.8
           )
-
-          resolve(compressedFile)
-        },
-        'image/jpeg',
-        opts.quality || 0.8
-      )
+        } catch (e) {
+          reject(e instanceof Error ? e : new Error(String(e)))
+        }
+      })()
     }
 
     img.onerror = () => reject(new Error('Failed to load image'))

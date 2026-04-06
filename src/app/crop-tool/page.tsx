@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { compressImage, type QualitySettings } from '@/lib/mediaCompression'
+import {
+  applyPrivacyMasksAfterDraw,
+  collectPrivacyRectsNative,
+  getCroppedOutputMaskRects,
+  preloadPrivacyModels,
+  type PrivacyMaskStyle,
+} from '@/lib/privacyMask'
 
 type Area = { x: number; y: number; width: number; height: number }
 
@@ -110,6 +117,16 @@ export default function CropToolPage() {
   const [userVideoFps, setUserVideoFps] = useState<number>(30)
   const [userVideoBitrateMbps, setUserVideoBitrateMbps] = useState<number>(8)
   const [userAudioBitrateKbps, setUserAudioBitrateKbps] = useState<number>(256)
+
+  const [privacyMaskFaces, setPrivacyMaskFaces] = useState(false)
+  const [privacyMaskPlates, setPrivacyMaskPlates] = useState(false)
+  const [privacyMaskStyle, setPrivacyMaskStyle] = useState<PrivacyMaskStyle>('blur')
+  const [previewPrivacyFaces, setPreviewPrivacyFaces] = useState<
+    Array<{ x: number; y: number; width: number; height: number }>
+  >([])
+  const [previewPrivacyPlates, setPreviewPrivacyPlates] = useState<
+    Array<{ x: number; y: number; width: number; height: number }>
+  >([])
 
   const [lastSavedName, setLastSavedName] = useState<string | null>(null)
 
@@ -225,6 +242,11 @@ export default function CropToolPage() {
     setOutputResolution('auto')
     setOriginalVideoInfo(null)
     setLastSavedName(null)
+    setPrivacyMaskFaces(false)
+    setPrivacyMaskPlates(false)
+    setPrivacyMaskStyle('blur')
+    setPreviewPrivacyFaces([])
+    setPreviewPrivacyPlates([])
     setPreviewPlaying(false)
     setPreviewTime(0)
     try {
@@ -400,6 +422,56 @@ export default function CropToolPage() {
     }
   }, [trimStart, effectiveTrimEnd, previewPlaying])
 
+  // Approximate face / vehicle-band overlay on the trim preview (video only).
+  useEffect(() => {
+    if (mediaType !== 'video' || !mediaSize) {
+      setPreviewPrivacyFaces([])
+      setPreviewPrivacyPlates([])
+      return
+    }
+    if (!privacyMaskFaces && !privacyMaskPlates) {
+      setPreviewPrivacyFaces([])
+      setPreviewPrivacyPlates([])
+      return
+    }
+
+    let cancelled = false
+    const run = () => {
+      const v = previewVideoRef.current
+      if (!v || v.readyState < 2 || !v.videoWidth) return
+
+      void (async () => {
+        try {
+          await preloadPrivacyModels({
+            maskFaces: privacyMaskFaces,
+            maskPlates: privacyMaskPlates,
+            style: privacyMaskStyle,
+          })
+          const { faces, plates } = await collectPrivacyRectsNative(v, {
+            maskFaces: privacyMaskFaces,
+            maskPlates: privacyMaskPlates,
+          })
+          if (!cancelled) {
+            setPreviewPrivacyFaces(faces)
+            setPreviewPrivacyPlates(plates)
+          }
+        } catch {
+          if (!cancelled) {
+            setPreviewPrivacyFaces([])
+            setPreviewPrivacyPlates([])
+          }
+        }
+      })()
+    }
+
+    run()
+    const id = window.setInterval(run, 750)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [mediaType, mediaSize, privacyMaskFaces, privacyMaskPlates, privacyMaskStyle, previewUrl])
+
   useEffect(() => {
     const move = (clientX: number, clientY: number) => {
       if (!dragRef.current.active || !mediaSize || !cropArea || !renderBox) return
@@ -541,6 +613,11 @@ export default function CropToolPage() {
     setVideoDuration(0)
     setTrimStart(0)
     setTrimEnd(0)
+    setPrivacyMaskFaces(false)
+    setPrivacyMaskPlates(false)
+    setPrivacyMaskStyle('blur')
+    setPreviewPrivacyFaces([])
+    setPreviewPrivacyPlates([])
   }
 
   const downloadFile = (blob: Blob, filename: string) => {
@@ -621,7 +698,8 @@ export default function CropToolPage() {
     endSec: number,
     settings: QualitySettings,
     output: { width: number; height: number },
-    onProgress: (pct: number) => void
+    onProgress: (pct: number) => void,
+    privacy?: { maskFaces: boolean; maskPlates: boolean; style: PrivacyMaskStyle }
   ): Promise<File> => {
     const inputUrl = URL.createObjectURL(source)
     const video = document.createElement('video')
@@ -723,6 +801,30 @@ export default function CropToolPage() {
 
       if (targetEnd <= startSec) throw new Error('Trim end must be greater than trim start')
 
+      const usePrivacy = !!(privacy?.maskFaces || privacy?.maskPlates)
+      let cachedPrivacyRects: Array<{ x: number; y: number; width: number; height: number }> = []
+      let privacyGen = 0
+      let privacyFrameCount = 0
+      const privacyDetectEvery = 5
+
+      const schedulePrivacyRefresh = () => {
+        if (!usePrivacy || !privacy) return
+        const g = ++privacyGen
+        void getCroppedOutputMaskRects(
+          video,
+          crop,
+          canvas.width,
+          canvas.height,
+          { maskFaces: privacy.maskFaces, maskPlates: privacy.maskPlates }
+        )
+          .then((rects) => {
+            if (g === privacyGen) cachedPrivacyRects = rects
+          })
+          .catch(() => {
+            if (g === privacyGen) cachedPrivacyRects = []
+          })
+      }
+
       let intervalId: number | null = null
       const stop = () => {
         if (stopped) return
@@ -776,6 +878,14 @@ export default function CropToolPage() {
 
           ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
 
+          if (usePrivacy && privacy) {
+            privacyFrameCount++
+            if (privacyFrameCount % privacyDetectEvery === 0) {
+              schedulePrivacyRefresh()
+            }
+            applyPrivacyMasksAfterDraw(ctx, canvas, cachedPrivacyRects, privacy.style)
+          }
+
           const pct = Math.round(((video.currentTime - startSec) / total) * 100)
           onProgress(clamp(pct, 0, 100))
         }
@@ -785,6 +895,19 @@ export default function CropToolPage() {
         video.currentTime = Math.max(0, startSec)
         video.onseeked = async () => {
           try {
+            if (usePrivacy && privacy) {
+              try {
+                cachedPrivacyRects = await getCroppedOutputMaskRects(
+                  video,
+                  crop,
+                  canvas.width,
+                  canvas.height,
+                  { maskFaces: privacy.maskFaces, maskPlates: privacy.maskPlates }
+                )
+              } catch {
+                cachedPrivacyRects = []
+              }
+            }
             recorder.start(500)
             onProgress(0)
             await video.play()
@@ -828,12 +951,26 @@ export default function CropToolPage() {
     try {
       const outputDims = computeOutputDims(cropArea)
 
+      const privacyRequest =
+        privacyMaskFaces || privacyMaskPlates
+          ? {
+              maskFaces: privacyMaskFaces,
+              maskPlates: privacyMaskPlates,
+              style: privacyMaskStyle,
+            }
+          : undefined
+
+      if (privacyRequest) {
+        await preloadPrivacyModels(privacyRequest)
+      }
+
       if (mediaType === 'image') {
         const out = await compressImage(
           file,
           { maxWidth: outputDims.width, maxHeight: outputDims.height },
           cropArea,
-          qualitySettings
+          qualitySettings,
+          privacyRequest
         )
 
         await saveFileToIndexedDB(out)
@@ -854,7 +991,8 @@ export default function CropToolPage() {
           trimEnd || videoDuration,
           encodingQuality,
           { width: outputDims.width, height: outputDims.height },
-          setProgress
+          setProgress,
+          privacyRequest
         )
 
         await saveFileToIndexedDB(out)
@@ -1032,6 +1170,48 @@ export default function CropToolPage() {
                             </div>
                           </>
                         )}
+
+                        {(mediaType === 'video' || mediaType === 'image') && (
+                          <div className="border-t border-tank-light/25 pt-4 mt-2 space-y-3">
+                            <h4 className="text-sm font-semibold text-white">Privacy masking</h4>
+                            <p className="text-xs text-gray-400 leading-relaxed">
+                              Runs in your browser before save. Faces use BlazeFace. License plates use a{' '}
+                              <span className="text-gray-300">bottom band on detected vehicles</span> (cars, trucks,
+                              buses, motorcycles)—not a dedicated plate reader; verify in preview.
+                            </p>
+                            <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={privacyMaskFaces}
+                                onChange={(e) => setPrivacyMaskFaces(e.target.checked)}
+                                className="rounded border-tank-light"
+                              />
+                              Mask faces
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={privacyMaskPlates}
+                                onChange={(e) => setPrivacyMaskPlates(e.target.checked)}
+                                className="rounded border-tank-light"
+                              />
+                              Mask license plates (vehicle heuristic)
+                            </label>
+                            <div>
+                              <label className="block text-sm text-gray-300 mb-1">Mask style</label>
+                              <select
+                                value={privacyMaskStyle}
+                                onChange={(e) => setPrivacyMaskStyle(e.target.value as PrivacyMaskStyle)}
+                                disabled={!privacyMaskFaces && !privacyMaskPlates}
+                                className="w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded disabled:opacity-50"
+                              >
+                                <option value="blur">Blur</option>
+                                <option value="pixelate">Pixelate</option>
+                                <option value="solid">Solid black</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1148,6 +1328,50 @@ export default function CropToolPage() {
                       }}
                     />
                   )}
+
+                  {mediaType === 'video' &&
+                    cropArea &&
+                    mediaSize &&
+                    renderBox &&
+                    (privacyMaskFaces || privacyMaskPlates) &&
+                    (previewPrivacyFaces.length > 0 || previewPrivacyPlates.length > 0) && (
+                      <div
+                        className="absolute left-0 right-0 top-0 z-[8] pointer-events-none overflow-hidden"
+                        style={{ bottom: 0 }}
+                        aria-hidden="true"
+                      >
+                        {previewPrivacyFaces.map((r, i) => {
+                          const scaleX = renderBox.width / mediaSize.width
+                          const scaleY = renderBox.height / mediaSize.height
+                          const left = renderBox.offsetX + r.x * scaleX
+                          const top = renderBox.offsetY + r.y * scaleY
+                          const width = r.width * scaleX
+                          const height = r.height * scaleY
+                          return (
+                            <div
+                              key={`pf-${i}`}
+                              className="absolute border-2 border-dashed border-amber-400/90 rounded-sm"
+                              style={{ left, top, width, height }}
+                            />
+                          )
+                        })}
+                        {previewPrivacyPlates.map((r, i) => {
+                          const scaleX = renderBox.width / mediaSize.width
+                          const scaleY = renderBox.height / mediaSize.height
+                          const left = renderBox.offsetX + r.x * scaleX
+                          const top = renderBox.offsetY + r.y * scaleY
+                          const width = r.width * scaleX
+                          const height = r.height * scaleY
+                          return (
+                            <div
+                              key={`pp-${i}`}
+                              className="absolute border-2 border-dashed border-orange-400/90 rounded-sm"
+                              style={{ left, top, width, height }}
+                            />
+                          )
+                        })}
+                      </div>
+                    )}
 
                   {cropArea && mediaSize && renderBox && (
                     <div
