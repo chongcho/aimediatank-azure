@@ -109,6 +109,13 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="min-h-screen bg-tank-black grid-pattern m-0 p-0">
+        {/* Before #initial-loading exists: hide home skeleton on admin routes (prevents flash before RSC streams). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){var p=location.pathname;if(p==='/admin'||p.indexOf('/admin/')===0)document.documentElement.classList.add('skip-admin-initial-skeleton');})();",
+          }}
+        />
         {/* Landscape mode black padding areas */}
         <div className="landscape-padding-left" aria-hidden="true" />
         <div className="landscape-padding-right" aria-hidden="true" />
