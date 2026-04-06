@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { isAdminUserStep2PasswordConfigured } from '@/lib/adminUserStep2Password'
 import LoginAdminVerifyClient from './LoginAdminVerifyClient'
 
 export const dynamic = 'force-dynamic'
@@ -37,17 +37,16 @@ export default async function AdminLoginVerifyPage({
   }
 
   const nextPath = safeNext(searchParams.next)
-
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { password: true },
-  })
-  if (!user?.password || user.password.length === 0) {
-    redirect(nextPath)
-  }
+  const adminUserStep2Configured = isAdminUserStep2PasswordConfigured()
 
   const u = session.user as { username?: string | null; name?: string | null }
   const adminUsername = u.username ?? u.name ?? 'your account'
 
-  return <LoginAdminVerifyClient initialAdminUsername={adminUsername} nextPath={nextPath} />
+  return (
+    <LoginAdminVerifyClient
+      initialAdminUsername={adminUsername}
+      initialAdminUserStep2Configured={adminUserStep2Configured}
+      nextPath={nextPath}
+    />
+  )
 }

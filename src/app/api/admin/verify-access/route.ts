@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { compare } from 'bcryptjs'
 import {
   isAdminPanelAccessPasswordConfigured,
   isDedicatedAdminPanelPasswordRequired,
   verifyAdminPanelAccessPassword,
 } from '@/lib/adminPanelAccessPassword'
+import {
+  isAdminUserStep2PasswordConfigured,
+  verifyAdminUserStep2Password,
+} from '@/lib/adminUserStep2Password'
 import { createAdminReauthCookie, getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
 import { buildExpiredAdminReauthCookie } from '@/lib/adminReauthConstants'
 import { verifyCode } from '@/lib/verificationCodes'
@@ -29,6 +32,7 @@ export async function GET(request: Request) {
     }
     const adminPanelPasswordConfigured = isAdminPanelAccessPasswordConfigured()
     const dedicatedPasswordRequired = isDedicatedAdminPanelPasswordRequired()
+    const adminUserStep2Configured = isAdminUserStep2PasswordConfigured()
 
     const url = new URL(request.url)
     if (url.searchParams.get('init') === '1') {
@@ -36,6 +40,7 @@ export async function GET(request: Request) {
         verified: false,
         adminPanelPasswordConfigured,
         dedicatedPasswordRequired,
+        adminUserStep2Configured,
       })
       const cleared = buildExpiredAdminReauthCookie()
       res.cookies.set(cleared.name, cleared.value, cleared.options)
@@ -49,12 +54,14 @@ export async function GET(request: Request) {
         verified: false,
         adminPanelPasswordConfigured,
         dedicatedPasswordRequired,
+        adminUserStep2Configured,
       })
     }
     return NextResponse.json({
       verified: true,
       adminPanelPasswordConfigured,
       dedicatedPasswordRequired,
+      adminUserStep2Configured,
     })
   } catch (e) {
     console.error('Admin verify-access GET error:', e)
@@ -62,7 +69,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: Verify password + 2FA. verifyMode: adminUser = account password only, no cookie. adminPanel = panel env password + admin_reauth cookie.
+// POST: Verify password + 2FA. verifyMode: adminUser = ADMIN_USER_STEP2_PASSWORD_* only, no cookie. adminPanel = panel env password + admin_reauth cookie.
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -70,36 +77,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const body = await request.json()
-    const verifyMode = body?.verifyMode === 'adminUser' ? 'adminUser' : 'adminPanel'
+    const rawMode = body?.verifyMode
+    const verifyMode =
+      typeof rawMode === 'string' && rawMode.trim() === 'adminUser' ? 'adminUser' : 'adminPanel'
     const password = typeof body?.password === 'string' ? body.password : ''
     const channel = body?.channel === 'phone' ? 'phone' : 'email'
     const code = typeof body?.code === 'string' ? body.code.trim() : ''
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { id: true, password: true, email: true, phone: true },
+      select: { id: true, email: true, phone: true },
     })
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     if (verifyMode === 'adminUser') {
-      const hasPassword = user.password && user.password.length > 0
-      if (!hasPassword) {
+      if (!isAdminUserStep2PasswordConfigured()) {
         return NextResponse.json(
           {
             error:
-              'This account has no password on file (e.g. social sign-in only). You can continue to the site; use Admin Panel from the menu with the panel passphrase when needed.',
+              'Admin sign-in Step 2 requires ADMIN_USER_STEP2_PASSWORD_HASH (or ADMIN_USER_STEP2_PASSWORD for local dev)—a passphrase separate from your account login password.',
           },
-          { status: 400 }
+          { status: 503 }
         )
       }
       if (!password) {
-        return NextResponse.json({ error: 'Password is required' }, { status: 400 })
+        return NextResponse.json({ error: 'Admin sign-in passphrase is required' }, { status: 400 })
       }
-      const valid = await compare(password, user.password)
-      if (!valid) {
-        return NextResponse.json({ error: 'Invalid account password' }, { status: 400 })
+      const validUserStep2 = await verifyAdminUserStep2Password(password)
+      if (!validUserStep2) {
+        return NextResponse.json({ error: 'Invalid admin sign-in passphrase' }, { status: 400 })
       }
     } else {
       if (isDedicatedAdminPanelPasswordRequired() && !isAdminPanelAccessPasswordConfigured()) {

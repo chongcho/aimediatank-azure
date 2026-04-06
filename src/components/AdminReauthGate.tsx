@@ -43,13 +43,15 @@ function AdminReauthPlaceholder({ message }: { message?: string }) {
 type AdminReauthGateProps = {
   onVerified: () => void
   /**
-   * adminUser: account login password + 2FA after app sign-in → home (no admin_reauth cookie).
+   * adminUser: ADMIN_USER_STEP2_PASSWORD_* + 2FA after app sign-in → home (no admin_reauth cookie).
    * adminPanel: ADMIN_PANEL_ACCESS_PASSWORD_* + 2FA → sets admin_reauth for /admin.
    */
   verifyMode?: 'adminUser' | 'adminPanel'
   /** Server already verified session + admin role — skip useSession loading placeholder (fixes flash). */
   bootstrappedFromServer?: boolean
   initialAdminUsername?: string
+  /** When bootstrapped adminUser flow; false shows configure-server banner. */
+  initialAdminUserStep2Configured?: boolean
   initialAdminPanelPasswordConfigured?: boolean
   initialDedicatedPasswordRequired?: boolean
 }
@@ -62,6 +64,7 @@ export default function AdminReauthGate({
   verifyMode = 'adminPanel',
   bootstrappedFromServer = false,
   initialAdminUsername,
+  initialAdminUserStep2Configured = true,
   initialAdminPanelPasswordConfigured = false,
   initialDedicatedPasswordRequired = false,
 }: AdminReauthGateProps) {
@@ -233,14 +236,25 @@ export default function AdminReauthGate({
         <p className="text-gray-300 text-sm mb-1">
           Signed in as <span className="font-medium text-white">{adminUsername}</span>.
           {verifyMode === 'adminUser'
-            ? ' Enter your account password and a verification code to finish signing in.'
+            ? ' Enter the admin sign-in passphrase and a verification code to finish signing in.'
             : ' App sign-in is complete; use the Admin Panel passphrase and a verification code to open the panel.'}
         </p>
         <p className="text-gray-400 text-sm mb-6">
           {verifyMode === 'adminUser'
-            ? 'This step uses your normal account password. The Admin Panel uses a separate passphrase configured on the server.'
+            ? 'Step 2 uses ADMIN_USER_STEP2_PASSWORD_HASH on the server—not your account login password. The Admin Panel uses a different passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH).'
             : 'Enter the Admin Panel passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH on the server—not your account login password) and complete two-step verification.'}
         </p>
+        {verifyMode === 'adminUser' &&
+          bootstrappedFromServer &&
+          !initialAdminUserStep2Configured && (
+            <div className="mb-4 p-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-200 text-sm">
+              Admin sign-in Step 2 is not configured. Set{' '}
+              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_USER_STEP2_PASSWORD_HASH</code> (or for
+              local dev only{' '}
+              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_USER_STEP2_PASSWORD</code>
+              ).
+            </div>
+          )}
         {verifyMode === 'adminPanel' && dedicatedPasswordRequired && !adminPanelPasswordConfigured && (
           <div className="mb-4 p-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-200 text-sm">
             This environment requires a dedicated admin passphrase on the server. Set{' '}
@@ -259,7 +273,7 @@ export default function AdminReauthGate({
         <form onSubmit={handleVerify} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
-              {verifyMode === 'adminUser' ? 'Account password' : 'Admin Panel passphrase'}
+              {verifyMode === 'adminUser' ? 'Admin sign-in passphrase' : 'Admin Panel passphrase'}
             </label>
             <input
               type="password"
@@ -270,9 +284,11 @@ export default function AdminReauthGate({
               }}
               className="input w-full"
               placeholder={
-                verifyMode === 'adminUser' ? 'Your account password' : 'Dedicated Admin Panel passphrase'
+                verifyMode === 'adminUser'
+                  ? 'Server-configured Step 2 passphrase'
+                  : 'Dedicated Admin Panel passphrase'
               }
-              autoComplete={verifyMode === 'adminUser' ? 'current-password' : 'off'}
+              autoComplete="off"
             />
           </div>
           <div>
