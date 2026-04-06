@@ -40,10 +40,25 @@ function AdminReauthPlaceholder({ message }: { message?: string }) {
   )
 }
 
+type AdminReauthGateProps = {
+  onVerified: () => void
+  /** Server already verified session + admin role — skip useSession loading placeholder (fixes flash). */
+  bootstrappedFromServer?: boolean
+  initialAdminUsername?: string
+  initialAdminPanelPasswordConfigured?: boolean
+  initialDedicatedPasswordRequired?: boolean
+}
+
 /**
  * Step 2: admin passphrase + email/phone code. Used on /admin/reauth (outside dashboard layout).
  */
-export default function AdminReauthGate({ onVerified }: { onVerified: () => void }) {
+export default function AdminReauthGate({
+  onVerified,
+  bootstrappedFromServer = false,
+  initialAdminUsername,
+  initialAdminPanelPasswordConfigured = false,
+  initialDedicatedPasswordRequired = false,
+}: AdminReauthGateProps) {
   const { data: session, status } = useSession()
   const [reauthPassword, setReauthPassword] = useState('')
   const [reauthChannel, setReauthChannel] = useState<'email' | 'phone'>('email')
@@ -51,8 +66,12 @@ export default function AdminReauthGate({ onVerified }: { onVerified: () => void
   const [reauthSendLoading, setReauthSendLoading] = useState(false)
   const [reauthVerifyLoading, setReauthVerifyLoading] = useState(false)
   const [reauthError, setReauthError] = useState('')
-  const [adminPanelPasswordConfigured, setAdminPanelPasswordConfigured] = useState(false)
-  const [dedicatedPasswordRequired, setDedicatedPasswordRequired] = useState(false)
+  const [adminPanelPasswordConfigured, setAdminPanelPasswordConfigured] = useState(
+    () => (bootstrappedFromServer ? initialAdminPanelPasswordConfigured : false)
+  )
+  const [dedicatedPasswordRequired, setDedicatedPasswordRequired] = useState(
+    () => (bootstrappedFromServer ? initialDedicatedPasswordRequired : false)
+  )
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   useEffect(() => {
@@ -62,6 +81,7 @@ export default function AdminReauthGate({ onVerified }: { onVerified: () => void
   }, [toast])
 
   useEffect(() => {
+    if (bootstrappedFromServer) return
     if (status !== 'authenticated' || !session?.user || !isAppAdminRole(session.user.role)) return
     fetch('/api/admin/verify-access', { credentials: 'include', cache: 'no-store' })
       .then(async (res) => {
@@ -71,7 +91,14 @@ export default function AdminReauthGate({ onVerified }: { onVerified: () => void
         setDedicatedPasswordRequired(!!data.dedicatedPasswordRequired)
       })
       .catch(() => {})
-  }, [status, session?.user?.role])
+  }, [bootstrappedFromServer, status, session?.user?.role])
+
+  useEffect(() => {
+    if (!bootstrappedFromServer) return
+    if (status === 'unauthenticated') {
+      window.location.replace(`/login?callbackUrl=${encodeURIComponent('/admin')}`)
+    }
+  }, [bootstrappedFromServer, status])
 
   const handleSendCode = async () => {
     setReauthError('')
@@ -124,31 +151,53 @@ export default function AdminReauthGate({ onVerified }: { onVerified: () => void
     }
   }
 
-  if (status === 'loading') {
-    return <AdminReauthPlaceholder />
+  if (!bootstrappedFromServer) {
+    if (status === 'loading') {
+      return <AdminReauthPlaceholder />
+    }
+
+    if (status === 'unauthenticated') {
+      return <AdminReauthPlaceholder message="Redirecting to sign in…" />
+    }
+
+    if (!session?.user) {
+      return <AdminReauthPlaceholder />
+    }
+
+    if (!sessionRoleIsLoaded(session.user.role)) {
+      return <AdminReauthPlaceholder />
+    }
+
+    if (!isAppAdminRole(session.user.role)) {
+      return (
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <p className="text-gray-400 text-center">You do not have admin access.</p>
+        </div>
+      )
+    }
+  } else {
+    if (status === 'unauthenticated') {
+      return <AdminReauthPlaceholder message="Redirecting to sign in…" />
+    }
+    if (
+      status === 'authenticated' &&
+      session?.user &&
+      sessionRoleIsLoaded(session.user.role) &&
+      !isAppAdminRole(session.user.role)
+    ) {
+      return (
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <p className="text-gray-400 text-center">You do not have admin access.</p>
+        </div>
+      )
+    }
   }
 
-  if (status === 'unauthenticated') {
-    return <AdminReauthPlaceholder message="Redirecting to sign in…" />
-  }
-
-  if (!session?.user) {
-    return <AdminReauthPlaceholder />
-  }
-
-  if (!sessionRoleIsLoaded(session.user.role)) {
-    return <AdminReauthPlaceholder />
-  }
-
-  if (!isAppAdminRole(session.user.role)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <p className="text-gray-400 text-center">You do not have admin access.</p>
-      </div>
-    )
-  }
-
-  const adminUsername = session.user.username ?? session.user.name ?? 'your account'
+  const adminUsername =
+    session?.user?.username ??
+    session?.user?.name ??
+    initialAdminUsername ??
+    'your account'
 
   return (
     <div data-initial-content className="min-h-screen flex items-center justify-center px-4">

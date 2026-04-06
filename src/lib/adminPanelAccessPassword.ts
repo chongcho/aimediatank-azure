@@ -14,6 +14,11 @@ export function isAdminPanelAccessPasswordConfigured(): boolean {
   return Boolean(h || p)
 }
 
+/** When true, Step 2 is blocked until ADMIN_PANEL_ACCESS_PASSWORD_HASH (or legacy plain env) is set. */
+export function isDedicatedAdminPanelPasswordRequired(): boolean {
+  return process.env.ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD === 'true'
+}
+
 function timingSafeSha256Equal(a: string, b: string): boolean {
   const digest = (s: string) => createHash('sha256').update(s, 'utf8').digest()
   try {

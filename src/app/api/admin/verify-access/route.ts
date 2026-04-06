@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { compare } from 'bcryptjs'
 import {
   isAdminPanelAccessPasswordConfigured,
+  isDedicatedAdminPanelPasswordRequired,
   verifyAdminPanelAccessPassword,
 } from '@/lib/adminPanelAccessPassword'
 import { createAdminReauthCookie, getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
@@ -13,10 +14,6 @@ import { verifyCode } from '@/lib/verificationCodes'
 import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
 
 export const dynamic = 'force-dynamic'
-
-function dedicatedAdminPanelPasswordRequired(): boolean {
-  return process.env.ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD === 'true'
-}
 
 function sessionUserIsAdmin(session: { user?: { role?: string | null } } | null): boolean {
   const r = session?.user?.role
@@ -31,7 +28,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const adminPanelPasswordConfigured = isAdminPanelAccessPasswordConfigured()
-    const dedicatedPasswordRequired = dedicatedAdminPanelPasswordRequired()
+    const dedicatedPasswordRequired = isDedicatedAdminPanelPasswordRequired()
 
     const url = new URL(request.url)
     if (url.searchParams.get('init') === '1') {
@@ -85,7 +82,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    if (dedicatedAdminPanelPasswordRequired() && !isAdminPanelAccessPasswordConfigured()) {
+    if (isDedicatedAdminPanelPasswordRequired() && !isAdminPanelAccessPasswordConfigured()) {
       return NextResponse.json(
         {
           error:
