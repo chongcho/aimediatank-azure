@@ -18,7 +18,7 @@ export default function AdminReauthPage() {
   return (
     <AdminReauthGate
       onVerified={() => {
-        window.location.assign('/admin')
+        window.location.assign('/')
       }}
     />
   )
