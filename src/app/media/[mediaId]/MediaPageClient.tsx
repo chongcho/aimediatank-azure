@@ -732,13 +732,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 )}
               </div>
 
-              {/* Description Row */}
-              {media.description && (
-                <p className="text-gray-300 mb-4 whitespace-pre-wrap break-words">{media.description}</p>
-              )}
-
-              {/* Views + Reactions Row */}
-              <div className="flex items-center gap-6">
+              {/* Views + Reactions Row — above description */}
+              <div className="flex items-center gap-6 mb-4">
                 {/* Views */}
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -773,6 +768,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   </span>
                 </button>
               </div>
+
+              {/* Description Row */}
+              {media.description && (
+                <p className="text-gray-300 mb-4 whitespace-pre-wrap break-words">{media.description}</p>
+              )}
             </div>
 
             {/* Right Column: Save, Download */}
@@ -791,7 +791,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                 ) : (
                   <svg
-                    className="w-5 h-5"
+                    className="w-5 h-5 shrink-0"
                     fill={isSaved ? 'currentColor' : 'none'}
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -804,7 +804,23 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     />
                   </svg>
                 )}
-                {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
+                <span>{isSaved ? 'Saved to My Contents' : 'Save to My Contents'}</span>
+                {!savingMedia && (
+                  <svg
+                    className="w-5 h-5 shrink-0 opacity-90"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                )}
               </button>
 
               {/* Download & Share row */}
