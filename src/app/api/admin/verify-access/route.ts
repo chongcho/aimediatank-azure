@@ -62,7 +62,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: Verify password + 2FA code and set admin re-auth cookie
+// POST: Verify password + 2FA. verifyMode: adminUser = account password only, no cookie. adminPanel = panel env password + admin_reauth cookie.
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -70,6 +70,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const body = await request.json()
+    const verifyMode = body?.verifyMode === 'adminUser' ? 'adminUser' : 'adminPanel'
     const password = typeof body?.password === 'string' ? body.password : ''
     const channel = body?.channel === 'phone' ? 'phone' : 'email'
     const code = typeof body?.code === 'string' ? body.code.trim() : ''
@@ -82,36 +83,49 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    if (isDedicatedAdminPanelPasswordRequired() && !isAdminPanelAccessPasswordConfigured()) {
-      return NextResponse.json(
-        {
-          error:
-            'Server policy requires a dedicated admin panel password. Set ADMIN_PANEL_ACCESS_PASSWORD_HASH (or ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD=false to allow legacy account-password verification).',
-        },
-        { status: 503 }
-      )
-    }
-
-    const useAdminPanelPassword = isAdminPanelAccessPasswordConfigured()
-    if (useAdminPanelPassword) {
+    if (verifyMode === 'adminUser') {
+      const hasPassword = user.password && user.password.length > 0
+      if (!hasPassword) {
+        return NextResponse.json(
+          {
+            error:
+              'This account has no password on file (e.g. social sign-in only). You can continue to the site; use Admin Panel from the menu with the panel passphrase when needed.',
+          },
+          { status: 400 }
+        )
+      }
+      if (!password) {
+        return NextResponse.json({ error: 'Password is required' }, { status: 400 })
+      }
+      const valid = await compare(password, user.password)
+      if (!valid) {
+        return NextResponse.json({ error: 'Invalid account password' }, { status: 400 })
+      }
+    } else {
+      if (isDedicatedAdminPanelPasswordRequired() && !isAdminPanelAccessPasswordConfigured()) {
+        return NextResponse.json(
+          {
+            error:
+              'Server policy requires a dedicated admin panel password. Set ADMIN_PANEL_ACCESS_PASSWORD_HASH (or ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD=false).',
+          },
+          { status: 503 }
+        )
+      }
+      if (!isAdminPanelAccessPasswordConfigured()) {
+        return NextResponse.json(
+          {
+            error:
+              'Admin Panel access requires ADMIN_PANEL_ACCESS_PASSWORD_HASH (or ADMIN_PANEL_ACCESS_PASSWORD for local dev)—a passphrase separate from your account login password.',
+          },
+          { status: 503 }
+        )
+      }
       if (!password) {
         return NextResponse.json({ error: 'Admin panel password is required' }, { status: 400 })
       }
       const validPanel = await verifyAdminPanelAccessPassword(password)
       if (!validPanel) {
         return NextResponse.json({ error: 'Invalid admin panel password' }, { status: 400 })
-      }
-    } else {
-      // Legacy: same as account login password for credential-based accounts
-      const hasPassword = user.password && user.password.length > 0
-      if (hasPassword) {
-        if (!password) {
-          return NextResponse.json({ error: 'Password is required' }, { status: 400 })
-        }
-        const valid = await compare(password, user.password)
-        if (!valid) {
-          return NextResponse.json({ error: 'Invalid password' }, { status: 400 })
-        }
       }
     }
 
@@ -139,8 +153,12 @@ export async function POST(request: Request) {
       }
     }
 
+    if (verifyMode === 'adminUser') {
+      return NextResponse.json({ success: true, verifyMode: 'adminUser' })
+    }
+
     const { name, value, options } = createAdminReauthCookie(user.id)
-    const res = NextResponse.json({ success: true })
+    const res = NextResponse.json({ success: true, verifyMode: 'adminPanel' })
     res.cookies.set(name, value, options)
     return res
   } catch (e) {

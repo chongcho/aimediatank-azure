@@ -42,6 +42,11 @@ function AdminReauthPlaceholder({ message }: { message?: string }) {
 
 type AdminReauthGateProps = {
   onVerified: () => void
+  /**
+   * adminUser: account login password + 2FA after app sign-in → home (no admin_reauth cookie).
+   * adminPanel: ADMIN_PANEL_ACCESS_PASSWORD_* + 2FA → sets admin_reauth for /admin.
+   */
+  verifyMode?: 'adminUser' | 'adminPanel'
   /** Server already verified session + admin role — skip useSession loading placeholder (fixes flash). */
   bootstrappedFromServer?: boolean
   initialAdminUsername?: string
@@ -54,6 +59,7 @@ type AdminReauthGateProps = {
  */
 export default function AdminReauthGate({
   onVerified,
+  verifyMode = 'adminPanel',
   bootstrappedFromServer = false,
   initialAdminUsername,
   initialAdminPanelPasswordConfigured = false,
@@ -67,10 +73,10 @@ export default function AdminReauthGate({
   const [reauthVerifyLoading, setReauthVerifyLoading] = useState(false)
   const [reauthError, setReauthError] = useState('')
   const [adminPanelPasswordConfigured, setAdminPanelPasswordConfigured] = useState(
-    () => (bootstrappedFromServer ? initialAdminPanelPasswordConfigured : false)
+    () => (bootstrappedFromServer && verifyMode === 'adminPanel' ? initialAdminPanelPasswordConfigured : false)
   )
   const [dedicatedPasswordRequired, setDedicatedPasswordRequired] = useState(
-    () => (bootstrappedFromServer ? initialDedicatedPasswordRequired : false)
+    () => (bootstrappedFromServer && verifyMode === 'adminPanel' ? initialDedicatedPasswordRequired : false)
   )
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
@@ -81,7 +87,7 @@ export default function AdminReauthGate({
   }, [toast])
 
   useEffect(() => {
-    if (bootstrappedFromServer) return
+    if (bootstrappedFromServer || verifyMode === 'adminUser') return
     if (status !== 'authenticated' || !session?.user || !isAppAdminRole(session.user.role)) return
     fetch('/api/admin/verify-access', { credentials: 'include', cache: 'no-store' })
       .then(async (res) => {
@@ -91,14 +97,18 @@ export default function AdminReauthGate({
         setDedicatedPasswordRequired(!!data.dedicatedPasswordRequired)
       })
       .catch(() => {})
-  }, [bootstrappedFromServer, status, session?.user?.role])
+  }, [bootstrappedFromServer, verifyMode, status, session?.user?.role])
 
   useEffect(() => {
     if (!bootstrappedFromServer) return
     if (status === 'unauthenticated') {
-      window.location.replace(`/login?callbackUrl=${encodeURIComponent('/admin')}`)
+      const dest =
+        verifyMode === 'adminUser'
+          ? '/login'
+          : `/login?callbackUrl=${encodeURIComponent('/admin')}`
+      window.location.replace(dest)
     }
-  }, [bootstrappedFromServer, status])
+  }, [bootstrappedFromServer, verifyMode, status])
 
   const handleSendCode = async () => {
     setReauthError('')
@@ -133,7 +143,12 @@ export default function AdminReauthGate({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ password: reauthPassword, channel: reauthChannel, code: reauthCode }),
+        body: JSON.stringify({
+          verifyMode,
+          password: reauthPassword,
+          channel: reauthChannel,
+          code: reauthCode,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -212,17 +227,21 @@ export default function AdminReauthGate({
       )}
       <div className="w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-8">
         <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-2">Step 2 of 2</p>
-        <h1 className="text-2xl font-bold text-white mb-1">Admin Panel access</h1>
+        <h1 className="text-2xl font-bold text-white mb-1">
+          {verifyMode === 'adminUser' ? 'Admin account verification' : 'Admin Panel access'}
+        </h1>
         <p className="text-gray-300 text-sm mb-1">
-          Signed in as <span className="font-medium text-white">{adminUsername}</span>. App sign-in is complete; verify
-          below to open the panel.
+          Signed in as <span className="font-medium text-white">{adminUsername}</span>.
+          {verifyMode === 'adminUser'
+            ? ' Enter your account password and a verification code to finish signing in.'
+            : ' App sign-in is complete; use the Admin Panel passphrase and a verification code to open the panel.'}
         </p>
         <p className="text-gray-400 text-sm mb-6">
-          {adminPanelPasswordConfigured
-            ? 'Enter the admin panel password (configured on the server—different from your account login) and complete two-step verification.'
-            : 'Re-enter your account password and complete two-step verification to continue.'}
+          {verifyMode === 'adminUser'
+            ? 'This step uses your normal account password. The Admin Panel uses a separate passphrase configured on the server.'
+            : 'Enter the Admin Panel passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH on the server—not your account login password) and complete two-step verification.'}
         </p>
-        {dedicatedPasswordRequired && !adminPanelPasswordConfigured && (
+        {verifyMode === 'adminPanel' && dedicatedPasswordRequired && !adminPanelPasswordConfigured && (
           <div className="mb-4 p-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-200 text-sm">
             This environment requires a dedicated admin passphrase on the server. Set{' '}
             <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_PANEL_ACCESS_PASSWORD_HASH</code> or disable
@@ -230,17 +249,17 @@ export default function AdminReauthGate({
             <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD=false</code>.
           </div>
         )}
-        {!dedicatedPasswordRequired && !adminPanelPasswordConfigured && (
+        {verifyMode === 'adminPanel' && !dedicatedPasswordRequired && !adminPanelPasswordConfigured && (
           <div className="mb-4 p-3 rounded-xl border border-amber-500/35 bg-amber-500/10 text-amber-100 text-sm">
-            <strong className="font-semibold text-amber-50">Stronger admin security:</strong> set{' '}
-            <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_PANEL_ACCESS_PASSWORD_HASH</code> so this step
-            uses a passphrase separate from your login password (recommended for production).
+            <strong className="font-semibold text-amber-50">Required for Admin Panel:</strong> set{' '}
+            <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_PANEL_ACCESS_PASSWORD_HASH</code> (separate
+            from account login). This step will not accept your account password.
           </div>
         )}
         <form onSubmit={handleVerify} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
-              {adminPanelPasswordConfigured ? 'Admin panel password' : 'Password'}
+              {verifyMode === 'adminUser' ? 'Account password' : 'Admin Panel passphrase'}
             </label>
             <input
               type="password"
@@ -250,8 +269,10 @@ export default function AdminReauthGate({
                 setReauthError('')
               }}
               className="input w-full"
-              placeholder={adminPanelPasswordConfigured ? 'Dedicated admin passphrase' : 'Your account password'}
-              autoComplete={adminPanelPasswordConfigured ? 'off' : 'current-password'}
+              placeholder={
+                verifyMode === 'adminUser' ? 'Your account password' : 'Dedicated Admin Panel passphrase'
+              }
+              autoComplete={verifyMode === 'adminUser' ? 'current-password' : 'off'}
             />
           </div>
           <div>
@@ -305,7 +326,11 @@ export default function AdminReauthGate({
           </div>
           {reauthError && <p className="text-red-400 text-sm">{reauthError}</p>}
           <button type="submit" disabled={reauthVerifyLoading} className="btn-primary w-full">
-            {reauthVerifyLoading ? 'Verifying…' : 'Verify and enter Admin Panel'}
+            {reauthVerifyLoading
+              ? 'Verifying…'
+              : verifyMode === 'adminUser'
+                ? 'Verify and continue'
+                : 'Verify and enter Admin Panel'}
           </button>
         </form>
       </div>

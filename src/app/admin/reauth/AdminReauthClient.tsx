@@ -15,6 +15,7 @@ export default function AdminReauthClient({
 }: Props) {
   return (
     <AdminReauthGate
+      verifyMode="adminPanel"
       bootstrappedFromServer
       initialAdminUsername={initialAdminUsername}
       initialAdminPanelPasswordConfigured={initialAdminPanelPasswordConfigured}

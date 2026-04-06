@@ -1,11 +1,15 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, getSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { SocialSignIn } from '@/components/SocialSignIn'
-import { appendAdminFreshStep2Param, ADMIN_FORCE_STEP2_STORAGE_KEY } from '@/lib/adminFreshStep2'
+import {
+  appendAdminFreshStep2Param,
+  ADMIN_FORCE_STEP2_STORAGE_KEY,
+  isAppAdminRole,
+} from '@/lib/adminFreshStep2'
 
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthCallback: 'Social sign-in failed. You can try again or sign in with email below.',
@@ -94,9 +98,13 @@ function LoginContent() {
         setLoading(false)
       } else if (result?.ok) {
         let dest = safeCallbackUrl
-        // Only force fresh admin cookie when user explicitly signed in to reach /admin (not for normal app sign-in).
         if (safeCallbackUrl === '/admin' || safeCallbackUrl.startsWith('/admin?')) {
           dest = appendAdminFreshStep2Param(safeCallbackUrl)
+        } else {
+          const s = await getSession()
+          if (isAppAdminRole(s?.user?.role)) {
+            dest = `/login/admin-verify?next=${encodeURIComponent(safeCallbackUrl)}`
+          }
         }
         try {
           if (dest.startsWith('/admin')) {
