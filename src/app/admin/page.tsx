@@ -6,7 +6,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
 import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX } from '@/lib/uploadPlanConfig'
-import { ADMIN_FRESH_STEP2_PARAM, ADMIN_FORCE_STEP2_STORAGE_KEY } from '@/lib/adminFreshStep2'
+import { ADMIN_FRESH_STEP2_PARAM } from '@/lib/adminFreshStep2'
+
+function isAppAdminRole(role: string | undefined): boolean {
+  return role === 'ADMIN'
+}
 
 function parseAccessLogAbnormalFlags(raw: string | null | undefined): string[] {
   if (!raw) return []
@@ -708,36 +712,18 @@ export default function AdminPage() {
       const safeReturn =
         path.startsWith('/') && !path.startsWith('//') ? path : '/admin'
       router.push(`/login?callbackUrl=${encodeURIComponent(safeReturn)}`)
-    } else if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
+    } else if (status === 'authenticated' && !isAppAdminRole(session?.user?.role)) {
       router.push('/')
     }
   }, [status, session, router])
 
-  // Check if admin has already passed re-auth; clear cookie first when forcing Step 2 (ar=1 or post-login flag).
+  // Single AdminPage (no @modal duplicate). ?init=1 clears admin_reauth on the server response and returns verified:false atomically.
   useEffect(() => {
-    if (status !== 'authenticated' || !session?.user || session.user.role !== 'ADMIN') return
+    if (status !== 'authenticated' || !session?.user || !isAppAdminRole(session.user.role)) return
     let cancelled = false
 
     ;(async () => {
       try {
-        let needClear = false
-        if (typeof window !== 'undefined') {
-          try {
-            if (sessionStorage.getItem(ADMIN_FORCE_STEP2_STORAGE_KEY) === '1') {
-              needClear = true
-              sessionStorage.removeItem(ADMIN_FORCE_STEP2_STORAGE_KEY)
-            }
-          } catch {
-            /* private mode */
-          }
-          if (new URLSearchParams(window.location.search).get(ADMIN_FRESH_STEP2_PARAM) === '1') {
-            needClear = true
-          }
-        }
-        if (needClear && !cancelled) {
-          await fetch('/api/admin/clear-reauth-cookie', { method: 'POST', credentials: 'include' })
-        }
-        if (cancelled) return
         if (typeof window !== 'undefined') {
           const sp = new URLSearchParams(window.location.search)
           if (sp.get(ADMIN_FRESH_STEP2_PARAM) === '1') {
@@ -748,7 +734,7 @@ export default function AdminPage() {
           }
         }
         if (cancelled) return
-        const res = await fetch('/api/admin/verify-access', { credentials: 'include' })
+        const res = await fetch('/api/admin/verify-access?init=1', { credentials: 'include' })
         if (cancelled) return
         if (!res.ok) {
           setReauthVerified(false)
@@ -772,7 +758,7 @@ export default function AdminPage() {
     return () => {
       cancelled = true
     }
-  }, [status, session?.user?.id, session?.user?.role])
+  }, [status, session?.user?.role])
 
   // Debounce user search
   useEffect(() => {
@@ -1492,7 +1478,7 @@ export default function AdminPage() {
     }
   }
 
-  if (status === 'loading' || !session?.user || session.user.role !== 'ADMIN' || reauthVerified === null) {
+  if (status === 'loading' || !session?.user || !isAppAdminRole(session.user.role) || reauthVerified === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="spinner" />

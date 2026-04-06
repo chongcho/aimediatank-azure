@@ -7,26 +7,40 @@ import {
   isAdminPanelAccessPasswordConfigured,
   verifyAdminPanelAccessPassword,
 } from '@/lib/adminPanelAccessPassword'
-
-function dedicatedAdminPanelPasswordRequired(): boolean {
-  return process.env.ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD === 'true'
-}
 import { createAdminReauthCookie, getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
+import { buildExpiredAdminReauthCookie } from '@/lib/adminReauthConstants'
 import { verifyCode } from '@/lib/verificationCodes'
 import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
 
 export const dynamic = 'force-dynamic'
 
-// GET: Check if current session has a valid admin re-auth cookie
+function dedicatedAdminPanelPasswordRequired(): boolean {
+  return process.env.ADMIN_REQUIRE_DEDICATED_PANEL_PASSWORD === 'true'
+}
+
+// GET: Check admin re-auth cookie, or ?init=1 = atomically clear cookie + require Step 2 (no race with client POST clear).
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as { role?: string }).role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    const payload = getAdminReauthFromRequest(request)
     const adminPanelPasswordConfigured = isAdminPanelAccessPasswordConfigured()
     const dedicatedPasswordRequired = dedicatedAdminPanelPasswordRequired()
+
+    const url = new URL(request.url)
+    if (url.searchParams.get('init') === '1') {
+      const res = NextResponse.json({
+        verified: false,
+        adminPanelPasswordConfigured,
+        dedicatedPasswordRequired,
+      })
+      const cleared = buildExpiredAdminReauthCookie()
+      res.cookies.set(cleared.name, cleared.value, cleared.options)
+      return res
+    }
+
+    const payload = getAdminReauthFromRequest(request)
     const verified = !!(payload && payload.userId === session.user.id)
     if (!verified) {
       return NextResponse.json({
