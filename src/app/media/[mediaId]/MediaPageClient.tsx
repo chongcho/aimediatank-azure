@@ -751,8 +751,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 )}
               </div>
 
-              {/* Views + Reactions Row */}
-              <div className="flex items-center gap-6 mb-4">
+              {/* Views + reactions + save (inline row) */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4">
                 {/* Views */}
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -780,41 +780,43 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   />
                   <span>{reactions.happy}</span>
                 </button>
+
+                {/* Save to My Contents — same row, to the right of thumbs up */}
+                <button
+                  type="button"
+                  onClick={handleToggleSave}
+                  disabled={savingMedia}
+                  className={`flex items-center gap-2 text-sm font-semibold transition-colors disabled:opacity-60 ${
+                    isSaved
+                      ? 'text-tank-accent hover:text-tank-accent/90'
+                      : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  {savingMedia ? (
+                    <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin shrink-0" />
+                  ) : (
+                    <svg
+                      className="w-4 h-4 shrink-0"
+                      fill={isSaved ? 'currentColor' : 'none'}
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                      />
+                    </svg>
+                  )}
+                  {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
+                </button>
               </div>
             </div>
 
-            {/* Right Column: Save, Download */}
+            {/* Right Column: Download, Share */}
             <div className="flex flex-col gap-3 lg:items-start">
-              {/* Save Button */}
-              <button
-                onClick={handleToggleSave}
-                disabled={savingMedia}
-                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap ${
-                  isSaved
-                    ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
-                    : 'bg-tank-gray border border-tank-light text-white hover:bg-tank-light'
-                }`}
-              >
-                {savingMedia ? (
-                  <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                ) : (
-                  <svg
-                    className="w-5 h-5"
-                    fill={isSaved ? 'currentColor' : 'none'}
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                    />
-                  </svg>
-                )}
-                {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
-              </button>
-
               {/* Download & Share row */}
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Download Button — shown for free content (any logged-in user) and owners, when enabled */}
@@ -881,7 +883,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </div>
           </div>
 
-          {/* Description — below action buttons (Save / Download / Share / Send by email) */}
+          {/* Description — below action buttons (Download / Share / Send by email); save is inline with views */}
           {media.description && (
             <p className="text-gray-300 mt-6 whitespace-pre-wrap break-words w-full border-t border-tank-light/20 pt-6">
               {media.description}
