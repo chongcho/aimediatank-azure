@@ -699,7 +699,13 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login')
+      const path =
+        typeof window !== 'undefined'
+          ? `${window.location.pathname}${window.location.search}`
+          : '/admin'
+      const safeReturn =
+        path.startsWith('/') && !path.startsWith('//') ? path : '/admin'
+      router.push(`/login?callbackUrl=${encodeURIComponent(safeReturn)}`)
     } else if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
       router.push('/')
     }
@@ -1507,10 +1513,15 @@ export default function AdminPage() {
         setReauthVerifyLoading(false)
       }
     }
+    const adminUsername = session.user.username ?? session.user.name ?? 'your account'
     return (
       <div data-initial-content className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-8">
-          <h1 className="text-2xl font-bold text-white mb-1">Admin Panel</h1>
+          <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-2">Step 2 of 2</p>
+          <h1 className="text-2xl font-bold text-white mb-1">Admin Panel access</h1>
+          <p className="text-gray-300 text-sm mb-1">
+            Signed in as <span className="font-medium text-white">{adminUsername}</span>. App sign-in is complete; verify below to open the panel.
+          </p>
           <p className="text-gray-400 text-sm mb-6">
             {reauthAdminPanelPasswordConfigured
               ? 'Enter the admin panel password (configured on the server—different from your account login) and complete two-step verification.'

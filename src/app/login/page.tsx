@@ -71,6 +71,8 @@ function LoginContent() {
 
   const callbackUrl = searchParams.get('callbackUrl') || '/'
   const safeCallbackUrl = callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : '/'
+  const returningToAdmin =
+    safeCallbackUrl === '/admin' || safeCallbackUrl.startsWith('/admin?')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,6 +127,11 @@ function LoginContent() {
             </button>
           </div>
           <p className="text-gray-400">Sign in to your account</p>
+          {returningToAdmin && (
+            <p className="text-sm text-tank-accent/90 mt-3 max-w-md mx-auto">
+              Step 1 of 2: After you sign in, you will complete a separate Admin Panel verification (password and code) before the panel opens.
+            </p>
+          )}
         </div>
 
         <div className="card">
