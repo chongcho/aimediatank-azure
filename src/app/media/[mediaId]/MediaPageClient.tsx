@@ -734,7 +734,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
               {/* Description Row */}
               {media.description && (
-                <p className="text-gray-300 mb-4">{media.description}</p>
+                <p className="text-gray-300 mb-4 whitespace-pre-wrap break-words">{media.description}</p>
               )}
 
               {/* Views + Reactions Row */}
