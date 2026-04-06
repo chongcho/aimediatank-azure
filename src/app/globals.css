@@ -41,17 +41,6 @@ body {
   text-size-adjust: 100%;
 }
 
-/* Set on <html> via inline script in layout before #initial-loading parses — avoids home-grid flash on /admin */
-html.skip-admin-initial-skeleton #initial-loading {
-  display: none !important;
-}
-
-/* Hide initial-loading skeleton as soon as any page content is in the DOM */
-main:has(> [data-initial-content]) > #initial-loading,
-main:has(> :not(#initial-loading)) > #initial-loading {
-  display: none;
-}
-
 /* PWA standalone mode - add black safe area padding */
 @media all and (display-mode: standalone) {
   html {
