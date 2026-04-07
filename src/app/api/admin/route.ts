@@ -765,6 +765,7 @@ export async function GET(request: Request) {
           downloadEnabled: row.downloadEnabled ?? true,
           shareEnabled: row.shareEnabled ?? true,
           sendByEmailEnabled: rowWithExtras.sendByEmailEnabled ?? true,
+          aiToolEnabled: row.aiToolEnabled ?? true,
           shareAppsEnabled,
         })
       } catch (error) {
@@ -774,6 +775,7 @@ export async function GET(request: Request) {
           downloadEnabled: true,
           shareEnabled: true,
           sendByEmailEnabled: true,
+          aiToolEnabled: true,
           shareAppsEnabled: { ...DEFAULT_SHARE_APPS },
         })
       }
@@ -2029,10 +2031,17 @@ export async function POST(request: Request) {
       }
 
       case 'setMediaDetail': {
-        const { downloadEnabled: downloadPayload, shareEnabled: sharePayload, sendByEmailEnabled: sendByEmailPayload, shareAppsEnabled: shareAppsPayload } = data || {}
+        const {
+          downloadEnabled: downloadPayload,
+          shareEnabled: sharePayload,
+          sendByEmailEnabled: sendByEmailPayload,
+          aiToolEnabled: aiToolPayload,
+          shareAppsEnabled: shareAppsPayload,
+        } = data || {}
         const downloadBool = typeof downloadPayload === 'boolean' ? downloadPayload : undefined
         const shareBool = typeof sharePayload === 'boolean' ? sharePayload : undefined
         const sendByEmailBool = typeof sendByEmailPayload === 'boolean' ? sendByEmailPayload : undefined
+        const aiToolBool = typeof aiToolPayload === 'boolean' ? aiToolPayload : undefined
         const shareAppsObj = shareAppsPayload && typeof shareAppsPayload === 'object' && !Array.isArray(shareAppsPayload)
           ? (shareAppsPayload as Record<string, boolean>)
           : undefined
@@ -2042,12 +2051,14 @@ export async function POST(request: Request) {
         if (downloadBool !== undefined) updateData.downloadEnabled = downloadBool
         if (shareBool !== undefined) updateData.shareEnabled = shareBool
         if (sendByEmailBool !== undefined) updateData.sendByEmailEnabled = sendByEmailBool
+        if (aiToolBool !== undefined) updateData.aiToolEnabled = aiToolBool
         if (shareAppsJson !== undefined) updateData.shareAppsEnabled = shareAppsJson
         if (!row) {
           const createData: Prisma.MediaDetailSettingUncheckedCreateInput = {}
           if (downloadBool !== undefined) createData.downloadEnabled = downloadBool
           if (shareBool !== undefined) createData.shareEnabled = shareBool
           if (sendByEmailBool !== undefined) createData.sendByEmailEnabled = sendByEmailBool
+          if (aiToolBool !== undefined) createData.aiToolEnabled = aiToolBool
           if (shareAppsJson !== undefined) createData.shareAppsEnabled = shareAppsJson
           row = await prisma.mediaDetailSetting.create({
             data: createData,
@@ -2065,6 +2076,7 @@ export async function POST(request: Request) {
           downloadEnabled: row.downloadEnabled,
           shareEnabled: row.shareEnabled,
           sendByEmailEnabled: updated.sendByEmailEnabled,
+          aiToolEnabled: row.aiToolEnabled,
           shareAppsEnabled,
         })
         return NextResponse.json({
@@ -2072,6 +2084,7 @@ export async function POST(request: Request) {
           downloadEnabled: row.downloadEnabled,
           shareEnabled: row.shareEnabled,
           sendByEmailEnabled: updated.sendByEmailEnabled,
+          aiToolEnabled: row.aiToolEnabled,
           shareAppsEnabled,
         })
       }

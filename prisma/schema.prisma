@@ -675,13 +675,14 @@ model HomeLayoutSetting {
   updatedAt    DateTime @updatedAt
 }
 
-// Media detail page: show/hide Download, Share, and Send by email buttons (admin)
+// Media detail page: show/hide Download, Share, Send by email, and AI Tool metadata (admin)
 // shareAppsEnabled: JSON object e.g. { email: true, whatsapp: true, ... } — which share options to show in Share modal
 model MediaDetailSetting {
   id                  String   @id @default(uuid())
   downloadEnabled     Boolean  @default(true)
   shareEnabled        Boolean  @default(true)
   sendByEmailEnabled  Boolean  @default(true)
+  aiToolEnabled       Boolean  @default(true) // show "AI Tool: …" when media has aiTool set
   shareAppsEnabled    Json?    // { email, whatsapp, kakao, facebook, x, linkedin, reddit, youtube, tiktok }
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

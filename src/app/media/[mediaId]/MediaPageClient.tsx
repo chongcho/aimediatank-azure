@@ -86,6 +86,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const [mediaDetailDownloadEnabled, setMediaDetailDownloadEnabled] = useState(true)
   const [mediaDetailShareEnabled, setMediaDetailShareEnabled] = useState(true)
   const [mediaDetailSendByEmailEnabled, setMediaDetailSendByEmailEnabled] = useState(true)
+  const [mediaDetailAiToolEnabled, setMediaDetailAiToolEnabled] = useState(true)
   const [shareAppsEnabled, setShareAppsEnabled] = useState<Record<string, boolean>>({
     email: true, whatsapp: true, kakao: true, facebook: true, x: true, linkedin: true, reddit: true, youtube: true, tiktok: true,
   })
@@ -144,6 +145,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           setMediaDetailDownloadEnabled(data.downloadEnabled !== false)
           setMediaDetailShareEnabled(data.shareEnabled !== false)
           setMediaDetailSendByEmailEnabled(data.sendByEmailEnabled !== false)
+          setMediaDetailAiToolEnabled(data.aiToolEnabled !== false)
           if (data.shareAppsEnabled && typeof data.shareAppsEnabled === 'object' && !Array.isArray(data.shareAppsEnabled)) {
             setShareAppsEnabled((prev) => ({ ...prev, ...data.shareAppsEnabled }))
           }
@@ -743,7 +745,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     {media.user.username}
                   </Link>
                 </span>
-                {media.aiTool && (
+                {mediaDetailAiToolEnabled && media.aiTool && (
                   <span>
                     <span className="text-gray-500">AI Tool:</span>
                     <span className="ml-1 text-tank-accent">{media.aiTool}</span>
