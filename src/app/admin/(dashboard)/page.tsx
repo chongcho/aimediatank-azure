@@ -1731,7 +1731,7 @@ export default function AdminPage() {
                   placeholder="Search path, IP, email, name, referrer, session…"
                   value={accessLogsSearch}
                   onChange={(e) => setAccessLogsSearch(e.target.value)}
-                  className="input flex-1 min-w-[200px] h-9 text-sm"
+                  className="flex-1 min-w-[200px] h-9 text-sm px-2 py-1 rounded-lg border border-gray-400 bg-white text-black placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent/50"
                   aria-label="Search access logs"
                 />
                 <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer whitespace-nowrap">
