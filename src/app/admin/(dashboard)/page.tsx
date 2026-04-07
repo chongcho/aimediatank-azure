@@ -536,8 +536,8 @@ export default function AdminPage() {
   const [accessLogsTotalPages, setAccessLogsTotalPages] = useState(1)
   const [accessLogsTotal, setAccessLogsTotal] = useState(0)
   const [accessLogsSummary, setAccessLogsSummary] = useState<{ uniqueIps: number; uniqueSessions: number } | null>(null)
-  const [accessLogsPathFilter, setAccessLogsPathFilter] = useState('')
-  const [accessLogsIpFilter, setAccessLogsIpFilter] = useState('')
+  const [accessLogsSearch, setAccessLogsSearch] = useState('')
+  const [accessLogsSearchDebounced, setAccessLogsSearchDebounced] = useState('')
   const [accessLogsFrom, setAccessLogsFrom] = useState('')
   const [accessLogsTo, setAccessLogsTo] = useState('')
   const [alTimePeriod, setAlTimePeriod] = useState('')
@@ -608,6 +608,7 @@ export default function AdminPage() {
   const [chatSearchDebounced, setChatSearchDebounced] = useState('')
   const [chatFilter, setChatFilter] = useState('all')
   const chatSearchTimer = useRef<NodeJS.Timeout | null>(null)
+  const accessLogsSearchTimer = useRef<NodeJS.Timeout | null>(null)
   
   // Chat warning modal state
   const [chatWarningModal, setChatWarningModal] = useState<{
@@ -750,6 +751,18 @@ export default function AdminPage() {
     }
   }, [chatSearch])
 
+  // Debounce access logs search
+  useEffect(() => {
+    if (accessLogsSearchTimer.current) clearTimeout(accessLogsSearchTimer.current)
+    accessLogsSearchTimer.current = setTimeout(() => {
+      setAccessLogsSearchDebounced(accessLogsSearch)
+      setAccessLogsPage(1)
+    }, 300)
+    return () => {
+      if (accessLogsSearchTimer.current) clearTimeout(accessLogsSearchTimer.current)
+    }
+  }, [accessLogsSearch])
+
   // Users: distinct values + client-side column filtering
   const userDistinct = useMemo(() => ({
     memberships: Array.from(new Set(users.map(u => u.membershipType))).sort(),
@@ -780,7 +793,7 @@ export default function AdminPage() {
     if (isAppAdminRole(session?.user?.role)) {
       fetchData()
     }
-  }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsPathFilter, accessLogsIpFilter, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter, alAbnormalOnly])
+  }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsSearchDebounced, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter, alAbnormalOnly])
 
   const fetchData = async () => {
     setLoading(true)
@@ -826,8 +839,7 @@ export default function AdminPage() {
         setUsers(data.users || [])
       } else if (activeTab === 'accessLogs') {
         const params = new URLSearchParams({ action: 'accessLogs', page: String(accessLogsPage), limit: '50' })
-        if (accessLogsPathFilter) params.set('path', accessLogsPathFilter)
-        if (accessLogsIpFilter) params.set('ip', accessLogsIpFilter)
+        if (accessLogsSearchDebounced.trim()) params.set('q', accessLogsSearchDebounced.trim())
         const effectiveFrom = alTimePeriod ? timePeriodToRange(alTimePeriod).from : accessLogsFrom
         const effectiveTo = alTimePeriod ? timePeriodToRange(alTimePeriod).to : accessLogsTo
         if (effectiveFrom) params.set('from', effectiveFrom)
@@ -1714,6 +1726,14 @@ export default function AdminPage() {
 
             {activeTab === 'accessLogs' && (
               <>
+                <input
+                  type="search"
+                  placeholder="Search path, IP, email, name, referrer, session…"
+                  value={accessLogsSearch}
+                  onChange={(e) => setAccessLogsSearch(e.target.value)}
+                  className="input flex-1 min-w-[200px] h-9 text-sm"
+                  aria-label="Search access logs"
+                />
                 <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer whitespace-nowrap">
                   <input
                     type="checkbox"
@@ -1723,9 +1743,19 @@ export default function AdminPage() {
                   />
                   Abnormal only
                 </label>
-                {(alTimePeriod || alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0 || alAbnormalOnly) && (
+                {(accessLogsSearch.trim() || alTimePeriod || alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0 || alAbnormalOnly) && (
                   <button
-                    onClick={() => { setAlTimePeriod(''); setAlBrowserFilter([]); setAlOsFilter([]); setAlCountryFilter([]); setAlMethodFilter([]); setAlAbnormalOnly(false); setAccessLogsPage(1) }}
+                    onClick={() => {
+                      setAccessLogsSearch('')
+                      setAccessLogsSearchDebounced('')
+                      setAlTimePeriod('')
+                      setAlBrowserFilter([])
+                      setAlOsFilter([])
+                      setAlCountryFilter([])
+                      setAlMethodFilter([])
+                      setAlAbnormalOnly(false)
+                      setAccessLogsPage(1)
+                    }}
                     className="text-xs text-red-400 hover:text-red-300 whitespace-nowrap"
                   >
                     ✕ Clear all filters
@@ -1752,6 +1782,7 @@ export default function AdminPage() {
             <div className="card overflow-hidden">
               <h2 className="text-xl font-bold text-white mb-4">Access Logs (site analytics, support, security)</h2>
               <p className="text-gray-400 text-sm mb-4">
+                Use the <strong className="text-gray-300">search box</strong> above to filter by path, IP, email, name, referrer, session id, user agent, country/city, or method (matches any column). Column filters and time range combine with search.
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
                 Rows with <span className="text-amber-400/90">security flags</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—manage the list on the <strong className="text-gray-300">Blocked IPs</strong> tab. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>

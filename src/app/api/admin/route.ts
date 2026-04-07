@@ -369,6 +369,8 @@ export async function GET(request: Request) {
       const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 200)
       const pathFilter = searchParams.get('path') || ''
       const ipFilter = searchParams.get('ip') || ''
+      const qRaw = searchParams.get('q') || ''
+      const q = qRaw.trim().slice(0, 200)
       const fromStr = searchParams.get('from') // ISO date
       const toStr = searchParams.get('to') // ISO date
       const browserFilter = searchParams.get('browser') || ''
@@ -378,16 +380,58 @@ export async function GET(request: Request) {
       const abnormalOnly =
         searchParams.get('abnormalOnly') === '1' || searchParams.get('abnormalOnly') === 'true'
 
-      const where: any = {}
-      if (abnormalOnly) where.abnormalFlags = { not: null }
-      if (pathFilter) where.path = { contains: pathFilter, mode: 'insensitive' }
-      if (ipFilter) where.ipAddress = { contains: ipFilter, mode: 'insensitive' }
-      if (fromStr) where.createdAt = { ...(where.createdAt as object), gte: new Date(fromStr) }
-      if (toStr) where.createdAt = { ...(where.createdAt as object), lte: new Date(toStr) }
-      if (browserFilter) where.browser = { in: browserFilter.split(',') }
-      if (osFilter) where.os = { in: osFilter.split(',') }
-      if (countryFilter) where.country = { in: countryFilter.split(',') }
-      if (methodFilter) where.method = { in: methodFilter.split(',') }
+      const mode = 'insensitive' as const
+      const parts: Record<string, unknown>[] = []
+      if (abnormalOnly) parts.push({ abnormalFlags: { not: null } })
+      if (fromStr || toStr) {
+        const dr: { gte?: Date; lte?: Date } = {}
+        if (fromStr) dr.gte = new Date(fromStr)
+        if (toStr) dr.lte = new Date(toStr)
+        parts.push({ createdAt: dr })
+      }
+      if (browserFilter) {
+        const list = browserFilter.split(',').filter(Boolean)
+        if (list.length) parts.push({ browser: { in: list } })
+      }
+      if (osFilter) {
+        const list = osFilter.split(',').filter(Boolean)
+        if (list.length) parts.push({ os: { in: list } })
+      }
+      if (countryFilter) {
+        const list = countryFilter.split(',').filter(Boolean)
+        if (list.length) parts.push({ country: { in: list } })
+      }
+      if (methodFilter) {
+        const list = methodFilter.split(',').filter(Boolean)
+        if (list.length) parts.push({ method: { in: list } })
+      }
+
+      if (q) {
+        parts.push({
+          OR: [
+            { path: { contains: q, mode } },
+            { ipAddress: { contains: q, mode } },
+            { userName: { contains: q, mode } },
+            { userEmail: { contains: q, mode } },
+            { referrer: { contains: q, mode } },
+            { sessionId: { contains: q, mode } },
+            { userAgent: { contains: q, mode } },
+            { query: { contains: q, mode } },
+            { country: { contains: q, mode } },
+            { city: { contains: q, mode } },
+            { region: { contains: q, mode } },
+            { browser: { contains: q, mode } },
+            { os: { contains: q, mode } },
+            { device: { contains: q, mode } },
+            { method: { contains: q, mode } },
+          ],
+        })
+      } else {
+        if (pathFilter) parts.push({ path: { contains: pathFilter, mode } })
+        if (ipFilter) parts.push({ ipAddress: { contains: ipFilter, mode } })
+      }
+
+      const where: Record<string, unknown> = parts.length ? { AND: parts } : {}
 
       const blocked = await blockedIpAddressList()
       const whereLogs = whereExcludingBlockedIps(where, blocked)
