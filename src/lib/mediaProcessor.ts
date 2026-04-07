@@ -47,6 +47,35 @@ function getFfmpegPath(): string {
   return 'ffmpeg'
 }
 
+let ffprobePathResolved: string | null = null
+
+/** ffprobe path for stream probing. ffmpeg-static does not ship ffprobe; Azure has no system ffprobe. */
+function getFfprobePath(): string {
+  if (ffprobePathResolved) return ffprobePathResolved
+
+  const ffmpegBin = getFfmpegPath()
+  const sibling = ffmpegBin.replace(/ffmpeg(\.exe)?$/i, 'ffprobe$1')
+  if (sibling !== ffmpegBin && existsSync(sibling)) {
+    ffprobePathResolved = sibling
+    return sibling
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require('ffprobe-static') as { path?: string }
+    const p = mod?.path
+    if (p && existsSync(p)) {
+      ffprobePathResolved = p
+      return p
+    }
+  } catch {
+    // optional / wrong platform
+  }
+
+  ffprobePathResolved = 'ffprobe'
+  return 'ffprobe'
+}
+
 // Max wall-clock time per FFmpeg invocation (avoid runaway transcodes; cron marks stuck after 30 min)
 const FFMPEG_TIMEOUT_MS = 25 * 60 * 1000 // 25 minutes
 
@@ -215,9 +244,7 @@ function pickPrimaryVideoStream(streams: any[]): any | undefined {
 }
 
 async function probeVideo(filePath: string): Promise<ProbeResult> {
-  const bin = getFfmpegPath()
-  // Use ffprobe from same directory (ffmpeg-static ships it alongside)
-  const probeBin = bin.replace(/ffmpeg(\.exe)?$/i, 'ffprobe$1')
+  const probeBin = getFfprobePath()
 
   const { spawn } = require('child_process') as typeof import('child_process')
 
@@ -230,7 +257,7 @@ async function probeVideo(filePath: string): Promise<ProbeResult> {
       filePath,
     ]
 
-    const proc = spawn(existsSync(probeBin) ? probeBin : 'ffprobe', args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const proc = spawn(probeBin, args, { stdio: ['ignore', 'pipe', 'pipe'] })
     let stdout = ''
     proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
     proc.on('close', (code: number) => {

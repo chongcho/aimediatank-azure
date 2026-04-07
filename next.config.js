@@ -2,7 +2,7 @@
 const nextConfig = {
   output: 'standalone', // Required for Azure App Service
   experimental: {
-    serverComponentsExternalPackages: ['ffmpeg-static'],
+    serverComponentsExternalPackages: ['ffmpeg-static', 'ffprobe-static'],
     staleTimes: {
       dynamic: 300,
     },

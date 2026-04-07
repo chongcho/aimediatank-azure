@@ -71,10 +71,12 @@ jobs:
           cp scripts/azure-run.js ./deploy/run.js
           echo "Build completed at $(date)" > ./deploy/BUILD_INFO.txt
 
-      - name: Copy ffmpeg-static for video processing on Azure
+      - name: Copy ffmpeg/ffprobe static binaries for video processing on Azure
         run: |
           mkdir -p deploy/node_modules
           cp -r node_modules/ffmpeg-static deploy/node_modules/
+          cp -r node_modules/ffprobe-static deploy/node_modules/
+          test -x deploy/node_modules/ffprobe-static/bin/linux/x64/ffprobe
 
       - name: Verify deploy package has Next.js (avoids MODULE_NOT_FOUND on Azure)
         run: |
