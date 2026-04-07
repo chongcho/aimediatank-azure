@@ -1,6 +1,6 @@
 /**
  * Client-side privacy masking for the standalone crop tool.
- * - Faces: BlazeFace (TensorFlow.js).
+ * - Faces: MediaPipe Face Detector via TF.js (full-range model; better profiles / hats / distance than BlazeFace).
  * - License plates: heuristic region on COCO-SSD vehicles (car, truck, bus, motorcycle);
  *   not a dedicated plate detector — best for front/rear vehicle views.
  */
@@ -15,12 +15,15 @@ export type PrivacyMaskRequest = {
 
 export type PrivacyRect = { x: number; y: number; width: number; height: number }
 
-type BlazeFaceModule = typeof import('@tensorflow-models/blazeface')
+type FaceDetectionModule = typeof import('@tensorflow-models/face-detection')
 type CocoSsdModule = typeof import('@tensorflow-models/coco-ssd')
 
 let tfReady = false
-let blazeModel: Awaited<ReturnType<BlazeFaceModule['load']>> | null = null
+let faceDetector: Awaited<ReturnType<FaceDetectionModule['createDetector']>> | null = null
 let cocoModel: Awaited<ReturnType<CocoSsdModule['load']>> | null = null
+
+/** Enough for group shots; the TF.js model default of 1 would only mask a single face. */
+const FACE_DETECTOR_MAX_FACES = 10
 
 const VEHICLE_CLASSES = new Set(['car', 'truck', 'bus', 'motorcycle'])
 
@@ -38,11 +41,23 @@ async function ensureTfBackend(): Promise<void> {
   tfReady = true
 }
 
+async function ensureFaceDetector(): Promise<NonNullable<typeof faceDetector>> {
+  await ensureTfBackend()
+  if (!faceDetector) {
+    const faceDetection = (await import('@tensorflow-models/face-detection')) as FaceDetectionModule
+    faceDetector = await faceDetection.createDetector(faceDetection.SupportedModels.MediaPipeFaceDetector, {
+      runtime: 'tfjs',
+      modelType: 'full',
+      maxFaces: FACE_DETECTOR_MAX_FACES,
+    })
+  }
+  return faceDetector
+}
+
 export async function preloadPrivacyModels(request: PrivacyMaskRequest): Promise<void> {
   await ensureTfBackend()
-  if (request.maskFaces && !blazeModel) {
-    const blazeface = (await import('@tensorflow-models/blazeface')) as BlazeFaceModule
-    blazeModel = await blazeface.load()
+  if (request.maskFaces) {
+    await ensureFaceDetector()
   }
   if (request.maskPlates && !cocoModel) {
     const coco = (await import('@tensorflow-models/coco-ssd')) as CocoSsdModule
@@ -118,22 +133,18 @@ export async function collectPrivacyRectsNative(
   if (!w || !h) return { faces: [], plates: [] }
 
   if (opts.maskFaces) {
-    await ensureTfBackend()
-    if (!blazeModel) {
-      const blazeface = (await import('@tensorflow-models/blazeface')) as BlazeFaceModule
-      blazeModel = await blazeface.load()
-    }
-    const preds = await blazeModel.estimateFaces(source, false)
+    const detector = await ensureFaceDetector()
+    const preds = await detector.estimateFaces(source, { flipHorizontal: false })
     for (const p of preds) {
-      const tl = p.topLeft as [number, number]
-      const br = p.bottomRight as [number, number]
+      const b = p.box
       const raw: PrivacyRect = {
-        x: tl[0],
-        y: tl[1],
-        width: Math.max(4, br[0] - tl[0]),
-        height: Math.max(4, br[1] - tl[1]),
+        x: b.xMin,
+        y: b.yMin,
+        width: Math.max(4, b.width),
+        height: Math.max(4, b.height),
       }
-      faces.push(expandRect(raw, 1.18, w, h))
+      // Slightly larger expansion than BlazeFace — covers hair, caps, and chin when the box is tight.
+      faces.push(expandRect(raw, 1.32, w, h))
     }
   }
 

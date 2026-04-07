@@ -805,7 +805,7 @@ export default function CropToolPage() {
       let cachedPrivacyRects: Array<{ x: number; y: number; width: number; height: number }> = []
       let privacyGen = 0
       let privacyFrameCount = 0
-      const privacyDetectEvery = 5
+      const privacyDetectEvery = 3
 
       const schedulePrivacyRefresh = () => {
         if (!usePrivacy || !privacy) return
@@ -1175,7 +1175,8 @@ export default function CropToolPage() {
                           <div className="border-t border-tank-light/25 pt-4 mt-2 space-y-3">
                             <h4 className="text-sm font-semibold text-white">Privacy masking</h4>
                             <p className="text-xs text-gray-400 leading-relaxed">
-                              Runs in your browser before save. Faces use BlazeFace. License plates use a{' '}
+                              Runs in your browser before save. Faces use MediaPipe Face Detector (full range).
+                              License plates use a{' '}
                               <span className="text-gray-300">bottom band on detected vehicles</span> (cars, trucks,
                               buses, motorcycles)—not a dedicated plate reader; verify in preview.
                             </p>
