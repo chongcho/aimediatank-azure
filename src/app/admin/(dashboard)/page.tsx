@@ -391,7 +391,6 @@ export default function AdminPage() {
   const [navbarLoading, setNavbarLoading] = useState(false)
   const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid_top' | 'grid_center'>('masonry')
   const [homePreplay, setHomePreplay] = useState(true)
-  const [homeEcardEnabled, setHomeEcardEnabled] = useState(true)
   const [homeLayoutLoading, setHomeLayoutLoading] = useState(false)
   const [homeLayoutSaving, setHomeLayoutSaving] = useState(false)
   const [mediaDetailDownload, setMediaDetailDownload] = useState(true)
@@ -888,7 +887,6 @@ export default function AdminPage() {
             layout === 'grid_top' || layout === 'grid_center' ? layout : layout === 'grid' ? 'grid_center' : 'masonry'
           )
           setHomePreplay(data.preplay !== false)
-          setHomeEcardEnabled(data.ecardEnabled !== false)
         } finally {
           setHomeLayoutLoading(false)
         }
@@ -3058,18 +3056,6 @@ export default function AdminPage() {
                       <option value="off">Off</option>
                     </select>
                   </div>
-                  <div className="flex flex-wrap items-center gap-4">
-                    <label className="text-white font-medium">eCard:</label>
-                    <select
-                      value={homeEcardEnabled ? 'on' : 'off'}
-                      onChange={(e) => setHomeEcardEnabled(e.target.value === 'on')}
-                      disabled={homeLayoutSaving}
-                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="on">On — Show eCard link in navbar</option>
-                      <option value="off">Off</option>
-                    </select>
-                  </div>
                   <button
                     onClick={async () => {
                       setHomeLayoutSaving(true)
@@ -3079,7 +3065,7 @@ export default function AdminPage() {
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
                             action: 'setHomeLayout',
-                            data: { layout: homeLayout, preplay: homePreplay, ecardEnabled: homeEcardEnabled },
+                            data: { layout: homeLayout, preplay: homePreplay },
                           }),
                         })
                         const data = await res.json()
@@ -3089,7 +3075,6 @@ export default function AdminPage() {
                         }
                         if (data.layout) setHomeLayout(data.layout)
                         if (typeof data.preplay === 'boolean') setHomePreplay(data.preplay)
-                        if (typeof data.ecardEnabled === 'boolean') setHomeEcardEnabled(data.ecardEnabled)
                         if (typeof window !== 'undefined') window.dispatchEvent(new Event('homeLayoutUpdated'))
                       } finally {
                         setHomeLayoutSaving(false)
