@@ -27,6 +27,34 @@ const FACE_DETECTOR_MAX_FACES = 10
 
 const VEHICLE_CLASSES = new Set(['car', 'truck', 'bus', 'motorcycle'])
 
+/**
+ * MediaPipe TFJS `estimateFaces` scales boxes using getImageSize(), which for
+ * HTMLVideoElement reads the width/height *attributes* (often 0 on an off-DOM
+ * `<video>`), not videoWidth/videoHeight — face boxes become zero-sized.
+ * Drawing the current frame to a canvas gives correct dimensions for detection
+ * and coordinate projection.
+ */
+let videoFaceFrameCanvas: HTMLCanvasElement | null = null
+let videoFaceFrameCtx: CanvasRenderingContext2D | null = null
+
+function getVideoFrameCanvasForFaceDetection(video: HTMLVideoElement): HTMLCanvasElement | null {
+  const w = video.videoWidth
+  const h = video.videoHeight
+  if (!w || !h) return null
+  if (!videoFaceFrameCanvas) {
+    videoFaceFrameCanvas = document.createElement('canvas')
+    videoFaceFrameCtx = videoFaceFrameCanvas.getContext('2d')
+  }
+  const ctx = videoFaceFrameCtx
+  if (!ctx) return null
+  if (videoFaceFrameCanvas.width !== w || videoFaceFrameCanvas.height !== h) {
+    videoFaceFrameCanvas.width = w
+    videoFaceFrameCanvas.height = h
+  }
+  ctx.drawImage(video, 0, 0, w, h)
+  return videoFaceFrameCanvas
+}
+
 async function ensureTfBackend(): Promise<void> {
   if (tfReady) return
   const tf = await import('@tensorflow/tfjs')
@@ -134,17 +162,21 @@ export async function collectPrivacyRectsNative(
 
   if (opts.maskFaces) {
     const detector = await ensureFaceDetector()
-    const preds = await detector.estimateFaces(source, { flipHorizontal: false })
-    for (const p of preds) {
-      const b = p.box
-      const raw: PrivacyRect = {
-        x: b.xMin,
-        y: b.yMin,
-        width: Math.max(4, b.width),
-        height: Math.max(4, b.height),
+    const faceSource: HTMLImageElement | HTMLCanvasElement | null =
+      source instanceof HTMLVideoElement ? getVideoFrameCanvasForFaceDetection(source) : source
+    if (faceSource) {
+      const preds = await detector.estimateFaces(faceSource, { flipHorizontal: false })
+      for (const p of preds) {
+        const b = p.box
+        const raw: PrivacyRect = {
+          x: b.xMin,
+          y: b.yMin,
+          width: Math.max(4, b.width),
+          height: Math.max(4, b.height),
+        }
+        // Slightly larger expansion than BlazeFace — covers hair, caps, and chin when the box is tight.
+        faces.push(expandRect(raw, 1.32, w, h))
       }
-      // Slightly larger expansion than BlazeFace — covers hair, caps, and chin when the box is tight.
-      faces.push(expandRect(raw, 1.32, w, h))
     }
   }
 
