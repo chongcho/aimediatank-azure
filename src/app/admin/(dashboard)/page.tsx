@@ -398,7 +398,7 @@ export default function AdminPage() {
   const [mediaDetailSendByEmail, setMediaDetailSendByEmail] = useState(true)
   const [mediaDetailAiTool, setMediaDetailAiTool] = useState(true)
   const [mediaDetailShareApps, setMediaDetailShareApps] = useState<Record<string, boolean>>({
-    email: true, whatsapp: true, kakao: true, facebook: true, x: true, linkedin: true, reddit: true, youtube: true, tiktok: true,
+    email: true, whatsapp: true, kakao: true, facebook: true, x: true, linkedin: true, reddit: true, youtube: true, tiktok: true, instagram: true,
   })
   const [mediaDetailLoading, setMediaDetailLoading] = useState(false)
   const [mediaDetailSaving, setMediaDetailSaving] = useState(false)
@@ -3195,6 +3195,7 @@ export default function AdminPage() {
                         { key: 'reddit', label: 'Reddit' },
                         { key: 'youtube', label: 'YouTube' },
                         { key: 'tiktok', label: 'TikTok' },
+                        { key: 'instagram', label: 'Instagram' },
                       ].map(({ key, label }) => (
                         <div key={key} className="flex items-center gap-2">
                           <label className="text-gray-300 text-sm">{label}</label>

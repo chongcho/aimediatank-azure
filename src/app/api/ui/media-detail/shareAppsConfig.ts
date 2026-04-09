@@ -8,6 +8,7 @@ export const DEFAULT_SHARE_APPS: Record<string, boolean> = {
   reddit: true,
   youtube: true,
   tiktok: true,
+  instagram: true,
 }
 
 export function normalizeShareAppsEnabled(raw: unknown): Record<string, boolean> {
