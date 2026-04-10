@@ -360,12 +360,25 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const handleKakaoShare = () => {
     if (!shareUrl || !media) return
     const w = typeof window !== 'undefined' ? window : null
-    const Kakao = w && (w as unknown as { Kakao?: { Share?: { sendDefault: (opts: unknown) => void } } }).Kakao
-    if (!Kakao?.Share?.sendDefault) {
-      // No JS key / SDK — copy flow; avoid double POST (handleCopyLink already records on copy success)
+    type KakaoWindow = {
+      Kakao?: {
+        isInitialized?: () => boolean
+        Share?: { sendDefault: (opts: unknown) => void }
+      }
+    }
+    const Kakao = w && (w as unknown as KakaoWindow).Kakao
+    // Script tag can load before onLoad runs Kakao.init(); sendDefault before init often does nothing.
+    const kakaoNativeReady =
+      Boolean(Kakao?.Share?.sendDefault) &&
+      (typeof Kakao?.isInitialized !== 'function' || Kakao.isInitialized())
+    const runKakaoCopyFallback = () => {
       void handleCopyLink().then((recorded) => {
         if (!recorded) recordShareAction()
+        else setShowShareModal(false)
       })
+    }
+    if (!kakaoNativeReady) {
+      runKakaoCopyFallback()
       return
     }
     const imageUrl = media.thumbnailUrl || undefined
@@ -394,9 +407,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       recordShareAction()
       setShowShareModal(false)
     } catch {
-      void handleCopyLink().then((recorded) => {
-        if (!recorded) recordShareAction()
-      })
+      runKakaoCopyFallback()
     }
   }
 
