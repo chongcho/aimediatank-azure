@@ -367,7 +367,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       }
     }
     const Kakao = w && (w as unknown as KakaoWindow).Kakao
-    const kakaoSend = Kakao?.Share?.sendDefault
+    const shareApi = Kakao?.Share
     const runKakaoCopyFallback = () => {
       void handleCopyLink().then((recorded) => {
         if (!recorded) recordShareAction()
@@ -375,7 +375,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       })
     }
     // Script tag can load before onLoad runs Kakao.init(); sendDefault before init often does nothing.
-    if (!kakaoSend) {
+    if (!shareApi?.sendDefault) {
       runKakaoCopyFallback()
       return
     }
@@ -385,7 +385,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     }
     const imageUrl = media.thumbnailUrl || undefined
     try {
-      kakaoSend({
+      // Call as shareApi.sendDefault(...) so SDK keeps correct `this` (do not assign method to a bare variable).
+      shareApi.sendDefault({
         objectType: 'feed',
         content: {
           title: shareTitle,
