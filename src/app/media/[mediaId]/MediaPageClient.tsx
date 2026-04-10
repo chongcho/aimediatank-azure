@@ -338,15 +338,18 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     pauseAllMedia()
   }, [showShareModal])
 
-  const handleCopyLink = async () => {
-    if (!shareUrl) return
+  /** @returns true if clipboard copy succeeded (share POST fired inside); false if no URL or prompt fallback */
+  const handleCopyLink = async (): Promise<boolean> => {
+    if (!shareUrl) return false
     try {
       await navigator.clipboard.writeText(shareUrl)
       fetch(`/api/media/${mediaId}/share`, { method: 'POST' }).catch(() => {})
       setShareStatus('copied')
       setTimeout(() => setShareStatus('idle'), 2000)
+      return true
     } catch {
       window.prompt('Copy this link:', shareUrl)
+      return false
     }
   }
 
@@ -359,9 +362,10 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     const w = typeof window !== 'undefined' ? window : null
     const Kakao = w && (w as unknown as { Kakao?: { Share?: { sendDefault: (opts: unknown) => void } } }).Kakao
     if (!Kakao?.Share?.sendDefault) {
-      // No JS key / SDK on this deploy — still honor admin "on" with copy + paste flow
-      void handleCopyLink()
-      recordShareAction()
+      // No JS key / SDK — copy flow; avoid double POST (handleCopyLink already records on copy success)
+      void handleCopyLink().then((recorded) => {
+        if (!recorded) recordShareAction()
+      })
       return
     }
     const imageUrl = media.thumbnailUrl || undefined
@@ -390,8 +394,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       recordShareAction()
       setShowShareModal(false)
     } catch {
-      // Fallback: copy link if Kakao fails
-      void handleCopyLink()
+      void handleCopyLink().then((recorded) => {
+        if (!recorded) recordShareAction()
+      })
     }
   }
 
@@ -958,7 +963,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               <p className="flex-1 min-w-0 text-gray-500 text-xs truncate font-mono" title={shareUrl}>{shareUrl}</p>
               <button
                 type="button"
-                onClick={handleCopyLink}
+                onClick={() => void handleCopyLink()}
                 className="shrink-0 w-10 h-10 rounded-lg bg-tank-accent text-tank-black hover:opacity-90 transition-opacity flex items-center justify-center"
                 title={shareStatus === 'copied' ? 'Copied!' : 'Copy'}
               >
@@ -1082,7 +1087,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   href="https://www.youtube.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => { handleCopyLink(); recordShareAction(); }}
+                  onClick={() => {
+                    void handleCopyLink().then((recorded) => {
+                      if (!recorded) recordShareAction()
+                    })
+                  }}
                   className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
                   title="YouTube (link copied)"
                 >
@@ -1097,7 +1106,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   href="https://www.tiktok.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => handleCopyLink()}
+                  onClick={() => void handleCopyLink()}
                   className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
                   title="TikTok (link copied)"
                 >
@@ -1113,8 +1122,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => {
-                    handleCopyLink()
-                    recordShareAction()
+                    void handleCopyLink().then((recorded) => {
+                      if (!recorded) recordShareAction()
+                    })
                   }}
                   className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
                   title="Instagram (link copied — paste in story or DM)"
