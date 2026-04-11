@@ -667,7 +667,7 @@ function NavbarContent() {
               </Link>
             )}
 
-            {/* eCard link - left of Chat when enabled */}
+            {/* eCard link - left of Kong when enabled */}
             {ecardEnabled && isNavbarItemEnabled('mediaMessage') && (
               <Link
                 href="/ecard"
@@ -678,16 +678,16 @@ function NavbarContent() {
                 <span className="text-sm font-bold text-gray-900">eCard</span>
               </Link>
             )}
-            {/* Chat Button */}
+            {/* Kong (Talk chat) button */}
             {isNavbarItemEnabled('chat') && (
               <div className="relative">
                 <button
                   onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
                   className="h-9 px-1 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
-                  aria-label="Toggle Chat"
-                  title="Toggle Chat"
+                  aria-label="Toggle Kong"
+                  title="Toggle Kong"
                 >
-                  <span className="text-sm font-bold text-gray-900">Chat</span>
+                  <span className="text-sm font-bold text-gray-900">Kong</span>
                 </button>
                 {/* Chat invite notification badge */}
                 {chatInviteCount > 0 && (
