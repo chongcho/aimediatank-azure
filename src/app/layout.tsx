@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black',
-    title: 'AI Media Tank (AiM)',
+    title: 'AiM',
   },
   icons: {
     icon: '/logo.png',
@@ -57,7 +57,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-        <meta name="apple-mobile-web-app-title" content="AI Media Tank (AiM)" />
+        <meta name="apple-mobile-web-app-title" content="AiM" />
         <link rel="apple-touch-icon" href="/logo.png" />
         <Script
           async

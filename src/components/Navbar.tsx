@@ -639,7 +639,7 @@ function NavbarContent() {
             {isNavbarItemEnabled('mediaMessage') && (
               <Link
                 href="/ecard"
-                className="inline-flex h-9 w-16 shrink-0 items-center justify-center rounded-lg bg-pink-500 px-1 text-center hover:bg-pink-600 transition-colors"
+                className="inline-flex h-9 w-16 shrink-0 items-center justify-center rounded-lg bg-pink-500 px-px text-center hover:bg-pink-600 transition-colors"
                 aria-label="Card"
                 title="Card"
               >
@@ -651,7 +651,7 @@ function NavbarContent() {
               <div className="relative">
                 <button
                   onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
-                  className="inline-flex h-9 w-16 shrink-0 items-center justify-center rounded-lg bg-yellow-300 px-1 text-center hover:bg-yellow-400 transition-colors"
+                  className="inline-flex h-9 w-16 shrink-0 items-center justify-center rounded-lg bg-yellow-300 px-px text-center hover:bg-yellow-400 transition-colors"
                   aria-label="Toggle Kong"
                   title="Toggle Kong"
                 >
@@ -674,7 +674,7 @@ function NavbarContent() {
                 {isNavbarItemEnabled('upload') && (
                   <Link
                     href={isSubscriber ? "/upload" : "/pricing"}
-                    className="inline-flex h-9 w-16 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-1 text-center hover:bg-blue-700 transition-colors"
+                    className="inline-flex h-9 w-16 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-px text-center hover:bg-blue-700 transition-colors"
                   >
                     <span className="text-sm font-bold text-white">
                       Post
