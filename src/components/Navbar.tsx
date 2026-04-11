@@ -635,15 +635,15 @@ function NavbarContent() {
               </div>
             )}
 
-            {/* eCard — navbar visibility via mediaMessage (Celebration Card); no separate home-layout toggle */}
+            {/* Card (/ecard) — visibility via mediaMessage */}
             {isNavbarItemEnabled('mediaMessage') && (
               <Link
                 href="/ecard"
-                className="flex items-center justify-center h-9 px-1 rounded-lg bg-pink-500 hover:bg-pink-600 transition-colors"
-                aria-label="eCard"
-                title="eCard"
+                className="inline-flex h-9 w-16 shrink-0 items-center justify-center rounded-lg bg-pink-500 px-1 text-center hover:bg-pink-600 transition-colors"
+                aria-label="Card"
+                title="Card"
               >
-                <span className="text-sm font-bold text-white">eCard</span>
+                <span className="text-sm font-bold text-white">Card</span>
               </Link>
             )}
             {/* Kong (Talk chat) button */}
@@ -651,7 +651,7 @@ function NavbarContent() {
               <div className="relative">
                 <button
                   onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
-                  className="h-9 px-1 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
+                  className="inline-flex h-9 w-16 shrink-0 items-center justify-center rounded-lg bg-yellow-300 px-1 text-center hover:bg-yellow-400 transition-colors"
                   aria-label="Toggle Kong"
                   title="Toggle Kong"
                 >
@@ -674,8 +674,7 @@ function NavbarContent() {
                 {isNavbarItemEnabled('upload') && (
                   <Link
                     href={isSubscriber ? "/upload" : "/pricing"}
-                    className="flex items-center justify-center h-9 px-1 rounded-lg bg-blue-600 hover:bg-blue-700
-                      hover:scale-105 active:scale-95 transition-all duration-200 ease-out"
+                    className="inline-flex h-9 w-16 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-1 text-center hover:bg-blue-700 transition-colors"
                   >
                     <span className="text-sm font-bold text-white">
                       Post
