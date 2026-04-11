@@ -95,7 +95,7 @@ export async function generateMetadata({
       title,
       description,
       url: canonical,
-      siteName: 'AI Media Tank (AiM), LLC',
+      siteName: 'AI Media Tank, LLC (AiM)',
       type:
         media.type === 'VIDEO'
           ? 'video.other'

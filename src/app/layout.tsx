@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   title: 'AI Media Tank (AiM) | AI-Generated Media Community',
   description: 'Discover and share stunning AI-generated videos, images, and music. Join our community of AI creators and enthusiasts.',
   keywords: 'AI media, AI art, AI music, AI video, AI generated content, media sharing',
-  authors: [{ name: 'AI Media Tank (AiM), LLC' }],
+  authors: [{ name: 'AI Media Tank, LLC (AiM)' }],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     title: 'AI Media Tank (AiM) | AI-Generated Media Community',
     description: 'Discover and share stunning AI-generated videos, images, and music.',
     url: 'https://aimediatank.com',
-    siteName: 'AI Media Tank (AiM), LLC',
+    siteName: 'AI Media Tank, LLC (AiM)',
     type: 'website',
   },
 }
@@ -124,7 +124,7 @@ export default function RootLayout({
           </main>
           <footer className="w-full py-6 mt-8 border-t border-tank-light">
             <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
-              © {new Date().getFullYear()} AI Media Tank (AiM), LLC. All rights reserved.
+              © {new Date().getFullYear()} AI Media Tank, LLC (AiM). All rights reserved.
             </div>
           </footer>
           <InstallPrompt />

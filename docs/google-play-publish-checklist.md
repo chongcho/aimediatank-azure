@@ -1,6 +1,6 @@
 # Google Play — Publish AI Media Tank (AiM) Checklist
 
-Your app **AI Media Tank (AiM)** (`com.aimediatank.app`; legal entity **AI Media Tank (AiM), LLC**) is in **Draft** with **Internal testing**. Use this checklist to get it listed on Google Play.
+Your app **AI Media Tank (AiM)** (`com.aimediatank.app`; legal entity **AI Media Tank, LLC (AiM)**) is in **Draft** with **Internal testing**. Use this checklist to get it listed on Google Play.
 
 ---
 
