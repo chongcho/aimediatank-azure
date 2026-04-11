@@ -689,7 +689,7 @@ function NavbarContent() {
                 >
                   <span className="text-sm font-bold text-gray-900">Kong</span>
                 </button>
-                {/* Chat invite notification badge */}
+                {/* My Kong invite notification badge */}
                 {chatInviteCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
                     {chatInviteCount > 9 ? '9+' : chatInviteCount}

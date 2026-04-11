@@ -942,7 +942,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Switch to private chat - shows chat records in main window
   const switchToPrivateChat = () => {
     if (!isSignedIn) {
-      setInlineNotice('Please sign in to use Private Chat')
+      setInlineNotice('Please sign in to use My Kong')
       return
     }
     setChatMode('private')
@@ -996,7 +996,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Toggle new chat picker (renamed from chat records)
   const toggleNewChat = () => {
     if (!isSignedIn) {
-      setInlineNotice('Please sign in to use New Chat')
+      setInlineNotice('Please sign in to use New Kong')
       return
     }
     setChatMode('private')
@@ -1274,8 +1274,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     
     setConfirmModal({
       show: true,
-      title: 'Leave Chat',
-      message: 'Are you sure you want to leave this chat? You will no longer see messages from this conversation.',
+      title: 'Leave My Kong',
+      message: 'Are you sure you want to leave this My Kong? You will no longer see messages from it.',
       onConfirm: async () => {
         try {
           const res = await fetch(`/api/chat/conversations/${conversationId}`, {
@@ -1879,13 +1879,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
 
     if (!session?.user) {
-      alert('Please sign in to send messages')
+      alert('Please sign in to send messages in Kong')
       return
     }
 
     // For private chat, require at least one recipient or active conversation
     if (chatMode === 'private' && selectedRecipients.length === 0 && !activeConversation) {
-      alert('Please select at least one user to chat with')
+      alert('Please select at least one person for My Kong')
       return
     }
 
@@ -2163,7 +2163,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               )}
             </div>
             
-            {/* Open Button */}
+            {/* Pub Kong (public / open chat) */}
             <button
               onClick={switchToOpenChat}
               className="chat-btn-responsive"
@@ -2180,10 +2180,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 whiteSpace: 'nowrap',
               }}
             >
-              Open
+              Pub Kong
             </button>
             
-            {/* Private Button - shows chat records, active when in private mode or new chat */}
+            {/* My Kong (private chat) — records / DMs */}
             <div style={{ position: 'relative' }}>
             <button
               onClick={switchToPrivateChat}
@@ -2201,9 +2201,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 whiteSpace: 'nowrap',
               }}
             >
-                Private
+                My Kong
             </button>
-              {/* Unread private message badge on Private button */}
+              {/* Unread private message badge on My Kong button */}
               {unreadPrivateCount > 0 && (
                 <span
                   onClick={(e) => { e.stopPropagation(); switchToPrivateChat(); }}
@@ -2230,7 +2230,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               )}
             </div>
 
-            {/* New Chat Button with Icon - purple when active to match Private button */}
+            {/* New Kong (+) — purple when active to match My Kong */}
             <button
               onClick={toggleNewChat}
               className="chat-btn-responsive"
@@ -2246,7 +2246,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
-              title="New Chat"
+              title="New Kong"
             >
               {/* Chat bubble with plus icon */}
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={showUserPicker ? 'white' : '#1a1a1a'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2288,7 +2288,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
-                title="Close chat"
+                title="Close Kong"
               >
                 {/* Minimize/close icon - horizontal line */}
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
@@ -2346,7 +2346,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* New Chat Full Panel - Takes whole chat window when active */}
+        {/* New Kong picker — full panel when active */}
         {showUserPicker && (
             <div
               ref={userPickerRef}
@@ -2358,7 +2358,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 overflow: 'hidden',
               }}
             >
-            {/* Chat title input with Start button */}
+            {/* Optional My Kong title + Start */}
               <div style={{
               padding: '8px 12px',
               display: 'flex',
@@ -2371,7 +2371,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 type="text"
                 value={chatTitle}
                 onChange={(e) => setChatTitle(e.target.value)}
-                placeholder="Enter chat title"
+                placeholder="Optional My Kong title (e.g. group name)"
                 style={{
                   flex: 1,
                   padding: '8px 12px',
@@ -2546,7 +2546,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         )}
 
 
-        {/* Chat Invites Notification Panel - Hidden when New Chat is open */}
+        {/* My Kong invites — hidden when New Kong picker is open */}
         {!showUserPicker && chatInvites.length > 0 && chatMode === 'private' && !privateRecipient && (
           <div style={{
             background: '#fef3c7',
@@ -2557,7 +2557,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
               </svg>
-              {chatInvites.length} pending chat invite{chatInvites.length > 1 ? 's' : ''}
+              {chatInvites.length} pending My Kong invite{chatInvites.length > 1 ? 's' : ''}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {chatInvites.map((invite) => (
@@ -2604,7 +2604,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       @{formatDisplayUsername(invite.sender.username)}
                     </div>
                     <div style={{ fontSize: '11px', color: '#666' }}>
-                      wants to chat with you
+                      invited you to My Kong
                     </div>
                   </div>
                   <span style={{
@@ -2623,7 +2623,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
         
-        {/* Inline Notice - shown within chat box, hidden when New Chat is open */}
+        {/* Inline notice — hidden when New Kong picker is open */}
         {!showUserPicker && inlineNotice && (
           <div style={{
             padding: '10px 16px',
@@ -2659,7 +2659,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {/* Messages Area - Hidden when minimized or when New Chat is open */}
+        {/* Messages — hidden when minimized or when New Kong picker is open */}
         {!showUserPicker && chatSize !== 'min' && (
         <div 
           ref={messagesContainerRef}
@@ -2731,7 +2731,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 justifyContent: 'space-between',
                 gap: '8px',
               }}>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: '#7c3aed' }}>🔒 Select a conversation or start New Chat</span>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: '#7c3aed' }}>🔒 Select a conversation or tap New Kong (+)</span>
                 <button
                   onClick={() => switchToOpenChat()}
                   style={{
@@ -2759,8 +2759,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ margin: '0 auto 12px', opacity: 0.4 }}>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
-                    <p style={{ fontSize: '13px' }}>No private chats yet</p>
-                    <p style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>Click "New Chat" to start one</p>
+                    <p style={{ fontSize: '13px' }}>No My Kong conversations yet</p>
+                    <p style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>Use the yellow New Kong (+) button to start one</p>
                   </div>
                 ) : (
                   chatRecords.map((record, index) => {
@@ -2915,7 +2915,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                                     if (e.key === 'Escape') { setEditingChatName(null); setNewChatName('') }
                                   }}
                                   autoFocus
-                                  placeholder="Chat name..."
+                                  placeholder="My Kong title..."
                                   style={{
                                     flex: 1,
                                     padding: '4px 8px',
@@ -2993,7 +2993,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 )}
               </div>
               
-              {/* Context Menu for Chat Records */}
+              {/* Context menu for My Kong conversation list */}
               {contextMenu.show && (
                 <div
                   onClick={(e) => e.stopPropagation()}
@@ -3056,7 +3056,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
-                    Edit Chat Name
+                    Edit My Kong title
                   </button>
                   <div style={{ height: '1px', background: '#e5e7eb' }} />
                   <button
@@ -3080,7 +3080,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
-                    Leave Chat
+                    Leave My Kong
                   </button>
                   <div style={{ height: '1px', background: '#e5e7eb' }} />
                   <button
@@ -3207,11 +3207,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <p style={{ fontSize: '14px', textAlign: 'center' }}>
                 {chatMode === 'private' 
                   ? selectedRecipients.length === 1
-                    ? `Start a private conversation with @${formatDisplayUsername(selectedRecipients[0]?.username)}`
+                    ? `Start My Kong with @${formatDisplayUsername(selectedRecipients[0]?.username)}`
                     : selectedRecipients.length > 1
-                      ? `Send a group message to ${selectedRecipients.length} users`
-                      : 'Select a user to chat with'
-                  : 'No messages yet. Start the conversation!'}
+                      ? `Group My Kong — message ${selectedRecipients.length} people`
+                      : 'Pick someone for My Kong'
+                  : 'No messages in Pub Kong yet. Say something!'}
               </p>
               {chatMode === 'private' && selectedRecipients.length > 1 && (
                 <div style={{
@@ -3347,7 +3347,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         </div>
         )}
 
-        {/* Input Area - Hidden when minimized or when New Chat is open */}
+        {/* Composer — hidden when minimized or when New Kong picker is open */}
         {!showUserPicker && chatSize !== 'min' && (
         <form 
           onSubmit={sendMessage} 
@@ -3818,14 +3818,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               onKeyDown={handleKeyDown}
               placeholder={
                 !isSignedIn 
-                  ? "Sign in or Sign up to chat" 
+                  ? "Sign in or sign up to use Kong" 
                   : chatMode === 'private' && selectedRecipients.length === 0
-                    ? "Select a user first..."
+                    ? "Pick someone for My Kong first..."
                     : chatMode === 'private'
                       ? selectedRecipients.length === 1
                       ? `Message @${formatDisplayUsername(selectedRecipients[0]?.username)}...`
-                        : `Message ${selectedRecipients.length} users...`
-                      : "Type @ to mention..."
+                        : `Message ${selectedRecipients.length} people...`
+                      : "Pub Kong: type @ to mention..."
               }
               disabled={!isSignedIn || (chatMode === 'private' && selectedRecipients.length === 0)}
               style={{

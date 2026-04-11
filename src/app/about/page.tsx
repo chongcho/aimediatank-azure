@@ -810,7 +810,7 @@ export default function AboutPage() {
               <h4 className="text-tank-accent text-xs font-semibold uppercase tracking-widest mb-3">Community</h4>
               <ul className="space-y-2 text-sm text-gray-400">
                 <li><Link href="/notifications" className="hover:text-white transition-colors">Notifications</Link></li>
-                <li><Link href="/?openChat=1" className="hover:text-white transition-colors">Chat</Link></li>
+                <li><Link href="/?openChat=1" className="hover:text-white transition-colors">Kong</Link></li>
                 <li><Link href="/ecard" className="hover:text-white transition-colors">Celebration Cards</Link></li>
                 <li><Link href="/game" className="hover:text-white transition-colors">Games</Link></li>
               </ul>

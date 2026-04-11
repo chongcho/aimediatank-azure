@@ -1521,7 +1521,7 @@ export default function AdminPage() {
           { id: 'analytics', label: 'Analytics' },
           { id: 'users', label: 'Users' },
           { id: 'media', label: 'Media' },
-          { id: 'chat', label: 'Chat' },
+          { id: 'chat', label: 'Kong' },
           { id: 'membership', label: 'Membership Management' },
           { id: 'promotions', label: 'Promotions' },
           { id: 'games', label: 'Game Control' },
