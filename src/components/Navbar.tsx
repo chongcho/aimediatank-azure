@@ -399,7 +399,7 @@ function NavbarContent() {
 
   return (
     <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 bg-tank-dark/90 backdrop-blur-md border-b border-tank-light pwa-navbar">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto pl-2 pr-4 sm:pl-3 sm:pr-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo and Home Icon */}
           <div className="flex items-center flex-shrink-0">
@@ -689,7 +689,7 @@ function NavbarContent() {
                       setIsProfileOpen(!isProfileOpen)
                       setIsAlertsOpen(false)
                     }}
-                    className="flex items-center p-1 rounded-lg hover:ring-2 hover:ring-tank-accent transition-all"
+                    className="flex items-center p-0 rounded-lg hover:ring-2 hover:ring-tank-accent transition-all"
                     title={displayName}
                   >
                     {/* Avatar Only */}

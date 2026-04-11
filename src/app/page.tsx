@@ -813,7 +813,7 @@ function HomeContent() {
         {/* Left: Title */}
         <div className="flex-shrink-0 overflow-visible">
           <div className="flex items-end gap-0">
-            <h1 className="text-2xl md:text-3xl font-bold" style={{ paddingRight: '20px' }}>
+            <h1 className="text-base font-bold" style={{ paddingRight: '20px' }}>
               <span className="text-gradient">AI Media Tank (AiM)</span>
           </h1>
             <span className="font-bold italic text-gray-400 text-[15px] md:text-[16px]">AI-Generated and Real</span>
