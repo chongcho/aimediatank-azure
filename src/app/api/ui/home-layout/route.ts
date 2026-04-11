@@ -12,7 +12,7 @@ function normalizeLayout(raw: string): HomeLayoutType {
   return 'masonry'
 }
 
-async function getOrCreateSetting(): Promise<{ layout: HomeLayoutType; preplay: boolean; ecardEnabled: boolean }> {
+async function getOrCreateSetting(): Promise<{ layout: HomeLayoutType; preplay: boolean }> {
   let row = await prisma.homeLayoutSetting.findFirst()
   if (!row) {
     row = await prisma.homeLayoutSetting.create({
@@ -20,16 +20,15 @@ async function getOrCreateSetting(): Promise<{ layout: HomeLayoutType; preplay: 
     })
   }
   const layoutVal = normalizeLayout(row.layout)
-  const ecardEnabled = row.ecardEnabled ?? true
-  return { layout: layoutVal, preplay: row.preplay, ecardEnabled: row.ecardEnabled ?? true }
+  return { layout: layoutVal, preplay: row.preplay }
 }
 
 export async function GET() {
   try {
-    const { layout, preplay, ecardEnabled } = await getOrCreateSetting()
-    return NextResponse.json({ layout, preplay, ecardEnabled })
+    const { layout, preplay } = await getOrCreateSetting()
+    return NextResponse.json({ layout, preplay })
   } catch (error) {
     console.error('Home layout settings unavailable:', error)
-    return NextResponse.json({ layout: 'masonry', preplay: true, ecardEnabled: true })
+    return NextResponse.json({ layout: 'masonry', preplay: true })
   }
 }

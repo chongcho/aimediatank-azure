@@ -56,7 +56,6 @@ function NavbarContent() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
-  const [ecardEnabled, setEcardEnabled] = useState(true)
 
   const navRef = useRef<HTMLElement>(null)
   const profileRef = useRef<HTMLDivElement>(null)
@@ -93,25 +92,6 @@ function NavbarContent() {
     window.addEventListener('navbarMenuUpdated', handler as EventListener)
     return () => window.removeEventListener('navbarMenuUpdated', handler as EventListener)
   }, [fetchNavbarMenuSettings])
-
-  const fetchHomeLayout = useCallback(async () => {
-    try {
-      const res = await fetch('/api/ui/home-layout', { cache: 'no-store' })
-      if (res.ok) {
-        const data = await res.json()
-        setEcardEnabled(data.ecardEnabled !== false)
-      }
-    } catch (error) {
-      console.error('Error fetching home layout:', error)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchHomeLayout()
-    const handler = () => fetchHomeLayout()
-    window.addEventListener('homeLayoutUpdated', handler as EventListener)
-    return () => window.removeEventListener('homeLayoutUpdated', handler as EventListener)
-  }, [fetchHomeLayout])
 
   // If an interactive navbar item is disabled via Navbar Control, force-close it.
   useEffect(() => {
@@ -655,27 +635,15 @@ function NavbarContent() {
               </div>
             )}
 
-            {/* Celebrate Button - signed-in users, controlled by navbar 'mediaMessage' toggle */}
-            {session && isNavbarItemEnabled('mediaMessage') && (
+            {/* eCard — navbar visibility via mediaMessage (Celebration Card); no separate home-layout toggle */}
+            {isNavbarItemEnabled('mediaMessage') && (
               <Link
                 href="/ecard"
-                className="h-9 w-9 flex items-center justify-center rounded-lg bg-pink-500 hover:bg-pink-600 transition-colors"
-                aria-label="Celebrate"
-                title="Celebrate"
-              >
-                <span className="text-2xl leading-none">🎉</span>
-              </Link>
-            )}
-
-            {/* eCard link - left of Kong when enabled */}
-            {ecardEnabled && isNavbarItemEnabled('mediaMessage') && (
-              <Link
-                href="/ecard"
-                className="h-9 px-2 flex items-center justify-center hover:bg-yellow-400 rounded-lg transition-colors bg-yellow-300"
+                className="flex items-center justify-center h-9 px-1 rounded-lg bg-pink-500 hover:bg-pink-600 transition-colors"
                 aria-label="eCard"
                 title="eCard"
               >
-                <span className="text-sm font-bold text-gray-900">eCard</span>
+                <span className="text-sm font-bold text-white">eCard</span>
               </Link>
             )}
             {/* Kong (Talk chat) button */}

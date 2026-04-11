@@ -667,12 +667,11 @@ model CropToolSetting {
 
 // Home feed layout (managed by admin): masonry (CSS columns) or grid (fixed rows)
 model HomeLayoutSetting {
-  id           String   @id @default(uuid())
-  layout       String   @default("masonry")  // "masonry" | "grid"
-  preplay      Boolean  @default(true)       // muted video preview on hover on homepage
-  ecardEnabled Boolean  @default(true)       // show eCard link in navbar
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(uuid())
+  layout    String   @default("masonry")  // "masonry" | "grid"
+  preplay   Boolean  @default(true)       // muted video preview on hover on homepage
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Media detail page: show/hide Download, Share, Send by email, and AI Tool metadata (admin)
