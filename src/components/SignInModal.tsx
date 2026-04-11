@@ -464,7 +464,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
 
         {/* Legal disclaimer */}
         <p style={{ textAlign: 'center', color: '#888', fontSize: '12px', margin: '20px 0 0 0', lineHeight: 1.5 }}>
-          By signing in, you agree to the AI Media Tank{' '}
+          By signing in, you agree to the AI Media Tank (AiM){' '}
           <Link href="/terms" onClick={onClose} style={{ color: '#10b981', textDecoration: 'underline', fontWeight: 600 }}>
             Terms of Service
           </Link>

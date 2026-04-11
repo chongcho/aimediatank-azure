@@ -1,4 +1,4 @@
-# AI Media Tank — Policy Home
+# AI Media Tank (AiM) — Policy Home
 
 **Effective Date:** December 20, 2024  
 **Last Updated:** March 6, 2026
@@ -7,7 +7,7 @@
 
 ## Overview
 
-AI Media Tank, LLC maintains two standalone policy documents that govern the use of the Platform and the handling of user data. Both documents are available on the Platform at https://www.aimediatank.com and are incorporated into the user agreement.
+AI Media Tank (AiM), LLC maintains two standalone policy documents that govern the use of the Platform and the handling of user data. Both documents are available on the Platform at https://www.aimediatank.com and are incorporated into the user agreement.
 
 ---
 
@@ -28,7 +28,7 @@ Governs the use of the Platform, including:
 
 ### 2. [Privacy Policy](PRIVACY_POLICY.md)
 
-Describes how AI Media Tank, LLC collects, uses, stores, shares, and protects personal information, including:
+Describes how AI Media Tank (AiM), LLC collects, uses, stores, shares, and protects personal information, including:
 
 - Information collected (directly, automatically, and from third parties)
 - Legal bases for processing (GDPR compliance)
@@ -71,6 +71,6 @@ These documents are designed to comply with applicable regulations worldwide, in
 
 ---
 
-**© 2025–2026 AI Media Tank, LLC. All rights reserved.**
+**© 2025–2026 AI Media Tank (AiM), LLC. All rights reserved.**
 
 *These documents should be reviewed by qualified legal counsel. They do not constitute legal advice.*

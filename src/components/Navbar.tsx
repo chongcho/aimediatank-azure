@@ -415,7 +415,7 @@ function NavbarContent() {
             }}>
             <img 
               src="/logo.png" 
-              alt="AI Media Tank" 
+              alt="AI Media Tank (AiM)" 
               className="h-10 w-auto rounded-[2px]"
             />
             </Link>

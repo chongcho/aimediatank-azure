@@ -84,7 +84,7 @@ const features = [
   { icon: '👤', title: 'Creator Profiles', desc: 'Customizable portfolio pages with bio, social links, media showcase, and transaction history — your professional presence.' },
   { icon: '🔔', title: 'Live Notifications', desc: 'Stay updated on sales, comments, follows, and platform activity with real-time push and in-app notifications.' },
   { icon: '🔖', title: 'Save & Bookmark', desc: 'Curate your favorite content into personal collections for quick access and future reference.' },
-  { icon: '📱', title: 'Progressive Web App', desc: 'Install AI Media Tank on any device. Offline-capable, home screen icon, push notifications — native app experience.' },
+  { icon: '📱', title: 'Progressive Web App', desc: 'Install AI Media Tank (AiM) on any device. Offline-capable, home screen icon, push notifications — native app experience.' },
   { icon: '🔐', title: 'Enterprise Security', desc: 'Azure-backed cloud storage, encrypted transfers, SAS-token authentication, and role-based access control protect every asset.' },
   { icon: '🎞️', title: 'Video Processing', desc: 'Automated multi-resolution transcoding via Azure Functions ensures smooth playback across bandwidth conditions.' },
   { icon: '🎮', title: 'Interactive Games', desc: 'Built-in retro games — Pac-Man, Tetris, and more — give the community a fun, social break between creating.' },
@@ -115,7 +115,7 @@ export default function AboutPage() {
             Where AI Creativity Meets Professional Community
           </span>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold mb-6 leading-tight">
-            <span className="text-gradient">AI Media Tank</span>
+            <span className="text-gradient">AI Media Tank (AiM)</span>
           </h1>
           <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-6 leading-relaxed">
             The premier platform for artists, producers, technologists, and creators to publish, 
@@ -163,7 +163,7 @@ export default function AboutPage() {
       <section className="py-20 px-4 bg-tank-gray/30">
         <div className="max-w-4xl mx-auto">
           <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Our Story</span>
-          <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-8">Why We Built AI Media Tank</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-8">Why We Built AI Media Tank (AiM)</h2>
 
           <div className="space-y-6 text-gray-300 leading-relaxed text-base md:text-lg">
             <p>
@@ -179,7 +179,7 @@ export default function AboutPage() {
               creators are left without the tools they need to grow.
             </p>
             <p>
-              <span className="text-white font-semibold">AI Media Tank was founded to change that.</span> We set out 
+              <span className="text-white font-semibold">AI Media Tank (AiM) was founded to change that.</span> We set out 
               to build a dedicated, professional-grade platform that treats AI-generated media with the same respect 
               and infrastructure as any creative discipline — while also welcoming real-world content creators who want 
               to stand alongside the AI frontier. The result is a unified marketplace and community where every 
@@ -189,7 +189,7 @@ export default function AboutPage() {
             <p>
               Whether you are a visual artist exploring generative aesthetics, a music producer experimenting with 
               AI composition, a filmmaker blending AI with live-action footage, or a futurist documenting the 
-              evolution of creative technology — AI Media Tank is the professional space where your work belongs.
+              evolution of creative technology — AI Media Tank (AiM) is the professional space where your work belongs.
             </p>
           </div>
         </div>
@@ -202,7 +202,7 @@ export default function AboutPage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Built For Professionals</span>
-            <h2 className="text-3xl md:text-4xl font-bold mt-2">Who Thrives on AI Media Tank</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mt-2">Who Thrives on AI Media Tank (AiM)</h2>
             <p className="text-gray-400 mt-3 max-w-2xl mx-auto">
               We designed every feature with working professionals in mind — the people who push creative boundaries 
               and need a platform that keeps pace with their ambition.
@@ -255,7 +255,7 @@ export default function AboutPage() {
           <div className="mt-10 bg-gradient-to-r from-tank-accent/5 to-purple-500/5 border border-tank-light rounded-2xl p-6 md:p-8">
             <h3 className="text-lg font-bold mb-3 text-white">For General Audiences Too</h3>
             <p className="text-gray-400 leading-relaxed">
-              You do not need to be a professional to enjoy AI Media Tank. Enthusiasts, collectors, and curious 
+              You do not need to be a professional to enjoy AI Media Tank (AiM). Enthusiasts, collectors, and curious 
               minds are equally welcome. Browse and discover stunning AI-generated content, purchase unique media, 
               and connect with the creators behind the work. The free Viewer tier gives you full access to explore 
               the platform with zero commitment.
@@ -297,7 +297,7 @@ export default function AboutPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Creator Workflow</span>
-            <h2 className="text-3xl md:text-4xl font-bold mt-2">How AI Media Tank Works</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mt-2">How AI Media Tank (AiM) Works</h2>
           </div>
 
           <div className="grid md:grid-cols-4 gap-6">
@@ -330,7 +330,7 @@ export default function AboutPage() {
               <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Monetization</span>
               <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-6">Built-In Marketplace, Powered by Stripe</h2>
               <p className="text-gray-300 leading-relaxed mb-6">
-                AI Media Tank is not just a gallery — it is a fully integrated marketplace. Every creator can set 
+                AI Media Tank (AiM) is not just a gallery — it is a fully integrated marketplace. Every creator can set 
                 prices on their uploads and sell directly to collectors and buyers. There is no need for external 
                 payment tools, third-party storefronts, or complicated integrations.
               </p>
@@ -389,7 +389,7 @@ export default function AboutPage() {
             <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Under the Hood</span>
             <h2 className="text-3xl md:text-4xl font-bold mt-2">Enterprise-Grade Technology Stack</h2>
             <p className="text-gray-400 mt-3 max-w-3xl mx-auto">
-              AI Media Tank is built on a modern, scalable architecture designed for production reliability. 
+              AI Media Tank (AiM) is built on a modern, scalable architecture designed for production reliability. 
               Every technology choice prioritizes performance, security, and developer experience.
             </p>
           </div>
@@ -419,7 +419,7 @@ export default function AboutPage() {
                   Developed with <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Cursor AI</span>
                 </h3>
                 <p className="text-gray-300 leading-relaxed mb-4">
-                  AI Media Tank is proudly built using <span className="text-white font-semibold">Cursor</span>, 
+                  AI Media Tank (AiM) is proudly built using <span className="text-white font-semibold">Cursor</span>, 
                   the AI-powered code editor that represents the next generation of software development. Cursor&apos;s 
                   AI-assisted coding capabilities have been instrumental in accelerating development velocity, 
                   maintaining code quality, and enabling rapid iteration across the entire codebase.
@@ -572,7 +572,7 @@ export default function AboutPage() {
             <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Cloud Infrastructure</span>
             <h2 className="text-3xl md:text-4xl font-bold mt-2">Fully Powered by Microsoft Azure</h2>
             <p className="text-gray-400 mt-3 max-w-3xl mx-auto">
-              Every aspect of AI Media Tank runs on Azure cloud infrastructure — from web hosting and database management 
+              Every aspect of AI Media Tank (AiM) runs on Azure cloud infrastructure — from web hosting and database management 
               to media storage, background processing, and communications. This is not a multi-cloud patchwork; 
               it is a deliberate, end-to-end Azure architecture built for reliability and scale.
             </p>
@@ -607,7 +607,7 @@ export default function AboutPage() {
               <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">DevOps</span>
               <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-6">GitHub-Powered Development Pipeline</h2>
               <p className="text-gray-300 leading-relaxed mb-6">
-                AI Media Tank follows modern DevOps practices with GitHub at the center of the development workflow. 
+                AI Media Tank (AiM) follows modern DevOps practices with GitHub at the center of the development workflow. 
                 Source control, code review, automated testing, and continuous deployment are all managed through 
                 GitHub — ensuring every change is tracked, reviewed, and deployed with confidence.
               </p>
@@ -702,7 +702,7 @@ export default function AboutPage() {
               <p className="text-gray-300 leading-relaxed mb-6">
                 The generative AI market is one of the fastest-growing sectors in technology. As AI tools become 
                 more accessible and powerful, millions of creators are producing content daily — and they need 
-                a dedicated platform to share and monetize their work. AI Media Tank is positioned at the 
+                a dedicated platform to share and monetize their work. AI Media Tank (AiM) is positioned at the 
                 intersection of this massive opportunity.
               </p>
               <ul className="space-y-3">
@@ -846,7 +846,7 @@ export default function AboutPage() {
           </h2>
           <p className="text-lg text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
             Whether you are an AI artist, a filmmaker exploring generative tools, a music producer pushing sonic 
-            boundaries, or a technologist building the future — AI Media Tank is the professional platform 
+            boundaries, or a technologist building the future — AI Media Tank (AiM) is the professional platform 
             where your work gets the audience it deserves.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-14">
@@ -889,7 +889,7 @@ export default function AboutPage() {
       ══════════════════════════════════════════════════════════════════ */}
       <footer className="py-8 px-4 border-t border-tank-light">
         <div className="max-w-6xl mx-auto text-center text-gray-500 text-sm">
-          <p>&copy; {CURRENT_YEAR} AI Media Tank. All rights reserved.</p>
+          <p>&copy; {CURRENT_YEAR} AI Media Tank (AiM). All rights reserved.</p>
           <p className="mt-2">
             Built with <span className="text-tank-accent">Cursor AI</span> · Powered by <span className="text-blue-400">Microsoft Azure</span> · Payments by <span className="text-purple-400">Stripe</span>
           </p>

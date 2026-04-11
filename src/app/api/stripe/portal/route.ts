@@ -47,7 +47,7 @@ function generateCancellationEmail(userName: string, previousPlan: string): stri
 
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
         const userName = user.name || user.username || 'Valued Customer'
         await sendEmail({
           to: user.email,
-          subject: 'Subscription Cancelled - AI Media Tank',
+          subject: 'Subscription Cancelled - AI Media Tank (AiM)',
           html: generateCancellationEmail(userName, previousPlan),
         })
       }

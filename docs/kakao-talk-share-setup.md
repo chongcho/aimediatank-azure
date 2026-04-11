@@ -1,12 +1,12 @@
-# KakaoTalk Share – AI Media Tank setup
+# KakaoTalk Share – AI Media Tank (AiM) setup
 
-This guide configures **Kakao Talk Share** so users can share media from **AI Media Tank** to KakaoTalk. You already created the Kakao developers app for this product on [developer.kakao.com](https://developer.kakao.com); follow these steps to enable sharing and connect the app.
+This guide configures **Kakao Talk Share** so users can share media from **AI Media Tank (AiM)** to KakaoTalk. You already created the Kakao developers app for this product on [developer.kakao.com](https://developer.kakao.com); follow these steps to enable sharing and connect the app.
 
 ---
 
 ## 1. Enable Kakao Talk Share and get keys
 
-1. Open [developer.kakao.com](https://developer.kakao.com) and select your **AI Media Tank** app (ID 1398467).
+1. Open [developer.kakao.com](https://developer.kakao.com) and select your **AI Media Tank (AiM)** app (ID 1398467).
 2. In the left menu, go to **Product Settings** → **Kakao Talk Message** (or **Kakao Talk Share**).
 3. Enable the product and complete any required agreement.
 4. Go to **App Settings** → **App** (or **App** under App Settings).

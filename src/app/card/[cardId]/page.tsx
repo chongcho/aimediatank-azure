@@ -177,7 +177,7 @@ export default function CelebrationCardPage({ params }: { params: { cardId: stri
       <p className="text-center text-gray-500 text-sm mt-6">
         Celebration card from{' '}
         <Link href="/" className="text-tank-accent hover:underline">
-          AI Media Tank
+          AI Media Tank (AiM)
         </Link>
       </p>
     </div>

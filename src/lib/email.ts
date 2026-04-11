@@ -23,7 +23,7 @@ const SENDER_ADDRESS =
     ? rawSender.replace(/donotreply/gi, 'AiMediaTank')
     : rawSender
 
-const DEFAULT_SENDER_NAME = process.env.AZURE_EMAIL_SENDER_NAME || 'AI Media Tank'
+const DEFAULT_SENDER_NAME = process.env.AZURE_EMAIL_SENDER_NAME || 'AI Media Tank (AiM)'
 
 /** Avoid hanging forever on beginSend poller (e.g. long cron requests); backfill can retry */
 const ACS_POLL_TIMEOUT_MS = Math.max(
@@ -74,7 +74,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       },
       ...(options.replyTo
         ? { replyTo: [{ address: options.replyTo, displayName }] }
-        : { replyTo: [{ address: 'support@aimediatank.com', displayName: 'AI Media Tank Support' }] }
+        : { replyTo: [{ address: 'support@aimediatank.com', displayName: 'AI Media Tank (AiM) Support' }] }
       ),
     })
 
@@ -289,11 +289,11 @@ export function generatePurchaseEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
   
   <p style="font-size: 12px; color: #999; margin-top: 30px;">
-    This email was sent because you made a purchase on AI Media Tank. If you have any questions, please contact our support team.
+    This email was sent because you made a purchase on AI Media Tank (AiM). If you have any questions, please contact our support team.
   </p>
 </body>
 </html>
@@ -319,7 +319,7 @@ export function generateVerificationEmail(
   
   <p style="font-size: 16px;">Hello ${userName},</p>
   
-  <p style="font-size: 16px;">Thank you for registering with AI Media Tank! Please verify your email address by clicking the button below:</p>
+  <p style="font-size: 16px;">Thank you for registering with AI Media Tank (AiM)! Please verify your email address by clicking the button below:</p>
   
   <div style="text-align: center; margin: 30px 0;">
     <a href="${verificationUrl}" style="display: inline-block; background-color: #00cc66; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; border: none;">
@@ -336,17 +336,17 @@ export function generateVerificationEmail(
     </p>
   </div>
   
-  <p style="font-size: 14px; color: #666;">If you didn't create an account with AI Media Tank, you can safely ignore this email.</p>
+  <p style="font-size: 14px; color: #666;">If you didn't create an account with AI Media Tank (AiM), you can safely ignore this email.</p>
   
   <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
   
   <p style="font-size: 12px; color: #999; margin-top: 30px;">
-    This email was sent because someone registered with this email address on AI Media Tank.
+    This email was sent because someone registered with this email address on AI Media Tank (AiM).
   </p>
 </body>
 </html>
@@ -375,7 +375,7 @@ export function generateMembershipPurchaseEmail(
   
   <p style="font-size: 16px;">Dear ${userName},</p>
   
-  <p style="font-size: 16px;">Thank you for subscribing to AI Media Tank! Your membership is now active.</p>
+  <p style="font-size: 16px;">Thank you for subscribing to AI Media Tank (AiM)! Your membership is now active.</p>
   
   <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8;">
     <h3 style="margin: 0 0 15px 0; color: #1a1a2e;">Membership Summary</h3>
@@ -417,7 +417,7 @@ export function generateMembershipPurchaseEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
   
   <p style="font-size: 12px; color: #999; margin-top: 30px;">
@@ -492,7 +492,7 @@ export function generateUploadLimitEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -519,7 +519,7 @@ export function generateWarningEmail(
   
   <p style="font-size: 16px;">Dear ${userName},</p>
   
-  <p style="font-size: 16px;">Your account has received a warning from the AI Media Tank moderation team.</p>
+  <p style="font-size: 16px;">Your account has received a warning from the AI Media Tank (AiM) moderation team.</p>
   
   <div style="background: #fff8e6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffa500;">
     <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Reason for Warning:</p>
@@ -538,7 +538,7 @@ export function generateWarningEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
   
   <p style="font-size: 12px; color: #999; margin-top: 30px;">
@@ -573,7 +573,7 @@ export function generateSuspensionEmail(
   
   <p style="font-size: 16px;">Dear ${userName},</p>
   
-  <p style="font-size: 16px;">Your AI Media Tank account has been suspended ${duration}.</p>
+  <p style="font-size: 16px;">Your AI Media Tank (AiM) account has been suspended ${duration}.</p>
   
   <div style="background: #fff0f0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff4444;">
     <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Reason for Suspension:</p>
@@ -599,7 +599,7 @@ export function generateSuspensionEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -624,7 +624,7 @@ export function generateUnsuspensionEmail(
   
   <p style="font-size: 16px;">Dear ${userName},</p>
   
-  <p style="font-size: 16px;">Good news! Your AI Media Tank account has been reinstated and is now fully active.</p>
+  <p style="font-size: 16px;">Good news! Your AI Media Tank (AiM) account has been reinstated and is now fully active.</p>
   
   <div style="background: #f0fff0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8;">
     <p style="margin: 0; font-size: 16px;">Your account access has been restored. You can now:</p>
@@ -639,7 +639,7 @@ export function generateUnsuspensionEmail(
   
   <div style="text-align: center; margin: 30px 0;">
     <a href="https://www.aimediatank.com" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-      Go to AI Media Tank
+      Go to AI Media Tank (AiM)
     </a>
   </div>
   
@@ -647,7 +647,7 @@ export function generateUnsuspensionEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -678,7 +678,7 @@ export function generateBonusCreditsEmail(
   
   <p style="font-size: 16px;">Dear ${userName},</p>
   
-  <p style="font-size: 16px;">Great news! You've received bonus upload credits from AI Media Tank.</p>
+  <p style="font-size: 16px;">Great news! You've received bonus upload credits from AI Media Tank (AiM).</p>
   
   <div style="background: #f0fff0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8; text-align: center;">
     <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Credits Received</p>
@@ -714,11 +714,11 @@ export function generateBonusCreditsEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
   
   <p style="font-size: 12px; color: #999; margin-top: 30px;">
-    This email was sent because you received bonus credits on AI Media Tank. If you have any questions, please contact our support team.
+    This email was sent because you received bonus credits on AI Media Tank (AiM). If you have any questions, please contact our support team.
   </p>
 </body>
 </html>
@@ -779,7 +779,7 @@ export function generateDownloadReminderEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -805,7 +805,7 @@ export function generateAccountDeletedEmail(
   
   <p style="font-size: 16px;">Dear ${userName},</p>
   
-  <p style="font-size: 16px;">Your AI Media Tank account has been permanently deleted.</p>
+  <p style="font-size: 16px;">Your AI Media Tank (AiM) account has been permanently deleted.</p>
   
   <div style="background: #fff0f0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff4444;">
     <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Reason:</p>
@@ -827,7 +827,7 @@ export function generateAccountDeletedEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -855,7 +855,7 @@ export function generateChatWarningEmail(
   
   <p style="font-size: 16px;">Dear ${userName},</p>
   
-  <p style="font-size: 16px;">You have received a warning for your chat message on AI Media Tank.</p>
+  <p style="font-size: 16px;">You have received a warning for your chat message on AI Media Tank (AiM).</p>
   
   <div style="background: #fff8e0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffa500;">
     <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Reason:</p>
@@ -883,7 +883,7 @@ export function generateChatWarningEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -910,7 +910,7 @@ export function generateChatMessageDeletedEmail(
   
   <p style="font-size: 16px;">Dear ${userName},</p>
   
-  <p style="font-size: 16px;">Your chat message on AI Media Tank has been deleted by a moderator.</p>
+  <p style="font-size: 16px;">Your chat message on AI Media Tank (AiM) has been deleted by a moderator.</p>
   
   <div style="background: #fff0f0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff4444;">
     <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Reason:</p>
@@ -930,7 +930,7 @@ export function generateChatMessageDeletedEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>

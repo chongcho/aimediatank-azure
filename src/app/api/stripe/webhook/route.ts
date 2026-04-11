@@ -98,7 +98,7 @@ export async function POST(request: Request) {
           
           await sendEmail({
             to: updatedUser.email,
-            subject: `🎉 Welcome to ${planConfig.name}! | AI Media Tank`,
+            subject: `🎉 Welcome to ${planConfig.name}! | AI Media Tank (AiM)`,
             html: emailHtml
           })
           
@@ -241,7 +241,7 @@ export async function POST(request: Request) {
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -249,7 +249,7 @@ export async function POST(request: Request) {
             
             await sendEmail({
               to: user.email,
-              subject: `🎉 Upload Complete: "${pendingUpload.title}" | AI Media Tank`,
+              subject: `🎉 Upload Complete: "${pendingUpload.title}" | AI Media Tank (AiM)`,
               html: emailHtml
             })
             
@@ -325,7 +325,7 @@ export async function POST(request: Request) {
         
         await sendEmail({
           to: buyerEmail,
-          subject: `🎉 Purchase Confirmed - Download Your ${purchases.length} Item${purchases.length > 1 ? 's' : ''} | AI Media Tank`,
+          subject: `🎉 Purchase Confirmed - Download Your ${purchases.length} Item${purchases.length > 1 ? 's' : ''} | AI Media Tank (AiM)`,
           html: emailHtml
         })
         
@@ -408,7 +408,7 @@ export async function POST(request: Request) {
           
           await sendEmail({
             to: user.email,
-            subject: `🎉 Welcome to ${planConfig.name}! | AI Media Tank`,
+            subject: `🎉 Welcome to ${planConfig.name}! | AI Media Tank (AiM)`,
             html: emailHtml
           })
           

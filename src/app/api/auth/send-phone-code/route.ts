@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 // AZURE_ACS_SMS_FROM is an SMS-capable number; US toll-free may need toll-free verification in Azure Portal.
 
 const SMS_MESSAGE = (code: string) =>
-  `Your AI Media Tank verification code is: ${code}. It expires in 10 minutes.`
+  `Your AI Media Tank (AiM) verification code is: ${code}. It expires in 10 minutes.`
 
 // Send 6-digit verification code to phone via Azure Communication Services (ACS) when configured.
 // Otherwise return code in response for testing (dev or no SMS provider).

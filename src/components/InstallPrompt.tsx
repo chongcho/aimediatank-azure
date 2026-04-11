@@ -267,7 +267,7 @@ export default function InstallPrompt() {
 
         <div style={{ marginBottom: '12px' }}>
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: 'white' }}>
-            Install AI Media Tank
+            Install AI Media Tank (AiM)
           </h3>
           <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#888' }}>
             Get the full app experience

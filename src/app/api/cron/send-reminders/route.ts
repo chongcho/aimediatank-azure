@@ -90,7 +90,7 @@ export async function GET(request: Request) {
 
           const sent = await sendEmail({
             to: buyerEmail,
-            subject: `⏰ ${minDaysRemaining} Day${minDaysRemaining > 1 ? 's' : ''} Left - Download Your Purchases Before Deletion | AI Media Tank`,
+            subject: `⏰ ${minDaysRemaining} Day${minDaysRemaining > 1 ? 's' : ''} Left - Download Your Purchases Before Deletion | AI Media Tank (AiM)`,
             html: emailHtml,
           })
 

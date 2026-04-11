@@ -19,15 +19,15 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'AI Media Tank | AI-Generated Media Community',
+  title: 'AI Media Tank (AiM) | AI-Generated Media Community',
   description: 'Discover and share stunning AI-generated videos, images, and music. Join our community of AI creators and enthusiasts.',
   keywords: 'AI media, AI art, AI music, AI video, AI generated content, media sharing',
-  authors: [{ name: 'AI Media Tank, LLC' }],
+  authors: [{ name: 'AI Media Tank (AiM), LLC' }],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black',
-    title: 'AI Media Tank',
+    title: 'AI Media Tank (AiM)',
   },
   icons: {
     icon: '/logo.png',
@@ -35,10 +35,10 @@ export const metadata: Metadata = {
     apple: '/logo.png',
   },
   openGraph: {
-    title: 'AI Media Tank | AI-Generated Media Community',
+    title: 'AI Media Tank (AiM) | AI-Generated Media Community',
     description: 'Discover and share stunning AI-generated videos, images, and music.',
     url: 'https://aimediatank.com',
-    siteName: 'AI Media Tank, LLC',
+    siteName: 'AI Media Tank (AiM), LLC',
     type: 'website',
   },
 }
@@ -57,7 +57,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-        <meta name="apple-mobile-web-app-title" content="AI Media Tank" />
+        <meta name="apple-mobile-web-app-title" content="AI Media Tank (AiM)" />
         <link rel="apple-touch-icon" href="/logo.png" />
         <Script
           async
@@ -124,7 +124,7 @@ export default function RootLayout({
           </main>
           <footer className="w-full py-6 mt-8 border-t border-tank-light">
             <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
-              © {new Date().getFullYear()} AI Media Tank, LLC. All rights reserved.
+              © {new Date().getFullYear()} AI Media Tank (AiM), LLC. All rights reserved.
             </div>
           </footer>
           <InstallPrompt />

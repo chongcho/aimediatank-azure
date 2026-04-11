@@ -1,4 +1,4 @@
-# Detailed Security Assessment — AI Media Tank (Azure)
+# Detailed Security Assessment — AI Media Tank (AiM) (Azure)
 
 **Assessment date:** March 5, 2026  
 **Scope:** aimediatank-azure codebase (Next.js 14, Prisma/PostgreSQL, NextAuth, Stripe, Azure)

@@ -172,7 +172,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
             })
           }
           mail = {
-            subject: `🎉 Upload Complete: "${media.title}" | AI Media Tank`,
+            subject: `🎉 Upload Complete: "${media.title}" | AI Media Tank (AiM)`,
             html: generateStripeUploadFeeCompleteEmail(userName, media.title, 'VIDEO', stripeFee, media.id),
           }
           break
@@ -190,7 +190,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
             })
           }
           mail = {
-            subject: '✅ Upload Complete (Credit Used) | AI Media Tank',
+            subject: '✅ Upload Complete (Credit Used) | AI Media Tank (AiM)',
             html: generateUploadConfirmationEmail(
               userName,
               media.title,
@@ -216,7 +216,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
             })
           }
           mail = {
-            subject: '💳 Paid Upload Processed | AI Media Tank',
+            subject: '💳 Paid Upload Processed | AI Media Tank (AiM)',
             html: generatePaidUploadEmail(userName, media.title, uploadCost, paidUploadsCount, totalPaidCost),
           }
           break
@@ -241,7 +241,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
           const freeRemaining =
             user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
           mail = {
-            subject: '🎬 Upload Successful! | AI Media Tank',
+            subject: '🎬 Upload Successful! | AI Media Tank (AiM)',
             html: generateUploadConfirmationEmail(
               userName,
               media.title,
@@ -267,7 +267,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
             })
           }
           mail = {
-            subject: `🎬 Your video is ready: "${media.title}" | AI Media Tank`,
+            subject: `🎬 Your video is ready: "${media.title}" | AI Media Tank (AiM)`,
             html: generateGenericVideoLiveEmail(userName, media.title, media.id),
           }
         }

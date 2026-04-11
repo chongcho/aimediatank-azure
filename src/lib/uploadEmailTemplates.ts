@@ -61,7 +61,7 @@ export function generateUploadConfirmationEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -109,7 +109,7 @@ export function generateFreeUploadsExhaustedEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -171,7 +171,7 @@ export function generatePaidUploadEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -221,7 +221,7 @@ export function generateStripeUploadFeeCompleteEmail(
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -249,7 +249,7 @@ export function generateGenericVideoLiveEmail(userName: string, mediaTitle: stri
     </a>
   </div>
   <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-  <p style="font-size: 14px; color: #666;">Sincerely,<br><strong>AI Media Tank Team</strong></p>
+  <p style="font-size: 14px; color: #666;">Sincerely,<br><strong>AI Media Tank (AiM) Team</strong></p>
 </body>
 </html>
   `

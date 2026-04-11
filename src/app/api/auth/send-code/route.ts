@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   
   <p style="font-size: 16px;">Hello,</p>
   
-  <p style="font-size: 16px;">Your verification code for AI Media Tank is:</p>
+  <p style="font-size: 16px;">Your verification code for AI Media Tank (AiM) is:</p>
   
   <div style="text-align: center; margin: 30px 0;">
     <div style="display: inline-block; background: #f8f9fa; padding: 20px 40px; border-radius: 12px; border: 2px dashed #0f8;">
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank Team</strong>
+    <strong>AI Media Tank (AiM) Team</strong>
   </p>
 </body>
 </html>
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
     const emailSent = await sendEmail({
       to: email,
-      subject: 'Your AI Media Tank Verification Code',
+      subject: 'Your AI Media Tank (AiM) Verification Code',
       html: emailHtml,
     })
 
