@@ -383,6 +383,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     return { text: truncateText(cleaned, 220), title: cleaned }
   })()
 
+  const showDescriptionThumbnailOverlay =
+    Boolean(descriptionOverlay) && isBadgeEnabled('descriptionThumbnails')
+
   // Determine thumbnail source
   const getThumbnailSrc = () => {
     if (media.thumbnailUrl) return media.thumbnailUrl
@@ -714,7 +717,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             </div>
           )}
 
-          {descriptionOverlay && (
+          {showDescriptionThumbnailOverlay && descriptionOverlay && (
             <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none flex flex-col justify-end gap-1.5">
               <div className="bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-10 pb-2.5 px-3">
                 <p
@@ -733,7 +736,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               type="button"
               data-media-card-comment
               className={`absolute z-[12] pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/45 text-sky-400/70 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-sky-300/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80 ${
-                descriptionOverlay ? 'bottom-16 right-3 sm:bottom-[4.25rem]' : 'bottom-3 right-3'
+                showDescriptionThumbnailOverlay ? 'bottom-16 right-3 sm:bottom-[4.25rem]' : 'bottom-3 right-3'
               }`}
               onClick={(e) => {
                 e.stopPropagation()

@@ -3337,7 +3337,7 @@ export default function AdminPage() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">🏷️ Media Badge Control</h2>
                 <p className="text-gray-400 text-sm">
-                  Toggle badge items ON/OFF to show or hide them on media tiles. The Comment control shows or hides the Comment button (with count) so viewers can add comments from the feed without opening the media page first.
+                  Toggle badge items ON/OFF to show or hide them on media tiles. Description thumbnails toggles the description text overlay on each tile thumbnail. The Comment control shows or hides the comment button on the tile so viewers can add comments from the feed without opening the media page first.
                 </p>
               </div>
 

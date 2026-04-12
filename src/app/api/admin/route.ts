@@ -834,6 +834,12 @@ export async function GET(request: Request) {
         { itemKey: 'postDate', label: 'Post Date', isEnabled: true, sortOrder: 4 },
         { itemKey: 'smileRate', label: 'Likes', isEnabled: true, sortOrder: 5 },
         { itemKey: 'comment', label: 'Comment', isEnabled: true, sortOrder: 6 },
+        {
+          itemKey: 'descriptionThumbnails',
+          label: 'Description thumbnails',
+          isEnabled: true,
+          sortOrder: 7,
+        },
       ]
 
       try {
