@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatMediaTitle, stripHashtags, truncateText } from '@/lib/text'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
@@ -44,7 +44,6 @@ interface MediaCardProps {
       comments: number
       ratings: number
     }
-    comments?: { id: string; content: string }[]
   }
   homeScrollContext?: {
     page: number
@@ -116,9 +115,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [modalComments, setModalComments] = useState<ModalCommentLine[]>([])
   const [modalCommentsLoading, setModalCommentsLoading] = useState(false)
   const commentSubmittingRef = useRef(false)
-  const [feedCommentPreview, setFeedCommentPreview] = useState<{ id: string; content: string }[]>(
-    () => media.comments ?? []
-  )
 
   // When processing but 360p/480p (or first variant) is already uploaded, we have a playable stream (used in effects and render)
   const hasPreviewStream =
@@ -131,17 +127,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   useEffect(() => {
     setDisplayViews(media.views)
   }, [media.id, media.views])
-
-  // Same idea as displayViews: sync when id or server comment payload changes. Key avoids resetting
-  // on every parent re-render if `media.comments` is a new array reference with identical contents.
-  const feedCommentsSyncKey = useMemo(() => {
-    const list = media.comments ?? []
-    return `${media.id}|${list.map((c) => `${c.id}\u0001${c.content}`).join('\u0002')}`
-  }, [media.id, media.comments])
-
-  useEffect(() => {
-    setFeedCommentPreview(media.comments ?? [])
-  }, [feedCommentsSyncKey])
 
   useEffect(() => {
     const onBadgeUpdate = () => {
@@ -480,14 +465,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         setCommentError(data.error || 'Could not post comment.')
         return
       }
-      const body = (await res.json().catch(() => ({}))) as { comment?: { id: string; content: string } }
-      if (body.comment?.id) {
-        setFeedCommentPreview((prev) => {
-          const next = [{ id: body.comment!.id, content: body.comment!.content }, ...prev]
-          const seen = new Set<string>()
-          return next.filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true))).slice(0, 3)
-        })
-      }
+      await res.json().catch(() => ({}))
       setCommentDraft('')
       setCommentModalOpen(false)
     } finally {
@@ -736,51 +714,21 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             </div>
           )}
 
-          {(descriptionOverlay || (isBadgeEnabled('comment') && feedCommentPreview.length > 0)) && (
+          {descriptionOverlay && (
             <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none flex flex-col justify-end gap-1.5">
-              {isBadgeEnabled('comment') && feedCommentPreview.length > 0 && (
-                <button
-                  type="button"
-                  data-media-card-comment
-                  className="mx-3 px-3 space-y-1 text-left pointer-events-auto cursor-pointer bg-transparent border-0 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/50 rounded-sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    openCommentModal(e)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      openCommentModal(e)
-                    }
-                  }}
-                  aria-label="Open comments"
+              <div className="bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-10 pb-2.5 px-3">
+                <p
+                  className="text-xs sm:text-sm text-gray-100/50 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
+                  title={descriptionOverlay.title}
                 >
-                  {feedCommentPreview.map((c) => (
-                    <p
-                      key={c.id}
-                      className="text-xs sm:text-sm text-sky-400/70 leading-snug line-clamp-2 whitespace-pre-wrap break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
-                    >
-                      {c.content}
-                    </p>
-                  ))}
-                </button>
-              )}
-              {descriptionOverlay && (
-                <div className="bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-10 pb-2.5 px-3">
-                  <p
-                    className="text-xs sm:text-sm text-gray-100/70 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
-                    title={descriptionOverlay.title}
-                  >
-                    {descriptionOverlay.text}
-                  </p>
-                </div>
-              )}
+                  {descriptionOverlay.text}
+                </p>
+              </div>
             </div>
           )}
 
-          {/* First comment from feed: preview is absent until a comment exists; FAB opens modal when badge on */}
-          {isBadgeEnabled('comment') && feedCommentPreview.length === 0 && (
+          {/* Open comments modal (no feed text preview on the card — avoids duplicate lines above title) */}
+          {isBadgeEnabled('comment') && (
             <button
               type="button"
               data-media-card-comment
@@ -798,7 +746,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   openCommentModal(e)
                 }
               }}
-              aria-label="Add comment"
+              aria-label="Open comments"
             >
               <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path
