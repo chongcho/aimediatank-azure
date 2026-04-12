@@ -44,7 +44,7 @@ interface MediaCardProps {
       comments: number
       ratings: number
     }
-    /** From list API: up to 3 newest comments (content only on card). */
+    /** From list API: up to 3 newest comments (content only); above description overlay on thumbnail. */
     comments?: { id: string; content: string }[]
   }
   homeScrollContext?: {
@@ -721,14 +721,30 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             </div>
           )}
 
-          {descriptionOverlay && (
-            <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-12 pb-2.5 px-3">
-              <p
-                className="text-xs sm:text-sm text-gray-100/95 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
-                title={descriptionOverlay.title}
-              >
-                {descriptionOverlay.text}
-              </p>
+          {(feedCommentPreview.length > 0 || descriptionOverlay) && (
+            <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none flex flex-col justify-end gap-1.5">
+              {feedCommentPreview.length > 0 && (
+                <div className="mx-3 rounded-md bg-black/65 px-2.5 py-1.5 space-y-1 backdrop-blur-sm shadow-sm">
+                  {feedCommentPreview.map((c) => (
+                    <p
+                      key={c.id}
+                      className="text-xs text-gray-200 leading-snug line-clamp-2 whitespace-pre-wrap break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]"
+                    >
+                      {c.content}
+                    </p>
+                  ))}
+                </div>
+              )}
+              {descriptionOverlay && (
+                <div className="bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-10 pb-2.5 px-3">
+                  <p
+                    className="text-xs sm:text-sm text-gray-100/95 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
+                    title={descriptionOverlay.title}
+                  >
+                    {descriptionOverlay.text}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

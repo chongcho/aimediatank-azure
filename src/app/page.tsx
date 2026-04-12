@@ -39,7 +39,7 @@ interface Media {
     comments: number
     ratings: number
   }
-  /** Latest comments (newest first) for feed card preview; id + content only. */
+  /** Latest comments from list API: newest first, up to 3 (id + content); above description overlay on card. */
   comments?: { id: string; content: string }[]
   _page?: number  // tracks which page this item was loaded on (for scroll restoration)
 }

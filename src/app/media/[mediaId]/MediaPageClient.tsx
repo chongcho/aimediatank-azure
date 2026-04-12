@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useState, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -551,6 +551,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     }
   }
 
+  const latestCommentPreview = useMemo(() => {
+    if (!media?.comments?.length) return []
+    return media.comments.slice(0, 3).map((c) => ({ id: c.id, content: c.content }))
+  }, [media])
+
   if (loading) {
     return (
       <div className="pb-[500px] min-h-screen bg-tank-black">
@@ -931,11 +936,27 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </div>
           </div>
 
-          {/* Description — below action buttons (Save / Download / Share / Send by email) */}
-          {media.description && (
-            <p className="text-gray-300 mt-6 whitespace-pre-wrap break-words w-full border-t border-tank-light/20 pt-6">
-              {media.description}
-            </p>
+          {/* Latest comments (newest first, text only) + description — below action row */}
+          {(latestCommentPreview.length > 0 || media.description) && (
+            <div className="mt-6 w-full border-t border-tank-light/20 pt-6 space-y-4">
+              {latestCommentPreview.length > 0 && (
+                <div className="space-y-1.5">
+                  {latestCommentPreview.map((c) => (
+                    <p
+                      key={c.id}
+                      className="text-sm text-gray-400 leading-snug whitespace-pre-wrap break-words"
+                    >
+                      {c.content}
+                    </p>
+                  ))}
+                </div>
+              )}
+              {media.description && (
+                <p className="text-gray-300 whitespace-pre-wrap break-words">
+                  {media.description}
+                </p>
+              )}
+            </div>
           )}
 
           {/* Buy Now Button - Only show for paid content that user doesn't own */}
