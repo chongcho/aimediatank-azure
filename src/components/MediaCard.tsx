@@ -721,7 +721,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none flex flex-col justify-end gap-1.5">
               <div className="bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-10 pb-2.5 px-3">
                 <p
-                  className="text-xs sm:text-sm text-gray-100/50 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
+                  className="text-[14px] text-gray-100/50 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
                   title={descriptionOverlay.title}
                 >
                   {descriptionOverlay.text}
