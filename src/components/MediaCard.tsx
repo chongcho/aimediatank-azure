@@ -575,7 +575,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           )}
 
           {isBadgeEnabled('ai') && (
-            <div className="absolute top-2 left-2 z-10 px-2 py-1 rounded-md text-[11px] font-bold uppercase bg-black/70 text-white backdrop-blur-sm">
+            <div className="absolute top-2 left-2 z-10 px-2 py-1 rounded-md text-[11px] font-bold uppercase bg-black/70 text-white/70 backdrop-blur-sm">
               {aiLabel}
             </div>
           )}
@@ -584,14 +584,14 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           {(priceLabel && isBadgeEnabled('price')) || (showSoldBadge && isBadgeEnabled('sold')) ? (
             <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
               {priceLabel && isBadgeEnabled('price') && (
-                <div className="px-2 py-1 rounded-md text-[11px] font-bold bg-black/70 text-white backdrop-blur-sm">
+                <div className="px-2 py-1 rounded-md text-[11px] font-bold bg-black/70 text-white/70 backdrop-blur-sm">
                   {priceLabel}
                 </div>
               )}
               {showSoldBadge && isBadgeEnabled('sold') && (
                 <div className="flex justify-end">
                   <svg
-                    className="w-3.5 h-3.5 text-red-500 drop-shadow-[0_0_3px_rgba(239,68,68,0.9)]"
+                    className="w-3.5 h-3.5 text-red-500/70 drop-shadow-[0_0_3px_rgba(239,68,68,0.63)]"
                     viewBox="0 0 24 24"
                     aria-hidden="true"
                   >
@@ -669,14 +669,14 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           ) : media.type === 'VIDEO' ? (
             // Video gradient placeholder when video fails to load
             <div className={`w-full aspect-video bg-gradient-to-br ${typeStyle.gradient} flex items-center justify-center`}>
-              <div className="text-white/80 scale-[3]">
+              <div className="text-white/70 scale-[3]">
                 {getTypeIcon()}
               </div>
             </div>
           ) : (
             // Gradient placeholder for music or failed loads
             <div className={`w-full aspect-video bg-gradient-to-br ${typeStyle.gradient} flex items-center justify-center`}>
-              <div className="text-white/80 scale-[3]">
+              <div className="text-white/70 scale-[3]">
                 {getTypeIcon()}
               </div>
             </div>
@@ -687,20 +687,20 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           {media.processingStatus && media.processingStatus !== 'completed' && !hasPreviewStream && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20">
               {media.processingStatus === 'failed' ? (
-                <p className="text-red-400 text-xs font-medium">Processing failed</p>
+                <p className="text-red-400/70 text-xs font-medium">Processing failed</p>
               ) : (
                 <>
                   <div className="w-8 h-8 border-3 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin mb-2" />
-                  <p className="text-white/80 text-xs font-medium">Processing...</p>
+                  <p className="text-white/70 text-xs font-medium">Processing...</p>
                 </>
               )}
             </div>
           )}
           {/* Small badge when 480p is playing but HD is still encoding */}
           {!homeScrollContext && hasPreviewStream && (
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded-full bg-black/70 text-white/90 text-[10px] font-medium flex items-center gap-1.5 z-10">
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded-full bg-black/70 text-[10px] font-medium flex items-center gap-1.5 z-10">
               <div className="w-2 h-2 border-2 border-tank-accent/50 border-t-white/80 rounded-full animate-spin" />
-              Encoding HD…
+              <span className="text-white/70">Encoding HD…</span>
             </div>
           )}
 
@@ -723,22 +723,50 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
 
           {(feedCommentPreview.length > 0 || descriptionOverlay) && (
             <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none flex flex-col justify-end gap-1.5">
-              {feedCommentPreview.length > 0 && (
-                <div className="mx-3 rounded-md bg-black/65 px-2.5 py-1.5 space-y-1 backdrop-blur-sm shadow-sm">
-                  {feedCommentPreview.map((c) => (
-                    <p
-                      key={c.id}
-                      className="text-xs text-gray-200 leading-snug line-clamp-2 whitespace-pre-wrap break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]"
-                    >
-                      {c.content}
-                    </p>
-                  ))}
-                </div>
-              )}
+              {feedCommentPreview.length > 0 &&
+                (isBadgeEnabled('comment') ? (
+                  <button
+                    type="button"
+                    data-media-card-comment
+                    className="mx-3 px-3 space-y-1 text-left pointer-events-auto cursor-pointer bg-transparent border-0 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/50 rounded-sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openCommentModal(e)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        openCommentModal(e)
+                      }
+                    }}
+                    aria-label="Open comments"
+                  >
+                    {feedCommentPreview.map((c) => (
+                      <p
+                        key={c.id}
+                        className="text-xs sm:text-sm text-sky-400/70 leading-snug line-clamp-2 whitespace-pre-wrap break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
+                      >
+                        {c.content}
+                      </p>
+                    ))}
+                  </button>
+                ) : (
+                  <div className="mx-3 px-3 space-y-1">
+                    {feedCommentPreview.map((c) => (
+                      <p
+                        key={c.id}
+                        className="text-xs sm:text-sm text-sky-400/70 leading-snug line-clamp-2 whitespace-pre-wrap break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
+                      >
+                        {c.content}
+                      </p>
+                    ))}
+                  </div>
+                ))}
               {descriptionOverlay && (
                 <div className="bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-10 pb-2.5 px-3">
                   <p
-                    className="text-xs sm:text-sm text-gray-100/95 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
+                    className="text-xs sm:text-sm text-gray-100/70 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
                     title={descriptionOverlay.title}
                   >
                     {descriptionOverlay.text}
@@ -797,31 +825,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               <span className="flex items-center gap-1 shrink-0">
                 <ThumbsUpIcon className="w-4 h-4 shrink-0 text-gray-400" />
                 <span>{media.reactions?.happy ?? 0}</span>
-              </span>
-            )}
-            {isBadgeEnabled('comment') && (
-              <span data-media-card-comment className="inline-flex shrink-0">
-                <button
-                  type="button"
-                  data-media-card-comment
-                  onClick={openCommentModal}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      openCommentModal(e)
-                    }
-                  }}
-                  className="flex items-center gap-1 shrink-0 rounded-md px-0 py-0 text-sm text-gray-300 hover:text-white transition-colors"
-                >
-                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                    />
-                  </svg>
-                  Comment
-                </button>
               </span>
             )}
           </div>
