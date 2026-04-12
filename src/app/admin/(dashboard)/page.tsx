@@ -1270,6 +1270,9 @@ export default function AdminPage() {
       })
       if (res.ok) {
         setMediaBadgeItems(prev => prev.map(item => item.itemKey === itemKey ? { ...item, isEnabled } : item))
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('mediaBadgeSettingsUpdated'))
+        }
       }
     } catch (error) {
       console.error('Error toggling badge:', error)
@@ -3333,7 +3336,9 @@ export default function AdminPage() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">🏷️ Media Badge Control</h2>
-                <p className="text-gray-400 text-sm">Toggle badge items ON/OFF to show or hide them on media tiles</p>
+                <p className="text-gray-400 text-sm">
+                  Toggle badge items ON/OFF to show or hide them on media tiles. The Comment control shows or hides the Comment button (with count) so viewers can add comments from the feed without opening the media page first.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

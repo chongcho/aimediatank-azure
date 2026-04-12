@@ -2,7 +2,9 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { formatMediaTitle, stripHashtags, truncateText } from '@/lib/text'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
@@ -58,6 +60,11 @@ type BadgeItem = { itemKey: string; isEnabled: boolean }
 let badgeItemsCache: BadgeItem[] | null = null
 let badgeItemsPromise: Promise<BadgeItem[] | null> | null = null
 
+function resetBadgeItemsCache() {
+  badgeItemsCache = null
+  badgeItemsPromise = null
+}
+
 async function getBadgeItems(): Promise<BadgeItem[] | null> {
   if (badgeItemsCache) return badgeItemsCache
   if (badgeItemsPromise) return badgeItemsPromise
@@ -83,6 +90,8 @@ async function getBadgeItems(): Promise<BadgeItem[] | null> {
 
 export default function MediaCard({ media, homeScrollContext, preplay = false }: MediaCardProps) {
   const router = useRouter()
+  const { data: session } = useSession()
+  const [commentPortalMounted, setCommentPortalMounted] = useState(false)
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false)
   const [thumbnailError, setThumbnailError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -97,6 +106,11 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const prefetchInViewRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Local view count so we can update immediately when a preplay view is recorded (no refetch)
   const [displayViews, setDisplayViews] = useState(media.views)
+  const [displayCommentCount, setDisplayCommentCount] = useState(media._count.comments)
+  const [commentModalOpen, setCommentModalOpen] = useState(false)
+  const [commentDraft, setCommentDraft] = useState('')
+  const [commentSubmitting, setCommentSubmitting] = useState(false)
+  const [commentError, setCommentError] = useState<string | null>(null)
 
   // When processing but 360p/480p (or first variant) is already uploaded, we have a playable stream (used in effects and render)
   const hasPreviewStream =
@@ -109,6 +123,32 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   useEffect(() => {
     setDisplayViews(media.views)
   }, [media.id, media.views])
+
+  useEffect(() => {
+    setDisplayCommentCount(media._count.comments)
+  }, [media.id, media._count.comments])
+
+  useEffect(() => {
+    const onBadgeUpdate = () => {
+      resetBadgeItemsCache()
+      void getBadgeItems().then((items) => setBadgeItems(items))
+    }
+    window.addEventListener('mediaBadgeSettingsUpdated', onBadgeUpdate)
+    return () => window.removeEventListener('mediaBadgeSettingsUpdated', onBadgeUpdate)
+  }, [])
+
+  useEffect(() => {
+    setCommentPortalMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!commentModalOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCommentModalOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [commentModalOpen])
 
   useEffect(() => {
     return () => {
@@ -325,9 +365,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const soldCount = media.soldCount ?? (media.isSold ? 1 : 0)
   const showSoldBadge = soldCount > 0
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    // Only save scroll target when on the home page (not on profile or other pages)
+  const navigateToMedia = useCallback(() => {
     if (homeScrollContext) {
       sessionStorage.setItem(
         'homeScrollState',
@@ -341,6 +379,56 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       )
     }
     router.push(`/media/${media.id}`)
+  }, [homeScrollContext, media.id, router])
+
+  const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('[data-media-card-comment]')) return
+    if (e.button !== 0) return
+    navigateToMedia()
+  }
+
+  const handleCardAuxClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('[data-media-card-comment]')) return
+    if (e.button === 1) {
+      e.preventDefault()
+      window.open(`/media/${media.id}`, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  const openCommentModal = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setCommentError(null)
+    setCommentModalOpen(true)
+  }
+
+  const submitHomeComment = async () => {
+    const content = commentDraft.trim()
+    if (!content) return
+    setCommentSubmitting(true)
+    setCommentError(null)
+    try {
+      const res = await fetch(`/api/media/${media.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ content }),
+      })
+      if (res.status === 401) {
+        setCommentError('Sign in to post a comment.')
+        return
+      }
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string }
+        setCommentError(data.error || 'Could not post comment.')
+        return
+      }
+      setDisplayCommentCount((c) => c + 1)
+      setCommentDraft('')
+      setCommentModalOpen(false)
+    } finally {
+      setCommentSubmitting(false)
+    }
   }
 
   const isPreplayVideo = preplay && media.type === 'VIDEO' && isPlayable
@@ -396,15 +484,28 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     prefetchMediaPlay(media.id)
   }
 
+  const loginCallbackUrl =
+    typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '/'
+
   return (
-    <Link
-      href={`/media/${media.id}`}
-      onClick={handleClick}
-      onMouseEnter={handleMouseEnter}
-      onContextMenu={(e) => e.preventDefault()}
-      data-media-id={media.id}
-      className="group cursor-pointer block focus:outline-none no-touch-callout [-webkit-tap-highlight-color:transparent]"
-    >
+    <>
+      <div
+        data-media-id={media.id}
+        onClick={handleCardClick}
+        onAuxClick={handleCardAuxClick}
+        onMouseEnter={handleMouseEnter}
+        onContextMenu={(e) => e.preventDefault()}
+        className="group cursor-pointer block focus:outline-none no-touch-callout [-webkit-tap-highlight-color:transparent]"
+        role="link"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            navigateToMedia()
+          }
+        }}
+        aria-label={`Open ${stripHashtags(media.title)}`}
+      >
       <div ref={cardRef} className="media-card-inner bg-tank-gray rounded-md overflow-hidden border border-tank-light transition-all duration-300 [@media(hover:hover)]:hover:border-tank-accent/50 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:shadow-tank-accent/10">
         {/* Thumbnail — natural aspect ratio for masonry layout */}
         <div
@@ -610,6 +711,27 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 <span>{media.reactions?.happy ?? 0}</span>
               </span>
             )}
+            {isBadgeEnabled('comment') && (
+              <span data-media-card-comment className="inline-flex shrink-0">
+                <button
+                  type="button"
+                  data-media-card-comment
+                  onClick={openCommentModal}
+                  className="flex items-center gap-1 rounded-md px-2 py-0.5 -mx-0.5 text-sm font-medium text-tank-accent hover:bg-tank-accent/15 hover:text-white transition-colors"
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                  Comment
+                  <span className="tabular-nums text-gray-400 font-normal">({displayCommentCount})</span>
+                </button>
+              </span>
+            )}
           </div>
 
           {isBadgeEnabled('postDate') && (
@@ -619,6 +741,84 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           )}
         </div>
       </div>
-    </Link>
+      </div>
+
+      {commentPortalMounted &&
+        commentModalOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60"
+            role="presentation"
+            onClick={() => !commentSubmitting && setCommentModalOpen(false)}
+          >
+            <div
+              className="w-full max-w-md rounded-xl border border-tank-light bg-tank-gray p-5 shadow-xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="media-card-comment-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="media-card-comment-title" className="text-lg font-semibold text-white mb-1 truncate pr-8">
+                Comment
+              </h3>
+              <p className="text-sm text-gray-400 mb-4 truncate" title={stripHashtags(media.title)}>
+                {stripHashtags(media.title)}
+              </p>
+              {session?.user ? (
+                <>
+                  <textarea
+                    value={commentDraft}
+                    onChange={(e) => setCommentDraft(e.target.value)}
+                    placeholder="Write a comment…"
+                    rows={4}
+                    className="w-full rounded-lg border border-tank-light bg-tank-dark px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent resize-y min-h-[100px]"
+                    disabled={commentSubmitting}
+                  />
+                  {commentError && <p className="mt-2 text-sm text-red-400">{commentError}</p>}
+                  <div className="mt-4 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-tank-light/50 transition-colors"
+                      onClick={() => setCommentModalOpen(false)}
+                      disabled={commentSubmitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-lg text-sm font-semibold bg-tank-accent text-tank-black hover:opacity-90 disabled:opacity-50"
+                      onClick={() => void submitHomeComment()}
+                      disabled={commentSubmitting || !commentDraft.trim()}
+                    >
+                      {commentSubmitting ? 'Posting…' : 'Post'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-300">Sign in to add a comment on this media.</p>
+                  {commentError && <p className="text-sm text-red-400">{commentError}</p>}
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-tank-light/50 transition-colors"
+                      onClick={() => setCommentModalOpen(false)}
+                    >
+                      Close
+                    </button>
+                    <Link
+                      href={`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`}
+                      className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold bg-tank-accent text-tank-black hover:opacity-90"
+                    >
+                      Sign in
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   )
 }

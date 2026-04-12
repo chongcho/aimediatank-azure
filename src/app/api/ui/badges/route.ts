@@ -10,6 +10,7 @@ const defaultItems = [
   { itemKey: 'views', label: 'View', isEnabled: true, sortOrder: 3 },
   { itemKey: 'postDate', label: 'Post Date', isEnabled: true, sortOrder: 4 },
   { itemKey: 'smileRate', label: 'Likes', isEnabled: true, sortOrder: 5 },
+  { itemKey: 'comment', label: 'Comment', isEnabled: true, sortOrder: 6 },
 ]
 
 export async function GET() {
