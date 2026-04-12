@@ -44,6 +44,7 @@ interface MediaCardProps {
       comments: number
       ratings: number
     }
+    comments?: { id: string; content: string }[]
   }
   homeScrollContext?: {
     page: number
@@ -115,6 +116,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [modalComments, setModalComments] = useState<ModalCommentLine[]>([])
   const [modalCommentsLoading, setModalCommentsLoading] = useState(false)
   const commentSubmittingRef = useRef(false)
+  const [feedCommentPreview, setFeedCommentPreview] = useState<{ id: string; content: string }[]>(
+    () => media.comments ?? []
+  )
 
   // When processing but 360p/480p (or first variant) is already uploaded, we have a playable stream (used in effects and render)
   const hasPreviewStream =
@@ -127,6 +131,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   useEffect(() => {
     setDisplayViews(media.views)
   }, [media.id, media.views])
+
+  useEffect(() => {
+    setFeedCommentPreview(media.comments ?? [])
+  }, [media.id])
 
   useEffect(() => {
     const onBadgeUpdate = () => {
@@ -456,6 +464,14 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         setCommentError(data.error || 'Could not post comment.')
         return
       }
+      const body = (await res.json().catch(() => ({}))) as { comment?: { id: string; content: string } }
+      if (body.comment?.id) {
+        setFeedCommentPreview((prev) => {
+          const next = [{ id: body.comment!.id, content: body.comment!.content }, ...prev]
+          const seen = new Set<string>()
+          return next.filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true))).slice(0, 3)
+        })
+      }
       setCommentDraft('')
       setCommentModalOpen(false)
     } finally {
@@ -704,14 +720,30 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             </div>
           )}
 
-          {descriptionOverlay && (
-            <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-12 pb-2.5 px-3">
-              <p
-                className="text-xs sm:text-sm text-gray-100/95 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
-                title={descriptionOverlay.title}
-              >
-                {descriptionOverlay.text}
-              </p>
+          {(feedCommentPreview.length > 0 || descriptionOverlay) && (
+            <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none flex flex-col justify-end gap-1.5">
+              {feedCommentPreview.length > 0 && (
+                <div className="mx-3 rounded-md bg-black/65 px-2.5 py-1.5 space-y-1 backdrop-blur-sm shadow-sm">
+                  {feedCommentPreview.map((c) => (
+                    <p
+                      key={c.id}
+                      className="text-xs text-gray-200 leading-snug line-clamp-2 whitespace-pre-wrap break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]"
+                    >
+                      {c.content}
+                    </p>
+                  ))}
+                </div>
+              )}
+              {descriptionOverlay && (
+                <div className="bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-10 pb-2.5 px-3">
+                  <p
+                    className="text-xs sm:text-sm text-gray-100/95 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
+                    title={descriptionOverlay.title}
+                  >
+                    {descriptionOverlay.text}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

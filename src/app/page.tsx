@@ -39,6 +39,8 @@ interface Media {
     comments: number
     ratings: number
   }
+  /** Newest first, up to 3; shown on card above description overlay. */
+  comments?: { id: string; content: string }[]
   _page?: number  // tracks which page this item was loaded on (for scroll restoration)
 }
 
