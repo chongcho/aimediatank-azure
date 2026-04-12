@@ -39,6 +39,8 @@ interface Media {
     comments: number
     ratings: number
   }
+  /** Latest comments (newest first) for feed card preview; id + content only. */
+  comments?: { id: string; content: string }[]
   _page?: number  // tracks which page this item was loaded on (for scroll restoration)
 }
 

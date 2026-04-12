@@ -44,6 +44,8 @@ interface MediaCardProps {
       comments: number
       ratings: number
     }
+    /** From list API: up to 3 newest comments (content only on card). */
+    comments?: { id: string; content: string }[]
   }
   homeScrollContext?: {
     page: number
@@ -115,6 +117,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [modalComments, setModalComments] = useState<ModalCommentLine[]>([])
   const [modalCommentsLoading, setModalCommentsLoading] = useState(false)
   const commentSubmittingRef = useRef(false)
+  const [feedCommentPreview, setFeedCommentPreview] = useState<{ id: string; content: string }[]>(
+    () => media.comments ?? []
+  )
 
   // When processing but 360p/480p (or first variant) is already uploaded, we have a playable stream (used in effects and render)
   const hasPreviewStream =
@@ -127,6 +132,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   useEffect(() => {
     setDisplayViews(media.views)
   }, [media.id, media.views])
+
+  useEffect(() => {
+    setFeedCommentPreview(media.comments ?? [])
+  }, [media.id])
 
   useEffect(() => {
     const onBadgeUpdate = () => {
@@ -456,6 +465,14 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         setCommentError(data.error || 'Could not post comment.')
         return
       }
+      const body = (await res.json().catch(() => ({}))) as { comment?: { id: string; content: string } }
+      if (body.comment?.id) {
+        setFeedCommentPreview((prev) => {
+          const next = [{ id: body.comment!.id, content: body.comment!.content }, ...prev]
+          const seen = new Set<string>()
+          return next.filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true))).slice(0, 3)
+        })
+      }
       setCommentDraft('')
       setCommentModalOpen(false)
     } finally {
@@ -716,6 +733,22 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           )}
 
         </div>
+
+        {feedCommentPreview.length > 0 && (
+          <div
+            className="px-4 pt-3 pb-0 space-y-1.5 border-t border-tank-light/20"
+            aria-label="Recent comments"
+          >
+            {feedCommentPreview.map((c) => (
+              <p
+                key={c.id}
+                className="text-xs text-gray-400 leading-snug line-clamp-2 whitespace-pre-wrap break-words"
+              >
+                {c.content}
+              </p>
+            ))}
+          </div>
+        )}
 
         {/* Content: grid so type + date share one right column (aligned right edges, same gray as date) */}
         <div className="p-4 grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-2 items-start">

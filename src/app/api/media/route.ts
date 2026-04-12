@@ -112,6 +112,11 @@ export async function GET(request: Request) {
             orderBy: { height: 'asc' },
             select: { height: true, url: true },
           },
+          comments: {
+            orderBy: { createdAt: 'desc' },
+            take: 3,
+            select: { id: true, content: true },
+          },
           _count: {
             select: {
               comments: true,
@@ -186,9 +191,13 @@ export async function GET(request: Request) {
           streamUrl = m.url
         }
 
-        const { versions: _v, ...rest } = m as any
+        const { versions: _v, comments: rawComments, ...rest } = m as any
+        const commentsPreview = Array.isArray(rawComments)
+          ? rawComments.map((c: { id: string; content: string }) => ({ id: c.id, content: c.content }))
+          : []
         return {
           ...rest,
+          comments: commentsPreview,
           streamUrl,
           fileSize,
           avgRating: Math.round(avgRating * 10) / 10,
@@ -212,6 +221,7 @@ export async function GET(request: Request) {
           avgRating: 0,
           reactions: { happy: 0, sad: 0 },
           fileSize: null,
+          comments: [],
         }
       }
     })
