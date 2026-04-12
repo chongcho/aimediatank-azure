@@ -106,7 +106,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const prefetchInViewRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Local view count so we can update immediately when a preplay view is recorded (no refetch)
   const [displayViews, setDisplayViews] = useState(media.views)
-  const [displayCommentCount, setDisplayCommentCount] = useState(media._count.comments)
   const [commentModalOpen, setCommentModalOpen] = useState(false)
   const [commentDraft, setCommentDraft] = useState('')
   const [commentSubmitting, setCommentSubmitting] = useState(false)
@@ -123,10 +122,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   useEffect(() => {
     setDisplayViews(media.views)
   }, [media.id, media.views])
-
-  useEffect(() => {
-    setDisplayCommentCount(media._count.comments)
-  }, [media.id, media._count.comments])
 
   useEffect(() => {
     const onBadgeUpdate = () => {
@@ -423,7 +418,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         setCommentError(data.error || 'Could not post comment.')
         return
       }
-      setDisplayCommentCount((c) => c + 1)
       setCommentDraft('')
       setCommentModalOpen(false)
     } finally {
@@ -723,7 +717,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                       openCommentModal(e)
                     }
                   }}
-                  className="flex items-center gap-1 rounded-md px-2 py-0.5 -mx-0.5 text-sm font-medium text-tank-accent hover:bg-tank-accent/15 hover:text-white transition-colors"
+                  className="flex items-center gap-1 shrink-0 rounded-md px-0 py-0 text-sm text-gray-300 hover:text-white transition-colors"
                 >
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                     <path
@@ -734,7 +728,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                     />
                   </svg>
                   Comment
-                  <span className="tabular-nums text-gray-400 font-normal">({displayCommentCount})</span>
                 </button>
               </span>
             )}
