@@ -153,6 +153,13 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }, [])
 
   useEffect(() => {
+    if (!commentModalOpen || !badgeItems?.length) return
+    if (badgeItems.find((b) => b.itemKey === 'comment')?.isEnabled === false) {
+      setCommentModalOpen(false)
+    }
+  }, [commentModalOpen, badgeItems])
+
+  useEffect(() => {
     setCommentPortalMounted(true)
   }, [])
 
@@ -444,6 +451,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
 
   const openCommentModal = (e: React.SyntheticEvent) => {
+    if (!isBadgeEnabled('comment')) return
     e.preventDefault()
     e.stopPropagation()
     setCommentError(null)
@@ -453,6 +461,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const submitHomeComment = async () => {
     const content = commentDraft.trim()
     if (!content) return
+    if (!isBadgeEnabled('comment')) return
     setCommentSubmitting(true)
     setCommentError(null)
     try {
@@ -727,48 +736,36 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             </div>
           )}
 
-          {(feedCommentPreview.length > 0 || descriptionOverlay) && (
+          {(descriptionOverlay || (isBadgeEnabled('comment') && feedCommentPreview.length > 0)) && (
             <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none flex flex-col justify-end gap-1.5">
-              {feedCommentPreview.length > 0 &&
-                (isBadgeEnabled('comment') ? (
-                  <button
-                    type="button"
-                    data-media-card-comment
-                    className="mx-3 px-3 space-y-1 text-left pointer-events-auto cursor-pointer bg-transparent border-0 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/50 rounded-sm"
-                    onClick={(e) => {
+              {isBadgeEnabled('comment') && feedCommentPreview.length > 0 && (
+                <button
+                  type="button"
+                  data-media-card-comment
+                  className="mx-3 px-3 space-y-1 text-left pointer-events-auto cursor-pointer bg-transparent border-0 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/50 rounded-sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openCommentModal(e)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
                       e.stopPropagation()
                       openCommentModal(e)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        openCommentModal(e)
-                      }
-                    }}
-                    aria-label="Open comments"
-                  >
-                    {feedCommentPreview.map((c) => (
-                      <p
-                        key={c.id}
-                        className="text-xs sm:text-sm text-sky-400/70 leading-snug line-clamp-2 whitespace-pre-wrap break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
-                      >
-                        {c.content}
-                      </p>
-                    ))}
-                  </button>
-                ) : (
-                  <div className="mx-3 px-3 space-y-1">
-                    {feedCommentPreview.map((c) => (
-                      <p
-                        key={c.id}
-                        className="text-xs sm:text-sm text-sky-400/70 leading-snug line-clamp-2 whitespace-pre-wrap break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
-                      >
-                        {c.content}
-                      </p>
-                    ))}
-                  </div>
-                ))}
+                    }
+                  }}
+                  aria-label="Open comments"
+                >
+                  {feedCommentPreview.map((c) => (
+                    <p
+                      key={c.id}
+                      className="text-xs sm:text-sm text-sky-400/70 leading-snug line-clamp-2 whitespace-pre-wrap break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
+                    >
+                      {c.content}
+                    </p>
+                  ))}
+                </button>
+              )}
               {descriptionOverlay && (
                 <div className="bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-10 pb-2.5 px-3">
                   <p
@@ -862,6 +859,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
 
       {commentPortalMounted &&
         commentModalOpen &&
+        isBadgeEnabled('comment') &&
         createPortal(
           <div
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60"

@@ -93,6 +93,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const [retrying, setRetrying] = useState(false)
   const [closing, setClosing] = useState(false)
   const [overlayReveal, setOverlayReveal] = useState(false)
+  /** When false (admin Media Badge "Comment" off), hide comment previews on this page. */
+  const [commentBadgeEnabled, setCommentBadgeEnabled] = useState(true)
   const backNavigatingRef = useRef(false)
 
   const kakaoJsKey = useKakaoJsKey()
@@ -161,6 +163,40 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     return () => {
       ac.abort()
       window.removeEventListener('mediaDetailUpdated', handler as EventListener)
+    }
+  }, [])
+
+  useEffect(() => {
+    const applyBadgeItems = (items: { itemKey: string; isEnabled: boolean }[]) => {
+      if (items.length === 0) {
+        setCommentBadgeEnabled(true)
+        return
+      }
+      const row = items.find((i) => i.itemKey === 'comment')
+      setCommentBadgeEnabled(row?.isEnabled !== false)
+    }
+
+    const loadCommentBadge = async (signal?: AbortSignal) => {
+      try {
+        const res = await fetch('/api/ui/badges', { signal, cache: 'no-store' })
+        if (signal?.aborted) return
+        if (!res.ok) return
+        const data = await res.json()
+        if (signal?.aborted) return
+        applyBadgeItems((data.items || []) as { itemKey: string; isEnabled: boolean }[])
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') return
+        console.error('Error fetching media badge settings:', error)
+      }
+    }
+
+    const ac = new AbortController()
+    void loadCommentBadge(ac.signal)
+    const onBadges = () => void loadCommentBadge()
+    window.addEventListener('mediaBadgeSettingsUpdated', onBadges)
+    return () => {
+      ac.abort()
+      window.removeEventListener('mediaBadgeSettingsUpdated', onBadges)
     }
   }, [])
 
@@ -552,9 +588,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   }
 
   const latestCommentPreview = useMemo(() => {
-    if (!media?.comments?.length) return []
+    if (!commentBadgeEnabled || !media?.comments?.length) return []
     return media.comments.slice(0, 3).map((c) => ({ id: c.id, content: c.content }))
-  }, [media])
+  }, [commentBadgeEnabled, media])
 
   if (loading) {
     return (
