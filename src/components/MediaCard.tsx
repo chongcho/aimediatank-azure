@@ -395,7 +395,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     }
   }
 
-  const openCommentModal = (e: React.MouseEvent) => {
+  const openCommentModal = (e: React.SyntheticEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setCommentError(null)
@@ -499,10 +499,11 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         role="link"
         tabIndex={0}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            navigateToMedia()
-          }
+          if (e.key !== 'Enter' && e.key !== ' ') return
+          // Match handleCardClick: do not hijack keyboard activation of the Comment button.
+          if ((e.target as HTMLElement).closest('[data-media-card-comment]')) return
+          e.preventDefault()
+          navigateToMedia()
         }}
         aria-label={`Open ${stripHashtags(media.title)}`}
       >
@@ -717,6 +718,11 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   type="button"
                   data-media-card-comment
                   onClick={openCommentModal}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      openCommentModal(e)
+                    }
+                  }}
                   className="flex items-center gap-1 rounded-md px-2 py-0.5 -mx-0.5 text-sm font-medium text-tank-accent hover:bg-tank-accent/15 hover:text-white transition-colors"
                 >
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
