@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { formatMediaTitle, stripHashtags } from '@/lib/text'
+import { formatMediaTitle, stripHashtags, truncateText } from '@/lib/text'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
 
@@ -16,6 +16,8 @@ interface MediaCardProps {
     /** When set (from list API), use for pre-play to match Display streaming max (e.g. 1080p). */
     streamUrl?: string
     thumbnailUrl?: string | null
+    /** Shown as bottom overlay on the thumbnail when set (e.g. homepage). */
+    description?: string | null
     aiTool?: string | null
     realDevice?: string | null
     price?: number | null
@@ -294,6 +296,13 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
 
   const typeStyle = getTypeStyle()
 
+  const descriptionOverlay = (() => {
+    const raw = media.description?.trim()
+    if (!raw) return null
+    const cleaned = stripHashtags(raw)
+    return { text: truncateText(cleaned, 220), title: cleaned }
+  })()
+
   // Determine thumbnail source
   const getThumbnailSrc = () => {
     if (media.thumbnailUrl) return media.thumbnailUrl
@@ -540,7 +549,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
 
           {/* Music wave animation overlay */}
           {media.type === 'MUSIC' && (
-            <div className="absolute bottom-3 left-3 right-3 flex items-end justify-center gap-1 h-8">
+            <div className="absolute bottom-3 left-3 right-3 z-[10] flex items-end justify-center gap-1 h-8 pointer-events-none">
               {[...Array(12)].map((_, i) => (
                 <div
                   key={i}
@@ -555,6 +564,16 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             </div>
           )}
 
+          {descriptionOverlay && (
+            <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-12 pb-2.5 px-3">
+              <p
+                className="text-xs sm:text-sm text-gray-100/95 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
+                title={descriptionOverlay.title}
+              >
+                {descriptionOverlay.text}
+              </p>
+            </div>
+          )}
 
         </div>
 
