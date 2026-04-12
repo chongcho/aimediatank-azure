@@ -761,22 +761,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
 
         </div>
 
-        {feedCommentPreview.length > 0 && (
-          <div
-            className="px-4 pt-3 pb-0 space-y-1.5 border-t border-tank-light/20"
-            aria-label="Recent comments"
-          >
-            {feedCommentPreview.map((c) => (
-              <p
-                key={c.id}
-                className="text-xs text-gray-400 leading-snug line-clamp-2 whitespace-pre-wrap break-words"
-              >
-                {c.content}
-              </p>
-            ))}
-          </div>
-        )}
-
         {/* Content: grid so type + date share one right column (aligned right edges, same gray as date) */}
         <div className="p-4 grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-2 items-start">
           <h3
