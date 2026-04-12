@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatMediaTitle, stripHashtags, truncateText } from '@/lib/text'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
@@ -133,9 +133,16 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     setDisplayViews(media.views)
   }, [media.id, media.views])
 
+  // Same idea as displayViews: sync when id or server comment payload changes. Key avoids resetting
+  // on every parent re-render if `media.comments` is a new array reference with identical contents.
+  const feedCommentsSyncKey = useMemo(() => {
+    const list = media.comments ?? []
+    return `${media.id}|${list.map((c) => `${c.id}\u0001${c.content}`).join('\u0002')}`
+  }, [media.id, media.comments])
+
   useEffect(() => {
     setFeedCommentPreview(media.comments ?? [])
-  }, [media.id])
+  }, [feedCommentsSyncKey])
 
   useEffect(() => {
     const onBadgeUpdate = () => {
@@ -774,6 +781,38 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 </div>
               )}
             </div>
+          )}
+
+          {/* First comment from feed: preview is absent until a comment exists; FAB opens modal when badge on */}
+          {isBadgeEnabled('comment') && feedCommentPreview.length === 0 && (
+            <button
+              type="button"
+              data-media-card-comment
+              className={`absolute z-[12] pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/45 text-sky-400/70 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-sky-300/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80 ${
+                descriptionOverlay ? 'bottom-16 right-3 sm:bottom-[4.25rem]' : 'bottom-3 right-3'
+              }`}
+              onClick={(e) => {
+                e.stopPropagation()
+                openCommentModal(e)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  openCommentModal(e)
+                }
+              }}
+              aria-label="Add comment"
+            >
+              <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
+              </svg>
+            </button>
           )}
 
         </div>
