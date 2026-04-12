@@ -57,6 +57,8 @@ interface MediaCardProps {
 
 type BadgeItem = { itemKey: string; isEnabled: boolean }
 
+type ModalCommentLine = { id: string; content: string }
+
 let badgeItemsCache: BadgeItem[] | null = null
 let badgeItemsPromise: Promise<BadgeItem[] | null> | null = null
 
@@ -110,6 +112,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [commentDraft, setCommentDraft] = useState('')
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [commentError, setCommentError] = useState<string | null>(null)
+  const [modalComments, setModalComments] = useState<ModalCommentLine[]>([])
+  const [modalCommentsLoading, setModalCommentsLoading] = useState(false)
+  const commentSubmittingRef = useRef(false)
 
   // When processing but 360p/480p (or first variant) is already uploaded, we have a playable stream (used in effects and render)
   const hasPreviewStream =
@@ -137,13 +142,45 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }, [])
 
   useEffect(() => {
+    commentSubmittingRef.current = commentSubmitting
+  }, [commentSubmitting])
+
+  useEffect(() => {
     if (!commentModalOpen) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setCommentModalOpen(false)
+      if (e.key !== 'Escape') return
+      if (commentSubmittingRef.current) return
+      setCommentModalOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [commentModalOpen])
+
+  useEffect(() => {
+    if (!commentModalOpen || !media.id) return
+    const ac = new AbortController()
+    setModalComments([])
+    setModalCommentsLoading(true)
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/media/${media.id}?skipView=1`, {
+          signal: ac.signal,
+          cache: 'no-store',
+          credentials: 'same-origin',
+        })
+        if (res.ok) {
+          const data = (await res.json()) as { comments?: { id: string; content: string }[] }
+          const list = (data.comments || []).map((c) => ({ id: c.id, content: c.content }))
+          if (!ac.signal.aborted) setModalComments(list)
+        }
+      } catch {
+        /* aborted or network */
+      } finally {
+        if (!ac.signal.aborted) setModalCommentsLoading(false)
+      }
+    })()
+    return () => ac.abort()
+  }, [commentModalOpen, media.id])
 
   useEffect(() => {
     return () => {
@@ -335,6 +372,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     const raw = media.description?.trim()
     if (!raw) return null
     const cleaned = stripHashtags(raw)
+    if (!cleaned) return null
     return { text: truncateText(cleaned, 220), title: cleaned }
   })()
 
@@ -480,6 +518,12 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
 
   const loginCallbackUrl =
     typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '/'
+
+  const latestModalComments = modalComments.slice(0, 3)
+  const olderModalComments = modalComments.slice(3)
+
+  const commentBodyClass =
+    'text-sm text-gray-200 whitespace-pre-wrap break-words border-b border-tank-light/25 pb-2 last:border-b-0 last:pb-0'
 
   return (
     <>
@@ -760,11 +804,31 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               <h3 id="media-card-comment-title" className="text-lg font-semibold text-white mb-1 truncate pr-8">
                 Comment
               </h3>
-              <p className="text-sm text-gray-400 mb-4 truncate" title={stripHashtags(media.title)}>
+              {modalCommentsLoading ? (
+                <p className="text-xs text-gray-500 mb-3">Loading comments…</p>
+              ) : latestModalComments.length > 0 ? (
+                <div className="mb-3 rounded-lg border border-tank-light/40 bg-tank-dark/50 px-3 py-2 space-y-2">
+                  {latestModalComments.map((c) => (
+                    <p key={c.id} className={commentBodyClass}>
+                      {c.content}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+              <p className="text-sm text-gray-400 mb-3 truncate" title={stripHashtags(media.title)}>
                 {stripHashtags(media.title)}
               </p>
               {session?.user ? (
                 <>
+                  {olderModalComments.length > 0 && (
+                    <div className="mb-3 max-h-40 overflow-y-auto rounded-lg border border-tank-light/40 bg-tank-dark/50 px-3 py-2 space-y-2">
+                      {olderModalComments.map((c) => (
+                        <p key={c.id} className={commentBodyClass}>
+                          {c.content}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   <textarea
                     value={commentDraft}
                     onChange={(e) => setCommentDraft(e.target.value)}
@@ -795,6 +859,15 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 </>
               ) : (
                 <div className="space-y-4">
+                  {olderModalComments.length > 0 && (
+                    <div className="max-h-40 overflow-y-auto rounded-lg border border-tank-light/40 bg-tank-dark/50 px-3 py-2 space-y-2">
+                      {olderModalComments.map((c) => (
+                        <p key={c.id} className={commentBodyClass}>
+                          {c.content}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   <p className="text-sm text-gray-300">Sign in to add a comment on this media.</p>
                   {commentError && <p className="text-sm text-red-400">{commentError}</p>}
                   <div className="flex flex-wrap gap-2 justify-end">
