@@ -121,6 +121,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [modalCommentsLoading, setModalCommentsLoading] = useState(false)
   /** Prepends newest comment onto thumbnail preview until list API refetches (home feed). */
   const [optimisticThumbnailComments, setOptimisticThumbnailComments] = useState<ModalCommentLine[]>([])
+  /** Comment IDs removed on this card until feed `media.comments` refetches; avoids ghost lines on the thumbnail. */
+  const [thumbnailSuppressedCommentIds, setThumbnailSuppressedCommentIds] = useState<string[]>([])
   const [commentActionId, setCommentActionId] = useState<string | null>(null)
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentDraft, setEditCommentDraft] = useState('')
@@ -144,6 +146,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
 
   useEffect(() => {
     setOptimisticThumbnailComments([])
+    setThumbnailSuppressedCommentIds([])
   }, [media.id])
 
   useEffect(() => {
@@ -447,16 +450,21 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       content: c.content,
       userId: c.userId ?? '',
     }))
+    const apiIds = new Set(api.map((c) => c.id))
+    const suppressedSet = new Set(
+      thumbnailSuppressedCommentIds.filter((id) => apiIds.has(id))
+    )
+    const apiVisible = api.filter((c) => !suppressedSet.has(c.id))
     const seen = new Set<string>()
     const out: ModalCommentLine[] = []
-    for (const c of [...optimisticThumbnailComments, ...api]) {
+    for (const c of [...optimisticThumbnailComments, ...apiVisible]) {
       if (seen.has(c.id)) continue
       seen.add(c.id)
       out.push(c)
       if (out.length >= 3) break
     }
     return out
-  }, [badgeItems, media.comments, optimisticThumbnailComments])
+  }, [badgeItems, media.comments, optimisticThumbnailComments, thumbnailSuppressedCommentIds])
 
   // Determine thumbnail source
   const getThumbnailSrc = () => {
@@ -634,6 +642,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       setDeleteConfirmCommentId(null)
       setModalComments((prev) => prev.filter((c) => c.id !== commentId))
       setOptimisticThumbnailComments((prev) => prev.filter((c) => c.id !== commentId))
+      setThumbnailSuppressedCommentIds((prev) =>
+        prev.includes(commentId) ? prev : [...prev, commentId]
+      )
       setCommentActionId(null)
       if (editingCommentId === commentId) {
         setEditingCommentId(null)
