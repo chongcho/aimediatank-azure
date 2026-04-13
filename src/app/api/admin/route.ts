@@ -832,7 +832,7 @@ export async function GET(request: Request) {
         { itemKey: 'sold', label: 'Times Sold', isEnabled: true, sortOrder: 2 },
         { itemKey: 'views', label: 'View', isEnabled: true, sortOrder: 3 },
         { itemKey: 'postDate', label: 'Post Date', isEnabled: true, sortOrder: 4 },
-        { itemKey: 'smileRate', label: 'Likes', isEnabled: true, sortOrder: 5 },
+        { itemKey: 'smileRate', label: 'Thumbsup', isEnabled: true, sortOrder: 5 },
         { itemKey: 'comment', label: 'Comment', isEnabled: true, sortOrder: 6 },
         {
           itemKey: 'descriptionThumbnails',
@@ -862,6 +862,19 @@ export async function GET(request: Request) {
         items = await prisma.mediaBadgeSetting.findMany({
           orderBy: { sortOrder: 'asc' },
         })
+
+        const renamed = await prisma.mediaBadgeSetting.updateMany({
+          where: {
+            itemKey: 'smileRate',
+            label: { in: ['Smile Rate', 'Likes'] },
+          },
+          data: { label: 'Thumbsup' },
+        })
+        if (renamed.count > 0) {
+          items = await prisma.mediaBadgeSetting.findMany({
+            orderBy: { sortOrder: 'asc' },
+          })
+        }
 
         return NextResponse.json({ items })
       } catch (error) {

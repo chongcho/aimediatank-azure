@@ -122,6 +122,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentDraft, setEditCommentDraft] = useState('')
   const [commentModerating, setCommentModerating] = useState(false)
+  const [deleteConfirmCommentId, setDeleteConfirmCommentId] = useState<string | null>(null)
   const commentSubmittingRef = useRef(false)
   const commentModeratingRef = useRef(false)
 
@@ -174,6 +175,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       setCommentActionId(null)
       setEditingCommentId(null)
       setEditCommentDraft('')
+      setDeleteConfirmCommentId(null)
     }
   }, [commentModalOpen])
 
@@ -188,6 +190,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         setCommentActionId(null)
         return
       }
+      if (deleteConfirmCommentId) {
+        setDeleteConfirmCommentId(null)
+        return
+      }
       if (commentActionId) {
         setCommentActionId(null)
         return
@@ -196,7 +202,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [commentModalOpen, editingCommentId, commentActionId])
+  }, [commentModalOpen, editingCommentId, commentActionId, deleteConfirmCommentId])
 
   useEffect(() => {
     if (!commentModalOpen || !media.id) return
@@ -607,8 +613,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     }
   }
 
-  const deleteHomeComment = async (commentId: string) => {
-    if (!window.confirm('Delete this comment?')) return
+  const confirmDeleteHomeComment = async (commentId: string) => {
     setCommentModerating(true)
     setCommentError(null)
     try {
@@ -621,6 +626,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         setCommentError(err.error || 'Could not delete comment.')
         return
       }
+      setDeleteConfirmCommentId(null)
       setModalComments((prev) => prev.filter((c) => c.id !== commentId))
       setOptimisticThumbnailComments((prev) => prev.filter((c) => c.id !== commentId))
       setCommentActionId(null)
@@ -746,7 +752,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 type="button"
                 className="text-xs font-medium text-red-400 hover:underline disabled:opacity-50"
                 disabled={commentModerating}
-                onClick={() => void deleteHomeComment(c.id)}
+                onClick={() => setDeleteConfirmCommentId(c.id)}
               >
                 Delete
               </button>
@@ -1047,15 +1053,59 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           <div
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60"
             role="presentation"
-            onClick={() => !commentSubmitting && !commentModerating && setCommentModalOpen(false)}
+            onClick={() => {
+              if (commentSubmitting || commentModerating) return
+              if (deleteConfirmCommentId) {
+                setDeleteConfirmCommentId(null)
+                return
+              }
+              setCommentModalOpen(false)
+            }}
           >
             <div
-              className="w-full max-w-md rounded-xl border border-tank-light bg-tank-gray p-5 shadow-xl"
+              className="relative w-full max-w-md rounded-xl border border-tank-light bg-tank-gray p-5 shadow-xl"
               role="dialog"
               aria-modal="true"
               aria-labelledby="media-card-comment-title"
               onClick={(e) => e.stopPropagation()}
             >
+              {deleteConfirmCommentId ? (
+                <div
+                  className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-black/55 p-4"
+                  role="alertdialog"
+                  aria-modal="true"
+                  aria-labelledby="media-card-delete-comment-title"
+                  aria-describedby="media-card-delete-comment-desc"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="w-full max-w-sm rounded-lg border border-tank-light bg-tank-gray px-4 py-4 shadow-lg">
+                    <h4 id="media-card-delete-comment-title" className="text-base font-semibold text-white">
+                      Delete comment?
+                    </h4>
+                    <p id="media-card-delete-comment-desc" className="mt-2 text-sm text-gray-400">
+                      This cannot be undone.
+                    </p>
+                    <div className="mt-4 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-tank-light/50 transition-colors"
+                        disabled={commentModerating}
+                        onClick={() => setDeleteConfirmCommentId(null)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
+                        disabled={commentModerating}
+                        onClick={() => void confirmDeleteHomeComment(deleteConfirmCommentId)}
+                      >
+                        {commentModerating ? 'Deleting…' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <h3 id="media-card-comment-title" className="text-lg font-semibold text-white mb-1 truncate pr-8">
                 Comment
               </h3>
