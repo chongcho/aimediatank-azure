@@ -601,6 +601,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       setEditingCommentId(null)
       setEditCommentDraft('')
       setCommentActionId(null)
+      setCommentModalOpen(false)
     } finally {
       setCommentModerating(false)
     }
@@ -708,7 +709,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       {editingCommentId === c.id ? (
         <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
           <p className={commentTextClass}>{c.content}</p>
-          <p className="text-[11px] text-tank-accent/80">Editing… change text below, then press Save.</p>
+          <p className="text-[11px] text-tank-accent/80">Editing… change text below, then press Save to close.</p>
         </div>
       ) : (
         <>
