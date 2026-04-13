@@ -639,7 +639,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         setEditingCommentId(null)
         setEditCommentDraft('')
       }
-      setCommentModalOpen(false)
     } catch {
       setCommentError('Could not delete comment.')
       setDeleteConfirmCommentId(null)
@@ -1169,7 +1168,14 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                     <button
                       type="button"
                       className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-tank-light/50 transition-colors"
-                      onClick={() => setCommentModalOpen(false)}
+                      onClick={() => {
+                        if (editingCommentId) {
+                          setEditingCommentId(null)
+                          setEditCommentDraft('')
+                          return
+                        }
+                        setCommentModalOpen(false)
+                      }}
                       disabled={commentSubmitting || commentModerating}
                     >
                       {editingCommentId ? 'Cancel edit' : 'Cancel'}
