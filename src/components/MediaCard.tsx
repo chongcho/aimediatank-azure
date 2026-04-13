@@ -603,6 +603,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       setEditingCommentId(null)
       setEditCommentDraft('')
       setCommentActionId(null)
+      setCommentModalOpen(false)
     } finally {
       setCommentModerating(false)
     }
@@ -692,46 +693,24 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
 
   const latestModalComments = modalComments.slice(0, 3)
   const olderModalComments = modalComments.slice(3)
+  const editingOriginalContent = editingCommentId
+    ? modalComments.find((c) => c.id === editingCommentId)?.content ?? ''
+    : ''
+  const activeDraft = editingCommentId ? editCommentDraft : commentDraft
+  const canSubmitPost =
+    !commentSubmitting &&
+    !commentModerating &&
+    activeDraft.trim().length > 0 &&
+    (!editingCommentId || activeDraft.trim() !== editingOriginalContent.trim())
 
   const commentTextClass = 'text-sm text-gray-200 whitespace-pre-wrap break-words'
 
   const renderModalCommentRow = (c: ModalCommentLine) => (
     <div key={c.id} className="py-2 first:pt-0">
       {editingCommentId === c.id ? (
-        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="text"
-            value={editCommentDraft}
-            onChange={(e) => setEditCommentDraft(e.target.value)}
-            className="w-full h-10 rounded-lg border border-tank-light bg-tank-dark px-3 text-sm text-white placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent"
-            disabled={commentModerating}
-            onKeyDown={(e) => {
-              if (e.key !== 'Enter' || e.shiftKey) return
-              e.preventDefault()
-              if (!commentModerating && editCommentDraft.trim()) void saveEditComment()
-            }}
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-300 hover:bg-tank-light/40"
-              disabled={commentModerating}
-              onClick={() => {
-                setEditingCommentId(null)
-                setEditCommentDraft('')
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="px-3 py-1.5 rounded-md text-xs font-semibold bg-tank-accent text-tank-black hover:opacity-90 disabled:opacity-50"
-              disabled={commentModerating || !editCommentDraft.trim()}
-              onClick={() => void saveEditComment()}
-            >
-              {commentModerating ? 'Saving…' : 'Save'}
-            </button>
-          </div>
+        <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+          <p className={commentTextClass}>{c.content}</p>
+          <p className="text-[11px] text-tank-accent/80">Editing... update text below, then press Post.</p>
         </div>
       ) : (
         <>
@@ -758,6 +737,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 onClick={() => {
                   setEditingCommentId(c.id)
                   setEditCommentDraft(c.content)
+                  setCommentDraft('')
                   setCommentActionId(null)
                 }}
               >
@@ -1099,14 +1079,19 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   )}
                   <input
                     type="text"
-                    value={commentDraft}
-                    onChange={(e) => setCommentDraft(e.target.value)}
+                    value={activeDraft}
+                    onChange={(e) => {
+                      if (editingCommentId) setEditCommentDraft(e.target.value)
+                      else setCommentDraft(e.target.value)
+                    }}
                     onKeyDown={(e) => {
                       if (e.key !== 'Enter' || e.shiftKey) return
                       e.preventDefault()
-                      if (!commentSubmitting && !commentModerating && commentDraft.trim()) void submitHomeComment()
+                      if (!canSubmitPost) return
+                      if (editingCommentId) void saveEditComment()
+                      else void submitHomeComment()
                     }}
-                    placeholder="Write a comment…"
+                    placeholder={editingCommentId ? 'Edit comment…' : 'Write a comment…'}
                     className="w-full h-10 rounded-lg border border-tank-light bg-tank-dark px-3 text-sm text-white placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent"
                     disabled={commentSubmitting || commentModerating}
                     autoComplete="off"
@@ -1116,18 +1101,28 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                     <button
                       type="button"
                       className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-tank-light/50 transition-colors"
-                      onClick={() => setCommentModalOpen(false)}
+                      onClick={() => {
+                        if (editingCommentId) {
+                          setEditingCommentId(null)
+                          setEditCommentDraft('')
+                          return
+                        }
+                        setCommentModalOpen(false)
+                      }}
                       disabled={commentSubmitting || commentModerating}
                     >
-                      Cancel
+                      {editingCommentId ? 'Cancel Edit' : 'Cancel'}
                     </button>
                     <button
                       type="button"
                       className="px-4 py-2 rounded-lg text-sm font-semibold bg-tank-accent text-tank-black hover:opacity-90 disabled:opacity-50"
-                      onClick={() => void submitHomeComment()}
-                      disabled={commentSubmitting || commentModerating || !commentDraft.trim()}
+                      onClick={() => {
+                        if (editingCommentId) void saveEditComment()
+                        else void submitHomeComment()
+                      }}
+                      disabled={!canSubmitPost}
                     >
-                      {commentSubmitting ? 'Posting…' : 'Post'}
+                      {commentSubmitting || commentModerating ? 'Posting…' : 'Post'}
                     </button>
                   </div>
                 </>
