@@ -115,7 +115,7 @@ export async function GET(request: Request) {
           comments: {
             orderBy: { createdAt: 'desc' },
             take: 3,
-            select: { id: true, content: true },
+            select: { id: true, content: true, userId: true },
           },
           _count: {
             select: {
