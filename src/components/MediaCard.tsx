@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatMediaTitle, stripHashtags, truncateText } from '@/lib/text'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
@@ -60,6 +60,9 @@ interface MediaCardProps {
 type BadgeItem = { itemKey: string; isEnabled: boolean }
 
 type ModalCommentLine = { id: string; content: string; userId: string }
+
+/** Max height (px) for the comment textarea before it scrolls internally. */
+const COMMENT_TEXTAREA_MAX_PX = 200
 
 let badgeItemsCache: BadgeItem[] | null = null
 let badgeItemsPromise: Promise<BadgeItem[] | null> | null = null
@@ -125,6 +128,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [deleteConfirmCommentId, setDeleteConfirmCommentId] = useState<string | null>(null)
   const commentSubmittingRef = useRef(false)
   const commentModeratingRef = useRef(false)
+  const commentDraftTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   // When processing but 360p/480p (or first variant) is already uploaded, we have a playable stream (used in effects and render)
   const hasPreviewStream =
@@ -624,6 +628,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string }
         setCommentError(err.error || 'Could not delete comment.')
+        setDeleteConfirmCommentId(null)
         return
       }
       setDeleteConfirmCommentId(null)
@@ -634,6 +639,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         setEditingCommentId(null)
         setEditCommentDraft('')
       }
+      setCommentModalOpen(false)
+    } catch {
+      setCommentError('Could not delete comment.')
+      setDeleteConfirmCommentId(null)
     } finally {
       setCommentModerating(false)
     }
@@ -707,6 +716,15 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     !commentModerating &&
     activeDraft.trim().length > 0 &&
     (!editingCommentId || activeDraft.trim() !== editingOriginalContent.trim())
+
+  /** Grow the comment field with content; cap height then scroll inside. */
+  useLayoutEffect(() => {
+    if (!commentModalOpen || !session?.user) return
+    const el = commentDraftTextareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, COMMENT_TEXTAREA_MAX_PX)}px`
+  }, [commentModalOpen, session?.user, activeDraft, editingCommentId])
 
   const commentTextClass = 'text-sm text-gray-200 whitespace-pre-wrap break-words'
 
@@ -1126,8 +1144,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                       {olderModalComments.map((c) => renderModalCommentRow(c))}
                     </div>
                   )}
-                  <input
-                    type="text"
+                  <textarea
+                    ref={commentDraftTextareaRef}
+                    rows={1}
                     value={activeDraft}
                     onChange={(e) => {
                       if (editingCommentId) setEditCommentDraft(e.target.value)
@@ -1141,7 +1160,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                       else void submitHomeComment()
                     }}
                     placeholder={editingCommentId ? 'Edit comment…' : 'Write a comment…'}
-                    className="w-full h-10 rounded-lg border border-tank-light bg-tank-dark px-3 text-sm text-white placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent"
+                    className="w-full min-h-[2.5rem] max-h-[200px] resize-none overflow-y-auto rounded-lg border border-tank-light bg-tank-dark px-3 py-2 text-sm leading-snug text-white placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent"
                     disabled={commentSubmitting || commentModerating}
                     autoComplete="off"
                   />
@@ -1150,14 +1169,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                     <button
                       type="button"
                       className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-tank-light/50 transition-colors"
-                      onClick={() => {
-                        if (editingCommentId) {
-                          setEditingCommentId(null)
-                          setEditCommentDraft('')
-                          return
-                        }
-                        setCommentModalOpen(false)
-                      }}
+                      onClick={() => setCommentModalOpen(false)}
                       disabled={commentSubmitting || commentModerating}
                     >
                       {editingCommentId ? 'Cancel edit' : 'Cancel'}
