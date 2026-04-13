@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatMediaTitle, stripHashtags, truncateText } from '@/lib/text'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
@@ -116,6 +116,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [commentError, setCommentError] = useState<string | null>(null)
   const [modalComments, setModalComments] = useState<ModalCommentLine[]>([])
   const [modalCommentsLoading, setModalCommentsLoading] = useState(false)
+  /** Prepends newest comment onto thumbnail preview until list API refetches (home feed). */
+  const [optimisticThumbnailComments, setOptimisticThumbnailComments] = useState<ModalCommentLine[]>([])
   const commentSubmittingRef = useRef(false)
 
   // When processing but 360p/480p (or first variant) is already uploaded, we have a playable stream (used in effects and render)
@@ -129,6 +131,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   useEffect(() => {
     setDisplayViews(media.views)
   }, [media.id, media.views])
+
+  useEffect(() => {
+    setOptimisticThumbnailComments([])
+  }, [media.id])
 
   useEffect(() => {
     const onBadgeUpdate = () => {
@@ -388,10 +394,21 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const showDescriptionThumbnailOverlay =
     Boolean(descriptionOverlay) && isBadgeEnabled('descriptionThumbnails')
 
-  const thumbnailCommentsPreview =
-    isBadgeEnabled('comment') && Array.isArray(media.comments)
-      ? media.comments.slice(0, 3)
-      : []
+  const thumbnailCommentsPreview = useMemo(() => {
+    const commentOn =
+      !badgeItems?.length || badgeItems.find((b) => b.itemKey === 'comment')?.isEnabled !== false
+    if (!commentOn) return []
+    const api = Array.isArray(media.comments) ? media.comments : []
+    const seen = new Set<string>()
+    const out: ModalCommentLine[] = []
+    for (const c of [...optimisticThumbnailComments, ...api]) {
+      if (seen.has(c.id)) continue
+      seen.add(c.id)
+      out.push(c)
+      if (out.length >= 3) break
+    }
+    return out
+  }, [badgeItems, media.comments, optimisticThumbnailComments])
 
   // Determine thumbnail source
   const getThumbnailSrc = () => {
@@ -475,7 +492,12 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         setCommentError(data.error || 'Could not post comment.')
         return
       }
-      await res.json().catch(() => ({}))
+      const data = (await res.json()) as { comment?: { id: string; content: string } }
+      if (data.comment?.id) {
+        const line = { id: data.comment.id, content: data.comment.content }
+        setOptimisticThumbnailComments((prev) => [line, ...prev])
+        setModalComments((prev) => [line, ...prev.filter((p) => p.id !== line.id)])
+      }
       setCommentDraft('')
       setCommentModalOpen(false)
     } finally {
@@ -804,7 +826,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                     openCommentModal(e)
                   }
                 }}
-                aria-label={`Open comments, ${media._count.comments} total`}
+                aria-label="Open comments"
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path
@@ -814,7 +836,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                   />
                 </svg>
-                <span className="tabular-nums">{media._count.comments}</span>
+                <span>Comment</span>
               </button>
             )}
           </div>
