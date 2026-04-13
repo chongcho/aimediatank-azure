@@ -99,18 +99,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
     }
 
-    const media = await prisma.media.findUnique({
-      where: { id: comment.mediaId },
-      select: { userId: true },
-    })
-    if (!media) {
-      return NextResponse.json({ error: 'Media not found' }, { status: 404 })
-    }
-
-    const isCommentAuthor = comment.userId === session.user.id
-    const isMediaOwner = media.userId === session.user.id
-    const isAdmin = session.user.role === 'ADMIN'
-    if (!isCommentAuthor && !isMediaOwner && !isAdmin) {
+    // Only comment owner can edit
+    if (comment.userId !== session.user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -170,18 +160,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
     }
 
-    const media = await prisma.media.findUnique({
-      where: { id: comment.mediaId },
-      select: { userId: true },
-    })
-    if (!media) {
-      return NextResponse.json({ error: 'Media not found' }, { status: 404 })
-    }
-
-    const isCommentAuthor = comment.userId === session.user.id
-    const isMediaOwner = media.userId === session.user.id
-    const isAdmin = session.user.role === 'ADMIN'
-    if (!isCommentAuthor && !isMediaOwner && !isAdmin) {
+    // Only comment owner or admin can delete
+    if (comment.userId !== session.user.id && session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
