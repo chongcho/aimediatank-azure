@@ -556,9 +556,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const canModerateComment = useCallback(
     (commentAuthorId: string) => {
       const uid = session?.user?.id
-      if (!uid || !commentAuthorId) return false
+      if (!uid) return false
       if (session?.user?.role === 'ADMIN') return true
       if (media.user?.id && uid === media.user.id) return true
+      if (!commentAuthorId) return false
       return uid === commentAuthorId
     },
     [session, media.user?.id]
@@ -582,8 +583,23 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         setCommentError(err.error || 'Could not update comment.')
         return
       }
-      setModalComments((prev) => prev.map((c) => (c.id === id ? { ...c, content: text } : c)))
-      setOptimisticThumbnailComments((prev) => prev.map((c) => (c.id === id ? { ...c, content: text } : c)))
+      const data = (await res.json().catch(() => ({}))) as {
+        comment?: { id: string; content: string; userId?: string }
+      }
+      const savedContent = data.comment?.content ?? text
+      const savedUserId =
+        data.comment?.userId ??
+        modalComments.find((c) => c.id === id)?.userId ??
+        session?.user?.id ??
+        ''
+      setModalComments((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, content: savedContent, userId: savedUserId || c.userId } : c))
+      )
+      // Override stale feed `media.comments` until the list refetches (merge prefers optimistic first).
+      setOptimisticThumbnailComments((prev) => {
+        const line: ModalCommentLine = { id, content: savedContent, userId: savedUserId }
+        return [line, ...prev.filter((c) => c.id !== id)]
+      })
       setEditingCommentId(null)
       setEditCommentDraft('')
       setCommentActionId(null)
