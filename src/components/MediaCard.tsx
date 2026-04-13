@@ -44,6 +44,8 @@ interface MediaCardProps {
       comments: number
       ratings: number
     }
+    /** Newest first, up to 3 from list API — shown on thumbnail when comment badge is on. */
+    comments?: { id: string; content: string }[]
   }
   homeScrollContext?: {
     page: number
@@ -386,6 +388,20 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const showDescriptionThumbnailOverlay =
     Boolean(descriptionOverlay) && isBadgeEnabled('descriptionThumbnails')
 
+  const thumbnailCommentsPreview =
+    isBadgeEnabled('comment') && Array.isArray(media.comments)
+      ? media.comments.slice(0, 3)
+      : []
+
+  const commentFabPositionClass = (() => {
+    const hasC = thumbnailCommentsPreview.length > 0
+    const hasD = showDescriptionThumbnailOverlay
+    if (hasC && hasD) return 'bottom-24 right-3 sm:bottom-[6.5rem]'
+    if (hasD) return 'bottom-16 right-3 sm:bottom-[4.25rem]'
+    if (hasC) return 'bottom-14 right-3 sm:bottom-16'
+    return 'bottom-3 right-3'
+  })()
+
   // Determine thumbnail source
   const getThumbnailSrc = () => {
     if (media.thumbnailUrl) return media.thumbnailUrl
@@ -717,27 +733,41 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             </div>
           )}
 
-          {showDescriptionThumbnailOverlay && descriptionOverlay && (
-            <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none flex flex-col justify-end gap-1.5">
-              <div className="bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-10 pb-2.5 px-3">
-                <p
-                  className="text-[14px] text-gray-100/70 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
-                  title={descriptionOverlay.title}
-                >
-                  {descriptionOverlay.text}
-                </p>
-              </div>
+          {(thumbnailCommentsPreview.length > 0 ||
+            (showDescriptionThumbnailOverlay && descriptionOverlay)) && (
+            <div className="absolute inset-x-0 bottom-0 z-[11] pointer-events-none flex flex-col justify-end gap-1">
+              {thumbnailCommentsPreview.length > 0 && (
+                <div className="px-3 pb-0.5 space-y-0.5">
+                  {thumbnailCommentsPreview.map((c) => (
+                    <p
+                      key={c.id}
+                      className="text-[13px] text-white/90 leading-snug line-clamp-2 break-words [text-shadow:0_1px_3px_rgba(0,0,0,0.95)]"
+                      title={c.content}
+                    >
+                      {c.content}
+                    </p>
+                  ))}
+                </div>
+              )}
+              {showDescriptionThumbnailOverlay && descriptionOverlay && (
+                <div className="bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-10 pb-2.5 px-3">
+                  <p
+                    className="text-[14px] text-gray-100/70 leading-snug line-clamp-3 break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]"
+                    title={descriptionOverlay.title}
+                  >
+                    {descriptionOverlay.text}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Open comments modal (no feed text preview on the card — avoids duplicate lines above title) */}
+          {/* Open comments modal */}
           {isBadgeEnabled('comment') && (
             <button
               type="button"
               data-media-card-comment
-              className={`absolute z-[12] pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/45 text-sky-400/70 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-sky-300/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80 ${
-                showDescriptionThumbnailOverlay ? 'bottom-16 right-3 sm:bottom-[4.25rem]' : 'bottom-3 right-3'
-              }`}
+              className={`absolute z-[12] pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-sky-400/90 transition-colors hover:text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.9))] ${commentFabPositionClass}`}
               onClick={(e) => {
                 e.stopPropagation()
                 openCommentModal(e)
@@ -830,7 +860,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               {modalCommentsLoading ? (
                 <p className="text-xs text-gray-500 mb-3">Loading comments…</p>
               ) : latestModalComments.length > 0 ? (
-                <div className="mb-3 rounded-lg border border-tank-light/40 bg-tank-dark/50 px-3 py-2 space-y-2">
+                <div className="mb-3 space-y-2">
                   {latestModalComments.map((c) => (
                     <p key={c.id} className={commentBodyClass}>
                       {c.content}
@@ -852,13 +882,19 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                       ))}
                     </div>
                   )}
-                  <textarea
+                  <input
+                    type="text"
                     value={commentDraft}
                     onChange={(e) => setCommentDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter' || e.shiftKey) return
+                      e.preventDefault()
+                      if (!commentSubmitting && commentDraft.trim()) void submitHomeComment()
+                    }}
                     placeholder="Write a comment…"
-                    rows={4}
-                    className="w-full rounded-lg border border-tank-light bg-tank-dark px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent resize-y min-h-[100px]"
+                    className="w-full h-10 rounded-lg border border-tank-light bg-tank-dark px-3 text-sm text-white placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent"
                     disabled={commentSubmitting}
+                    autoComplete="off"
                   />
                   {commentError && <p className="mt-2 text-sm text-red-400">{commentError}</p>}
                   <div className="mt-4 flex justify-end gap-2">
