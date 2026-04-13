@@ -393,15 +393,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       ? media.comments.slice(0, 3)
       : []
 
-  const commentFabPositionClass = (() => {
-    const hasC = thumbnailCommentsPreview.length > 0
-    const hasD = showDescriptionThumbnailOverlay
-    if (hasC && hasD) return 'bottom-24 right-3 sm:bottom-[6.5rem]'
-    if (hasD) return 'bottom-16 right-3 sm:bottom-[4.25rem]'
-    if (hasC) return 'bottom-14 right-3 sm:bottom-16'
-    return 'bottom-3 right-3'
-  })()
-
   // Determine thumbnail source
   const getThumbnailSrc = () => {
     if (media.thumbnailUrl) return media.thumbnailUrl
@@ -762,36 +753,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             </div>
           )}
 
-          {/* Open comments modal */}
-          {isBadgeEnabled('comment') && (
-            <button
-              type="button"
-              data-media-card-comment
-              className={`absolute z-[12] pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-sky-400/90 transition-colors hover:text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.9))] ${commentFabPositionClass}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                openCommentModal(e)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  openCommentModal(e)
-                }
-              }}
-              aria-label="Open comments"
-            >
-              <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                />
-              </svg>
-            </button>
-          )}
-
         </div>
 
         {/* Content: grid so type + date share one right column (aligned right edges, same gray as date) */}
@@ -826,6 +787,35 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 <ThumbsUpIcon className="w-4 h-4 shrink-0 text-gray-400" />
                 <span>{media.reactions?.happy ?? 0}</span>
               </span>
+            )}
+            {isBadgeEnabled('comment') && (
+              <button
+                type="button"
+                data-media-card-comment
+                className="flex items-center gap-1 shrink-0 rounded-md text-sm text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-tank-accent/50"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  openCommentModal(e)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    openCommentModal(e)
+                  }
+                }}
+                aria-label={`Open comments, ${media._count.comments} total`}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+                <span className="tabular-nums">{media._count.comments}</span>
+              </button>
             )}
           </div>
 
