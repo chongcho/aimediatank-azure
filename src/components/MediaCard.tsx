@@ -45,7 +45,7 @@ interface MediaCardProps {
       ratings: number
     }
     /** Newest first, up to 3 from list API — shown on thumbnail when comment badge is on. */
-    comments?: { id: string; content: string }[]
+    comments?: { id: string; content: string; userId?: string }[]
   }
   homeScrollContext?: {
     page: number
@@ -59,7 +59,7 @@ interface MediaCardProps {
 
 type BadgeItem = { itemKey: string; isEnabled: boolean }
 
-type ModalCommentLine = { id: string; content: string }
+type ModalCommentLine = { id: string; content: string; userId: string }
 
 let badgeItemsCache: BadgeItem[] | null = null
 let badgeItemsPromise: Promise<BadgeItem[] | null> | null = null
@@ -118,7 +118,12 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const [modalCommentsLoading, setModalCommentsLoading] = useState(false)
   /** Prepends newest comment onto thumbnail preview until list API refetches (home feed). */
   const [optimisticThumbnailComments, setOptimisticThumbnailComments] = useState<ModalCommentLine[]>([])
+  const [commentActionId, setCommentActionId] = useState<string | null>(null)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentDraft, setEditCommentDraft] = useState('')
+  const [commentModerating, setCommentModerating] = useState(false)
   const commentSubmittingRef = useRef(false)
+  const commentModeratingRef = useRef(false)
 
   // When processing but 360p/480p (or first variant) is already uploaded, we have a playable stream (used in effects and render)
   const hasPreviewStream =
@@ -161,15 +166,37 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }, [commentSubmitting])
 
   useEffect(() => {
+    commentModeratingRef.current = commentModerating
+  }, [commentModerating])
+
+  useEffect(() => {
+    if (!commentModalOpen) {
+      setCommentActionId(null)
+      setEditingCommentId(null)
+      setEditCommentDraft('')
+    }
+  }, [commentModalOpen])
+
+  useEffect(() => {
     if (!commentModalOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      if (commentSubmittingRef.current) return
+      if (commentSubmittingRef.current || commentModeratingRef.current) return
+      if (editingCommentId) {
+        setEditingCommentId(null)
+        setEditCommentDraft('')
+        setCommentActionId(null)
+        return
+      }
+      if (commentActionId) {
+        setCommentActionId(null)
+        return
+      }
       setCommentModalOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [commentModalOpen])
+  }, [commentModalOpen, editingCommentId, commentActionId])
 
   useEffect(() => {
     if (!commentModalOpen || !media.id) return
@@ -184,8 +211,14 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           credentials: 'same-origin',
         })
         if (res.ok) {
-          const data = (await res.json()) as { comments?: { id: string; content: string }[] }
-          const list = (data.comments || []).map((c) => ({ id: c.id, content: c.content }))
+          const data = (await res.json()) as {
+            comments?: { id: string; content: string; userId?: string; user?: { id: string } }[]
+          }
+          const list = (data.comments || []).map((c) => ({
+            id: c.id,
+            content: c.content,
+            userId: c.userId ?? c.user?.id ?? '',
+          }))
           if (!ac.signal.aborted) setModalComments(list)
         }
       } catch {
@@ -398,7 +431,12 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     const commentOn =
       !badgeItems?.length || badgeItems.find((b) => b.itemKey === 'comment')?.isEnabled !== false
     if (!commentOn) return []
-    const api = Array.isArray(media.comments) ? media.comments : []
+    const apiRaw = Array.isArray(media.comments) ? media.comments : []
+    const api: ModalCommentLine[] = apiRaw.map((c) => ({
+      id: c.id,
+      content: c.content,
+      userId: c.userId ?? '',
+    }))
     const seen = new Set<string>()
     const out: ModalCommentLine[] = []
     for (const c of [...optimisticThumbnailComments, ...api]) {
@@ -467,6 +505,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     e.preventDefault()
     e.stopPropagation()
     setCommentError(null)
+    setCommentActionId(null)
+    setEditingCommentId(null)
+    setEditCommentDraft('')
     setCommentModalOpen(true)
   }
 
@@ -492,9 +533,16 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         setCommentError(data.error || 'Could not post comment.')
         return
       }
-      const data = (await res.json()) as { comment?: { id: string; content: string } }
+      const data = (await res.json()) as {
+        comment?: { id: string; content: string; userId?: string }
+      }
       if (data.comment?.id) {
-        const line = { id: data.comment.id, content: data.comment.content }
+        const uid = session?.user?.id ?? ''
+        const line: ModalCommentLine = {
+          id: data.comment.id,
+          content: data.comment.content,
+          userId: data.comment.userId ?? uid,
+        }
         setOptimisticThumbnailComments((prev) => [line, ...prev])
         setModalComments((prev) => [line, ...prev.filter((p) => p.id !== line.id)])
       }
@@ -502,6 +550,71 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       setCommentModalOpen(false)
     } finally {
       setCommentSubmitting(false)
+    }
+  }
+
+  const canModerateComment = useCallback(
+    (commentAuthorId: string) => {
+      const uid = session?.user?.id
+      if (!uid || !commentAuthorId) return false
+      if (session?.user?.role === 'ADMIN') return true
+      if (media.user?.id && uid === media.user.id) return true
+      return uid === commentAuthorId
+    },
+    [session, media.user?.id]
+  )
+
+  const saveEditComment = async () => {
+    const id = editingCommentId
+    const text = editCommentDraft.trim()
+    if (!id || !text) return
+    setCommentModerating(true)
+    setCommentError(null)
+    try {
+      const res = await fetch(`/api/media/${media.id}/comments`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ commentId: id, content: text }),
+      })
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string }
+        setCommentError(err.error || 'Could not update comment.')
+        return
+      }
+      setModalComments((prev) => prev.map((c) => (c.id === id ? { ...c, content: text } : c)))
+      setOptimisticThumbnailComments((prev) => prev.map((c) => (c.id === id ? { ...c, content: text } : c)))
+      setEditingCommentId(null)
+      setEditCommentDraft('')
+      setCommentActionId(null)
+    } finally {
+      setCommentModerating(false)
+    }
+  }
+
+  const deleteHomeComment = async (commentId: string) => {
+    if (!window.confirm('Delete this comment?')) return
+    setCommentModerating(true)
+    setCommentError(null)
+    try {
+      const res = await fetch(
+        `/api/media/${media.id}/comments?commentId=${encodeURIComponent(commentId)}`,
+        { method: 'DELETE', credentials: 'same-origin' }
+      )
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string }
+        setCommentError(err.error || 'Could not delete comment.')
+        return
+      }
+      setModalComments((prev) => prev.filter((c) => c.id !== commentId))
+      setOptimisticThumbnailComments((prev) => prev.filter((c) => c.id !== commentId))
+      setCommentActionId(null)
+      if (editingCommentId === commentId) {
+        setEditingCommentId(null)
+        setEditCommentDraft('')
+      }
+    } finally {
+      setCommentModerating(false)
     }
   }
 
@@ -564,8 +677,90 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const latestModalComments = modalComments.slice(0, 3)
   const olderModalComments = modalComments.slice(3)
 
-  const commentBodyClass =
-    'text-sm text-gray-200 whitespace-pre-wrap break-words border-b border-tank-light/25 pb-2 last:border-b-0 last:pb-0'
+  const commentTextClass = 'text-sm text-gray-200 whitespace-pre-wrap break-words'
+
+  const renderModalCommentRow = (c: ModalCommentLine) => (
+    <div key={c.id} className="py-2 first:pt-0">
+      {editingCommentId === c.id ? (
+        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="text"
+            value={editCommentDraft}
+            onChange={(e) => setEditCommentDraft(e.target.value)}
+            className="w-full h-10 rounded-lg border border-tank-light bg-tank-dark px-3 text-sm text-white placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent"
+            disabled={commentModerating}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' || e.shiftKey) return
+              e.preventDefault()
+              if (!commentModerating && editCommentDraft.trim()) void saveEditComment()
+            }}
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-gray-300 hover:bg-tank-light/40"
+              disabled={commentModerating}
+              onClick={() => {
+                setEditingCommentId(null)
+                setEditCommentDraft('')
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-md text-xs font-semibold bg-tank-accent text-tank-black hover:opacity-90 disabled:opacity-50"
+              disabled={commentModerating || !editCommentDraft.trim()}
+              onClick={() => void saveEditComment()}
+            >
+              {commentModerating ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {canModerateComment(c.userId) ? (
+            <button
+              type="button"
+              className={`${commentTextClass} w-full rounded-md px-1 py-0.5 text-left hover:bg-tank-light/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-tank-accent/50`}
+              onClick={(e) => {
+                e.stopPropagation()
+                setCommentActionId((prev) => (prev === c.id ? null : c.id))
+              }}
+            >
+              {c.content}
+            </button>
+          ) : (
+            <p className={commentTextClass}>{c.content}</p>
+          )}
+          {commentActionId === c.id && canModerateComment(c.userId) ? (
+            <div className="mt-1.5 flex flex-wrap gap-3" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="text-xs font-medium text-tank-accent hover:underline disabled:opacity-50"
+                disabled={commentModerating}
+                onClick={() => {
+                  setEditingCommentId(c.id)
+                  setEditCommentDraft(c.content)
+                  setCommentActionId(null)
+                }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="text-xs font-medium text-red-400 hover:underline disabled:opacity-50"
+                disabled={commentModerating}
+                onClick={() => void deleteHomeComment(c.id)}
+              >
+                Delete
+              </button>
+            </div>
+          ) : null}
+        </>
+      )}
+    </div>
+  )
 
   return (
     <>
@@ -857,7 +1052,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           <div
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60"
             role="presentation"
-            onClick={() => !commentSubmitting && setCommentModalOpen(false)}
+            onClick={() => !commentSubmitting && !commentModerating && setCommentModalOpen(false)}
           >
             <div
               className="w-full max-w-md rounded-xl border border-tank-light bg-tank-gray p-5 shadow-xl"
@@ -872,12 +1067,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               {modalCommentsLoading ? (
                 <p className="text-xs text-gray-500 mb-3">Loading comments…</p>
               ) : latestModalComments.length > 0 ? (
-                <div className="mb-3 space-y-2">
-                  {latestModalComments.map((c) => (
-                    <p key={c.id} className={commentBodyClass}>
-                      {c.content}
-                    </p>
-                  ))}
+                <div className="mb-3 flex flex-col divide-y divide-tank-light/25">
+                  {latestModalComments.map((c) => renderModalCommentRow(c))}
                 </div>
               ) : null}
               <p className="text-sm text-gray-400 mb-3 truncate" title={stripHashtags(media.title)}>
@@ -886,12 +1077,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               {session?.user ? (
                 <>
                   {olderModalComments.length > 0 && (
-                    <div className="mb-3 max-h-40 overflow-y-auto rounded-lg border border-tank-light/40 bg-tank-dark/50 px-3 py-2 space-y-2">
-                      {olderModalComments.map((c) => (
-                        <p key={c.id} className={commentBodyClass}>
-                          {c.content}
-                        </p>
-                      ))}
+                    <div className="mb-3 max-h-40 overflow-y-auto rounded-lg border border-tank-light/40 bg-tank-dark/50 px-3 py-2 flex flex-col divide-y divide-tank-light/25">
+                      {olderModalComments.map((c) => renderModalCommentRow(c))}
                     </div>
                   )}
                   <input
@@ -901,11 +1088,11 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                     onKeyDown={(e) => {
                       if (e.key !== 'Enter' || e.shiftKey) return
                       e.preventDefault()
-                      if (!commentSubmitting && commentDraft.trim()) void submitHomeComment()
+                      if (!commentSubmitting && !commentModerating && commentDraft.trim()) void submitHomeComment()
                     }}
                     placeholder="Write a comment…"
                     className="w-full h-10 rounded-lg border border-tank-light bg-tank-dark px-3 text-sm text-white placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent"
-                    disabled={commentSubmitting}
+                    disabled={commentSubmitting || commentModerating}
                     autoComplete="off"
                   />
                   {commentError && <p className="mt-2 text-sm text-red-400">{commentError}</p>}
@@ -914,7 +1101,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                       type="button"
                       className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-tank-light/50 transition-colors"
                       onClick={() => setCommentModalOpen(false)}
-                      disabled={commentSubmitting}
+                      disabled={commentSubmitting || commentModerating}
                     >
                       Cancel
                     </button>
@@ -922,7 +1109,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                       type="button"
                       className="px-4 py-2 rounded-lg text-sm font-semibold bg-tank-accent text-tank-black hover:opacity-90 disabled:opacity-50"
                       onClick={() => void submitHomeComment()}
-                      disabled={commentSubmitting || !commentDraft.trim()}
+                      disabled={commentSubmitting || commentModerating || !commentDraft.trim()}
                     >
                       {commentSubmitting ? 'Posting…' : 'Post'}
                     </button>
@@ -931,12 +1118,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               ) : (
                 <div className="space-y-4">
                   {olderModalComments.length > 0 && (
-                    <div className="max-h-40 overflow-y-auto rounded-lg border border-tank-light/40 bg-tank-dark/50 px-3 py-2 space-y-2">
-                      {olderModalComments.map((c) => (
-                        <p key={c.id} className={commentBodyClass}>
-                          {c.content}
-                        </p>
-                      ))}
+                    <div className="max-h-40 overflow-y-auto rounded-lg border border-tank-light/40 bg-tank-dark/50 px-3 py-2 flex flex-col divide-y divide-tank-light/25">
+                      {olderModalComments.map((c) => renderModalCommentRow(c))}
                     </div>
                   )}
                   <p className="text-sm text-gray-300">Sign in to add a comment on this media.</p>
