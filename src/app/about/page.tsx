@@ -789,17 +789,17 @@ export default function AboutPage() {
           </div>
 
           <article
-            className="mt-16 pt-16 border-t border-tank-light max-w-3xl mx-auto text-left space-y-5 text-gray-300 leading-relaxed"
+            className="mt-16 pt-16 border-t border-tank-light w-full text-left space-y-5 text-gray-300 leading-relaxed"
             aria-labelledby="about-press-release-title"
           >
-            <header className="text-center mb-10 space-y-2">
+            <header className="mb-10 space-y-2 text-left">
+              <p className="text-tank-accent text-xs font-semibold tracking-widest uppercase">Press release</p>
               <h2
                 id="about-press-release-title"
                 className="text-2xl md:text-3xl font-bold text-white leading-tight"
               >
                 AiMediaTank.com — Born with AI, Living in the Cloud
               </h2>
-              <p className="text-tank-accent text-xs font-semibold tracking-widest uppercase">Press release</p>
             </header>
 
             <div>
