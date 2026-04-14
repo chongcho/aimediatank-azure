@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
+import { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { stripHashtags } from '@/lib/text'
+import { compressMedia, type QualitySettings } from '@/lib/mediaCompression'
+import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 
 interface ChatMessage {
   id: string
@@ -89,6 +91,21 @@ interface Conversation {
   members: UserSuggestion[]
 }
 
+type MediaPickerSourceTab = 'all' | 'uploads' | 'purchased' | 'saved'
+
+function inferQuickUploadMediaType(file: File): 'IMAGE' | 'VIDEO' | 'MUSIC' | null {
+  const t = (file.type || '').split(';')[0].trim().toLowerCase()
+  if (['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(t)) return 'IMAGE'
+  if (['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'].includes(t)) return 'VIDEO'
+  if (['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3', 'audio/mp4', 'audio/aac'].includes(t)) return 'MUSIC'
+  return null
+}
+
+function titleFromUploadFilename(name: string): string {
+  const base = name.replace(/\\/g, '/').split('/').pop() || name
+  return base.replace(/\.[^.]+$/, '').trim() || 'Untitled'
+}
+
 function TalkChatContent({ onClose }: { onClose: () => void }) {
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -99,6 +116,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const [userMedia, setUserMedia] = useState<MediaItem[]>([])
   const [loadingMedia, setLoadingMedia] = useState(false)
+  const [mediaPickerSourceTab, setMediaPickerSourceTab] = useState<MediaPickerSourceTab>('all')
+  const [mediaPickerQuickUploading, setMediaPickerQuickUploading] = useState(false)
+  const [mediaPickerQuickUploadError, setMediaPickerQuickUploadError] = useState('')
+  const [maxQuickUploadBytes, setMaxQuickUploadBytes] = useState(10 * 1024 * 1024)
+  const [quickCompressQuality, setQuickCompressQuality] = useState<QualitySettings>({})
+  const pickerCropSettingsLoadedRef = useRef(false)
   const [mediaPreviews, setMediaPreviews] = useState<Record<string, MediaPreview>>({})
   const [missingPreviewIds, setMissingPreviewIds] = useState<Record<string, true>>({})
   const [attachedMediaIds, setAttachedMediaIds] = useState<string[]>([])
@@ -125,6 +148,32 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }, [])
   // Inline notification message (replaces browser alerts)
   const [inlineNotice, setInlineNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!showMediaPicker || pickerCropSettingsLoadedRef.current) return
+    pickerCropSettingsLoadedRef.current = true
+    fetch('/api/ui/crop-settings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data.maxUploadFileBytes === 'number' && data.maxUploadFileBytes > 0) {
+          setMaxQuickUploadBytes(data.maxUploadFileBytes)
+        }
+        if (data.settings) {
+          setQuickCompressQuality({
+            imageQuality: data.settings.freeImageQuality,
+            videoBitrateMbps: data.settings.freeVideoBitrateMbps,
+            videoFps: data.settings.freeVideoFps,
+            audioBitrateKbps: data.settings.freeAudioBitrateKbps,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [showMediaPicker])
+
+  const filteredPickerMedia = useMemo(() => {
+    if (mediaPickerSourceTab === 'all') return userMedia
+    return userMedia.filter((m) => m.source === mediaPickerSourceTab)
+  }, [userMedia, mediaPickerSourceTab])
   
   // Return username as-is (trimmed) for display
   const formatDisplayUsername = (username?: string | null) => {
@@ -315,6 +364,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const mediaPickerRef = useRef<HTMLDivElement>(null)
+  const quickUploadInputRef = useRef<HTMLInputElement>(null)
   const mentionPickerRef = useRef<HTMLDivElement>(null)
   const userPickerRef = useRef<HTMLDivElement>(null)
   const chatRecordsRef = useRef<HTMLDivElement>(null)
@@ -1376,8 +1426,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   type: s.media.type,
                   source: 'saved'
                 })
-        }
-      }
+              }
+            }
           })
         }
       }
@@ -1393,6 +1443,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Handle media picker toggle
   const toggleMediaPicker = () => {
     if (!showMediaPicker) {
+      setMediaPickerQuickUploadError('')
+      setMediaPickerSourceTab('all')
       fetchUserMedia()
     }
     setShowMediaPicker(!showMediaPicker)
@@ -1412,6 +1464,110 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }))
     setShowMediaPicker(false)
     inputRef.current?.focus()
+  }
+
+  const handleQuickUploadFromPicker = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0]
+    e.target.value = ''
+    if (!picked) return
+
+    const username = currentUsername || session?.user?.username
+    if (!username) {
+      setMediaPickerQuickUploadError('Sign in to upload.')
+      return
+    }
+
+    const mediaKind = inferQuickUploadMediaType(picked)
+    if (!mediaKind) {
+      setMediaPickerQuickUploadError('Use a supported image, video, or audio type (same as the Upload page).')
+      return
+    }
+
+    setMediaPickerQuickUploading(true)
+    setMediaPickerQuickUploadError('')
+    try {
+      let toSend: File = picked
+      if (mediaKind === 'IMAGE') {
+        toSend = await compressMedia(picked, 'IMAGE', undefined, undefined, quickCompressQuality)
+      }
+
+      if (toSend.size > maxQuickUploadBytes) {
+        setMediaPickerQuickUploadError(buildUploadFileSizeExceededMessage(maxQuickUploadBytes, toSend.size))
+        return
+      }
+
+      const sasResponse = await fetch('/api/upload/sas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: toSend.name || picked.name,
+          contentType: (toSend.type || picked.type).split(';')[0].trim(),
+          fileType: mediaKind,
+          fileSize: toSend.size,
+        }),
+      })
+      if (!sasResponse.ok) {
+        const err = await sasResponse.json().catch(() => ({}))
+        setMediaPickerQuickUploadError(typeof (err as { error?: string }).error === 'string' ? (err as { error: string }).error : 'Could not start upload.')
+        return
+      }
+      const { uploadUrl, blobUrl } = await sasResponse.json()
+      const baseContentType = (toSend.type || picked.type).split(';')[0].trim()
+      const putRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'x-ms-blob-type': 'BlockBlob',
+          'Content-Type': baseContentType,
+          'x-ms-blob-cache-control': 'public, max-age=31536000',
+        },
+        body: toSend,
+      })
+      if (!putRes.ok) {
+        setMediaPickerQuickUploadError('Upload to storage failed.')
+        return
+      }
+
+      const completeRes = await fetch('/api/upload/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: titleFromUploadFilename(picked.name),
+          description: '',
+          type: mediaKind,
+          url: blobUrl,
+          thumbnailUrl: null,
+          isPublic: true,
+        }),
+      })
+      const result = await completeRes.json()
+      if (!completeRes.ok) {
+        setMediaPickerQuickUploadError(typeof result.error === 'string' ? result.error : 'Could not save media.')
+        return
+      }
+      if (!result.media?.id) {
+        setMediaPickerQuickUploadError('Upload saved but response was incomplete.')
+        return
+      }
+
+      const m: MediaItem = {
+        id: result.media.id,
+        title: result.media.title || titleFromUploadFilename(picked.name),
+        url: result.media.url,
+        thumbnailUrl: result.media.thumbnailUrl ?? null,
+        type: result.media.type || mediaKind,
+        source: 'uploads',
+      }
+      setUserMedia((prev) => {
+        if (prev.some((x) => x.id === m.id)) return prev
+        return [m, ...prev]
+      })
+      insertMediaLink(m)
+    } catch (err) {
+      console.error(err)
+      setMediaPickerQuickUploadError(err instanceof Error ? err.message : 'Upload failed.')
+    } finally {
+      setMediaPickerQuickUploading(false)
+    }
   }
 
   const removeAttachedMedia = (mediaId: string) => {
@@ -3440,7 +3596,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 bottom: '52px',
                 left: '12px',
                 width: '320px',
-                maxHeight: '280px',
+                maxHeight: '320px',
                 background: 'white',
                 borderRadius: '8px',
                 boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
@@ -3449,6 +3605,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 zIndex: 10,
               }}
             >
+              <input
+                ref={quickUploadInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,video/x-m4v,audio/mpeg,audio/wav,audio/ogg,audio/mp3,audio/mp4,audio/aac"
+                style={{ display: 'none' }}
+                onChange={handleQuickUploadFromPicker}
+              />
               <div style={{
                 padding: '6px 10px',
                 borderBottom: '1px solid #eee',
@@ -3457,22 +3620,77 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 color: '#333',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '8px',
+                flexWrap: 'wrap',
               }}>
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                My Contents
-                <span style={{ marginLeft: 'auto', fontSize: '9px', fontWeight: '400', color: '#888' }}>
-                  ↑ Uploads · ⬇ Purchased · ♡ Saved
-                </span>
+                <span style={{ flexShrink: 0 }}>My Contents</span>
+                <button
+                  type="button"
+                  disabled={mediaPickerQuickUploading}
+                  onClick={() => quickUploadInputRef.current?.click()}
+                  style={{
+                    marginLeft: 'auto',
+                    padding: '3px 8px',
+                    fontSize: '10px',
+                    fontWeight: '600',
+                    border: '1px solid #22c55e',
+                    borderRadius: '4px',
+                    background: '#f0fdf4',
+                    color: '#166534',
+                    cursor: mediaPickerQuickUploading ? 'not-allowed' : 'pointer',
+                    opacity: mediaPickerQuickUploading ? 0.6 : 1,
+                  }}
+                >
+                  + Upload file
+                </button>
               </div>
+              <div style={{
+                padding: '4px 8px 6px',
+                borderBottom: '1px solid #eee',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '4px',
+              }}>
+                {([
+                  { id: 'all' as const, label: 'All' },
+                  { id: 'uploads' as const, label: '↑ Uploads' },
+                  { id: 'purchased' as const, label: '⬇ Purchased' },
+                  { id: 'saved' as const, label: '♡ Saved' },
+                ]).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setMediaPickerSourceTab(tab.id)}
+                    style={{
+                      padding: '2px 6px',
+                      fontSize: '9px',
+                      fontWeight: '600',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      background: mediaPickerSourceTab === tab.id ? '#e0f2fe' : '#fff',
+                      color: '#333',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {mediaPickerQuickUploadError ? (
+                <div style={{ padding: '4px 10px', fontSize: '10px', color: '#b91c1c', background: '#fef2f2', borderBottom: '1px solid #fecaca' }}>
+                  {mediaPickerQuickUploadError}
+                </div>
+              ) : null}
               <div 
                 className="media-picker-scroll"
                 style={{
-                  maxHeight: '220px',
+                  maxHeight: '200px',
                   overflowY: 'auto',
                   padding: '6px',
+                  position: 'relative',
                 }}
               >
                 <style>{`
@@ -3492,6 +3710,22 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     background: #666;
                   }
                 `}</style>
+                {mediaPickerQuickUploading ? (
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'rgba(255,255,255,0.85)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 2,
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: '#555',
+                  }}>
+                    Uploading…
+                  </div>
+                ) : null}
                 {loadingMedia ? (
                   <div style={{ 
                     display: 'flex', 
@@ -3502,20 +3736,54 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   }}>
                     Loading...
                   </div>
-                ) : userMedia.length === 0 ? (
+                ) : filteredPickerMedia.length === 0 ? (
                   <div style={{ 
                     display: 'flex', 
                     flexDirection: 'column',
                     alignItems: 'center', 
                     justifyContent: 'center', 
-                    padding: '30px',
+                    padding: '24px 16px',
                     color: '#999',
                     fontSize: '13px',
+                    textAlign: 'center',
+                    gap: '10px',
                   }}>
-                    <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ marginBottom: '8px', opacity: 0.5 }}>
+                    <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ opacity: 0.5 }}>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    No media in My Contents
+                    <span>
+                      {userMedia.length === 0
+                        ? 'No media in My Contents yet.'
+                        : 'Nothing in this tab.'}
+                    </span>
+                    {userMedia.length === 0 ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={mediaPickerQuickUploading}
+                          onClick={() => quickUploadInputRef.current?.click()}
+                          style={{
+                            padding: '8px 14px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            border: 'none',
+                            borderRadius: '6px',
+                            background: '#2563eb',
+                            color: 'white',
+                            cursor: mediaPickerQuickUploading ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          Upload a personal file
+                        </button>
+                        <span style={{ fontSize: '11px', color: '#aaa' }}>
+                          Same limits as{' '}
+                          <a href="/upload" style={{ color: '#2563eb' }} onClick={(e) => e.stopPropagation()}>Upload</a>
+                          {' '}(title, pricing, crop).
+                        </span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: '#aaa' }}>Try another tab or upload something new.</span>
+                    )}
                   </div>
                 ) : (
                   <div style={{
@@ -3523,7 +3791,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     gridTemplateColumns: 'repeat(4, 1fr)',
                     gap: '6px',
                   }}>
-                    {userMedia.map((media) => (
+                    {filteredPickerMedia.map((media) => (
                       <button
                         key={media.id}
                         type="button"
