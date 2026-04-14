@@ -3613,71 +3613,49 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 onChange={handleQuickUploadFromPicker}
               />
               <div style={{
-                padding: '6px 10px',
+                padding: '10px 10px 8px',
                 borderBottom: '1px solid #eee',
-                fontSize: '11px',
-                fontWeight: '600',
-                color: '#333',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: '8px',
-                flexWrap: 'wrap',
               }}>
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span style={{ flexShrink: 0 }}>My Contents</span>
+                <button
+                  type="button"
+                  onClick={() => setMediaPickerSourceTab('all')}
+                  style={{
+                    minWidth: '112px',
+                    padding: '4px 12px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    border: '1px solid #d8d8d8',
+                    borderRadius: '6px',
+                    background: '#fff',
+                    color: '#222',
+                    cursor: 'pointer',
+                  }}
+                >
+                  My Contents
+                </button>
                 <button
                   type="button"
                   disabled={mediaPickerQuickUploading}
                   onClick={() => quickUploadInputRef.current?.click()}
                   style={{
-                    marginLeft: 'auto',
-                    padding: '3px 8px',
-                    fontSize: '10px',
+                    minWidth: '112px',
+                    padding: '4px 12px',
+                    fontSize: '11px',
                     fontWeight: '600',
-                    border: '1px solid #22c55e',
-                    borderRadius: '4px',
-                    background: '#f0fdf4',
-                    color: '#166534',
+                    border: '1px solid #d8d8d8',
+                    borderRadius: '6px',
+                    background: '#fff',
+                    color: '#222',
                     cursor: mediaPickerQuickUploading ? 'not-allowed' : 'pointer',
                     opacity: mediaPickerQuickUploading ? 0.6 : 1,
                   }}
                 >
-                  + Upload file
+                  Phone/PC
                 </button>
-              </div>
-              <div style={{
-                padding: '4px 8px 6px',
-                borderBottom: '1px solid #eee',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '4px',
-              }}>
-                {([
-                  { id: 'all' as const, label: 'All' },
-                  { id: 'uploads' as const, label: '↑ Uploads' },
-                  { id: 'purchased' as const, label: '⬇ Purchased' },
-                  { id: 'saved' as const, label: '♡ Saved' },
-                ]).map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setMediaPickerSourceTab(tab.id)}
-                    style={{
-                      padding: '2px 6px',
-                      fontSize: '9px',
-                      fontWeight: '600',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      background: mediaPickerSourceTab === tab.id ? '#e0f2fe' : '#fff',
-                      color: '#333',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
               </div>
               {mediaPickerQuickUploadError ? (
                 <div style={{ padding: '4px 10px', fontSize: '10px', color: '#b91c1c', background: '#fef2f2', borderBottom: '1px solid #fecaca' }}>
