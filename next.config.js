@@ -53,17 +53,6 @@ const nextConfig = {
     }
     return [
       {
-        // X/Twitter Player Card loads this URL in an iframe; CSP frame-ancestors overrides X-Frame-Options in modern browsers.
-        source: '/embed/twitter/:mediaId',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value:
-              "frame-ancestors 'self' https://twitter.com https://mobile.twitter.com https://x.com https://www.x.com https://platform.twitter.com https://cards-dev.twitter.com",
-          },
-        ],
-      },
-      {
         source: '/:path*',
         headers: securityHeaders,
       },

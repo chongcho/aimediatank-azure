@@ -39,9 +39,6 @@ export async function generateMetadata({
     )
   )
 
-  const isVideo = media.type === 'VIDEO' && Boolean(contentUrl)
-  const twitterPlayerUrl = `${baseUrl}/embed/twitter/${media.id}`
-
   return {
     title: `${title} | AI Media Tank (AiM)`,
     description,
@@ -72,25 +69,13 @@ export async function generateMetadata({
             ]
           : undefined,
     },
-    twitter: isVideo
-      ? {
-          card: 'player',
-          title,
-          description,
-          images: [thumbnailUrl],
-          players: {
-            playerUrl: twitterPlayerUrl,
-            streamUrl: contentUrl!,
-            width: 1280,
-            height: 720,
-          },
-        }
-      : {
-          card: 'summary_large_image',
-          title,
-          description,
-          images: [thumbnailUrl],
-        },
+    // Use summary_large_image for X — Player cards often fail validation and X then shows only the URL with no image.
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [thumbnailUrl],
+    },
   }
 }
 
