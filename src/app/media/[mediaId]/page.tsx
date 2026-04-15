@@ -1,58 +1,11 @@
 import type { Metadata } from 'next'
-import { headers } from 'next/headers'
-import { prisma } from '@/lib/prisma'
 import MediaPageClient from './MediaPageClient'
-
-const getBaseUrl = () => {
-  const host = headers().get('host')
-  if (!host) return 'https://aimediatank.com'
-  return host.includes('localhost') ? `http://${host}` : `https://${host}`
-}
-
-const cleanTitle = (title: string) => title.replace(/#\w+/g, '').trim()
-
-const toAbsoluteUrl = (baseUrl: string, url: string | null) => {
-  if (!url) return null
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url
-  }
-  if (url.startsWith('/')) {
-    return `${baseUrl}${url}`
-  }
-  return `${baseUrl}/${url}`
-}
-
-const getMediaForMeta = async (mediaId: string) => {
-  return prisma.media.findFirst({
-    where: {
-      id: mediaId,
-      isPublic: true,
-      isApproved: true,
-      isDeleted: false,
-    },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      type: true,
-      url: true,
-      thumbnailUrl: true,
-      aiTool: true,
-      realDevice: true,
-      createdAt: true,
-      updatedAt: true,
-      price: true,
-      isSold: true,
-      ageRestriction: true,
-      user: {
-        select: {
-          username: true,
-          name: true,
-        },
-      },
-    },
-  })
-}
+import {
+  cleanTitle,
+  getBaseUrl,
+  getPublicMediaForMeta,
+  toAbsoluteUrl,
+} from '@/lib/publicMediaMeta'
 
 export async function generateMetadata({
   params,
@@ -60,7 +13,7 @@ export async function generateMetadata({
   params: { mediaId: string }
 }): Promise<Metadata> {
   const baseUrl = getBaseUrl()
-  const media = await getMediaForMeta(params.mediaId)
+  const media = await getPublicMediaForMeta(params.mediaId)
 
   if (!media) {
     return {
@@ -85,6 +38,9 @@ export async function generateMetadata({
       )
     )
   )
+
+  const isVideo = media.type === 'VIDEO' && Boolean(contentUrl)
+  const twitterPlayerUrl = `${baseUrl}/embed/twitter/${media.id}`
 
   return {
     title: `${title} | AI Media Tank (AiM)`,
@@ -116,12 +72,25 @@ export async function generateMetadata({
             ]
           : undefined,
     },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: [thumbnailUrl],
-    },
+    twitter: isVideo
+      ? {
+          card: 'player',
+          title,
+          description,
+          images: [thumbnailUrl],
+          players: {
+            playerUrl: twitterPlayerUrl,
+            streamUrl: contentUrl!,
+            width: 1280,
+            height: 720,
+          },
+        }
+      : {
+          card: 'summary_large_image',
+          title,
+          description,
+          images: [thumbnailUrl],
+        },
   }
 }
 
@@ -131,7 +100,7 @@ export default async function MediaPage({
   params: { mediaId: string }
 }) {
   const baseUrl = getBaseUrl()
-  const media = await getMediaForMeta(params.mediaId)
+  const media = await getPublicMediaForMeta(params.mediaId)
 
   const jsonLd =
     media &&
@@ -195,4 +164,3 @@ export default async function MediaPage({
     </div>
   )
 }
-
