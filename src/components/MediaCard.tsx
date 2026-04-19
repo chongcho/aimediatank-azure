@@ -7,6 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom'
 import { formatMediaTitle, stripHashtags, truncateText } from '@/lib/text'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
+import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
 
 interface MediaCardProps {
@@ -111,8 +112,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const preplayViewCountedRef = useRef(false)
   const preplay10sTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prefetchInViewRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Local view count so we can update immediately when a preplay view is recorded (no refetch)
-  const [displayViews, setDisplayViews] = useState(media.views)
+  // Local count: list API + session snapshot (detail/preplay); prefetch updates without refetch
+  const [displayViews, setDisplayViews] = useState(() =>
+    resolveDisplayViews(media.id, media.views)
+  )
   const [commentModalOpen, setCommentModalOpen] = useState(false)
   const [commentDraft, setCommentDraft] = useState('')
   const [commentSubmitting, setCommentSubmitting] = useState(false)
@@ -141,8 +144,22 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const isPlayable = !media.processingStatus || media.processingStatus === 'completed' || hasPreviewStream
 
   useEffect(() => {
-    setDisplayViews(media.views)
+    setDisplayViews(resolveDisplayViews(media.id, media.views))
   }, [media.id, media.views])
+
+  const applyPlayPrefetchViews = useCallback(
+    (data: { id: string; views?: number }) => {
+      if (data.id !== media.id) return
+      const v = data.views
+      if (typeof v !== 'number') return
+      setDisplayViews((prev) => {
+        const next = Math.max(prev, v)
+        mergeStoredMediaViews(media.id, next)
+        return next
+      })
+    },
+    [media.id]
+  )
 
   useEffect(() => {
     setOptimisticThumbnailComments([])
@@ -297,7 +314,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     if (prefetchInViewRef.current) return
     prefetchInViewRef.current = setTimeout(() => {
       prefetchInViewRef.current = null
-      prefetchMediaPlay(media.id)
+      prefetchMediaPlay(media.id, applyPlayPrefetchViews)
     }, 400)
     return () => {
       if (prefetchInViewRef.current) {
@@ -305,7 +322,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         prefetchInViewRef.current = null
       }
     }
-  }, [isInView, media.id])
+  }, [isInView, media.id, applyPlayPrefetchViews])
 
   // Mobile: pre-play all cards in extended zone (on-screen + one up/down); no single "focused" card
   useEffect(() => {
@@ -668,7 +685,11 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       clearTimeout(preplay10sTimeoutRef.current)
       preplay10sTimeoutRef.current = null
     }
-    setDisplayViews((prev) => prev + 1)
+    setDisplayViews((prev) => {
+      const next = prev + 1
+      mergeStoredMediaViews(media.id, next)
+      return next
+    })
     fetch(`/api/media/${media.id}/view`, { method: 'POST', credentials: 'same-origin' }).catch(() => {})
   }, [media.id])
 
@@ -709,7 +730,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
 
   const handleMouseEnter = () => {
-    prefetchMediaPlay(media.id)
+    prefetchMediaPlay(media.id, applyPlayPrefetchViews)
   }
 
   const loginCallbackUrl =

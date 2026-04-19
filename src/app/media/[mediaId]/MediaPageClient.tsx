@@ -8,6 +8,7 @@ import MediaPlayer from '@/components/MediaPlayer'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
 import { pauseAllMedia, stopAllMedia } from '@/lib/mediaStop'
 import { getMediaPlayCache } from '@/lib/mediaPlayCache'
+import { mergeStoredMediaViews } from '@/lib/mediaViewsSync'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
 
@@ -133,6 +134,19 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   useEffect(() => {
     router.prefetch('/')
   }, [router])
+
+  // Debounced sessionStorage for homepage cards; flush on cleanup (navigation / view change).
+  // No global events — avoids touching every MediaCard on each update.
+  useEffect(() => {
+    if (!media?.id || typeof media.views !== 'number') return
+    const id = media.id
+    const views = media.views
+    const t = window.setTimeout(() => mergeStoredMediaViews(id, views), 400)
+    return () => {
+      window.clearTimeout(t)
+      mergeStoredMediaViews(id, views)
+    }
+  }, [media?.id, media?.views])
 
   useEffect(() => {
     const ac = new AbortController()
