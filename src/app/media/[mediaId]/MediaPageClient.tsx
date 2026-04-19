@@ -8,7 +8,7 @@ import MediaPlayer from '@/components/MediaPlayer'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
 import { pauseAllMedia, stopAllMedia } from '@/lib/mediaStop'
 import { getMediaPlayCache } from '@/lib/mediaPlayCache'
-import { broadcastMediaViewsUpdated, setStoredMediaViews } from '@/lib/mediaViewsSync'
+import { broadcastMediaViewsUpdated, mergeStoredMediaViews } from '@/lib/mediaViewsSync'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
 
@@ -138,8 +138,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   // Sync view count to homepage cards (sessionStorage + event) without refetching the feed.
   useEffect(() => {
     if (!media?.id || typeof media.views !== 'number') return
-    setStoredMediaViews(media.id, media.views)
-    broadcastMediaViewsUpdated({ mediaId: media.id, views: media.views })
+    const merged = mergeStoredMediaViews(media.id, media.views)
+    broadcastMediaViewsUpdated({ mediaId: media.id, views: merged })
   }, [media?.id, media?.views])
 
   useEffect(() => {

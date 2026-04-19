@@ -32,6 +32,15 @@ export function setStoredMediaViews(mediaId: string, views: number): void {
   }
 }
 
+/** Never decrease sessionStorage; use when applying a candidate count (matches Math.max display updates). */
+export function mergeStoredMediaViews(mediaId: string, candidate: number): number {
+  if (!Number.isFinite(candidate)) return getStoredMediaViews(mediaId) ?? 0
+  const stored = getStoredMediaViews(mediaId) ?? 0
+  const next = Math.max(stored, candidate)
+  setStoredMediaViews(mediaId, next)
+  return next
+}
+
 /** Prefer feed value and any newer value we stored from detail/prefetch/preplay. */
 export function resolveDisplayViews(mediaId: string, feedViews: number): number {
   if (typeof window === 'undefined') return feedViews
