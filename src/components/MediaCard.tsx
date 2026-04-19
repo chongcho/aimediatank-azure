@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -97,6 +97,7 @@ async function getBadgeItems(): Promise<BadgeItem[] | null> {
 }
 
 export default function MediaCard({ media, homeScrollContext, preplay = false }: MediaCardProps) {
+  const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
   const [commentPortalMounted, setCommentPortalMounted] = useState(false)
@@ -143,9 +144,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     /-(?:360p|480p|720p|1080p|hq)\.mp4/i.test(media.url)
   const isPlayable = !media.processingStatus || media.processingStatus === 'completed' || hasPreviewStream
 
+  // Include pathname: after /media/[id] → home/profile, feed props often keep the same media.views — re-read sessionStorage.
   useEffect(() => {
     setDisplayViews(resolveDisplayViews(media.id, media.views))
-  }, [media.id, media.views])
+  }, [pathname, media.id, media.views])
 
   const applyPlayPrefetchViews = useCallback(
     (data: { id: string; views?: number }) => {

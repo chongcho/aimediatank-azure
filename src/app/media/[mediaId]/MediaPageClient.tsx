@@ -135,17 +135,10 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     router.prefetch('/')
   }, [router])
 
-  // Debounced sessionStorage for homepage cards; flush on cleanup (navigation / view change).
-  // No global events — avoids touching every MediaCard on each update.
-  useEffect(() => {
+  // Persist immediately so a fast Back still sees updated counts; merge is cheap (runs only when views/id change).
+  useLayoutEffect(() => {
     if (!media?.id || typeof media.views !== 'number') return
-    const id = media.id
-    const views = media.views
-    const t = window.setTimeout(() => mergeStoredMediaViews(id, views), 400)
-    return () => {
-      window.clearTimeout(t)
-      mergeStoredMediaViews(id, views)
-    }
+    mergeStoredMediaViews(media.id, media.views)
   }, [media?.id, media?.views])
 
   useEffect(() => {
