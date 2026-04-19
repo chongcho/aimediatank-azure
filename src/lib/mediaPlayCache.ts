@@ -44,25 +44,13 @@ export function getMediaPlayCache(mediaId: string): unknown | null {
   return entry.data
 }
 
-export function prefetchMediaPlay(
-  mediaId: string,
-  onLoaded?: (data: { id: string; views?: number }) => void
-): void {
+export function prefetchMediaPlay(mediaId: string): void {
   if (typeof window === 'undefined' || !mediaId) return
-  const cached = getMediaPlayCache(mediaId)
-  if (cached && typeof cached === 'object' && (cached as { id?: string }).id === mediaId) {
-    const v = (cached as { views?: number }).views
-    if (typeof v === 'number') onLoaded?.({ id: mediaId, views: v })
-    return
-  }
+  if (getMediaPlayCache(mediaId)) return // already cached
   fetch(`/api/media/${mediaId}/play?t=${Date.now()}`, { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))
     .then((data) => {
-      if (data?.id === mediaId) {
-        setMediaPlayCache(mediaId, data)
-        const v = (data as { views?: number }).views
-        if (typeof v === 'number') onLoaded?.({ id: mediaId, views: v })
-      }
+      if (data?.id === mediaId) setMediaPlayCache(mediaId, data)
     })
     .catch(() => {})
 }
