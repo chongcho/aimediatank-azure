@@ -29,6 +29,7 @@ const GIT_RES = [/\/\.git(\/|$)/i, /\.git\/(config|HEAD|index|objects)/i]
 const ENV_RES = [
   /\.env/i,
   /\.env\./i,
+  /(^|\/)\.netrc$/i,
   /(^|\/)aws\.env$/i,
   /\.pem(\/|$)/i,
   /id_rsa/i,
@@ -66,6 +67,8 @@ const PHP_RES = [
 ]
 
 const CONFIG_RES = [
+  /(^|\/)config\/(?:secrets|database)\.ya?ml$/i,
+  /\/_profiler(\/|$)/i,
   /\.sql$/i,
   /\.bak$/i,
   /\.old$/i,
