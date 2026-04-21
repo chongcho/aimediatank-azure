@@ -815,15 +815,14 @@ function HomeContent() {
       <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 mt-1 mb-1 py-2 px-[10px]">
         {/* Left: Title */}
         <div className="flex-shrink-0 overflow-visible">
-          <div className="flex items-end gap-0">
-            <h1 className="text-base font-bold" style={{ paddingRight: '20px' }}>
+          <div>
+            <h1 className="text-base font-bold">
               <span className="text-gradient">AI Media Tank (AiM)</span>
-          </h1>
-            <span className="font-bold italic text-gray-400 text-[15px] md:text-[16px]">AI-Generated and Real</span>
+            </h1>
+            <p className="text-gray-400 text-[13px] md:text-sm italic">
+              Community for AI and Real Contents Creators and Digital Enthusiasts
+            </p>
           </div>
-          <p className="text-gray-400 text-[13px] md:text-sm italic">
-            Community for AI Contents Creators and Digital Enthusiasts
-          </p>
         </div>
 
         {/* Middle: Search Bar */}
