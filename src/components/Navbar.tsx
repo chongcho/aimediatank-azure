@@ -58,6 +58,8 @@ function NavbarContent() {
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
 
+  /** Once per `?openChat=1` in the URL — avoids re-opening TalkChat when navbar settings refetch changes `isNavbarItemEnabled`. */
+  const openChatDeepLinkConsumedRef = useRef(false)
   const navRef = useRef<HTMLElement>(null)
   const profileRef = useRef<HTMLDivElement>(null)
   const alertsRef = useRef<HTMLDivElement>(null)
@@ -107,11 +109,16 @@ function NavbarContent() {
     }
   }, [isNavbarItemEnabled])
 
-  // Deep link: /?openChat=1 (e.g. from /open-chat) opens TalkChat when chat is enabled.
+  // Deep link: /?openChat=1 (e.g. from /open-chat) opens TalkChat once while the param stays; not on every navbar refetch.
   useEffect(() => {
-    if (searchParams.get('openChat') !== '1') return
+    if (searchParams.get('openChat') !== '1') {
+      openChatDeepLinkConsumedRef.current = false
+      return
+    }
     if (!isNavbarItemEnabled('chat')) return
+    if (openChatDeepLinkConsumedRef.current) return
     setIsTalkChatOpen(true)
+    openChatDeepLinkConsumedRef.current = true
   }, [searchParams, isNavbarItemEnabled])
 
   // Check subscriber status from fetched data (more reliable than session)
