@@ -39,6 +39,7 @@ export default function Navbar() {
 }
 
 function NavbarContent() {
+  const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -105,6 +106,13 @@ function NavbarContent() {
       setSelectedIds(new Set())
     }
   }, [isNavbarItemEnabled])
+
+  // Deep link: /?openChat=1 (e.g. from /open-chat) opens TalkChat when chat is enabled.
+  useEffect(() => {
+    if (searchParams.get('openChat') !== '1') return
+    if (!isNavbarItemEnabled('chat')) return
+    setIsTalkChatOpen(true)
+  }, [searchParams, isNavbarItemEnabled])
 
   // Check subscriber status from fetched data (more reliable than session)
   const isSubscriber = userData?.role === 'SUBSCRIBER' || userData?.role === 'ADMIN' || 
