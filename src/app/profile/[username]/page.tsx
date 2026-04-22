@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
+import { formatViewCount } from '@/lib/formatViewCount'
 
 interface UserProfile {
   id: string
@@ -440,7 +441,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <div className="text-2xl font-bold">
-                  {stats.totalViews.toLocaleString()}
+                  {formatViewCount(stats.totalViews)}
                 </div>
                 <div className="text-sm text-gray-500">Total Views</div>
               </div>
@@ -793,7 +794,7 @@ export default function ProfilePage() {
                       By {item.media.user?.name || item.media.user?.username || 'Unknown'}
                     </p>
                     <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>{item.media.views?.toLocaleString() || 0} views</span>
+                      <span>{formatViewCount(item.media.views)} views</span>
                       <span>Saved {new Date(item.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
