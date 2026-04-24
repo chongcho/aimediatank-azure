@@ -221,17 +221,12 @@ export default function RegisterPage() {
   }
 
   // Avatar preview only — upload after login in profile edit
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file type
+  const handleAvatarFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file')
       return
     }
 
-    // Show preview
     const previewUrl = URL.createObjectURL(file)
     setAvatarPreview(previewUrl)
   }
@@ -595,7 +590,7 @@ export default function RegisterPage() {
               }
               bio={formData.bio}
               onBioChange={(value) => setFormData((prev) => ({ ...prev, bio: value }))}
-              onAvatarInputChange={handleAvatarChange}
+              onAvatarFile={handleAvatarFile}
               usernameStatus={usernameStatus}
               statusHighlightMode="register"
             />

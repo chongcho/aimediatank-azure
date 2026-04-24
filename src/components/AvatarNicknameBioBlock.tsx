@@ -17,7 +17,8 @@ type Props = {
   onUsernameChange: (value: string) => void
   bio: string
   onBioChange: (value: string) => void
-  onAvatarInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  /** Called with the chosen image file (gallery or live camera capture). */
+  onAvatarFile: (file: File) => void
   usernameStatus: UsernameAvailabilityState
   statusHighlightMode: StatusHighlightMode
   /** When mode is `edit`, only show validation styling after the user edits the nickname */
@@ -46,13 +47,31 @@ function usernameInputClass(
   return base
 }
 
+async function openCameraStream(): Promise<MediaStream> {
+  const attempts: MediaStreamConstraints[] = [
+    { video: { facingMode: { ideal: 'user' } }, audio: false },
+    { video: { facingMode: 'user' }, audio: false },
+    { video: { facingMode: { ideal: 'environment' } }, audio: false },
+    { video: true },
+  ]
+  let lastErr: unknown
+  for (const constraints of attempts) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints)
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  throw lastErr
+}
+
 export default function AvatarNicknameBioBlock({
   avatarPreviewUrl,
   username,
   onUsernameChange,
   bio,
   onBioChange,
-  onAvatarInputChange,
+  onAvatarFile,
   usernameStatus,
   statusHighlightMode,
   usernameEdited = false,
@@ -60,11 +79,23 @@ export default function AvatarNicknameBioBlock({
   resetFileInputsSignal = 0,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraError, setCameraError] = useState('')
+  const [cameraSession, setCameraSession] = useState<MediaStream | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const cameraStreamRef = useRef<MediaStream | null>(null)
 
   const closeMenu = useCallback(() => setMenuOpen(false), [])
+
+  const stopCamera = useCallback(() => {
+    cameraStreamRef.current?.getTracks().forEach((t) => t.stop())
+    cameraStreamRef.current = null
+    setCameraSession(null)
+    const v = videoRef.current
+    if (v) v.srcObject = null
+  }, [])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -79,13 +110,105 @@ export default function AvatarNicknameBioBlock({
 
   useEffect(() => {
     if (galleryInputRef.current) galleryInputRef.current.value = ''
-    if (cameraInputRef.current) cameraInputRef.current.value = ''
   }, [resetFileInputsSignal])
 
-  const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onAvatarInputChange(e)
+  useEffect(() => {
+    return () => {
+      cameraStreamRef.current?.getTracks().forEach((t) => t.stop())
+      cameraStreamRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!cameraOpen || !cameraSession) return
+    const v = videoRef.current
+    if (!v) return
+    v.srcObject = cameraSession
+    v.playsInline = true
+    v.muted = true
+    void v.play().catch(() => {})
+    return () => {
+      v.srcObject = null
+    }
+  }, [cameraOpen, cameraSession])
+
+  const onGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) onAvatarFile(file)
     e.target.value = ''
     closeMenu()
+  }
+
+  const closeCameraModal = useCallback(() => {
+    stopCamera()
+    setCameraOpen(false)
+    setCameraError('')
+  }, [stopCamera])
+
+  useEffect(() => {
+    if (!cameraOpen) return
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') closeCameraModal()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [cameraOpen, closeCameraModal])
+
+  const startTakePhoto = async () => {
+    closeMenu()
+    setCameraError('')
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera is not supported in this browser. Use “Choose from file”.')
+      setCameraOpen(true)
+      return
+    }
+    try {
+      const stream = await openCameraStream()
+      cameraStreamRef.current = stream
+      setCameraSession(stream)
+      setCameraOpen(true)
+    } catch {
+      setCameraError('Could not open the camera. Check permissions or use “Choose from file”.')
+      setCameraOpen(true)
+    }
+  }
+
+  const capturePhoto = () => {
+    const video = videoRef.current
+    if (!video) return
+
+    const drawAndDeliver = () => {
+      if (video.videoWidth <= 0 || video.videoHeight <= 0) return
+
+      const maxW = 1280
+      const scale = Math.min(1, maxW / video.videoWidth)
+      const w = Math.round(video.videoWidth * scale)
+      const h = Math.round(video.videoHeight * scale)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      ctx.drawImage(video, 0, 0, w, h)
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return
+          const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' })
+          onAvatarFile(file)
+          closeCameraModal()
+        },
+        'image/jpeg',
+        0.88
+      )
+    }
+
+    if (video.videoWidth > 0) {
+      drawAndDeliver()
+      return
+    }
+    video.addEventListener('loadedmetadata', drawAndDeliver, { once: true })
   }
 
   const showSpinner = usernameStatus.checking
@@ -105,161 +228,186 @@ export default function AvatarNicknameBioBlock({
       : usernameEdited && !!usernameStatus.message
 
   return (
-    <div className="flex items-start gap-4">
-      <div className="relative shrink-0" ref={menuRef}>
-        <input
-          ref={galleryInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          aria-label="Choose avatar image from files"
-          onChange={onFilePicked}
-        />
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          aria-label="Take a photo for avatar"
-          onChange={onFilePicked}
-        />
-
-        <button
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((o) => !o)}
-          className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-sky-600 text-white shadow-md ring-1 ring-sky-400/40 transition hover:bg-sky-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-tank-accent"
-        >
-          {avatarPreviewUrl ? (
-            <>
-              <img
-                src={avatarPreviewUrl}
-                alt="Avatar preview"
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-              <span className="absolute inset-0 flex items-center justify-center bg-black/35">
-                <CameraIcon className="h-7 w-7 drop-shadow" />
-              </span>
-            </>
-          ) : (
-            <span className="flex h-full w-full items-center justify-center">
-              <CameraIcon className="h-7 w-7" />
-            </span>
-          )}
-          {uploadingAvatar && (
-            <span className="absolute inset-0 flex items-center justify-center bg-black/55">
-              <span className="h-7 w-7 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            </span>
-          )}
-        </button>
-
-        {menuOpen && (
-          <div
-            role="menu"
-            className="absolute left-0 top-[calc(100%+6px)] z-20 min-w-[11rem] rounded-lg border border-tank-light bg-tank-gray py-1 shadow-xl"
-          >
-            <button
-              type="button"
-              role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-tank-light/60"
-              onClick={() => {
-                closeMenu()
-                window.requestAnimationFrame(() => galleryInputRef.current?.click())
-              }}
-            >
-              Choose from file
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-tank-light/60"
-              onClick={() => {
-                closeMenu()
-                window.requestAnimationFrame(() => cameraInputRef.current?.click())
-              }}
-            >
-              Take photo
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="min-w-0 flex-1 space-y-3">
-        <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
-          <label
-            htmlFor="avatar-nickname"
-            className="text-sm font-medium text-gray-300 whitespace-nowrap"
-          >
-            Nickname <span className="text-gray-400">*</span>
-          </label>
-          <div className="relative min-w-0">
-            <input
-              id="avatar-nickname"
-              type="text"
-              name="username"
-              value={username}
-              onChange={(e) => onUsernameChange(e.target.value)}
-              placeholder={NICKNAME_PLACEHOLDER}
-              required
-              autoComplete="username"
-              className={usernameInputClass(statusHighlightMode, usernameEdited, usernameStatus)}
-            />
-            {showSpinner && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <svg className="h-5 w-5 animate-spin text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-              </div>
-            )}
-            {showOk && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            )}
-            {showErr && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-            )}
-          </div>
-          {showMessageRow && (
-            <p
-              className={`col-start-2 text-xs ${
-                usernameStatus.valid && usernameStatus.available ? 'text-green-400' : 'text-red-400'
-              }`}
-            >
-              {usernameStatus.message}
-            </p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-[auto_1fr] items-start gap-x-3">
-          <label htmlFor="avatar-bio" className="pt-2 text-sm font-medium text-gray-300 whitespace-nowrap">
-            Bio
-          </label>
-          <textarea
-            id="avatar-bio"
-            name="bio"
-            value={bio}
-            onChange={(e) => onBioChange(e.target.value)}
-            placeholder={BIO_PLACEHOLDER}
-            rows={2}
-            className="min-w-0 w-full resize-none rounded-lg border border-tank-light bg-tank-gray p-2 text-sm"
+    <>
+      <div className="flex items-start gap-4">
+        <div className="relative shrink-0" ref={menuRef}>
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            aria-label="Choose avatar image from files"
+            onChange={onGalleryChange}
           />
+
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+            className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-sky-600 text-white shadow-md ring-1 ring-sky-400/40 transition hover:bg-sky-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-tank-accent"
+          >
+            {avatarPreviewUrl ? (
+              <>
+                <img
+                  src={avatarPreviewUrl}
+                  alt="Avatar preview"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/35">
+                  <CameraIcon className="h-7 w-7 drop-shadow" />
+                </span>
+              </>
+            ) : (
+              <span className="flex h-full w-full items-center justify-center">
+                <CameraIcon className="h-7 w-7" />
+              </span>
+            )}
+            {uploadingAvatar && (
+              <span className="absolute inset-0 flex items-center justify-center bg-black/55">
+                <span className="h-7 w-7 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              </span>
+            )}
+          </button>
+
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute left-0 top-[calc(100%+6px)] z-20 min-w-[11rem] rounded-lg border border-tank-light bg-tank-gray py-1 shadow-xl"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className="block w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-tank-light/60"
+                onClick={() => {
+                  closeMenu()
+                  window.requestAnimationFrame(() => galleryInputRef.current?.click())
+                }}
+              >
+                Choose from file
+              </button>
+              <button type="button" role="menuitem" className="block w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-tank-light/60" onClick={startTakePhoto}>
+                Take photo
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
+            <label htmlFor="avatar-nickname" className="text-sm font-medium text-gray-300 whitespace-nowrap">
+              Nickname <span className="text-gray-400">*</span>
+            </label>
+            <div className="relative min-w-0">
+              <input
+                id="avatar-nickname"
+                type="text"
+                name="username"
+                value={username}
+                onChange={(e) => onUsernameChange(e.target.value)}
+                placeholder={NICKNAME_PLACEHOLDER}
+                required
+                autoComplete="username"
+                className={usernameInputClass(statusHighlightMode, usernameEdited, usernameStatus)}
+              />
+              {showSpinner && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg className="h-5 w-5 animate-spin text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                </div>
+              )}
+              {showOk && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+              {showErr && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            {showMessageRow && (
+              <p
+                className={`col-start-2 text-xs ${
+                  usernameStatus.valid && usernameStatus.available ? 'text-green-400' : 'text-red-400'
+                }`}
+              >
+                {usernameStatus.message}
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-[auto_1fr] items-start gap-x-3">
+            <label htmlFor="avatar-bio" className="pt-2 text-sm font-medium text-gray-300 whitespace-nowrap">
+              Bio
+            </label>
+            <textarea
+              id="avatar-bio"
+              name="bio"
+              value={bio}
+              onChange={(e) => onBioChange(e.target.value)}
+              placeholder={BIO_PLACEHOLDER}
+              rows={2}
+              className="min-w-0 w-full resize-none rounded-lg border border-tank-light bg-tank-gray p-2 text-sm"
+            />
+          </div>
         </div>
       </div>
-    </div>
+
+      {cameraOpen && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4"
+          role="presentation"
+          onClick={closeCameraModal}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="avatar-camera-title"
+            className="w-full max-w-lg rounded-2xl border border-tank-light bg-tank-gray p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="avatar-camera-title" className="mb-3 text-center text-lg font-semibold text-white">
+              Take photo
+            </h3>
+            {cameraSession ? (
+              <video ref={videoRef} className="mx-auto mb-4 aspect-video w-full max-h-[50vh] rounded-lg bg-black object-cover" playsInline muted />
+            ) : (
+              <p className="mb-4 text-center text-sm text-gray-400">{cameraError}</p>
+            )}
+            <div className="flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={closeCameraModal}
+                className="rounded-xl border border-tank-light bg-tank-dark px-4 py-2.5 text-sm font-medium text-gray-200 hover:bg-tank-light/30"
+              >
+                Cancel
+              </button>
+              {cameraSession && (
+                <button
+                  type="button"
+                  onClick={capturePhoto}
+                  className="rounded-xl bg-tank-accent px-4 py-2.5 text-sm font-semibold text-tank-black hover:bg-tank-accent/90"
+                >
+                  Use photo
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

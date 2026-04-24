@@ -358,11 +358,7 @@ export default function EditProfilePage() {
     }
   }
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file type
+  const handleAvatarFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file')
       return
@@ -370,7 +366,6 @@ export default function EditProfilePage() {
 
     if (file.size > maxUploadBytes) {
       notifyAvatarFileSizeExceeded(file.size)
-      e.target.value = ''
       return
     }
 
@@ -634,7 +629,7 @@ export default function EditProfilePage() {
             }
             bio={formData.bio}
             onBioChange={(value) => setFormData((prev) => ({ ...prev, bio: value }))}
-            onAvatarInputChange={handleAvatarChange}
+            onAvatarFile={handleAvatarFile}
             usernameStatus={usernameStatus}
             statusHighlightMode="edit"
             usernameEdited={usernameChanged}
