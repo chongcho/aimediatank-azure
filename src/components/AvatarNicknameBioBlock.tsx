@@ -269,7 +269,7 @@ export default function AvatarNicknameBioBlock({
                   className="absolute inset-0 h-full w-full object-cover"
                 />
                 <span className="absolute inset-0 flex items-center justify-center bg-black/35">
-                  <CameraIcon className="h-7 w-7 drop-shadow" />
+                  <CameraIcon className="h-7 w-7 opacity-40 drop-shadow" />
                 </span>
               </>
             ) : (
@@ -307,12 +307,13 @@ export default function AvatarNicknameBioBlock({
           )}
         </div>
 
-        <div className="min-w-0 flex-1 space-y-3">
-          <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
-            <label htmlFor="avatar-nickname" className="text-sm font-medium text-gray-300 whitespace-nowrap">
+        <div className="min-w-0 flex-1">
+          {/* One grid so the label column width matches — Bio field lines up with Nickname input */}
+          <div className="grid grid-cols-[minmax(8.25rem,max-content)_1fr] items-start gap-x-3 gap-y-3">
+            <label htmlFor="avatar-nickname" className="self-center text-sm font-medium text-gray-300 whitespace-nowrap">
               Nickname <span className="text-gray-400">*</span>
             </label>
-            <div className="relative min-w-0">
+            <div className="relative min-w-0 self-center">
               <input
                 id="avatar-nickname"
                 type="text"
@@ -350,20 +351,18 @@ export default function AvatarNicknameBioBlock({
                   </svg>
                 </div>
               )}
+              {showMessageRow && (
+                <p
+                  className={`mt-1 text-xs ${
+                    usernameStatus.valid && usernameStatus.available ? 'text-green-400' : 'text-red-400'
+                  }`}
+                >
+                  {usernameStatus.message}
+                </p>
+              )}
             </div>
-            {showMessageRow && (
-              <p
-                className={`col-start-2 text-xs ${
-                  usernameStatus.valid && usernameStatus.available ? 'text-green-400' : 'text-red-400'
-                }`}
-              >
-                {usernameStatus.message}
-              </p>
-            )}
-          </div>
 
-          <div className="grid grid-cols-[auto_1fr] items-start gap-x-3">
-            <label htmlFor="avatar-bio" className="pt-2 text-sm font-medium text-gray-300 whitespace-nowrap">
+            <label htmlFor="avatar-bio" className="self-start pt-2 text-sm font-medium text-gray-300 whitespace-nowrap">
               Bio
             </label>
             <textarea
@@ -373,7 +372,7 @@ export default function AvatarNicknameBioBlock({
               onChange={(e) => onBioChange(e.target.value)}
               placeholder={BIO_PLACEHOLDER}
               rows={2}
-              className="min-w-0 w-full resize-none rounded-lg border border-tank-light bg-tank-gray p-2 text-sm"
+              className="min-w-0 w-full resize-none"
             />
           </div>
         </div>
