@@ -571,17 +571,6 @@ export default function RegisterPage() {
             </>
           ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
-            <button
-              type="button"
-              onClick={() => {
-                setError('')
-                setShowEmailForm(false)
-              }}
-              className="text-sm text-gray-400 hover:text-gray-200 transition-colors -mb-2"
-            >
-              ← Back
-            </button>
-
             <AvatarNicknameBioBlock
               avatarPreviewUrl={avatarPreview}
               username={formData.username}
