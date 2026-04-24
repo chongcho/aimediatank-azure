@@ -584,10 +584,10 @@ export default function RegisterPage() {
               statusHighlightMode="register"
             />
 
-            {/* Legal Name (First, Middle, Last) */}
+            {/* Name (First, Middle, Last) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Legal Name *
+                Name *
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <input

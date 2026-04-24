@@ -636,10 +636,10 @@ export default function EditProfilePage() {
             uploadingAvatar={uploadingAvatar}
           />
 
-          {/* Legal Name (First, Middle, Last) */}
+          {/* Name (First, Middle, Last) */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Legal Name *
+              Name *
             </label>
             <div className="grid grid-cols-3 gap-2">
               <input
