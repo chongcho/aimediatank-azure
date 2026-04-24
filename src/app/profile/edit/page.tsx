@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
+import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
 
 interface ProfileData {
   name: string
@@ -51,7 +52,6 @@ export default function EditProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [maxUploadBytes, setMaxUploadBytes] = useState(10 * 1024 * 1024)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const notifyAvatarFileSizeExceeded = (actualFileBytes: number) => {
     setError(buildUploadFileSizeExceededMessage(maxUploadBytes, actualFileBytes))
@@ -358,10 +358,6 @@ export default function EditProfilePage() {
     }
   }
 
-  const handleAvatarClick = () => {
-    fileInputRef.current?.click()
-  }
-
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -465,35 +461,6 @@ export default function EditProfilePage() {
       // Restore previous avatar on error
       setAvatarPreview(formData.avatar)
       URL.revokeObjectURL(localPreview)
-    } finally {
-      setUploadingAvatar(false)
-    }
-  }
-
-  const handleRemoveAvatar = async () => {
-    setUploadingAvatar(true)
-    try {
-      // Save null avatar to database immediately
-      const saveResponse = await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ avatar: null }),
-      })
-
-      if (!saveResponse.ok) {
-        throw new Error('Failed to remove avatar')
-      }
-
-      setAvatarPreview(null)
-      setFormData(prev => ({ ...prev, avatar: null }))
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-      setSuccess('Avatar removed successfully!')
-      setTimeout(() => setSuccess(''), 3000)
-    } catch (err) {
-      console.error('Remove avatar error:', err)
-      setError('Failed to remove avatar. Please try again.')
     } finally {
       setUploadingAvatar(false)
     }
@@ -659,67 +626,20 @@ export default function EditProfilePage() {
             </div>
           )}
 
-          {/* Avatar Upload with Bio */}
-          <div className="flex items-start justify-center gap-4">
-            <div className="flex flex-col items-center gap-1">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-tank-light">
-                  {avatarPreview ? (
-                    <img 
-                      src={avatarPreview} 
-                      alt="Avatar" 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-xl font-bold">
-                      {formData.username?.[0]?.toUpperCase() || '?'}
-                    </div>
-                  )}
-                  
-                  {/* Loading overlay */}
-                  {uploadingAvatar && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full">
-                      <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                className="hidden"
-              />
-              
-              {/* Edit Avatar button */}
-              <button
-                type="button"
-                onClick={handleAvatarClick}
-                disabled={uploadingAvatar}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-tank-gray hover:bg-tank-light border border-tank-light rounded-lg transition-colors disabled:opacity-50"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {uploadingAvatar ? 'Uploading...' : 'Edit Avatar'}
-              </button>
-            </div>
-            
-            {/* Bio section */}
-            <div className="flex-1 text-left space-y-1">
-              <p className="text-sm text-gray-400">Bio</p>
-              <textarea
-                value={formData.bio}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                placeholder="Tell others about yourself..."
-                rows={2}
-                className="w-full resize-none text-sm bg-tank-gray border border-tank-light rounded-lg p-2"
-                />
-            </div>
-          </div>
+          <AvatarNicknameBioBlock
+            avatarPreviewUrl={avatarPreview}
+            username={formData.username}
+            onUsernameChange={(value) =>
+              setFormData((prev) => ({ ...prev, username: value }))
+            }
+            bio={formData.bio}
+            onBioChange={(value) => setFormData((prev) => ({ ...prev, bio: value }))}
+            onAvatarInputChange={handleAvatarChange}
+            usernameStatus={usernameStatus}
+            statusHighlightMode="edit"
+            usernameEdited={usernameChanged}
+            uploadingAvatar={uploadingAvatar}
+          />
 
           {/* Legal Name (First, Middle, Last) */}
           <div>
@@ -760,63 +680,6 @@ export default function EditProfilePage() {
                 className="w-full"
               />
             </div>
-          </div>
-
-          {/* Nickname */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Nickname *
-            </label>
-            <div className="relative">
-            <input
-              type="text"
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              placeholder="username"
-              required
-                className={`w-full ${
-                  usernameChanged && (usernameStatus.valid === false || usernameStatus.available === false)
-                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
-                    : usernameChanged && usernameStatus.valid && usernameStatus.available
-                    ? 'border-green-500 focus:border-green-500 focus:ring-green-500/20'
-                    : ''
-                }`}
-              />
-              {/* Status indicator */}
-              {usernameStatus.checking && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                </div>
-              )}
-              {!usernameStatus.checking && usernameChanged && usernameStatus.valid && usernameStatus.available && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              )}
-              {!usernameStatus.checking && usernameChanged && (usernameStatus.valid === false || usernameStatus.available === false) && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
-              )}
-            </div>
-            {/* Status message */}
-            {usernameChanged && usernameStatus.message && (
-              <p className={`text-xs mt-1 ${
-                usernameStatus.valid && usernameStatus.available ? 'text-green-400' : 'text-red-400'
-              }`}>
-                {usernameStatus.message}
-              </p>
-            )}
-            {(!usernameChanged || !usernameStatus.message) && (
-            <p className="text-xs text-gray-500 mt-1">Used for login and your profile URL</p>
-            )}
           </div>
 
           {/* Birthday */}
