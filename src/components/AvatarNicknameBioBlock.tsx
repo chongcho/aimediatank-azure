@@ -187,12 +187,16 @@ export default function AvatarNicknameBioBlock({
       </div>
 
       <div className="min-w-0 flex-1 space-y-3">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-300">
-            Nickname <span className="text-gray-500">*</span>
+        <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
+          <label
+            htmlFor="avatar-nickname"
+            className="text-sm font-medium text-gray-300 whitespace-nowrap"
+          >
+            Nickname <span className="text-gray-400">*</span>
           </label>
-          <div className="relative">
+          <div className="relative min-w-0">
             <input
+              id="avatar-nickname"
               type="text"
               name="username"
               value={username}
@@ -231,7 +235,7 @@ export default function AvatarNicknameBioBlock({
           </div>
           {showMessageRow && (
             <p
-              className={`mt-1 text-xs ${
+              className={`col-start-2 text-xs ${
                 usernameStatus.valid && usernameStatus.available ? 'text-green-400' : 'text-red-400'
               }`}
             >
@@ -240,15 +244,18 @@ export default function AvatarNicknameBioBlock({
           )}
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-300">Bio</label>
+        <div className="grid grid-cols-[auto_1fr] items-start gap-x-3">
+          <label htmlFor="avatar-bio" className="pt-2 text-sm font-medium text-gray-300 whitespace-nowrap">
+            Bio
+          </label>
           <textarea
+            id="avatar-bio"
             name="bio"
             value={bio}
             onChange={(e) => onBioChange(e.target.value)}
             placeholder={BIO_PLACEHOLDER}
             rows={2}
-            className="w-full resize-none rounded-lg border border-tank-light bg-tank-gray p-2 text-sm"
+            className="min-w-0 w-full resize-none rounded-lg border border-tank-light bg-tank-gray p-2 text-sm"
           />
         </div>
       </div>
