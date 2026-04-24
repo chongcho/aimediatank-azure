@@ -88,8 +88,15 @@ const CONFIG_RES = [
   /(^|\/)(?:db|web|website|site|public_html|htdocs|www|backup(?:[_-]?(?:full|tpl|2))?|backups?|archive|old|bak|bkp|back|7bk)(?:[_-][^\/]+)?\.(?:zip|tar(?:\.gz)?|tgz|gz)$/i,
   /web\.config$/i,
   /\/\.kube\//i,
+  /(^|\/)\.?(?:kube)?config$/i, // kubeconfig / .kubeconfig probes
   /\/\.docker\//i,
   /\/actuator\//i,
+  /\/(?:readyz|healthz|health|manage(?:ment)?)$/i, // Spring/ops health probes
+  /\/applicationhost\.config$/i,
+  /\/nuget\.config$/i,
+  /\/local\.settings\.json$/i,
+  /\/properties\/launchsettings\.json$/i,
+  /\/(?:swagger(?:\/index\.html)?|openapi(?:\/v\d+)?(?:\/?[^\/]*)?|v3\/api-docs|redoc|scalar|docs)(?:\/|$)/i, // API-doc scanner probes
   /\/debug\/default(\/|$)/i, // Yii2 debug module (e.g. /debug/default/view)
   /\/server-status$/i,
   /\/\.svn\//i,
