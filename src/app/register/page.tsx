@@ -481,7 +481,7 @@ export default function RegisterPage() {
   // Success state - show verification instructions
   if (success) {
     return (
-      <div className="min-h-screen max-w-7xl mx-auto p-0 m-0 pb-[500px]">
+      <div className="min-h-screen max-w-2xl mx-auto p-0 m-0 pb-[500px] pt-[10px]">
         <div className="card p-8 text-center mt-3">
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-500/20 flex items-center justify-center">
               <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -533,14 +533,14 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen max-w-7xl mx-auto p-0 m-0 pb-[500px]">
-        <div className="mb-8 pt-[30px]">
+    <div className="min-h-screen max-w-2xl mx-auto p-0 m-0 pb-[500px] pt-[10px]">
+        <div className="py-[20px]">
           <div className="flex items-center justify-center relative">
             <h1 className="text-3xl font-bold">Create Account</h1>
             <button
               type="button"
               onClick={() => { window.location.href = '/' }}
-              className="absolute right-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
+              className="absolute right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
               aria-label="Close"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -591,11 +591,11 @@ export default function RegisterPage() {
               ← Back
             </button>
 
-            {/* Avatar and Bio Section */}
-            <div className="flex items-start justify-center gap-6">
-              <div className="flex flex-col items-center gap-3">
+            {/* Avatar and Bio Section — match profile/edit layout */}
+            <div className="flex items-start justify-center gap-4">
+              <div className="flex flex-col items-center gap-1">
                 <div className="relative">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-tank-light">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-tank-light">
                     {avatarPreview ? (
                       <img 
                         src={avatarPreview} 
@@ -603,7 +603,7 @@ export default function RegisterPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-3xl font-bold">
+                      <div className="w-full h-full bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-xl font-bold">
                         {formData.username?.[0]?.toUpperCase() || '?'}
                       </div>
                     )}
@@ -634,14 +634,14 @@ export default function RegisterPage() {
               </div>
               
               {/* Bio input */}
-              <div className="flex-1 text-left space-y-2">
+              <div className="flex-1 text-left space-y-1">
                 <p className="text-sm text-gray-400">Bio</p>
                 <textarea
                   name="bio"
                   value={formData.bio}
                   onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                   placeholder="Tell others about yourself..."
-                  rows={3}
+                  rows={2}
                   className="w-full resize-none text-sm bg-tank-gray border border-tank-light rounded-lg p-2"
                 />
               </div>
