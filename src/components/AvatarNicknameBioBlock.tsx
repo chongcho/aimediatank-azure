@@ -47,6 +47,20 @@ function usernameInputClass(
   return base
 }
 
+function cameraFailureMessage(err: unknown): string {
+  const name = err && typeof err === 'object' && 'name' in err ? String((err as DOMException).name) : ''
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    return 'Camera access was denied. Allow camera for this site in your browser address bar or site settings, or use “Choose from file”.'
+  }
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+    return 'No usable camera was found. Use “Choose from file”.'
+  }
+  if (name === 'SecurityError' || name === 'NotSupportedError') {
+    return 'The browser blocked camera access (use HTTPS / localhost, or the site may restrict camera). Use “Choose from file”.'
+  }
+  return 'Could not open the camera. Check permissions or use “Choose from file”.'
+}
+
 async function openCameraStream(): Promise<MediaStream> {
   const attempts: MediaStreamConstraints[] = [
     { video: { facingMode: { ideal: 'user' } }, audio: false },
@@ -167,8 +181,8 @@ export default function AvatarNicknameBioBlock({
       cameraStreamRef.current = stream
       setCameraSession(stream)
       setCameraOpen(true)
-    } catch {
-      setCameraError('Could not open the camera. Check permissions or use “Choose from file”.')
+    } catch (err) {
+      setCameraError(cameraFailureMessage(err))
       setCameraOpen(true)
     }
   }
