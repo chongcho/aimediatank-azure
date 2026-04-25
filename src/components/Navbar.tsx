@@ -630,7 +630,7 @@ function NavbarContent() {
                                   <p className={`text-xs font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
                                     {notification.title}
                                   </p>
-                                  <p className={`text-[10px] text-gray-500 mt-0.5 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-1'}`}>
+                                  <p className={`text-[10px] text-gray-300 mt-0.5 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-1'}`}>
                                     {notification.message}
                                   </p>
                                   {isExpanded && !isSelectMode && (
