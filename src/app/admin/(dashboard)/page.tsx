@@ -3332,7 +3332,7 @@ export default function AdminPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-300 mb-2">Phone verification</label>
+                      <label className="block text-sm text-gray-300 mb-2">Mobile verification</label>
                       <select
                         value={phoneVerificationEnabled ? 'on' : 'off'}
                         onChange={(e) => setPhoneVerificationEnabled(e.target.value === 'on')}
