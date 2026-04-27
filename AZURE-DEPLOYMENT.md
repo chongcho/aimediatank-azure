@@ -52,7 +52,7 @@ az webapp create \
     --name aimediatank-azure \
     --resource-group aimediatank-rg \
     --plan aimediatank-plan \
-    --runtime "NODE:18-lts"
+    --runtime "NODE:24-lts"
 
 # Create PostgreSQL
 az postgres flexible-server create \
@@ -89,7 +89,7 @@ Also set these for stable cold starts (Configuration → Application settings):
 
 | Variable | Value |
 |----------|-------|
-| `WEBSITE_NODE_DEFAULT_VERSION` | `~20` |
+| `WEBSITE_NODE_DEFAULT_VERSION` | `~24` |
 | `NODE_OPTIONS` | `--max-old-space-size=2048` |
 | `WEBSITES_CONTAINER_START_TIME_LIMIT` | `600` |
 | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `false` |

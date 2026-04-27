@@ -46,7 +46,7 @@ az webapp create \
     --name $APP_NAME \
     --resource-group $RESOURCE_GROUP \
     --plan $APP_PLAN \
-    --runtime "NODE:18-lts"
+    --runtime "NODE:24-lts"
 
 echo ""
 echo "Step 4: Creating PostgreSQL Flexible Server..."
@@ -96,7 +96,7 @@ az functionapp create \
     --storage-account $STORAGE_ACCOUNT \
     --consumption-plan-location $LOCATION \
     --runtime node \
-    --runtime-version 18 \
+    --runtime-version 24 \
     --functions-version 4
 
 echo ""
