@@ -824,6 +824,33 @@ export async function GET(request: Request) {
       }
     }
 
+    // Get authentication verification settings for admin management
+    if (action === 'authenticationSettings') {
+      try {
+        let row = await prisma.mediaDetailSetting.findFirst()
+        if (!row) {
+          row = await prisma.mediaDetailSetting.create({ data: {} })
+        }
+        const raw = (row as { shareAppsEnabled?: unknown }).shareAppsEnabled
+        const auth =
+          raw && typeof raw === 'object' && !Array.isArray(raw) && (raw as Record<string, unknown>).__auth &&
+          typeof (raw as Record<string, unknown>).__auth === 'object' &&
+          !Array.isArray((raw as Record<string, unknown>).__auth)
+            ? ((raw as Record<string, unknown>).__auth as Record<string, unknown>)
+            : null
+        return NextResponse.json({
+          emailVerificationEnabled: auth?.emailVerificationEnabled !== false,
+          phoneVerificationEnabled: auth?.phoneVerificationEnabled !== false,
+        })
+      } catch (error) {
+        console.error('Authentication settings unavailable:', error)
+        return NextResponse.json({
+          emailVerificationEnabled: true,
+          phoneVerificationEnabled: true,
+        })
+      }
+    }
+
     // Get media badge settings for admin management
     if (action === 'badgeSettings') {
       const defaultItems = [
@@ -2104,7 +2131,25 @@ export async function POST(request: Request) {
           ? (shareAppsPayload as Record<string, boolean>)
           : undefined
         let row = await prisma.mediaDetailSetting.findFirst()
-        const shareAppsJson: Prisma.InputJsonValue | undefined = shareAppsObj ? (shareAppsObj as unknown as Prisma.InputJsonValue) : undefined
+        const existingRaw =
+          row && (row as { shareAppsEnabled?: unknown }).shareAppsEnabled &&
+          typeof (row as { shareAppsEnabled?: unknown }).shareAppsEnabled === 'object' &&
+          !Array.isArray((row as { shareAppsEnabled?: unknown }).shareAppsEnabled)
+            ? ((row as { shareAppsEnabled?: unknown }).shareAppsEnabled as Record<string, unknown>)
+            : null
+        const existingAuth =
+          existingRaw && existingRaw.__auth && typeof existingRaw.__auth === 'object' && !Array.isArray(existingRaw.__auth)
+            ? (existingRaw.__auth as Record<string, unknown>)
+            : null
+        const shareAppsWithAuth = shareAppsObj
+          ? ({
+              ...shareAppsObj,
+              ...(existingAuth ? { __auth: existingAuth } : {}),
+            } as Record<string, unknown>)
+          : undefined
+        const shareAppsJson: Prisma.InputJsonValue | undefined = shareAppsWithAuth
+          ? (shareAppsWithAuth as unknown as Prisma.InputJsonValue)
+          : undefined
         const updateData: Prisma.MediaDetailSettingUncheckedUpdateInput = {}
         if (downloadBool !== undefined) updateData.downloadEnabled = downloadBool
         if (shareBool !== undefined) updateData.shareEnabled = shareBool
@@ -2144,6 +2189,59 @@ export async function POST(request: Request) {
           sendByEmailEnabled: updated.sendByEmailEnabled,
           aiToolEnabled: row.aiToolEnabled,
           shareAppsEnabled,
+        })
+      }
+
+      case 'setAuthenticationSettings': {
+        const {
+          emailVerificationEnabled: emailPayload,
+          phoneVerificationEnabled: phonePayload,
+        } = data || {}
+        const emailVerificationEnabled = typeof emailPayload === 'boolean' ? emailPayload : undefined
+        const phoneVerificationEnabled = typeof phonePayload === 'boolean' ? phonePayload : undefined
+
+        let row = await prisma.mediaDetailSetting.findFirst()
+        if (!row) {
+          row = await prisma.mediaDetailSetting.create({ data: {} })
+        }
+        const raw =
+          (row as { shareAppsEnabled?: unknown }).shareAppsEnabled &&
+          typeof (row as { shareAppsEnabled?: unknown }).shareAppsEnabled === 'object' &&
+          !Array.isArray((row as { shareAppsEnabled?: unknown }).shareAppsEnabled)
+            ? ((row as { shareAppsEnabled?: unknown }).shareAppsEnabled as Record<string, unknown>)
+            : {}
+        const prevAuth =
+          raw.__auth && typeof raw.__auth === 'object' && !Array.isArray(raw.__auth)
+            ? (raw.__auth as Record<string, unknown>)
+            : {}
+        const nextAuth = {
+          ...prevAuth,
+          ...(emailVerificationEnabled !== undefined ? { emailVerificationEnabled } : {}),
+          ...(phoneVerificationEnabled !== undefined ? { phoneVerificationEnabled } : {}),
+        }
+        row = await prisma.mediaDetailSetting.update({
+          where: { id: row.id },
+          data: {
+            shareAppsEnabled: {
+              ...raw,
+              __auth: nextAuth,
+            } as Prisma.InputJsonValue,
+          },
+        })
+        const appliedEmail =
+          typeof nextAuth.emailVerificationEnabled === 'boolean' ? nextAuth.emailVerificationEnabled : true
+        const appliedPhone =
+          typeof nextAuth.phoneVerificationEnabled === 'boolean' ? nextAuth.phoneVerificationEnabled : true
+
+        await logAdminAction(adminId, 'SET_AUTHENTICATION_SETTINGS', 'AUTHENTICATION', row.id, {
+          emailVerificationEnabled: appliedEmail,
+          phoneVerificationEnabled: appliedPhone,
+        })
+
+        return NextResponse.json({
+          message: 'Authentication settings updated',
+          emailVerificationEnabled: appliedEmail,
+          phoneVerificationEnabled: appliedPhone,
         })
       }
 

@@ -133,7 +133,7 @@ interface ChatMessage {
   }
 }
 
-type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool' | 'standaloneCropTool' | 'accessLogs' | 'blockedIps'
+type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'authentication' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool' | 'standaloneCropTool' | 'accessLogs' | 'blockedIps'
 
 interface CropToolSettings {
   id?: string
@@ -402,6 +402,10 @@ export default function AdminPage() {
   })
   const [mediaDetailLoading, setMediaDetailLoading] = useState(false)
   const [mediaDetailSaving, setMediaDetailSaving] = useState(false)
+  const [emailVerificationEnabled, setEmailVerificationEnabled] = useState(true)
+  const [phoneVerificationEnabled, setPhoneVerificationEnabled] = useState(true)
+  const [authenticationLoading, setAuthenticationLoading] = useState(false)
+  const [authenticationSaving, setAuthenticationSaving] = useState(false)
   const [mediaBadgeItems, setMediaBadgeItems] = useState<MediaBadgeItem[]>([])
   const [mediaBadgeLoading, setMediaBadgeLoading] = useState(false)
   const [cropToolSettings, setCropToolSettings] = useState<CropToolSettings>({
@@ -917,6 +921,16 @@ export default function AdminPage() {
         } finally {
           setMediaDetailLoading(false)
         }
+      } else if (activeTab === 'authentication') {
+        setAuthenticationLoading(true)
+        try {
+          const res = await fetch('/api/admin?action=authenticationSettings')
+          const data = await res.json()
+          setEmailVerificationEnabled(data.emailVerificationEnabled !== false)
+          setPhoneVerificationEnabled(data.phoneVerificationEnabled !== false)
+        } finally {
+          setAuthenticationLoading(false)
+        }
       } else if (activeTab === 'badges') {
         const res = await fetch('/api/admin?action=badgeSettings')
         const data = await res.json()
@@ -1303,6 +1317,37 @@ export default function AdminPage() {
     }
   }
 
+  const saveAuthenticationSettings = async () => {
+    setAuthenticationSaving(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setAuthenticationSettings',
+          data: {
+            emailVerificationEnabled,
+            phoneVerificationEnabled,
+          },
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        console.error('Authentication settings save failed:', data)
+        return
+      }
+      setEmailVerificationEnabled(data.emailVerificationEnabled !== false)
+      setPhoneVerificationEnabled(data.phoneVerificationEnabled !== false)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('authenticationSettingsUpdated'))
+      }
+    } catch (error) {
+      console.error('Error saving authentication settings:', error)
+    } finally {
+      setAuthenticationSaving(false)
+    }
+  }
+
   const fetchWarningHistory = async (userId: string, username: string, warningCount: number, lastWarningReason: string | null, lastWarningAt: string | null) => {
     setWarningModal({
       show: true,
@@ -1528,6 +1573,7 @@ export default function AdminPage() {
           { id: 'membership', label: 'Membership Management' },
           { id: 'promotions', label: 'Promotions' },
           { id: 'games', label: 'Game Control' },
+          { id: 'authentication', label: 'Authentication' },
           { id: 'navbar', label: 'Navbar Control' },
           { id: 'layout', label: 'Home Layout' },
           { id: 'mediaDetail', label: 'Media Detail' },
@@ -3255,6 +3301,60 @@ export default function AdminPage() {
                   >
                     {mediaDetailSaving ? 'Saving…' : 'Save'}
                   </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Navbar Control */}
+          {activeTab === 'authentication' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">Authentication</h2>
+                <p className="text-gray-400 text-sm">Turn verification requirements ON/OFF for registration</p>
+              </div>
+
+              {authenticationLoading ? (
+                <div className="flex justify-center py-10"><div className="spinner" /></div>
+              ) : (
+                <div className="card p-4 md:p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">Email verification</label>
+                      <select
+                        value={emailVerificationEnabled ? 'on' : 'off'}
+                        onChange={(e) => setEmailVerificationEnabled(e.target.value === 'on')}
+                        disabled={authenticationSaving}
+                        className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
+                      >
+                        <option value="on">ON</option>
+                        <option value="off">OFF</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">Phone verification</label>
+                      <select
+                        value={phoneVerificationEnabled ? 'on' : 'off'}
+                        onChange={(e) => setPhoneVerificationEnabled(e.target.value === 'on')}
+                        disabled={authenticationSaving}
+                        className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
+                      >
+                        <option value="on">ON</option>
+                        <option value="off">OFF</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={saveAuthenticationSettings}
+                      disabled={authenticationSaving}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium disabled:opacity-50"
+                    >
+                      {authenticationSaving ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

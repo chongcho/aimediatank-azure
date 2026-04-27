@@ -95,6 +95,10 @@ export default function RegisterPage() {
     code: '',
     error: '',
   })
+  const [authSettings, setAuthSettings] = useState({
+    emailVerificationEnabled: true,
+    phoneVerificationEnabled: true,
+  })
 
   // Debounced email check
   const checkEmail = useCallback(async (email: string) => {
@@ -183,6 +187,31 @@ export default function RegisterPage() {
 
     return () => clearTimeout(timer)
   }, [formData.username, checkUsername])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadAuthenticationSettings = async () => {
+      try {
+        const res = await fetch('/api/ui/authentication')
+        const data = await res.json()
+        if (!cancelled) {
+          setAuthSettings({
+            emailVerificationEnabled: data.emailVerificationEnabled !== false,
+            phoneVerificationEnabled: data.phoneVerificationEnabled !== false,
+          })
+        }
+      } catch {
+        // Keep secure defaults (both enabled) when endpoint is unavailable.
+      }
+    }
+    loadAuthenticationSettings()
+    const onUpdated = () => loadAuthenticationSettings()
+    window.addEventListener('authenticationSettingsUpdated', onUpdated)
+    return () => {
+      cancelled = true
+      window.removeEventListener('authenticationSettingsUpdated', onUpdated)
+    }
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -412,14 +441,19 @@ export default function RegisterPage() {
     }
 
     // Check email verification
-    if (!verificationState.codeVerified) {
+    if (authSettings.emailVerificationEnabled && !verificationState.codeVerified) {
       setError('Please verify your email address first')
       return
     }
 
     // If phone provided, require phone verification (two-step)
     const phoneTrimmed = formData.phone.trim()
-    if (phoneTrimmed && phoneTrimmed.replace(/\D/g, '').length >= 10 && !phoneVerificationState.codeVerified) {
+    if (
+      authSettings.phoneVerificationEnabled &&
+      phoneTrimmed &&
+      phoneTrimmed.replace(/\D/g, '').length >= 10 &&
+      !phoneVerificationState.codeVerified
+    ) {
       setError('Please verify your phone number first')
       return
     }
@@ -660,14 +694,14 @@ export default function RegisterPage() {
                   />
                 </div>
                 {/* Verify Email Button - Always visible */}
-                {verificationState.codeVerified ? (
+                {authSettings.emailVerificationEnabled && verificationState.codeVerified ? (
                   <div className="flex items-center px-4 py-2 bg-green-500/20 text-green-400 rounded-xl text-sm font-medium whitespace-nowrap border border-green-500/50">
                     <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     Email Verified
                   </div>
-                ) : (
+                ) : authSettings.emailVerificationEnabled ? (
                   <button
                     type="button"
                     onClick={sendVerificationCode}
@@ -688,6 +722,10 @@ export default function RegisterPage() {
                       'Verify Email'
                     )}
                   </button>
+                ) : (
+                  <div className="flex items-center px-3 py-2 text-gray-400 text-sm whitespace-nowrap">
+                    Verification OFF
+                  </div>
                 )}
               </div>
               {/* Status message */}
@@ -703,10 +741,10 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {/* Phone (optional) – two-step verification when provided */}
+            {/* Mobile (optional) – two-step verification when provided */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Phone Number (optional)
+                Mobile (optional)
               </label>
               <input
                 type="tel"
@@ -717,7 +755,7 @@ export default function RegisterPage() {
                 className="w-full"
                 disabled={phoneVerificationState.codeVerified}
               />
-              {formData.phone.trim().replace(/\D/g, '').length >= 10 && (
+              {authSettings.phoneVerificationEnabled && formData.phone.trim().replace(/\D/g, '').length >= 10 && (
                 <div className="mt-2 space-y-2">
                   {!phoneVerificationState.codeVerified ? (
                     <>
