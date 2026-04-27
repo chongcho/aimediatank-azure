@@ -158,15 +158,21 @@ export function detectAbnormalAccess(input: {
     }
   }
 
-  const ua = (input.userAgent || '').trim()
-  if (!ua) flags.add('EMPTY_USER_AGENT')
+  if (input.userAgent !== undefined && input.userAgent !== null) {
+    const ua = String(input.userAgent).trim()
+    if (!ua) flags.add('EMPTY_USER_AGENT')
+  }
 
-  const query = (input.query || '').trim()
-  if (query.length >= 400) flags.add('LONG_QUERY_PAYLOAD')
-  if (query && SUSPICIOUS_PAYLOAD_RE.test(query)) flags.add('SUSPICIOUS_QUERY_PAYLOAD')
+  if (input.query !== undefined && input.query !== null) {
+    const query = String(input.query).trim()
+    if (query.length >= 400) flags.add('LONG_QUERY_PAYLOAD')
+    if (query && SUSPICIOUS_PAYLOAD_RE.test(query)) flags.add('SUSPICIOUS_QUERY_PAYLOAD')
+  }
 
-  const referrer = (input.referrer || '').trim()
-  if (referrer && SUSPICIOUS_PAYLOAD_RE.test(referrer)) flags.add('SUSPICIOUS_REFERRER')
+  if (input.referrer !== undefined && input.referrer !== null) {
+    const referrer = String(input.referrer).trim()
+    if (referrer && SUSPICIOUS_PAYLOAD_RE.test(referrer)) flags.add('SUSPICIOUS_REFERRER')
+  }
 
   const sc = input.statusCode
   if (sc != null && sc >= 200 && sc < 300) {

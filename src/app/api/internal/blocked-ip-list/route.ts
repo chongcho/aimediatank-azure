@@ -18,6 +18,18 @@ export async function GET(request: Request) {
 
   try {
     const rows = await prisma.blockedIp.findMany({
+      where: {
+        OR: [
+          { note: null },
+          {
+            NOT: {
+              note: {
+                startsWith: 'Auto (probe): EMPTY_USER_AGENT',
+              },
+            },
+          },
+        ],
+      },
       select: { ipAddress: true },
     })
     return NextResponse.json({ ips: rows.map((r) => r.ipAddress) })
