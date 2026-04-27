@@ -96,6 +96,9 @@ const CONFIG_RES = [
   /\/nuget\.config$/i,
   /\/local\.settings\.json$/i,
   /\/properties\/launchsettings\.json$/i,
+  /\/sftp-config\.json$/i,
+  /\/\.vscode\/sftp\.json$/i,
+  /\/\.composer\/auth\.json$/i,
   /\/(?:swagger(?:\/index\.html)?|openapi(?:\/v\d+)?(?:\/?[^\/]*)?|v3\/api-docs|redoc|scalar|docs)(?:\/|$)/i, // API-doc scanner probes
   /\/debug\/default(\/|$)/i, // Yii2 debug module (e.g. /debug/default/view)
   /\/server-status$/i,
