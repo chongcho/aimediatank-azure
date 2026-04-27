@@ -11,6 +11,10 @@ export const ABNORMAL_FLAG_LABELS: Record<string, string> = {
   PROBE_CONFIG: 'Config / backup / infra probe',
   PATH_TRAVERSAL: 'Path traversal pattern',
   SUSPICIOUS_METHOD: 'Unusual HTTP method',
+  EMPTY_USER_AGENT: 'Missing User-Agent header',
+  LONG_QUERY_PAYLOAD: 'Unusually long query payload',
+  SUSPICIOUS_QUERY_PAYLOAD: 'Suspicious query payload',
+  SUSPICIOUS_REFERRER: 'Suspicious referrer payload',
   LEAK_SUSPECTED: 'Probe path returned success (verify server config)',
 }
 
@@ -23,6 +27,8 @@ function decodePathSegment(path: string): string {
 }
 
 const TRAVERSAL_RE = /\.\.(?:\/|\\)|%2e%2e|%252e|\.%2e|\.\.%2f/i
+const SUSPICIOUS_PAYLOAD_RE =
+  /(?:\bunion(?:\s+all)?\s+select\b|\bdrop\s+table\b|\binformation_schema\b|<script\b|javascript:|onerror=|onload=|cmd=|exec=|\/etc\/passwd|\.\.\/|%00|%3cscript|%3e|%27\s*or\s*%271%27=%271)/i
 
 const GIT_RES = [/\/\.git(\/|$)/i, /\.git\/(config|HEAD|index|objects)/i]
 
@@ -117,6 +123,9 @@ export function detectAbnormalAccess(input: {
   path: string
   method?: string
   statusCode?: number | null
+  query?: string | null
+  referrer?: string | null
+  userAgent?: string | null
 }): string[] {
   const raw = (input.path || '').split('?')[0] || ''
   const lower = raw.toLowerCase()
@@ -148,6 +157,16 @@ export function detectAbnormalAccess(input: {
       flags.add('SUSPICIOUS_METHOD')
     }
   }
+
+  const ua = (input.userAgent || '').trim()
+  if (!ua) flags.add('EMPTY_USER_AGENT')
+
+  const query = (input.query || '').trim()
+  if (query.length >= 400) flags.add('LONG_QUERY_PAYLOAD')
+  if (query && SUSPICIOUS_PAYLOAD_RE.test(query)) flags.add('SUSPICIOUS_QUERY_PAYLOAD')
+
+  const referrer = (input.referrer || '').trim()
+  if (referrer && SUSPICIOUS_PAYLOAD_RE.test(referrer)) flags.add('SUSPICIOUS_REFERRER')
 
   const sc = input.statusCode
   if (sc != null && sc >= 200 && sc < 300) {

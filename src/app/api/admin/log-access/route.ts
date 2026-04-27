@@ -104,6 +104,9 @@ export async function POST(request: Request) {
       path: pathStored,
       method: methodStored,
       statusCode: statusCode ?? null,
+      query: query ? String(query).substring(0, 2048) : null,
+      referrer: referrer ? String(referrer).substring(0, 2048) : null,
+      userAgent: userAgent ?? null,
     })
     const botFlags = detectBadBotUserAgent(userAgent)
     const abnormalFlagsArr = Array.from(new Set([...pathFlags, ...botFlags])).sort()

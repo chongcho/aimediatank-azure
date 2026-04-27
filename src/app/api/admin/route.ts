@@ -454,10 +454,115 @@ export async function GET(request: Request) {
         }).then((r) => r.length),
       ])
 
+      const parsedFlagsByLog = new Map<string, string[]>()
+      const ips = Array.from(new Set(logs.map((l) => l.ipAddress).filter((v): v is string => Boolean(v))))
+      for (const log of logs) {
+        let parsed: string[] = []
+        if (log.abnormalFlags) {
+          try {
+            const raw = JSON.parse(log.abnormalFlags) as unknown
+            parsed = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : []
+          } catch {
+            parsed = []
+          }
+        }
+        parsedFlagsByLog.set(log.id, parsed)
+      }
+
+      const now = new Date()
+      const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000)
+      const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000)
+      const ipHits10m = new Map<string, number>()
+      const ipHits30m = new Map<string, number>()
+      const ipProbeHits30m = new Map<string, number>()
+      const ipUaSet30m = new Map<string, Set<string>>()
+
+      if (ips.length > 0) {
+        const [recent10m, recent30m] = await Promise.all([
+          prisma.siteAccessLog.findMany({
+            where: { ipAddress: { in: ips }, createdAt: { gte: tenMinAgo } },
+            select: { ipAddress: true },
+          }),
+          prisma.siteAccessLog.findMany({
+            where: { ipAddress: { in: ips }, createdAt: { gte: thirtyMinAgo } },
+            select: { ipAddress: true, userAgent: true, abnormalFlags: true },
+          }),
+        ])
+
+        for (const row of recent10m) {
+          const ip = row.ipAddress
+          if (!ip) continue
+          ipHits10m.set(ip, (ipHits10m.get(ip) || 0) + 1)
+        }
+        for (const row of recent30m) {
+          const ip = row.ipAddress
+          if (!ip) continue
+          ipHits30m.set(ip, (ipHits30m.get(ip) || 0) + 1)
+          const ua = (row.userAgent || '').trim()
+          if (ua) {
+            if (!ipUaSet30m.has(ip)) ipUaSet30m.set(ip, new Set<string>())
+            ipUaSet30m.get(ip)!.add(ua.slice(0, 160))
+          }
+          if (row.abnormalFlags) {
+            try {
+              const arr = JSON.parse(row.abnormalFlags) as unknown
+              if (Array.isArray(arr) && arr.length > 0) {
+                ipProbeHits30m.set(ip, (ipProbeHits30m.get(ip) || 0) + 1)
+              }
+            } catch {}
+          }
+        }
+      }
+
+      const logsWithRisk = logs.map((log) => {
+        const rowFlags = parsedFlagsByLog.get(log.id) || []
+        const riskFlags: string[] = []
+        let riskScore = Math.min(45, rowFlags.length * 15)
+
+        const ip = log.ipAddress || null
+        const hits10m = ip ? ipHits10m.get(ip) || 0 : 0
+        const hits30m = ip ? ipHits30m.get(ip) || 0 : 0
+        const probes30m = ip ? ipProbeHits30m.get(ip) || 0 : 0
+        const uaVariety30m = ip ? (ipUaSet30m.get(ip)?.size || 0) : 0
+
+        if (hits10m >= 200) {
+          riskFlags.push('TRAFFIC_BURST_IP_HIGH')
+          riskScore += 35
+        } else if (hits10m >= 80) {
+          riskFlags.push('TRAFFIC_BURST_IP')
+          riskScore += 20
+        }
+
+        if (hits30m >= 20 && uaVariety30m >= 6) {
+          riskFlags.push('USER_AGENT_CHURN_IP')
+          riskScore += 20
+        }
+
+        if (probes30m >= 4) {
+          riskFlags.push('PROBE_CLUSTER_IP')
+          riskScore += probes30m >= 8 ? 30 : 18
+        }
+
+        if ((log.userAgent || '').trim() === '') {
+          if (!riskFlags.includes('EMPTY_USER_AGENT')) riskFlags.push('EMPTY_USER_AGENT')
+          riskScore += 10
+        }
+
+        if (rowFlags.includes('LEAK_SUSPECTED')) riskScore += 25
+        riskScore = Math.max(0, Math.min(100, riskScore))
+        return {
+          ...log,
+          riskFlags,
+          riskScore,
+        }
+      })
+
+      const highRiskHits = logsWithRisk.filter((l) => (l.riskScore ?? 0) >= 60).length
+
       return NextResponse.json({
-        logs,
+        logs: logsWithRisk,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-        summary: { uniqueIps, uniqueSessions },
+        summary: { uniqueIps, uniqueSessions, highRiskHits },
       })
     }
 

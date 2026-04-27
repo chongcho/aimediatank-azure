@@ -6,6 +6,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
 import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX } from '@/lib/uploadPlanConfig'
+const RUNTIME_RISK_FLAG_LABELS: Record<string, string> = {
+  TRAFFIC_BURST_IP: 'High request burst from IP in last 10 minutes',
+  TRAFFIC_BURST_IP_HIGH: 'Very high request burst from IP in last 10 minutes',
+  USER_AGENT_CHURN_IP: 'Many user-agent variations from same IP in last 30 minutes',
+  PROBE_CLUSTER_IP: 'Cluster of probe-flagged requests from same IP in last 30 minutes',
+}
 function isAppAdminRole(role: string | undefined | null): boolean {
   if (role == null || typeof role !== 'string') return false
   return role.trim().toUpperCase() === 'ADMIN'
@@ -534,12 +540,14 @@ export default function AdminPage() {
     userEmail: string | null
     statusCode: number | null
     abnormalFlags: string | null
+    riskFlags?: string[] | null
+    riskScore?: number | null
     createdAt: string
   }>>([])
   const [accessLogsPage, setAccessLogsPage] = useState(1)
   const [accessLogsTotalPages, setAccessLogsTotalPages] = useState(1)
   const [accessLogsTotal, setAccessLogsTotal] = useState(0)
-  const [accessLogsSummary, setAccessLogsSummary] = useState<{ uniqueIps: number; uniqueSessions: number } | null>(null)
+  const [accessLogsSummary, setAccessLogsSummary] = useState<{ uniqueIps: number; uniqueSessions: number; highRiskHits?: number } | null>(null)
   const [accessLogsSearch, setAccessLogsSearch] = useState('')
   const [accessLogsSearchDebounced, setAccessLogsSearchDebounced] = useState('')
   const [accessLogsFrom, setAccessLogsFrom] = useState('')
@@ -1812,7 +1820,7 @@ export default function AdminPage() {
                 )}
                 <span className="text-xs text-gray-400 whitespace-nowrap shrink-0 ml-auto">
                   {accessLogsTotal} hits
-                  {accessLogsSummary != null && ` · ${accessLogsSummary.uniqueIps} IPs · ${accessLogsSummary.uniqueSessions} sessions`}
+                  {accessLogsSummary != null && ` · ${accessLogsSummary.uniqueIps} IPs · ${accessLogsSummary.uniqueSessions} sessions${typeof accessLogsSummary.highRiskHits === 'number' ? ` · ${accessLogsSummary.highRiskHits} high-risk on page` : ''}`}
                 </span>
               </>
             )}
@@ -1833,7 +1841,7 @@ export default function AdminPage() {
               <p className="text-gray-400 text-sm mb-4">
                 Use the <strong className="text-gray-300">search box</strong> above to filter by path, IP, email, name, referrer, session id, user agent, country/city, or method (matches any column). Column filters and time range combine with search.
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
-                Rows with <span className="text-amber-400/90">security flags</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—manage the list on the <strong className="text-gray-300">Blocked IPs</strong> tab. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
+                Rows with <span className="text-amber-400/90">security flags</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and now also include payload/header anomalies. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—manage the list on the <strong className="text-gray-300">Blocked IPs</strong> tab. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1848,6 +1856,7 @@ export default function AdminPage() {
                       <ColumnFilter label="Country" options={alDistinct.countries} selected={alCountryFilter} onApply={(v) => { setAlCountryFilter(v); setAccessLogsPage(1) }} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Path</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap min-w-[140px]">Flags</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap min-w-[120px]">Risk</th>
                       <ColumnFilter label="Method" options={alDistinct.methods} selected={alMethodFilter} onApply={(v) => { setAlMethodFilter(v); setAccessLogsPage(1) }} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Referrer</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Session</th>
@@ -1855,12 +1864,14 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {accessLogs.length === 0 && !loading && (
-                      <tr><td colSpan={12} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
+                      <tr><td colSpan={13} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
                     )}
                     {accessLogs.map((log) => {
                       const rowFlags = parseAccessLogAbnormalFlags(log.abnormalFlags)
+                      const riskFlags = Array.isArray(log.riskFlags) ? log.riskFlags : []
+                      const riskScore = typeof log.riskScore === 'number' ? log.riskScore : 0
                       return (
-                      <tr key={log.id} className={`border-b border-tank-light/10 hover:bg-tank-light/5 ${rowFlags.length ? 'bg-amber-950/15' : ''}`}>
+                      <tr key={log.id} className={`border-b border-tank-light/10 hover:bg-tank-light/5 ${rowFlags.length || riskScore >= 60 ? 'bg-amber-950/15' : ''}`}>
                         <td className="p-3 text-gray-300 whitespace-nowrap" title={log.createdAt}>
                           {new Date(log.createdAt).toLocaleString()}
                         </td>
@@ -1889,6 +1900,32 @@ export default function AdminPage() {
                                   key={code}
                                   className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-200/95 border border-amber-700/40"
                                   title={ABNORMAL_FLAG_LABELS[code] || code}
+                                >
+                                  {code}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3 text-gray-300 align-top">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-xs px-2 py-0.5 rounded border ${
+                              riskScore >= 75
+                                ? 'bg-red-900/40 text-red-200 border-red-700/40'
+                                : riskScore >= 60
+                                  ? 'bg-amber-900/40 text-amber-200 border-amber-700/40'
+                                  : 'bg-gray-800 text-gray-300 border-gray-700'
+                            }`}>
+                              {riskScore}
+                            </span>
+                          </div>
+                          {riskFlags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 max-w-[220px]">
+                              {riskFlags.map((code) => (
+                                <span
+                                  key={`${log.id}-${code}`}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-200/95 border border-purple-700/40"
+                                  title={RUNTIME_RISK_FLAG_LABELS[code] || ABNORMAL_FLAG_LABELS[code] || code}
                                 >
                                   {code}
                                 </span>
