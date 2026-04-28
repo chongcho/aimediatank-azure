@@ -3670,6 +3670,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   onContextMenu={(e) => handleMessageContextMenu(e, msg)}
                   onTouchStart={(e) => handleMessageTouchStart(e, msg)}
                   onTouchEnd={handleMessageTouchEnd}
+                  onTouchMove={handleMessageTouchEnd}
                   onTouchCancel={handleMessageTouchEnd}
                   >
                     <p style={{ fontSize: '10px', color: '#666', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>

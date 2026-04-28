@@ -31,6 +31,49 @@ async function fixPrivateMessages() {
   }
 }
 
+async function runOpenChatInspection(messageId: string, content: string) {
+  try {
+    const inspection = await inspectMediaForAgeRating({ title: content, description: undefined })
+    if (inspection.status === 'review') {
+      await prisma.chatMessage.update({
+        where: { id: messageId },
+        data: {
+          contentInspectionStatus: 'review',
+          contentInspectionAlertAt: new Date(),
+          contentInspectionSummary: inspection.summary ?? 'Message may need age rating review.',
+        },
+      })
+      const admins = await prisma.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { id: true },
+      })
+      const preview = (content || '').slice(0, 50)
+      for (const admin of admins) {
+        await prisma.notification.create({
+          data: {
+            userId: admin.id,
+            type: 'system',
+            title: '⚠️ Chat age rating review',
+            message: `Open Chat message may need review: "${preview}${content.length > 50 ? '…' : ''}". Check Admin → Chat.`,
+            link: '/admin?tab=chat',
+          },
+        })
+      }
+    } else {
+      await prisma.chatMessage.update({
+        where: { id: messageId },
+        data: {
+          contentInspectionStatus: 'pass',
+          contentInspectionAlertAt: null,
+          contentInspectionSummary: null,
+        },
+      })
+    }
+  } catch (e) {
+    console.error('Chat content inspection failed:', e)
+  }
+}
+
 // GET - Fetch recent chat messages
 export async function GET(request: Request) {
   try {
@@ -170,45 +213,9 @@ export async function POST(request: Request) {
 
     // Open Chat only: run content inspection for age rating in background; flag and notify admins if review needed
     if (!message.isPrivate) {
-      const runInspection = async () => {
-        try {
-          const inspection = await inspectMediaForAgeRating({ title: message.content, description: undefined })
-          if (inspection.status === 'review') {
-            await prisma.chatMessage.update({
-              where: { id: message.id },
-              data: {
-                contentInspectionStatus: 'review',
-                contentInspectionAlertAt: new Date(),
-                contentInspectionSummary: inspection.summary ?? 'Message may need age rating review.',
-              },
-            })
-            const admins = await prisma.user.findMany({
-              where: { role: 'ADMIN' },
-              select: { id: true },
-            })
-            const preview = (message.content || '').slice(0, 50)
-            for (const admin of admins) {
-              await prisma.notification.create({
-                data: {
-                  userId: admin.id,
-                  type: 'system',
-                  title: '⚠️ Chat age rating review',
-                  message: `Open Chat message may need review: "${preview}${message.content.length > 50 ? '…' : ''}". Check Admin → Chat.`,
-                  link: '/admin?tab=chat',
-                },
-              })
-            }
-          } else {
-            await prisma.chatMessage.update({
-              where: { id: message.id },
-              data: { contentInspectionStatus: 'pass' },
-            })
-          }
-        } catch (e) {
-          console.error('Chat content inspection failed:', e)
-        }
-      }
-      runInspection().catch((e) => console.error('Chat inspection promise rejected:', e))
+      runOpenChatInspection(message.id, message.content).catch((e) =>
+        console.error('Chat inspection promise rejected:', e)
+      )
     }
 
     // Create notification ONLY for private message recipient
@@ -279,7 +286,7 @@ export async function PATCH(request: Request) {
 
     const existing = await prisma.chatMessage.findUnique({
       where: { id: messageId },
-      select: { id: true, userId: true },
+      select: { id: true, userId: true, isPrivate: true },
     })
 
     if (!existing) {
@@ -306,6 +313,13 @@ export async function PATCH(request: Request) {
         },
       },
     })
+
+    // Re-run inspection after edits for Open Chat messages.
+    if (!existing.isPrivate) {
+      runOpenChatInspection(message.id, message.content).catch((e) =>
+        console.error('Chat inspection (edit) promise rejected:', e)
+      )
+    }
 
     return NextResponse.json({ message })
   } catch (error) {
