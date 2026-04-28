@@ -1706,6 +1706,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return Array.from(new Set(ids))
   }
 
+  const stripMediaMarkers = (content: string) => {
+    return content
+      .replace(/\s*\[\[media:[a-zA-Z0-9_-]+\]\]\s*/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  }
+
   const renderMediaPreviews = (content: string) => {
     const ids = extractMediaIds(content)
     const previews = ids
@@ -2225,7 +2232,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const startEditMessage = (message: ChatMessage) => {
     setEditingMessageId(message.id)
-    setEditingMessageText(message.content)
+    setEditingMessageText(stripMediaMarkers(message.content))
   }
 
   const cancelEditMessage = () => {
@@ -2240,12 +2247,18 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       return
     }
 
+    const originalMessage = messages.find((m) => m.id === messageId)
+    const preservedMediaMarkers = originalMessage
+      ? extractMediaIds(originalMessage.content).map((id) => `[[media:${id}]]`).join(' ')
+      : ''
+    const payloadContent = [nextContent, preservedMediaMarkers].filter(Boolean).join(' ').trim()
+
     setMessageActionLoadingId(messageId)
     try {
       const res = await fetch('/api/chat', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageId, content: nextContent }),
+        body: JSON.stringify({ messageId, content: payloadContent }),
       })
 
       const data = await res.json()
@@ -3418,101 +3431,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 </div>
               )}
 
-              {/* Popup menu for own message actions (touch long-press / right-click) */}
-              {messageMenu.show && messageMenu.message && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    position: 'fixed',
-                    top: messageMenu.y,
-                    left: messageMenu.x,
-                    background: 'white',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-                    zIndex: 100002,
-                    minWidth: '140px',
-                    overflow: 'hidden',
-                    border: '1px solid #e5e7eb',
-                  }}
-                >
-                  {!/\[\[media:[^\]]+\]\]/.test(messageMenu.message.content) && (
-                    <>
-                      <button
-                        onClick={() => {
-                          startEditMessage(messageMenu.message as ChatMessage)
-                          closeMessageMenu()
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          border: 'none',
-                          background: 'white',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          fontSize: '14px',
-                          color: '#2563eb',
-                          textAlign: 'left',
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                      >
-                        Edit
-                      </button>
-                      <div style={{ height: '1px', background: '#e5e7eb' }} />
-                    </>
-                  )}
-                  <button
-                    onClick={() => {
-                      const messageId = messageMenu.message?.id
-                      closeMessageMenu()
-                      if (messageId && window.confirm('Delete this message?')) {
-                        deleteMessage(messageId)
-                      }
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: 'none',
-                      background: 'white',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      fontSize: '14px',
-                      color: '#dc2626',
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                  >
-                    Delete
-                  </button>
-                  <div style={{ height: '1px', background: '#e5e7eb' }} />
-                  <button
-                    onClick={closeMessageMenu}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: 'none',
-                      background: 'white',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      fontSize: '14px',
-                      color: '#6b7280',
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                  >
-                    Close
-                  </button>
-                </div>
-              )}
-              
               {/* Confirmation Modal */}
               {confirmModal.show && (
                 <div
@@ -3824,34 +3742,30 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 border: '1px solid #e5e7eb',
               }}
             >
-              {!/\[\[media:[^\]]+\]\]/.test(messageMenu.message.content) && (
-                <>
-                  <button
-                    onClick={() => {
-                      startEditMessage(messageMenu.message as ChatMessage)
-                      closeMessageMenu()
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: 'none',
-                      background: 'white',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      fontSize: '14px',
-                      color: '#2563eb',
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                  >
-                    Edit
-                  </button>
-                  <div style={{ height: '1px', background: '#e5e7eb' }} />
-                </>
-              )}
+              <button
+                onClick={() => {
+                  startEditMessage(messageMenu.message as ChatMessage)
+                  closeMessageMenu()
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: 'none',
+                  background: 'white',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '14px',
+                  color: '#2563eb',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+              >
+                Edit
+              </button>
+              <div style={{ height: '1px', background: '#e5e7eb' }} />
               <button
                 onClick={() => {
                   const messageId = messageMenu.message?.id
