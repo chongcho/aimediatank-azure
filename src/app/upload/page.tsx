@@ -1901,12 +1901,10 @@ function UploadPageContent() {
               id="upload-description"
               name="description"
               value={formData.description}
-              onChange={(e) => {
-                const value = e.target.value.slice(0, 500)
-                setFormData((prev) => ({ ...prev, description: value }))
-              }}
-              placeholder="Decribe your created media ..."
-              maxLength={500}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, description: e.target.value }))
+              }
+              placeholder="Describe your created media ..."
               rows={3}
               className="resize-none overflow-hidden"
             />
