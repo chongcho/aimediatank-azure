@@ -3562,6 +3562,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             messages.map((msg) => {
               const isOwn = isOwnMessage(msg)
               const isEditing = editingMessageId === msg.id
+              const showInlineActions =
+                !isEditing &&
+                isOwn &&
+                messageMenu.show &&
+                messageMenu.message?.id === msg.id
               return (
                 <div
                   key={msg.id}
@@ -3701,6 +3706,75 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     <p style={{ fontSize: '9px', color: '#888', marginTop: '2px' }}>
                       {formatTime(msg.createdAt)}
                     </p>
+                    {showInlineActions && (
+                      <div
+                        style={{
+                          marginTop: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          width: '100%',
+                          justifyContent: isOwn ? 'flex-end' : 'flex-start',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            startEditMessage(msg)
+                            closeMessageMenu()
+                          }}
+                          style={{
+                            border: '1px solid #dbeafe',
+                            background: '#eff6ff',
+                            color: '#2563eb',
+                            borderRadius: '999px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            padding: '3px 10px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeMessageMenu()
+                            if (window.confirm('Delete this message?')) {
+                              deleteMessage(msg.id)
+                            }
+                          }}
+                          style={{
+                            border: '1px solid #fecaca',
+                            background: '#fef2f2',
+                            color: '#dc2626',
+                            borderRadius: '999px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            padding: '3px 10px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Delete
+                        </button>
+                        <button
+                          type="button"
+                          onClick={closeMessageMenu}
+                          style={{
+                            border: '1px solid #e5e7eb',
+                            background: 'white',
+                            color: '#6b7280',
+                            borderRadius: '999px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            padding: '3px 10px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Close
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Avatar - right side for own */}
@@ -3728,96 +3802,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 </div>
               )
             })
-          )}
-          {/* Popup menu for own message actions (available in all message-area states) */}
-          {messageMenu.show && messageMenu.message && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: 'fixed',
-                top: messageMenu.y,
-                left: messageMenu.x,
-                background: 'white',
-                borderRadius: '8px',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-                zIndex: 100002,
-                minWidth: '140px',
-                overflow: 'hidden',
-                border: '1px solid #e5e7eb',
-              }}
-            >
-              <button
-                onClick={() => {
-                  startEditMessage(messageMenu.message as ChatMessage)
-                  closeMessageMenu()
-                }}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: 'none',
-                  background: 'white',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '14px',
-                  color: '#2563eb',
-                  textAlign: 'left',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-              >
-                Edit
-              </button>
-              <div style={{ height: '1px', background: '#e5e7eb' }} />
-              <button
-                onClick={() => {
-                  const messageId = messageMenu.message?.id
-                  closeMessageMenu()
-                  if (messageId && window.confirm('Delete this message?')) {
-                    deleteMessage(messageId)
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: 'none',
-                  background: 'white',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '14px',
-                  color: '#dc2626',
-                  textAlign: 'left',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-              >
-                Delete
-              </button>
-              <div style={{ height: '1px', background: '#e5e7eb' }} />
-              <button
-                onClick={closeMessageMenu}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: 'none',
-                  background: 'white',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '14px',
-                  color: '#6b7280',
-                  textAlign: 'left',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-              >
-                Close
-              </button>
-            </div>
           )}
           {/* Tiny spacer so scrollIntoView doesn't clip last message */}
           <div ref={messagesEndRef} style={{ height: 4, flexShrink: 0 }} />
