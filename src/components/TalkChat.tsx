@@ -3631,18 +3631,22 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       border: 'none',
                     }}>
                       {isEditing ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '220px' }}>
-                          <input
-                            type="text"
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', minWidth: '260px' }}>
+                          <textarea
                             value={editingMessageText}
                             onChange={(e) => setEditingMessageText(e.target.value)}
                             maxLength={500}
+                            rows={4}
                             style={{
+                              width: '100%',
                               border: '1px solid #d1d5db',
                               borderRadius: '6px',
-                              padding: '4px 8px',
+                              padding: '6px 8px',
                               fontSize: '13px',
+                              lineHeight: 1.4,
                               outline: 'none',
+                              resize: 'vertical',
+                              minHeight: '88px',
                             }}
                           />
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
