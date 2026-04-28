@@ -148,6 +148,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }, [])
   // Inline notification message (replaces browser alerts)
   const [inlineNotice, setInlineNotice] = useState<string | null>(null)
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editingMessageText, setEditingMessageText] = useState('')
+  const [messageActionLoadingId, setMessageActionLoadingId] = useState<string | null>(null)
+  const [messageMenu, setMessageMenu] = useState<{
+    show: boolean
+    x: number
+    y: number
+    message: ChatMessage | null
+  }>({ show: false, x: 0, y: 0, message: null })
 
   useEffect(() => {
     if (!showMediaPicker || pickerCropSettingsLoadedRef.current) return
@@ -342,6 +351,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [editingChatName, setEditingChatName] = useState<string | null>(null) // conversationId being edited
   const [newChatName, setNewChatName] = useState('')
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const messageLongPressTimerRef = useRef<NodeJS.Timeout | null>(null)
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean
@@ -1244,6 +1254,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setContextMenu({ show: false, x: 0, y: 0, record: null })
   }
 
+  const closeMessageMenu = () => {
+    setMessageMenu({ show: false, x: 0, y: 0, message: null })
+  }
+
   const handleEditChatName = () => {
     if (contextMenu.record?.conversationId) {
       setEditingChatName(contextMenu.record.conversationId)
@@ -1351,10 +1365,19 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       if (contextMenu.show) {
         closeContextMenu()
       }
+      if (messageMenu.show) {
+        closeMessageMenu()
+      }
     }
     document.addEventListener('click', handleClickOutside)
-    return () => document.removeEventListener('click', handleClickOutside)
-  }, [contextMenu.show])
+    return () => {
+      document.removeEventListener('click', handleClickOutside)
+      if (messageLongPressTimerRef.current) {
+        clearTimeout(messageLongPressTimerRef.current)
+        messageLongPressTimerRef.current = null
+      }
+    }
+  }, [contextMenu.show, messageMenu.show])
 
   const insertEmoji = (emoji: string) => {
     setNewMessage(prev => prev + emoji)
@@ -2181,6 +2204,119 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       alert('Failed to send message')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const startEditMessage = (message: ChatMessage) => {
+    setEditingMessageId(message.id)
+    setEditingMessageText(message.content)
+  }
+
+  const cancelEditMessage = () => {
+    setEditingMessageId(null)
+    setEditingMessageText('')
+  }
+
+  const saveEditedMessage = async (messageId: string) => {
+    const nextContent = editingMessageText.trim()
+    if (!nextContent) {
+      alert('Message cannot be empty')
+      return
+    }
+
+    setMessageActionLoadingId(messageId)
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, content: nextContent }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data?.error || 'Failed to edit message')
+        return
+      }
+
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, content: data.message.content } : m))
+      )
+      setEditingMessageId(null)
+      setEditingMessageText('')
+      closeMessageMenu()
+    } catch (error) {
+      console.error('Error editing message:', error)
+      alert('Failed to edit message')
+    } finally {
+      setMessageActionLoadingId(null)
+    }
+  }
+
+  const deleteMessage = async (messageId: string) => {
+    setMessageActionLoadingId(messageId)
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data?.error || 'Failed to delete message')
+        return
+      }
+
+      setMessages((prev) => prev.filter((m) => m.id !== messageId))
+      if (editingMessageId === messageId) {
+        cancelEditMessage()
+      }
+      closeMessageMenu()
+    } catch (error) {
+      console.error('Error deleting message:', error)
+      alert('Failed to delete message')
+    } finally {
+      setMessageActionLoadingId(null)
+    }
+  }
+
+  const openMessageMenuAt = (message: ChatMessage, x: number, y: number) => {
+    if (message.user.id !== session?.user?.id) return
+    setMessageMenu({
+      show: true,
+      x: Math.max(8, x),
+      y: Math.max(8, y),
+      message,
+    })
+  }
+
+  const handleMessageContextMenu = (e: React.MouseEvent, message: ChatMessage) => {
+    if (message.user.id !== session?.user?.id || editingMessageId === message.id) return
+    e.preventDefault()
+    e.stopPropagation()
+    closeContextMenu()
+    openMessageMenuAt(message, e.clientX, e.clientY)
+  }
+
+  const handleMessageTouchStart = (e: React.TouchEvent, message: ChatMessage) => {
+    if (message.user.id !== session?.user?.id || editingMessageId === message.id) return
+    const touch = e.touches[0]
+    if (!touch) return
+    if (messageLongPressTimerRef.current) {
+      clearTimeout(messageLongPressTimerRef.current)
+    }
+    const x = touch.clientX
+    const y = touch.clientY
+    messageLongPressTimerRef.current = setTimeout(() => {
+      closeContextMenu()
+      openMessageMenuAt(message, x, y)
+    }, 550)
+  }
+
+  const handleMessageTouchEnd = () => {
+    if (messageLongPressTimerRef.current) {
+      clearTimeout(messageLongPressTimerRef.current)
+      messageLongPressTimerRef.current = null
     }
   }
 
@@ -3264,6 +3400,101 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   </button>
                 </div>
               )}
+
+              {/* Popup menu for own message actions (touch long-press / right-click) */}
+              {messageMenu.show && messageMenu.message && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: 'fixed',
+                    top: messageMenu.y,
+                    left: messageMenu.x,
+                    background: 'white',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                    zIndex: 100002,
+                    minWidth: '140px',
+                    overflow: 'hidden',
+                    border: '1px solid #e5e7eb',
+                  }}
+                >
+                  {!/\[\[media:[^\]]+\]\]/.test(messageMenu.message.content) && (
+                    <>
+                      <button
+                        onClick={() => {
+                          startEditMessage(messageMenu.message as ChatMessage)
+                          closeMessageMenu()
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: 'none',
+                          background: 'white',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          fontSize: '14px',
+                          color: '#2563eb',
+                          textAlign: 'left',
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                      >
+                        Edit
+                      </button>
+                      <div style={{ height: '1px', background: '#e5e7eb' }} />
+                    </>
+                  )}
+                  <button
+                    onClick={() => {
+                      const messageId = messageMenu.message?.id
+                      closeMessageMenu()
+                      if (messageId && window.confirm('Delete this message?')) {
+                        deleteMessage(messageId)
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: 'none',
+                      background: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '14px',
+                      color: '#dc2626',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                  >
+                    Delete
+                  </button>
+                  <div style={{ height: '1px', background: '#e5e7eb' }} />
+                  <button
+                    onClick={closeMessageMenu}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: 'none',
+                      background: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '14px',
+                      color: '#6b7280',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
               
               {/* Confirmation Modal */}
               {confirmModal.show && (
@@ -3395,6 +3626,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           ) : (
             messages.map((msg) => {
               const isOwn = msg.user.id === session?.user?.id
+              const isEditing = editingMessageId === msg.id
               return (
                 <div
                   key={msg.id}
@@ -3434,7 +3666,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: isOwn ? 'flex-end' : 'flex-start',
-                  }}>
+                  }}
+                  onContextMenu={(e) => handleMessageContextMenu(e, msg)}
+                  onTouchStart={(e) => handleMessageTouchStart(e, msg)}
+                  onTouchEnd={handleMessageTouchEnd}
+                  onTouchCancel={handleMessageTouchEnd}
+                  >
                     <p style={{ fontSize: '10px', color: '#666', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       {formatDisplayUsername(msg.user.username)}
                       {typeof msg.user.warningCount === 'number' && msg.user.warningCount > 0 && (
@@ -3457,15 +3694,69 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       color: '#1a1a1a',
                       border: 'none',
                     }}>
-                      {(() => {
-                        const renderedContent = renderMessageContent(msg.content)
-                        return renderedContent ? (
-                          <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                            {renderedContent}
-                          </p>
-                        ) : null
-                      })()}
-                      {renderMediaPreviews(msg.content)}
+                      {isEditing ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '220px' }}>
+                          <input
+                            type="text"
+                            value={editingMessageText}
+                            onChange={(e) => setEditingMessageText(e.target.value)}
+                            maxLength={500}
+                            style={{
+                              border: '1px solid #d1d5db',
+                              borderRadius: '6px',
+                              padding: '4px 8px',
+                              fontSize: '13px',
+                              outline: 'none',
+                            }}
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={cancelEditMessage}
+                              disabled={messageActionLoadingId === msg.id}
+                              style={{
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                background: 'white',
+                                color: '#374151',
+                                fontSize: '11px',
+                                padding: '2px 8px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => saveEditedMessage(msg.id)}
+                              disabled={messageActionLoadingId === msg.id || !editingMessageText.trim()}
+                              style={{
+                                border: 'none',
+                                borderRadius: '6px',
+                                background: '#2563eb',
+                                color: 'white',
+                                fontSize: '11px',
+                                padding: '3px 8px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {(() => {
+                            const renderedContent = renderMessageContent(msg.content)
+                            return renderedContent ? (
+                              <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                {renderedContent}
+                              </p>
+                            ) : null
+                          })()}
+                          {renderMediaPreviews(msg.content)}
+                        </>
+                      )}
                     </div>
                     <p style={{ fontSize: '9px', color: '#888', marginTop: '2px' }}>
                       {formatTime(msg.createdAt)}

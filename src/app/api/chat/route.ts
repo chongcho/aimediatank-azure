@@ -251,3 +251,111 @@ export async function POST(request: Request) {
   }
 }
 
+// PATCH - Edit an existing chat message (writer only)
+export async function PATCH(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { messageId, content } = await request.json()
+
+    if (!messageId || typeof messageId !== 'string') {
+      return NextResponse.json({ error: 'Message ID is required' }, { status: 400 })
+    }
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return NextResponse.json({ error: 'Message content is required' }, { status: 400 })
+    }
+
+    if (content.length > 500) {
+      return NextResponse.json(
+        { error: 'Message too long (max 500 characters)' },
+        { status: 400 }
+      )
+    }
+
+    const existing = await prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      select: { id: true, userId: true },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Message not found' }, { status: 404 })
+    }
+
+    if (existing.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const message = await prisma.chatMessage.update({
+      where: { id: messageId },
+      data: { content: content.trim() },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            name: true,
+            avatar: true,
+            role: true,
+            warningCount: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json({ message })
+  } catch (error) {
+    console.error('Error editing chat message:', error)
+    return NextResponse.json(
+      { error: 'Failed to edit message' },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE - Remove a chat message (writer only)
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { messageId } = await request.json()
+
+    if (!messageId || typeof messageId !== 'string') {
+      return NextResponse.json({ error: 'Message ID is required' }, { status: 400 })
+    }
+
+    const existing = await prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      select: { id: true, userId: true },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Message not found' }, { status: 404 })
+    }
+
+    if (existing.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    await prisma.chatMessage.delete({
+      where: { id: messageId },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting chat message:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete message' },
+      { status: 500 }
+    )
+  }
+}
+
