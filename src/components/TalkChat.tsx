@@ -3807,6 +3807,100 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               )
             })
           )}
+          {/* Popup menu for own message actions (available in all message-area states) */}
+          {messageMenu.show && messageMenu.message && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'fixed',
+                top: messageMenu.y,
+                left: messageMenu.x,
+                background: 'white',
+                borderRadius: '8px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                zIndex: 100002,
+                minWidth: '140px',
+                overflow: 'hidden',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              {!/\[\[media:[^\]]+\]\]/.test(messageMenu.message.content) && (
+                <>
+                  <button
+                    onClick={() => {
+                      startEditMessage(messageMenu.message as ChatMessage)
+                      closeMessageMenu()
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: 'none',
+                      background: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '14px',
+                      color: '#2563eb',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                  >
+                    Edit
+                  </button>
+                  <div style={{ height: '1px', background: '#e5e7eb' }} />
+                </>
+              )}
+              <button
+                onClick={() => {
+                  const messageId = messageMenu.message?.id
+                  closeMessageMenu()
+                  if (messageId && window.confirm('Delete this message?')) {
+                    deleteMessage(messageId)
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: 'none',
+                  background: 'white',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '14px',
+                  color: '#dc2626',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+              >
+                Delete
+              </button>
+              <div style={{ height: '1px', background: '#e5e7eb' }} />
+              <button
+                onClick={closeMessageMenu}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: 'none',
+                  background: 'white',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '14px',
+                  color: '#6b7280',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+              >
+                Close
+              </button>
+            </div>
+          )}
           {/* Tiny spacer so scrollIntoView doesn't clip last message */}
           <div ref={messagesEndRef} style={{ height: 4, flexShrink: 0 }} />
         </div>
