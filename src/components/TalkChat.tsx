@@ -3603,6 +3603,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   
                   <div style={{ 
                     maxWidth: '70%',
+                    width: isEditing ? '100%' : undefined,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: isOwn ? 'flex-end' : 'flex-start',
@@ -3629,11 +3630,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       )}
                     </p>
                     <div style={{
+                      width: isEditing ? '100%' : undefined,
                       padding: '1px 12px',
                       borderRadius: '6px',
                       backgroundColor: isOwn ? '#fef9c3' : '#e0f2fe',
                       color: '#1a1a1a',
                       border: 'none',
+                      boxSizing: 'border-box',
                     }}>
                       {isEditing ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
