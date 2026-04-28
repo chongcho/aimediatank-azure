@@ -3637,6 +3637,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       color: '#1a1a1a',
                       border: 'none',
                       boxSizing: 'border-box',
+                      userSelect: isEditing ? 'text' : 'none',
+                      WebkitUserSelect: isEditing ? 'text' as const : 'none' as const,
+                      WebkitTouchCallout: isEditing ? 'default' as const : 'none' as const,
                     }}>
                       {isEditing ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
@@ -3699,7 +3702,19 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           {(() => {
                             const renderedContent = renderMessageContent(msg.content)
                             return renderedContent ? (
-                              <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                              <p
+                                onMouseDown={(e) => e.preventDefault()}
+                                onTouchStart={(e) => e.preventDefault()}
+                                style={{
+                                  margin: 0,
+                                  fontSize: '13px',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                  userSelect: 'none',
+                                  WebkitUserSelect: 'none' as const,
+                                  WebkitTouchCallout: 'none' as const,
+                                }}
+                              >
                                 {renderedContent}
                               </p>
                             ) : null
