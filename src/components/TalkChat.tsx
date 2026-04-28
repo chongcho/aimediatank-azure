@@ -190,6 +190,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return username.trim()
   }
 
+  const isOwnMessage = useCallback((message: ChatMessage) => {
+    const currentUserId = session?.user?.id
+    if (currentUserId) {
+      return message.user.id === currentUserId
+    }
+    if (currentUsername) {
+      return message.user.username === currentUsername
+    }
+    return false
+  }, [session?.user?.id, currentUsername])
+
   // Load chat size from localStorage on mount
   useEffect(() => {
     const savedSize = localStorage.getItem('talkChatSize')
@@ -352,6 +363,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [newChatName, setNewChatName] = useState('')
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
   const messageLongPressTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const messageMenuOpenedAtRef = useRef(0)
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean
@@ -1362,6 +1374,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Close context menu when clicking outside
   useEffect(() => {
     const handleClickOutside = () => {
+      // Prevent immediate close from the same gesture that opened the message menu.
+      if (Date.now() - messageMenuOpenedAtRef.current < 350) {
+        return
+      }
       if (contextMenu.show) {
         closeContextMenu()
       }
@@ -2281,7 +2297,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
 
   const openMessageMenuAt = (message: ChatMessage, x: number, y: number) => {
-    if (message.user.id !== session?.user?.id) return
+    if (!isOwnMessage(message)) return
+    messageMenuOpenedAtRef.current = Date.now()
     setMessageMenu({
       show: true,
       x: Math.max(8, x),
@@ -2291,7 +2308,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
 
   const handleMessageContextMenu = (e: React.MouseEvent, message: ChatMessage) => {
-    if (message.user.id !== session?.user?.id || editingMessageId === message.id) return
+    if (!isOwnMessage(message) || editingMessageId === message.id) return
     e.preventDefault()
     e.stopPropagation()
     closeContextMenu()
@@ -2299,7 +2316,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
 
   const handleMessageTouchStart = (e: React.TouchEvent, message: ChatMessage) => {
-    if (message.user.id !== session?.user?.id || editingMessageId === message.id) return
+    if (!isOwnMessage(message) || editingMessageId === message.id) return
     const touch = e.touches[0]
     if (!touch) return
     if (messageLongPressTimerRef.current) {
@@ -3625,7 +3642,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </div>
           ) : (
             messages.map((msg) => {
-              const isOwn = msg.user.id === session?.user?.id
+              const isOwn = isOwnMessage(msg)
               const isEditing = editingMessageId === msg.id
               return (
                 <div
