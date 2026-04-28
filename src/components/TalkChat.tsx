@@ -3636,7 +3636,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       border: 'none',
                     }}>
                       {isEditing ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', minWidth: '260px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
                           <textarea
                             value={editingMessageText}
                             onChange={(e) => setEditingMessageText(e.target.value)}
@@ -3654,6 +3654,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                               minHeight: '88px',
                             }}
                           />
+                          {/* Keep visual footprint consistent with non-edit mode */}
+                          {renderMediaPreviews(msg.content)}
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                             <button
                               type="button"
