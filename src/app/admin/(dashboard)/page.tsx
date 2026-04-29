@@ -571,6 +571,7 @@ export default function AdminPage() {
   const [blockIpInput, setBlockIpInput] = useState('')
   const [blockIpNote, setBlockIpNote] = useState('')
   const [blockIpSubmitting, setBlockIpSubmitting] = useState(false)
+  const [accessLogBlockingIp, setAccessLogBlockingIp] = useState<string | null>(null)
 
   // File size backfill status (Media tab)
   const [fileSizeStatus, setFileSizeStatus] = useState<{ missing: number } | null>(null)
@@ -1502,6 +1503,30 @@ export default function AdminPage() {
     }
   }
 
+  const handleBlockIpFromAccessLog = async (ipAddress: string, path: string) => {
+    if (!ipAddress?.trim()) return
+    if (
+      !confirm(
+        `Block ${ipAddress}? Their traffic will be hidden from Access Logs and return 403 when IP blocking enforcement is active (see Blocked IPs tab).`
+      )
+    ) {
+      return
+    }
+    setAccessLogBlockingIp(ipAddress)
+    try {
+      const note = `From Access Logs: ${path || '/'}`
+      const { ok, data } = await blockIpApi(ipAddress, note)
+      if (ok) {
+        setToast({ message: `Blocked ${ipAddress}`, type: 'success' })
+        fetchData()
+      } else {
+        setToast({ message: (data as { error?: string }).error || 'Failed to block IP', type: 'error' })
+      }
+    } finally {
+      setAccessLogBlockingIp(null)
+    }
+  }
+
   if (status === 'loading' || !session?.user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1841,7 +1866,7 @@ export default function AdminPage() {
               <p className="text-gray-400 text-sm mb-4">
                 Use the <strong className="text-gray-300">search box</strong> above to filter by path, IP, email, name, referrer, session id, user agent, country/city, or method (matches any column). Column filters and time range combine with search.
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
-                Rows with <span className="text-amber-400/90">security flags</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and now also include payload/header anomalies. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—manage the list on the <strong className="text-gray-300">Blocked IPs</strong> tab. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
+                Rows with <span className="text-amber-400/90">security flags</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and now also include payload/header anomalies. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. Use <strong className="text-gray-300">Block IP</strong> in each row to add that address to the blocklist. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—use the <strong className="text-gray-300">Blocked IPs</strong> tab for the full list and enforcement. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1849,6 +1874,7 @@ export default function AdminPage() {
                     <tr className="border-b border-tank-light/30">
                       <TimePeriodFilter selected={alTimePeriod} onApply={(v) => { setAlTimePeriod(v); if (v) { setAccessLogsFrom(''); setAccessLogsTo('') }; setAccessLogsPage(1) }} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">IP</th>
+                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap w-24">Block</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Name</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email</th>
                       <ColumnFilter label="Browser" options={alDistinct.browsers} selected={alBrowserFilter} onApply={(v) => { setAlBrowserFilter(v); setAccessLogsPage(1) }} />
@@ -1864,7 +1890,7 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {accessLogs.length === 0 && !loading && (
-                      <tr><td colSpan={13} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
+                      <tr><td colSpan={14} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
                     )}
                     {accessLogs.map((log) => {
                       const rowFlags = parseAccessLogAbnormalFlags(log.abnormalFlags)
@@ -1877,6 +1903,20 @@ export default function AdminPage() {
                         </td>
                         <td className="p-3 text-gray-300 font-mono text-xs whitespace-nowrap" title={log.ipAddress ?? ''}>
                           {log.ipAddress ?? '-'}
+                        </td>
+                        <td className="p-3 align-top whitespace-nowrap">
+                          {log.ipAddress ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleBlockIpFromAccessLog(log.ipAddress as string, log.path ?? '')}
+                              disabled={accessLogBlockingIp === log.ipAddress}
+                              className="text-xs px-2 py-1 rounded bg-red-900/50 text-red-200 border border-red-700/50 hover:bg-red-800/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {accessLogBlockingIp === log.ipAddress ? 'Blocking…' : 'Block IP'}
+                            </button>
+                          ) : (
+                            <span className="text-gray-600">—</span>
+                          )}
                         </td>
                         <td className="p-3 text-gray-300 whitespace-nowrap">{log.userName ?? <span className="text-gray-600">-</span>}</td>
                         <td className="p-3 text-gray-300 text-xs">{log.userEmail ?? <span className="text-gray-600">-</span>}</td>
