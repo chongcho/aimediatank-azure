@@ -101,6 +101,10 @@ export default function EditProfilePage() {
     code: '',
     error: '',
   })
+  const [authSettings, setAuthSettings] = useState({
+    emailVerificationEnabled: true,
+    phoneVerificationEnabled: true,
+  })
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -119,6 +123,31 @@ export default function EditProfilePage() {
         }
       })
       .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadAuthenticationSettings = async () => {
+      try {
+        const res = await fetch('/api/ui/authentication')
+        const data = await res.json()
+        if (!cancelled) {
+          setAuthSettings({
+            emailVerificationEnabled: data.emailVerificationEnabled !== false,
+            phoneVerificationEnabled: data.phoneVerificationEnabled !== false,
+          })
+        }
+      } catch {
+        // Keep secure defaults (both enabled) when endpoint is unavailable.
+      }
+    }
+    loadAuthenticationSettings()
+    const onUpdated = () => loadAuthenticationSettings()
+    window.addEventListener('authenticationSettingsUpdated', onUpdated)
+    return () => {
+      cancelled = true
+      window.removeEventListener('authenticationSettingsUpdated', onUpdated)
+    }
   }, [])
 
   const fetchProfile = async () => {
@@ -488,7 +517,7 @@ export default function EditProfilePage() {
     }
 
     // Check if email changed and needs verification
-    if (emailChanged && !emailVerificationState.codeVerified) {
+    if (authSettings.emailVerificationEnabled && emailChanged && !emailVerificationState.codeVerified) {
       setError('Please verify your new email address before saving')
       return
     }
@@ -504,7 +533,7 @@ export default function EditProfilePage() {
       return
     }
 
-    if (phoneChangedAndValid) {
+    if (authSettings.phoneVerificationEnabled && phoneChangedAndValid) {
       if (!phoneVerificationState.codeSent || phoneVerificationState.code.trim().length !== 6) {
         setError('Please request a verification code and enter the 6-digit code sent to your phone before saving.')
         return
@@ -526,7 +555,7 @@ export default function EditProfilePage() {
         birthday: formData.birthday || undefined,
         avatar: formData.avatar,
       }
-      if (phoneChangedAndValid && phoneVerificationState.code.trim().length === 6) {
+      if (authSettings.phoneVerificationEnabled && phoneChangedAndValid && phoneVerificationState.code.trim().length === 6) {
         updateData.phoneVerificationCode = phoneVerificationState.code.trim()
       }
 
@@ -714,7 +743,7 @@ export default function EditProfilePage() {
             />
               </div>
               {/* Show verify button only when email changed and not verified */}
-              {emailChanged && !emailVerificationState.codeVerified ? (
+              {authSettings.emailVerificationEnabled && emailChanged && !emailVerificationState.codeVerified ? (
                 <button
                   type="button"
                   onClick={sendVerificationCode}
@@ -735,23 +764,27 @@ export default function EditProfilePage() {
                     'Verify Email'
                   )}
                 </button>
-              ) : emailChanged && emailVerificationState.codeVerified ? (
+              ) : authSettings.emailVerificationEnabled && emailChanged && emailVerificationState.codeVerified ? (
                 <div className="flex items-center px-4 py-2 bg-green-500/20 text-green-400 rounded-xl text-sm font-medium whitespace-nowrap border border-green-500/50">
                   <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   Verified
                 </div>
-              ) : formData.emailVerified ? (
+              ) : authSettings.emailVerificationEnabled && formData.emailVerified ? (
                 <div className="flex items-center px-3 py-2 text-green-400 text-sm">
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   Verified
                 </div>
+              ) : !authSettings.emailVerificationEnabled ? (
+                <div className="flex items-center px-3 py-2 text-gray-400 text-sm whitespace-nowrap">
+                  Verification OFF
+                </div>
               ) : null}
             </div>
-            {emailChanged && !emailVerificationState.codeVerified && (
+            {authSettings.emailVerificationEnabled && emailChanged && !emailVerificationState.codeVerified && (
               <p className="text-xs text-yellow-400 mt-1">
                 Email changed - verification required
               </p>
@@ -776,7 +809,7 @@ export default function EditProfilePage() {
               placeholder="+1 (555) 000-0000"
               className="w-full"
             />
-            {phoneChangedAndValid && (
+            {authSettings.phoneVerificationEnabled && phoneChangedAndValid && (
               <div className="mt-2 space-y-1">
                 <p className="text-xs text-yellow-400">Verify this number to save. A code will be sent via SMS (Azure ACS).</p>
                 {!phoneVerificationState.codeSent ? (
