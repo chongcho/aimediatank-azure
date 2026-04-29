@@ -1948,8 +1948,8 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="p-3 text-gray-300 align-top">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-xs px-2 py-0.5 rounded border ${
+                          <div className="flex flex-wrap items-center gap-2 max-w-[320px]">
+                            <span className={`shrink-0 text-xs px-2 py-0.5 rounded border ${
                               riskScore >= 75
                                 ? 'bg-red-900/40 text-red-200 border-red-700/40'
                                 : riskScore >= 60
@@ -1958,20 +1958,20 @@ export default function AdminPage() {
                             }`}>
                               {riskScore}
                             </span>
+                            {riskFlags.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1 min-w-0">
+                                {riskFlags.map((code) => (
+                                  <span
+                                    key={`${log.id}-${code}`}
+                                    className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-200/95 border border-purple-700/40"
+                                    title={RUNTIME_RISK_FLAG_LABELS[code] || ABNORMAL_FLAG_LABELS[code] || code}
+                                  >
+                                    {code}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          {riskFlags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 max-w-[220px]">
-                              {riskFlags.map((code) => (
-                                <span
-                                  key={`${log.id}-${code}`}
-                                  className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-200/95 border border-purple-700/40"
-                                  title={RUNTIME_RISK_FLAG_LABELS[code] || ABNORMAL_FLAG_LABELS[code] || code}
-                                >
-                                  {code}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </td>
                         <td className="p-3 text-gray-400">{log.method}</td>
                         <td className="p-3 text-gray-400 max-w-[150px] truncate" title={log.referrer ?? ''}>{log.referrer || '-'}</td>
