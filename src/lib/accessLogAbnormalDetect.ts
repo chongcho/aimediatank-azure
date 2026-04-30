@@ -59,6 +59,7 @@ const WP_RES = [
   /wp-login/i,
   /wp-content/i,
   /wp-includes/i,
+  /(^|\/)wp-old(?:\/|$)/i,
   /\/wp-json(\/|$)/i, // WP REST API — scanners hit this even on non-WP sites
   /wp-config/i, // wp-config.php / backups — credential probe
   /xmlrpc\.php/i,
@@ -69,15 +70,19 @@ const WP_RES = [
 const PHP_RES = [
   /phpmyadmin/i,
   /\/pma\//i,
-  /phpinfo/i,
+  /(^|\/)phpinfo(?:\.php)?(?:\/|$)/i,
+  /(^|\/)info(?:\/|$)/i,
   /\/cgi-bin\//i,
+  /(^|\/)index\.php(?:\/|$)/i,
   /eval-stdin\.php/i,
   /thinkphp/i,
   /vendor\/phpunit/i,
+  /\.php(?:\d+)?$/i,
   /\.php$/i,
 ]
 
 const CONFIG_RES = [
+  /(^|\/)_environment(?:\/|$)/i,
   /(^|\/)config\.js$/i,
   /(^|\/)settings\.json$/i,
   /(^|\/)runtime-config\.js$/i,
@@ -102,6 +107,10 @@ const CONFIG_RES = [
   /\.bak$/i,
   /\.old$/i,
   /backup\.(sql|zip|tar|gz)/i,
+  // Common dictionary-style recon endpoints hit in case-variant bursts.
+  /(^|\/)(?:demo|test|backup|old|new|bk|bc|main|www)(?:\/|$)/i,
+  /(^|\/)(?:oldsite|old-site)(?:\/|$)/i,
+  /(^|\/)20(?:1[7-9]|2[0-4])(?:\/|$)/i,
   // Common scanner probes for downloadable backup dumps.
   /(^|\/)(?:db|web|website|site|public_html|htdocs|www|backup(?:[_-]?(?:full|tpl|2))?|backups?|archive|old|bak|bkp|back|7bk)(?:[_-][^\/]+)?\.(?:zip|tar(?:\.gz)?|tgz|gz)$/i,
   /web\.config$/i,
