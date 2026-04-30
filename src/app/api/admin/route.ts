@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
+import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
 import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
@@ -465,6 +466,17 @@ export async function GET(request: Request) {
           } catch {
             parsed = []
           }
+        }
+        // Backfill for legacy rows that were stored without abnormalFlags.
+        if (parsed.length === 0) {
+          parsed = detectAbnormalAccess({
+            path: log.path || '',
+            method: log.method || 'GET',
+            statusCode: log.statusCode ?? null,
+            query: log.query ?? null,
+            referrer: log.referrer ?? null,
+            userAgent: log.userAgent ?? null,
+          })
         }
         parsedFlagsByLog.set(log.id, parsed)
       }

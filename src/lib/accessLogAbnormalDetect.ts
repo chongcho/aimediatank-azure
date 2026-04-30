@@ -35,10 +35,15 @@ const GIT_RES = [/\/\.git(\/|$)/i, /\.git\/(config|HEAD|index|objects)/i]
 const ENV_RES = [
   /\.env/i,
   /\.env\./i,
+  /(^|\/)env\.json$/i,
   /(^|\/)\.netrc$/i,
   /(^|\/)aws\.env$/i,
   /\.pem(\/|$)/i,
   /id_rsa/i,
+  /id_dsa/i,
+  /id_ed25519/i,
+  /authorized_keys/i,
+  /known_hosts/i,
   /\.htpasswd/i,
   /\.htaccess/i,
   /\.npmrc$/i,
@@ -73,6 +78,13 @@ const PHP_RES = [
 ]
 
 const CONFIG_RES = [
+  /(^|\/)config\.js$/i,
+  /(^|\/)settings\.json$/i,
+  /(^|\/)runtime-config\.js$/i,
+  /(^|\/)terraform\.tfvars$/i,
+  /(^|\/)serverless\.ya?ml$/i,
+  /(^|\/)asset-manifest\.json$/i,
+  /(^|\/)build-manifest\.json$/i,
   /(^|\/)config\/(?:secrets|database)\.ya?ml$/i,
   /(^|\/)\.gitlab-ci\.ya?ml$/i,
   /(^|\/)terraform\.tfstate(?:\.backup)?$/i,
