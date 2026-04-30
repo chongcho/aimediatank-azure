@@ -3646,7 +3646,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           <textarea
                             value={editingMessageText}
                             onChange={(e) => setEditingMessageText(e.target.value)}
-                            maxLength={500}
                             rows={4}
                             style={{
                               width: '100%',

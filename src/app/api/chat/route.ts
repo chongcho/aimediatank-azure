@@ -174,14 +174,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Limit message length
-    if (content.length > 500) {
-      return NextResponse.json(
-        { error: 'Message too long (max 500 characters)' },
-        { status: 400 }
-      )
-    }
-
     // Validate private message has recipient
     if (isPrivate && !recipientId) {
       return NextResponse.json(
@@ -275,13 +267,6 @@ export async function PATCH(request: Request) {
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       return NextResponse.json({ error: 'Message content is required' }, { status: 400 })
-    }
-
-    if (content.length > 500) {
-      return NextResponse.json(
-        { error: 'Message too long (max 500 characters)' },
-        { status: 400 }
-      )
     }
 
     const existing = await prisma.chatMessage.findUnique({
