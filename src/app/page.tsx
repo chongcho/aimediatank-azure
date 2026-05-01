@@ -6,7 +6,6 @@ import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 import LiveChat from '@/components/LiveChat'
 import { getHomeFeed, saveHomeFeed } from '@/lib/homePrefetchCache'
-import { unlockHomePreplaySound } from '@/lib/homePreplaySoundUnlock'
 
 interface Media {
   id: string
@@ -161,21 +160,6 @@ function HomeContent() {
         setHomePreplay(data.preplay !== false)
       })
       .catch(() => {})
-  }, [])
-
-  // After any tap/click/key on the homepage, allow hover/in-view previews to use sound where the browser permits.
-  useEffect(() => {
-    const onGesture = () => {
-      unlockHomePreplaySound()
-      window.removeEventListener('pointerdown', onGesture)
-      window.removeEventListener('keydown', onGesture)
-    }
-    window.addEventListener('pointerdown', onGesture, { passive: true })
-    window.addEventListener('keydown', onGesture, { passive: true })
-    return () => {
-      window.removeEventListener('pointerdown', onGesture)
-      window.removeEventListener('keydown', onGesture)
-    }
   }, [])
 
   useEffect(() => {

@@ -10,11 +10,6 @@ import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
 import { formatViewCount } from '@/lib/formatViewCount'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
-import {
-  getHomePreplaySoundUnlocked,
-  subscribeHomePreplaySound,
-  unlockHomePreplaySound,
-} from '@/lib/homePreplaySoundUnlock'
 
 interface MediaCardProps {
   media: {
@@ -116,10 +111,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
-  const [homePreplaySoundUnlocked, setHomePreplaySoundUnlocked] = useState(() =>
-    typeof window !== 'undefined' ? getHomePreplaySoundUnlocked() : false
-  )
-  /** User tapped "Sound" on this card so unmute happens inside a gesture (required on mobile and often on desktop). */
+  /** Only set after explicit "Sound" tap — WebKit rejects unmuted play() without a user gesture and hides recovery if we force muted=false earlier. */
   const [hoverClickUnmuted, setHoverClickUnmuted] = useState(false)
   const preplayViewCountedRef = useRef(false)
   const preplay10sTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -291,10 +283,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }, [])
 
   useEffect(() => {
-    return subscribeHomePreplaySound(() => setHomePreplaySoundUnlocked(true))
-  }, [])
-
-  useEffect(() => {
     if (!isInView) setHoverClickUnmuted(false)
   }, [isInView])
 
@@ -350,7 +338,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     if (!isMobile) return
     const isPreplay = preplay && media.type === 'VIDEO' && isPlayable
     if (!isPreplay) return
-    const audible = homePreplaySoundUnlocked || hoverClickUnmuted
+    const audible = hoverClickUnmuted
     const hasThumb = !!(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
     const useOverlayVideo = hasThumb && !thumbnailError
     const useFallbackVideo = media.type === 'VIDEO' && !hasThumb && !thumbnailError
@@ -359,13 +347,14 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         if (useOverlayVideo) {
           const v = preplayVideoRef.current
           if (v) {
-            v.muted = !audible
+            // Never force unmuted here — rAF is outside a gesture; WebKit rejects unmuted play() and the Sound chip must stay available.
+            if (!audible) v.muted = true
             void v.play().catch(() => {})
           }
         } else if (useFallbackVideo) {
           const v = videoRef.current
           if (v) {
-            v.muted = !audible
+            if (!audible) v.muted = true
             void v.play().catch(() => {})
           }
         }
@@ -384,7 +373,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     media.thumbnailUrl,
     media.url,
     thumbnailError,
-    homePreplaySoundUnlocked,
     hoverClickUnmuted,
   ])
 
@@ -715,8 +703,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
 
   const isPreplayVideo = preplay && media.type === 'VIDEO' && isPlayable
-  const preplayAudible =
-    isPreplayVideo && (homePreplaySoundUnlocked || hoverClickUnmuted)
+  const preplayAudible = isPreplayVideo && hoverClickUnmuted
 
   const recordPreplayView = useCallback(() => {
     if (preplayViewCountedRef.current || !media.id) return
@@ -1004,13 +991,16 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                unlockHomePreplaySound()
-                setHoverClickUnmuted(true)
                 const v = preplayVideoRef.current ?? videoRef.current
-                if (v) {
-                  v.muted = false
-                  void v.play()
-                }
+                if (!v) return
+                v.muted = false
+                void v.play().then(
+                  () => setHoverClickUnmuted(true),
+                  () => {
+                    v.muted = true
+                    void v.play().catch(() => {})
+                  }
+                )
               }}
             >
               <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
