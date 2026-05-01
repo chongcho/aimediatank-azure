@@ -411,7 +411,7 @@ export default function ProfilePage() {
         </button>
         <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
           {/* Avatar */}
-          <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-4xl font-bold shrink-0">
+          <div className="w-32 h-32 rounded-lg overflow-hidden bg-gradient-to-br from-tank-accent to-purple-500 flex items-center justify-center text-4xl font-bold shrink-0">
             {profile.avatar ? (
               <img 
                 src={`${profile.avatar}${profile.avatar.includes('?') ? '&' : '?'}t=${Date.now()}`}
