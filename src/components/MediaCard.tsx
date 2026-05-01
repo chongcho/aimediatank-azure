@@ -10,6 +10,11 @@ import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
 import { formatViewCount } from '@/lib/formatViewCount'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
+import {
+  getHomePreplaySoundUnlocked,
+  subscribeHomePreplaySound,
+  unlockHomePreplaySound,
+} from '@/lib/homePreplaySoundUnlock'
 
 interface MediaCardProps {
   media: {
@@ -111,6 +116,11 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [homePreplaySoundUnlocked, setHomePreplaySoundUnlocked] = useState(() =>
+    typeof window !== 'undefined' ? getHomePreplaySoundUnlocked() : false
+  )
+  /** User tapped "Sound" on this card so unmute happens inside a gesture (required on mobile and often on desktop). */
+  const [hoverClickUnmuted, setHoverClickUnmuted] = useState(false)
   const preplayViewCountedRef = useRef(false)
   const preplay10sTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prefetchInViewRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -280,6 +290,14 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     setIsMobile(typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
   }, [])
 
+  useEffect(() => {
+    return subscribeHomePreplaySound(() => setHomePreplaySoundUnlocked(true))
+  }, [])
+
+  useEffect(() => {
+    if (!isInView) setHoverClickUnmuted(false)
+  }, [isInView])
+
   // Only mount video elements when card is in or near viewport to avoid 200+ videos in DOM (performance).
   // Use a tight rootMargin so scrolling doesn't trigger too many concurrent video loads; defer isInView
   // so we only load for cards that stay near viewport (avoids loading for cards that scroll past quickly).
@@ -332,20 +350,43 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     if (!isMobile) return
     const isPreplay = preplay && media.type === 'VIDEO' && isPlayable
     if (!isPreplay) return
+    const audible = homePreplaySoundUnlocked || hoverClickUnmuted
     const hasThumb = !!(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
     const useOverlayVideo = hasThumb && !thumbnailError
     const useFallbackVideo = media.type === 'VIDEO' && !hasThumb && !thumbnailError
     if (isInView) {
       const id = requestAnimationFrame(() => {
-        if (useOverlayVideo) preplayVideoRef.current?.play().catch(() => {})
-        else if (useFallbackVideo) videoRef.current?.play().catch(() => {})
+        if (useOverlayVideo) {
+          const v = preplayVideoRef.current
+          if (v) {
+            v.muted = !audible
+            void v.play().catch(() => {})
+          }
+        } else if (useFallbackVideo) {
+          const v = videoRef.current
+          if (v) {
+            v.muted = !audible
+            void v.play().catch(() => {})
+          }
+        }
       })
       return () => cancelAnimationFrame(id)
     } else {
       if (useOverlayVideo) preplayVideoRef.current?.pause()
       else if (useFallbackVideo) videoRef.current?.pause()
     }
-  }, [isMobile, isInView, preplay, media.type, isPlayable, media.thumbnailUrl, media.url, thumbnailError])
+  }, [
+    isMobile,
+    isInView,
+    preplay,
+    media.type,
+    isPlayable,
+    media.thumbnailUrl,
+    media.url,
+    thumbnailError,
+    homePreplaySoundUnlocked,
+    hoverClickUnmuted,
+  ])
 
   useEffect(() => {
     let isMounted = true
@@ -674,6 +715,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
 
   const isPreplayVideo = preplay && media.type === 'VIDEO' && isPlayable
+  const preplayAudible =
+    isPreplayVideo && (homePreplaySoundUnlocked || hoverClickUnmuted)
 
   const recordPreplayView = useCallback(() => {
     if (preplayViewCountedRef.current || !media.id) return
@@ -718,6 +761,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     // On mobile, do not pause on pointer leave — long touch often fires pointerleave and was stopping preplay.
     // Mobile preplay is driven only by isInView (scroll in/out).
     if (isMobile) return
+    setHoverClickUnmuted(false)
     setPreplayHover(false)
     if (thumbnailSrc && !thumbnailError) {
       preplayVideoRef.current?.pause()
@@ -887,7 +931,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   ref={preplayVideoRef}
                   src={media.streamUrl ?? media.url}
                   className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover || (isMobile && isInView) ? 'opacity-100' : 'opacity-0'}`}
-                  muted
+                  muted={!preplayAudible}
                   playsInline
                   preload="metadata"
                   loop
@@ -919,7 +963,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               ref={videoRef}
               src={media.streamUrl ?? media.url}
               className="w-full aspect-video object-cover"
-              muted
+              muted={!(preplay && preplayAudible)}
               playsInline
               preload="metadata"
               poster=""
@@ -950,6 +994,36 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             </div>
           )}
 
+          {isPreplayVideo &&
+            !preplayAudible &&
+            (preplayHover || (isMobile && isInView)) && (
+            <button
+              type="button"
+              className="absolute bottom-2 left-2 z-[25] flex min-h-[36px] min-w-[36px] touch-manipulation items-center gap-1 rounded-md bg-black/75 px-2 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm pointer-events-auto hover:bg-black/90 active:bg-black/95"
+              aria-label="Preview with sound"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                unlockHomePreplaySound()
+                setHoverClickUnmuted(true)
+                const v = preplayVideoRef.current ?? videoRef.current
+                if (v) {
+                  v.muted = false
+                  void v.play()
+                }
+              }}
+            >
+              <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                />
+              </svg>
+              Sound
+            </button>
+          )}
 
           {/* Processing overlay: only when no playable stream yet (pending or processing before 480p ready) */}
           {media.processingStatus && media.processingStatus !== 'completed' && !hasPreviewStream && (
