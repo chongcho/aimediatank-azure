@@ -53,7 +53,14 @@ const ENV_RES = [
   /\.mysql_history/i,
 ]
 
-const AWS_RES = [/\/\.aws\//i, /\.aws\/credentials/i, /credentials\.aws/i]
+const AWS_RES = [
+  /\/\.aws\//i,
+  /\.aws\/credentials/i,
+  /credentials\.aws/i,
+  // Scanners probe YAML named like AWS exports (not the same as /.aws/credentials).
+  /(^|\/)aws\.ya?ml$/i,
+  /(^|\/)config\/aws\.ya?ml$/i,
+]
 
 const WP_RES = [
   /wp-admin/i,
@@ -133,6 +140,10 @@ const CONFIG_RES = [
   /\/server-status$/i,
   /\/\.svn\//i,
   /\/\.hg\//i,
+  // Symfony / PHP-app config probes (common in credential scanners).
+  /(^|\/)symfony(?:\/|$)/i,
+  /(^|\/)app\/config\.ya?ml$/i,
+  /(^|\/)app\/config\/[^/]+\.ya?ml$/i,
 ]
 
 function matchesAny(path: string, res: RegExp[]): boolean {
