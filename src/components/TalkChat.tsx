@@ -385,6 +385,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const ignoreInitialScrollRef = useRef(true)
   const inputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
+  const emojiToggleRef = useRef<HTMLButtonElement>(null)
   const mediaPickerRef = useRef<HTMLDivElement>(null)
   const quickUploadInputRef = useRef<HTMLInputElement>(null)
   const mentionPickerRef = useRef<HTMLDivElement>(null)
@@ -478,6 +479,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     window.addEventListener('resize', checkDesktop)
     return () => window.removeEventListener('resize', checkDesktop)
   }, [])
+
+  useEffect(() => {
+    if (!isDesktop) setShowEmojiPicker(false)
+  }, [isDesktop])
 
   // Load saved position and size from localStorage
   useEffect(() => {
@@ -773,7 +778,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Close pickers when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(target) &&
+        !emojiToggleRef.current?.contains(target)
+      ) {
         setShowEmojiPicker(false)
       }
       if (mediaPickerRef.current && !mediaPickerRef.current.contains(event.target as Node)) {
@@ -1489,6 +1499,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setShowMediaPicker(!showMediaPicker)
     setShowEmojiPicker(false)
     setShowMentionPicker(false)
+  }
+
+  const toggleEmojiPicker = () => {
+    if (!isDesktop) return
+    setShowEmojiPicker((open) => {
+      if (!open) {
+        setShowMediaPicker(false)
+        setShowMentionPicker(false)
+      }
+      return !open
+    })
   }
 
   // Attach media without injecting file URLs into the message text
@@ -4185,14 +4206,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Emoji Picker */}
-          {showEmojiPicker && (
+          {/* Emoji Picker — desktop (md+) only; mobile uses OS keyboard */}
+          {isDesktop && showEmojiPicker && (
             <div 
               ref={emojiPickerRef}
               style={{
                 position: 'absolute',
                 bottom: '52px',
-                left: '54px',
+                left: '50px',
                 width: '300px',
                 maxHeight: '220px',
                 background: 'white',
@@ -4380,6 +4401,35 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
             </button>
+            {isDesktop && (
+              <button
+                ref={emojiToggleRef}
+                type="button"
+                onClick={toggleEmojiPicker}
+                disabled={!isSignedIn}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor:
+                    isSignedIn && showEmojiPicker ? '#0f766e' : isSignedIn ? '#14b8a6' : '#ddd',
+                  color: isSignedIn ? '#fff' : '#aaa',
+                  cursor: isSignedIn ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+                title="Emoji"
+                aria-expanded={showEmojiPicker}
+                aria-haspopup="grid"
+              >
+                <span style={{ fontSize: '18px', lineHeight: 1 }} aria-hidden>
+                  😀
+                </span>
+              </button>
+            )}
             <input
               ref={inputRef}
               type="text"
