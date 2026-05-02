@@ -205,7 +205,7 @@ export function useHomePreplayFocus() {
 /** Speaker + waves (on) or same with diagonal slash (muted / off). */
 export function PreplayVolumeIcon({
   muted,
-  className = 'h-2.5 w-2.5',
+  className = 'h-5 w-5',
 }: {
   muted: boolean
   className?: string
