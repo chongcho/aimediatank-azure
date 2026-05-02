@@ -3530,7 +3530,7 @@ export default function AdminPage() {
                       </button>
                     </div>
 
-                    <div className="mt-3 flex items-center gap-2">
+                    <div className="mt-3 flex items-center justify-end gap-2">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         item.isEnabled
                           ? 'bg-green-500/20 text-green-400'
@@ -3603,7 +3603,7 @@ export default function AdminPage() {
                     />
                   </button>
                 </div>
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3 flex items-center justify-end gap-2">
                   <span
                     className={`px-2 py-1 rounded text-xs font-medium ${
                       homePreplaySound
@@ -3650,7 +3650,7 @@ export default function AdminPage() {
                       </button>
                     </div>
 
-                    <div className="mt-3 flex items-center gap-2">
+                    <div className="mt-3 flex items-center justify-end gap-2">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         item.isEnabled
                           ? 'bg-green-500/20 text-green-400'
