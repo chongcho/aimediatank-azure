@@ -391,28 +391,34 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     const useOverlayVideo = hasThumb && !thumbnailError
     const useFallbackVideo = media.type === 'VIDEO' && !hasThumb && !thumbnailError
     if (isInView && mobileHomePreplayFocused) {
-      const id = requestAnimationFrame(() => {
-        if (useOverlayVideo) {
-          const v = preplayVideoRef.current
-          if (v) {
-            v.muted = !audible
-            void v.play().catch(() => {
-              v.muted = true
-              void v.play().catch(() => {})
-            })
+      let raf2: number | null = null
+      const raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          if (useOverlayVideo) {
+            const v = preplayVideoRef.current
+            if (v) {
+              v.muted = !audible
+              void v.play().catch(() => {
+                v.muted = true
+                void v.play().catch(() => {})
+              })
+            }
+          } else if (useFallbackVideo) {
+            const v = videoRef.current
+            if (v) {
+              v.muted = !audible
+              void v.play().catch(() => {
+                v.muted = true
+                void v.play().catch(() => {})
+              })
+            }
           }
-        } else if (useFallbackVideo) {
-          const v = videoRef.current
-          if (v) {
-            v.muted = !audible
-            void v.play().catch(() => {
-              v.muted = true
-              void v.play().catch(() => {})
-            })
-          }
-        }
+        })
       })
-      return () => cancelAnimationFrame(id)
+      return () => {
+        cancelAnimationFrame(raf1)
+        if (raf2 != null) cancelAnimationFrame(raf2)
+      }
     } else {
       if (useOverlayVideo) preplayVideoRef.current?.pause()
       else if (useFallbackVideo) videoRef.current?.pause()
@@ -768,6 +774,11 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     togglePreviewSound &&
     (!isMobile || mobileHomePreplayFocused)
 
+  /** Slash when this tile is not actually outputting preview audio (desktop: many in-view chips vs one hover preplay). */
+  const homePreplaySoundChipIconMuted =
+    !previewSoundOn ||
+    (isMobile ? !mobileHomePreplayFocused : !(preplayHover && isInView))
+
   const recordPreplayView = useCallback(() => {
     if (preplayViewCountedRef.current || !media.id) return
     preplayViewCountedRef.current = true
@@ -1096,7 +1107,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                     : 'Play video previews with sound on the home feed'
                 }
               >
-                <PreplayVolumeIcon muted={!previewSoundOn} className="h-[15.4px] w-[15.4px]" />
+                <PreplayVolumeIcon muted={homePreplaySoundChipIconMuted} className="h-[15.4px] w-[15.4px]" />
               </button>
             </div>
           )}
