@@ -764,8 +764,14 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
 
   const isPreplayVideo = preplay && media.type === 'VIDEO' && isPlayable
-  /** Homepage: shared `previewSoundOn` from context; each in-card control toggles the same state. */
-  const preplayAudible = isPreplayVideo && previewSoundOn
+  /**
+   * Only the mobile focus tile or the desktop-hovered tile may be unmuted — otherwise every in-view
+   * `<video>` had muted={false} while only one could play, so icons and browser audio looked “synced” but wrong.
+   */
+  const preplayAudible =
+    isPreplayVideo &&
+    previewSoundOn &&
+    (isMobile ? mobileHomePreplayFocused : preplayHover)
   /** In-thumbnail control (desktop: every in-view tile; mobile: focused preplay tile only). */
   const showHomePreplaySoundChip =
     hasHomeScrollContext &&
@@ -773,11 +779,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     isInView &&
     togglePreviewSound &&
     (!isMobile || mobileHomePreplayFocused)
-
-  /** Slash when this tile is not actually outputting preview audio (desktop: many in-view chips vs one hover preplay). */
-  const homePreplaySoundChipIconMuted =
-    !previewSoundOn ||
-    (isMobile ? !mobileHomePreplayFocused : !(preplayHover && isInView))
 
   const recordPreplayView = useCallback(() => {
     if (preplayViewCountedRef.current || !media.id) return
@@ -807,16 +808,16 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }, [recordPreplayView, clearPreplay10sTimeout])
 
   const playPreplayWithAudioPolicy = useCallback(
-    (v: HTMLVideoElement | null) => {
+    (v: HTMLVideoElement | null, audibleOverride?: boolean) => {
       if (!v) return
-      const wantAudible = isPreplayVideo && previewSoundOn
+      const wantAudible = audibleOverride ?? preplayAudible
       v.muted = !wantAudible
       void v.play().catch(() => {
         v.muted = true
         void v.play().catch(() => {})
       })
     },
-    [isPreplayVideo, previewSoundOn]
+    [preplayAudible]
   )
 
   const handlePreplayPointerEnter = () => {
@@ -824,10 +825,12 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     // On mobile, preplay is driven only by isInView; ignore pointer enter/leave so long touch doesn't stop it.
     if (isMobile) return
     setPreplayHover(true)
+    /** Same-tick: `preplayAudible` still false until re-render; hover implies this tile should try unmuted when sound is on. */
+    const tryAudible = isPreplayVideo && previewSoundOn
     if (thumbnailSrc && !thumbnailError) {
-      playPreplayWithAudioPolicy(preplayVideoRef.current)
+      playPreplayWithAudioPolicy(preplayVideoRef.current, tryAudible)
     } else if (showVideoElement) {
-      playPreplayWithAudioPolicy(videoRef.current)
+      playPreplayWithAudioPolicy(videoRef.current, tryAudible)
     }
   }
   const handlePreplayPointerLeave = () => {
@@ -1107,7 +1110,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                     : 'Play video previews with sound on the home feed'
                 }
               >
-                <PreplayVolumeIcon muted={homePreplaySoundChipIconMuted} className="h-[15.4px] w-[15.4px]" />
+                <PreplayVolumeIcon muted={!preplayAudible} className="h-[15.4px] w-[15.4px]" />
               </button>
             </div>
           )}
