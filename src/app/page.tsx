@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense, useRef, useCallback, useMemo } from 'rea
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
-import { HomePreplayFocusProvider } from '@/contexts/HomePreplayFocusContext'
+import { HomePreplayFocusProvider, HomePreviewSoundToggle } from '@/contexts/HomePreplayFocusContext'
 import LiveChat from '@/components/LiveChat'
 import { getHomeFeed, saveHomeFeed } from '@/lib/homePrefetchCache'
 
@@ -1015,29 +1015,34 @@ function HomeContent() {
         </div>
       ) : (
         <>
-          <div className="relative">
-            {/* When restoringScroll, grid is invisible (DOM targets exist for scroll) but show skeleton overlay so user sees loading state */}
-            {restoringScroll && (
-              <div
-                className={`absolute inset-0 z-10 media-grid min-h-screen pointer-events-none${isGridLayout ? ` media-grid--grid${homeLayout === 'grid_center' ? ' media-grid--grid--center' : ''}` : ''}`}
-                style={isGridLayout ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
-              >
-                {[...Array(12)].map((_, i) => {
-                  const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
-                    'aspect-square', 'aspect-video', 'aspect-[4/5]', 'aspect-video', 'aspect-square', 'aspect-[3/4]']
-                  return (
-                    <div key={i} className="bg-tank-gray rounded-lg overflow-hidden">
-                      <div className={`${ratios[i]} skeleton`} />
-                      <div className="p-4">
-                        <div className="h-5 skeleton mb-2 w-3/4" />
-                        <div className="h-4 skeleton w-1/2" />
-                      </div>
-                    </div>
-                  )
-                })}
+          <HomePreplayFocusProvider>
+            {homePreplay && (
+              <div className="flex justify-end mb-2 px-[10px]">
+                <HomePreviewSoundToggle preplayEnabled={homePreplay} />
               </div>
             )}
-            <HomePreplayFocusProvider>
+            <div className="relative">
+              {/* When restoringScroll, grid is invisible (DOM targets exist for scroll) but show skeleton overlay so user sees loading state */}
+              {restoringScroll && (
+                <div
+                  className={`absolute inset-0 z-10 media-grid min-h-screen pointer-events-none${isGridLayout ? ` media-grid--grid${homeLayout === 'grid_center' ? ' media-grid--grid--center' : ''}` : ''}`}
+                  style={isGridLayout ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
+                >
+                  {[...Array(12)].map((_, i) => {
+                    const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
+                      'aspect-square', 'aspect-video', 'aspect-[4/5]', 'aspect-video', 'aspect-square', 'aspect-[3/4]']
+                    return (
+                      <div key={i} className="bg-tank-gray rounded-lg overflow-hidden">
+                        <div className={`${ratios[i]} skeleton`} />
+                        <div className="p-4">
+                          <div className="h-5 skeleton mb-2 w-3/4" />
+                          <div className="h-4 skeleton w-1/2" />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               <div
                 className={`media-grid${restoringScroll ? ' invisible' : ''}${isGridLayout ? ` media-grid--grid${homeLayout === 'grid_center' ? ' media-grid--grid--center' : ''}` : ''}`}
                 style={isGridLayout ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
@@ -1051,8 +1056,8 @@ function HomeContent() {
                   />
                 ))}
               </div>
-            </HomePreplayFocusProvider>
-          </div>
+            </div>
+          </HomePreplayFocusProvider>
 
           {/* Infinite Scroll Trigger */}
           <div ref={loadMoreRef} className="h-20 flex items-center justify-center mt-8">

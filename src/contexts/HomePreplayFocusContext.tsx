@@ -9,10 +9,15 @@ import {
   useState,
 } from 'react'
 
+const PREVIEW_SOUND_STORAGE_KEY = 'homePreviewSoundOn'
+
 type Score = { ratio: number; centerY: number }
 
 type HomePreplayFocusContextValue = {
   focusedMediaId: string | null
+  /** When true, all homepage video preplays use sound (where the browser allows). */
+  previewSoundOn: boolean
+  togglePreviewSound: () => void
   reportPreplayIntersection: (mediaId: string, entry: IntersectionObserverEntry) => void
   unregisterPreplay: (mediaId: string) => void
 }
@@ -23,7 +28,27 @@ const HomePreplayFocusContext = createContext<HomePreplayFocusContextValue | nul
 export function HomePreplayFocusProvider({ children }: { children: React.ReactNode }) {
   const scoresRef = useRef<Map<string, Score>>(new Map())
   const [focusedMediaId, setFocusedMediaId] = useState<string | null>(null)
+  const [previewSoundOn, setPreviewSoundOn] = useState(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return sessionStorage.getItem(PREVIEW_SOUND_STORAGE_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
   const rafRef = useRef<number | null>(null)
+
+  const togglePreviewSound = useCallback(() => {
+    setPreviewSoundOn((prev) => {
+      const next = !prev
+      try {
+        sessionStorage.setItem(PREVIEW_SOUND_STORAGE_KEY, next ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
+  }, [])
 
   const recomputeFocused = useCallback(() => {
     rafRef.current = null
@@ -82,8 +107,14 @@ export function HomePreplayFocusProvider({ children }: { children: React.ReactNo
   )
 
   const value = useMemo(
-    () => ({ focusedMediaId, reportPreplayIntersection, unregisterPreplay }),
-    [focusedMediaId, reportPreplayIntersection, unregisterPreplay]
+    () => ({
+      focusedMediaId,
+      previewSoundOn,
+      togglePreviewSound,
+      reportPreplayIntersection,
+      unregisterPreplay,
+    }),
+    [focusedMediaId, previewSoundOn, togglePreviewSound, reportPreplayIntersection, unregisterPreplay]
   )
 
   return (
@@ -95,4 +126,42 @@ export function HomePreplayFocusProvider({ children }: { children: React.ReactNo
 
 export function useHomePreplayFocus() {
   return useContext(HomePreplayFocusContext)
+}
+
+/** Homepage only: global preplay sound on/off (must render under HomePreplayFocusProvider). */
+export function HomePreviewSoundToggle({ preplayEnabled }: { preplayEnabled: boolean }) {
+  const ctx = useHomePreplayFocus()
+  if (!ctx || !preplayEnabled) return null
+  const { previewSoundOn, togglePreviewSound } = ctx
+  return (
+    <button
+      type="button"
+      onClick={togglePreviewSound}
+      aria-pressed={previewSoundOn}
+      className="inline-flex items-center gap-2 rounded-lg border border-tank-light bg-tank-gray px-3 py-2 text-sm font-medium text-gray-200 transition-colors hover:border-tank-accent/50 hover:text-white"
+      title={previewSoundOn ? 'Mute video previews on the home feed' : 'Play video previews with sound on the home feed'}
+    >
+      <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+        {previewSoundOn ? (
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+          />
+        ) : (
+          <>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+          </>
+        )}
+      </svg>
+      <span className="hidden min-[380px]:inline">{previewSoundOn ? 'Preview sound on' : 'Preview sound off'}</span>
+    </button>
+  )
 }

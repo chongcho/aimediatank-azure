@@ -102,6 +102,10 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
+  /** Inline `homeScrollContext={{...}}` from the parent is a new object every render — use a boolean + ref for stable deps. */
+  const hasHomeScrollContext = homeScrollContext != null
+  const homeScrollContextRef = useRef(homeScrollContext)
+  homeScrollContextRef.current = homeScrollContext
   const [commentPortalMounted, setCommentPortalMounted] = useState(false)
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false)
   const [thumbnailError, setThumbnailError] = useState(false)
@@ -286,25 +290,30 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const preplayFocus = useHomePreplayFocus()
   const preplayFocusRef = useRef(preplayFocus)
   preplayFocusRef.current = preplayFocus
+  const previewSoundOn = Boolean(preplayFocus?.previewSoundOn)
 
   /** Homepage mobile: only the centrally “focused” VIDEO card preplays (see HomePreplayFocusProvider). */
   const mobileHomePreplayFocused = useMemo(
     () =>
       !isMobile ||
-      !homeScrollContext ||
+      !hasHomeScrollContext ||
       !preplay ||
       preplayFocus == null ||
       preplayFocus.focusedMediaId === media.id,
-    [isMobile, homeScrollContext, preplay, preplayFocus, media.id]
+    [isMobile, hasHomeScrollContext, preplay, preplayFocus, media.id]
   )
 
   useEffect(() => {
     if (!isInView) setHoverClickUnmuted(false)
   }, [isInView])
 
+  useEffect(() => {
+    if (!previewSoundOn) setHoverClickUnmuted(false)
+  }, [previewSoundOn])
+
   // Homepage mobile: report intersection ratio so one “focused” card gets preplay (avoids broken / competing play() on many tiles).
   useEffect(() => {
-    if (!homeScrollContext || !isMobile || !preplay || media.type !== 'VIDEO' || !isPlayable) return
+    if (!hasHomeScrollContext || !isMobile || !preplay || media.type !== 'VIDEO' || !isPlayable) return
     const ctx = preplayFocusRef.current
     if (!ctx) return
     const el = cardRef.current
@@ -323,7 +332,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       observer.disconnect()
       preplayFocusRef.current?.unregisterPreplay(media.id)
     }
-  }, [homeScrollContext, isMobile, preplay, media.type, isPlayable, media.id])
+  }, [hasHomeScrollContext, isMobile, preplay, media.type, isPlayable, media.id])
 
   // Only mount video elements when card is in or near viewport to avoid 200+ videos in DOM (performance).
   // Use a tight rootMargin so scrolling doesn't trigger too many concurrent video loads; defer isInView
@@ -377,7 +386,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     if (!isMobile) return
     const isPreplay = preplay && media.type === 'VIDEO' && isPlayable
     if (!isPreplay) return
-    const audible = hoverClickUnmuted
+    const audible = previewSoundOn ? true : hoverClickUnmuted
     const hasThumb = !!(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
     const useOverlayVideo = hasThumb && !thumbnailError
     const useFallbackVideo = media.type === 'VIDEO' && !hasThumb && !thumbnailError
@@ -414,6 +423,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     media.url,
     thumbnailError,
     hoverClickUnmuted,
+    previewSoundOn,
   ])
 
   useEffect(() => {
@@ -572,20 +582,21 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const showSoldBadge = soldCount > 0
 
   const navigateToMedia = useCallback(() => {
-    if (homeScrollContext) {
+    const h = homeScrollContextRef.current
+    if (h) {
       sessionStorage.setItem(
         'homeScrollState',
         JSON.stringify({
           targetId: media.id,
-          page: homeScrollContext.page,
-          sort: homeScrollContext.sort,
-          type: homeScrollContext.type,
-          search: homeScrollContext.search,
+          page: h.page,
+          sort: h.sort,
+          type: h.type,
+          search: h.search,
         })
       )
     }
     router.push(`/media/${media.id}`)
-  }, [homeScrollContext, media.id, router])
+  }, [media.id, router])
 
   const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('[data-media-card-comment]')) return
@@ -743,7 +754,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
 
   const isPreplayVideo = preplay && media.type === 'VIDEO' && isPlayable
-  const preplayAudible = isPreplayVideo && hoverClickUnmuted
+  const preplayAudible = isPreplayVideo && (previewSoundOn ? true : hoverClickUnmuted)
 
   const recordPreplayView = useCallback(() => {
     if (preplayViewCountedRef.current || !media.id) return
