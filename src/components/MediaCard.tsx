@@ -983,8 +983,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 />
               )}
             </>
-          ) : showVideoElement && isInView && mobileHomePreplayFocused ? (
-            // Show video element as fallback for videos only when in view (performance).
+          ) : showVideoElement && isInView ? (
+            // Thumbnail-less: this <video> is the only preview (metadata + seek). Do not gate on mobile focus — focus only limits preplay play(), not mounting.
             // preload="metadata" required so onLoadedMetadata fires and we can seek to 1s for preview frame.
             <video
               ref={videoRef}
@@ -1024,35 +1024,40 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
           {isPreplayVideo &&
             !preplayAudible &&
             (preplayHover || (isMobile && isInView && mobileHomePreplayFocused)) && (
-            <button
-              type="button"
-              className="absolute top-2 left-1/2 z-[25] flex min-h-[36px] min-w-[36px] -translate-x-1/2 touch-manipulation items-center gap-1 rounded-md bg-black/75 px-2 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm pointer-events-auto hover:bg-black/90 active:bg-black/95"
-              aria-label="Preview with sound"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                const v = preplayVideoRef.current ?? videoRef.current
-                if (!v) return
-                v.muted = false
-                void v.play().then(
-                  () => setHoverClickUnmuted(true),
-                  () => {
-                    v.muted = true
-                    void v.play().catch(() => {})
-                  }
-                )
-              }}
+            <div
+              className="pointer-events-none absolute inset-x-0 top-2 z-[30] flex justify-center px-14 sm:px-16"
+              role="presentation"
             >
-              <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                />
-              </svg>
-              Sound
-            </button>
+              <button
+                type="button"
+                className="pointer-events-auto flex min-h-[36px] min-w-[36px] touch-manipulation items-center gap-1 rounded-md bg-black/75 px-2 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm hover:bg-black/90 active:bg-black/95"
+                aria-label="Preview with sound"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const v = preplayVideoRef.current ?? videoRef.current
+                  if (!v) return
+                  v.muted = false
+                  void v.play().then(
+                    () => setHoverClickUnmuted(true),
+                    () => {
+                      v.muted = true
+                      void v.play().catch(() => {})
+                    }
+                  )
+                }}
+              >
+                <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                  />
+                </svg>
+                Sound
+              </button>
+            </div>
           )}
 
           {/* Processing overlay: only when no playable stream yet (pending or processing before 480p ready) */}
