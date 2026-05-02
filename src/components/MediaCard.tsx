@@ -1096,7 +1096,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                     : 'Play video previews with sound on the home feed'
                 }
               >
-                <PreplayVolumeIcon muted={!previewSoundOn} className="h-3.5 w-3.5" />
+                <PreplayVolumeIcon muted={!previewSoundOn} className="h-[15.4px] w-[15.4px]" />
               </button>
             </div>
           )}
