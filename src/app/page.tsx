@@ -152,7 +152,11 @@ function HomeContent() {
   }, [media, loading, sort, type, search])
 
   const refreshHomeLayoutUi = useCallback(() => {
-    fetch('/api/ui/home-layout', { cache: 'no-store' })
+    const bust = typeof window !== 'undefined' ? `?_=${Date.now()}` : ''
+    fetch(`/api/ui/home-layout${bust}`, {
+      cache: 'no-store',
+      credentials: 'same-origin',
+    })
       .then((res) => res.json())
       .then((data) => {
         const layout = data.layout
@@ -173,6 +177,16 @@ function HomeContent() {
     const onUpdated = () => refreshHomeLayoutUi()
     window.addEventListener('homeLayoutUpdated', onUpdated)
     return () => window.removeEventListener('homeLayoutUpdated', onUpdated)
+  }, [refreshHomeLayoutUi])
+
+  /** Refetch when admin saves in another tab (same-tab saves use `homeLayoutUpdated`). */
+  useEffect(() => {
+    const bump = () => refreshHomeLayoutUi()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'homeLayoutUiRev') bump()
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
   }, [refreshHomeLayoutUi])
 
   useEffect(() => {

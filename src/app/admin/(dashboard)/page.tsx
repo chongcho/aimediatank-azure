@@ -1329,7 +1329,14 @@ export default function AdminPage() {
       if (res.ok) {
         const data = await res.json()
         if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
-        if (typeof window !== 'undefined') window.dispatchEvent(new Event('homeLayoutUpdated'))
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('homeLayoutUpdated'))
+          try {
+            localStorage.setItem('homeLayoutUiRev', String(Date.now()))
+          } catch {
+            /* ignore */
+          }
+        }
       }
     } catch (error) {
       console.error('Error updating homepage media sound:', error)
@@ -3267,7 +3274,14 @@ export default function AdminPage() {
                         if (data.layout) setHomeLayout(data.layout)
                         if (typeof data.preplay === 'boolean') setHomePreplay(data.preplay)
                         if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
-                        if (typeof window !== 'undefined') window.dispatchEvent(new Event('homeLayoutUpdated'))
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new Event('homeLayoutUpdated'))
+                          try {
+                            localStorage.setItem('homeLayoutUiRev', String(Date.now()))
+                          } catch {
+                            /* ignore */
+                          }
+                        }
                       } finally {
                         setHomeLayoutSaving(false)
                       }

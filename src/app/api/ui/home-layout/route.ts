@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getFirstHomeLayoutSetting } from '@/lib/homeLayoutSetting'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +18,7 @@ async function getOrCreateSetting(): Promise<{
   preplay: boolean
   homePreplaySound: boolean
 }> {
-  let row = await prisma.homeLayoutSetting.findFirst()
+  let row = await getFirstHomeLayoutSetting()
   if (!row) {
     row = await prisma.homeLayoutSetting.create({
       data: { layout: 'masonry' },
@@ -31,12 +32,21 @@ async function getOrCreateSetting(): Promise<{
   }
 }
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate, max-age=0',
+  Pragma: 'no-cache',
+  Expires: '0',
+} as const
+
 export async function GET() {
   try {
     const { layout, preplay, homePreplaySound } = await getOrCreateSetting()
-    return NextResponse.json({ layout, preplay, homePreplaySound })
+    return NextResponse.json({ layout, preplay, homePreplaySound }, { headers: NO_STORE_HEADERS })
   } catch (error) {
     console.error('Home layout settings unavailable:', error)
-    return NextResponse.json({ layout: 'masonry', preplay: true, homePreplaySound: true })
+    return NextResponse.json(
+      { layout: 'masonry', preplay: true, homePreplaySound: true },
+      { headers: NO_STORE_HEADERS }
+    )
   }
 }

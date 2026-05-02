@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getFirstHomeLayoutSetting } from '@/lib/homeLayoutSetting'
 import { getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
 import { Prisma } from '@prisma/client'
@@ -894,7 +895,7 @@ export async function GET(request: Request) {
     // Get home feed layout setting (masonry | grid_top | grid_center, preplay on/off)
     if (action === 'homeLayoutSettings') {
       try {
-        let row = await prisma.homeLayoutSetting.findFirst()
+        let row = await getFirstHomeLayoutSetting()
         if (!row) {
           row = await prisma.homeLayoutSetting.create({ data: { layout: 'masonry' } })
         }
@@ -2205,7 +2206,7 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: 'layout must be "masonry", "grid_top", or "grid_center"' }, { status: 400 })
         }
         const preplayBool = typeof preplay === 'boolean' ? preplay : undefined
-        let row = await prisma.homeLayoutSetting.findFirst()
+        let row = await getFirstHomeLayoutSetting()
         if (!row) {
           row = await prisma.homeLayoutSetting.create({
             data: {
@@ -2240,16 +2241,19 @@ export async function POST(request: Request) {
         if (typeof homePreplaySound !== 'boolean') {
           return NextResponse.json({ error: 'homePreplaySound must be a boolean' }, { status: 400 })
         }
-        let row = await prisma.homeLayoutSetting.findFirst()
-        if (!row) {
+        const existingCount = await prisma.homeLayoutSetting.count()
+        let row
+        if (existingCount === 0) {
           row = await prisma.homeLayoutSetting.create({
             data: { layout: 'masonry', homePreplaySound },
           })
         } else {
-          row = await prisma.homeLayoutSetting.update({
-            where: { id: row.id },
-            data: { homePreplaySound },
-          })
+          // Keep every row in sync if duplicates exist (otherwise findFirst could read a stale row).
+          await prisma.homeLayoutSetting.updateMany({ data: { homePreplaySound } })
+          row = await getFirstHomeLayoutSetting()
+          if (!row) {
+            return NextResponse.json({ error: 'Home layout setting not found' }, { status: 500 })
+          }
         }
         await logAdminAction(adminId, 'SET_HOME_PREPLAY_SOUND', 'HOME_LAYOUT', row.id, { homePreplaySound })
         return NextResponse.json({
