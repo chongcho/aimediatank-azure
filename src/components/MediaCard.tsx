@@ -10,7 +10,7 @@ import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
 import { formatViewCount } from '@/lib/formatViewCount'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
-import { useHomePreplayFocus } from '@/contexts/HomePreplayFocusContext'
+import { PreplayVolumeIcon, useHomePreplayFocus } from '@/contexts/HomePreplayFocusContext'
 
 interface MediaCardProps {
   media: {
@@ -1041,8 +1041,9 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             >
               <button
                 type="button"
-                className="pointer-events-auto flex min-h-[36px] min-w-[36px] touch-manipulation items-center gap-1 rounded-md bg-black/75 px-2 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm hover:bg-black/90 active:bg-black/95"
+                className="pointer-events-auto flex h-10 w-10 touch-manipulation items-center justify-center rounded-md bg-black/75 text-white/90 backdrop-blur-sm hover:bg-black/90 active:bg-black/95"
                 aria-label="Preview with sound"
+                title="Preview with sound"
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
@@ -1058,15 +1059,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   )
                 }}
               >
-                <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                  />
-                </svg>
-                Sound
+                <PreplayVolumeIcon muted className="h-5 w-5" />
               </button>
             </div>
           )}

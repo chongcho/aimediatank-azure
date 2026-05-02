@@ -128,6 +128,36 @@ export function useHomePreplayFocus() {
   return useContext(HomePreplayFocusContext)
 }
 
+/** Speaker + waves (on) or same with diagonal slash (muted / off). */
+export function PreplayVolumeIcon({
+  muted,
+  className = 'h-5 w-5',
+}: {
+  muted: boolean
+  className?: string
+}) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728"
+        className={muted ? 'opacity-40' : undefined}
+      />
+      {muted ? (
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M4 4l16 16" />
+      ) : null}
+    </svg>
+  )
+}
+
 /** Homepage only: global preplay sound on/off (must render under HomePreplayFocusProvider). */
 export function HomePreviewSoundToggle({ preplayEnabled }: { preplayEnabled: boolean }) {
   const ctx = useHomePreplayFocus()
@@ -138,30 +168,10 @@ export function HomePreviewSoundToggle({ preplayEnabled }: { preplayEnabled: boo
       type="button"
       onClick={togglePreviewSound}
       aria-pressed={previewSoundOn}
-      className="inline-flex items-center gap-2 rounded-lg border border-tank-light bg-tank-gray px-3 py-2 text-sm font-medium text-gray-200 transition-colors hover:border-tank-accent/50 hover:text-white"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-tank-light bg-tank-gray text-gray-200 transition-colors hover:border-tank-accent/50 hover:text-white"
       title={previewSoundOn ? 'Mute video previews on the home feed' : 'Play video previews with sound on the home feed'}
     >
-      <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-        {previewSoundOn ? (
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-          />
-        ) : (
-          <>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-            />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-          </>
-        )}
-      </svg>
-      <span className="hidden min-[380px]:inline">{previewSoundOn ? 'Preview sound on' : 'Preview sound off'}</span>
+      <PreplayVolumeIcon muted={!previewSoundOn} className="h-5 w-5" />
     </button>
   )
 }
