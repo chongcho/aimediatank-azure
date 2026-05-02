@@ -15,7 +15,7 @@ type Score = { ratio: number; centerY: number }
 
 type HomePreplayFocusContextValue = {
   focusedMediaId: string | null
-  /** When true, all homepage video preplays use sound (where the browser allows). */
+  /** When true, all homepage video preplays use sound (where the browser allows). Sole control — no per-card sound UI. */
   previewSoundOn: boolean
   togglePreviewSound: () => void
   reportPreplayIntersection: (mediaId: string, entry: IntersectionObserverEntry) => void

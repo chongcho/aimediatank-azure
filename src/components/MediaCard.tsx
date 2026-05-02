@@ -10,7 +10,7 @@ import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
 import { formatViewCount } from '@/lib/formatViewCount'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
-import { PreplayVolumeIcon, useHomePreplayFocus } from '@/contexts/HomePreplayFocusContext'
+import { useHomePreplayFocus } from '@/contexts/HomePreplayFocusContext'
 
 interface MediaCardProps {
   media: {
@@ -116,8 +116,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
-  /** Only set after explicit "Sound" tap — WebKit rejects unmuted play() without a user gesture and hides recovery if we force muted=false earlier. */
-  const [hoverClickUnmuted, setHoverClickUnmuted] = useState(false)
   const preplayViewCountedRef = useRef(false)
   const preplay10sTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prefetchInViewRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -303,14 +301,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     [isMobile, hasHomeScrollContext, preplay, preplayFocus, media.id]
   )
 
-  useEffect(() => {
-    if (!isInView) setHoverClickUnmuted(false)
-  }, [isInView])
-
-  useEffect(() => {
-    if (!previewSoundOn) setHoverClickUnmuted(false)
-  }, [previewSoundOn])
-
   // Homepage mobile: report intersection ratio so one “focused” card gets preplay (avoids broken / competing play() on many tiles).
   useEffect(() => {
     if (!hasHomeScrollContext || !isMobile || !preplay || media.type !== 'VIDEO' || !isPlayable) return
@@ -386,7 +376,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     if (!isMobile) return
     const isPreplay = preplay && media.type === 'VIDEO' && isPlayable
     if (!isPreplay) return
-    const audible = previewSoundOn ? true : hoverClickUnmuted
+    const audible = previewSoundOn
     const hasThumb = !!(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
     const useOverlayVideo = hasThumb && !thumbnailError
     const useFallbackVideo = media.type === 'VIDEO' && !hasThumb && !thumbnailError
@@ -395,7 +385,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         if (useOverlayVideo) {
           const v = preplayVideoRef.current
           if (v) {
-            // Never force unmuted here — rAF is outside a gesture; WebKit rejects unmuted play() and the Sound chip must stay available.
+            // rAF is outside a gesture; only set unmuted when global preview sound is on (user used toolbar toggle).
             if (!audible) v.muted = true
             void v.play().catch(() => {})
           }
@@ -422,7 +412,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     media.thumbnailUrl,
     media.url,
     thumbnailError,
-    hoverClickUnmuted,
     previewSoundOn,
   ])
 
@@ -754,7 +743,8 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
 
   const isPreplayVideo = preplay && media.type === 'VIDEO' && isPlayable
-  const preplayAudible = isPreplayVideo && (previewSoundOn ? true : hoverClickUnmuted)
+  /** Homepage: only the feed toolbar toggle (`HomePreviewSoundToggle`); no per-card sound control. */
+  const preplayAudible = isPreplayVideo && previewSoundOn
 
   const recordPreplayView = useCallback(() => {
     if (preplayViewCountedRef.current || !media.id) return
@@ -799,7 +789,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     // On mobile, do not pause on pointer leave — long touch often fires pointerleave and was stopping preplay.
     // Mobile preplay is driven only by isInView (scroll in/out).
     if (isMobile) return
-    setHoverClickUnmuted(false)
     setPreplayHover(false)
     if (thumbnailSrc && !thumbnailError) {
       preplayVideoRef.current?.pause()
@@ -1029,38 +1018,6 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               <div className="text-white/70 scale-[3]">
                 {getTypeIcon()}
               </div>
-            </div>
-          )}
-
-          {isPreplayVideo &&
-            !preplayAudible &&
-            (preplayHover || (isMobile && isInView && mobileHomePreplayFocused)) && (
-            <div
-              className="pointer-events-none absolute inset-x-0 top-2 z-[30] flex justify-center px-14 sm:px-16"
-              role="presentation"
-            >
-              <button
-                type="button"
-                className="pointer-events-auto flex h-10 w-10 touch-manipulation items-center justify-center rounded-md bg-black/75 text-white/90 backdrop-blur-sm hover:bg-black/90 active:bg-black/95"
-                aria-label="Preview with sound"
-                title="Preview with sound"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  const v = preplayVideoRef.current ?? videoRef.current
-                  if (!v) return
-                  v.muted = false
-                  void v.play().then(
-                    () => setHoverClickUnmuted(true),
-                    () => {
-                      v.muted = true
-                      void v.play().catch(() => {})
-                    }
-                  )
-                }}
-              >
-                <PreplayVolumeIcon muted className="h-5 w-5" />
-              </button>
             </div>
           )}
 
