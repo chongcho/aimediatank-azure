@@ -61,6 +61,8 @@ interface MediaCardProps {
   }
   /** When true, VIDEO cards play muted on hover (homepage only, controlled by admin) */
   preplay?: boolean
+  /** Admin: show homepage volume chip and allow unmuted preplay when true */
+  homePreplaySound?: boolean
 }
 
 type BadgeItem = { itemKey: string; isEnabled: boolean }
@@ -101,7 +103,12 @@ async function getBadgeItems(): Promise<BadgeItem[] | null> {
   return badgeItemsPromise
 }
 
-export default function MediaCard({ media, homeScrollContext, preplay = false }: MediaCardProps) {
+export default function MediaCard({
+  media,
+  homeScrollContext,
+  preplay = false,
+  homePreplaySound = true,
+}: MediaCardProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
@@ -300,7 +307,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const preplayFocus = useHomePreplayFocus()
   const preplayFocusRef = useRef(preplayFocus)
   preplayFocusRef.current = preplayFocus
-  const previewSoundOn = Boolean(preplayFocus?.previewSoundOn)
+  const previewSoundOn = Boolean(preplayFocus?.previewSoundOn) && homePreplaySound
   const togglePreviewSound = preplayFocus?.togglePreviewSound
   const layoutSuppressed = Boolean(preplayFocus?.layoutSuppressed)
 
@@ -786,6 +793,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     (isMobile ? mobileHomePreplayFocused : preplayHover)
   /** In-thumbnail control (desktop: every in-view tile; mobile: focused preplay tile only). */
   const showHomePreplaySoundChip =
+    homePreplaySound &&
     hasHomeScrollContext &&
     isPreplayVideo &&
     isInView &&

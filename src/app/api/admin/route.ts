@@ -904,10 +904,11 @@ export async function GET(request: Request) {
             ? 'grid_center'
             : 'masonry'
         const preplay = row.preplay
-        return NextResponse.json({ layout, preplay })
+        const homePreplaySound = row.homePreplaySound !== false
+        return NextResponse.json({ layout, preplay, homePreplaySound })
       } catch (error) {
         console.error('Home layout settings unavailable:', error)
-        return NextResponse.json({ layout: 'masonry', preplay: true })
+        return NextResponse.json({ layout: 'masonry', preplay: true, homePreplaySound: true })
       }
     }
 
@@ -2224,11 +2225,36 @@ export async function POST(request: Request) {
         await logAdminAction(adminId, 'SET_HOME_LAYOUT', 'HOME_LAYOUT', row.id, {
           layout: layoutVal,
           preplay: row.preplay,
+          homePreplaySound: row.homePreplaySound,
         })
         return NextResponse.json({
           message: 'Home layout updated',
           layout: row.layout as string,
           preplay: row.preplay,
+          homePreplaySound: row.homePreplaySound !== false,
+        })
+      }
+
+      case 'setHomePreplaySound': {
+        const { homePreplaySound } = data || {}
+        if (typeof homePreplaySound !== 'boolean') {
+          return NextResponse.json({ error: 'homePreplaySound must be a boolean' }, { status: 400 })
+        }
+        let row = await prisma.homeLayoutSetting.findFirst()
+        if (!row) {
+          row = await prisma.homeLayoutSetting.create({
+            data: { layout: 'masonry', homePreplaySound },
+          })
+        } else {
+          row = await prisma.homeLayoutSetting.update({
+            where: { id: row.id },
+            data: { homePreplaySound },
+          })
+        }
+        await logAdminAction(adminId, 'SET_HOME_PREPLAY_SOUND', 'HOME_LAYOUT', row.id, { homePreplaySound })
+        return NextResponse.json({
+          message: 'Homepage media sound visibility updated',
+          homePreplaySound: row.homePreplaySound !== false,
         })
       }
 

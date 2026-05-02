@@ -136,6 +136,7 @@ function HomeContent() {
   const gridSectionRef = useRef<HTMLDivElement>(null)
   const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid_top' | 'grid_center'>('masonry')
   const [homePreplay, setHomePreplay] = useState(true)
+  const [homePreplaySound, setHomePreplaySound] = useState(true)
 
   // Persist feed snapshot so back-navigation can read it synchronously on next mount.
   // Only save when the media actually belongs to the current filters (mediaFiltersRef).
@@ -150,7 +151,7 @@ function HomeContent() {
     }
   }, [media, loading, sort, type, search])
 
-  useEffect(() => {
+  const refreshHomeLayoutUi = useCallback(() => {
     fetch('/api/ui/home-layout', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
@@ -159,9 +160,20 @@ function HomeContent() {
           layout === 'grid_top' || layout === 'grid_center' ? layout : layout === 'grid' ? 'grid_center' : 'masonry'
         )
         setHomePreplay(data.preplay !== false)
+        setHomePreplaySound(data.homePreplaySound !== false)
       })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    refreshHomeLayoutUi()
+  }, [refreshHomeLayoutUi])
+
+  useEffect(() => {
+    const onUpdated = () => refreshHomeLayoutUi()
+    window.addEventListener('homeLayoutUpdated', onUpdated)
+    return () => window.removeEventListener('homeLayoutUpdated', onUpdated)
+  }, [refreshHomeLayoutUi])
 
   useEffect(() => {
     const getColumnsFromWidth = (w: number) => {
@@ -1048,6 +1060,7 @@ function HomeContent() {
                     media={item}
                     homeScrollContext={{ page: item._page || page, sort, type, search }}
                     preplay={homePreplay}
+                    homePreplaySound={homePreplaySound}
                   />
                 ))}
               </div>

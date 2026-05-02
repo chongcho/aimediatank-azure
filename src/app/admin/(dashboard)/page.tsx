@@ -397,6 +397,9 @@ export default function AdminPage() {
   const [navbarLoading, setNavbarLoading] = useState(false)
   const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid_top' | 'grid_center'>('masonry')
   const [homePreplay, setHomePreplay] = useState(true)
+  /** Homepage volume chip visibility (Media Badge Control); stored on HomeLayoutSetting */
+  const [homePreplaySound, setHomePreplaySound] = useState(true)
+  const [homePreplaySoundSaving, setHomePreplaySoundSaving] = useState(false)
   const [homeLayoutLoading, setHomeLayoutLoading] = useState(false)
   const [homeLayoutSaving, setHomeLayoutSaving] = useState(false)
   const [mediaDetailDownload, setMediaDetailDownload] = useState(true)
@@ -912,6 +915,7 @@ export default function AdminPage() {
             layout === 'grid_top' || layout === 'grid_center' ? layout : layout === 'grid' ? 'grid_center' : 'masonry'
           )
           setHomePreplay(data.preplay !== false)
+          setHomePreplaySound(data.homePreplaySound !== false)
         } finally {
           setHomeLayoutLoading(false)
         }
@@ -941,9 +945,16 @@ export default function AdminPage() {
           setAuthenticationLoading(false)
         }
       } else if (activeTab === 'badges') {
-        const res = await fetch('/api/admin?action=badgeSettings')
-        const data = await res.json()
+        const [resBadges, resHome] = await Promise.all([
+          fetch('/api/admin?action=badgeSettings'),
+          fetch('/api/admin?action=homeLayoutSettings'),
+        ])
+        const data = await resBadges.json()
         setMediaBadgeItems(data.items || [])
+        if (resHome.ok) {
+          const homeData = await resHome.json()
+          setHomePreplaySound(homeData.homePreplaySound !== false)
+        }
       } else if (activeTab === 'cropTool') {
         setCropToolLoading(true)
         try {
@@ -1301,6 +1312,29 @@ export default function AdminPage() {
       console.error('Error toggling badge:', error)
     } finally {
       setMediaBadgeLoading(false)
+    }
+  }
+
+  const toggleHomePreplaySound = async (next: boolean) => {
+    setHomePreplaySoundSaving(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setHomePreplaySound',
+          data: { homePreplaySound: next },
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('homeLayoutUpdated'))
+      }
+    } catch (error) {
+      console.error('Error updating homepage media sound:', error)
+    } finally {
+      setHomePreplaySoundSaving(false)
     }
   }
 
@@ -3232,6 +3266,7 @@ export default function AdminPage() {
                         }
                         if (data.layout) setHomeLayout(data.layout)
                         if (typeof data.preplay === 'boolean') setHomePreplay(data.preplay)
+                        if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
                         if (typeof window !== 'undefined') window.dispatchEvent(new Event('homeLayoutUpdated'))
                       } finally {
                         setHomeLayoutSaving(false)
@@ -3516,6 +3551,53 @@ export default function AdminPage() {
                 <p className="text-gray-400 text-sm">
                   Toggle badge items ON/OFF to show or hide them on media tiles. Description thumbnails toggles the description text overlay on each tile thumbnail. The Comment control shows or hides the comment button on the tile so viewers can add comments from the feed without opening the media page first.
                 </p>
+              </div>
+
+              <div
+                className={`rounded-xl p-4 border-2 transition-all mb-2 ${
+                  homePreplaySound
+                    ? 'bg-tank-gray border-green-500/50'
+                    : 'bg-tank-dark border-gray-700 opacity-60'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🔊</span>
+                    <div>
+                      <h3 className="font-bold text-white">Homepage media sound</h3>
+                      <p className="text-xs text-gray-400">homePreplaySound</p>
+                      <p className="text-xs text-gray-500 mt-1 max-w-xl">
+                        When off, the volume icon on home feed video tiles is hidden and previews stay muted. When on, viewers see the icon and can turn preview sound on (where the browser allows).
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleHomePreplaySound(!homePreplaySound)}
+                    disabled={homePreplaySoundSaving}
+                    className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${
+                      homePreplaySound ? 'bg-green-500' : 'bg-gray-600'
+                    } ${homePreplaySoundSaving ? 'opacity-50' : ''}`}
+                    aria-pressed={homePreplaySound}
+                  >
+                    <span
+                      className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow ${
+                        homePreplaySound ? 'translate-x-8' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <span
+                    className={`px-2 py-1 rounded text-xs font-medium ${
+                      homePreplaySound
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}
+                  >
+                    {homePreplaySound ? '✓ Visible' : '✗ Hidden'}
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
