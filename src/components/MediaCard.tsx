@@ -290,6 +290,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   preplayFocusRef.current = preplayFocus
   const previewSoundOn = Boolean(preplayFocus?.previewSoundOn)
   const togglePreviewSound = preplayFocus?.togglePreviewSound
+  const layoutSuppressed = Boolean(preplayFocus?.layoutSuppressed)
 
   /** Homepage mobile: only the centrally “focused” VIDEO card preplays (see HomePreplayFocusProvider). */
   const mobileHomePreplayFocused = useMemo(
@@ -304,7 +305,15 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
 
   // Homepage mobile: report intersection ratio so one “focused” card gets preplay (avoids broken / competing play() on many tiles).
   useEffect(() => {
-    if (!hasHomeScrollContext || !isMobile || !preplay || media.type !== 'VIDEO' || !isPlayable) return
+    if (
+      !hasHomeScrollContext ||
+      !isMobile ||
+      !preplay ||
+      layoutSuppressed ||
+      media.type !== 'VIDEO' ||
+      !isPlayable
+    )
+      return
     const ctx = preplayFocusRef.current
     if (!ctx) return
     const el = cardRef.current
@@ -323,7 +332,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       observer.disconnect()
       preplayFocusRef.current?.unregisterPreplay(media.id)
     }
-  }, [hasHomeScrollContext, isMobile, preplay, media.type, isPlayable, media.id])
+  }, [hasHomeScrollContext, isMobile, preplay, layoutSuppressed, media.type, isPlayable, media.id])
 
   // Only mount video elements when card is in or near viewport to avoid 200+ videos in DOM (performance).
   // Use a tight rootMargin so scrolling doesn't trigger too many concurrent video loads; defer isInView

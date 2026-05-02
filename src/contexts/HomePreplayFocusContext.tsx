@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -20,12 +21,21 @@ type HomePreplayFocusContextValue = {
   togglePreviewSound: () => void
   reportPreplayIntersection: (mediaId: string, entry: IntersectionObserverEntry) => void
   unregisterPreplay: (mediaId: string) => void
+  /** True while the feed grid is hidden for scroll restore — mobile focus IO is paused and state is flushed when this clears. */
+  layoutSuppressed: boolean
 }
 
 const HomePreplayFocusContext = createContext<HomePreplayFocusContextValue | null>(null)
 
 /** Picks one homepage VIDEO card for mobile preplay: highest visible fraction, then closest to viewport vertical center. */
-export function HomePreplayFocusProvider({ children }: { children: React.ReactNode }) {
+export function HomePreplayFocusProvider({
+  children,
+  layoutSuppressed = false,
+}: {
+  children: React.ReactNode
+  /** When true (e.g. home grid `invisible` during scroll restore), skip focus IO and reset scores when it clears. */
+  layoutSuppressed?: boolean
+}) {
   const scoresRef = useRef<Map<string, Score>>(new Map())
   const [focusedMediaId, setFocusedMediaId] = useState<string | null>(null)
   const [previewSoundOn, setPreviewSoundOn] = useState(() => {
@@ -37,6 +47,7 @@ export function HomePreplayFocusProvider({ children }: { children: React.ReactNo
     }
   })
   const rafRef = useRef<number | null>(null)
+  const prevLayoutSuppressedRef = useRef<boolean | null>(null)
 
   const togglePreviewSound = useCallback(() => {
     setPreviewSoundOn((prev) => {
@@ -107,6 +118,60 @@ export function HomePreplayFocusProvider({ children }: { children: React.ReactNo
     [scheduleRecompute]
   )
 
+  /**
+   * Scroll restore hides the grid (`invisible`); intersection entries clear while sticky focus kept a stale id,
+   * so no tile matched `focusedMediaId` after return from /media. Clear when entering suppress; after suppress
+   * lifts, defer a flush so visible cards re-report before we pick a new winner.
+   */
+  useEffect(() => {
+    const prev = prevLayoutSuppressedRef.current
+    prevLayoutSuppressedRef.current = layoutSuppressed
+
+    if (layoutSuppressed) {
+      scoresRef.current.clear()
+      setFocusedMediaId(null)
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+      return
+    }
+
+    if (prev !== true) {
+      return
+    }
+
+    let inner: number | null = null
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => {
+        scoresRef.current.clear()
+        setFocusedMediaId(null)
+        if (rafRef.current != null) {
+          cancelAnimationFrame(rafRef.current)
+          rafRef.current = null
+        }
+      })
+    })
+    return () => {
+      cancelAnimationFrame(outer)
+      if (inner != null) cancelAnimationFrame(inner)
+    }
+  }, [layoutSuppressed])
+
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return
+      scoresRef.current.clear()
+      setFocusedMediaId(null)
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [])
+
   const value = useMemo(
     () => ({
       focusedMediaId,
@@ -114,8 +179,16 @@ export function HomePreplayFocusProvider({ children }: { children: React.ReactNo
       togglePreviewSound,
       reportPreplayIntersection,
       unregisterPreplay,
+      layoutSuppressed,
     }),
-    [focusedMediaId, previewSoundOn, togglePreviewSound, reportPreplayIntersection, unregisterPreplay]
+    [
+      focusedMediaId,
+      previewSoundOn,
+      togglePreviewSound,
+      reportPreplayIntersection,
+      unregisterPreplay,
+      layoutSuppressed,
+    ]
   )
 
   return (

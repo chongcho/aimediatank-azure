@@ -1015,7 +1015,7 @@ function HomeContent() {
         </div>
       ) : (
         <>
-          <HomePreplayFocusProvider>
+          <HomePreplayFocusProvider layoutSuppressed={restoringScroll}>
             <div className="relative">
               {/* When restoringScroll, grid is invisible (DOM targets exist for scroll) but show skeleton overlay so user sees loading state */}
               {restoringScroll && (
