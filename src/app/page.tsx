@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense, useRef, useCallback, useMemo } from 'rea
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
+import { HomePreplayFocusProvider } from '@/contexts/HomePreplayFocusContext'
 import LiveChat from '@/components/LiveChat'
 import { getHomeFeed, saveHomeFeed } from '@/lib/homePrefetchCache'
 
@@ -1036,19 +1037,21 @@ function HomeContent() {
                 })}
               </div>
             )}
-            <div
-              className={`media-grid${restoringScroll ? ' invisible' : ''}${isGridLayout ? ` media-grid--grid${homeLayout === 'grid_center' ? ' media-grid--grid--center' : ''}` : ''}`}
-              style={isGridLayout ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
-            >
-              {mediaForGrid.map((item) => (
-                <MediaCard
-                  key={item.id}
-                  media={item}
-                  homeScrollContext={{ page: item._page || page, sort, type, search }}
-                  preplay={homePreplay}
-                />
-              ))}
-            </div>
+            <HomePreplayFocusProvider>
+              <div
+                className={`media-grid${restoringScroll ? ' invisible' : ''}${isGridLayout ? ` media-grid--grid${homeLayout === 'grid_center' ? ' media-grid--grid--center' : ''}` : ''}`}
+                style={isGridLayout ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
+              >
+                {mediaForGrid.map((item) => (
+                  <MediaCard
+                    key={item.id}
+                    media={item}
+                    homeScrollContext={{ page: item._page || page, sort, type, search }}
+                    preplay={homePreplay}
+                  />
+                ))}
+              </div>
+            </HomePreplayFocusProvider>
           </div>
 
           {/* Infinite Scroll Trigger */}

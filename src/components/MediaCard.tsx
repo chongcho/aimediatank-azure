@@ -10,6 +10,7 @@ import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
 import { formatViewCount } from '@/lib/formatViewCount'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
+import { useHomePreplayFocus } from '@/contexts/HomePreplayFocusContext'
 
 interface MediaCardProps {
   media: {
@@ -282,9 +283,47 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     setIsMobile(typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
   }, [])
 
+  const preplayFocus = useHomePreplayFocus()
+  const preplayFocusRef = useRef(preplayFocus)
+  preplayFocusRef.current = preplayFocus
+
+  /** Homepage mobile: only the centrally “focused” VIDEO card preplays (see HomePreplayFocusProvider). */
+  const mobileHomePreplayFocused = useMemo(
+    () =>
+      !isMobile ||
+      !homeScrollContext ||
+      !preplay ||
+      preplayFocus == null ||
+      preplayFocus.focusedMediaId === media.id,
+    [isMobile, homeScrollContext, preplay, preplayFocus, media.id]
+  )
+
   useEffect(() => {
     if (!isInView) setHoverClickUnmuted(false)
   }, [isInView])
+
+  // Homepage mobile: report intersection ratio so one “focused” card gets preplay (avoids broken / competing play() on many tiles).
+  useEffect(() => {
+    if (!homeScrollContext || !isMobile || !preplay || media.type !== 'VIDEO' || !isPlayable) return
+    const ctx = preplayFocusRef.current
+    if (!ctx) return
+    const el = cardRef.current
+    if (!el) return
+    const threshold = Array.from({ length: 21 }, (_, i) => i / 20)
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0]
+        if (!e) return
+        preplayFocusRef.current?.reportPreplayIntersection(media.id, e)
+      },
+      { root: null, rootMargin: '0px', threshold }
+    )
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      preplayFocusRef.current?.unregisterPreplay(media.id)
+    }
+  }, [homeScrollContext, isMobile, preplay, media.type, isPlayable, media.id])
 
   // Only mount video elements when card is in or near viewport to avoid 200+ videos in DOM (performance).
   // Use a tight rootMargin so scrolling doesn't trigger too many concurrent video loads; defer isInView
@@ -333,7 +372,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     }
   }, [isInView, media.id, applyPlayPrefetchViews])
 
-  // Mobile: pre-play all cards in extended zone (on-screen + one up/down); no single "focused" card
+  // Mobile homepage: pre-play only the single focus tile; desktop / profile unchanged.
   useEffect(() => {
     if (!isMobile) return
     const isPreplay = preplay && media.type === 'VIDEO' && isPlayable
@@ -342,7 +381,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     const hasThumb = !!(media.thumbnailUrl || (media.type === 'IMAGE' ? media.url : null))
     const useOverlayVideo = hasThumb && !thumbnailError
     const useFallbackVideo = media.type === 'VIDEO' && !hasThumb && !thumbnailError
-    if (isInView) {
+    if (isInView && mobileHomePreplayFocused) {
       const id = requestAnimationFrame(() => {
         if (useOverlayVideo) {
           const v = preplayVideoRef.current
@@ -367,6 +406,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }, [
     isMobile,
     isInView,
+    mobileHomePreplayFocused,
     preplay,
     media.type,
     isPlayable,
@@ -913,7 +953,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 onLoad={() => setThumbnailLoaded(true)}
                 onError={() => setThumbnailError(true)}
               />
-              {isPreplayVideo && isInView && (
+              {isPreplayVideo && isInView && mobileHomePreplayFocused && (
                 <video
                   ref={preplayVideoRef}
                   src={media.streamUrl ?? media.url}
@@ -943,7 +983,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                 />
               )}
             </>
-          ) : showVideoElement && isInView ? (
+          ) : showVideoElement && isInView && mobileHomePreplayFocused ? (
             // Show video element as fallback for videos only when in view (performance).
             // preload="metadata" required so onLoadedMetadata fires and we can seek to 1s for preview frame.
             <video
@@ -983,7 +1023,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
 
           {isPreplayVideo &&
             !preplayAudible &&
-            (preplayHover || (isMobile && isInView)) && (
+            (preplayHover || (isMobile && isInView && mobileHomePreplayFocused)) && (
             <button
               type="button"
               className="absolute bottom-2 left-2 z-[25] flex min-h-[36px] min-w-[36px] touch-manipulation items-center gap-1 rounded-md bg-black/75 px-2 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm pointer-events-auto hover:bg-black/90 active:bg-black/95"
