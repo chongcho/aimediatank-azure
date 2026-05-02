@@ -386,15 +386,20 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
         if (useOverlayVideo) {
           const v = preplayVideoRef.current
           if (v) {
-            // rAF is outside a gesture; only set unmuted when global preview sound is on (user used toolbar toggle).
-            if (!audible) v.muted = true
-            void v.play().catch(() => {})
+            v.muted = !audible
+            void v.play().catch(() => {
+              v.muted = true
+              void v.play().catch(() => {})
+            })
           }
         } else if (useFallbackVideo) {
           const v = videoRef.current
           if (v) {
-            if (!audible) v.muted = true
-            void v.play().catch(() => {})
+            v.muted = !audible
+            void v.play().catch(() => {
+              v.muted = true
+              void v.play().catch(() => {})
+            })
           }
         }
       })
@@ -781,15 +786,28 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     preplay10sTimeoutRef.current = setTimeout(recordPreplayView, 10_000)
   }, [recordPreplayView, clearPreplay10sTimeout])
 
+  const playPreplayWithAudioPolicy = useCallback(
+    (v: HTMLVideoElement | null) => {
+      if (!v) return
+      const wantAudible = isPreplayVideo && previewSoundOn
+      v.muted = !wantAudible
+      void v.play().catch(() => {
+        v.muted = true
+        void v.play().catch(() => {})
+      })
+    },
+    [isPreplayVideo, previewSoundOn]
+  )
+
   const handlePreplayPointerEnter = () => {
     if (!isPreplayVideo) return
     // On mobile, preplay is driven only by isInView; ignore pointer enter/leave so long touch doesn't stop it.
     if (isMobile) return
     setPreplayHover(true)
     if (thumbnailSrc && !thumbnailError) {
-      preplayVideoRef.current?.play().catch(() => {})
+      playPreplayWithAudioPolicy(preplayVideoRef.current)
     } else if (showVideoElement) {
-      videoRef.current?.play().catch(() => {})
+      playPreplayWithAudioPolicy(videoRef.current)
     }
   }
   const handlePreplayPointerLeave = () => {
@@ -804,6 +822,26 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
       videoRef.current?.pause()
     }
   }
+
+  // Desktop: toggling preview sound while already hovering must re-apply muted + play (props alone may not recover).
+  useEffect(() => {
+    if (isMobile || !isPreplayVideo || !isInView || !preplayHover) return
+    if (thumbnailSrc && !thumbnailError) {
+      playPreplayWithAudioPolicy(preplayVideoRef.current)
+    } else if (showVideoElement) {
+      playPreplayWithAudioPolicy(videoRef.current)
+    }
+  }, [
+    isMobile,
+    isPreplayVideo,
+    isInView,
+    preplayHover,
+    previewSoundOn,
+    playPreplayWithAudioPolicy,
+    thumbnailSrc,
+    thumbnailError,
+    showVideoElement,
+  ])
 
   const handleMouseEnter = () => {
     prefetchMediaPlay(media.id, applyPlayPrefetchViews)
@@ -1049,7 +1087,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                     : 'Play video previews with sound on the home feed'
                 }
               >
-                <PreplayVolumeIcon muted={!previewSoundOn} className="h-5 w-5" />
+                <PreplayVolumeIcon muted={!previewSoundOn} className="h-2.5 w-2.5" />
               </button>
             </div>
           )}

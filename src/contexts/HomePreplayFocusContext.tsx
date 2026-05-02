@@ -53,8 +53,9 @@ export function HomePreplayFocusProvider({ children }: { children: React.ReactNo
   const recomputeFocused = useCallback(() => {
     rafRef.current = null
     const scores = scoresRef.current
+    // Do not clear focus when the map is briefly empty (scroll / IO churn); that made every tile
+    // `focusedMediaId !== id` and stopped mobile preplay until a new winner appeared.
     if (scores.size === 0) {
-      setFocusedMediaId((prev) => (prev === null ? prev : null))
       return
     }
     const midY =
@@ -131,7 +132,7 @@ export function useHomePreplayFocus() {
 /** Speaker + waves (on) or same with diagonal slash (muted / off). */
 export function PreplayVolumeIcon({
   muted,
-  className = 'h-5 w-5',
+  className = 'h-2.5 w-2.5',
 }: {
   muted: boolean
   className?: string
