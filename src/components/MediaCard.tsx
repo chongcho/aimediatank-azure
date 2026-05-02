@@ -72,35 +72,47 @@ type ModalCommentLine = { id: string; content: string; userId: string }
 /** Max height (px) for the comment textarea before it scrolls internally. */
 const COMMENT_TEXTAREA_MAX_PX = 200
 
-let badgeItemsCache: BadgeItem[] | null = null
-let badgeItemsPromise: Promise<BadgeItem[] | null> | null = null
+type BadgePayload = { items: BadgeItem[]; homePreplaySound: boolean }
+
+let badgePayloadCache: BadgePayload | null = null
+let badgePayloadPromise: Promise<BadgePayload | null> | null = null
 
 function resetBadgeItemsCache() {
-  badgeItemsCache = null
-  badgeItemsPromise = null
+  badgePayloadCache = null
+  badgePayloadPromise = null
 }
 
-async function getBadgeItems(): Promise<BadgeItem[] | null> {
-  if (badgeItemsCache) return badgeItemsCache
-  if (badgeItemsPromise) return badgeItemsPromise
+async function fetchBadgePayload(): Promise<BadgePayload | null> {
+  if (badgePayloadCache) return badgePayloadCache
+  if (badgePayloadPromise) return badgePayloadPromise
 
-  badgeItemsPromise = (async () => {
+  badgePayloadPromise = (async () => {
     try {
-      const res = await fetch('/api/ui/badges', { cache: 'no-store' })
+      const res = await fetch(`/api/ui/badges?_=${Date.now()}`, {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      })
       if (!res.ok) return null
       const data = await res.json()
       const items = (data.items || []) as BadgeItem[]
-      badgeItemsCache = items
-      return items
+      const homePreplaySound = data.homePreplaySound !== false
+      const payload: BadgePayload = { items, homePreplaySound }
+      badgePayloadCache = payload
+      return payload
     } catch (error) {
       console.error('Error fetching badge settings:', error)
       return null
     } finally {
-      badgeItemsPromise = null
+      badgePayloadPromise = null
     }
   })()
 
-  return badgeItemsPromise
+  return badgePayloadPromise
+}
+
+async function getBadgeItems(): Promise<BadgeItem[] | null> {
+  const p = await fetchBadgePayload()
+  return p?.items ?? null
 }
 
 export default function MediaCard({
@@ -122,7 +134,13 @@ export default function MediaCard({
   const videoRef = useRef<HTMLVideoElement>(null)
   const preplayVideoRef = useRef<HTMLVideoElement>(null)
   const [preplayHover, setPreplayHover] = useState(false)
-  const [badgeItems, setBadgeItems] = useState<BadgeItem[] | null>(badgeItemsCache)
+  const [badgeItems, setBadgeItems] = useState<BadgeItem[] | null>(badgePayloadCache?.items ?? null)
+  /** From `/api/ui/badges` (same source as tile badges); null until first fetch — then overrides parent prop for homepage sound UI. */
+  const [homePreplaySoundFromBadges, setHomePreplaySoundFromBadges] = useState<boolean | null>(
+    badgePayloadCache ? badgePayloadCache.homePreplaySound : null
+  )
+  const homePreplaySoundEffective =
+    homePreplaySoundFromBadges !== null ? homePreplaySoundFromBadges : homePreplaySound
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -196,10 +214,18 @@ export default function MediaCard({
   useEffect(() => {
     const onBadgeUpdate = () => {
       resetBadgeItemsCache()
-      void getBadgeItems().then((items) => setBadgeItems(items))
+      void fetchBadgePayload().then((payload) => {
+        if (!payload) return
+        setBadgeItems(payload.items)
+        setHomePreplaySoundFromBadges(payload.homePreplaySound)
+      })
     }
     window.addEventListener('mediaBadgeSettingsUpdated', onBadgeUpdate)
-    return () => window.removeEventListener('mediaBadgeSettingsUpdated', onBadgeUpdate)
+    window.addEventListener('homeLayoutUpdated', onBadgeUpdate)
+    return () => {
+      window.removeEventListener('mediaBadgeSettingsUpdated', onBadgeUpdate)
+      window.removeEventListener('homeLayoutUpdated', onBadgeUpdate)
+    }
   }, [])
 
   useEffect(() => {
@@ -307,7 +333,7 @@ export default function MediaCard({
   const preplayFocus = useHomePreplayFocus()
   const preplayFocusRef = useRef(preplayFocus)
   preplayFocusRef.current = preplayFocus
-  const previewSoundOn = Boolean(preplayFocus?.previewSoundOn) && homePreplaySound
+  const previewSoundOn = Boolean(preplayFocus?.previewSoundOn) && homePreplaySoundEffective
   const togglePreviewSound = preplayFocus?.togglePreviewSound
   const layoutSuppressed = Boolean(preplayFocus?.layoutSuppressed)
 
@@ -458,9 +484,18 @@ export default function MediaCard({
   useEffect(() => {
     let isMounted = true
     const loadBadges = async () => {
-      if (badgeItemsCache) return
-      const items = await getBadgeItems()
-      if (isMounted) setBadgeItems(items)
+      if (badgePayloadCache) {
+        if (isMounted) {
+          setBadgeItems(badgePayloadCache.items)
+          setHomePreplaySoundFromBadges(badgePayloadCache.homePreplaySound)
+        }
+        return
+      }
+      const payload = await fetchBadgePayload()
+      if (isMounted && payload) {
+        setBadgeItems(payload.items)
+        setHomePreplaySoundFromBadges(payload.homePreplaySound)
+      }
     }
     loadBadges()
     return () => {
@@ -793,7 +828,7 @@ export default function MediaCard({
     (isMobile ? mobileHomePreplayFocused : preplayHover)
   /** In-thumbnail control (desktop: every in-view tile; mobile: focused preplay tile only). */
   const showHomePreplaySoundChip =
-    homePreplaySound &&
+    homePreplaySoundEffective &&
     hasHomeScrollContext &&
     isPreplayVideo &&
     isInView &&

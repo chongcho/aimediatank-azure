@@ -1331,6 +1331,7 @@ export default function AdminPage() {
         if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('homeLayoutUpdated'))
+          window.dispatchEvent(new Event('mediaBadgeSettingsUpdated'))
           try {
             localStorage.setItem('homeLayoutUiRev', String(Date.now()))
           } catch {
@@ -3276,6 +3277,7 @@ export default function AdminPage() {
                         if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
                         if (typeof window !== 'undefined') {
                           window.dispatchEvent(new Event('homeLayoutUpdated'))
+                          window.dispatchEvent(new Event('mediaBadgeSettingsUpdated'))
                           try {
                             localStorage.setItem('homeLayoutUiRev', String(Date.now()))
                           } catch {

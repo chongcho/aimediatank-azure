@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getFirstHomeLayoutSetting } from '@/lib/homeLayoutSetting'
 
 export const dynamic = 'force-dynamic'
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate, max-age=0',
+  Pragma: 'no-cache',
+  Expires: '0',
+} as const
 
 const defaultItems = [
   { itemKey: 'ai', label: 'AI', isEnabled: true, sortOrder: 0 },
@@ -42,6 +49,14 @@ export async function GET() {
         orderBy: { sortOrder: 'asc' },
       })
 
+      let homePreplaySound = true
+      try {
+        const layoutRow = await getFirstHomeLayoutSetting()
+        if (layoutRow) homePreplaySound = layoutRow.homePreplaySound !== false
+      } catch {
+        /* column missing / DB error — default visible */
+      }
+
       const renamed = await prisma.mediaBadgeSetting.updateMany({
         where: {
           itemKey: 'smileRate',
@@ -55,13 +70,17 @@ export async function GET() {
         })
       }
 
-      return NextResponse.json({ items })
+      return NextResponse.json({ items, homePreplaySound }, { headers: NO_STORE_HEADERS })
     } catch (error) {
       console.error('Badge settings unavailable, returning defaults:', error)
-      return NextResponse.json({
-        items: defaultItems,
-        warning: 'MEDIA_BADGE_SETTINGS_UNAVAILABLE',
-      })
+      return NextResponse.json(
+        {
+          items: defaultItems,
+          homePreplaySound: true,
+          warning: 'MEDIA_BADGE_SETTINGS_UNAVAILABLE',
+        },
+        { headers: NO_STORE_HEADERS }
+      )
     }
   } catch (error) {
     console.error('Error fetching badge settings:', error)
