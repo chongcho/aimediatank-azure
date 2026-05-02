@@ -1089,7 +1089,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
                   togglePreviewSound()
                 }}
                 aria-pressed={previewSoundOn}
-                className="pointer-events-auto inline-flex -translate-y-[5px] touch-manipulation items-center justify-center rounded-md bg-transparent px-2 py-1 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] transition-opacity hover:opacity-90 active:opacity-100 [-webkit-tap-highlight-color:transparent]"
+                className="pointer-events-auto inline-flex touch-manipulation items-center justify-center rounded-md bg-transparent px-2 py-1 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] transition-opacity hover:opacity-90 active:opacity-100 [-webkit-tap-highlight-color:transparent]"
                 title={
                   previewSoundOn
                     ? 'Mute video previews on the home feed'
