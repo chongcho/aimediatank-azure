@@ -3569,53 +3569,6 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              <div
-                className={`rounded-xl p-4 border-2 transition-all mb-2 ${
-                  homePreplaySound
-                    ? 'bg-tank-gray border-green-500/50'
-                    : 'bg-tank-dark border-gray-700 opacity-60'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">🔊</span>
-                    <div>
-                      <h3 className="font-bold text-white">Homepage media sound</h3>
-                      <p className="text-xs text-gray-400">homePreplaySound</p>
-                      <p className="text-xs text-gray-500 mt-1 max-w-xl">
-                        When off, the volume icon on home feed video tiles is hidden and previews stay muted. When on, viewers see the icon and can turn preview sound on (where the browser allows).
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => toggleHomePreplaySound(!homePreplaySound)}
-                    disabled={homePreplaySoundSaving}
-                    className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${
-                      homePreplaySound ? 'bg-green-500' : 'bg-gray-600'
-                    } ${homePreplaySoundSaving ? 'opacity-50' : ''}`}
-                    aria-pressed={homePreplaySound}
-                  >
-                    <span
-                      className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow ${
-                        homePreplaySound ? 'translate-x-8' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-                <div className="mt-3 flex items-center justify-end gap-2">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      homePreplaySound
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}
-                  >
-                    {homePreplaySound ? '✓ Visible' : '✗ Hidden'}
-                  </span>
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {mediaBadgeItems.filter((item) => item.itemKey !== 'homePreplaySound').map((item) => (
                   <div
@@ -3661,6 +3614,55 @@ export default function AdminPage() {
                     </div>
                   </div>
                 ))}
+
+                <div
+                  className={`rounded-xl p-4 border-2 transition-all ${
+                    homePreplaySound
+                      ? 'bg-tank-gray border-green-500/50'
+                      : 'bg-tank-dark border-gray-700 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-2xl shrink-0">🔊</span>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-white">Homepage media sound</h3>
+                        <p className="text-xs text-gray-400">homePreplaySound</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Home feed volume chip; off keeps previews muted.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleHomePreplaySound(!homePreplaySound)}
+                      disabled={homePreplaySoundSaving}
+                      className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${
+                        homePreplaySound ? 'bg-green-500' : 'bg-gray-600'
+                      } ${homePreplaySoundSaving ? 'opacity-50' : ''}`}
+                      aria-pressed={homePreplaySound}
+                    >
+                      <div
+                        className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow ${
+                          homePreplaySound ? 'translate-x-8' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        homePreplaySound
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {homePreplaySound ? '✓ Visible' : '✗ Hidden'}
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-6 p-4 bg-tank-dark rounded-lg border border-tank-light">
