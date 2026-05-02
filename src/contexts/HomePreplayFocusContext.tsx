@@ -158,20 +158,3 @@ export function PreplayVolumeIcon({
   )
 }
 
-/** Homepage only: global preplay sound on/off (must render under HomePreplayFocusProvider). */
-export function HomePreviewSoundToggle({ preplayEnabled }: { preplayEnabled: boolean }) {
-  const ctx = useHomePreplayFocus()
-  if (!ctx || !preplayEnabled) return null
-  const { previewSoundOn, togglePreviewSound } = ctx
-  return (
-    <button
-      type="button"
-      onClick={togglePreviewSound}
-      aria-pressed={previewSoundOn}
-      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-tank-light bg-tank-gray text-gray-200 transition-colors hover:border-tank-accent/50 hover:text-white"
-      title={previewSoundOn ? 'Mute video previews on the home feed' : 'Play video previews with sound on the home feed'}
-    >
-      <PreplayVolumeIcon muted={!previewSoundOn} className="h-5 w-5" />
-    </button>
-  )
-}

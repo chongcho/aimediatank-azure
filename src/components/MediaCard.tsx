@@ -10,7 +10,7 @@ import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
 import { formatViewCount } from '@/lib/formatViewCount'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
-import { useHomePreplayFocus } from '@/contexts/HomePreplayFocusContext'
+import { PreplayVolumeIcon, useHomePreplayFocus } from '@/contexts/HomePreplayFocusContext'
 
 interface MediaCardProps {
   media: {
@@ -289,6 +289,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   const preplayFocusRef = useRef(preplayFocus)
   preplayFocusRef.current = preplayFocus
   const previewSoundOn = Boolean(preplayFocus?.previewSoundOn)
+  const togglePreviewSound = preplayFocus?.togglePreviewSound
 
   /** Homepage mobile: only the centrally “focused” VIDEO card preplays (see HomePreplayFocusProvider). */
   const mobileHomePreplayFocused = useMemo(
@@ -743,8 +744,15 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
   }
 
   const isPreplayVideo = preplay && media.type === 'VIDEO' && isPlayable
-  /** Homepage: only the feed toolbar toggle (`HomePreviewSoundToggle`); no per-card sound control. */
+  /** Homepage: shared `previewSoundOn` from context; each in-card control toggles the same state. */
   const preplayAudible = isPreplayVideo && previewSoundOn
+  /** In-thumbnail control (desktop: every in-view tile; mobile: focused preplay tile only). */
+  const showHomePreplaySoundChip =
+    hasHomeScrollContext &&
+    isPreplayVideo &&
+    isInView &&
+    togglePreviewSound &&
+    (!isMobile || mobileHomePreplayFocused)
 
   const recordPreplayView = useCallback(() => {
     if (preplayViewCountedRef.current || !media.id) return
@@ -1018,6 +1026,31 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               <div className="text-white/70 scale-[3]">
                 {getTypeIcon()}
               </div>
+            </div>
+          )}
+
+          {showHomePreplaySoundChip && (
+            <div
+              className="pointer-events-none absolute inset-x-0 top-2 z-[30] flex justify-center px-14 sm:px-16"
+              role="presentation"
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  togglePreviewSound()
+                }}
+                aria-pressed={previewSoundOn}
+                className="pointer-events-auto flex h-10 w-10 touch-manipulation items-center justify-center rounded-md bg-black/75 text-white/90 backdrop-blur-sm hover:bg-black/90 active:bg-black/95"
+                title={
+                  previewSoundOn
+                    ? 'Mute video previews on the home feed'
+                    : 'Play video previews with sound on the home feed'
+                }
+              >
+                <PreplayVolumeIcon muted={!previewSoundOn} className="h-5 w-5" />
+              </button>
             </div>
           )}
 

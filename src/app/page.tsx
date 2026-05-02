@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense, useRef, useCallback, useMemo } from 'rea
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
-import { HomePreplayFocusProvider, HomePreviewSoundToggle } from '@/contexts/HomePreplayFocusContext'
+import { HomePreplayFocusProvider } from '@/contexts/HomePreplayFocusContext'
 import LiveChat from '@/components/LiveChat'
 import { getHomeFeed, saveHomeFeed } from '@/lib/homePrefetchCache'
 
@@ -1016,11 +1016,6 @@ function HomeContent() {
       ) : (
         <>
           <HomePreplayFocusProvider>
-            {homePreplay && (
-              <div className="flex justify-end mb-2 px-[10px]">
-                <HomePreviewSoundToggle preplayEnabled={homePreplay} />
-              </div>
-            )}
             <div className="relative">
               {/* When restoringScroll, grid is invisible (DOM targets exist for scroll) but show skeleton overlay so user sees loading state */}
               {restoringScroll && (
