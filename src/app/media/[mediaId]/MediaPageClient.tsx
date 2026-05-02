@@ -715,6 +715,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             <MediaPlayer
               type={media.type}
               url={(media as any).streamUrl ?? media.url}
+              streamRenditions={(media as { streamRenditions?: { height: number; url: string }[] }).streamRenditions}
               title={media.title}
               thumbnailUrl={media.thumbnailUrl}
               autoUnmuteOnMount
@@ -772,6 +773,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             <MediaPlayer
               type={media.type}
               url={(media as any).streamUrl ?? media.url}
+              streamRenditions={(media as { streamRenditions?: { height: number; url: string }[] }).streamRenditions}
               title={media.title}
               thumbnailUrl={media.thumbnailUrl}
               autoUnmuteOnMount

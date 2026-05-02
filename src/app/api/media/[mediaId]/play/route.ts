@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { selectVideoStreams } from '@/lib/videoStreamRenditions'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +49,7 @@ export async function GET(
     }
 
     let streamUrl: string | null = null
+    let streamRenditions: { height: number; url: string }[] | undefined
     if (media.type === 'VIDEO' && media.url) {
       const [purchase, cropSettings] = await Promise.all([
         session?.user
@@ -63,21 +65,17 @@ export async function GET(
       const paidQuality = (cropSettings as { paidDownloadQuality?: string } | null)?.paidDownloadQuality ?? 'hq'
       const versions = (media as { versions: Array<{ url: string; height: number }> }).versions ?? []
 
-      if (isOwner || hasPurchased) {
-        if (paidQuality === 'hq') {
-          const bestVersion = versions[versions.length - 1]
-          streamUrl = (media as { urlHq?: string | null }).urlHq ?? bestVersion?.url ?? media.url
-        } else if (paidQuality === '1080p') {
-          const v = versions.find((v) => v.height === 1080)
-          streamUrl = v?.url ?? (media as { urlHq?: string | null }).urlHq ?? media.url
-        } else {
-          const v = versions.find((v) => v.height === 720)
-          streamUrl = v?.url ?? media.url
-        }
-      } else {
-        const cap = Math.max(480, freeStreamMaxHeight)
-        const best = [...versions].filter((v) => v.height <= cap).pop()
-        streamUrl = best?.url ?? media.url
+      const sel = selectVideoStreams({
+        versions,
+        mediaUrl: media.url,
+        urlHq: (media as { urlHq?: string | null }).urlHq ?? null,
+        isOwnerOrPurchased: isOwner || hasPurchased,
+        paidQuality,
+        freeStreamMaxHeight,
+      })
+      streamUrl = sel.streamUrl
+      if (sel.streamRenditions.length > 1) {
+        streamRenditions = sel.streamRenditions
       }
     }
 
@@ -106,6 +104,7 @@ export async function GET(
       _count: { comments: 0, ratings: 0 },
       fileSize,
       ...(streamUrl && { streamUrl }),
+      ...(streamRenditions && { streamRenditions }),
     }
 
     const res = NextResponse.json(payload)

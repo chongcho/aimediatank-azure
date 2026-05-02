@@ -7,6 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom'
 import { formatMediaTitle, stripHashtags, truncateText } from '@/lib/text'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
+import { pickInitialRenditionIndex, sortRenditions } from '@/lib/adaptiveVideoTier'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
 import { formatViewCount } from '@/lib/formatViewCount'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
@@ -20,6 +21,8 @@ interface MediaCardProps {
     url: string
     /** When set (from list API), use for pre-play to match Display streaming max (e.g. 1080p). */
     streamUrl?: string
+    /** Ladder of URLs for network-aware pre-play (optional; from list API). */
+    streamRenditions?: { height: number; url: string }[]
     thumbnailUrl?: string | null
     /** Shown as bottom overlay on the thumbnail when set (e.g. homepage). */
     description?: string | null
@@ -149,6 +152,15 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
     !!media.url &&
     /-(?:360p|480p|720p|1080p|hq)\.mp4/i.test(media.url)
   const isPlayable = !media.processingStatus || media.processingStatus === 'completed' || hasPreviewStream
+
+  const videoPreplaySrc = useMemo(() => {
+    if (media.type !== 'VIDEO') return media.url
+    const renditions = media.streamRenditions
+    if (!renditions?.length) return media.streamUrl ?? media.url
+    const sorted = sortRenditions(renditions)
+    if (sorted.length <= 1) return sorted[0]?.url ?? media.streamUrl ?? media.url
+    return sorted[pickInitialRenditionIndex(sorted.length)]?.url ?? media.streamUrl ?? media.url
+  }, [media.type, media.url, media.streamUrl, media.streamRenditions])
 
   // Include pathname: after /media/[id] → home/profile, feed props often keep the same media.views — re-read sessionStorage.
   useEffect(() => {
@@ -1025,7 +1037,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               {isPreplayVideo && isInView && mobileHomePreplayFocused && (
                 <video
                   ref={preplayVideoRef}
-                  src={media.streamUrl ?? media.url}
+                  src={videoPreplaySrc}
                   className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover || (isMobile && isInView) ? 'opacity-100' : 'opacity-0'}`}
                   muted={!preplayAudible}
                   playsInline
@@ -1043,7 +1055,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
               {/* When Preplay is OFF, still preload metadata so media detail page loads faster when user clicks */}
               {!preplay && media.type === 'VIDEO' && isInView && isPlayable && (
                 <video
-                  src={media.streamUrl ?? media.url}
+                  src={videoPreplaySrc}
                   preload="metadata"
                   className="absolute inset-0 w-full h-full pointer-events-none opacity-0"
                   muted
@@ -1057,7 +1069,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             // preload="metadata" required so onLoadedMetadata fires and we can seek to 1s for preview frame.
             <video
               ref={videoRef}
-              src={media.streamUrl ?? media.url}
+              src={videoPreplaySrc}
               className="w-full aspect-video object-cover"
               muted={!(preplay && preplayAudible)}
               playsInline

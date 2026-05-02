@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { publicHomeFeedMediaReadyClause } from '@/lib/homeFeedVisibility'
+import { selectVideoStreams } from '@/lib/videoStreamRenditions'
 
 // Force dynamic rendering since we use request.url
 export const dynamic = 'force-dynamic'
@@ -179,14 +180,23 @@ export async function GET(request: Request) {
           }
         }
         
-        // For VIDEO, set streamUrl to best version <= freeStreamMaxHeight (same as Media Detail) for pre-play quality.
-        // Normalize cap to at least 480 so legacy DB values (144/240/360) don't yield no match and fallback to 720p.
+        // For VIDEO, set streamUrl + optional streamRenditions (free-tier ladder for adaptive pre-play).
         let streamUrl: string | undefined
-        if (m.type === 'VIDEO' && (m as any).versions?.length) {
-          const versions = (m as any).versions as { height: number; url: string }[]
-          const cap = Math.max(480, freeStreamMaxHeight)
-          const best = [...versions].filter((v) => v.height <= cap).pop()
-          streamUrl = best?.url ?? m.url
+        let streamRenditions: { height: number; url: string }[] | undefined
+        if (m.type === 'VIDEO' && m.url) {
+          const versions = ((m as any).versions ?? []) as { height: number; url: string }[]
+          const sel = selectVideoStreams({
+            versions,
+            mediaUrl: m.url,
+            urlHq: (m as any).urlHq ?? null,
+            isOwnerOrPurchased: false,
+            paidQuality: 'hq',
+            freeStreamMaxHeight,
+          })
+          streamUrl = sel.streamUrl ?? undefined
+          if (sel.streamRenditions.length > 1) {
+            streamRenditions = sel.streamRenditions
+          }
         } else {
           streamUrl = m.url
         }
@@ -199,6 +209,7 @@ export async function GET(request: Request) {
           ...rest,
           comments: commentsPreview,
           streamUrl,
+          ...(streamRenditions && { streamRenditions }),
           fileSize,
           avgRating: Math.round(avgRating * 10) / 10,
           reactions: { happy: happyCount, sad: sadCount },

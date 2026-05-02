@@ -8,6 +8,7 @@ import {
   deleteAzureBlobByUrlIfExists,
   isHttpOrHttpsUrl,
 } from '@/lib/azureBlobDelete'
+import { selectVideoStreams } from '@/lib/videoStreamRenditions'
 
 // Force dynamic rendering to always get fresh data
 export const dynamic = 'force-dynamic'
@@ -98,6 +99,7 @@ export async function GET(
 
     // Resolve stream URL for video from admin download/stream settings (session + crop in parallel)
     let streamUrl: string | null = null
+    let streamRenditions: { height: number; url: string }[] | undefined
     if (media.type === 'VIDEO' && media.url) {
       const [session, cropSettings] = await Promise.all([
         getServerSession(authOptions),
@@ -115,23 +117,17 @@ export async function GET(
       const paidQuality = crop?.paidDownloadQuality ?? 'hq'
       const versions = (media as any).versions || []
 
-      if (isOwner || hasPurchased) {
-        if (paidQuality === 'hq') {
-          // Prefer urlHq when present; otherwise use best available version (versions ordered by height asc)
-          const bestVersion = versions[versions.length - 1]
-          streamUrl = (media as any).urlHq ?? bestVersion?.url ?? media.url
-        } else if (paidQuality === '1080p') {
-          const v = versions.find((v: any) => v.height === 1080)
-          streamUrl = v?.url ?? (media as any).urlHq ?? media.url
-        } else {
-          const v = versions.find((v: any) => v.height === 720)
-          streamUrl = v?.url ?? media.url
-        }
-      } else {
-        // Normalize cap to at least 480 so legacy DB values (144/240/360) don't yield no match and fallback to 720p
-        const cap = Math.max(480, freeStreamMaxHeight)
-        const best = [...versions].filter((v: any) => v.height <= cap).pop()
-        streamUrl = best?.url ?? media.url
+      const sel = selectVideoStreams({
+        versions,
+        mediaUrl: media.url,
+        urlHq: (media as any).urlHq ?? null,
+        isOwnerOrPurchased: isOwner || hasPurchased,
+        paidQuality,
+        freeStreamMaxHeight,
+      })
+      streamUrl = sel.streamUrl
+      if (sel.streamRenditions.length > 1) {
+        streamRenditions = sel.streamRenditions
       }
     }
 
@@ -142,6 +138,7 @@ export async function GET(
       views: media.views + (skipView ? 0 : 1),
     }
     if (streamUrl) payload.streamUrl = streamUrl
+    if (streamRenditions) payload.streamRenditions = streamRenditions
     if ((media as any).versions?.length) {
       payload.versions = (media as any).versions.map((v: any) => ({
         ...v,

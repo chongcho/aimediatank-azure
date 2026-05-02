@@ -1,21 +1,33 @@
 'use client'
 
-import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import { stopAllMedia } from '@/lib/mediaStop'
 import { isInstalledPWA } from '@/lib/appBadge'
+import type { VideoStreamRendition } from '@/lib/videoStreamRenditions'
+import { bufferAheadSeconds, pickInitialRenditionIndex, sortRenditions } from '@/lib/adaptiveVideoTier'
 
 interface MediaPlayerProps {
   type: 'VIDEO' | 'IMAGE' | 'MUSIC'
   url: string
   title: string
   thumbnailUrl?: string | null
+  /** Multiple progressive URLs (low→high); player picks tier from network + buffer and may switch mid-play. */
+  streamRenditions?: VideoStreamRendition[]
   /** When true (e.g. on media detail page), start unmuted and try unmuted autoplay first. */
   autoUnmuteOnMount?: boolean
   /** When true, pause immediately (e.g. share modal open). Ref-synced so async autoplay cannot resume playback. */
   playbackSuspended?: boolean
 }
 
-export default function MediaPlayer({ type, url, title, thumbnailUrl, autoUnmuteOnMount, playbackSuspended = false }: MediaPlayerProps) {
+export default function MediaPlayer({
+  type,
+  url,
+  title,
+  thumbnailUrl,
+  streamRenditions,
+  autoUnmuteOnMount,
+  playbackSuspended = false,
+}: MediaPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -102,6 +114,122 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl, autoUnmute
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  const renditionsKey =
+    streamRenditions?.map((r) => `${r.height}\t${r.url}`).join('\n') ?? ''
+  const sortedStreamRenditions = useMemo(() => {
+    if (!streamRenditions?.length) return []
+    return sortRenditions(streamRenditions)
+  }, [renditionsKey])
+
+  const useAdaptiveVideo = type === 'VIDEO' && sortedStreamRenditions.length > 1
+  const [adaptiveTierIndex, setAdaptiveTierIndex] = useState(0)
+  const adaptiveTierRef = useRef(0)
+  const seekAfterRenditionSwitchRef = useRef<number | null>(null)
+  const lastDowngradeAtRef = useRef(0)
+
+  useEffect(() => {
+    adaptiveTierRef.current = adaptiveTierIndex
+  }, [adaptiveTierIndex])
+
+  useLayoutEffect(() => {
+    seekAfterRenditionSwitchRef.current = null
+    if (type !== 'VIDEO' || sortedStreamRenditions.length <= 1) {
+      setAdaptiveTierIndex(0)
+      adaptiveTierRef.current = 0
+      return
+    }
+    const idx = pickInitialRenditionIndex(sortedStreamRenditions.length)
+    adaptiveTierRef.current = idx
+    setAdaptiveTierIndex(idx)
+  }, [type, url, renditionsKey, sortedStreamRenditions.length])
+
+  const effectiveVideoUrl =
+    useAdaptiveVideo && sortedStreamRenditions[adaptiveTierIndex]?.url
+      ? sortedStreamRenditions[adaptiveTierIndex].url
+      : url
+
+  useEffect(() => {
+    if (type !== 'VIDEO' || !useAdaptiveVideo) return
+    const t = seekAfterRenditionSwitchRef.current
+    if (t == null || !Number.isFinite(t)) return
+    seekAfterRenditionSwitchRef.current = null
+    const v = videoRef.current
+    if (!v) return
+    const apply = () => {
+      const d = v.duration
+      if (Number.isFinite(d) && d > 0.5) {
+        v.currentTime = Math.min(Math.max(0, t), Math.max(0, d - 0.25))
+      }
+      v.play().catch(() => {})
+    }
+    if (v.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      requestAnimationFrame(apply)
+    } else {
+      v.addEventListener('loadedmetadata', apply, { once: true })
+    }
+  }, [effectiveVideoUrl, type, useAdaptiveVideo])
+
+  useEffect(() => {
+    if (!isMounted || type !== 'VIDEO' || !useAdaptiveVideo) return
+    const video = videoRef.current
+    if (!video) return
+
+    const tiers = sortedStreamRenditions
+    let downTimer: ReturnType<typeof setTimeout> | null = null
+
+    const clearDownTimer = () => {
+      if (downTimer) {
+        clearTimeout(downTimer)
+        downTimer = null
+      }
+    }
+
+    const onPlaying = () => clearDownTimer()
+
+    const onWaiting = () => {
+      clearDownTimer()
+      if (adaptiveTierRef.current <= 0) return
+      downTimer = setTimeout(() => {
+        downTimer = null
+        const v = videoRef.current
+        if (!v || v.paused) return
+        if (bufferAheadSeconds(v) > 2.5) return
+        if (adaptiveTierRef.current <= 0) return
+        const next = adaptiveTierRef.current - 1
+        seekAfterRenditionSwitchRef.current = v.currentTime
+        lastDowngradeAtRef.current = Date.now()
+        adaptiveTierRef.current = next
+        setAdaptiveTierIndex(next)
+      }, 900)
+    }
+
+    let lastUpgradeCheck = 0
+    const onTimeUpdate = () => {
+      const v = videoRef.current
+      if (!v || v.paused) return
+      const now = Date.now()
+      if (now - lastUpgradeCheck < 6000) return
+      lastUpgradeCheck = now
+      if (now - lastDowngradeAtRef.current < 22_000) return
+      if (adaptiveTierRef.current >= tiers.length - 1) return
+      if (bufferAheadSeconds(v) < 18) return
+      seekAfterRenditionSwitchRef.current = v.currentTime
+      const next = adaptiveTierRef.current + 1
+      adaptiveTierRef.current = next
+      setAdaptiveTierIndex(next)
+    }
+
+    video.addEventListener('waiting', onWaiting)
+    video.addEventListener('playing', onPlaying)
+    video.addEventListener('timeupdate', onTimeUpdate)
+    return () => {
+      clearDownTimer()
+      video.removeEventListener('waiting', onWaiting)
+      video.removeEventListener('playing', onPlaying)
+      video.removeEventListener('timeupdate', onTimeUpdate)
+    }
+  }, [isMounted, type, useAdaptiveVideo, renditionsKey, sortedStreamRenditions])
+
   // Autoplay + buffering detection.
   // Call play() immediately so the browser knows we want data NOW (triggers aggressive buffering).
   // Track waiting/playing events to show a YouTube-style loading spinner.
@@ -186,7 +314,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl, autoUnmute
       video.removeEventListener('seeked', onSeeked)
       video.removeEventListener('loadedmetadata', onMetadataLoaded)
     }
-  }, [type, url, isMounted, autoUnmuteOnMount])
+  }, [type, effectiveVideoUrl, isMounted, autoUnmuteOnMount])
 
   useEffect(() => {
     if (!isFullscreen) return
@@ -306,7 +434,7 @@ export default function MediaPlayer({ type, url, title, thumbnailUrl, autoUnmute
           )}
           <video
             ref={videoRef}
-            src={url}
+            src={effectiveVideoUrl}
             poster={thumbnailUrl || undefined}
             controls={showMobileControls}
             playsInline
