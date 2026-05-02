@@ -1026,7 +1026,7 @@ export default function MediaCard({ media, homeScrollContext, preplay = false }:
             (preplayHover || (isMobile && isInView && mobileHomePreplayFocused)) && (
             <button
               type="button"
-              className="absolute bottom-2 left-2 z-[25] flex min-h-[36px] min-w-[36px] touch-manipulation items-center gap-1 rounded-md bg-black/75 px-2 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm pointer-events-auto hover:bg-black/90 active:bg-black/95"
+              className="absolute top-2 left-1/2 z-[25] flex min-h-[36px] min-w-[36px] -translate-x-1/2 touch-manipulation items-center gap-1 rounded-md bg-black/75 px-2 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm pointer-events-auto hover:bg-black/90 active:bg-black/95"
               aria-label="Preview with sound"
               onClick={(e) => {
                 e.preventDefault()
