@@ -1022,6 +1022,9 @@ export async function GET(request: Request) {
           })
         }
 
+        // Not a tile badge — use Home Layout / dedicated "Homepage media sound" control only.
+        items = items.filter((i) => i.itemKey !== 'homePreplaySound')
+
         return NextResponse.json({ items })
       } catch (error) {
         console.error('Badge settings unavailable, returning defaults:', error)

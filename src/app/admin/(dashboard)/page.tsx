@@ -3617,7 +3617,7 @@ export default function AdminPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {mediaBadgeItems.map((item) => (
+                {mediaBadgeItems.filter((item) => item.itemKey !== 'homePreplaySound').map((item) => (
                   <div
                     key={item.itemKey}
                     className={`rounded-xl p-4 border-2 transition-all ${
@@ -3667,11 +3667,15 @@ export default function AdminPage() {
                 <h4 className="font-medium text-white mb-2">📋 Quick Stats</h4>
                 <div className="flex gap-6 text-sm">
                   <div>
-                    <span className="text-green-400 font-bold">{mediaBadgeItems.filter(i => i.isEnabled).length}</span>
+                    <span className="text-green-400 font-bold">
+                      {mediaBadgeItems.filter((i) => i.itemKey !== 'homePreplaySound' && i.isEnabled).length}
+                    </span>
                     <span className="text-gray-400 ml-1">Visible Badges</span>
                   </div>
                   <div>
-                    <span className="text-red-400 font-bold">{mediaBadgeItems.filter(i => !i.isEnabled).length}</span>
+                    <span className="text-red-400 font-bold">
+                      {mediaBadgeItems.filter((i) => i.itemKey !== 'homePreplaySound' && !i.isEnabled).length}
+                    </span>
                     <span className="text-gray-400 ml-1">Hidden Badges</span>
                   </div>
                 </div>

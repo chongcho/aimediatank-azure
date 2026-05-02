@@ -70,6 +70,9 @@ export async function GET() {
         })
       }
 
+      // Not a tile badge — controlled via HomeLayoutSetting + dedicated admin card only.
+      items = items.filter((i) => i.itemKey !== 'homePreplaySound')
+
       return NextResponse.json({ items, homePreplaySound }, { headers: NO_STORE_HEADERS })
     } catch (error) {
       console.error('Badge settings unavailable, returning defaults:', error)
