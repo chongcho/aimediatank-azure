@@ -8,6 +8,8 @@ declare module 'next-auth' {
       role: string
       avatar: string | null
       legalName: string | null
+      /** UI language from registration location (see `localeTagFromUserLocation`). */
+      locale?: string | null
     } & DefaultSession['user']
   }
 
@@ -17,6 +19,7 @@ declare module 'next-auth' {
     role: string
     avatar: string | null
     legalName?: string | null
+    locale?: string | null
   }
 }
 
@@ -27,6 +30,7 @@ declare module 'next-auth/jwt' {
     role: string
     avatar: string | null
     legalName: string | null
+    locale?: string | null
   }
 }
 

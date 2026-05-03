@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import AzureADB2CProvider from 'next-auth/providers/azure-ad-b2c'
 import { compare } from 'bcryptjs'
 import { prisma } from './prisma'
+import { localeTagFromUserLocation } from './localeFromLocation'
 
 // Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
@@ -154,6 +155,7 @@ export const authOptions: NextAuthOptions = {
           username: user.username,
           role: user.role,
           avatar: user.avatar,
+          locale: localeTagFromUserLocation(user.location),
         }
       },
     }),
@@ -177,6 +179,7 @@ export const authOptions: NextAuthOptions = {
           token.username = user.username
           token.role = user.role
           token.avatar = user.avatar
+          token.locale = (user as { locale?: string | null }).locale ?? 'en'
           return token
         }
         // OAuth (Entra/B2C): find or create our User and attach to token
@@ -220,12 +223,21 @@ export const authOptions: NextAuthOptions = {
         token.username = dbUser.username
         token.role = dbUser.role
         token.avatar = dbUser.avatar
+        token.locale = localeTagFromUserLocation(dbUser.location)
       }
 
-      // Backfill legalName for tokens created before the field was added
-      if (token.id && token.legalName === undefined) {
-        const u = await prisma.user.findUnique({ where: { id: token.id as string }, select: { legalName: true } })
-        token.legalName = u?.legalName ?? null
+      // Backfill legalName / locale for tokens created before those fields were on the JWT
+      if (token.id && (token.legalName === undefined || token.locale === undefined)) {
+        const u = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { legalName: true, location: true },
+        })
+        if (token.legalName === undefined) {
+          token.legalName = u?.legalName ?? null
+        }
+        if (token.locale === undefined) {
+          token.locale = localeTagFromUserLocation(u?.location)
+        }
       }
 
       // Handle session updates (e.g., when username is changed)
@@ -235,6 +247,9 @@ export const authOptions: NextAuthOptions = {
         if (session.user.legalName !== undefined) token.legalName = session.user.legalName
         if (session.user.avatar !== undefined) token.avatar = session.user.avatar
         if (session.user.role) token.role = session.user.role
+        if (session.user.locale !== undefined && session.user.locale !== null) {
+          token.locale = session.user.locale
+        }
       }
 
       return token
@@ -247,6 +262,7 @@ export const authOptions: NextAuthOptions = {
         session.user.username = token.username as string
         session.user.role = token.role as string
         session.user.avatar = token.avatar as string | null
+        session.user.locale = (token.locale as string | null | undefined) ?? null
       }
       return session
     },

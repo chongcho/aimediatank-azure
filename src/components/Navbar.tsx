@@ -9,6 +9,7 @@ import MediaMessageModal from './MediaMessageModal'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
 import { clearHomeFeed } from '@/lib/homePrefetchCache'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
+import { useUiLocale } from '@/hooks/useUiLocale'
 
 // Dynamic import TalkChat to prevent SSR issues
 const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
@@ -41,6 +42,7 @@ export default function Navbar() {
 function NavbarContent() {
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
+  const { t } = useUiLocale()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
@@ -450,7 +452,7 @@ function NavbarContent() {
                   window.location.href = '/';
                 }
               }}
-              title="Home"
+              title={t('home')}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
@@ -461,11 +463,11 @@ function NavbarContent() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
-            {isNavbarItemEnabled('all') && <NavLink href="/">All</NavLink>}
-            {isNavbarItemEnabled('videos') && <NavLink href="/?type=VIDEO">Videos</NavLink>}
-            {isNavbarItemEnabled('images') && <NavLink href="/?type=IMAGE">Images</NavLink>}
-            {isNavbarItemEnabled('about') && <NavLink href="/about">About</NavLink>}
-            {isNavbarItemEnabled('play') && <NavLink href="/game">Play</NavLink>}
+            {isNavbarItemEnabled('all') && <NavLink href="/">{t('all')}</NavLink>}
+            {isNavbarItemEnabled('videos') && <NavLink href="/?type=VIDEO">{t('videos')}</NavLink>}
+            {isNavbarItemEnabled('images') && <NavLink href="/?type=IMAGE">{t('images')}</NavLink>}
+            {isNavbarItemEnabled('about') && <NavLink href="/about">{t('about')}</NavLink>}
+            {isNavbarItemEnabled('play') && <NavLink href="/game">{t('play')}</NavLink>}
           </div>
 
           {/* Right Side */}
@@ -485,8 +487,8 @@ function NavbarContent() {
                     }
                   }}
                   className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-200 hover:text-white hover:bg-tank-light transition-colors"
-                  aria-label="Notifications"
-                  title="Notifications"
+                  aria-label={t('notifications')}
+                  title={t('notifications')}
                 >
                   <div className="relative">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -508,7 +510,7 @@ function NavbarContent() {
                   >
                     <div className="px-3 py-2 border-b border-tank-light flex items-center justify-between bg-tank-dark">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-sm">Notifications</h3>
+                        <h3 className="font-semibold text-sm">{t('notifications')}</h3>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -516,9 +518,9 @@ function NavbarContent() {
                             toggleNotificationsOn()
                           }}
                           className={`text-xs font-medium px-2 py-0.5 rounded ${notificationsOn ? 'bg-tank-accent text-black' : 'bg-tank-light/30 text-gray-400'}`}
-                          aria-label={notificationsOn ? 'Turn notifications off' : 'Turn notifications on'}
+                          aria-label={notificationsOn ? t('turnNotifOff') : t('turnNotifOn')}
                         >
-                          {notificationsOn ? 'ON' : 'OFF'}
+                          {notificationsOn ? t('on') : t('off')}
                         </button>
                       </div>
                       <div className="flex items-center gap-2">
@@ -537,7 +539,7 @@ function NavbarContent() {
                               }}
                               className="text-xs text-gray-400 hover:text-white"
                             >
-                              {selectedIds.size === notifications.slice(0, 5).length ? 'Deselect All' : 'Select All'}
+                              {selectedIds.size === notifications.slice(0, 5).length ? t('deselectAll') : t('selectAll')}
                             </button>
                             {selectedIds.size > 0 && (
                               <button
@@ -548,7 +550,7 @@ function NavbarContent() {
                                 }}
                                 className="text-xs font-medium px-2 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white"
                               >
-                                Delete ({selectedIds.size})
+                                {t('delete')} ({selectedIds.size})
                               </button>
                             )}
                             <button
@@ -560,7 +562,7 @@ function NavbarContent() {
                               }}
                               className="text-xs text-gray-400 hover:text-white"
                             >
-                              Cancel
+                              {t('cancel')}
                             </button>
                           </>
                         ) : (
@@ -575,7 +577,7 @@ function NavbarContent() {
                                 }}
                                 className="text-xs text-gray-400 hover:text-white"
                               >
-                                Delete
+                                {t('delete')}
                               </button>
                             )}
                             {unreadCount > 0 && (
@@ -586,7 +588,7 @@ function NavbarContent() {
                                 }}
                                 className="text-xs text-tank-accent hover:underline"
                               >
-                                Mark all read
+                                {t('markAllRead')}
                               </button>
                             )}
                           </>
@@ -595,7 +597,7 @@ function NavbarContent() {
                     </div>
                     <div className="max-h-64 overflow-y-auto">
                       {notifications.length === 0 ? (
-                        <p className="px-3 py-4 text-xs text-gray-500 text-center">No notifications</p>
+                        <p className="px-3 py-4 text-xs text-gray-500 text-center">{t('noNotifications')}</p>
                       ) : (
                         notifications.slice(0, 5).map((notification) => {
                           const isExpanded = expandedNotificationId === notification.id
@@ -655,10 +657,10 @@ function NavbarContent() {
               <Link
                 href="/ecard"
                 className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-pink-500 px-px text-center hover:bg-pink-600 transition-colors"
-                aria-label="Card"
-                title="Card"
+                aria-label={t('card')}
+                title={t('card')}
               >
-                <span className="text-sm font-bold text-white">Card</span>
+                <span className="text-sm font-bold text-white">{t('card')}</span>
               </Link>
             )}
             {/* Kong (Talk chat) button */}
@@ -667,10 +669,10 @@ function NavbarContent() {
                 <button
                   onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
                   className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-yellow-300 px-px text-center hover:bg-yellow-400 transition-colors"
-                  aria-label="Toggle Kong"
-                  title="Toggle Kong"
+                  aria-label={t('kong')}
+                  title={t('kong')}
                 >
-                  <span className="text-sm font-bold text-gray-900">Kong</span>
+                  <span className="text-sm font-bold text-gray-900">{t('kong')}</span>
                 </button>
                 {/* My Kong invite notification badge */}
                 {chatInviteCount > 0 && (
@@ -692,7 +694,7 @@ function NavbarContent() {
                     className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-px text-center hover:bg-blue-700 transition-colors"
                   >
                     <span className="text-sm font-bold text-white">
-                      Post
+                      {t('post')}
                     </span>
                   </Link>
                 )}
@@ -741,7 +743,7 @@ function NavbarContent() {
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
-                        Profile
+                        {t('profile')}
                       </Link>
                       <Link
                         href={`/profile/${userData?.username || session.user?.username}`}
@@ -751,7 +753,7 @@ function NavbarContent() {
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
-                        My Contents
+                        {t('myContents')}
                       </Link>
                       <Link
                         href="/pricing"
@@ -761,7 +763,7 @@ function NavbarContent() {
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                         </svg>
-                        Membership
+                        {t('membership')}
                       </Link>
                       <Link
                         href="/support"
@@ -771,7 +773,7 @@ function NavbarContent() {
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
-                        Support
+                        {t('support')}
                       </Link>
                       <Link
                         href="/policy?from=navbar"
@@ -781,7 +783,7 @@ function NavbarContent() {
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Policy
+                        {t('policy')}
                       </Link>
                       {isAdmin && (
                         <Link
@@ -794,7 +796,7 @@ function NavbarContent() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
-                          Admin Panel
+                          {t('adminPanel')}
                         </Link>
                       )}
                       <button
@@ -812,7 +814,7 @@ function NavbarContent() {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
-                        Sign Out
+                        {t('signOut')}
                       </button>
                     </div>
                   )}
@@ -825,7 +827,7 @@ function NavbarContent() {
                     href="/login"
                     className="h-9 px-0.5 flex items-center justify-center text-blue-400 hover:text-blue-300 font-bold transition-colors text-sm"
                   >
-                    Sign In
+                    {t('signIn')}
                   </Link>
                 )}
                 {isNavbarItemEnabled('signUp') && (
@@ -836,7 +838,7 @@ function NavbarContent() {
                       relative overflow-hidden"
                   >
                     <span className="signup-text font-bold">
-                      Sign Up
+                      {t('signUp')}
                     </span>
                   </Link>
                 )}
@@ -848,8 +850,8 @@ function NavbarContent() {
               ref={mobileMenuButtonRef}
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="md:hidden p-2 text-gray-400 hover:text-white"
-              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-              title={isMenuOpen ? "Close menu" : "Open menu"}
+              aria-label={isMenuOpen ? t('closeMenu') : t('openMenu')}
+              title={isMenuOpen ? t('closeMenu') : t('openMenu')}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 {isMenuOpen ? (
@@ -867,19 +869,19 @@ function NavbarContent() {
           <div ref={mobileMenuRef} className="md:hidden py-1 border-t border-tank-light">
             <div className="flex flex-col gap-[1px] items-end">
               {isNavbarItemEnabled('all') && (
-                <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>All</MobileNavLink>
+                <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>{t('all')}</MobileNavLink>
               )}
               {isNavbarItemEnabled('videos') && (
-                <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>Videos</MobileNavLink>
+                <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>{t('videos')}</MobileNavLink>
               )}
               {isNavbarItemEnabled('images') && (
-                <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>Images</MobileNavLink>
+                <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>{t('images')}</MobileNavLink>
               )}
               {isNavbarItemEnabled('about') && (
-                <MobileNavLink href="/about" onClick={() => setIsMenuOpen(false)}>About</MobileNavLink>
+                <MobileNavLink href="/about" onClick={() => setIsMenuOpen(false)}>{t('about')}</MobileNavLink>
               )}
               {isNavbarItemEnabled('play') && (
-                <MobileNavLink href="/game" onClick={() => setIsMenuOpen(false)}>Play</MobileNavLink>
+                <MobileNavLink href="/game" onClick={() => setIsMenuOpen(false)}>{t('play')}</MobileNavLink>
               )}
             </div>
           </div>
