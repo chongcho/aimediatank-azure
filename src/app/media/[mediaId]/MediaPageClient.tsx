@@ -159,6 +159,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     fetch('/api/translate/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ texts: [rawTitle, rawDesc], to }),
     })
       .then(async (r) => {

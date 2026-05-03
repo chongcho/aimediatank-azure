@@ -62,6 +62,7 @@ export function useTranslatedPair(
     fetch('/api/translate/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify(body),
     })
       .then(async (r) => {
@@ -82,7 +83,7 @@ export function useTranslatedPair(
     return () => {
       cancelled = true
     }
-  }, [cacheKey, localeTag, primary, t0, t1])
+  }, [cacheKey, enabled, localeTag, primary, t0, t1])
 
   if (!enabled || primary === 'en') return { title: t0, description: t1 }
   return { title: out[0], description: out[1] }
@@ -132,6 +133,7 @@ export function useTranslatedList(
           const r = await fetch('/api/translate/text', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
             body: JSON.stringify({ texts: slice, to }),
           })
           if (cancelled || !r.ok) continue
@@ -198,6 +200,7 @@ export function useTranslatedSingle(
     fetch('/api/translate/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ texts: [s], to }),
     })
       .then(async (r) => {

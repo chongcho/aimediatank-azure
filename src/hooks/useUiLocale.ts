@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useLayoutEffect, useState } from 'react'
 import { EMPTY_PROFILE_LOCATION_UI_LOCALE, localeTagFromBrowserLang } from '@/lib/localeFromLocation'
 import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
 import { navBarT, type NavBarKey } from '@/messages/navBar'
@@ -11,8 +11,13 @@ export function useUiLocale() {
   const { data: session, status } = useSession()
   const [browserTag, setBrowserTag] = useState('en')
 
-  useEffect(() => {
-    setBrowserTag(localeTagFromBrowserLang(typeof navigator !== 'undefined' ? navigator.language : null))
+  /** Before paint on client: avoid a long `en` window where MT is skipped and bundled UI stays English. */
+  useLayoutEffect(() => {
+    const apply = () =>
+      setBrowserTag(localeTagFromBrowserLang(typeof navigator !== 'undefined' ? navigator.language : null))
+    apply()
+    window.addEventListener('languagechange', apply)
+    return () => window.removeEventListener('languagechange', apply)
   }, [])
 
   /**
