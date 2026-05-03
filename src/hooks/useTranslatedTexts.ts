@@ -50,9 +50,10 @@ export function useTranslatedPair(
       return
     }
 
+    const to = String(localeTag ?? 'en')
     const body = {
       texts: [t0, t1.length > 12000 ? t1.slice(0, 12000) : t1],
-      to: localeTag,
+      to,
     }
 
     let cancelled = false
@@ -61,9 +62,12 @@ export function useTranslatedPair(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-      .then((r) => r.json())
-      .then((data: { translated?: unknown }) => {
-        if (cancelled) return
+      .then(async (r) => {
+        if (cancelled || !r.ok) return null
+        return r.json() as Promise<{ translated?: unknown }>
+      })
+      .then((data: { translated?: unknown } | null) => {
+        if (cancelled || !data) return
         const tr = data.translated
         if (!Array.isArray(tr) || tr.length < 2) return
         const next0 = typeof tr[0] === 'string' && tr[0].trim() ? tr[0] : t0

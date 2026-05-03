@@ -141,7 +141,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     router.prefetch('/')
   }, [router])
 
-  // Optional machine translation for title + body (Azure Translator when configured).
+  // Optional machine translation for title + body (`/api/translate/text`; MyMemory by default).
   useEffect(() => {
     if (!media) {
       setI18nMedia(null)
@@ -155,14 +155,18 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     let cancelled = false
     const rawTitle = stripHashtags(media.title)
     const rawDesc = media.description ?? ''
+    const to = String(localeTag ?? 'en')
     fetch('/api/translate/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texts: [rawTitle, rawDesc], to: localeTag }),
+      body: JSON.stringify({ texts: [rawTitle, rawDesc], to }),
     })
-      .then((r) => r.json())
-      .then((data: { translated?: unknown }) => {
-        if (cancelled) return
+      .then(async (r) => {
+        if (cancelled || !r.ok) return null
+        return r.json() as Promise<{ translated?: unknown }>
+      })
+      .then((data: { translated?: unknown } | null) => {
+        if (cancelled || !data) return
         const tr = data.translated
         if (Array.isArray(tr) && tr.length >= 2) {
           setI18nMedia({
