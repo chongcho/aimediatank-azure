@@ -43,13 +43,13 @@ async function translateTextsViaMyMemory(
 /**
  * POST { texts: string[], to?: string } — returns { translated: string[] }.
  *
- * **Order**
- * 1. If `AZURE_TRANSLATOR_KEY` + `AZURE_TRANSLATOR_REGION` are set → **Azure Translator** (batch).
- * 2. If Azure fails (HTTP / bad payload) and MyMemory is allowed → **MyMemory** fallback.
- * 3. If Azure is not configured and MyMemory is allowed → **MyMemory** only.
- * 4. If `DISABLE_MYMEMORY_FALLBACK=1` and Azure fails or is unset → return originals (English).
+ * **Default (b045d5c-era):** MyMemory when `DISABLE_MYMEMORY_FALLBACK` is not set — same as
+ * deployments without Azure keys, where title/description translation worked.
  *
- * Env: `AZURE_TRANSLATOR_ENDPOINT` (optional), `MYMEMORY_CONTACT_EMAIL` (optional, MyMemory quota).
+ * **Azure-only:** Set `DISABLE_MYMEMORY_FALLBACK=1` (or `true`) and configure
+ * `AZURE_TRANSLATOR_KEY` + `AZURE_TRANSLATOR_REGION`. MyMemory is skipped.
+ *
+ * Optional: `MYMEMORY_CONTACT_EMAIL` — registered email improves MyMemory daily quota.
  */
 export async function POST(request: Request) {
   try {
@@ -75,21 +75,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ translated: texts.map((t) => String(t ?? '')) })
     }
 
-    if (useAzure) {
-      const azure = await translateAzureBatch(texts as string[], to, key!, region!)
-      if (azure.ok) {
-        return NextResponse.json({ translated: azure.translated })
-      }
-      if (!myMemoryDisabled) {
-        const out = await translateTextsViaMyMemory(texts as string[], to, cache)
-        return NextResponse.json({ translated: out })
-      }
-      return NextResponse.json({ translated: azure.translated })
-    }
-
+    /** Same path as b045d5c / pre-Azure: MyMemory when allowed (ignores Azure keys). */
     if (!myMemoryDisabled) {
       const out = await translateTextsViaMyMemory(texts as string[], to, cache)
       return NextResponse.json({ translated: out })
+    }
+
+    if (useAzure) {
+      const azure = await translateAzureBatch(texts as string[], to, key!, region!)
+      return NextResponse.json({ translated: azure.translated })
     }
 
     return NextResponse.json({ translated: texts.map((t) => String(t ?? '')) })
