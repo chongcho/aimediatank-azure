@@ -599,10 +599,7 @@ export default function EditProfilePage() {
         // Trigger navbar refresh
         window.dispatchEvent(new Event('profileUpdated'))
         
-        // Redirect to profile after short delay
-        setTimeout(() => {
-          router.push(`/profile/${data.user.username}`)
-        }, 1500)
+        router.push('/')
       }
     } catch (error) {
       setError('Something went wrong')

@@ -43,11 +43,13 @@ async function translateTextsViaMyMemory(
 /**
  * POST { texts: string[], to?: string } — returns { translated: string[] }.
  *
- * **Default (b045d5c-era):** MyMemory when `DISABLE_MYMEMORY_FALLBACK` is not set — same as
- * deployments without Azure keys, where title/description translation worked.
+ * **Azure-first:** When `AZURE_TRANSLATOR_KEY` and `AZURE_TRANSLATOR_REGION` are both set,
+ * Azure Translator is called first. Optional `AZURE_TRANSLATOR_ENDPOINT` (no trailing slash).
  *
- * **Azure-only:** Set `DISABLE_MYMEMORY_FALLBACK=1` (or `true`) and configure
- * `AZURE_TRANSLATOR_KEY` + `AZURE_TRANSLATOR_REGION`. MyMemory is skipped.
+ * **MyMemory fallback:** Used when Azure is not configured, or when Azure fails and
+ * `DISABLE_MYMEMORY_FALLBACK` is not `1` / `true`.
+ *
+ * **Azure-only:** Set `DISABLE_MYMEMORY_FALLBACK=1` so failures return originals with no MyMemory.
  *
  * Optional: `MYMEMORY_CONTACT_EMAIL` — registered email improves MyMemory daily quota.
  */
@@ -71,33 +73,28 @@ export async function POST(request: Request) {
       process.env.DISABLE_MYMEMORY_FALLBACK === '1' ||
       process.env.DISABLE_MYMEMORY_FALLBACK === 'true'
 
-    if (!useAzure && myMemoryDisabled) {
-      return NextResponse.json({ translated: texts.map((t) => String(t ?? '')) })
-    }
+    const originalsAsStrings = (texts as unknown[]).map((t) => String(t ?? ''))
 
-    /** MyMemory when allowed; if output is unchanged and Azure is configured, try Azure (quota / API failures). */
-    if (!myMemoryDisabled) {
-      const originalsAsStrings = (texts as unknown[]).map((t) => String(t ?? ''))
-      let out = await translateTextsViaMyMemory(originalsAsStrings, to, cache)
-      if (useAzure) {
-        const hasContent = originalsAsStrings.some((s) => s.trim().length > 0)
-        const allUnchanged =
-          out.length === originalsAsStrings.length &&
-          originalsAsStrings.every((s, i) => (out[i] ?? '') === s)
-        if (hasContent && allUnchanged) {
-          const azure = await translateAzureBatch(originalsAsStrings, to, key!, region!)
-          if (azure.ok) out = azure.translated
-        }
-      }
-      return NextResponse.json({ translated: out })
+    if (!useAzure && myMemoryDisabled) {
+      return NextResponse.json({ translated: originalsAsStrings })
     }
 
     if (useAzure) {
-      const azure = await translateAzureBatch(texts as string[], to, key!, region!)
-      return NextResponse.json({ translated: azure.translated })
+      const azure = await translateAzureBatch(originalsAsStrings, to, key!, region!)
+      if (azure.ok) {
+        return NextResponse.json({ translated: azure.translated })
+      }
+      if (myMemoryDisabled) {
+        return NextResponse.json({ translated: azure.translated })
+      }
     }
 
-    return NextResponse.json({ translated: texts.map((t) => String(t ?? '')) })
+    if (!myMemoryDisabled) {
+      const out = await translateTextsViaMyMemory(originalsAsStrings, to, cache)
+      return NextResponse.json({ translated: out })
+    }
+
+    return NextResponse.json({ translated: originalsAsStrings })
   } catch (e) {
     console.error('translate/text:', e)
     return NextResponse.json({ error: 'Translation failed' }, { status: 500 })
