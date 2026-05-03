@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getFirstHomeLayoutSetting } from '@/lib/homeLayoutSetting'
 import { translatorToFromUiTag } from '@/lib/localeUi'
 import { translateWithMyMemory } from '@/lib/mymemoryTranslate'
 
@@ -74,6 +75,15 @@ export async function POST(request: Request) {
       process.env.DISABLE_MYMEMORY_FALLBACK === 'true'
 
     const originalsAsStrings = (texts as unknown[]).map((t) => String(t ?? ''))
+
+    try {
+      const layoutRow = await getFirstHomeLayoutSetting()
+      if (layoutRow?.autoTranslation === false) {
+        return NextResponse.json({ translated: originalsAsStrings })
+      }
+    } catch {
+      /* continue — translate when layout setting unavailable */
+    }
 
     if (!useAzure && myMemoryDisabled) {
       return NextResponse.json({ translated: originalsAsStrings })

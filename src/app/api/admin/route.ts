@@ -906,10 +906,11 @@ export async function GET(request: Request) {
             : 'masonry'
         const preplay = row.preplay
         const homePreplaySound = row.homePreplaySound !== false
-        return NextResponse.json({ layout, preplay, homePreplaySound })
+        const autoTranslation = row.autoTranslation !== false
+        return NextResponse.json({ layout, preplay, homePreplaySound, autoTranslation })
       } catch (error) {
         console.error('Home layout settings unavailable:', error)
-        return NextResponse.json({ layout: 'masonry', preplay: true, homePreplaySound: true })
+        return NextResponse.json({ layout: 'masonry', preplay: true, homePreplaySound: true, autoTranslation: true })
       }
     }
 
@@ -2230,12 +2231,14 @@ export async function POST(request: Request) {
           layout: layoutVal,
           preplay: row.preplay,
           homePreplaySound: row.homePreplaySound,
+          autoTranslation: row.autoTranslation,
         })
         return NextResponse.json({
           message: 'Home layout updated',
           layout: row.layout as string,
           preplay: row.preplay,
           homePreplaySound: row.homePreplaySound !== false,
+          autoTranslation: row.autoTranslation !== false,
         })
       }
 
@@ -2262,6 +2265,31 @@ export async function POST(request: Request) {
         return NextResponse.json({
           message: 'Homepage media sound visibility updated',
           homePreplaySound: row.homePreplaySound !== false,
+        })
+      }
+
+      case 'setAutoTranslation': {
+        const { autoTranslation } = data || {}
+        if (typeof autoTranslation !== 'boolean') {
+          return NextResponse.json({ error: 'autoTranslation must be a boolean' }, { status: 400 })
+        }
+        const existingCount = await prisma.homeLayoutSetting.count()
+        let row
+        if (existingCount === 0) {
+          row = await prisma.homeLayoutSetting.create({
+            data: { layout: 'masonry', autoTranslation },
+          })
+        } else {
+          await prisma.homeLayoutSetting.updateMany({ data: { autoTranslation } })
+          row = await getFirstHomeLayoutSetting()
+          if (!row) {
+            return NextResponse.json({ error: 'Home layout setting not found' }, { status: 500 })
+          }
+        }
+        await logAdminAction(adminId, 'SET_AUTO_TRANSLATION', 'HOME_LAYOUT', row.id, { autoTranslation })
+        return NextResponse.json({
+          message: 'Automatic translation updated',
+          autoTranslation: row.autoTranslation !== false,
         })
       }
 

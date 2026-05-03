@@ -50,9 +50,13 @@ export async function GET() {
       })
 
       let homePreplaySound = true
+      let autoTranslation = true
       try {
         const layoutRow = await getFirstHomeLayoutSetting()
-        if (layoutRow) homePreplaySound = layoutRow.homePreplaySound !== false
+        if (layoutRow) {
+          homePreplaySound = layoutRow.homePreplaySound !== false
+          autoTranslation = layoutRow.autoTranslation !== false
+        }
       } catch {
         /* column missing / DB error — default visible */
       }
@@ -73,13 +77,14 @@ export async function GET() {
       // Not a tile badge — controlled via HomeLayoutSetting + dedicated admin card only.
       items = items.filter((i) => i.itemKey !== 'homePreplaySound')
 
-      return NextResponse.json({ items, homePreplaySound }, { headers: NO_STORE_HEADERS })
+      return NextResponse.json({ items, homePreplaySound, autoTranslation }, { headers: NO_STORE_HEADERS })
     } catch (error) {
       console.error('Badge settings unavailable, returning defaults:', error)
       return NextResponse.json(
         {
           items: defaultItems,
           homePreplaySound: true,
+          autoTranslation: true,
           warning: 'MEDIA_BADGE_SETTINGS_UNAVAILABLE',
         },
         { headers: NO_STORE_HEADERS }

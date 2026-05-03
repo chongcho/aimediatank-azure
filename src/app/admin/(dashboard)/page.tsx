@@ -400,6 +400,8 @@ export default function AdminPage() {
   /** Homepage volume chip visibility (Media Badge Control); stored on HomeLayoutSetting */
   const [homePreplaySound, setHomePreplaySound] = useState(true)
   const [homePreplaySoundSaving, setHomePreplaySoundSaving] = useState(false)
+  const [autoTranslation, setAutoTranslation] = useState(true)
+  const [autoTranslationSaving, setAutoTranslationSaving] = useState(false)
   const [homeLayoutLoading, setHomeLayoutLoading] = useState(false)
   const [homeLayoutSaving, setHomeLayoutSaving] = useState(false)
   const [mediaDetailDownload, setMediaDetailDownload] = useState(true)
@@ -916,6 +918,7 @@ export default function AdminPage() {
           )
           setHomePreplay(data.preplay !== false)
           setHomePreplaySound(data.homePreplaySound !== false)
+          setAutoTranslation(data.autoTranslation !== false)
         } finally {
           setHomeLayoutLoading(false)
         }
@@ -954,6 +957,7 @@ export default function AdminPage() {
         if (resHome.ok) {
           const homeData = await resHome.json()
           setHomePreplaySound(homeData.homePreplaySound !== false)
+          setAutoTranslation(homeData.autoTranslation !== false)
         }
       } else if (activeTab === 'cropTool') {
         setCropToolLoading(true)
@@ -1343,6 +1347,37 @@ export default function AdminPage() {
       console.error('Error updating homepage media sound:', error)
     } finally {
       setHomePreplaySoundSaving(false)
+    }
+  }
+
+  const toggleAutoTranslation = async (next: boolean) => {
+    setAutoTranslationSaving(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setAutoTranslation',
+          data: { autoTranslation: next },
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (typeof data.autoTranslation === 'boolean') setAutoTranslation(data.autoTranslation)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('homeLayoutUpdated'))
+          window.dispatchEvent(new Event('mediaBadgeSettingsUpdated'))
+          try {
+            localStorage.setItem('homeLayoutUiRev', String(Date.now()))
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error updating automatic translation:', error)
+    } finally {
+      setAutoTranslationSaving(false)
     }
   }
 
@@ -3275,6 +3310,7 @@ export default function AdminPage() {
                         if (data.layout) setHomeLayout(data.layout)
                         if (typeof data.preplay === 'boolean') setHomePreplay(data.preplay)
                         if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
+                        if (typeof data.autoTranslation === 'boolean') setAutoTranslation(data.autoTranslation)
                         if (typeof window !== 'undefined') {
                           window.dispatchEvent(new Event('homeLayoutUpdated'))
                           window.dispatchEvent(new Event('mediaBadgeSettingsUpdated'))
@@ -3565,7 +3601,7 @@ export default function AdminPage() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">🏷️ Media Badge Control</h2>
                 <p className="text-gray-400 text-sm">
-                  Toggle badge items ON/OFF to show or hide them on media tiles. Description thumbnails toggles the description text overlay on each tile thumbnail. The Comment control shows or hides the comment button on the tile so viewers can add comments from the feed without opening the media page first.
+                  Toggle badge items ON/OFF to show or hide them on media tiles. Description thumbnails toggles the description text overlay on each tile thumbnail. The Comment control shows or hides the comment button on the tile so viewers can add comments from the feed without opening the media page first. Automatic Translation controls whether titles, descriptions, comments, and TalkChat copy are machine-translated for non-English UI locales (calls to the translation API are skipped when OFF).
                 </p>
               </div>
 
@@ -3660,6 +3696,55 @@ export default function AdminPage() {
                       }`}
                     >
                       {homePreplaySound ? '✓ Visible' : '✗ Hidden'}
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  className={`rounded-xl p-4 border-2 transition-all ${
+                    autoTranslation
+                      ? 'bg-tank-gray border-green-500/50'
+                      : 'bg-tank-dark border-gray-700 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-2xl shrink-0">🏷️</span>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-white">Automatic Translation</h3>
+                        <p className="text-xs text-gray-400">autoTranslation</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          OFF disables `/api/translate/text` for UGC and dynamic UI (feed, media page, TalkChat).
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleAutoTranslation(!autoTranslation)}
+                      disabled={autoTranslationSaving}
+                      className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${
+                        autoTranslation ? 'bg-green-500' : 'bg-gray-600'
+                      } ${autoTranslationSaving ? 'opacity-50' : ''}`}
+                      aria-pressed={autoTranslation}
+                    >
+                      <div
+                        className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow ${
+                          autoTranslation ? 'translate-x-8' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        autoTranslation
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {autoTranslation ? '✓ Visible' : '✗ Hidden'}
                     </span>
                   </div>
                 </div>

@@ -17,6 +17,7 @@ async function getOrCreateSetting(): Promise<{
   layout: HomeLayoutType
   preplay: boolean
   homePreplaySound: boolean
+  autoTranslation: boolean
 }> {
   let row = await getFirstHomeLayoutSetting()
   if (!row) {
@@ -29,6 +30,7 @@ async function getOrCreateSetting(): Promise<{
     layout: layoutVal,
     preplay: row.preplay,
     homePreplaySound: row.homePreplaySound !== false,
+    autoTranslation: row.autoTranslation !== false,
   }
 }
 
@@ -40,12 +42,12 @@ const NO_STORE_HEADERS = {
 
 export async function GET() {
   try {
-    const { layout, preplay, homePreplaySound } = await getOrCreateSetting()
-    return NextResponse.json({ layout, preplay, homePreplaySound }, { headers: NO_STORE_HEADERS })
+    const { layout, preplay, homePreplaySound, autoTranslation } = await getOrCreateSetting()
+    return NextResponse.json({ layout, preplay, homePreplaySound, autoTranslation }, { headers: NO_STORE_HEADERS })
   } catch (error) {
     console.error('Home layout settings unavailable:', error)
     return NextResponse.json(
-      { layout: 'masonry', preplay: true, homePreplaySound: true },
+      { layout: 'masonry', preplay: true, homePreplaySound: true, autoTranslation: true },
       { headers: NO_STORE_HEADERS }
     )
   }

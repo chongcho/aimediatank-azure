@@ -10,6 +10,7 @@ import { useUiLocale } from '@/hooks/useUiLocale'
 import { TranslatedChatMessageBody } from '@/components/TranslatedChatMessageBody'
 import { normalizeChatMessagePlainText } from '@/lib/chatMessageDisplay'
 import { useTranslatedPair, useTranslatedSingle } from '@/hooks/useTranslatedTexts'
+import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
 import { TALK_CHAT_MAP, talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
 
 const TC = talkChatIdx
@@ -468,6 +469,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const isSignedIn = !!session?.user
 
   const { localeTag, mtLocaleTag } = useUiLocale()
+  const autoTranslationEnabled = useAutoTranslationEnabled()
   const tr = useMemo(() => talkChatTr(localeTag), [localeTag])
   const trRef = useRef(tr)
   trRef.current = tr
@@ -484,7 +486,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return TALK_CHAT_MAP.placeholderPubKong
   }, [isSignedIn, chatMode, selectedRecipients])
 
-  const composerPlaceholderTr = useTranslatedSingle(composerPlaceholderEn, mtLocaleTag, true)
+  const composerPlaceholderTr = useTranslatedSingle(composerPlaceholderEn, mtLocaleTag, autoTranslationEnabled)
 
   const inviteBannerEn = useMemo(
     () =>
@@ -493,7 +495,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         : '',
     [showUserPicker, chatInvites.length, chatMode, privateRecipient],
   )
-  const inviteBannerTr = useTranslatedSingle(inviteBannerEn, mtLocaleTag, inviteBannerEn.length > 0)
+  const inviteBannerTr = useTranslatedSingle(
+    inviteBannerEn,
+    mtLocaleTag,
+    inviteBannerEn.length > 0 && autoTranslationEnabled,
+  )
 
   const memberLineEn = useMemo(
     () =>
@@ -502,14 +508,22 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         : '',
     [chatMode, selectedRecipients.length],
   )
-  const memberLineTr = useTranslatedSingle(memberLineEn, mtLocaleTag, memberLineEn.length > 0)
+  const memberLineTr = useTranslatedSingle(
+    memberLineEn,
+    mtLocaleTag,
+    memberLineEn.length > 0 && autoTranslationEnabled,
+  )
 
   const pairTitle = confirmModal.show ? confirmModal.title : ''
   const pairMsg = confirmModal.show ? confirmModal.message : ''
-  const confirmTr = useTranslatedPair(pairTitle, pairMsg, mtLocaleTag, confirmModal.show)
+  const confirmTr = useTranslatedPair(pairTitle, pairMsg, mtLocaleTag, confirmModal.show && autoTranslationEnabled)
 
-  const noticeTr = useTranslatedSingle(inlineNotice || '', mtLocaleTag, Boolean(inlineNotice))
-  const quickUploadErrTr = useTranslatedSingle(mediaPickerQuickUploadError, mtLocaleTag, Boolean(mediaPickerQuickUploadError))
+  const noticeTr = useTranslatedSingle(inlineNotice || '', mtLocaleTag, Boolean(inlineNotice) && autoTranslationEnabled)
+  const quickUploadErrTr = useTranslatedSingle(
+    mediaPickerQuickUploadError,
+    mtLocaleTag,
+    Boolean(mediaPickerQuickUploadError) && autoTranslationEnabled,
+  )
 
   // Desktop drag and resize state
   const [isDesktop, setIsDesktop] = useState(false)
@@ -3722,7 +3736,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                                 WebkitTouchCallout: 'none' as const,
                               }}
                             >
-                              <TranslatedChatMessageBody content={msg.content} mtLocaleTag={mtLocaleTag} />
+                              <TranslatedChatMessageBody
+                                content={msg.content}
+                                mtLocaleTag={mtLocaleTag}
+                                autoTranslationEnabled={autoTranslationEnabled}
+                              />
                             </p>
                           ) : null}
                           {renderMediaPreviews(msg.content)}

@@ -672,6 +672,8 @@ model HomeLayoutSetting {
   preplay   Boolean  @default(true)       // muted video preview on hover on homepage
   /// When false, hide the homepage volume chip; previews stay muted (no viewer sound toggle).
   homePreplaySound Boolean @default(true)
+  /// When false, skip machine translation (`/api/translate/text`) for UGC and dynamic UI copy site-wide.
+  autoTranslation Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

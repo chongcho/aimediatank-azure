@@ -14,6 +14,7 @@ import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
 import { TranslatedPlaintext } from '@/components/TranslatedPlaintext'
 import { useUiLocale } from '@/hooks/useUiLocale'
+import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
 import { formatMediaViewsLabel, mediaPageInterpolate } from '@/messages/mediaPage'
 
 interface MediaDetail {
@@ -69,6 +70,7 @@ interface MediaDetail {
 export default function MediaPageClient({ mediaId, intercepted = false }: { mediaId: string; intercepted?: boolean }) {
   const { data: session } = useSession()
   const { localeTag, mtLocaleTag, tMedia } = useUiLocale()
+  const autoTranslationEnabled = useAutoTranslationEnabled()
   const router = useRouter()
   const [media, setMedia] = useState<MediaDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -144,6 +146,10 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
   // Optional machine translation for title + body (`/api/translate/text`; MyMemory by default).
   useEffect(() => {
+    if (!autoTranslationEnabled) {
+      setI18nMedia(null)
+      return
+    }
     if (!media) {
       setI18nMedia(null)
       return
@@ -185,7 +191,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     return () => {
       cancelled = true
     }
-  }, [media?.id, media?.title, media?.description, mtLocaleTag])
+  }, [autoTranslationEnabled, media?.id, media?.title, media?.description, mtLocaleTag])
 
   // Persist immediately so a fast Back still sees updated counts; merge is cheap (runs only when views/id change).
   useLayoutEffect(() => {
@@ -1065,7 +1071,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                       key={c.id}
                       className="text-sm text-gray-400 leading-snug whitespace-pre-wrap break-words"
                     >
-                      <TranslatedPlaintext text={c.content} />
+                      <TranslatedPlaintext text={c.content} translateEnabled={autoTranslationEnabled} />
                     </p>
                   ))}
                 </div>

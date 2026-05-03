@@ -76,7 +76,7 @@ type ModalCommentLine = { id: string; content: string; userId: string }
 /** Max height (px) for the comment textarea before it scrolls internally. */
 const COMMENT_TEXTAREA_MAX_PX = 200
 
-type BadgePayload = { items: BadgeItem[]; homePreplaySound: boolean }
+type BadgePayload = { items: BadgeItem[]; homePreplaySound: boolean; autoTranslation: boolean }
 
 let badgePayloadCache: BadgePayload | null = null
 let badgePayloadPromise: Promise<BadgePayload | null> | null = null
@@ -100,7 +100,8 @@ async function fetchBadgePayload(): Promise<BadgePayload | null> {
       const data = await res.json()
       const items = (data.items || []) as BadgeItem[]
       const homePreplaySound = data.homePreplaySound !== false
-      const payload: BadgePayload = { items, homePreplaySound }
+      const autoTranslation = data.autoTranslation !== false
+      const payload: BadgePayload = { items, homePreplaySound, autoTranslation }
       badgePayloadCache = payload
       return payload
     } catch (error) {
@@ -131,20 +132,6 @@ export default function MediaCard({
   const { localeTag, mtLocaleTag, tMedia, tFeed, t } = useUiLocale()
   const titlePlain = stripHashtags(media.title)
   const descPlain = (media.description ?? '').trim()
-  const { title: translatedTitle, description: translatedDescription } = useTranslatedPair(
-    titlePlain,
-    descPlain,
-    mtLocaleTag,
-    Boolean(media.id)
-  )
-
-  const descriptionOverlay = useMemo(() => {
-    const raw = translatedDescription.trim()
-    if (!raw) return null
-    const cleaned = stripHashtags(raw)
-    if (!cleaned) return null
-    return { text: truncateText(cleaned, 220), title: cleaned }
-  }, [translatedDescription])
 
   const mediaTypeLabel =
     media.type === 'VIDEO'
@@ -171,6 +158,27 @@ export default function MediaCard({
   )
   const homePreplaySoundEffective =
     homePreplaySoundFromBadges !== null ? homePreplaySoundFromBadges : homePreplaySound
+  const [autoTranslationFromBadges, setAutoTranslationFromBadges] = useState<boolean | null>(
+    badgePayloadCache ? badgePayloadCache.autoTranslation !== false : null
+  )
+  const autoTranslationEffective =
+    autoTranslationFromBadges !== null ? autoTranslationFromBadges : true
+
+  const { title: translatedTitle, description: translatedDescription } = useTranslatedPair(
+    titlePlain,
+    descPlain,
+    mtLocaleTag,
+    Boolean(media.id) && autoTranslationEffective
+  )
+
+  const descriptionOverlay = useMemo(() => {
+    const raw = translatedDescription.trim()
+    if (!raw) return null
+    const cleaned = stripHashtags(raw)
+    if (!cleaned) return null
+    return { text: truncateText(cleaned, 220), title: cleaned }
+  }, [translatedDescription])
+
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -248,6 +256,7 @@ export default function MediaCard({
         if (!payload) return
         setBadgeItems(payload.items)
         setHomePreplaySoundFromBadges(payload.homePreplaySound)
+        setAutoTranslationFromBadges(payload.autoTranslation !== false)
       })
     }
     window.addEventListener('mediaBadgeSettingsUpdated', onBadgeUpdate)
@@ -518,6 +527,7 @@ export default function MediaCard({
         if (isMounted) {
           setBadgeItems(badgePayloadCache.items)
           setHomePreplaySoundFromBadges(badgePayloadCache.homePreplaySound)
+          setAutoTranslationFromBadges(badgePayloadCache.autoTranslation !== false)
         }
         return
       }
@@ -525,6 +535,7 @@ export default function MediaCard({
       if (isMounted && payload) {
         setBadgeItems(payload.items)
         setHomePreplaySoundFromBadges(payload.homePreplaySound)
+        setAutoTranslationFromBadges(payload.autoTranslation !== false)
       }
     }
     loadBadges()
@@ -981,10 +992,15 @@ export default function MediaCard({
                 setCommentActionId((prev) => (prev === c.id ? null : c.id))
               }}
             >
-              <TranslatedPlaintext text={c.content} />
+              <TranslatedPlaintext text={c.content} translateEnabled={autoTranslationEffective} />
             </button>
           ) : (
-            <TranslatedPlaintext as="p" text={c.content} className={commentTextClass} />
+            <TranslatedPlaintext
+              as="p"
+              text={c.content}
+              className={commentTextClass}
+              translateEnabled={autoTranslationEffective}
+            />
           )}
           {commentActionId === c.id && canModerateComment(c.userId) ? (
             <div className="mt-1.5 flex flex-wrap gap-3" onClick={(e) => e.stopPropagation()}>
@@ -1226,7 +1242,7 @@ export default function MediaCard({
                       className="text-[13px] text-white/90 leading-snug line-clamp-2 break-words [text-shadow:0_1px_3px_rgba(0,0,0,0.95)]"
                       title={c.content}
                     >
-                      <TranslatedPlaintext text={c.content} />
+                      <TranslatedPlaintext text={c.content} translateEnabled={autoTranslationEffective} />
                     </p>
                   ))}
                 </div>

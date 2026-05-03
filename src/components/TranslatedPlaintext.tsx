@@ -13,14 +13,17 @@ export function TranslatedPlaintext({
   text,
   className,
   as = 'span',
+  translateEnabled = true,
 }: {
   text: string
   className?: string
   as?: PlainElement
+  /** When false, skip `/api/translate/text` (admin “Automatic translation” off). */
+  translateEnabled?: boolean
 }) {
   const { mtLocaleTag } = useUiLocale()
   const s = text ?? ''
-  const out = useTranslatedSingle(s, mtLocaleTag, Boolean(s.trim()))
+  const out = useTranslatedSingle(s, mtLocaleTag, translateEnabled && Boolean(s.trim()))
   const El = as
   return <El className={className}>{out}</El>
 }
