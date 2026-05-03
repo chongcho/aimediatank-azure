@@ -4,6 +4,12 @@ import AzureADB2CProvider from 'next-auth/providers/azure-ad-b2c'
 import { compare } from 'bcryptjs'
 import { prisma } from './prisma'
 import { localeTagFromUserLocation } from './localeFromLocation'
+import {
+  birthDateFromOAuthClaims,
+  legalNameFromOAuthClaims,
+  mergeOAuthProfileSources,
+  pictureUrlFromOAuthClaims,
+} from './oauthProfile'
 
 // Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
@@ -30,13 +36,23 @@ function buildEntraProvider(idSuffix: string, domainHint: string) {
     idToken: true,
     clientId,
     clientSecret,
-    profile(profile: { sub?: string; name?: string; email?: string; emails?: string[]; picture?: string }) {
+    profile(profile: {
+      sub?: string
+      name?: string
+      given_name?: string
+      family_name?: string
+      email?: string
+      emails?: string[]
+      picture?: string
+    }) {
       const email = profile.email ?? (Array.isArray(profile.emails) ? profile.emails[0] : undefined)
       return {
         id: profile.sub ?? '',
         name: profile.name ?? email?.split('@')[0] ?? 'User',
         email: email ?? null,
         image: profile.picture ?? null,
+        given_name: profile.given_name,
+        family_name: profile.family_name,
       }
     },
     style: { logo: '/azure.svg', bg: '#0072c6', text: '#fff' },
@@ -185,6 +201,18 @@ export const authOptions: NextAuthOptions = {
         // OAuth (Entra/B2C): find or create our User and attach to token
         const email = (user.email ?? '').toString().toLowerCase()
         if (!email) return token
+        const mergedProfile = mergeOAuthProfileSources(user as unknown as Record<string, unknown>, account?.id_token)
+        const derivedLegalName = legalNameFromOAuthClaims(mergedProfile)
+        const derivedBirthday = birthDateFromOAuthClaims(mergedProfile)
+        const derivedPicture =
+          pictureUrlFromOAuthClaims(mergedProfile) ||
+          (typeof user.image === 'string' && user.image.trim()) ||
+          null
+        const displayNameFromIdp =
+          (typeof user.name === 'string' && user.name.trim()) ||
+          derivedLegalName ||
+          email.split('@')[0]
+
         let dbUser = await prisma.user.findUnique({ where: { email } })
         if (!dbUser) {
           const username = await ensureUniqueUsername(email.split('@')[0])
@@ -193,12 +221,40 @@ export const authOptions: NextAuthOptions = {
               email,
               username,
               password: '',
-              name: (user.name ?? email.split('@')[0]) ?? undefined,
+              name: displayNameFromIdp,
+              legalName: derivedLegalName ?? undefined,
+              avatar: derivedPicture ?? undefined,
+              birthday: derivedBirthday ?? undefined,
               emailVerified: true,
               policyAgreedAt: new Date(),
               role: 'SUBSCRIBER',
             },
           })
+        } else {
+          const backfill: {
+            legalName?: string
+            avatar?: string
+            birthday?: Date
+            name?: string
+          } = {}
+          if (!(dbUser.legalName && dbUser.legalName.trim()) && derivedLegalName) {
+            backfill.legalName = derivedLegalName
+          }
+          if (!(dbUser.avatar && dbUser.avatar.trim()) && derivedPicture) {
+            backfill.avatar = derivedPicture
+          }
+          if (!dbUser.birthday && derivedBirthday) {
+            backfill.birthday = derivedBirthday
+          }
+          if (!(dbUser.name && dbUser.name.trim()) && displayNameFromIdp) {
+            backfill.name = displayNameFromIdp
+          }
+          if (Object.keys(backfill).length > 0) {
+            dbUser = await prisma.user.update({
+              where: { id: dbUser.id },
+              data: backfill,
+            })
+          }
         }
         if (dbUser.isSuspended) {
           if (dbUser.suspendedUntil && new Date(dbUser.suspendedUntil) < new Date()) {
