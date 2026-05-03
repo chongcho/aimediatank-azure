@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react'
 import { useCallback, useEffect, useState } from 'react'
-import { localeTagFromBrowserLang } from '@/lib/localeFromLocation'
+import { EMPTY_PROFILE_LOCATION_UI_LOCALE, localeTagFromBrowserLang } from '@/lib/localeFromLocation'
 import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
 import { navBarT, type NavBarKey } from '@/messages/navBar'
 import { mediaPageT, type MediaPageKey } from '@/messages/mediaPage'
@@ -15,9 +15,21 @@ export function useUiLocale() {
     setBrowserTag(localeTagFromBrowserLang(typeof navigator !== 'undefined' ? navigator.language : null))
   }, [])
 
-  /** Signed-in: JWT `locale` from Profile/Location (see `auth.ts` + profile `update()`). Guests: browser. */
+  /**
+   * Guests: browser language.
+   * Signed-in: JWT `locale` from profile **Location** only (`SessionLocaleFromProfileSync` + `auth.ts`).
+   * If location is empty, we treat it like **United States**: English only (`en`); the JWT should match
+   * via `SessionLocaleFromProfileSync`. We do **not** fall back to the browser, so empty location never
+   * follows `navigator.language`.
+   */
   const localeTag =
-    status === 'authenticated' ? (session?.user?.locale ?? browserTag) : browserTag
+    status === 'authenticated'
+      ? (() => {
+          const s = session?.user?.locale
+          const t = typeof s === 'string' ? s.trim() : ''
+          return t || EMPTY_PROFILE_LOCATION_UI_LOCALE
+        })()
+      : browserTag
 
   const t = useCallback((key: NavBarKey) => navBarT(localeTag, key), [localeTag])
   const tMedia = useCallback((key: MediaPageKey) => mediaPageT(localeTag, key), [localeTag])

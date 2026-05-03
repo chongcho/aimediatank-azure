@@ -1,7 +1,12 @@
 /**
  * Maps the registration "Location" country string (see register page) to a short
  * UI language tag used for bundled translations (en, de, ja, …).
+ *
+ * **Empty profile location:** treated like **United States** — English only (`en`) for UI and
+ * machine translation; no browser-locale override for signed-in users (see `useUiLocale`).
  */
+/** UI / translate tag when `User.location` is unset — same as profile country **United States** (`en`). */
+export const EMPTY_PROFILE_LOCATION_UI_LOCALE = 'en' as const
 const COUNTRY_TO_UI_TAG: Record<string, string> = {
   'United States': 'en',
   'United Kingdom': 'en',
@@ -81,12 +86,13 @@ const SUPPORTED = new Set([
   'ms',
 ])
 
-/** Registration country → UI language tag (fallback `en`). */
+/** Registration country → UI language tag. Empty/whitespace → {@link EMPTY_PROFILE_LOCATION_UI_LOCALE} (US / English). */
 export function localeTagFromUserLocation(location: string | null | undefined): string {
-  if (!location) return 'en'
-  const tag = COUNTRY_TO_UI_TAG[location]
+  const loc = typeof location === 'string' ? location.trim() : ''
+  if (!loc) return EMPTY_PROFILE_LOCATION_UI_LOCALE
+  const tag = COUNTRY_TO_UI_TAG[loc]
   if (tag && SUPPORTED.has(tag)) return tag
-  return 'en'
+  return EMPTY_PROFILE_LOCATION_UI_LOCALE
 }
 
 /** Map navigator.language (e.g. fr-CA) to a supported UI tag for guests. */

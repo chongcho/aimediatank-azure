@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import { prisma } from '@/lib/prisma'
 import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
 import bcrypt from 'bcryptjs'
@@ -40,7 +41,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ user })
+    /** UI / translate tag from saved `User.location`; empty → `en` (treated like United States). */
+    const localeFromProfileLocation = localeTagFromUserLocation(user.location)
+
+    return NextResponse.json({ user, localeFromProfileLocation })
   } catch (error) {
     console.error('Error fetching profile:', error)
     return NextResponse.json(
