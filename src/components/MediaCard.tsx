@@ -10,6 +10,9 @@ import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { pickInitialRenditionIndex, sortRenditions } from '@/lib/adaptiveVideoTier'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
 import { formatViewCount } from '@/lib/formatViewCount'
+import { formatRelativeUploadDay } from '@/lib/formatRelativeDay'
+import { useUiLocale } from '@/hooks/useUiLocale'
+import { useTranslatedPair } from '@/hooks/useTranslatedTexts'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
 import { PreplayVolumeIcon, useHomePreplayFocus } from '@/contexts/HomePreplayFocusContext'
 
@@ -124,6 +127,32 @@ export default function MediaCard({
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
+  const { localeTag, tMedia, tFeed, t } = useUiLocale()
+  const titlePlain = stripHashtags(media.title)
+  const descPlain = (media.description ?? '').trim()
+  const { title: translatedTitle, description: translatedDescription } = useTranslatedPair(
+    titlePlain,
+    descPlain,
+    localeTag,
+    Boolean(media.id)
+  )
+
+  const descriptionOverlay = useMemo(() => {
+    const raw = translatedDescription.trim()
+    if (!raw) return null
+    const cleaned = stripHashtags(raw)
+    if (!cleaned) return null
+    return { text: truncateText(cleaned, 220), title: cleaned }
+  }, [translatedDescription])
+
+  const mediaTypeLabel =
+    media.type === 'VIDEO'
+      ? tMedia('typeVideo')
+      : media.type === 'IMAGE'
+        ? tMedia('typeImage')
+        : media.type === 'MUSIC'
+          ? tMedia('typeMusic')
+          : media.type
   /** Inline `homeScrollContext={{...}}` from the parent is a new object every render — use a boolean + ref for stable deps. */
   const hasHomeScrollContext = homeScrollContext != null
   const homeScrollContextRef = useRef(homeScrollContext)
@@ -573,26 +602,7 @@ export default function MediaCard({
     }
   }
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    
-    if (days === 0) return 'Today'
-    if (days === 1) return 'Yesterday'
-    return `${days} days ago`
-  }
-
   const typeStyle = getTypeStyle()
-
-  const descriptionOverlay = (() => {
-    const raw = media.description?.trim()
-    if (!raw) return null
-    const cleaned = stripHashtags(raw)
-    if (!cleaned) return null
-    return { text: truncateText(cleaned, 220), title: cleaned }
-  })()
 
   const showDescriptionThumbnailOverlay =
     Boolean(descriptionOverlay) && isBadgeEnabled('descriptionThumbnails')
@@ -637,11 +647,11 @@ export default function MediaCard({
 
   const isAiGenerated = Boolean(media.aiTool && media.aiTool.trim())
   const isRealGenerated = Boolean(media.realDevice && media.realDevice.trim())
-  const aiLabel = isAiGenerated ? 'AI' : isRealGenerated ? 'Real' : 'Real'
+  const aiLabel = isAiGenerated ? tFeed('aiBadge') : tFeed('realBadge')
 
   // Show 'Free' for null/undefined or zero price, otherwise show the price
   const priceLabel =
-    media.price == null || media.price === 0 ? 'Free' : `$${media.price.toFixed(2)}`
+    media.price == null || media.price === 0 ? tFeed('free') : `$${media.price.toFixed(2)}`
   const soldCount = media.soldCount ?? (media.isSold ? 1 : 0)
   const showSoldBadge = soldCount > 0
 
@@ -701,12 +711,12 @@ export default function MediaCard({
         body: JSON.stringify({ content }),
       })
       if (res.status === 401) {
-        setCommentError('Sign in to post a comment.')
+        setCommentError(tFeed('signInToPostComment'))
         return
       }
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string }
-        setCommentError(data.error || 'Could not post comment.')
+        setCommentError(data.error || tFeed('couldNotPost'))
         return
       }
       const data = (await res.json()) as {
@@ -755,7 +765,7 @@ export default function MediaCard({
       })
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string }
-        setCommentError(err.error || 'Could not update comment.')
+        setCommentError(err.error || tFeed('couldNotUpdate'))
         return
       }
       const data = (await res.json().catch(() => ({}))) as {
@@ -793,7 +803,7 @@ export default function MediaCard({
       )
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string }
-        setCommentError(err.error || 'Could not delete comment.')
+        setCommentError(err.error || tFeed('couldNotDelete'))
         setDeleteConfirmCommentId(null)
         return
       }
@@ -810,7 +820,7 @@ export default function MediaCard({
       }
       setCommentModalOpen(false)
     } catch {
-      setCommentError('Could not delete comment.')
+      setCommentError(tFeed('couldNotDeleteGeneric'))
       setDeleteConfirmCommentId(null)
     } finally {
       setCommentModerating(false)
@@ -957,7 +967,7 @@ export default function MediaCard({
       {editingCommentId === c.id ? (
         <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
           <p className={commentTextClass}>{c.content}</p>
-          <p className="text-[11px] text-tank-accent/80">Editing… change text below, then press Save to close.</p>
+          <p className="text-[11px] text-tank-accent/80">{tFeed('editHelpLine')}</p>
         </div>
       ) : (
         <>
@@ -988,7 +998,7 @@ export default function MediaCard({
                   setCommentActionId(null)
                 }}
               >
-                Edit
+                {tMedia('edit')}
               </button>
               <button
                 type="button"
@@ -996,7 +1006,7 @@ export default function MediaCard({
                 disabled={commentModerating}
                 onClick={() => setDeleteConfirmCommentId(c.id)}
               >
-                Delete
+                {tMedia('delete')}
               </button>
             </div>
           ) : null}
@@ -1023,7 +1033,7 @@ export default function MediaCard({
           e.preventDefault()
           navigateToMedia()
         }}
-        aria-label={`Open ${stripHashtags(media.title)}`}
+        aria-label={tFeed('openMediaAria', { title: translatedTitle || titlePlain })}
       >
       <div ref={cardRef} className="media-card-inner bg-tank-gray rounded-md overflow-hidden border border-tank-light transition-all duration-300 [@media(hover:hover)]:hover:border-tank-accent/50 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:shadow-tank-accent/10">
         {/* Thumbnail — natural aspect ratio for masonry layout */}
@@ -1072,7 +1082,7 @@ export default function MediaCard({
             <>
               <img
                 src={thumbnailSrc}
-                alt={media.title}
+                alt={translatedTitle || titlePlain}
                 className={`w-full h-auto block group-hover:scale-105 transition-transform duration-500${thumbnailLoaded ? '' : ' invisible absolute'}`}
                 onLoad={() => setThumbnailLoaded(true)}
                 onError={() => setThumbnailError(true)}
@@ -1159,11 +1169,7 @@ export default function MediaCard({
                 }}
                 aria-pressed={previewSoundOn}
                 className="pointer-events-auto inline-flex touch-manipulation items-center justify-center rounded-md bg-transparent px-2 py-1 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] transition-opacity hover:opacity-90 active:opacity-100 [-webkit-tap-highlight-color:transparent]"
-                title={
-                  previewSoundOn
-                    ? 'Mute video previews on the home feed'
-                    : 'Play video previews with sound on the home feed'
-                }
+                title={previewSoundOn ? tFeed('mutePreplayTitle') : tFeed('unmutePreplayTitle')}
               >
                 <PreplayVolumeIcon muted={!preplayAudible} className="h-[15.4px] w-[15.4px]" />
               </button>
@@ -1174,11 +1180,11 @@ export default function MediaCard({
           {media.processingStatus && media.processingStatus !== 'completed' && !hasPreviewStream && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20">
               {media.processingStatus === 'failed' ? (
-                <p className="text-red-400/70 text-xs font-medium">Processing failed</p>
+                <p className="text-red-400/70 text-xs font-medium">{tMedia('failedTitle')}</p>
               ) : (
                 <>
                   <div className="w-8 h-8 border-3 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin mb-2" />
-                  <p className="text-white/70 text-xs font-medium">Processing...</p>
+                  <p className="text-white/70 text-xs font-medium">{tMedia('processingShort')}</p>
                 </>
               )}
             </div>
@@ -1187,7 +1193,7 @@ export default function MediaCard({
           {!homeScrollContext && hasPreviewStream && (
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded-full bg-black/70 text-[10px] font-medium flex items-center gap-1.5 z-10">
               <div className="w-2 h-2 border-2 border-tank-accent/50 border-t-white/80 rounded-full animate-spin" />
-              <span className="text-white/70">Encoding HD…</span>
+              <span className="text-white/70">{tFeed('encodingHd')}</span>
             </div>
           )}
 
@@ -1243,13 +1249,13 @@ export default function MediaCard({
         <div className="p-4 grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-2 items-start">
           <h3
             className="font-semibold text-white transition-colors truncate min-w-0 col-start-1 row-start-1"
-            title={stripHashtags(media.title)}
+            title={translatedTitle || titlePlain}
           >
-            {renderTitle(media.title)}
+            {renderTitle(translatedTitle || titlePlain)}
           </h3>
           <div className="col-start-2 row-start-1 justify-self-end flex items-center gap-1 text-xs font-bold text-gray-300 tabular-nums">
             {getTypeIcon()}
-            <span className="uppercase">{media.type}</span>
+            <span className="uppercase">{mediaTypeLabel}</span>
           </div>
 
           <div
@@ -1288,7 +1294,7 @@ export default function MediaCard({
                     openCommentModal(e)
                   }
                 }}
-                aria-label="Open comments"
+                aria-label={tFeed('openCommentsAria')}
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path
@@ -1298,14 +1304,14 @@ export default function MediaCard({
                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                   />
                 </svg>
-                <span>Comment</span>
+                <span>{tFeed('feedComment')}</span>
               </button>
             )}
           </div>
 
           {isBadgeEnabled('postDate') && (
             <span className="col-start-2 row-start-2 justify-self-end text-sm text-gray-300 whitespace-nowrap tabular-nums">
-              {formatDate(media.createdAt)}
+              {formatRelativeUploadDay(media.createdAt, localeTag)}
             </span>
           )}
         </div>
@@ -1346,10 +1352,10 @@ export default function MediaCard({
                 >
                   <div className="w-full max-w-sm rounded-lg border border-tank-light bg-tank-gray px-4 py-4 shadow-lg">
                     <h4 id="media-card-delete-comment-title" className="text-base font-semibold text-white">
-                      Delete comment?
+                      {tFeed('deleteCommentTitle')}
                     </h4>
                     <p id="media-card-delete-comment-desc" className="mt-2 text-sm text-gray-400">
-                      This cannot be undone.
+                      {tMedia('cannotUndo')}
                     </p>
                     <div className="mt-4 flex justify-end gap-2">
                       <button
@@ -1358,7 +1364,7 @@ export default function MediaCard({
                         disabled={commentModerating}
                         onClick={() => setDeleteConfirmCommentId(null)}
                       >
-                        Cancel
+                        {tMedia('cancel')}
                       </button>
                       <button
                         type="button"
@@ -1366,24 +1372,24 @@ export default function MediaCard({
                         disabled={commentModerating}
                         onClick={() => void confirmDeleteHomeComment(deleteConfirmCommentId)}
                       >
-                        {commentModerating ? 'Deleting…' : 'Delete'}
+                        {commentModerating ? tMedia('deleting') : tMedia('delete')}
                       </button>
                     </div>
                   </div>
                 </div>
               ) : null}
               <h3 id="media-card-comment-title" className="text-lg font-semibold text-white mb-1 truncate pr-8">
-                Comment
+                {tFeed('feedComment')}
               </h3>
               {modalCommentsLoading ? (
-                <p className="text-xs text-gray-500 mb-3">Loading comments…</p>
+                <p className="text-xs text-gray-500 mb-3">{tFeed('commentModalLoading')}</p>
               ) : latestModalComments.length > 0 ? (
                 <div className="mb-3 flex flex-col divide-y divide-tank-light/25">
                   {latestModalComments.map((c) => renderModalCommentRow(c))}
                 </div>
               ) : null}
-              <p className="text-sm text-gray-400 mb-3 truncate" title={stripHashtags(media.title)}>
-                {stripHashtags(media.title)}
+              <p className="text-sm text-gray-400 mb-3 truncate" title={translatedTitle || titlePlain}>
+                {translatedTitle || titlePlain}
               </p>
               {session?.user ? (
                 <>
@@ -1407,7 +1413,9 @@ export default function MediaCard({
                       if (editingCommentId) void saveEditComment()
                       else void submitHomeComment()
                     }}
-                    placeholder={editingCommentId ? 'Edit comment…' : 'Write a comment…'}
+                    placeholder={
+                      editingCommentId ? tFeed('placeholderEditComment') : tFeed('placeholderWriteComment')
+                    }
                     className="w-full min-h-[2.5rem] max-h-[200px] resize-none overflow-y-auto rounded-lg border border-tank-light bg-tank-dark px-3 py-2 text-sm leading-snug text-white placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent"
                     disabled={commentSubmitting || commentModerating}
                     autoComplete="off"
@@ -1420,7 +1428,7 @@ export default function MediaCard({
                       onClick={() => setCommentModalOpen(false)}
                       disabled={commentSubmitting || commentModerating}
                     >
-                      {editingCommentId ? 'Cancel edit' : 'Cancel'}
+                      {editingCommentId ? tFeed('cancelEdit') : tMedia('cancel')}
                     </button>
                     <button
                       type="button"
@@ -1432,14 +1440,14 @@ export default function MediaCard({
                       disabled={!canSubmitPost}
                     >
                       {commentSubmitting
-                        ? 'Posting…'
+                        ? tFeed('posting')
                         : commentModerating
                           ? editingCommentId
-                            ? 'Saving…'
-                            : 'Posting…'
+                            ? tFeed('saving')
+                            : tFeed('posting')
                           : editingCommentId
-                            ? 'Save'
-                            : 'Post'}
+                            ? tFeed('save')
+                            : tFeed('post')}
                     </button>
                   </div>
                 </>
@@ -1450,7 +1458,7 @@ export default function MediaCard({
                       {olderModalComments.map((c) => renderModalCommentRow(c))}
                     </div>
                   )}
-                  <p className="text-sm text-gray-300">Sign in to add a comment on this media.</p>
+                  <p className="text-sm text-gray-300">{tFeed('signInBlurb')}</p>
                   {commentError && <p className="text-sm text-red-400">{commentError}</p>}
                   <div className="flex flex-wrap gap-2 justify-end">
                     <button
@@ -1458,13 +1466,13 @@ export default function MediaCard({
                       className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-tank-light/50 transition-colors"
                       onClick={() => setCommentModalOpen(false)}
                     >
-                      Close
+                      {tMedia('close')}
                     </button>
                     <Link
                       href={`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`}
                       className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold bg-tank-accent text-tank-black hover:opacity-90"
                     >
-                      Sign in
+                      {t('signIn')}
                     </Link>
                   </div>
                 </div>
