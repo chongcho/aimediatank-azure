@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { useCallback, useLayoutEffect, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react'
 import { EMPTY_PROFILE_LOCATION_UI_LOCALE, localeTagFromBrowserLang } from '@/lib/localeFromLocation'
 import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
 import { navBarT, type NavBarKey } from '@/messages/navBar'
@@ -43,5 +43,17 @@ export function useUiLocale() {
     [localeTag]
   )
 
-  return { localeTag, t, tMedia, tFeed }
+  /**
+   * Target locale for `/api/translate/text` (UGC, chat, comments). Uses profile `localeTag` when its
+   * primary language is not English; otherwise falls back to the browser language so signed-in users
+   * with a US profile still see MT when their browser is set to Korean (etc.).
+   */
+  const mtLocaleTag = useMemo(() => {
+    const primary = (tag: string) => (tag || 'en').toLowerCase().split('-')[0]
+    if (primary(localeTag) !== 'en') return localeTag
+    if (primary(browserTag) !== 'en') return browserTag
+    return 'en'
+  }, [localeTag, browserTag])
+
+  return { localeTag, mtLocaleTag, t, tMedia, tFeed }
 }

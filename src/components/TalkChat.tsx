@@ -7,6 +7,8 @@ import { stripHashtags } from '@/lib/text'
 import { compressMedia, type QualitySettings } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { useUiLocale } from '@/hooks/useUiLocale'
+import { TranslatedChatMessageBody } from '@/components/TranslatedChatMessageBody'
+import { normalizeChatMessagePlainText } from '@/lib/chatMessageDisplay'
 import { useTranslatedPair, useTranslatedSingle } from '@/hooks/useTranslatedTexts'
 import { TALK_CHAT_MAP, talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
 
@@ -465,7 +467,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const isSignedIn = !!session?.user
 
-  const { localeTag } = useUiLocale()
+  const { localeTag, mtLocaleTag } = useUiLocale()
   const tr = useMemo(() => talkChatTr(localeTag), [localeTag])
   const trRef = useRef(tr)
   trRef.current = tr
@@ -482,7 +484,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return TALK_CHAT_MAP.placeholderPubKong
   }, [isSignedIn, chatMode, selectedRecipients])
 
-  const composerPlaceholderTr = useTranslatedSingle(composerPlaceholderEn, localeTag, true)
+  const composerPlaceholderTr = useTranslatedSingle(composerPlaceholderEn, mtLocaleTag, true)
 
   const inviteBannerEn = useMemo(
     () =>
@@ -491,7 +493,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         : '',
     [showUserPicker, chatInvites.length, chatMode, privateRecipient],
   )
-  const inviteBannerTr = useTranslatedSingle(inviteBannerEn, localeTag, inviteBannerEn.length > 0)
+  const inviteBannerTr = useTranslatedSingle(inviteBannerEn, mtLocaleTag, inviteBannerEn.length > 0)
 
   const memberLineEn = useMemo(
     () =>
@@ -500,14 +502,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         : '',
     [chatMode, selectedRecipients.length],
   )
-  const memberLineTr = useTranslatedSingle(memberLineEn, localeTag, memberLineEn.length > 0)
+  const memberLineTr = useTranslatedSingle(memberLineEn, mtLocaleTag, memberLineEn.length > 0)
 
   const pairTitle = confirmModal.show ? confirmModal.title : ''
   const pairMsg = confirmModal.show ? confirmModal.message : ''
-  const confirmTr = useTranslatedPair(pairTitle, pairMsg, localeTag, confirmModal.show)
+  const confirmTr = useTranslatedPair(pairTitle, pairMsg, mtLocaleTag, confirmModal.show)
 
-  const noticeTr = useTranslatedSingle(inlineNotice || '', localeTag, Boolean(inlineNotice))
-  const quickUploadErrTr = useTranslatedSingle(mediaPickerQuickUploadError, localeTag, Boolean(mediaPickerQuickUploadError))
+  const noticeTr = useTranslatedSingle(inlineNotice || '', mtLocaleTag, Boolean(inlineNotice))
+  const quickUploadErrTr = useTranslatedSingle(mediaPickerQuickUploadError, mtLocaleTag, Boolean(mediaPickerQuickUploadError))
 
   // Desktop drag and resize state
   const [isDesktop, setIsDesktop] = useState(false)
@@ -1686,84 +1688,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       delete next[mediaId]
       return next
     })
-  }
-
-  // Render message content with clickable links
-  const renderMessageContent = (content: string) => {
-    // Remove hashtags (e.g., #dog, #hashtag) from display
-    const contentWithoutHashtags = content.replace(/#\w+/g, '')
-    const contentWithoutMediaTokens = contentWithoutHashtags
-      .replace(/\[\[media:[^\]]+\]\]/g, '')
-      .replace(/\[[^\]]+\]\([^)]*\/media\/[^)]+\)/g, '')
-      .replace(/https?:\/\/[^\s]*\/media\/[^\s]+/g, '')
-    const normalizedContent = contentWithoutMediaTokens.replace(/\s+/g, ' ').trim()
-    
-    // Match markdown links [text](url) and plain URLs
-    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)|(https?:\/\/[^\s]+)/g
-    const parts: React.ReactNode[] = []
-    let lastIndex = 0
-    let match
-
-    while ((match = linkRegex.exec(normalizedContent)) !== null) {
-      // Add text before the match
-      if (match.index > lastIndex) {
-        parts.push(normalizedContent.slice(lastIndex, match.index))
-      }
-
-      if (match[1] && match[2]) {
-        // Markdown link [text](url)
-        if (match[2].includes('/media/')) {
-          lastIndex = match.index + match[0].length
-          continue
-        }
-        parts.push(
-          <a
-            key={match.index}
-            href={match[2]}
-            style={{
-              color: 'inherit',
-              textDecoration: 'underline',
-              fontWeight: '500',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {match[1]}
-          </a>
-        )
-      } else if (match[3]) {
-        // Plain URL
-        if (match[3].includes('/media/')) {
-          lastIndex = match.index + match[0].length
-          continue
-        }
-        parts.push(
-          <a
-            key={match.index}
-            href={match[3]}
-            style={{
-              color: 'inherit',
-              textDecoration: 'underline',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {match[3]}
-          </a>
-        )
-      }
-
-      lastIndex = match.index + match[0].length
-    }
-
-    // Add remaining text
-    if (lastIndex < normalizedContent.length) {
-      parts.push(normalizedContent.slice(lastIndex))
-    }
-
-    if (!normalizedContent) {
-      return null
-    }
-
-    return parts.length > 0 ? parts : normalizedContent
   }
 
   const extractMediaIds = (content: string) => {
@@ -3784,26 +3708,23 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                         </div>
                       ) : (
                         <>
-                          {(() => {
-                            const renderedContent = renderMessageContent(msg.content)
-                            return renderedContent ? (
-                              <p
-                                onMouseDown={(e) => e.preventDefault()}
-                                onTouchStart={(e) => e.preventDefault()}
-                                style={{
-                                  margin: 0,
-                                  fontSize: '13px',
-                                  whiteSpace: 'pre-wrap',
-                                  wordBreak: 'break-word',
-                                  userSelect: 'none',
-                                  WebkitUserSelect: 'none' as const,
-                                  WebkitTouchCallout: 'none' as const,
-                                }}
-                              >
-                                {renderedContent}
-                              </p>
-                            ) : null
-                          })()}
+                          {normalizeChatMessagePlainText(msg.content).trim() ? (
+                            <p
+                              onMouseDown={(e) => e.preventDefault()}
+                              onTouchStart={(e) => e.preventDefault()}
+                              style={{
+                                margin: 0,
+                                fontSize: '13px',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                userSelect: 'none',
+                                WebkitUserSelect: 'none' as const,
+                                WebkitTouchCallout: 'none' as const,
+                              }}
+                            >
+                              <TranslatedChatMessageBody content={msg.content} mtLocaleTag={mtLocaleTag} />
+                            </p>
+                          ) : null}
                           {renderMediaPreviews(msg.content)}
                         </>
                       )}

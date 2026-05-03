@@ -12,6 +12,7 @@ import { mergeStoredMediaViews } from '@/lib/mediaViewsSync'
 import { calendarLocaleFromUiTag } from '@/lib/localeUi'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
+import { TranslatedPlaintext } from '@/components/TranslatedPlaintext'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { formatMediaViewsLabel, mediaPageInterpolate } from '@/messages/mediaPage'
 
@@ -67,7 +68,7 @@ interface MediaDetail {
 
 export default function MediaPageClient({ mediaId, intercepted = false }: { mediaId: string; intercepted?: boolean }) {
   const { data: session } = useSession()
-  const { localeTag, tMedia } = useUiLocale()
+  const { localeTag, mtLocaleTag, tMedia } = useUiLocale()
   const router = useRouter()
   const [media, setMedia] = useState<MediaDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -147,7 +148,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       setI18nMedia(null)
       return
     }
-    const primary = (localeTag || 'en').toLowerCase().split('-')[0]
+    const primary = (mtLocaleTag || 'en').toLowerCase().split('-')[0]
     if (primary === 'en') {
       setI18nMedia(null)
       return
@@ -155,7 +156,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     let cancelled = false
     const rawTitle = stripHashtags(media.title)
     const rawDesc = media.description ?? ''
-    const to = String(localeTag ?? 'en')
+    const to = String(mtLocaleTag ?? 'en')
     fetch('/api/translate/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -184,7 +185,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     return () => {
       cancelled = true
     }
-  }, [media?.id, media?.title, media?.description, localeTag])
+  }, [media?.id, media?.title, media?.description, mtLocaleTag])
 
   // Persist immediately so a fast Back still sees updated counts; merge is cheap (runs only when views/id change).
   useLayoutEffect(() => {
@@ -1064,7 +1065,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                       key={c.id}
                       className="text-sm text-gray-400 leading-snug whitespace-pre-wrap break-words"
                     >
-                      {c.content}
+                      <TranslatedPlaintext text={c.content} />
                     </p>
                   ))}
                 </div>

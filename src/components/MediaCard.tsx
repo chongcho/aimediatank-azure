@@ -14,6 +14,7 @@ import { formatRelativeUploadDay } from '@/lib/formatRelativeDay'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { useTranslatedPair } from '@/hooks/useTranslatedTexts'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
+import { TranslatedPlaintext } from '@/components/TranslatedPlaintext'
 import { PreplayVolumeIcon, useHomePreplayFocus } from '@/contexts/HomePreplayFocusContext'
 
 interface MediaCardProps {
@@ -127,13 +128,13 @@ export default function MediaCard({
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
-  const { localeTag, tMedia, tFeed, t } = useUiLocale()
+  const { localeTag, mtLocaleTag, tMedia, tFeed, t } = useUiLocale()
   const titlePlain = stripHashtags(media.title)
   const descPlain = (media.description ?? '').trim()
   const { title: translatedTitle, description: translatedDescription } = useTranslatedPair(
     titlePlain,
     descPlain,
-    localeTag,
+    mtLocaleTag,
     Boolean(media.id)
   )
 
@@ -980,10 +981,10 @@ export default function MediaCard({
                 setCommentActionId((prev) => (prev === c.id ? null : c.id))
               }}
             >
-              {c.content}
+              <TranslatedPlaintext text={c.content} />
             </button>
           ) : (
-            <p className={commentTextClass}>{c.content}</p>
+            <TranslatedPlaintext as="p" text={c.content} className={commentTextClass} />
           )}
           {commentActionId === c.id && canModerateComment(c.userId) ? (
             <div className="mt-1.5 flex flex-wrap gap-3" onClick={(e) => e.stopPropagation()}>
@@ -1225,7 +1226,7 @@ export default function MediaCard({
                       className="text-[13px] text-white/90 leading-snug line-clamp-2 break-words [text-shadow:0_1px_3px_rgba(0,0,0,0.95)]"
                       title={c.content}
                     >
-                      {c.content}
+                      <TranslatedPlaintext text={c.content} />
                     </p>
                   ))}
                 </div>
