@@ -3,10 +3,21 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
+import { useUiLocale } from '@/hooks/useUiLocale'
+import { useTranslatedList } from '@/hooks/useTranslatedTexts'
+import { calendarLocaleFromUiTag } from '@/lib/localeUi'
+import { POLICY_HOME_ORIGINALS, policyHomeIdx } from '@/messages/policyHomeStrings'
+
+const I = policyHomeIdx
 
 function PolicyPageContent() {
   const { data: session } = useSession()
-  const [policyStatus, setPolicyStatus] = useState<{ agreed: boolean; agreedAt: string | null }>({ agreed: false, agreedAt: null })
+  const { localeTag } = useUiLocale()
+  const tr = useTranslatedList(POLICY_HOME_ORIGINALS, localeTag)
+  const [policyStatus, setPolicyStatus] = useState<{ agreed: boolean; agreedAt: string | null }>({
+    agreed: false,
+    agreedAt: null,
+  })
 
   useEffect(() => {
     if (session) {
@@ -25,7 +36,7 @@ function PolicyPageContent() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString(calendarLocaleFromUiTag(localeTag), {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -42,9 +53,17 @@ function PolicyPageContent() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div>
-            <p className="text-green-400 font-medium">Policy Agreement Confirmed</p>
+            <p className="text-green-400 font-medium">{tr[I.agreementTitle]}</p>
             <p className="text-sm text-gray-400">
-              You agreed to the <Link href="/terms?from=policy" className="text-tank-accent hover:underline">Terms of Service</Link> and <Link href="/privacy?from=policy" className="text-tank-accent hover:underline">Privacy Policy</Link> on {formatDate(policyStatus.agreedAt!)}
+              {tr[I.agreementLead]}{' '}
+              <Link href="/terms?from=policy" className="text-tank-accent hover:underline">
+                {tr[I.termsLinkText]}
+              </Link>{' '}
+              {tr[I.agreementAnd]}{' '}
+              <Link href="/privacy?from=policy" className="text-tank-accent hover:underline">
+                {tr[I.privacyLinkText]}
+              </Link>{' '}
+              {tr[I.agreementOn]} {formatDate(policyStatus.agreedAt!)}
             </p>
           </div>
         </div>
@@ -52,8 +71,8 @@ function PolicyPageContent() {
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Policy Home</h1>
-          <p className="text-gray-400">Effective: December 20, 2024 &middot; Last Updated: March 4, 2026</p>
+          <h1 className="text-3xl font-bold mb-2">{tr[I.pageTitle]}</h1>
+          <p className="text-gray-400">{tr[I.effectiveLine]}</p>
         </div>
         <div className="flex items-center gap-2 self-start md:self-auto">
           <a
@@ -65,7 +84,7 @@ function PolicyPageContent() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Download Terms
+            {tr[I.downloadTerms]}
           </a>
           <a
             href="/privacy?from=policy"
@@ -76,14 +95,16 @@ function PolicyPageContent() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Download Privacy
+            {tr[I.downloadPrivacy]}
           </a>
         </div>
         <button
           type="button"
-          onClick={() => { window.location.href = '/' }}
+          onClick={() => {
+            window.location.href = '/'
+          }}
           className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors self-start md:self-auto"
-          aria-label="Close"
+          aria-label={tr[I.closeAria]}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -91,9 +112,7 @@ function PolicyPageContent() {
         </button>
       </div>
 
-      <p className="text-gray-300 mb-8">
-        AI Media Tank, LLC (AiM) maintains two standalone policy documents that govern your use of the Platform and how we handle your data. Please review both documents carefully.
-      </p>
+      <p className="text-gray-300 mb-8">{tr[I.intro]}</p>
 
       <div className="grid gap-6 md:grid-cols-2 mb-12">
         {/* Terms of Service Card */}
@@ -105,42 +124,40 @@ function PolicyPageContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-white group-hover:text-tank-accent transition-colors">Terms of Service</h2>
+              <h2 className="text-xl font-bold text-white group-hover:text-tank-accent transition-colors">{tr[I.cardTermsHeading]}</h2>
             </div>
-            <p className="text-gray-400 text-sm mb-4">
-              Governs your use of the Platform, including:
-            </p>
+            <p className="text-gray-400 text-sm mb-4">{tr[I.cardTermsLead]}</p>
             <ul className="text-gray-400 text-sm space-y-1.5 mb-4">
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Eligibility and age requirements (13+ minimum)</span>
+                <span>{tr[I.cardTermsBullet1]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>User accounts, conduct, and responsibilities</span>
+                <span>{tr[I.cardTermsBullet2]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Content guidelines and AI-generated content policies</span>
+                <span>{tr[I.cardTermsBullet3]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Copyright, DMCA, and intellectual property</span>
+                <span>{tr[I.cardTermsBullet4]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Payment, refund, and creator payout policies</span>
+                <span>{tr[I.cardTermsBullet5]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Third-party platforms (YouTube, TikTok, X)</span>
+                <span>{tr[I.cardTermsBullet6]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Dispute resolution and governing law</span>
+                <span>{tr[I.cardTermsBullet7]}</span>
               </li>
             </ul>
-            <span className="text-tank-accent text-sm font-medium group-hover:underline">Read Terms of Service &rarr;</span>
+            <span className="text-tank-accent text-sm font-medium group-hover:underline">{tr[I.cardTermsRead]}</span>
           </div>
         </Link>
 
@@ -153,106 +170,102 @@ function PolicyPageContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-white group-hover:text-tank-accent transition-colors">Privacy Policy</h2>
+              <h2 className="text-xl font-bold text-white group-hover:text-tank-accent transition-colors">{tr[I.cardPrivacyHeading]}</h2>
             </div>
-            <p className="text-gray-400 text-sm mb-4">
-              Describes how we collect, use, and protect your data, including:
-            </p>
+            <p className="text-gray-400 text-sm mb-4">{tr[I.cardPrivacyLead]}</p>
             <ul className="text-gray-400 text-sm space-y-1.5 mb-4">
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Information we collect and how we use it</span>
+                <span>{tr[I.cardPrivacyBullet1]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Legal bases (GDPR compliance)</span>
+                <span>{tr[I.cardPrivacyBullet2]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Cookies and tracking technologies</span>
+                <span>{tr[I.cardPrivacyBullet3]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Your rights (GDPR, CCPA, LGPD, PIPEDA)</span>
+                <span>{tr[I.cardPrivacyBullet4]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Children&apos;s privacy (COPPA compliance)</span>
+                <span>{tr[I.cardPrivacyBullet5]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>Data retention schedules</span>
+                <span>{tr[I.cardPrivacyBullet6]}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-tank-accent mt-1">&bull;</span>
-                <span>International data transfers and safeguards</span>
+                <span>{tr[I.cardPrivacyBullet7]}</span>
               </li>
             </ul>
-            <span className="text-tank-accent text-sm font-medium group-hover:underline">Read Privacy Policy &rarr;</span>
+            <span className="text-tank-accent text-sm font-medium group-hover:underline">{tr[I.cardPrivacyRead]}</span>
           </div>
         </Link>
       </div>
 
       {/* Compliance */}
       <div className="card mb-8">
-        <h2 className="text-lg font-bold mb-4">Global Compliance</h2>
-        <p className="text-gray-400 text-sm mb-4">
-          Our policy documents are designed to comply with applicable regulations worldwide:
-        </p>
+        <h2 className="text-lg font-bold mb-4">{tr[I.complianceTitle]}</h2>
+        <p className="text-gray-400 text-sm mb-4">{tr[I.complianceIntro]}</p>
         <div className="overflow-x-auto">
           <table className="w-full text-gray-300 text-sm">
             <thead>
               <tr className="border-b border-tank-light">
-                <th className="text-left py-2 px-3">Regulation</th>
-                <th className="text-left py-2 px-3">Jurisdiction</th>
-                <th className="text-left py-2 px-3">Key Areas</th>
+                <th className="text-left py-2 px-3">{tr[I.tableRegulation]}</th>
+                <th className="text-left py-2 px-3">{tr[I.tableJurisdiction]}</th>
+                <th className="text-left py-2 px-3">{tr[I.tableKeyAreas]}</th>
               </tr>
             </thead>
             <tbody>
               <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">GDPR</td>
-                <td className="py-2 px-3">EU / EEA</td>
-                <td className="py-2 px-3">Data protection, user rights, legal bases</td>
+                <td className="py-2 px-3 font-medium">{tr[I.rowGdprName]}</td>
+                <td className="py-2 px-3">{tr[I.rowGdprRegion]}</td>
+                <td className="py-2 px-3">{tr[I.rowGdprKeys]}</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">UK DPA 2018</td>
-                <td className="py-2 px-3">United Kingdom</td>
-                <td className="py-2 px-3">Data protection aligned with GDPR</td>
+                <td className="py-2 px-3 font-medium">{tr[I.rowUkName]}</td>
+                <td className="py-2 px-3">{tr[I.rowUkRegion]}</td>
+                <td className="py-2 px-3">{tr[I.rowUkKeys]}</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">CCPA / CPRA</td>
-                <td className="py-2 px-3">California, USA</td>
-                <td className="py-2 px-3">Consumer privacy, opt-out, non-discrimination</td>
+                <td className="py-2 px-3 font-medium">{tr[I.rowCcpaName]}</td>
+                <td className="py-2 px-3">{tr[I.rowCcpaRegion]}</td>
+                <td className="py-2 px-3">{tr[I.rowCcpaKeys]}</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">COPPA</td>
-                <td className="py-2 px-3">United States</td>
-                <td className="py-2 px-3">Children&apos;s privacy, 13+ minimum age</td>
+                <td className="py-2 px-3 font-medium">{tr[I.rowCoppaName]}</td>
+                <td className="py-2 px-3">{tr[I.rowCoppaRegion]}</td>
+                <td className="py-2 px-3">{tr[I.rowCoppaKeys]}</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">LGPD</td>
-                <td className="py-2 px-3">Brazil</td>
-                <td className="py-2 px-3">Data protection, ANPD authority</td>
+                <td className="py-2 px-3 font-medium">{tr[I.rowLgpdName]}</td>
+                <td className="py-2 px-3">{tr[I.rowLgpdRegion]}</td>
+                <td className="py-2 px-3">{tr[I.rowLgpdKeys]}</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">PIPEDA</td>
-                <td className="py-2 px-3">Canada</td>
-                <td className="py-2 px-3">Personal information protection</td>
+                <td className="py-2 px-3 font-medium">{tr[I.rowPipedaName]}</td>
+                <td className="py-2 px-3">{tr[I.rowPipedaRegion]}</td>
+                <td className="py-2 px-3">{tr[I.rowPipedaKeys]}</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">DMCA</td>
-                <td className="py-2 px-3">United States</td>
-                <td className="py-2 px-3">Copyright takedown procedures</td>
+                <td className="py-2 px-3 font-medium">{tr[I.rowDmcaName]}</td>
+                <td className="py-2 px-3">{tr[I.rowDmcaRegion]}</td>
+                <td className="py-2 px-3">{tr[I.rowDmcaKeys]}</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-2 px-3 font-medium">EU AI Act</td>
-                <td className="py-2 px-3">European Union</td>
-                <td className="py-2 px-3">AI transparency obligations</td>
+                <td className="py-2 px-3 font-medium">{tr[I.rowEuAiName]}</td>
+                <td className="py-2 px-3">{tr[I.rowEuAiRegion]}</td>
+                <td className="py-2 px-3">{tr[I.rowEuAiKeys]}</td>
               </tr>
               <tr>
-                <td className="py-2 px-3 font-medium">PCI DSS</td>
-                <td className="py-2 px-3">Global</td>
-                <td className="py-2 px-3">Payment security (via Stripe)</td>
+                <td className="py-2 px-3 font-medium">{tr[I.rowPciName]}</td>
+                <td className="py-2 px-3">{tr[I.rowPciRegion]}</td>
+                <td className="py-2 px-3">{tr[I.rowPciKeys]}</td>
               </tr>
             </tbody>
           </table>
@@ -261,43 +274,52 @@ function PolicyPageContent() {
 
       {/* Contact */}
       <div className="card mb-8">
-        <h2 className="text-lg font-bold mb-4">Contact</h2>
+        <h2 className="text-lg font-bold mb-4">{tr[I.contactTitle]}</h2>
         <div className="grid gap-3 sm:grid-cols-2 text-sm">
           <div className="text-gray-300">
-            <span className="text-gray-400">General Support:</span><br />
+            <span className="text-gray-400">{tr[I.generalSupportLabel]}</span>
+            <br />
             support@aimediatank.com
           </div>
           <div className="text-gray-300">
-            <span className="text-gray-400">Privacy Requests:</span><br />
-            support@aimediatank.com<br />
-            <span className="text-gray-500">Subject: &ldquo;Privacy Request&rdquo;</span>
+            <span className="text-gray-400">{tr[I.privacyRequestsLabel]}</span>
+            <br />
+            support@aimediatank.com
+            <br />
+            <span className="text-gray-500">{tr[I.subjectPrivacy]}</span>
           </div>
           <div className="text-gray-300">
-            <span className="text-gray-400">Legal Inquiries:</span><br />
-            support@aimediatank.com<br />
-            <span className="text-gray-500">Subject: &ldquo;Legal Inquiry&rdquo;</span>
+            <span className="text-gray-400">{tr[I.legalInquiriesLabel]}</span>
+            <br />
+            support@aimediatank.com
+            <br />
+            <span className="text-gray-500">{tr[I.subjectLegal]}</span>
           </div>
           <div className="text-gray-300">
-            <span className="text-gray-400">DMCA / Copyright:</span><br />
-            support@aimediatank.com<br />
-            <span className="text-gray-500">Subject: &ldquo;DMCA Notice&rdquo;</span>
+            <span className="text-gray-400">{tr[I.dmcaLabel]}</span>
+            <br />
+            support@aimediatank.com
+            <br />
+            <span className="text-gray-500">{tr[I.subjectDmca]}</span>
           </div>
         </div>
       </div>
 
       {/* Footer */}
       <div className="text-center text-gray-500 text-sm">
-        <p>&copy; 2025–2026 AI Media Tank, LLC (AiM). All rights reserved.</p>
-        <p className="mt-1 text-xs text-gray-600">These documents should be reviewed by qualified legal counsel. They do not constitute legal advice.</p>
+        <p>{tr[I.footerCopyright]}</p>
+        <p className="mt-1 text-xs text-gray-600">{tr[I.footerDisclaimer]}</p>
       </div>
 
       <div className="flex justify-start mt-8">
         <button
           type="button"
-          onClick={() => { window.location.href = '/' }}
+          onClick={() => {
+            window.location.href = '/'
+          }}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
-          &larr; Back
+          &larr; {tr[I.backButton]}
         </button>
       </div>
     </div>
