@@ -1,5 +1,5 @@
 // Bump this when changing caching behavior to force refresh.
-const CACHE_NAME = 'aimediatank-v12';
+const CACHE_NAME = 'aimediatank-v13';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install
@@ -67,16 +67,22 @@ self.addEventListener('fetch', (event) => {
         }
       }
 
-      // Next.js assets are content-hashed; cache-first is safe and reduces network chatter.
+      // Next.js assets are content-hashed, but cache-first kept *stale* chunks after deploys
+      // (CacheStorage survives SW unregister in many browsers). Network-first + update cache
+      // so new bundles load; offline still falls back to cached chunk.
       if (isNextAsset) {
         const cachedResponse = await caches.match(event.request);
-        if (cachedResponse) return cachedResponse;
-        const response = await fetch(event.request);
-        if (response && response.status === 200) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+        try {
+          const response = await fetch(event.request, { cache: 'no-store' });
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          }
+          return response;
+        } catch (e) {
+          if (cachedResponse) return cachedResponse;
+          throw e;
         }
-        return response;
       }
 
       // Default: network-first, cache fallback.
