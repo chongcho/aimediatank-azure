@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react'
 import { useCallback, useEffect, useState } from 'react'
 import { localeTagFromBrowserLang } from '@/lib/localeFromLocation'
 import { navBarT, type NavBarKey } from '@/messages/navBar'
+import { mediaPageT, type MediaPageKey } from '@/messages/mediaPage'
 
 export function useUiLocale() {
   const { data: session, status } = useSession()
@@ -17,6 +18,7 @@ export function useUiLocale() {
     status === 'authenticated' ? (session?.user?.locale ?? browserTag) : browserTag
 
   const t = useCallback((key: NavBarKey) => navBarT(localeTag, key), [localeTag])
+  const tMedia = useCallback((key: MediaPageKey) => mediaPageT(localeTag, key), [localeTag])
 
-  return { localeTag, t }
+  return { localeTag, t, tMedia }
 }

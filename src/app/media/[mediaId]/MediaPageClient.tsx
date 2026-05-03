@@ -9,9 +9,11 @@ import { formatMediaTitle, stripHashtags } from '@/lib/text'
 import { pauseAllMedia, stopAllMedia } from '@/lib/mediaStop'
 import { getMediaPlayCache } from '@/lib/mediaPlayCache'
 import { mergeStoredMediaViews } from '@/lib/mediaViewsSync'
-import { formatViewCount } from '@/lib/formatViewCount'
+import { calendarLocaleFromUiTag } from '@/lib/localeUi'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
+import { useUiLocale } from '@/hooks/useUiLocale'
+import { formatMediaViewsLabel, mediaPageInterpolate } from '@/messages/mediaPage'
 
 interface MediaDetail {
   id: string
@@ -65,6 +67,7 @@ interface MediaDetail {
 
 export default function MediaPageClient({ mediaId, intercepted = false }: { mediaId: string; intercepted?: boolean }) {
   const { data: session } = useSession()
+  const { localeTag, tMedia } = useUiLocale()
   const router = useRouter()
   const [media, setMedia] = useState<MediaDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -98,6 +101,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   /** When false (admin Media Badge "Comment" off), hide comment previews on this page. */
   const [commentBadgeEnabled, setCommentBadgeEnabled] = useState(true)
   const backNavigatingRef = useRef(false)
+  /** Optional Azure Translator output for title + description (same locale as navbar). */
+  const [i18nMedia, setI18nMedia] = useState<{ title: string; description: string | null } | null>(null)
 
   const kakaoJsKey = useKakaoJsKey()
   const isOwner = session?.user?.id === media?.user?.id
@@ -135,6 +140,46 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   useEffect(() => {
     router.prefetch('/')
   }, [router])
+
+  // Optional machine translation for title + body (Azure Translator when configured).
+  useEffect(() => {
+    if (!media) {
+      setI18nMedia(null)
+      return
+    }
+    const primary = (localeTag || 'en').toLowerCase().split('-')[0]
+    if (primary === 'en') {
+      setI18nMedia(null)
+      return
+    }
+    let cancelled = false
+    const rawTitle = stripHashtags(media.title)
+    const rawDesc = media.description ?? ''
+    fetch('/api/translate/text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts: [rawTitle, rawDesc], to: localeTag }),
+    })
+      .then((r) => r.json())
+      .then((data: { translated?: unknown }) => {
+        if (cancelled) return
+        const tr = data.translated
+        if (Array.isArray(tr) && tr.length >= 2) {
+          setI18nMedia({
+            title: (typeof tr[0] === 'string' && tr[0]) || media.title,
+            description: typeof tr[1] === 'string' && tr[1].trim() ? tr[1] : null,
+          })
+        } else {
+          setI18nMedia(null)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setI18nMedia(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [media?.id, media?.title, media?.description, localeTag])
 
   // Persist immediately so a fast Back still sees updated counts; merge is cheap (runs only when views/id change).
   useLayoutEffect(() => {
@@ -342,11 +387,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       if (res.ok && data.url) {
         window.location.href = data.url
       } else {
-        alert(data.error || 'Failed to start checkout')
+        alert(data.error || tMedia('checkoutFail'))
       }
     } catch (error) {
       console.error('Error starting checkout:', error)
-      alert('Failed to start checkout. Please try again.')
+      alert(tMedia('checkoutFailGeneric'))
     } finally {
       setBuyingMedia(false)
     }
@@ -369,7 +414,20 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   }
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/media/${mediaId}` : ''
-  const shareTitle = media ? stripHashtags(media.title) : 'Check this out'
+  const shareTitle = useMemo(() => {
+    if (!media) return tMedia('checkThisOut')
+    const src = i18nMedia?.title ?? media.title
+    return stripHashtags(src)
+  }, [media, i18nMedia, tMedia])
+
+  const displayTitleSource = useMemo(
+    () => (i18nMedia?.title ?? media?.title) || '',
+    [i18nMedia, media?.title]
+  )
+  const displayDescriptionSource = useMemo(
+    () => (i18nMedia ? i18nMedia.description : media?.description ?? null) as string | null,
+    [i18nMedia, media?.description]
+  )
 
   const handleShareClick = () => {
     pauseAllMedia()
@@ -434,7 +492,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         objectType: 'feed',
         content: {
           title: shareTitle,
-          description: media.description || shareTitle,
+          description: displayDescriptionSource || shareTitle,
           imageUrl: imageUrl && imageUrl.startsWith('http') ? imageUrl : undefined,
           link: {
             mobileWebUrl: shareUrl,
@@ -443,7 +501,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         },
         buttons: [
           {
-            title: 'View',
+            title: tMedia('view'),
             link: {
               mobileWebUrl: shareUrl,
               webUrl: shareUrl,
@@ -485,7 +543,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     if (emailDeliveryMethod === 'email') {
       const to = emailTo.trim()
       if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
-        alert('Please enter a valid email address.')
+        alert(tMedia('invalidEmail'))
         return
       }
       setSendingEmail(true)
@@ -502,20 +560,20 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           setEmailPhone('')
           setEmailMessage('')
         } else {
-          alert(data.error || 'Failed to send email')
+          alert(data.error || tMedia('sendEmailFail'))
         }
       } catch {
-        alert('Failed to send email')
+        alert(tMedia('sendEmailFailGeneric'))
       } finally {
         setSendingEmail(false)
       }
     } else {
       const phone = emailPhone.trim()
       if (!phone) {
-        alert('Please enter a phone number.')
+        alert(tMedia('enterPhone'))
         return
       }
-      alert('Phone delivery is not yet available.')
+      alert(tMedia('phoneNotAvailable'))
     }
   }
 
@@ -562,7 +620,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString(calendarLocaleFromUiTag(localeTag), {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -584,11 +642,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         router.replace(`/profile/${username}`)
       } else {
         const data = await res.json()
-        alert(data.error || 'Failed to delete media')
+        alert(data.error || tMedia('deleteFail'))
       }
     } catch (error) {
       console.error('Error deleting media:', error)
-      alert('Failed to delete media')
+      alert(tMedia('deleteFailGeneric'))
     } finally {
       setDeleting(false)
       setShowDeleteModal(false)
@@ -633,12 +691,12 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     return (
       <div className="min-h-screen flex items-center justify-center bg-tank-black">
         <div className="text-center">
-          <p className="text-gray-400 mb-4">Media not found. Redirecting home…</p>
+          <p className="text-gray-400 mb-4">{tMedia('mediaNotFound')}</p>
           <button
             className="btn-primary"
             onClick={() => { stopAllMedia(); window.location.href = '/' }}
           >
-            Go Home
+            {tMedia('goHome')}
           </button>
         </div>
       </div>
@@ -684,7 +742,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               {media.thumbnailUrl ? (
                 <img
                   src={media.thumbnailUrl}
-                  alt={media.title}
+                  alt={displayTitleSource}
                   className="absolute inset-0 w-full h-full object-cover"
                 />
               ) : (
@@ -698,13 +756,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               )}
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
                 <div className="w-12 h-12 border-2 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin mb-3" />
-                <p className="text-white font-semibold mb-1">Processing...</p>
+                <p className="text-white font-semibold mb-1">{tMedia('processingTitle')}</p>
                 <p className="text-gray-300 text-sm max-w-md text-center px-4 mb-2">
-                  Your media is being transcoded for streaming. This usually takes 1–5 minutes. The page will update automatically when ready.
+                  {tMedia('processingBody')}
                 </p>
                 {isOwner && (
                   <p className="text-tank-accent/90 text-xs">
-                    Only you can see this page until processing completes. It won’t appear on the homepage until then.
+                    {tMedia('processingOwnerNote')}
                   </p>
                 )}
               </div>
@@ -716,7 +774,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               type={media.type}
               url={(media as any).streamUrl ?? media.url}
               streamRenditions={(media as { streamRenditions?: { height: number; url: string }[] }).streamRenditions}
-              title={media.title}
+              title={displayTitleSource}
               thumbnailUrl={media.thumbnailUrl}
               autoUnmuteOnMount
               playbackSuspended={showShareModal}
@@ -727,9 +785,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             <svg className="w-12 h-12 text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
-            <h3 className="text-lg font-semibold text-red-400 mb-2">Processing Failed</h3>
+            <h3 className="text-lg font-semibold text-red-400 mb-2">{tMedia('failedTitle')}</h3>
             <p className="text-gray-400 text-sm max-w-md mb-2">
-              There was an error processing this video. You can retry or re-upload.
+              {tMedia('failedBody')}
             </p>
             {media.processingError && (
               <p className="text-gray-500 text-xs max-w-lg font-mono break-all mb-4" title={media.processingError}>
@@ -746,7 +804,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     const res = await fetch(`/api/media/${mediaId}/retry-processing`, { method: 'POST' })
                     const data = await res.json()
                     if (!res.ok) {
-                      alert(data.error || 'Retry failed')
+                      alert(data.error || tMedia('retryFailed'))
                       return
                     }
                     const r = await fetch(`/api/media/${mediaId}?skipView=1&t=${Date.now()}`, { cache: 'no-store' })
@@ -756,7 +814,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     }
                   } catch (e) {
                     console.error('Retry failed:', e)
-                    alert('Retry failed. Please try again.')
+                    alert(tMedia('retryFailedAlert'))
                   } finally {
                     setRetrying(false)
                   }
@@ -764,7 +822,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 disabled={retrying}
                 className="px-4 py-2 bg-tank-accent hover:bg-tank-accent/90 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
               >
-                {retrying ? 'Retrying…' : 'Retry processing'}
+                {retrying ? tMedia('retrying') : tMedia('retryProcessing')}
               </button>
             )}
           </div>
@@ -774,7 +832,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               type={media.type}
               url={(media as any).streamUrl ?? media.url}
               streamRenditions={(media as { streamRenditions?: { height: number; url: string }[] }).streamRenditions}
-              title={media.title}
+              title={displayTitleSource}
               thumbnailUrl={media.thumbnailUrl}
               autoUnmuteOnMount
               playbackSuspended={showShareModal}
@@ -792,9 +850,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             <div className="min-w-0 flex-1 flex items-center gap-2 overflow-hidden">
               <h1
                 className="font-semibold text-white truncate min-w-0"
-                title={stripHashtags(media.title)}
+                title={stripHashtags(displayTitleSource)}
               >
-                {formatMediaTitle(media.title, 60)}
+                {formatMediaTitle(displayTitleSource, 60)}
               </h1>
               {canManage && (
                 <a
@@ -802,7 +860,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 rounded-lg transition-colors flex-shrink-0 text-white text-sm font-semibold no-touch-callout"
                   onContextMenu={(e) => e.preventDefault()}
                 >
-                  Edit
+                  {tMedia('edit')}
                 </a>
               )}
             </div>
@@ -810,7 +868,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               type="button"
               onClick={handleLeaveDetail}
               className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:text-white hover:bg-tank-light/40 transition-colors -mt-0.5 -mr-0.5"
-              aria-label="Close"
+              aria-label={tMedia('close')}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -835,18 +893,18 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                         : 'badge-music'
                   }`}
                 >
-                  {media.type}
+                  {media.type === 'VIDEO' ? tMedia('typeVideo') : media.type === 'IMAGE' ? tMedia('typeImage') : tMedia('typeMusic')}
                 </span>
                 <span>{formatDate(media.createdAt)}</span>
                 <span>
-                  Created by{' '}
+                  {tMedia('createdBy')}{' '}
                   <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
                     {media.user.username}
                   </Link>
                 </span>
                 {mediaDetailAiToolEnabled && media.aiTool && (
                   <span>
-                    <span className="text-gray-500">AI Tool:</span>
+                    <span className="text-gray-500">{tMedia('aiTool')}</span>
                     <span className="ml-1 text-tank-accent">{media.aiTool}</span>
                   </span>
                 )}
@@ -860,7 +918,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
-                  <span>{formatViewCount(media.views)} views</span>
+                  <span>{formatMediaViewsLabel(media.views, localeTag)}</span>
                 </div>
 
                 {/* Reactions (like only) — icon sizing matches MediaCard; count text matches views row */}
@@ -870,7 +928,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   className={`flex items-center gap-2 text-sm text-gray-400 transition-transform hover:scale-110 ${
                     userReaction === 'happy' ? 'scale-110' : ''
                   }`}
-                  aria-label={userReaction === 'happy' ? 'Remove like' : 'Like'}
+                  aria-label={userReaction === 'happy' ? tMedia('unlike') : tMedia('like')}
                 >
                   <ThumbsUpIcon
                     className={`w-4 h-4 shrink-0 ${
@@ -913,7 +971,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     />
                   </svg>
                 )}
-                {isSaved ? 'Saved to My Contents' : 'Save to My Contents'}
+                {isSaved ? tMedia('savedToMyContents') : tMedia('saveToMyContents')}
               </button>
 
               {/* Download & Share row */}
@@ -937,7 +995,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                         />
                       </svg>
                     )}
-                    {downloading ? 'Preparing...' : 'Download'}
+                    {downloading ? tMedia('preparing') : tMedia('download')}
                   </button>
                 )}
 
@@ -962,18 +1020,27 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                           />
                         </svg>
                       )}
-                      {shareStatus === 'copied' ? 'Copied!' : 'Share'}
+                      {shareStatus === 'copied' ? tMedia('copied') : tMedia('share')}
                     </button>
                     {mediaDetailSendByEmailEnabled && (
                       <button
                         type="button"
-                        onClick={() => { setEmailMessage(`${session?.user?.legalName || session?.user?.name || 'Someone'} thought you might be interested in this.`); setShowEmailModal(true) }}
+                        onClick={() => {
+                          const who =
+                            session?.user?.legalName?.trim() || session?.user?.name?.trim() || ''
+                          setEmailMessage(
+                            who
+                              ? mediaPageInterpolate(tMedia('emailThoughtLine'), { who })
+                              : tMedia('emailThoughtAnonymous')
+                          )
+                          setShowEmailModal(true)
+                        }}
                         className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
-                        Send by email
+                        {tMedia('sendByEmail')}
                       </button>
                     )}
                   </>
@@ -983,7 +1050,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           </div>
 
           {/* Latest comments (newest first, text only) + description — below action row */}
-          {(latestCommentPreview.length > 0 || media.description) && (
+          {(latestCommentPreview.length > 0 || displayDescriptionSource) && (
             <div className="mt-6 w-full border-t border-tank-light/20 pt-6 space-y-4">
               {latestCommentPreview.length > 0 && (
                 <div className="space-y-1.5">
@@ -997,9 +1064,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   ))}
                 </div>
               )}
-              {media.description && (
+              {displayDescriptionSource && (
                 <p className="text-gray-300 whitespace-pre-wrap break-words">
-                  {media.description}
+                  {displayDescriptionSource}
                 </p>
               )}
             </div>
@@ -1024,7 +1091,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   />
                 </svg>
               )}
-              {buyingMedia ? 'Processing...' : `Buy Now - $${media.price.toFixed(2)}`}
+              {buyingMedia
+                ? tMedia('processingShort')
+                : mediaPageInterpolate(tMedia('buyNowWithPrice'), { price: `$${media.price.toFixed(2)}` })}
             </button>
           )}
 
@@ -1039,7 +1108,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              Your Price: ${media.price.toFixed(2)}
+              {mediaPageInterpolate(tMedia('yourPriceWithAmount'), { price: `$${media.price.toFixed(2)}` })}
             </div>
           )}
         </div>
@@ -1050,12 +1119,12 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowShareModal(false)}>
           <div className="card max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Share</h3>
+              <h3 className="text-lg font-semibold text-white">{tMedia('shareModalTitle')}</h3>
               <button
                 type="button"
                 onClick={() => setShowShareModal(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
-                aria-label="Close"
+                aria-label={tMedia('close')}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1069,7 +1138,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 type="button"
                 onClick={() => void handleCopyLink()}
                 className="shrink-0 w-10 h-10 rounded-lg bg-tank-accent text-tank-black hover:opacity-90 transition-opacity flex items-center justify-center"
-                title={shareStatus === 'copied' ? 'Copied!' : 'Copy'}
+                title={shareStatus === 'copied' ? tMedia('copied') : tMedia('copy')}
               >
                 {shareStatus === 'copied' ? (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1090,7 +1159,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   )}`}
                   onClick={() => { recordShareAction(); setShowShareModal(false); }}
                   className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
-                  title="Email (opens your email app)"
+                  title={tMedia('emailAppHint')}
                 >
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -1118,7 +1187,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   type="button"
                   onClick={handleKakaoShare}
                   className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
-                  title={kakaoJsKey ? 'KakaoTalk' : 'KakaoTalk (copies link — paste in KakaoTalk)'}
+                  title={kakaoJsKey ? tMedia('kakaoSdk') : tMedia('kakaoCopy')}
                 >
                   <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11l-4.408 2.883c-.501.328-1.235.044-1.235-.499V17.14c-3.336-1.725-5.63-4.592-5.63-5.955C0 6.665 4.701 3 12 3Z" />
@@ -1197,7 +1266,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     })
                   }}
                   className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
-                  title="YouTube (link copied)"
+                  title={tMedia('youtubeCopied')}
                 >
                   <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
@@ -1212,7 +1281,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   rel="noopener noreferrer"
                   onClick={() => void handleCopyLink()}
                   className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
-                  title="TikTok (link copied)"
+                  title={tMedia('tiktokCopied')}
                 >
                   <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
@@ -1225,7 +1294,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   type="button"
                   onClick={() => void handleInstagramShare()}
                   className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
-                  title="Share: phone may offer Instagram app; otherwise opens a Threads post with your link (Meta — Instagram has no web share URL like LinkedIn)"
+                  title={tMedia('instagramShare')}
                 >
                   <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                     <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948 2.3 4.022 7.099 4.022 9.196 4.022 2.096 0 6.896 0 9.196-4.022.058-1.28.072-1.689.072-4.948 0-3.259-.014-3.667-.072-4.947-.2-4.364-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
@@ -1247,7 +1316,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               type="button"
               onClick={() => !sendingEmail && setShowEmailModal(false)}
               className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
-              aria-label="Close"
+              aria-label={tMedia('close')}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1256,7 +1325,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             {/* FROM */}
             <div className="bg-[#1a6e7a] px-5 py-3">
               <p className="text-white font-medium">
-                <span className="text-sm font-semibold text-white/80 uppercase tracking-wide">From: </span>
+                <span className="text-sm font-semibold text-white/80 uppercase tracking-wide">{tMedia('from')} </span>
                 <span className="bg-[#0f3f47] px-2 py-0.5 rounded text-sm">AI Media Tank (AiM) &lt;aimediatank@aimediatank.com&gt;</span>
               </p>
             </div>
@@ -1264,7 +1333,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             {/* TO */}
             <div className="bg-[#17626c] px-5 py-3 border-t border-[#1a5c66]">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-semibold text-white/80 uppercase tracking-wide shrink-0">To:</span>
+                <span className="text-sm font-semibold text-white/80 uppercase tracking-wide shrink-0">{tMedia('to')}</span>
                 <div className="flex gap-1.5">
                   <button
                     type="button"
@@ -1275,7 +1344,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                         : 'bg-[#1a6e7a] text-white/70 hover:text-white'
                     }`}
                   >
-                    Email
+                    {tMedia('emailTab')}
                   </button>
                   <button
                     type="button"
@@ -1286,7 +1355,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                         : 'bg-[#1a6e7a] text-white/70 hover:text-white'
                     }`}
                   >
-                    Phone
+                    {tMedia('phoneTab')}
                   </button>
                 </div>
               </div>
@@ -1295,7 +1364,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   type="email"
                   value={emailTo}
                   onChange={(e) => setEmailTo(e.target.value)}
-                  placeholder="Type Email Address"
+                  placeholder={tMedia('placeholderEmail')}
                   className="w-full px-4 py-2.5 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/50"
                   disabled={sendingEmail}
                 />
@@ -1304,7 +1373,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   type="tel"
                   value={emailPhone}
                   onChange={(e) => setEmailPhone(e.target.value)}
-                  placeholder="Type Phone Number"
+                  placeholder={tMedia('placeholderPhone')}
                   className="w-full px-4 py-2.5 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/50"
                   disabled={sendingEmail}
                 />
@@ -1317,7 +1386,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 {media.thumbnailUrl ? (
                   <img
                     src={media.thumbnailUrl}
-                    alt={stripHashtags(media.title)}
+                    alt={stripHashtags(displayTitleSource)}
                     className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
                   />
                 ) : (
@@ -1328,24 +1397,24 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="text-white text-sm font-semibold truncate">{stripHashtags(media.title)}</p>
-                  <p className="text-white/50 text-xs mt-0.5">This thumbnail will be in the email (clickable link)</p>
+                  <p className="text-white text-sm font-semibold truncate">{stripHashtags(displayTitleSource)}</p>
+                  <p className="text-white/50 text-xs mt-0.5">{tMedia('thumbEmailNote')}</p>
                 </div>
               </div>
               <p className="text-white/50 text-sm mt-3">
-                Recipient will get an email with a thumbnail linked to this media so they can click to watch.
+                {tMedia('recipientEmailNote')}
               </p>
             </div>
 
             {/* Message */}
             <div className="bg-[#1a6e7a] px-5 py-4 border-t border-[#1a5c66]">
               <label className="text-sm font-semibold text-white/80">
-                Message
+                {tMedia('message')}
               </label>
               <textarea
                 value={emailMessage}
                 onChange={(e) => setEmailMessage(e.target.value)}
-                placeholder="Add a personal message..."
+                placeholder={tMedia('messagePlaceholder')}
                 rows={2}
                 className="w-full mt-2 px-4 py-2.5 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/50 resize-none"
                 disabled={sendingEmail}
@@ -1360,7 +1429,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 className="flex-1 bg-[#14555e] hover:bg-[#175f69] px-5 py-4 text-white/70 hover:text-white font-bold text-lg transition-colors border-r border-[#1a5c66]"
                 disabled={sendingEmail}
               >
-                Cancel
+                {tMedia('cancel')}
               </button>
               <button
                 type="button"
@@ -1368,7 +1437,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 disabled={sendingEmail || (emailDeliveryMethod === 'email' ? !emailTo.trim() : !emailPhone.trim())}
                 className="flex-1 bg-[#14555e] hover:bg-[#175f69] disabled:opacity-50 px-5 py-4 text-white font-bold text-lg transition-colors"
               >
-                {sendingEmail ? 'Sending...' : 'Send'}
+                {sendingEmail ? tMedia('sending') : tMedia('send')}
               </button>
             </div>
           </div>
@@ -1391,23 +1460,25 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 </svg>
               </div>
               <div>
-                <h3 className="text-xl font-semibold">Delete Media</h3>
-                <p className="text-sm text-gray-400">This action cannot be undone</p>
+                <h3 className="text-xl font-semibold">{tMedia('deleteMedia')}</h3>
+                <p className="text-sm text-gray-400">{tMedia('cannotUndo')}</p>
               </div>
             </div>
             <p className="text-gray-300 mb-6">
-              Are you sure you want to delete "<span className="font-semibold">{stripHashtags(media.title)}</span>"? This will permanently remove the media file and all associated comments and ratings.
+              {mediaPageInterpolate(tMedia('deleteConfirm'), {
+                title: stripHashtags(displayTitleSource),
+              })}
             </p>
             <div className="flex gap-3">
               <button onClick={() => setShowDeleteModal(false)} className="btn-secondary flex-1" disabled={deleting}>
-                Cancel
+                {tMedia('cancel')}
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
                 className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
               >
-                {deleting ? 'Deleting...' : 'Delete'}
+                {deleting ? tMedia('deleting') : tMedia('delete')}
               </button>
             </div>
           </div>
@@ -1421,7 +1492,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           onClick={handleLeaveDetail}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
-          ← Back
+          {tMedia('back')}
         </button>
       </div>
     </div>
