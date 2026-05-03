@@ -42,7 +42,7 @@ export default function Navbar() {
 function NavbarContent() {
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
-  const { t } = useUiLocale()
+  const { tNavbar: t } = useUiLocale()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
