@@ -19,6 +19,8 @@ declare module 'next-auth' {
     role: string
     avatar: string | null
     legalName?: string | null
+    /** Country string from DB (credentials sign-in); used to set JWT `locale`. */
+    location?: string | null
     locale?: string | null
   }
 }

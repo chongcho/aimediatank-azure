@@ -50,9 +50,10 @@ export function useTranslatedPair(
       return
     }
 
+    const to = (localeTag && String(localeTag).trim()) || 'en'
     const body = {
       texts: [t0, t1.length > 12000 ? t1.slice(0, 12000) : t1],
-      to: localeTag,
+      to,
     }
 
     let cancelled = false

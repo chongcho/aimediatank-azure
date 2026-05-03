@@ -171,6 +171,7 @@ export const authOptions: NextAuthOptions = {
           username: user.username,
           role: user.role,
           avatar: user.avatar,
+          location: user.location,
           locale: localeTagFromUserLocation(user.location),
         }
       },
@@ -195,7 +196,9 @@ export const authOptions: NextAuthOptions = {
           token.username = user.username
           token.role = user.role
           token.avatar = user.avatar
-          token.locale = (user as { locale?: string | null }).locale ?? 'en'
+          const u = user as { locale?: string | null; location?: string | null }
+          const loc = typeof u.location === 'string' && u.location.trim() ? u.location : null
+          token.locale = loc != null ? localeTagFromUserLocation(loc) : u.locale?.trim() || 'en'
           return token
         }
         // OAuth (Entra/B2C): find or create our User and attach to token

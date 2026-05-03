@@ -16,8 +16,9 @@ function cacheKey(to: string, text: string) {
  *
  * **Order of use**
  * 1. If `AZURE_TRANSLATOR_KEY` + `AZURE_TRANSLATOR_REGION` are set → Azure Translator (batch).
- * 2. Else if `DISABLE_MYMEMORY_FALLBACK` is not set → MyMemory public API (chunked; third party).
- * 3. Else → returns inputs unchanged.
+ * 2. If Azure fails (HTTP error / bad payload) and `DISABLE_MYMEMORY_FALLBACK` is not set → MyMemory.
+ * 3. Else if Azure is off and MyMemory is allowed → MyMemory.
+ * 4. Else → returns inputs unchanged.
  *
  * Optional: `MYMEMORY_CONTACT_EMAIL` — registered email improves MyMemory daily quota.
  */
@@ -46,8 +47,14 @@ export async function POST(request: Request) {
     }
 
     if (useAzure) {
-      const out = await translateAzureBatch(texts as string[], to, key!, region!)
-      return NextResponse.json({ translated: out })
+      const azure = await translateAzureBatch(texts as string[], to, key!, region!)
+      if (azure.ok) {
+        return NextResponse.json({ translated: azure.translated })
+      }
+      if (myMemoryDisabled) {
+        return NextResponse.json({ translated: azure.translated })
+      }
+      // Azure misconfigured or rejected the call — still try MyMemory so titles/descriptions localize.
     }
 
     const out: string[] = []
@@ -83,7 +90,8 @@ async function translateAzureBatch(
   to: string,
   key: string,
   region: string
-): Promise<string[]> {
+): Promise<{ ok: boolean; translated: string[] }> {
+  const originals = texts.map((t) => String(t ?? ''))
   const endpoint =
     process.env.AZURE_TRANSLATOR_ENDPOINT?.replace(/\/$/, '') ||
     'https://api.cognitive.microsofttranslator.com'
@@ -107,14 +115,27 @@ async function translateAzureBatch(
   )
 
   if (!res.ok) {
-    return texts.map((t) => String(t ?? ''))
+    console.warn('translate/text: Azure Translator HTTP', res.status, res.statusText)
+    return { ok: false, translated: originals }
   }
 
-  const data = (await res.json()) as { translations?: { text: string }[] }[]
-  return texts.map((raw, i) => {
+  let data: { translations?: { text: string }[] }[]
+  try {
+    data = (await res.json()) as { translations?: { text: string }[] }[]
+  } catch {
+    return { ok: false, translated: originals }
+  }
+
+  if (!Array.isArray(data) || data.length !== texts.length) {
+    return { ok: false, translated: originals }
+  }
+
+  const translated = texts.map((raw, i) => {
     const original = String(raw ?? '')
     if (!original.trim()) return ''
-    const translated = data[i]?.translations?.[0]?.text
-    return typeof translated === 'string' && translated.trim() ? translated : original
+    const tr = data[i]?.translations?.[0]?.text
+    return typeof tr === 'string' && tr.trim() ? tr : original
   })
+
+  return { ok: true, translated }
 }
