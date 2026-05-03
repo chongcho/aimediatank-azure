@@ -585,8 +585,9 @@ export default function EditProfilePage() {
         setOriginalPhone(formData.phone)
         setPhoneVerificationState({ codeSent: false, sending: false, code: '', error: '', codeInMessage: false })
         
-        // Update session with new username and locale from saved Location (feed + UI translation)
-        await updateSession({
+        window.dispatchEvent(new Event('profileUpdated'))
+
+        const sessionPayload = {
           ...session,
           user: {
             ...session?.user,
@@ -594,12 +595,14 @@ export default function EditProfilePage() {
             name: data.user.name,
             locale: localeTagFromUserLocation(data.user.location),
           },
-        })
-        
-        // Trigger navbar refresh
-        window.dispatchEvent(new Event('profileUpdated'))
-        
-        router.push('/')
+        }
+        await Promise.race([
+          updateSession(sessionPayload),
+          new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+        ]).catch((err) => console.error('profile edit: session update failed', err))
+
+        // Hard navigation: intercepted @modal routes often keep the overlay when using router.push('/').
+        window.location.replace('/')
       }
     } catch (error) {
       setError('Something went wrong')
