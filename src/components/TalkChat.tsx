@@ -7,8 +7,8 @@ import { stripHashtags } from '@/lib/text'
 import { compressMedia, type QualitySettings } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { useUiLocale } from '@/hooks/useUiLocale'
-import { useTranslatedList, useTranslatedPair, useTranslatedSingle } from '@/hooks/useTranslatedTexts'
-import { TALK_CHAT_MAP, TALK_CHAT_ORIGINALS, talkChatIdx } from '@/messages/talkChatStrings'
+import { useTranslatedPair, useTranslatedSingle } from '@/hooks/useTranslatedTexts'
+import { TALK_CHAT_MAP, talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
 
 const TC = talkChatIdx
 
@@ -466,7 +466,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const isSignedIn = !!session?.user
 
   const { localeTag } = useUiLocale()
-  const tr = useTranslatedList(TALK_CHAT_ORIGINALS, localeTag)
+  const tr = useMemo(() => talkChatTr(localeTag), [localeTag])
   const trRef = useRef(tr)
   trRef.current = tr
 
