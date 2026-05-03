@@ -155,11 +155,10 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     let cancelled = false
     const rawTitle = stripHashtags(media.title)
     const rawDesc = media.description ?? ''
-    const to = (localeTag && String(localeTag).trim()) || 'en'
     fetch('/api/translate/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texts: [rawTitle, rawDesc], to }),
+      body: JSON.stringify({ texts: [rawTitle, rawDesc], to: localeTag }),
     })
       .then((r) => r.json())
       .then((data: { translated?: unknown }) => {

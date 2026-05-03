@@ -26,18 +26,18 @@ export function useTranslatedPair(
   const t0 = title ?? ''
   const t1 = description ?? ''
 
+  const [out, setOut] = useState<[string, string]>(() => [t0, t1])
+
+  useEffect(() => {
+    setOut([t0, t1])
+  }, [t0, t1])
+
   const cacheKey = useMemo(() => {
     if (!enabled || (!t0.trim() && !t1.trim())) return ''
     const primary = (localeTag || 'en').toLowerCase().split('-')[0]
     if (primary === 'en') return ''
     return `${localeTag || 'en'}::${fnv1a(`${t0}\u0001${t1.slice(0, 8000)}`)}`
   }, [enabled, localeTag, t0, t1])
-
-  const [out, setOut] = useState<[string, string]>(() => [t0, t1])
-
-  useEffect(() => {
-    setOut([t0, t1])
-  }, [t0, t1, cacheKey])
 
   useEffect(() => {
     if (!cacheKey) return
@@ -50,10 +50,9 @@ export function useTranslatedPair(
       return
     }
 
-    const to = (localeTag && String(localeTag).trim()) || 'en'
     const body = {
       texts: [t0, t1.length > 12000 ? t1.slice(0, 12000) : t1],
-      to,
+      to: localeTag,
     }
 
     let cancelled = false
