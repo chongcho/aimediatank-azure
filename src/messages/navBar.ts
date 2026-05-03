@@ -131,6 +131,7 @@ const FR: Pack = {
 const ES: Pack = {
   ...EN,
   home: 'Inicio',
+  notifications: 'Notificaciones',
   signIn: 'Entrar',
   signUp: 'Registrarse',
   signOut: 'Salir',
