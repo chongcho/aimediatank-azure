@@ -29,24 +29,22 @@ export function useTranslatedPair(
 ): { title: string; description: string } {
   const t0 = title ?? ''
   const t1 = description ?? ''
+  const primary = (localeTag || 'en').toLowerCase().split('-')[0]
 
   const [out, setOut] = useState<[string, string]>(() => [t0, t1])
 
   useEffect(() => {
     setOut([t0, t1])
-  }, [t0, t1])
+  }, [t0, t1, primary, localeTag])
 
   const cacheKey = useMemo(() => {
     if (!enabled || (!t0.trim() && !t1.trim())) return ''
-    const primary = (localeTag || 'en').toLowerCase().split('-')[0]
     if (primary === 'en') return ''
     return `${localeTag || 'en'}::${fnv1a(`${t0}\u0001${t1.slice(0, 8000)}`)}`
-  }, [enabled, localeTag, t0, t1])
+  }, [enabled, localeTag, primary, t0, t1])
 
   useEffect(() => {
-    if (!cacheKey) return
-    const primary = (localeTag || 'en').toLowerCase().split('-')[0]
-    if (primary === 'en') return
+    if (!cacheKey || primary === 'en') return
 
     const cached = clientCache.get(cacheKey)
     if (cached && cached.length === 2) {
@@ -84,8 +82,9 @@ export function useTranslatedPair(
     return () => {
       cancelled = true
     }
-  }, [cacheKey, localeTag, t0, t1])
+  }, [cacheKey, localeTag, primary, t0, t1])
 
+  if (!enabled || primary === 'en') return { title: t0, description: t1 }
   return { title: out[0], description: out[1] }
 }
 

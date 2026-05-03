@@ -75,9 +75,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ translated: texts.map((t) => String(t ?? '')) })
     }
 
-    /** Same path as b045d5c / pre-Azure: MyMemory when allowed (ignores Azure keys). */
+    /** MyMemory when allowed; if output is unchanged and Azure is configured, try Azure (quota / API failures). */
     if (!myMemoryDisabled) {
-      const out = await translateTextsViaMyMemory(texts as string[], to, cache)
+      const originalsAsStrings = (texts as unknown[]).map((t) => String(t ?? ''))
+      let out = await translateTextsViaMyMemory(originalsAsStrings, to, cache)
+      if (useAzure) {
+        const hasContent = originalsAsStrings.some((s) => s.trim().length > 0)
+        const allUnchanged =
+          out.length === originalsAsStrings.length &&
+          originalsAsStrings.every((s, i) => (out[i] ?? '') === s)
+        if (hasContent && allUnchanged) {
+          const azure = await translateAzureBatch(originalsAsStrings, to, key!, region!)
+          if (azure.ok) out = azure.translated
+        }
+      }
       return NextResponse.json({ translated: out })
     }
 

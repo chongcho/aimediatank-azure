@@ -37,7 +37,13 @@ export async function translateWithMyMemory(text: string, targetLang: string): P
     if (email) params.set('de', email)
 
     const url = `https://api.mymemory.translated.net/get?${params.toString()}`
-    const res = await fetch(url)
+    const res = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'AIMediaTank/1.0 (server translate; MyMemory fallback)',
+      },
+      cache: 'no-store',
+    })
     if (!res.ok) {
       parts.push(chunk)
       continue
