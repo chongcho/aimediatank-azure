@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
+import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
 
 interface ProfileData {
@@ -584,14 +585,15 @@ export default function EditProfilePage() {
         setOriginalPhone(formData.phone)
         setPhoneVerificationState({ codeSent: false, sending: false, code: '', error: '', codeInMessage: false })
         
-        // Update session with new username
+        // Update session with new username and locale from saved Location (feed + UI translation)
         await updateSession({
           ...session,
           user: {
             ...session?.user,
             username: data.user.username,
             name: data.user.name,
-          }
+            locale: localeTagFromUserLocation(data.user.location),
+          },
         })
         
         // Trigger navbar refresh

@@ -15,6 +15,7 @@ export function useUiLocale() {
     setBrowserTag(localeTagFromBrowserLang(typeof navigator !== 'undefined' ? navigator.language : null))
   }, [])
 
+  /** Signed-in: JWT `locale` from Profile/Location (see `auth.ts` + profile `update()`). Guests: browser. */
   const localeTag =
     status === 'authenticated' ? (session?.user?.locale ?? browserTag) : browserTag
 
