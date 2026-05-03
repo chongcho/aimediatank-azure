@@ -13,6 +13,7 @@ function fnv1a(s: string): string {
 
 const clientCache = new Map<string, string[]>()
 const clientListCache = new Map<string, string[]>()
+const clientSingleCache = new Map<string, string>()
 
 const LIST_CHUNK = 28
 
@@ -158,4 +159,67 @@ export function useTranslatedList(
 
   if (!enabled || primary === 'en') return [...originals]
   return out.length === originals.length ? out : [...originals]
+}
+
+/**
+ * Translates one dynamic line (notices, errors, composed labels) via `/api/translate/text`.
+ * Skips when `enabled` is false or text is empty. English returns `source` unchanged.
+ */
+export function useTranslatedSingle(
+  source: string,
+  localeTag: string | undefined,
+  enabled = true
+): string {
+  const primary = (localeTag || 'en').toLowerCase().split('-')[0]
+  const s = source ?? ''
+
+  const [out, setOut] = useState(() => s)
+
+  useEffect(() => {
+    setOut(s)
+  }, [s, primary, localeTag])
+
+  const cacheKey = useMemo(() => {
+    if (!enabled || !s.trim()) return ''
+    if (primary === 'en') return ''
+    return `${localeTag || 'en'}::single::${fnv1a(s.slice(0, 8000))}`
+  }, [enabled, localeTag, s, primary])
+
+  useEffect(() => {
+    if (!cacheKey || primary === 'en') return
+
+    const cached = clientSingleCache.get(cacheKey)
+    if (cached) {
+      setOut(cached)
+      return
+    }
+
+    const to = String(localeTag ?? 'en')
+    let cancelled = false
+    fetch('/api/translate/text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts: [s], to }),
+    })
+      .then(async (r) => {
+        if (cancelled || !r.ok) return null
+        return r.json() as Promise<{ translated?: unknown }>
+      })
+      .then((data: { translated?: unknown } | null) => {
+        if (cancelled || !data) return
+        const tr = data.translated
+        if (!Array.isArray(tr) || tr.length < 1) return
+        const next = typeof tr[0] === 'string' && tr[0].trim() ? tr[0] : s
+        clientSingleCache.set(cacheKey, next)
+        setOut(next)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [cacheKey, localeTag, s, primary])
+
+  if (!enabled || primary === 'en' || !s.trim()) return s
+  return out || s
 }

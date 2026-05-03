@@ -6,6 +6,11 @@ import { useSession } from 'next-auth/react'
 import { stripHashtags } from '@/lib/text'
 import { compressMedia, type QualitySettings } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
+import { useUiLocale } from '@/hooks/useUiLocale'
+import { useTranslatedList, useTranslatedPair, useTranslatedSingle } from '@/hooks/useTranslatedTexts'
+import { TALK_CHAT_MAP, TALK_CHAT_ORIGINALS, talkChatIdx } from '@/messages/talkChatStrings'
+
+const TC = talkChatIdx
 
 interface ChatMessage {
   id: string
@@ -101,9 +106,9 @@ function inferQuickUploadMediaType(file: File): 'IMAGE' | 'VIDEO' | 'MUSIC' | nu
   return null
 }
 
-function titleFromUploadFilename(name: string): string {
+function titleFromUploadFilename(name: string, untitledLabel = 'Untitled'): string {
   const base = name.replace(/\\/g, '/').split('/').pop() || name
-  return base.replace(/\.[^.]+$/, '').trim() || 'Untitled'
+  return base.replace(/\.[^.]+$/, '').trim() || untitledLabel
 }
 
 function TalkChatContent({ onClose }: { onClose: () => void }) {
@@ -459,6 +464,50 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }, [chatSize, showUserPicker])
 
   const isSignedIn = !!session?.user
+
+  const { localeTag } = useUiLocale()
+  const tr = useTranslatedList(TALK_CHAT_ORIGINALS, localeTag)
+  const trRef = useRef(tr)
+  trRef.current = tr
+
+  const composerPlaceholderEn = useMemo(() => {
+    if (!isSignedIn) return TALK_CHAT_MAP.placeholderSignIn
+    if (chatMode === 'private' && selectedRecipients.length === 0) return TALK_CHAT_MAP.placeholderPickSomeone
+    if (chatMode === 'private' && selectedRecipients.length === 1) {
+      return `Message @${formatDisplayUsername(selectedRecipients[0]?.username)}...`
+    }
+    if (chatMode === 'private' && selectedRecipients.length > 1) {
+      return `Message ${selectedRecipients.length} people...`
+    }
+    return TALK_CHAT_MAP.placeholderPubKong
+  }, [isSignedIn, chatMode, selectedRecipients])
+
+  const composerPlaceholderTr = useTranslatedSingle(composerPlaceholderEn, localeTag, true)
+
+  const inviteBannerEn = useMemo(
+    () =>
+      !showUserPicker && chatInvites.length > 0 && chatMode === 'private' && !privateRecipient
+        ? `${chatInvites.length} pending My Kong invite${chatInvites.length > 1 ? 's' : ''}`
+        : '',
+    [showUserPicker, chatInvites.length, chatMode, privateRecipient],
+  )
+  const inviteBannerTr = useTranslatedSingle(inviteBannerEn, localeTag, inviteBannerEn.length > 0)
+
+  const memberLineEn = useMemo(
+    () =>
+      chatMode === 'private' && selectedRecipients.length > 0
+        ? `${selectedRecipients.length} member${selectedRecipients.length > 1 ? 's' : ''}`
+        : '',
+    [chatMode, selectedRecipients.length],
+  )
+  const memberLineTr = useTranslatedSingle(memberLineEn, localeTag, memberLineEn.length > 0)
+
+  const pairTitle = confirmModal.show ? confirmModal.title : ''
+  const pairMsg = confirmModal.show ? confirmModal.message : ''
+  const confirmTr = useTranslatedPair(pairTitle, pairMsg, localeTag, confirmModal.show)
+
+  const noticeTr = useTranslatedSingle(inlineNotice || '', localeTag, Boolean(inlineNotice))
+  const quickUploadErrTr = useTranslatedSingle(mediaPickerQuickUploadError, localeTag, Boolean(mediaPickerQuickUploadError))
 
   // Desktop drag and resize state
   const [isDesktop, setIsDesktop] = useState(false)
@@ -930,11 +979,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         fetchConversationMessages(data.conversation.id)
       } else {
         const error = await res.json()
-        setInlineNotice(error.error || 'Failed to start conversation')
+        setInlineNotice(error.error || TALK_CHAT_MAP.noticeFailedStartConversation)
       }
     } catch (error) {
       console.error('Error starting conversation:', error)
-      setInlineNotice('Failed to start conversation')
+      setInlineNotice(TALK_CHAT_MAP.noticeFailedStartConversation)
     }
   }
   
@@ -1024,7 +1073,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Switch to private chat - shows chat records in main window
   const switchToPrivateChat = () => {
     if (!isSignedIn) {
-      setInlineNotice('Please sign in to use My Kong')
+      setInlineNotice(TALK_CHAT_MAP.noticeSignInMyKong)
       return
     }
     setChatMode('private')
@@ -1078,7 +1127,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   // Toggle new chat picker (renamed from chat records)
   const toggleNewChat = () => {
     if (!isSignedIn) {
-      setInlineNotice('Please sign in to use New Kong')
+      setInlineNotice(TALK_CHAT_MAP.noticeSignInNewKong)
       return
     }
     setChatMode('private')
@@ -1591,7 +1640,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: titleFromUploadFilename(picked.name),
+          title: titleFromUploadFilename(picked.name, trRef.current[TC.untitled]),
           description: '',
           type: mediaKind,
           url: blobUrl,
@@ -1611,7 +1660,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
       const m: MediaItem = {
         id: result.media.id,
-        title: result.media.title || titleFromUploadFilename(picked.name),
+        title: result.media.title || titleFromUploadFilename(picked.name, trRef.current[TC.untitled]),
         url: result.media.url,
         thumbnailUrl: result.media.thumbnailUrl ?? null,
         type: result.media.type || mediaKind,
@@ -2102,13 +2151,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
 
     if (!session?.user) {
-      alert('Please sign in to send messages in Kong')
+      alert(trRef.current[TC.alertSignInToSend])
       return
     }
 
     // For private chat, require at least one recipient or active conversation
     if (chatMode === 'private' && selectedRecipients.length === 0 && !activeConversation) {
-      alert('Please select at least one person for My Kong')
+      alert(trRef.current[TC.alertSelectOnePerson])
       return
     }
 
@@ -2132,7 +2181,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         if (!res.ok) {
           const errorData = await res.json()
           console.error('Failed to send message:', errorData)
-          alert(errorData.error || 'Failed to send message')
+          alert(errorData.error || trRef.current[TC.alertFailedSend])
           setLoading(false)
           return
       }
@@ -2167,7 +2216,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         
         if (!convRes.ok) {
           const error = await convRes.json()
-          alert(error.error || 'Failed to create conversation')
+          alert(error.error || trRef.current[TC.alertFailedCreateConversation])
           setLoading(false)
           return
         }
@@ -2185,7 +2234,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       if (!res.ok) {
         const errorData = await res.json()
         console.error('Failed to send message:', errorData)
-        alert(errorData.error || 'Failed to send message')
+        alert(errorData.error || trRef.current[TC.alertFailedSend])
           setLoading(false)
         return
       }
@@ -2230,7 +2279,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         if (!res.ok) {
           const errorData = await res.json()
           console.error('Failed to send message:', errorData)
-          alert(errorData.error || 'Failed to send message')
+          alert(errorData.error || trRef.current[TC.alertFailedSend])
           setLoading(false)
           return
         }
@@ -2245,7 +2294,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       fetchMessages()
     } catch (error) {
       console.error('Error sending message:', error)
-      alert('Failed to send message')
+      alert(trRef.current[TC.alertFailedSend])
     } finally {
       setLoading(false)
     }
@@ -2264,7 +2313,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const saveEditedMessage = async (messageId: string) => {
     const nextContent = editingMessageText.trim()
     if (!nextContent) {
-      alert('Message cannot be empty')
+      alert(trRef.current[TC.alertMessageEmpty])
       return
     }
 
@@ -2284,7 +2333,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
       const data = await res.json()
       if (!res.ok) {
-        alert(data?.error || 'Failed to edit message')
+        alert(data?.error || trRef.current[TC.alertFailedEdit])
         return
       }
 
@@ -2296,7 +2345,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       closeMessageMenu()
     } catch (error) {
       console.error('Error editing message:', error)
-      alert('Failed to edit message')
+      alert(trRef.current[TC.alertFailedEdit])
     } finally {
       setMessageActionLoadingId(null)
     }
@@ -2313,7 +2362,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
       const data = await res.json()
       if (!res.ok) {
-        alert(data?.error || 'Failed to delete message')
+        alert(data?.error || trRef.current[TC.alertFailedDelete])
         return
       }
 
@@ -2324,7 +2373,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       closeMessageMenu()
     } catch (error) {
       console.error('Error deleting message:', error)
-      alert('Failed to delete message')
+      alert(trRef.current[TC.alertFailedDelete])
     } finally {
       setMessageActionLoadingId(null)
     }
@@ -2523,7 +2572,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 whiteSpace: 'nowrap',
               }}
             >
-              Pub Kong
+              {tr[TC.pubKong]}
             </button>
             
             {/* My Kong (private chat) — records / DMs */}
@@ -2544,7 +2593,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 whiteSpace: 'nowrap',
               }}
             >
-                My Kong
+                {tr[TC.myKong]}
             </button>
               {/* Unread private message badge on My Kong button */}
               {unreadPrivateCount > 0 && (
@@ -2589,7 +2638,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
-              title="New Kong"
+              title={tr[TC.newKongTitle]}
             >
               {/* Chat bubble with plus icon */}
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={showUserPicker ? 'white' : '#1a1a1a'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2609,7 +2658,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 fontWeight: '700',
                 color: '#333',
               }}>
-                {selectedRecipients.length} member{selectedRecipients.length > 1 ? 's' : ''}
+                {memberLineTr}
             </div>
             )}
           </div>
@@ -2631,7 +2680,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
-                title="Close Kong"
+                title={tr[TC.closeKongTitle]}
               >
                 {/* Minimize/close icon - horizontal line */}
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
@@ -2656,7 +2705,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 justifyContent: 'center',
                 opacity: chatSize === 'tall' ? 0.5 : 1,
               }}
-              title={chatSize === 'min' ? 'Medium size' : chatSize === 'medium' ? 'Max size' : chatSize === 'max' ? 'Tall (align with navbar)' : 'Already at tallest'}
+              title={
+                chatSize === 'min'
+                  ? tr[TC.titleMediumSize]
+                  : chatSize === 'medium'
+                    ? tr[TC.titleMaxSize]
+                    : chatSize === 'max'
+                      ? tr[TC.titleTallNavbar]
+                      : tr[TC.titleAlreadyTallest]
+              }
             >
               {/* Up arrow */}
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2678,7 +2735,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 justifyContent: 'center',
                 opacity: chatSize === 'min' ? 0.5 : 1,
               }}
-              title={chatSize === 'tall' ? 'Max size' : chatSize === 'max' ? 'Medium size' : chatSize === 'medium' ? 'Minimize' : 'Already minimized'}
+              title={
+                chatSize === 'tall'
+                  ? tr[TC.titleMaxSize]
+                  : chatSize === 'max'
+                    ? tr[TC.titleMediumSize]
+                    : chatSize === 'medium'
+                      ? tr[TC.titleMinimize]
+                      : tr[TC.titleAlreadyMinimized]
+              }
             >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -2714,7 +2779,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 type="text"
                 value={chatTitle}
                 onChange={(e) => setChatTitle(e.target.value)}
-                placeholder="Optional My Kong title (e.g. group name)"
+                placeholder={tr[TC.optionalMyKongTitlePlaceholder]}
                 style={{
                   flex: 1,
                   padding: '8px 12px',
@@ -2741,7 +2806,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   whiteSpace: 'nowrap',
                     }}
                   >
-                Start
+                {tr[TC.start]}
                   </button>
                 </div>
             
@@ -2770,7 +2835,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                         fontSize: '14px',
                         cursor: 'pointer',
                       }}
-                      title="Click to remove"
+                      title={tr[TC.clickToRemove]}
                     >
                       @{formatDisplayUsername(u.username)}
                     </span>
@@ -2786,7 +2851,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     searchUsersForPrivateChat(searchTerm)
                   }}
                   onTouchStart={(e) => e.stopPropagation()}
-                    placeholder={selectedRecipients.length === 0 ? "@user1 @user2 @user3 ..." : ""}
+                    placeholder={selectedRecipients.length === 0 ? tr[TC.memberSearchPlaceholder] : ''}
                   autoFocus
                   style={{
                       flex: 1,
@@ -2812,11 +2877,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               }}>
                 {searchingUsers ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
-                    Searching...
+                    {tr[TC.searchingUsers]}
                   </div>
                 ) : searchedUsers.length === 0 && userSearchQuery ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>
-                    No users found
+                    {tr[TC.noUsersFound]}
                   </div>
               ) : searchedUsers.length === 0 && !userSearchQuery ? (
                 null
@@ -2900,7 +2965,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
               </svg>
-              {chatInvites.length} pending My Kong invite{chatInvites.length > 1 ? 's' : ''}
+              {inviteBannerTr}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {chatInvites.map((invite) => (
@@ -2947,7 +3012,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       @{formatDisplayUsername(invite.sender.username)}
                     </div>
                     <div style={{ fontSize: '11px', color: '#666' }}>
-                      invited you to My Kong
+                      {tr[TC.invitedYouToMyKong]}
                     </div>
                   </div>
                   <span style={{
@@ -2958,7 +3023,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     fontSize: '11px',
                     fontWeight: '600',
                   }}>
-                    Accept
+                    {tr[TC.accept]}
                   </span>
                 </button>
               ))}
@@ -2981,7 +3046,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <svg width="18" height="18" fill="#d97706" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
-              <span style={{ fontSize: '13px', fontWeight: '500', color: '#92400e' }}>{inlineNotice}</span>
+              <span style={{ fontSize: '13px', fontWeight: '500', color: '#92400e' }}>{noticeTr}</span>
             </div>
             <button
               onClick={() => setInlineNotice(null)}
@@ -3074,7 +3139,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 justifyContent: 'space-between',
                 gap: '8px',
               }}>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: '#7c3aed' }}>🔒 Select a conversation or tap New Kong (+)</span>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: '#7c3aed' }}>{tr[TC.selectConversationOrNewKong]}</span>
                 <button
                   onClick={() => switchToOpenChat()}
                   style={{
@@ -3087,7 +3152,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
-                  title="Close"
+                  title={tr[TC.close]}
                 >
                   <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -3096,14 +3161,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               </div>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {loadingChatRecords ? (
-                  <div style={{ padding: '30px', textAlign: 'center', color: '#999' }}>Loading...</div>
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#999' }}>{tr[TC.loading]}</div>
                 ) : chatRecords.length === 0 ? (
                   <div style={{ padding: '30px', textAlign: 'center', color: '#999' }}>
                     <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ margin: '0 auto 12px', opacity: 0.4 }}>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
-                    <p style={{ fontSize: '13px' }}>No My Kong conversations yet</p>
-                    <p style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>Use the yellow New Kong (+) button to start one</p>
+                    <p style={{ fontSize: '13px' }}>{tr[TC.noMyKongConversationsYet]}</p>
+                    <p style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>{tr[TC.useYellowNewKongHint]}</p>
                   </div>
                 ) : (
                   chatRecords.map((record, index) => {
@@ -3258,7 +3323,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                                     if (e.key === 'Escape') { setEditingChatName(null); setNewChatName('') }
                                   }}
                                   autoFocus
-                                  placeholder="My Kong title..."
+                                  placeholder={tr[TC.myKongTitleInputPlaceholder]}
                                   style={{
                                     flex: 1,
                                     padding: '4px 8px',
@@ -3280,7 +3345,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                                     cursor: 'pointer',
                                   }}
                                 >
-                                  Save
+                                  {tr[TC.save]}
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setEditingChatName(null); setNewChatName('') }}
@@ -3294,7 +3359,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                                     cursor: 'pointer',
                                   }}
                                 >
-                                  Cancel
+                                  {tr[TC.cancel]}
                                 </button>
                               </div>
                             ) : (
@@ -3312,7 +3377,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                                 borderRadius: '10px',
                                 flexShrink: 0,
                               }}>
-                                {unreadCount > 0 ? `${unreadCount} NEW` : 'NEW'}
+                                {unreadCount > 0 ? `${unreadCount} ${tr[TC.newBadge]}` : tr[TC.newBadge]}
                               </span>
                             )}
                           </div>
@@ -3375,7 +3440,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     <svg width="18" height="18" fill={contextMenu.record?.priority ? '#ef4444' : 'none'} stroke={contextMenu.record?.priority ? '#ef4444' : 'currentColor'} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
                     </svg>
-                    {contextMenu.record?.priority ? 'Remove Priority' : 'Priority'}
+                    {contextMenu.record?.priority ? tr[TC.removePriority] : tr[TC.priority]}
                   </button>
                   <div style={{ height: '1px', background: '#e5e7eb' }} />
                   <button
@@ -3399,7 +3464,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
-                    Edit My Kong title
+                    {tr[TC.editMyKongTitle]}
                   </button>
                   <div style={{ height: '1px', background: '#e5e7eb' }} />
                   <button
@@ -3423,7 +3488,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
-                    Leave My Kong
+                    {tr[TC.leaveMyKong]}
                   </button>
                   <div style={{ height: '1px', background: '#e5e7eb' }} />
                   <button
@@ -3447,7 +3512,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                    Close
+                    {tr[TC.close]}
                   </button>
                 </div>
               )}
@@ -3486,7 +3551,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       fontWeight: '600',
                       color: '#333',
                     }}>
-                      {confirmModal.title}
+                      {confirmTr.title}
                     </h3>
                     <p style={{
                       margin: '0 0 20px 0',
@@ -3494,7 +3559,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       color: '#666',
                       lineHeight: '1.5',
                     }}>
-                      {confirmModal.message}
+                      {confirmTr.description}
                     </p>
                     <div style={{
                       display: 'flex',
@@ -3513,7 +3578,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           color: '#374151',
                         }}
                       >
-                        Cancel
+                        {tr[TC.cancel]}
                       </button>
                       <button
                         onClick={confirmModal.onConfirm}
@@ -3528,7 +3593,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                           cursor: 'pointer',
                         }}
                       >
-                        Leave
+                        {tr[TC.leave]}
                       </button>
                     </div>
                   </div>
@@ -3548,13 +3613,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
               <p style={{ fontSize: '14px', textAlign: 'center' }}>
-                {chatMode === 'private' 
+                {chatMode === 'private'
                   ? selectedRecipients.length === 1
-                    ? `Start My Kong with @${formatDisplayUsername(selectedRecipients[0]?.username)}`
+                    ? `${tr[TC.startMyKongWithPrefix]} @${formatDisplayUsername(selectedRecipients[0]?.username)}`
                     : selectedRecipients.length > 1
-                      ? `Group My Kong — message ${selectedRecipients.length} people`
-                      : 'Pick someone for My Kong'
-                  : 'No messages in Pub Kong yet. Say something!'}
+                      ? `${tr[TC.groupMyKongLine]} ${selectedRecipients.length} ${tr[TC.groupMyKongPeopleWord]}`
+                      : tr[TC.pickSomeoneForMyKong]
+                  : tr[TC.noMessagesPubKongYet]}
               </p>
               {chatMode === 'private' && selectedRecipients.length > 1 && (
                 <div style={{
@@ -3697,7 +3762,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                                 cursor: 'pointer',
                               }}
                             >
-                              Cancel
+                              {tr[TC.cancel]}
                             </button>
                             <button
                               type="button"
@@ -3713,7 +3778,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                                 cursor: 'pointer',
                               }}
                             >
-                              Save
+                              {tr[TC.save]}
                             </button>
                           </div>
                         </div>
@@ -3774,13 +3839,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                             cursor: 'pointer',
                           }}
                         >
-                          Edit
+                          {tr[TC.edit]}
                         </button>
                         <button
                           type="button"
                           onClick={() => {
                             closeMessageMenu()
-                            if (window.confirm('Delete this message?')) {
+                            if (window.confirm(trRef.current[TC.deleteMessageConfirm])) {
                               deleteMessage(msg.id)
                             }
                           }}
@@ -3795,7 +3860,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                             cursor: 'pointer',
                           }}
                         >
-                          Delete
+                          {tr[TC.delete]}
                         </button>
                         <button
                           type="button"
@@ -3811,7 +3876,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                             cursor: 'pointer',
                           }}
                         >
-                          Close
+                          {tr[TC.close]}
                         </button>
                       </div>
                     )}
@@ -3884,7 +3949,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 fontWeight: '600',
                 color: '#666',
               }}>
-                Users
+                {tr[TC.users]}
               </div>
               {mentionUsers.map((user, index) => (
                 <button
@@ -3980,7 +4045,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     cursor: 'pointer',
                   }}
                 >
-                  My Contents
+                  {tr[TC.myContents]}
                 </button>
                 <button
                   type="button"
@@ -3999,12 +4064,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     opacity: mediaPickerQuickUploading ? 0.6 : 1,
                   }}
                 >
-                  Phone/PC
+                  {tr[TC.phonePc]}
                 </button>
               </div>
               {mediaPickerQuickUploadError ? (
                 <div style={{ padding: '4px 10px', fontSize: '10px', color: '#b91c1c', background: '#fef2f2', borderBottom: '1px solid #fecaca' }}>
-                  {mediaPickerQuickUploadError}
+                  {quickUploadErrTr}
                 </div>
               ) : null}
               <div 
@@ -4046,7 +4111,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     fontWeight: '600',
                     color: '#555',
                   }}>
-                    Uploading…
+                    {tr[TC.uploading]}
                   </div>
                 ) : null}
                 {loadingMedia ? (
@@ -4057,7 +4122,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                     padding: '30px',
                     color: '#999',
                   }}>
-                    Loading...
+                    {tr[TC.loading]}
                   </div>
                 ) : filteredPickerMedia.length === 0 ? (
                   <div style={{ 
@@ -4075,9 +4140,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     <span>
-                      {userMedia.length === 0
-                        ? 'No media in My Contents yet.'
-                        : 'Nothing in this tab.'}
+                      {userMedia.length === 0 ? tr[TC.noMediaInMyContentsYet] : tr[TC.nothingInThisTab]}
                     </span>
                     {userMedia.length === 0 ? (
                       <>
@@ -4096,16 +4159,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                             cursor: mediaPickerQuickUploading ? 'not-allowed' : 'pointer',
                           }}
                         >
-                          Upload a personal file
+                          {tr[TC.uploadPersonalFile]}
                         </button>
                         <span style={{ fontSize: '11px', color: '#aaa' }}>
-                          Same limits as{' '}
-                          <a href="/upload" style={{ color: '#2563eb' }} onClick={(e) => e.stopPropagation()}>Upload</a>
-                          {' '}(title, pricing, crop).
+                          {tr[TC.sameLimitsAsPrefix]}{' '}
+                          <a href="/upload" style={{ color: '#2563eb' }} onClick={(e) => e.stopPropagation()}>{tr[TC.uploadLinkWord]}</a>
+                          {' '}{tr[TC.sameLimitsAsSuffix]}
                         </span>
                       </>
                     ) : (
-                      <span style={{ fontSize: '11px', color: '#aaa' }}>Try another tab or upload something new.</span>
+                      <span style={{ fontSize: '11px', color: '#aaa' }}>{tr[TC.tryAnotherTabOrUpload]}</span>
                     )}
                   </div>
                 ) : (
@@ -4231,7 +4294,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 fontWeight: '600',
                 color: '#666',
               }}>
-                Emojis
+                {tr[TC.emojis]}
               </div>
               <div 
                 className="emoji-picker-scroll"
@@ -4350,9 +4413,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                         textOverflow: 'ellipsis',
                         maxWidth: '180px',
                       }}
-                      title={info?.title ? stripHashtags(info.title) : 'Selected media'}
+                      title={info?.title ? stripHashtags(info.title) : tr[TC.selectedMedia]}
                     >
-                      {info?.title ? stripHashtags(info.title) : 'Selected media'}
+                      {info?.title ? stripHashtags(info.title) : tr[TC.selectedMedia]}
                     </span>
                     <button
                       type="button"
@@ -4365,8 +4428,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                         fontSize: '14px',
                         lineHeight: 1,
                       }}
-                      aria-label="Remove media"
-                      title="Remove"
+                      aria-label={tr[TC.removeMediaAria]}
+                      title={tr[TC.removeTitle]}
                     >
                       ×
                     </button>
@@ -4394,7 +4457,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 justifyContent: 'center',
                 flexShrink: 0,
               }}
-              title="Attach Media"
+              title={tr[TC.attachMedia]}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="12" y1="5" x2="12" y2="19" />
@@ -4421,7 +4484,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   justifyContent: 'center',
                   flexShrink: 0,
                 }}
-                title="Emoji"
+                title={tr[TC.emoji]}
                 aria-expanded={showEmojiPicker}
                 aria-haspopup="grid"
               >
@@ -4436,17 +4499,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               value={newMessage}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={
-                !isSignedIn 
-                  ? "Sign in or sign up to use Kong" 
-                  : chatMode === 'private' && selectedRecipients.length === 0
-                    ? "Pick someone for My Kong first..."
-                    : chatMode === 'private'
-                      ? selectedRecipients.length === 1
-                      ? `Message @${formatDisplayUsername(selectedRecipients[0]?.username)}...`
-                        : `Message ${selectedRecipients.length} people...`
-                      : "Pub Kong: type @ to mention..."
-              }
+              placeholder={composerPlaceholderTr}
               disabled={!isSignedIn || (chatMode === 'private' && selectedRecipients.length === 0)}
               style={{
                 flex: 1,
@@ -4527,7 +4580,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 cursor: 'ew-resize',
                 background: 'transparent',
               }}
-              title="Drag to resize width"
+              title={tr[TC.dragResizeWidth]}
             />
             {/* Right edge - full height for horizontal resize (width) */}
             <div
@@ -4541,7 +4594,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 cursor: 'ew-resize',
                 background: 'transparent',
               }}
-              title="Drag to resize width"
+              title={tr[TC.dragResizeWidth]}
             />
             {/* Top edge - full width for vertical resize (height) */}
             <div
@@ -4555,7 +4608,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 cursor: 'ns-resize',
                 background: 'transparent',
               }}
-              title="Drag to resize height"
+              title={tr[TC.dragResizeHeight]}
             />
             {/* Bottom edge - full width for vertical resize (height) */}
             <div
@@ -4569,7 +4622,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 cursor: 'ns-resize',
                 background: 'transparent',
               }}
-              title="Drag to resize height"
+              title={tr[TC.dragResizeHeight]}
             />
           </>
         )}
