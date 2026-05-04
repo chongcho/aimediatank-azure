@@ -1104,7 +1104,7 @@ export default function MediaCard({
                   className="pointer-events-auto inline-flex h-9 min-w-9 touch-manipulation items-center justify-center rounded-md bg-transparent px-1.5 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] transition-opacity hover:opacity-90 active:opacity-100 [-webkit-tap-highlight-color:transparent]"
                   title={previewSoundOn ? tFeedCard('mutePreplayTitle') : tFeedCard('unmutePreplayTitle')}
                 >
-                  <PreplayVolumeIcon muted={!preplayAudible} className="h-[15.4px] w-[15.4px]" />
+                  <PreplayVolumeIcon muted={!preplayAudible} className="ml-[5px] h-[15.4px] w-[15.4px]" />
                 </button>
               )}
             </div>
