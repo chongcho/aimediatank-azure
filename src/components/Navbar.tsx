@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import MediaMessageModal from './MediaMessageModal'
@@ -73,11 +73,8 @@ function NavbarContent() {
   const openChatDeepLinkConsumedRef = useRef(false)
   const navRef = useRef<HTMLElement>(null)
   const profileRef = useRef<HTMLDivElement>(null)
-  const alertsRef = useRef<HTMLDivElement>(null)
-  const alertsDropdownRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
-  const [alertsDropdownStyle, setAlertsDropdownStyle] = useState<React.CSSProperties>({})
 
   const fetchNavbarMenuSettings = useCallback(async () => {
     try {
@@ -169,7 +166,6 @@ function NavbarContent() {
       e.preventDefault()
       e.stopPropagation()
       setIsProfileOpen(false)
-      setIsAlertsOpen(false)
       if (feedTextMenuOpen) {
         closeFeedTextMenu()
       } else {
@@ -214,46 +210,11 @@ function NavbarContent() {
     return () => window.removeEventListener('keydown', onKey)
   }, [feedTextMenuOpen, closeFeedTextMenu])
 
-  // Keep notification dropdown within viewport, positioned just below the navbar
-  useLayoutEffect(() => {
-    if (!isAlertsOpen || !alertsRef.current) {
-      setAlertsDropdownStyle({})
-      return
-    }
-    const rect = alertsRef.current.getBoundingClientRect()
-    const navRect = navRef.current?.getBoundingClientRect()
-    const dropdownWidth = 320
-    const gap = 4
-    const padding = 8
-    // Place top edge just below the navbar (or below bell if nav ref missing)
-    const top = navRect ? navRect.bottom + gap : rect.bottom + gap
-    let left = rect.right - dropdownWidth
-    if (left < padding) {
-      left = padding
-    }
-    const maxLeft = typeof window !== 'undefined' ? window.innerWidth - dropdownWidth - padding : 0
-    const clampedLeft = Math.min(Math.max(left, padding), maxLeft)
-    const safeTop = Math.max(padding, top)
-    setAlertsDropdownStyle({
-      position: 'fixed',
-      top: safeTop,
-      left: clampedLeft,
-      width: Math.min(dropdownWidth, (typeof window !== 'undefined' ? window.innerWidth : 400) - padding * 2),
-      zIndex: 50,
-    })
-  }, [isAlertsOpen])
-
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false)
-      }
-      if (alertsRef.current && !alertsRef.current.contains(event.target as Node)) {
-        setIsAlertsOpen(false)
-        setExpandedNotificationId(null)
-        setIsSelectMode(false)
-        setSelectedIds(new Set())
       }
       // Close mobile menu when clicking outside
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node) &&
@@ -267,6 +228,15 @@ function NavbarContent() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  useEffect(() => {
+    if (!isProfileOpen) {
+      setIsAlertsOpen(false)
+      setExpandedNotificationId(null)
+      setIsSelectMode(false)
+      setSelectedIds(new Set())
+    }
+  }, [isProfileOpen])
 
   // Pause background polling when tab is hidden
   useEffect(() => {
@@ -585,6 +555,15 @@ function NavbarContent() {
               </div>
             )}
 
+            {status !== 'loading' && session && isNavbarItemEnabled('upload') && (
+              <Link
+                href={isSubscriber ? '/upload' : '/pricing'}
+                className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-px text-center hover:bg-blue-700 transition-colors"
+              >
+                <span className="text-sm font-bold text-white">{t('post')}</span>
+              </Link>
+            )}
+
             {feedAutoTranslation && (
               <button
                 ref={feedTextTriggerRef}
@@ -620,210 +599,16 @@ function NavbarContent() {
               </button>
             )}
 
-            {session && isNavbarItemEnabled('notification') && (
-              <div className="relative" ref={alertsRef}>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    closeFeedTextMenu()
-                    setIsAlertsOpen(!isAlertsOpen)
-                    setIsProfileOpen(false)
-                    setExpandedNotificationId(null)
-                    if (isAlertsOpen) {
-                      setIsSelectMode(false)
-                      setSelectedIds(new Set())
-                    }
-                  }}
-                  className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-200 hover:text-white hover:bg-tank-light transition-colors"
-                  aria-label={t('notifications')}
-                  title={t('notifications')}
-                >
-                  <div className="relative">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    )}
-                  </div>
-                </button>
-                {isAlertsOpen && (
-                  <div
-                    ref={alertsDropdownRef}
-                    style={alertsDropdownStyle}
-                    className="bg-tank-gray border border-tank-light rounded-lg shadow-xl overflow-hidden"
-                  >
-                    <div className="px-3 py-2 border-b border-tank-light flex items-center justify-between bg-tank-dark">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-sm">{t('notifications')}</h3>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleNotificationsOn()
-                          }}
-                          className={`text-xs font-medium px-2 py-0.5 rounded ${notificationsOn ? 'bg-tank-accent text-black' : 'bg-tank-light/30 text-gray-400'}`}
-                          aria-label={notificationsOn ? t('turnNotifOff') : t('turnNotifOn')}
-                        >
-                          {notificationsOn ? t('on') : t('off')}
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isSelectMode ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                const visible = notifications.slice(0, 5)
-                                if (selectedIds.size === visible.length) {
-                                  setSelectedIds(new Set())
-                                } else {
-                                  setSelectedIds(new Set(visible.map((n) => n.id)))
-                                }
-                              }}
-                              className="text-xs text-gray-400 hover:text-white"
-                            >
-                              {selectedIds.size === notifications.slice(0, 5).length ? t('deselectAll') : t('selectAll')}
-                            </button>
-                            {selectedIds.size > 0 && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  deleteSelectedNotifications()
-                                }}
-                                className="text-xs font-medium px-2 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white"
-                              >
-                                {t('delete')} ({selectedIds.size})
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setIsSelectMode(false)
-                                setSelectedIds(new Set())
-                              }}
-                              className="text-xs text-gray-400 hover:text-white"
-                            >
-                              {t('cancel')}
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {notifications.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setIsSelectMode(true)
-                                  setExpandedNotificationId(null)
-                                }}
-                                className="text-xs text-gray-400 hover:text-white"
-                              >
-                                {t('delete')}
-                              </button>
-                            )}
-                            {unreadCount > 0 && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  markAllAsRead()
-                                }}
-                                className="text-xs text-tank-accent hover:underline"
-                              >
-                                {t('markAllRead')}
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <p className="px-3 py-4 text-xs text-gray-500 text-center">{t('noNotifications')}</p>
-                      ) : (
-                        notifications.slice(0, 5).map((notification) => {
-                          const isExpanded = expandedNotificationId === notification.id
-                          const isSelected = selectedIds.has(notification.id)
-                          return (
-                            <div
-                              key={notification.id}
-                              className={`px-3 py-2 cursor-pointer hover:bg-tank-dark transition-colors border-b border-tank-light/50 last:border-b-0 ${!notification.read ? 'bg-tank-accent/5' : ''} ${isSelected ? 'bg-tank-accent/10' : ''}`}
-                              onClick={() => {
-                                if (isSelectMode) {
-                                  toggleSelectNotification(notification.id)
-                                } else {
-                                  setExpandedNotificationId(isExpanded ? null : notification.id)
-                                  if (!notification.read) markAsRead(notification.id)
-                                }
-                              }}
-                            >
-                              <div className="flex gap-2 items-start">
-                                {isSelectMode && (
-                                  <div className="flex items-center pt-0.5">
-                                    <div
-                                      className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-tank-accent border-tank-accent' : 'border-gray-500'}`}
-                                    >
-                                      {isSelected && (
-                                        <svg className="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                        </svg>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                                {getNotificationIcon(notification.type)}
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
-                                    {notification.title}
-                                  </p>
-                                  <p className={`text-[12px] text-gray-300 mt-0.5 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-1'}`}>
-                                    {notification.message}
-                                  </p>
-                                  {isExpanded && !isSelectMode && (
-                                    <p className="text-[9px] text-gray-600 mt-1">
-                                      {new Date(notification.createdAt).toLocaleString()}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
             {status === 'loading' ? (
               <div className="w-8 h-8 rounded-full bg-tank-light animate-pulse" />
             ) : session ? (
               <>
-                {/* Upload Button - redirects based on subscription status */}
-                {isNavbarItemEnabled('upload') && (
-                  <Link
-                    href={isSubscriber ? "/upload" : "/pricing"}
-                    className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-px text-center hover:bg-blue-700 transition-colors"
-                  >
-                    <span className="text-sm font-bold text-white">
-                      {t('post')}
-                    </span>
-                  </Link>
-                )}
-
                 {/* Nickname Dropdown */}
                 <div className="relative" ref={profileRef}>
                   <button
                     onClick={() => {
                       closeFeedTextMenu()
                       setIsProfileOpen(!isProfileOpen)
-                      setIsAlertsOpen(false)
                     }}
                     className="flex items-center p-0 rounded-lg hover:ring-2 hover:ring-tank-accent transition-all"
                     title={displayName}
@@ -854,6 +639,182 @@ function NavbarContent() {
                           {session.user?.role}
                         </span>
                       </div>
+                      {isNavbarItemEnabled('notification') && (
+                        <>
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-3 px-4 py-2 text-sm text-white hover:bg-tank-light/30 border-b border-tank-light/40"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              closeFeedTextMenu()
+                              setIsAlertsOpen(!isAlertsOpen)
+                              setExpandedNotificationId(null)
+                              if (isAlertsOpen) {
+                                setIsSelectMode(false)
+                                setSelectedIds(new Set())
+                              }
+                            }}
+                          >
+                            <div className="relative flex h-5 w-5 shrink-0 items-center justify-center text-gray-400">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                              </svg>
+                              {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                                  {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                              )}
+                            </div>
+                            <span className="flex-1 text-left">{t('notifications')}</span>
+                          </button>
+                          {isAlertsOpen && (
+                            <div className="border-b border-tank-light bg-tank-gray overflow-hidden">
+                              <div className="px-3 py-2 border-b border-tank-light flex flex-wrap items-center justify-between gap-2 bg-tank-dark">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-semibold text-sm">{t('notifications')}</h3>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      toggleNotificationsOn()
+                                    }}
+                                    className={`text-xs font-medium px-2 py-0.5 rounded ${notificationsOn ? 'bg-tank-accent text-black' : 'bg-tank-light/30 text-gray-400'}`}
+                                    aria-label={notificationsOn ? t('turnNotifOff') : t('turnNotifOn')}
+                                  >
+                                    {notificationsOn ? t('on') : t('off')}
+                                  </button>
+                                </div>
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                  {isSelectMode ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          const visible = notifications.slice(0, 5)
+                                          if (selectedIds.size === visible.length) {
+                                            setSelectedIds(new Set())
+                                          } else {
+                                            setSelectedIds(new Set(visible.map((n) => n.id)))
+                                          }
+                                        }}
+                                        className="text-xs text-gray-400 hover:text-white"
+                                      >
+                                        {selectedIds.size === notifications.slice(0, 5).length ? t('deselectAll') : t('selectAll')}
+                                      </button>
+                                      {selectedIds.size > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            deleteSelectedNotifications()
+                                          }}
+                                          className="text-xs font-medium px-2 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white"
+                                        >
+                                          {t('delete')} ({selectedIds.size})
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setIsSelectMode(false)
+                                          setSelectedIds(new Set())
+                                        }}
+                                        className="text-xs text-gray-400 hover:text-white"
+                                      >
+                                        {t('cancel')}
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {notifications.length > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setIsSelectMode(true)
+                                            setExpandedNotificationId(null)
+                                          }}
+                                          className="text-xs text-gray-400 hover:text-white"
+                                        >
+                                          {t('delete')}
+                                        </button>
+                                      )}
+                                      {unreadCount > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            markAllAsRead()
+                                          }}
+                                          className="text-xs text-tank-accent hover:underline"
+                                        >
+                                          {t('markAllRead')}
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="max-h-64 overflow-y-auto">
+                                {notifications.length === 0 ? (
+                                  <p className="px-3 py-4 text-xs text-gray-500 text-center">{t('noNotifications')}</p>
+                                ) : (
+                                  notifications.slice(0, 5).map((notification) => {
+                                    const isExpanded = expandedNotificationId === notification.id
+                                    const isSelected = selectedIds.has(notification.id)
+                                    return (
+                                      <div
+                                        key={notification.id}
+                                        className={`px-3 py-2 cursor-pointer hover:bg-tank-dark transition-colors border-b border-tank-light/50 last:border-b-0 ${!notification.read ? 'bg-tank-accent/5' : ''} ${isSelected ? 'bg-tank-accent/10' : ''}`}
+                                        onClick={() => {
+                                          if (isSelectMode) {
+                                            toggleSelectNotification(notification.id)
+                                          } else {
+                                            setExpandedNotificationId(isExpanded ? null : notification.id)
+                                            if (!notification.read) markAsRead(notification.id)
+                                          }
+                                        }}
+                                      >
+                                        <div className="flex gap-2 items-start">
+                                          {isSelectMode && (
+                                            <div className="flex items-center pt-0.5">
+                                              <div
+                                                className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-tank-accent border-tank-accent' : 'border-gray-500'}`}
+                                              >
+                                                {isSelected && (
+                                                  <svg className="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                  </svg>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                          {getNotificationIcon(notification.type)}
+                                          <div className="flex-1 min-w-0">
+                                            <p className={`text-xs font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
+                                              {notification.title}
+                                            </p>
+                                            <p className={`text-[12px] text-gray-300 mt-0.5 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-1'}`}>
+                                              {notification.message}
+                                            </p>
+                                            {isExpanded && !isSelectMode && (
+                                              <p className="text-[9px] text-gray-600 mt-1">
+                                                {new Date(notification.createdAt).toLocaleString()}
+                                              </p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
                       <Link
                         href="/profile/edit"
                         className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
