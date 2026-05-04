@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { AboutTrans } from '@/components/AboutTrans'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -112,32 +113,31 @@ export default function AboutPage() {
         <div className="absolute inset-0 grid-pattern opacity-40" />
         <div className="max-w-5xl mx-auto text-center relative z-10">
           <span className="inline-block px-5 py-2 bg-tank-accent/10 border border-tank-accent/30 rounded-full text-tank-accent text-sm font-semibold mb-8 tracking-wide">
-            Where AI Creativity Meets Professional Community
+            <AboutTrans text="Where AI Creativity Meets Professional Community" />
           </span>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold mb-6 leading-tight">
-            <span className="text-gradient">AI Media Tank (AiM)</span>
+            <span className="text-gradient">
+              <AboutTrans text="AI Media Tank (AiM)" />
+            </span>
           </h1>
           <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-6 leading-relaxed">
-            The premier platform for artists, producers, technologists, and creators to publish, 
-            discover, and monetize AI-generated and real-world media — video, images, and music — 
-            in one unified, professional ecosystem.
+            <AboutTrans text="The premier platform for artists, producers, technologists, and creators to publish, discover, and monetize AI-generated and real-world media — video, images, and music — in one unified, professional ecosystem." />
           </p>
           <p className="text-base text-gray-500 max-w-2xl mx-auto mb-12">
-            Built by creators, for creators. Powered entirely by Microsoft Azure cloud infrastructure, 
-            engineered with Cursor AI-assisted development, and designed for the professionals shaping the future of media.
+            <AboutTrans text="Built by creators, for creators. Powered entirely by Microsoft Azure cloud infrastructure, engineered with Cursor AI-assisted development, and designed for the professionals shaping the future of media." />
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/"
               className="px-8 py-4 bg-tank-accent text-tank-black font-bold rounded-xl hover:bg-tank-accent/90 hover:shadow-lg hover:shadow-tank-accent/20 transition-all"
             >
-              Explore the Platform
+              <AboutTrans text="Explore the Platform" />
             </Link>
             <Link
               href="/register"
               className="px-8 py-4 border-2 border-tank-accent text-tank-accent font-bold rounded-xl hover:bg-tank-accent hover:text-tank-black transition-all"
             >
-              Create Your Account
+              <AboutTrans text="Create Your Account" />
             </Link>
           </div>
 
@@ -149,8 +149,12 @@ export default function AboutPage() {
             ].map((stat, i) => (
               <div key={i} className="text-center">
                 <div className="text-4xl md:text-5xl font-extrabold text-tank-accent">{stat.value}</div>
-                <div className="text-gray-300 font-medium mt-1">{stat.label}</div>
-                <div className="text-gray-600 text-xs mt-0.5">{stat.sub}</div>
+                <div className="text-gray-300 font-medium mt-1">
+                  <AboutTrans text={stat.label} />
+                </div>
+                <div className="text-gray-600 text-xs mt-0.5">
+                  <AboutTrans text={stat.sub} />
+                </div>
               </div>
             ))}
           </div>
@@ -162,34 +166,25 @@ export default function AboutPage() {
       ══════════════════════════════════════════════════════════════════ */}
       <section className="py-20 px-4 bg-tank-gray/30">
         <div className="max-w-4xl mx-auto">
-          <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Our Story</span>
-          <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-8">Why We Built AI Media Tank (AiM)</h2>
+          <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+            <AboutTrans text="Our Story" />
+          </span>
+          <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-8">
+            <AboutTrans text="Why We Built AI Media Tank (AiM)" />
+          </h2>
 
           <div className="space-y-6 text-gray-300 leading-relaxed text-base md:text-lg">
             <p>
-              The generative AI revolution is transforming how media is created. Every day, millions of artists, 
-              filmmakers, musicians, and technologists use tools like Midjourney, Runway, DALL-E, Suno, and Stable 
-              Diffusion to produce stunning visuals, cinematic video, and original music. Yet these creators have 
-              nowhere purpose-built to call home.
+              <AboutTrans text="The generative AI revolution is transforming how media is created. Every day, millions of artists, filmmakers, musicians, and technologists use tools like Midjourney, Runway, DALL-E, Suno, and Stable Diffusion to produce stunning visuals, cinematic video, and original music. Yet these creators have nowhere purpose-built to call home." />
             </p>
             <p>
-              Traditional platforms were designed for a different era. They scatter AI-generated content across 
-              generic feeds, offer limited monetization pathways, and make it difficult for professionals to 
-              build a credible portfolio. The result is that exceptional work gets lost in the noise, and 
-              creators are left without the tools they need to grow.
+              <AboutTrans text="Traditional platforms were designed for a different era. They scatter AI-generated content across generic feeds, offer limited monetization pathways, and make it difficult for professionals to build a credible portfolio. The result is that exceptional work gets lost in the noise, and creators are left without the tools they need to grow." />
             </p>
             <p>
-              <span className="text-white font-semibold">AI Media Tank (AiM) was founded to change that.</span> We set out 
-              to build a dedicated, professional-grade platform that treats AI-generated media with the same respect 
-              and infrastructure as any creative discipline — while also welcoming real-world content creators who want 
-              to stand alongside the AI frontier. The result is a unified marketplace and community where every 
-              creator, from emerging artists to seasoned producers and forward-thinking technologists, can publish, 
-              showcase, and sell their work with confidence.
+              <AboutTrans text="AI Media Tank (AiM) was founded to change that. We set out to build a dedicated, professional-grade platform that treats AI-generated media with the same respect and infrastructure as any creative discipline — while also welcoming real-world content creators who want to stand alongside the AI frontier. The result is a unified marketplace and community where every creator, from emerging artists to seasoned producers and forward-thinking technologists, can publish, showcase, and sell their work with confidence." />
             </p>
             <p>
-              Whether you are a visual artist exploring generative aesthetics, a music producer experimenting with 
-              AI composition, a filmmaker blending AI with live-action footage, or a futurist documenting the 
-              evolution of creative technology — AI Media Tank (AiM) is the professional space where your work belongs.
+              <AboutTrans text="Whether you are a visual artist exploring generative aesthetics, a music producer experimenting with AI composition, a filmmaker blending AI with live-action footage, or a futurist documenting the evolution of creative technology — AI Media Tank (AiM) is the professional space where your work belongs." />
             </p>
           </div>
         </div>
@@ -201,11 +196,14 @@ export default function AboutPage() {
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Built For Professionals</span>
-            <h2 className="text-3xl md:text-4xl font-bold mt-2">Who Thrives on AI Media Tank (AiM)</h2>
+            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+              <AboutTrans text="Built For Professionals" />
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mt-2">
+              <AboutTrans text="Who Thrives on AI Media Tank (AiM)" />
+            </h2>
             <p className="text-gray-400 mt-3 max-w-2xl mx-auto">
-              We designed every feature with working professionals in mind — the people who push creative boundaries 
-              and need a platform that keeps pace with their ambition.
+              <AboutTrans text="We designed every feature with working professionals in mind — the people who push creative boundaries and need a platform that keeps pace with their ambition." />
             </p>
           </div>
 
@@ -246,19 +244,22 @@ export default function AboutPage() {
                 <div className="w-14 h-14 bg-tank-accent/10 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-tank-accent/20 transition-colors">
                   {persona.icon}
                 </div>
-                <h3 className="text-lg font-bold mb-2">{persona.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{persona.desc}</p>
+                <h3 className="text-lg font-bold mb-2">
+                  <AboutTrans text={persona.title} />
+                </h3>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                  <AboutTrans text={persona.desc} />
+                </p>
               </div>
             ))}
           </div>
 
           <div className="mt-10 bg-gradient-to-r from-tank-accent/5 to-purple-500/5 border border-tank-light rounded-2xl p-6 md:p-8">
-            <h3 className="text-lg font-bold mb-3 text-white">For General Audiences Too</h3>
+            <h3 className="text-lg font-bold mb-3 text-white">
+              <AboutTrans text="For General Audiences Too" />
+            </h3>
             <p className="text-gray-400 leading-relaxed">
-              You do not need to be a professional to enjoy AI Media Tank (AiM). Enthusiasts, collectors, and curious 
-              minds are equally welcome. Browse and discover stunning AI-generated content, purchase unique media, 
-              and connect with the creators behind the work. The free Viewer tier gives you full access to explore 
-              the platform with zero commitment.
+              <AboutTrans text="You do not need to be a professional to enjoy AI Media Tank (AiM). Enthusiasts, collectors, and curious minds are equally welcome. Browse and discover stunning AI-generated content, purchase unique media, and connect with the creators behind the work. The free Viewer tier gives you full access to explore the platform with zero commitment." />
             </p>
           </div>
         </div>
@@ -270,11 +271,14 @@ export default function AboutPage() {
       <section className="py-20 px-4 bg-tank-gray/30">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Platform Capabilities</span>
-            <h2 className="text-3xl md:text-4xl font-bold mt-2">Everything You Need to Create, Share & Earn</h2>
+            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+              <AboutTrans text="Platform Capabilities" />
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mt-2">
+              <AboutTrans text="Everything You Need to Create, Share & Earn" />
+            </h2>
             <p className="text-gray-400 mt-3 max-w-2xl mx-auto">
-              A comprehensive feature set designed for professionals who demand reliability, flexibility, and polish 
-              in every interaction.
+              <AboutTrans text="A comprehensive feature set designed for professionals who demand reliability, flexibility, and polish in every interaction." />
             </p>
           </div>
 
@@ -282,8 +286,12 @@ export default function AboutPage() {
             {features.map((feature, i) => (
               <div key={i} className="bg-tank-dark border border-tank-light rounded-xl p-5 hover:border-tank-accent/40 hover:shadow-lg hover:shadow-tank-accent/5 transition-all group">
                 <div className="text-3xl mb-3">{feature.icon}</div>
-                <h4 className="font-bold text-sm mb-1.5">{feature.title}</h4>
-                <p className="text-gray-500 text-xs leading-relaxed">{feature.desc}</p>
+                <h4 className="font-bold text-sm mb-1.5">
+                  <AboutTrans text={feature.title} />
+                </h4>
+                <p className="text-gray-500 text-xs leading-relaxed">
+                  <AboutTrans text={feature.desc} />
+                </p>
               </div>
             ))}
           </div>
@@ -296,8 +304,12 @@ export default function AboutPage() {
       <section className="py-20 px-4">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Creator Workflow</span>
-            <h2 className="text-3xl md:text-4xl font-bold mt-2">How AI Media Tank (AiM) Works</h2>
+            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+              <AboutTrans text="Creator Workflow" />
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mt-2">
+              <AboutTrans text="How AI Media Tank (AiM) Works" />
+            </h2>
           </div>
 
           <div className="grid md:grid-cols-4 gap-6">
@@ -309,8 +321,12 @@ export default function AboutPage() {
             ].map((item, i) => (
               <div key={i} className="relative">
                 <div className="text-6xl font-extrabold text-tank-accent/10 mb-2">{item.step}</div>
-                <h3 className="text-lg font-bold mb-2">{item.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
+                <h3 className="text-lg font-bold mb-2">
+                  <AboutTrans text={item.title} />
+                </h3>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                  <AboutTrans text={item.desc} />
+                </p>
                 {i < 3 && (
                   <div className="hidden md:block absolute top-8 -right-3 text-tank-light text-2xl">→</div>
                 )}
@@ -327,12 +343,14 @@ export default function AboutPage() {
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Monetization</span>
-              <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-6">Built-In Marketplace, Powered by Stripe</h2>
+              <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+                <AboutTrans text="Monetization" />
+              </span>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-6">
+                <AboutTrans text="Built-In Marketplace, Powered by Stripe" />
+              </h2>
               <p className="text-gray-300 leading-relaxed mb-6">
-                AI Media Tank (AiM) is not just a gallery — it is a fully integrated marketplace. Every creator can set 
-                prices on their uploads and sell directly to collectors and buyers. There is no need for external 
-                payment tools, third-party storefronts, or complicated integrations.
+                <AboutTrans text="AI Media Tank (AiM) is not just a gallery — it is a fully integrated marketplace. Every creator can set prices on their uploads and sell directly to collectors and buyers. There is no need for external payment tools, third-party storefronts, or complicated integrations." />
               </p>
               <div className="space-y-4">
                 {[
@@ -345,8 +363,12 @@ export default function AboutPage() {
                   <div key={i} className="flex gap-3">
                     <span className="text-tank-accent mt-0.5 flex-shrink-0">✓</span>
                     <div>
-                      <span className="text-white font-semibold text-sm">{item.label}</span>
-                      <p className="text-gray-500 text-xs mt-0.5">{item.desc}</p>
+                      <span className="text-white font-semibold text-sm">
+                        <AboutTrans text={item.label} />
+                      </span>
+                      <p className="text-gray-500 text-xs mt-0.5">
+                        <AboutTrans text={item.desc} />
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -356,8 +378,12 @@ export default function AboutPage() {
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center text-lg">💳</div>
                 <div>
-                  <div className="font-bold text-sm">Stripe Integration</div>
-                  <div className="text-gray-500 text-xs">Industry-leading payment infrastructure</div>
+                  <div className="font-bold text-sm">
+                    <AboutTrans text="Stripe Integration" />
+                  </div>
+                  <div className="text-gray-500 text-xs">
+                    <AboutTrans text="Industry-leading payment infrastructure" />
+                  </div>
                 </div>
               </div>
               <div className="space-y-3 text-sm">
@@ -371,7 +397,7 @@ export default function AboutPage() {
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-3 px-3 py-2 bg-tank-gray rounded-lg border border-tank-light">
                     <span className="w-2 h-2 bg-tank-accent rounded-full flex-shrink-0" />
-                    <span className="text-gray-300">{item}</span>
+                    <AboutTrans text={item} className="text-gray-300" />
                   </div>
                 ))}
               </div>
@@ -386,11 +412,14 @@ export default function AboutPage() {
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Under the Hood</span>
-            <h2 className="text-3xl md:text-4xl font-bold mt-2">Enterprise-Grade Technology Stack</h2>
+            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+              <AboutTrans text="Under the Hood" />
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mt-2">
+              <AboutTrans text="Enterprise-Grade Technology Stack" />
+            </h2>
             <p className="text-gray-400 mt-3 max-w-3xl mx-auto">
-              AI Media Tank (AiM) is built on a modern, scalable architecture designed for production reliability. 
-              Every technology choice prioritizes performance, security, and developer experience.
+              <AboutTrans text="AI Media Tank (AiM) is built on a modern, scalable architecture designed for production reliability. Every technology choice prioritizes performance, security, and developer experience." />
             </p>
           </div>
 
@@ -399,11 +428,15 @@ export default function AboutPage() {
               <div key={i} className="bg-tank-gray border border-tank-light rounded-xl p-6 hover:border-tank-accent/40 transition-all">
                 <div className="flex items-center gap-3 mb-3">
                   <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-gradient-to-r ${tech.color} text-tank-black`}>
-                    {tech.category}
+                    <AboutTrans text={tech.category} />
                   </span>
                 </div>
-                <h4 className="font-bold text-lg mb-2">{tech.name}</h4>
-                <p className="text-gray-400 text-sm leading-relaxed">{tech.description}</p>
+                <h4 className="font-bold text-lg mb-2">
+                  <AboutTrans text={tech.name} />
+                </h4>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                  <AboutTrans text={tech.description} />
+                </p>
               </div>
             ))}
           </div>
@@ -416,24 +449,16 @@ export default function AboutPage() {
               </div>
               <div>
                 <h3 className="text-2xl font-bold mb-3">
-                  Developed with <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Cursor AI</span>
+                  <AboutTrans text="Developed with Cursor AI" />
                 </h3>
                 <p className="text-gray-300 leading-relaxed mb-4">
-                  AI Media Tank (AiM) is proudly built using <span className="text-white font-semibold">Cursor</span>, 
-                  the AI-powered code editor that represents the next generation of software development. Cursor&apos;s 
-                  AI-assisted coding capabilities have been instrumental in accelerating development velocity, 
-                  maintaining code quality, and enabling rapid iteration across the entire codebase.
+                  <AboutTrans text="AI Media Tank (AiM) is proudly built using Cursor, the AI-powered code editor that represents the next generation of software development. Cursor's AI-assisted coding capabilities have been instrumental in accelerating development velocity, maintaining code quality, and enabling rapid iteration across the entire codebase." />
                 </p>
                 <p className="text-gray-300 leading-relaxed mb-4">
-                  From designing complex database schemas and API routes to building responsive UI components and 
-                  optimizing Azure integrations, Cursor AI has served as a collaborative development partner — 
-                  suggesting improvements, catching bugs early, and helping implement best practices across 
-                  TypeScript, React, Next.js, and Prisma.
+                  <AboutTrans text="From designing complex database schemas and API routes to building responsive UI components and optimizing Azure integrations, Cursor AI has served as a collaborative development partner — suggesting improvements, catching bugs early, and helping implement best practices across TypeScript, React, Next.js, and Prisma." />
                 </p>
                 <p className="text-gray-400 text-sm leading-relaxed">
-                  This is what modern AI-assisted software engineering looks like: human creativity and architectural 
-                  vision amplified by AI precision and speed. Every feature on this platform has been shaped by that 
-                  partnership.
+                  <AboutTrans text="This is what modern AI-assisted software engineering looks like: human creativity and architectural vision amplified by AI precision and speed. Every feature on this platform has been shaped by that partnership." />
                 </p>
               </div>
             </div>
@@ -442,10 +467,11 @@ export default function AboutPage() {
           {/* System Architecture Diagram */}
           <div className="mb-6">
             <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold">System Architecture</h3>
+              <h3 className="text-2xl font-bold">
+                <AboutTrans text="System Architecture" />
+              </h3>
               <p className="text-gray-400 mt-2 max-w-2xl mx-auto text-sm">
-                A production-grade architecture where every request flows through Azure infrastructure — from 
-                browser to backend to storage and external services.
+                <AboutTrans text="A production-grade architecture where every request flows through Azure infrastructure — from browser to backend to storage and external services." />
               </p>
             </div>
           </div>
@@ -455,8 +481,12 @@ export default function AboutPage() {
               {/* Layer 1: Client */}
               <div className="flex justify-center">
                 <div className="px-8 py-4 rounded-xl bg-cyan-500/15 border-2 border-cyan-400/40 text-center">
-                  <div className="text-sm text-cyan-300 font-bold">Client Layer</div>
-                  <div className="text-xs text-gray-400 mt-1">Browser · PWA · Mobile</div>
+                  <div className="text-sm text-cyan-300 font-bold">
+                    <AboutTrans text="Client Layer" />
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    <AboutTrans text="Browser · PWA · Mobile" />
+                  </div>
                 </div>
               </div>
               <div className="flex justify-center"><div className="w-0.5 h-5 bg-tank-light rounded-full" /></div>
@@ -464,14 +494,28 @@ export default function AboutPage() {
               {/* Layer 2: Application */}
               <div className="flex justify-center">
                 <div className="px-8 py-5 rounded-xl bg-tank-accent/15 border-2 border-tank-accent text-center max-w-lg w-full">
-                  <div className="text-tank-accent font-bold text-lg">Next.js 14 Application</div>
-                  <div className="text-xs text-gray-400 mt-1">Azure App Service · Standalone Build · SSL</div>
+                  <div className="text-tank-accent font-bold text-lg">
+                    <AboutTrans text="Next.js 14 Application" />
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    <AboutTrans text="Azure App Service · Standalone Build · SSL" />
+                  </div>
                   <div className="flex flex-wrap justify-center gap-2 mt-3 text-xs">
-                    <span className="px-2.5 py-1 bg-tank-gray rounded-md border border-tank-light">App Router</span>
-                    <span className="px-2.5 py-1 bg-tank-gray rounded-md border border-tank-light">API Routes</span>
-                    <span className="px-2.5 py-1 bg-tank-gray rounded-md border border-tank-light">NextAuth</span>
-                    <span className="px-2.5 py-1 bg-tank-gray rounded-md border border-tank-light">React SSR</span>
-                    <span className="px-2.5 py-1 bg-tank-gray rounded-md border border-tank-light">Prisma ORM</span>
+                    <span className="px-2.5 py-1 bg-tank-gray rounded-md border border-tank-light">
+                      <AboutTrans text="App Router" />
+                    </span>
+                    <span className="px-2.5 py-1 bg-tank-gray rounded-md border border-tank-light">
+                      <AboutTrans text="API Routes" />
+                    </span>
+                    <span className="px-2.5 py-1 bg-tank-gray rounded-md border border-tank-light">
+                      <AboutTrans text="NextAuth" />
+                    </span>
+                    <span className="px-2.5 py-1 bg-tank-gray rounded-md border border-tank-light">
+                      <AboutTrans text="React SSR" />
+                    </span>
+                    <span className="px-2.5 py-1 bg-tank-gray rounded-md border border-tank-light">
+                      <AboutTrans text="Prisma ORM" />
+                    </span>
                   </div>
                 </div>
               </div>
@@ -479,7 +523,9 @@ export default function AboutPage() {
 
               {/* Layer 3: Azure Services */}
               <div>
-                <div className="text-center text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">Azure Infrastructure</div>
+                <div className="text-center text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">
+                  <AboutTrans text="Azure Infrastructure" />
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   {[
                     { icon: '🗄️', name: 'PostgreSQL', sub: 'Flexible Server', sub2: 'Prisma ORM' },
@@ -490,9 +536,15 @@ export default function AboutPage() {
                   ].map((svc, i) => (
                     <div key={i} className="rounded-xl bg-tank-gray border border-tank-light p-3 text-center">
                       <div className="text-lg mb-1">{svc.icon}</div>
-                      <div className="text-xs font-bold text-white">{svc.name}</div>
-                      <div className="text-[10px] text-gray-500 mt-0.5">{svc.sub}</div>
-                      <div className="text-[10px] text-gray-600">{svc.sub2}</div>
+                      <div className="text-xs font-bold text-white">
+                        <AboutTrans text={svc.name} />
+                      </div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">
+                        <AboutTrans text={svc.sub} />
+                      </div>
+                      <div className="text-[10px] text-gray-600">
+                        <AboutTrans text={svc.sub2} />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -501,7 +553,9 @@ export default function AboutPage() {
 
               {/* Layer 4: External Services */}
               <div>
-                <div className="text-center text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">External Services & DevOps</div>
+                <div className="text-center text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">
+                  <AboutTrans text="External Services & DevOps" />
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
                     { icon: '💳', name: 'Stripe', sub: 'Payments · Subscriptions · Webhooks' },
@@ -511,8 +565,12 @@ export default function AboutPage() {
                   ].map((svc, i) => (
                     <div key={i} className="rounded-xl bg-tank-gray border border-tank-light p-3 text-center">
                       <div className="text-lg mb-1">{svc.icon}</div>
-                      <div className="text-xs font-bold text-white">{svc.name}</div>
-                      <div className="text-[10px] text-gray-500 mt-1">{svc.sub}</div>
+                      <div className="text-xs font-bold text-white">
+                        <AboutTrans text={svc.name} />
+                      </div>
+                      <div className="text-[10px] text-gray-500 mt-1">
+                        <AboutTrans text={svc.sub} />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -526,36 +584,25 @@ export default function AboutPage() {
               onClick={() => setExpandedArch(!expandedArch)}
               className="text-tank-accent text-sm font-semibold hover:underline flex items-center gap-2"
             >
-              {expandedArch ? '▾ Hide' : '▸ Show'} Architecture Details
+              {expandedArch ? '▾ ' : '▸ '}
+              <AboutTrans text={expandedArch ? 'Hide Architecture Details' : 'Show Architecture Details'} />
             </button>
             {expandedArch && (
               <div className="mt-4 bg-tank-gray border border-tank-light rounded-xl p-6 space-y-4 text-sm text-gray-400 leading-relaxed">
                 <p>
-                  <span className="text-white font-semibold">Request Flow:</span> Users interact with the platform through 
-                  a modern browser or installed PWA. All requests are served by a Next.js 14 application running in standalone 
-                  mode on Azure App Service. The App Router handles both server-rendered pages and API routes, while NextAuth 
-                  manages authentication sessions.
+                  <AboutTrans text="Request Flow: Users interact with the platform through a modern browser or installed PWA. All requests are served by a Next.js 14 application running in standalone mode on Azure App Service. The App Router handles both server-rendered pages and API routes, while NextAuth manages authentication sessions." />
                 </p>
                 <p>
-                  <span className="text-white font-semibold">Data Layer:</span> Prisma ORM communicates with Azure PostgreSQL 
-                  Flexible Server for all structured data — users, media metadata, transactions, messages, and admin configuration. 
-                  Media files (video, images, music) are stored in Azure Blob Storage with SAS-token secured access for uploads and 
-                  downloads.
+                  <AboutTrans text="Data Layer: Prisma ORM communicates with Azure PostgreSQL Flexible Server for all structured data — users, media metadata, transactions, messages, and admin configuration. Media files (video, images, music) are stored in Azure Blob Storage with SAS-token secured access for uploads and downloads." />
                 </p>
                 <p>
-                  <span className="text-white font-semibold">Background Processing:</span> Azure Functions handle asynchronous 
-                  workloads including video transcoding, scheduled cleanup, and policy-based automation. These functions operate 
-                  independently from the main application, ensuring heavy processing never impacts user-facing performance.
+                  <AboutTrans text="Background Processing: Azure Functions handle asynchronous workloads including video transcoding, scheduled cleanup, and policy-based automation. These functions operate independently from the main application, ensuring heavy processing never impacts user-facing performance." />
                 </p>
                 <p>
-                  <span className="text-white font-semibold">DevOps Pipeline:</span> GitHub Actions automates the entire deployment 
-                  lifecycle. Code pushed to the main branch triggers production deployment to Azure App Service, while feature branches 
-                  deploy to a staging environment for validation before merge.
+                  <AboutTrans text="DevOps Pipeline: GitHub Actions automates the entire deployment lifecycle. Code pushed to the main branch triggers production deployment to Azure App Service, while feature branches deploy to a staging environment for validation before merge." />
                 </p>
                 <p>
-                  <span className="text-white font-semibold">Payments:</span> Stripe handles all financial transactions through 
-                  dedicated API routes for checkout sessions, subscription management, webhook processing, and customer portal access. 
-                  This separation ensures PCI compliance and secure payment handling.
+                  <AboutTrans text="Payments: Stripe handles all financial transactions through dedicated API routes for checkout sessions, subscription management, webhook processing, and customer portal access. This separation ensures PCI compliance and secure payment handling." />
                 </p>
               </div>
             )}
@@ -569,12 +616,14 @@ export default function AboutPage() {
       <section className="py-20 px-4 bg-tank-gray/30">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Cloud Infrastructure</span>
-            <h2 className="text-3xl md:text-4xl font-bold mt-2">Fully Powered by Microsoft Azure</h2>
+            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+              <AboutTrans text="Cloud Infrastructure" />
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mt-2">
+              <AboutTrans text="Fully Powered by Microsoft Azure" />
+            </h2>
             <p className="text-gray-400 mt-3 max-w-3xl mx-auto">
-              Every aspect of AI Media Tank (AiM) runs on Azure cloud infrastructure — from web hosting and database management 
-              to media storage, background processing, and communications. This is not a multi-cloud patchwork; 
-              it is a deliberate, end-to-end Azure architecture built for reliability and scale.
+              <AboutTrans text="Every aspect of AI Media Tank (AiM) runs on Azure cloud infrastructure — from web hosting and database management to media storage, background processing, and communications. This is not a multi-cloud patchwork; it is a deliberate, end-to-end Azure architecture built for reliability and scale." />
             </p>
           </div>
 
@@ -585,11 +634,17 @@ export default function AboutPage() {
                   <div className="flex items-center gap-3 md:w-72 flex-shrink-0">
                     <span className="w-2.5 h-2.5 bg-blue-400 rounded-full flex-shrink-0" />
                     <div>
-                      <div className="font-bold text-sm text-white">{service.name}</div>
-                      <div className="text-xs text-blue-400">{service.role}</div>
+                      <div className="font-bold text-sm text-white">
+                        <AboutTrans text={service.name} />
+                      </div>
+                      <div className="text-xs text-blue-400">
+                        <AboutTrans text={service.role} />
+                      </div>
                     </div>
                   </div>
-                  <p className="text-gray-400 text-sm leading-relaxed">{service.detail}</p>
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                    <AboutTrans text={service.detail} />
+                  </p>
                 </div>
               </div>
             ))}
@@ -604,12 +659,14 @@ export default function AboutPage() {
         <div className="max-w-5xl mx-auto">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">DevOps</span>
-              <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-6">GitHub-Powered Development Pipeline</h2>
+              <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+                <AboutTrans text="DevOps" />
+              </span>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-6">
+                <AboutTrans text="GitHub-Powered Development Pipeline" />
+              </h2>
               <p className="text-gray-300 leading-relaxed mb-6">
-                AI Media Tank (AiM) follows modern DevOps practices with GitHub at the center of the development workflow. 
-                Source control, code review, automated testing, and continuous deployment are all managed through 
-                GitHub — ensuring every change is tracked, reviewed, and deployed with confidence.
+                <AboutTrans text="AI Media Tank (AiM) follows modern DevOps practices with GitHub at the center of the development workflow. Source control, code review, automated testing, and continuous deployment are all managed through GitHub — ensuring every change is tracked, reviewed, and deployed with confidence." />
               </p>
               <div className="space-y-4">
                 {[
@@ -621,15 +678,21 @@ export default function AboutPage() {
                   <div key={i} className="flex gap-3">
                     <span className="text-tank-accent mt-0.5 flex-shrink-0">✓</span>
                     <div>
-                      <span className="text-white font-semibold text-sm">{item.label}</span>
-                      <p className="text-gray-500 text-xs mt-0.5">{item.desc}</p>
+                      <span className="text-white font-semibold text-sm">
+                        <AboutTrans text={item.label} />
+                      </span>
+                      <p className="text-gray-500 text-xs mt-0.5">
+                        <AboutTrans text={item.desc} />
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
             <div className="bg-tank-gray border border-tank-light rounded-2xl p-6">
-              <div className="text-xs text-gray-500 font-mono mb-4 uppercase tracking-wider">Deployment Pipeline</div>
+              <div className="text-xs text-gray-500 font-mono mb-4 uppercase tracking-wider">
+                <AboutTrans text="Deployment Pipeline" />
+              </div>
               <div className="space-y-3">
                 {[
                   { step: 'git push', env: 'Developer', color: 'bg-gray-500' },
@@ -641,8 +704,12 @@ export default function AboutPage() {
                   <div key={i} className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded-full ${item.color} flex-shrink-0`} />
                     <div className="flex-1 px-3 py-2 bg-tank-dark rounded-lg border border-tank-light">
-                      <span className="text-white text-xs font-semibold font-mono">{item.step}</span>
-                      <span className="text-gray-600 text-[10px] ml-2">{item.env}</span>
+                      <span className="text-white text-xs font-semibold font-mono">
+                        <AboutTrans text={item.step} />
+                      </span>
+                      <span className="text-gray-600 text-[10px] ml-2">
+                        <AboutTrans text={item.env} />
+                      </span>
                     </div>
                     {i < 4 && <div className="text-gray-600 text-xs hidden md:block">↓</div>}
                   </div>
@@ -659,8 +726,12 @@ export default function AboutPage() {
       <section className="py-20 px-4 bg-tank-gray/30">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Integrity</span>
-            <h2 className="text-3xl md:text-4xl font-bold mt-2">Trust & Transparency</h2>
+            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+              <AboutTrans text="Integrity" />
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mt-2">
+              <AboutTrans text="Trust & Transparency" />
+            </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {[
@@ -682,8 +753,12 @@ export default function AboutPage() {
             ].map((item, i) => (
               <div key={i} className="bg-tank-dark border border-tank-light rounded-2xl p-6 hover:border-tank-accent/30 transition-all">
                 <div className="text-3xl mb-4">{item.icon}</div>
-                <h3 className="text-lg font-bold mb-2">{item.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
+                <h3 className="text-lg font-bold mb-2">
+                  <AboutTrans text={item.title} />
+                </h3>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                  <AboutTrans text={item.desc} />
+                </p>
               </div>
             ))}
           </div>
@@ -697,13 +772,14 @@ export default function AboutPage() {
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Market Context</span>
-              <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-6">The AI Content Revolution</h2>
+              <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+                <AboutTrans text="Market Context" />
+              </span>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-6">
+                <AboutTrans text="The AI Content Revolution" />
+              </h2>
               <p className="text-gray-300 leading-relaxed mb-6">
-                The generative AI market is one of the fastest-growing sectors in technology. As AI tools become 
-                more accessible and powerful, millions of creators are producing content daily — and they need 
-                a dedicated platform to share and monetize their work. AI Media Tank (AiM) is positioned at the 
-                intersection of this massive opportunity.
+                <AboutTrans text="The generative AI market is one of the fastest-growing sectors in technology. As AI tools become more accessible and powerful, millions of creators are producing content daily — and they need a dedicated platform to share and monetize their work. AI Media Tank (AiM) is positioned at the intersection of this massive opportunity." />
               </p>
               <ul className="space-y-3">
                 {[
@@ -714,7 +790,7 @@ export default function AboutPage() {
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3 text-gray-300">
                     <span className="text-tank-accent mt-1 flex-shrink-0">✦</span>
-                    <span>{item}</span>
+                    <AboutTrans text={item} />
                   </li>
                 ))}
               </ul>
@@ -730,7 +806,9 @@ export default function AboutPage() {
                   <div className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                     {stat.value}
                   </div>
-                  <div className="text-gray-500 text-xs mt-2">{stat.label}</div>
+                  <div className="text-gray-500 text-xs mt-2">
+                    <AboutTrans text={stat.label} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -744,11 +822,14 @@ export default function AboutPage() {
       <section className="py-20 px-4 bg-tank-gray/30">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">Membership Plans</span>
-            <h2 className="text-3xl md:text-4xl font-bold mt-2">Transparent, Flexible Pricing</h2>
+            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+              <AboutTrans text="Membership Plans" />
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mt-2">
+              <AboutTrans text="Transparent, Flexible Pricing" />
+            </h2>
             <p className="text-gray-400 mt-3 max-w-2xl mx-auto">
-              Start for free and scale as you grow. Every plan includes access to the full community, 
-              marketplace, and discovery features.
+              <AboutTrans text="Start for free and scale as you grow. Every plan includes access to the full community, marketplace, and discovery features." />
             </p>
           </div>
           <div className="grid md:grid-cols-4 gap-6">
@@ -760,17 +841,23 @@ export default function AboutPage() {
               }`}>
                 {plan.popular && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-tank-accent text-tank-black text-xs font-bold rounded-full whitespace-nowrap">
-                    Most Popular
+                    <AboutTrans text="Most Popular" />
                   </span>
                 )}
-                <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
-                <div className="text-3xl font-extrabold text-tank-accent mb-0.5">{plan.price}</div>
-                <div className="text-gray-500 text-sm mb-5">{plan.period}</div>
+                <h3 className="text-xl font-bold mb-1">
+                  <AboutTrans text={plan.name} />
+                </h3>
+                <div className="text-3xl font-extrabold text-tank-accent mb-0.5">
+                  <AboutTrans text={plan.price} />
+                </div>
+                <div className="text-gray-500 text-sm mb-5">
+                  <AboutTrans text={plan.period} />
+                </div>
                 <ul className="text-left space-y-2 mb-6">
                   {plan.features.map((feature, j) => (
                     <li key={j} className="text-gray-400 text-sm flex items-start gap-2">
                       <span className="text-tank-accent mt-0.5 flex-shrink-0">✓</span>
-                      <span>{feature}</span>
+                      <AboutTrans text={feature} />
                     </li>
                   ))}
                 </ul>
@@ -782,7 +869,7 @@ export default function AboutPage() {
                       : 'bg-tank-light text-white hover:bg-tank-accent hover:text-tank-black'
                   }`}
                 >
-                  Get Started
+                  <AboutTrans text="Get Started" />
                 </Link>
               </div>
             ))}
@@ -793,141 +880,197 @@ export default function AboutPage() {
             aria-labelledby="about-press-release-title"
           >
             <header className="mb-10 space-y-2 text-left">
-              <p className="text-tank-accent text-xs font-semibold tracking-widest uppercase">Press release</p>
+              <p className="text-tank-accent text-xs font-semibold tracking-widest uppercase">
+                <AboutTrans text="Press release" />
+              </p>
               <h2
                 id="about-press-release-title"
                 className="text-2xl md:text-3xl font-bold text-white leading-tight"
               >
-                AiMediaTank.com — Born with AI, Living in the Cloud
+                <AboutTrans text="AiMediaTank.com — Born with AI, Living in the Cloud" />
               </h2>
             </header>
 
             <div>
-              <h3 className="text-lg font-bold text-white mb-3">About AiMediaTank.com</h3>
+              <h3 className="text-lg font-bold text-white mb-3">
+                <AboutTrans text="About AiMediaTank.com" />
+              </h3>
               <p>
-                We are excited to introduce AiMediaTank.com, a platform designed for AI content creators and digital enthusiasts.
+                <AboutTrans text="We are excited to introduce AiMediaTank.com, a platform designed for AI content creators and digital enthusiasts." />
               </p>
               <p>
-                AiMediaTank.com is also a closed-loop social media platform where members can share their thoughts through Open Chat, communicate privately through Private Chat, and create celebration cards to share with family and friends.
+                <AboutTrans text="AiMediaTank.com is also a closed-loop social media platform where members can share their thoughts through Open Chat, communicate privately through Private Chat, and create celebration cards to share with family and friends." />
               </p>
               <p>
-                Members can distribute AiMediaTank.com free media and their own content across major social platforms including LinkedIn, TikTok, X, Facebook, WhatsApp, and Reddit, allowing them to amplify their ideas beyond the platform.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-bold text-white mb-3">Born with AI</h3>
-              <p>What makes AiMediaTank.com unique is that it was not built by humans alone.</p>
-              <p>
-                The platform was created through a human–AI collaboration. The human team acted primarily as project coordinators, while Cursor AI played a major role in generating and implementing the software.
-              </p>
-              <p>
-                Our human team members have deep experience in platform architecture and system design, but they are not traditional software programmers. Meanwhile, Cursor AI had no prior knowledge about the AiMediaTank project but possessed powerful code-generation capabilities.
-              </p>
-              <p>
-                This combination revealed something powerful: humans provide vision, direction, and problem-solving, while AI provides the ability to rapidly generate and implement code.
-              </p>
-              <p>
-                Together, the partnership made it possible to build a complex platform that would have otherwise required a large development team.
+                <AboutTrans text="Members can distribute AiMediaTank.com free media and their own content across major social platforms including LinkedIn, TikTok, X, Facebook, WhatsApp, and Reddit, allowing them to amplify their ideas beyond the platform." />
               </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-white mb-3">Living in the Cloud</h3>
+              <h3 className="text-lg font-bold text-white mb-3">
+                <AboutTrans text="Born with AI" />
+              </h3>
               <p>
-                To ensure scalability and operational simplicity, AiMediaTank.com was designed to run entirely in the cloud using Microsoft Azure.
+                <AboutTrans text="What makes AiMediaTank.com unique is that it was not built by humans alone." />
               </p>
               <p>
-                During development, we used a broad range of Azure services including virtual machines, storage, databases, networking, functions, app services, and communication services.
+                <AboutTrans text="The platform was created through a human–AI collaboration. The human team acted primarily as project coordinators, while Cursor AI played a major role in generating and implementing the software." />
               </p>
               <p>
-                AI-generated code proved highly effective across the entire stack — from front-end interfaces to back-end systems and system integrations.
+                <AboutTrans text="Our human team members have deep experience in platform architecture and system design, but they are not traditional software programmers. Meanwhile, Cursor AI had no prior knowledge about the AiMediaTank project but possessed powerful code-generation capabilities." />
               </p>
-              <p>However, some of the most difficult parts of the project involved integrating third-party services such as:</p>
+              <p>
+                <AboutTrans text="This combination revealed something powerful: humans provide vision, direction, and problem-solving, while AI provides the ability to rapidly generate and implement code." />
+              </p>
+              <p>
+                <AboutTrans text="Together, the partnership made it possible to build a complex platform that would have otherwise required a large development team." />
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-bold text-white mb-3">
+                <AboutTrans text="Living in the Cloud" />
+              </h3>
+              <p>
+                <AboutTrans text="To ensure scalability and operational simplicity, AiMediaTank.com was designed to run entirely in the cloud using Microsoft Azure." />
+              </p>
+              <p>
+                <AboutTrans text="During development, we used a broad range of Azure services including virtual machines, storage, databases, networking, functions, app services, and communication services." />
+              </p>
+              <p>
+                <AboutTrans text="AI-generated code proved highly effective across the entire stack — from front-end interfaces to back-end systems and system integrations." />
+              </p>
+              <p>
+                <AboutTrans text="However, some of the most difficult parts of the project involved integrating third-party services such as:" />
+              </p>
               <ul className="list-disc pl-5 space-y-1 text-gray-300">
-                <li>Stripe for payment processing</li>
-                <li>Wix for domain and website services</li>
-                <li>GitHub for DevOps and version control</li>
+                <li>
+                  <AboutTrans text="Stripe for payment processing" />
+                </li>
+                <li>
+                  <AboutTrans text="Wix for domain and website services" />
+                </li>
+                <li>
+                  <AboutTrans text="GitHub for DevOps and version control" />
+                </li>
               </ul>
               <p>
-                Debugging integration issues sometimes required significant effort, but tools such as Azure log streams, embedded test code generated by AI, and agent-based code reviews helped identify root causes and resolve problems.
+                <AboutTrans text="Debugging integration issues sometimes required significant effort, but tools such as Azure log streams, embedded test code generated by AI, and agent-based code reviews helped identify root causes and resolve problems." />
               </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-white mb-3">The Reality of Working with AI</h3>
-              <p>Working with AI is powerful, but it is not always smooth.</p>
+              <h3 className="text-lg font-bold text-white mb-3">
+                <AboutTrans text="The Reality of Working with AI" />
+              </h3>
               <p>
-                During the development of AiMediaTank.com, AI software engineering agents sometimes produced incorrect actions, became stuck mid-process, or generated inconsistent results. These challenges required human coordination, troubleshooting, and iteration.
+                <AboutTrans text="Working with AI is powerful, but it is not always smooth." />
               </p>
               <p>
-                Despite these difficulties, the overall experience demonstrated that AI coding tools have extraordinary potential to accelerate software development.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-bold text-white mb-3">AI Is a Partner, Not a Competitor</h3>
-              <p>This project reinforced an important lesson:</p>
-              <p>AI should not be viewed as a competitor but as a powerful collaborator.</p>
-              <p>
-                AI tools amplify human creativity and productivity, allowing people with strong ideas to build systems that previously required large engineering teams.
+                <AboutTrans text="During the development of AiMediaTank.com, AI software engineering agents sometimes produced incorrect actions, became stuck mid-process, or generated inconsistent results. These challenges required human coordination, troubleshooting, and iteration." />
               </p>
               <p>
-                Whether people resist or embrace AI, its capabilities are expanding rapidly and its role in society will continue to grow.
-              </p>
-              <p>
-                In many ways, this moment resembles the early days of personal computers. Decades later, it is clear that those who embraced computers benefited the most, while those who resisted them struggled to adapt.
+                <AboutTrans text="Despite these difficulties, the overall experience demonstrated that AI coding tools have extraordinary potential to accelerate software development." />
               </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-white mb-3">How to Work Successfully with AI</h3>
+              <h3 className="text-lg font-bold text-white mb-3">
+                <AboutTrans text="AI Is a Partner, Not a Competitor" />
+              </h3>
               <p>
-                To collaborate effectively with AI, it helps to think of it as a contract engineer, coworker, consultant, or partner.
+                <AboutTrans text="This project reinforced an important lesson:" />
               </p>
               <p>
-                AI executes instructions quickly and works continuously, but the quality of its output depends heavily on the clarity of human instructions.
+                <AboutTrans text="AI should not be viewed as a competitor but as a powerful collaborator." />
               </p>
-              <p>If the human vision is clear, AI can execute effectively. If the instructions are unclear, the results will also be unclear.</p>
-              <p>In many cases, humans and AI must work together iteratively to refine both the requirements and the implementation.</p>
+              <p>
+                <AboutTrans text="AI tools amplify human creativity and productivity, allowing people with strong ideas to build systems that previously required large engineering teams." />
+              </p>
+              <p>
+                <AboutTrans text="Whether people resist or embrace AI, its capabilities are expanding rapidly and its role in society will continue to grow." />
+              </p>
+              <p>
+                <AboutTrans text="In many ways, this moment resembles the early days of personal computers. Decades later, it is clear that those who embraced computers benefited the most, while those who resisted them struggled to adapt." />
+              </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-white mb-3">The Importance of a Strong Project Coordinator</h3>
-              <p>Successful AI collaboration requires at least one strong project coordinator who understands the project end-to-end.</p>
+              <h3 className="text-lg font-bold text-white mb-3">
+                <AboutTrans text="How to Work Successfully with AI" />
+              </h3>
               <p>
-                This person must be able to make quick decisions during development, including difficult ones — such as discarding large amounts of work and reverting to an earlier version of the system when a development path reaches a dead end.
+                <AboutTrans text="To collaborate effectively with AI, it helps to think of it as a contract engineer, coworker, consultant, or partner." />
               </p>
-              <p>Clear leadership and decisive problem-solving are essential when coordinating both human contributors and AI development tools.</p>
+              <p>
+                <AboutTrans text="AI executes instructions quickly and works continuously, but the quality of its output depends heavily on the clarity of human instructions." />
+              </p>
+              <p>
+                <AboutTrans text="If the human vision is clear, AI can execute effectively. If the instructions are unclear, the results will also be unclear." />
+              </p>
+              <p>
+                <AboutTrans text="In many cases, humans and AI must work together iteratively to refine both the requirements and the implementation." />
+              </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-white mb-3">Patience Is Part of AI Collaboration</h3>
-              <p>Working with AI also requires patience.</p>
+              <h3 className="text-lg font-bold text-white mb-3">
+                <AboutTrans text="The Importance of a Strong Project Coordinator" />
+              </h3>
               <p>
-                At times, the process can feel similar to working with a human engineer who misunderstands instructions or produces unexpected results. The difference is that AI has no emotions, yet the interaction can still feel surprisingly human.
+                <AboutTrans text="Successful AI collaboration requires at least one strong project coordinator who understands the project end-to-end." />
               </p>
-              <p>Maintaining patience and persistence is critical for successful AI collaboration.</p>
+              <p>
+                <AboutTrans text="This person must be able to make quick decisions during development, including difficult ones — such as discarding large amounts of work and reverting to an earlier version of the system when a development path reaches a dead end." />
+              </p>
+              <p>
+                <AboutTrans text="Clear leadership and decisive problem-solving are essential when coordinating both human contributors and AI development tools." />
+              </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-white mb-3">A New Era for Builders</h3>
-              <p>Building AiMediaTank.com demonstrated that AI collaboration can dramatically change how software is created.</p>
+              <h3 className="text-lg font-bold text-white mb-3">
+                <AboutTrans text="Patience Is Part of AI Collaboration" />
+              </h3>
               <p>
-                People with strong ideas can now work directly with AI tools to turn those ideas into real platforms and products. What once required large teams of developers can increasingly be accomplished by much smaller teams — or even individuals.
+                <AboutTrans text="Working with AI also requires patience." />
               </p>
-              <p>This represents the beginning of a new era for builders, creators, and entrepreneurs.</p>
+              <p>
+                <AboutTrans text="At times, the process can feel similar to working with a human engineer who misunderstands instructions or produces unexpected results. The difference is that AI has no emotions, yet the interaction can still feel surprisingly human." />
+              </p>
+              <p>
+                <AboutTrans text="Maintaining patience and persistence is critical for successful AI collaboration." />
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-bold text-white mb-3">
+                <AboutTrans text="A New Era for Builders" />
+              </h3>
+              <p>
+                <AboutTrans text="Building AiMediaTank.com demonstrated that AI collaboration can dramatically change how software is created." />
+              </p>
+              <p>
+                <AboutTrans text="People with strong ideas can now work directly with AI tools to turn those ideas into real platforms and products. What once required large teams of developers can increasingly be accomplished by much smaller teams — or even individuals." />
+              </p>
+              <p>
+                <AboutTrans text="This represents the beginning of a new era for builders, creators, and entrepreneurs." />
+              </p>
             </div>
 
             <div className="pt-2">
-              <h3 className="text-lg font-bold text-white mb-3">Closing</h3>
+              <h3 className="text-lg font-bold text-white mb-3">
+                <AboutTrans text="Closing" />
+              </h3>
               <p>
-                We hope that sharing our experience building AiMediaTank.com will help others understand the potential of human-AI collaboration.
+                <AboutTrans text="We hope that sharing our experience building AiMediaTank.com will help others understand the potential of human-AI collaboration." />
               </p>
               <p>
-                You can explore the platform and see the results of this collaboration by visiting AiMediaTank.com.
+                <AboutTrans text="You can explore the platform and see the results of this collaboration by visiting AiMediaTank.com." />
               </p>
-              <p>We believe you will enjoy the experience.</p>
+              <p>
+                <AboutTrans text="We believe you will enjoy the experience." />
+              </p>
             </div>
           </article>
         </div>
@@ -938,41 +1081,111 @@ export default function AboutPage() {
       ══════════════════════════════════════════════════════════════════ */}
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
-          <h3 className="text-xl font-bold mb-8">Explore the Platform</h3>
+          <h3 className="text-xl font-bold mb-8">
+            <AboutTrans text="Explore the Platform" />
+          </h3>
           <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6">
             <div>
-              <h4 className="text-tank-accent text-xs font-semibold uppercase tracking-widest mb-3">Discover</h4>
+              <h4 className="text-tank-accent text-xs font-semibold uppercase tracking-widest mb-3">
+                <AboutTrans text="Discover" />
+              </h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="/" className="hover:text-white transition-colors">Home</Link></li>
-                <li><Link href="/?type=VIDEO" className="hover:text-white transition-colors">Videos</Link></li>
-                <li><Link href="/?type=IMAGE" className="hover:text-white transition-colors">Images</Link></li>
-                <li><Link href="/pricing" className="hover:text-white transition-colors">Membership Plans</Link></li>
+                <li>
+                  <Link href="/" className="hover:text-white transition-colors">
+                    <AboutTrans text="Home" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/?type=VIDEO" className="hover:text-white transition-colors">
+                    <AboutTrans text="Videos" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/?type=IMAGE" className="hover:text-white transition-colors">
+                    <AboutTrans text="Images" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/pricing" className="hover:text-white transition-colors">
+                    <AboutTrans text="Membership Plans" />
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
-              <h4 className="text-tank-accent text-xs font-semibold uppercase tracking-widest mb-3">Community</h4>
+              <h4 className="text-tank-accent text-xs font-semibold uppercase tracking-widest mb-3">
+                <AboutTrans text="Community" />
+              </h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="/notifications" className="hover:text-white transition-colors">Notifications</Link></li>
-                <li><Link href="/?openChat=1" className="hover:text-white transition-colors">Kong</Link></li>
-                <li><Link href="/ecard" className="hover:text-white transition-colors">Celebration Cards</Link></li>
-                <li><Link href="/game" className="hover:text-white transition-colors">Games</Link></li>
+                <li>
+                  <Link href="/notifications" className="hover:text-white transition-colors">
+                    <AboutTrans text="Notifications" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/?openChat=1" className="hover:text-white transition-colors">
+                    <AboutTrans text="Kong" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/ecard" className="hover:text-white transition-colors">
+                    <AboutTrans text="Celebration Cards" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/game" className="hover:text-white transition-colors">
+                    <AboutTrans text="Games" />
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
-              <h4 className="text-tank-accent text-xs font-semibold uppercase tracking-widest mb-3">Account</h4>
+              <h4 className="text-tank-accent text-xs font-semibold uppercase tracking-widest mb-3">
+                <AboutTrans text="Account" />
+              </h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="/login" className="hover:text-white transition-colors">Sign In</Link></li>
-                <li><Link href="/register" className="hover:text-white transition-colors">Create Account</Link></li>
-                <li><Link href="/upload" className="hover:text-white transition-colors">Upload Media</Link></li>
+                <li>
+                  <Link href="/login" className="hover:text-white transition-colors">
+                    <AboutTrans text="Sign In" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/register" className="hover:text-white transition-colors">
+                    <AboutTrans text="Create Account" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/upload" className="hover:text-white transition-colors">
+                    <AboutTrans text="Upload Media" />
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
-              <h4 className="text-tank-accent text-xs font-semibold uppercase tracking-widest mb-3">Legal & Support</h4>
+              <h4 className="text-tank-accent text-xs font-semibold uppercase tracking-widest mb-3">
+                <AboutTrans text="Legal & Support" />
+              </h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="/policy" className="hover:text-white transition-colors">Policy</Link></li>
-                <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
-                <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-                <li><Link href="/support" className="hover:text-white transition-colors">Support</Link></li>
+                <li>
+                  <Link href="/policy" className="hover:text-white transition-colors">
+                    <AboutTrans text="Policy" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/terms" className="hover:text-white transition-colors">
+                    <AboutTrans text="Terms of Service" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacy" className="hover:text-white transition-colors">
+                    <AboutTrans text="Privacy Policy" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/support" className="hover:text-white transition-colors">
+                    <AboutTrans text="Support" />
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>
@@ -985,25 +1198,23 @@ export default function AboutPage() {
       <section className="py-20 px-4 bg-gradient-to-br from-tank-accent/15 via-tank-dark to-purple-600/10">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl md:text-5xl font-extrabold mb-6">
-            Ready to <span className="text-gradient">Shape the Future of Media?</span>
+            <AboutTrans text="Ready to Shape the Future of Media?" />
           </h2>
           <p className="text-lg text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Whether you are an AI artist, a filmmaker exploring generative tools, a music producer pushing sonic 
-            boundaries, or a technologist building the future — AI Media Tank (AiM) is the professional platform 
-            where your work gets the audience it deserves.
+            <AboutTrans text="Whether you are an AI artist, a filmmaker exploring generative tools, a music producer pushing sonic boundaries, or a technologist building the future — AI Media Tank (AiM) is the professional platform where your work gets the audience it deserves." />
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-14">
             <Link
               href="/register"
               className="px-8 py-4 bg-tank-accent text-tank-black font-bold rounded-xl hover:bg-tank-accent/90 hover:shadow-lg hover:shadow-tank-accent/20 transition-all"
             >
-              Get Started Free
+              <AboutTrans text="Get Started Free" />
             </Link>
             <a
               href="mailto:hello@aimediatank.com"
               className="px-8 py-4 border-2 border-tank-accent text-tank-accent font-bold rounded-xl hover:bg-tank-accent hover:text-tank-black transition-all"
             >
-              Contact Us
+              <AboutTrans text="Contact Us" />
             </a>
           </div>
 
@@ -1018,7 +1229,9 @@ export default function AboutPage() {
                   {contact.icon}
                 </div>
                 <div className="text-left">
-                  <div className="text-gray-500 text-xs">{contact.label}</div>
+                  <div className="text-gray-500 text-xs">
+                    <AboutTrans text={contact.label} />
+                  </div>
                   <div className="font-medium text-sm">{contact.value}</div>
                 </div>
               </div>
@@ -1032,9 +1245,11 @@ export default function AboutPage() {
       ══════════════════════════════════════════════════════════════════ */}
       <footer className="py-8 px-4 border-t border-tank-light">
         <div className="max-w-6xl mx-auto text-center text-gray-500 text-sm">
-          <p>&copy; {CURRENT_YEAR} AI Media Tank (AiM). All rights reserved.</p>
+          <p>
+            <AboutTrans text={`© ${CURRENT_YEAR} AI Media Tank (AiM). All rights reserved.`} />
+          </p>
           <p className="mt-2">
-            Built with <span className="text-tank-accent">Cursor AI</span> · Powered by <span className="text-blue-400">Microsoft Azure</span> · Payments by <span className="text-purple-400">Stripe</span>
+            <AboutTrans text="Built with Cursor AI · Powered by Microsoft Azure · Payments by Stripe" />
           </p>
         </div>
       </footer>
