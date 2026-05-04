@@ -696,7 +696,7 @@ function NavbarContent() {
                       <div className="px-4 py-1 border-b border-tank-light">
                         <p className="font-semibold">{userData?.username || session.user?.username || 'User'}</p>
                         {accountDeactivated ? (
-                          <span className="mt-1 inline-block rounded-full bg-gray-600/35 px-2 py-0.5 text-xs text-gray-300">
+                          <span className="mt-1 inline-block rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-bold text-red-400">
                             Account Deactivated
                           </span>
                         ) : (
