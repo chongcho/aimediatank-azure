@@ -338,6 +338,12 @@ export const authOptions: NextAuthOptions = {
         const su = session.user as { accountDeactivated?: boolean }
         if (su.accountDeactivated === true) {
           token.accountDeactivatedAt = new Date().toISOString()
+        } else if (su.accountDeactivated === false && token.id) {
+          const u = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { accountDeactivatedAt: true },
+          })
+          token.accountDeactivatedAt = u?.accountDeactivatedAt?.toISOString() ?? null
         }
         if (session.user.username) token.username = session.user.username
         if (session.user.name) token.name = session.user.name

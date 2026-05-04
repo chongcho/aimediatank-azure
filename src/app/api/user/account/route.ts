@@ -8,13 +8,13 @@ import { isSelfServiceAccountDeactivationEnabled } from '@/lib/selfServiceAccoun
 
 export const dynamic = 'force-dynamic'
 
-type DeactivateBody = { confirmUsername?: unknown; password?: unknown }
+type AccountBody = { confirmUsername?: unknown; password?: unknown; restore?: unknown }
 
-async function parseJsonBody(request: Request): Promise<DeactivateBody | null> {
+async function parseJsonBody(request: Request): Promise<AccountBody | null> {
   try {
     const text = await request.text()
     if (!text) return {}
-    return JSON.parse(text) as DeactivateBody
+    return JSON.parse(text) as AccountBody
   } catch {
     return null
   }
@@ -32,16 +32,34 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const body = await parseJsonBody(request)
+    if (body === null) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+
+    if (body.restore === true) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { id: true, accountDeactivatedAt: true },
+      })
+      if (!user) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+      if (!user.accountDeactivatedAt) {
+        return NextResponse.json({ error: 'Account is not deactivated.' }, { status: 400 })
+      }
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { accountDeactivatedAt: null },
+      })
+      return NextResponse.json({ success: true })
+    }
+
     if (!(await isSelfServiceAccountDeactivationEnabled())) {
       return NextResponse.json(
         { error: 'Account deactivation has been disabled by an administrator.' },
         { status: 403 },
       )
-    }
-
-    const body = await parseJsonBody(request)
-    if (body === null) {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
 
     const confirmUsername =

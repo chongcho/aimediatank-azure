@@ -45,7 +45,8 @@ export default function Navbar() {
 
 function NavbarContent() {
   const searchParams = useSearchParams()
-  const { data: session, status } = useSession()
+  const { data: session, status, update: updateSession } = useSession()
+  const [restoreLoading, setRestoreLoading] = useState(false)
   const { tNavbar: t, tFeed } = useUiLocale()
   const feedAutoTranslation = useFeedGridAutoTranslation()
   const { mode: feedCardTextMode, setMode: setFeedCardTextMode } = useFeedCardTextMode()
@@ -143,6 +144,30 @@ function NavbarContent() {
     userData?.accountDeactivatedAt || session?.user?.accountDeactivated,
   )
 
+  const handleRestoreAccount = useCallback(async () => {
+    setRestoreLoading(true)
+    try {
+      const res = await fetch('/api/user/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restore: true }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(typeof data.error === 'string' ? data.error : 'Could not restore account.')
+        return
+      }
+      await updateSession({ user: { accountDeactivated: false } })
+      window.dispatchEvent(new Event('profileUpdated'))
+      setIsProfileOpen(false)
+    } catch (e) {
+      console.error(e)
+      alert('Could not restore account.')
+    } finally {
+      setRestoreLoading(false)
+    }
+  }, [updateSession])
+
   // Check subscriber status from fetched data (more reliable than session)
   const isSubscriber =
     !accountDeactivated &&
@@ -187,6 +212,12 @@ function NavbarContent() {
     setIsSelectMode(false)
     setSelectedIds(new Set())
   }, [])
+
+  useEffect(() => {
+    if (accountDeactivated) {
+      closeAlertsPanel()
+    }
+  }, [accountDeactivated, closeAlertsPanel])
 
   const toggleFeedTextMenu = useCallback(
     (e: React.MouseEvent) => {
@@ -646,7 +677,7 @@ function NavbarContent() {
                     className="relative flex items-center p-0 rounded-lg hover:ring-2 hover:ring-tank-accent transition-all"
                     title={displayName}
                   >
-                    {unreadCount > 0 && isNavbarItemEnabled('notification') && (
+                    {unreadCount > 0 && isNavbarItemEnabled('notification') && !accountDeactivated && (
                       <span className="absolute -top-0.5 -right-0.5 z-[1] min-w-[1rem] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                         {unreadCount > 9 ? '9+' : unreadCount}
                       </span>
@@ -682,114 +713,164 @@ function NavbarContent() {
                           </span>
                         )}
                       </div>
-                      {isNavbarItemEnabled('notification') && (
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-3 px-4 py-2 text-sm text-white hover:bg-tank-light/30 border-b border-tank-light/40"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            closeFeedTextMenu()
-                            setExpandedNotificationId(null)
-                            setIsSelectMode(false)
-                            setSelectedIds(new Set())
-                            setIsProfileOpen(false)
-                            setIsAlertsOpen(true)
-                          }}
-                        >
-                          <div className="relative flex h-5 w-5 shrink-0 items-center justify-center text-gray-400">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            {unreadCount > 0 && (
-                              <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                                {unreadCount > 9 ? '9+' : unreadCount}
-                              </span>
-                            )}
+                      {accountDeactivated ? (
+                        <>
+                          <div className="border-b border-tank-light/40 px-4 py-2">
+                            <button
+                              type="button"
+                              disabled={restoreLoading}
+                              onClick={() => void handleRestoreAccount()}
+                              className="w-full rounded-lg bg-green-500 py-2.5 text-center text-sm font-semibold text-black shadow hover:bg-green-400 disabled:cursor-wait disabled:opacity-60"
+                            >
+                              {restoreLoading ? '…' : 'Restore Account'}
+                            </button>
                           </div>
-                          <span className="flex-1 text-left">{t('notifications')}</span>
-                        </button>
+                          {isAdmin && (
+                            <Link
+                              prefetch={false}
+                              href="/admin"
+                              className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors text-red-400"
+                              onClick={() => setIsProfileOpen(false)}
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              {t('adminPanel')}
+                            </Link>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              clearAppBadge()
+                              void fetch('/api/admin/clear-reauth-cookie', {
+                                method: 'POST',
+                                credentials: 'include',
+                              }).finally(() => {
+                                signOut({ callbackUrl: '/' })
+                              })
+                            }}
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-gray-400 hover:bg-tank-light transition-colors"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            {t('signOut')}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {isNavbarItemEnabled('notification') && (
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-3 px-4 py-2 text-sm text-white hover:bg-tank-light/30 border-b border-tank-light/40"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                closeFeedTextMenu()
+                                setExpandedNotificationId(null)
+                                setIsSelectMode(false)
+                                setSelectedIds(new Set())
+                                setIsProfileOpen(false)
+                                setIsAlertsOpen(true)
+                              }}
+                            >
+                              <div className="relative flex h-5 w-5 shrink-0 items-center justify-center text-gray-400">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                                {unreadCount > 0 && (
+                                  <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="flex-1 text-left">{t('notifications')}</span>
+                            </button>
+                          )}
+                          <Link
+                            href="/profile/edit"
+                            className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
+                            onClick={() => setIsProfileOpen(false)}
+                          >
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            {t('profile')}
+                          </Link>
+                          <Link
+                            href={`/profile/${userData?.username || session.user?.username}`}
+                            className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
+                            onClick={() => setIsProfileOpen(false)}
+                          >
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                            {t('myContents')}
+                          </Link>
+                          <Link
+                            href="/pricing"
+                            className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
+                            onClick={() => setIsProfileOpen(false)}
+                          >
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                            {t('membership')}
+                          </Link>
+                          <Link
+                            href="/support"
+                            className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
+                            onClick={() => setIsProfileOpen(false)}
+                          >
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            {t('support')}
+                          </Link>
+                          <Link
+                            href="/policy?from=navbar"
+                            className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
+                            onClick={() => setIsProfileOpen(false)}
+                          >
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            {t('policy')}
+                          </Link>
+                          {isAdmin && (
+                            <Link
+                              prefetch={false}
+                              href="/admin"
+                              className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors text-red-400"
+                              onClick={() => setIsProfileOpen(false)}
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              {t('adminPanel')}
+                            </Link>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              clearAppBadge()
+                              void fetch('/api/admin/clear-reauth-cookie', {
+                                method: 'POST',
+                                credentials: 'include',
+                              }).finally(() => {
+                                signOut({ callbackUrl: '/' })
+                              })
+                            }}
+                            className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors w-full text-left text-gray-400"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            {t('signOut')}
+                          </button>
+                        </>
                       )}
-                      <Link
-                        href="/profile/edit"
-                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        {t('profile')}
-                      </Link>
-                      <Link
-                        href={`/profile/${userData?.username || session.user?.username}`}
-                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                        {t('myContents')}
-                      </Link>
-                      <Link
-                        href="/pricing"
-                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                        </svg>
-                        {t('membership')}
-                      </Link>
-                      <Link
-                        href="/support"
-                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        {t('support')}
-                      </Link>
-                      <Link
-                        href="/policy?from=navbar"
-                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        {t('policy')}
-                      </Link>
-                      {isAdmin && (
-                        <Link
-                          prefetch={false}
-                          href="/admin"
-                          className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors text-red-400"
-                          onClick={() => setIsProfileOpen(false)}
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          {t('adminPanel')}
-                        </Link>
-                      )}
-                      <button
-                        onClick={() => {
-                          clearAppBadge() // Clear badge on sign out
-                          void fetch('/api/admin/clear-reauth-cookie', {
-                            method: 'POST',
-                            credentials: 'include',
-                          }).finally(() => {
-                            signOut({ callbackUrl: '/' })
-                          })
-                        }}
-                        className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors w-full text-left text-gray-400"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        {t('signOut')}
-                      </button>
                     </div>
                   )}
                 </div>
@@ -907,6 +988,7 @@ function NavbarContent() {
 
       {session &&
         isNavbarItemEnabled('notification') &&
+        !accountDeactivated &&
         isAlertsOpen &&
         createPortal(
           <div

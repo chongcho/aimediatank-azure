@@ -25,6 +25,7 @@ interface ProfileData {
 
 export default function EditProfilePage() {
   const { data: session, status, update: updateSession } = useSession()
+  const accountDeactivatedSession = Boolean(session?.user?.accountDeactivated)
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -58,7 +59,6 @@ export default function EditProfilePage() {
   const [cancelRegUsername, setCancelRegUsername] = useState('')
   const [cancelRegPassword, setCancelRegPassword] = useState('')
   const [cancelRegLoading, setCancelRegLoading] = useState(false)
-  const [accountDeactivated, setAccountDeactivated] = useState(false)
 
   const notifyAvatarFileSizeExceeded = (actualFileBytes: number) => {
     setError(buildUploadFileSizeExceededMessage(maxUploadBytes, actualFileBytes))
@@ -118,9 +118,13 @@ export default function EditProfilePage() {
     if (status === 'unauthenticated') {
       router.push('/login')
     } else if (status === 'authenticated') {
+      if (session?.user?.accountDeactivated) {
+        router.replace('/')
+        return
+      }
       fetchProfile()
     }
-  }, [status])
+  }, [status, session?.user?.accountDeactivated, router])
 
   useEffect(() => {
     fetch('/api/ui/crop-settings')
@@ -190,7 +194,9 @@ export default function EditProfilePage() {
         if (data.user.avatar) {
           setAvatarPreview(data.user.avatar)
         }
-        setAccountDeactivated(Boolean(data.user.accountDeactivatedAt))
+        if (data.user.accountDeactivatedAt) {
+          router.replace('/')
+        }
       }
     } catch (error) {
       console.error('Error fetching profile:', error)
@@ -641,15 +647,23 @@ export default function EditProfilePage() {
       setDeactivateIntroOpen(false)
       setCancelRegUsername('')
       setCancelRegPassword('')
-      setAccountDeactivated(true)
       await updateSession({ user: { accountDeactivated: true } })
       window.dispatchEvent(new Event('profileUpdated'))
+      router.replace('/')
     } catch (e) {
       console.error(e)
       alert('Could not deactivate account.')
     } finally {
       setCancelRegLoading(false)
     }
+  }
+
+  if (status === 'authenticated' && accountDeactivatedSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="spinner" />
+      </div>
+    )
   }
 
   if (status === 'loading' || loading) {
@@ -690,13 +704,6 @@ export default function EditProfilePage() {
           {success && (
             <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-sm">
               {success}
-            </div>
-          )}
-
-          {accountDeactivated && (
-            <div className="rounded-xl border border-gray-600/50 bg-gray-800/40 p-4 text-sm text-gray-300">
-              Your account is deactivated. Your uploads are hidden from the feed and your username no longer appears
-              in search. Profile editing is disabled. Contact support if you need your account restored.
             </div>
           )}
 
@@ -1044,7 +1051,7 @@ export default function EditProfilePage() {
 
           {/* Actions: Deactivate Account (left), Cancel + Save (right) */}
           <div className="flex w-full flex-wrap items-center justify-between gap-4 pt-0">
-            {!accountDeactivated && authSettings.selfServiceDeactivateAccountEnabled && (
+            {authSettings.selfServiceDeactivateAccountEnabled && (
             <button
               type="button"
               onClick={() => {
@@ -1065,7 +1072,7 @@ export default function EditProfilePage() {
               </button>
               <button
                 type="submit"
-                disabled={saving || accountDeactivated}
+                disabled={saving}
                 className="px-8 py-3 btn-primary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
@@ -1093,8 +1100,8 @@ export default function EditProfilePage() {
             </h3>
             <p className="mb-4 text-sm text-gray-400">
               This hides your uploads from the home feed and your profile, removes your username from search, and
-              limits what you can do while signed in. You will not be able to sign in again on this account until
-              support restores it. Active subscriptions are cancelled when you confirm.
+              limits what you can do while signed in. You can turn the account back on anytime from the profile menu
+              (green Restore Account). Active subscriptions are cancelled when you confirm.
             </p>
             <div className="flex justify-end gap-3">
               <button
