@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useSession } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
@@ -53,6 +53,10 @@ export default function EditProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [maxUploadBytes, setMaxUploadBytes] = useState(10 * 1024 * 1024)
+  const [cancelRegOpen, setCancelRegOpen] = useState(false)
+  const [cancelRegUsername, setCancelRegUsername] = useState('')
+  const [cancelRegPassword, setCancelRegPassword] = useState('')
+  const [cancelRegLoading, setCancelRegLoading] = useState(false)
 
   const notifyAvatarFileSizeExceeded = (actualFileBytes: number) => {
     setError(buildUploadFileSizeExceededMessage(maxUploadBytes, actualFileBytes))
@@ -610,6 +614,36 @@ export default function EditProfilePage() {
     }
   }
 
+  const accountUsernameForDelete = originalUsername || session?.user?.username || ''
+
+  const handleConfirmCancelRegistration = async () => {
+    setCancelRegLoading(true)
+    try {
+      const res = await fetch('/api/user/account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          confirmUsername: cancelRegUsername,
+          password: cancelRegPassword,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(typeof data.error === 'string' ? data.error : 'Could not delete account.')
+        return
+      }
+      setCancelRegOpen(false)
+      setCancelRegUsername('')
+      setCancelRegPassword('')
+      await signOut({ callbackUrl: '/' })
+    } catch (e) {
+      console.error(e)
+      alert('Could not delete account.')
+    } finally {
+      setCancelRegLoading(false)
+    }
+  }
+
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -993,26 +1027,106 @@ export default function EditProfilePage() {
             </div>
           </div>
 
-          {/* Actions — aligned right */}
-          <div className="flex w-full justify-end gap-4 pt-0">
+          {/* Actions: Cancel Registration (left), Cancel + Save (right) */}
+          <div className="flex w-full flex-wrap items-center justify-between gap-4 pt-0">
             <button
               type="button"
-              onClick={() => router.back()}
-              className="px-8 py-3 bg-tank-gray border border-tank-light rounded-xl hover:bg-tank-light transition-colors"
+              onClick={() => {
+                setCancelRegUsername('')
+                setCancelRegPassword('')
+                setCancelRegOpen(true)
+              }}
+              className="shrink-0 px-4 py-3 bg-red-600/90 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors border border-red-500/80"
             >
-              Cancel
+              Cancel Registration
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-8 py-3 btn-primary"
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
+            <div className="flex shrink-0 gap-4 sm:ml-auto">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="px-8 py-3 bg-tank-gray border border-tank-light rounded-xl hover:bg-tank-light transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-8 py-3 btn-primary"
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
 
+      {cancelRegOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => !cancelRegLoading && setCancelRegOpen(false)}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-tank-light bg-tank-dark p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-reg-edit-title"
+          >
+            <h3 id="cancel-reg-edit-title" className="mb-2 text-xl font-bold text-red-400">
+              Cancel registration
+            </h3>
+            <p className="mb-4 text-sm text-gray-400">
+              This permanently deletes your account, uploads, purchases record, and messages. This cannot be undone.
+            </p>
+            <label className="mb-1 block text-sm text-gray-300" htmlFor="cancel-reg-edit-username">
+              Type your username{' '}
+              <span className="font-mono text-tank-accent">@{accountUsernameForDelete}</span> to confirm
+            </label>
+            <input
+              id="cancel-reg-edit-username"
+              name="cancel-reg-edit-username"
+              type="text"
+              autoComplete="username"
+              value={cancelRegUsername}
+              onChange={(e) => setCancelRegUsername(e.target.value)}
+              className="mb-4 w-full rounded-lg border border-tank-light bg-tank-gray px-3 py-2 text-sm text-white"
+              disabled={cancelRegLoading}
+            />
+            <label className="mb-1 block text-sm text-gray-300" htmlFor="cancel-reg-edit-password">
+              Account password (leave blank if you only use social sign-in)
+            </label>
+            <input
+              id="cancel-reg-edit-password"
+              name="cancel-reg-edit-password"
+              type="password"
+              autoComplete="current-password"
+              value={cancelRegPassword}
+              onChange={(e) => setCancelRegPassword(e.target.value)}
+              className="mb-6 w-full rounded-lg border border-tank-light bg-tank-gray px-3 py-2 text-sm text-white"
+              disabled={cancelRegLoading}
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={cancelRegLoading}
+                onClick={() => setCancelRegOpen(false)}
+                className="rounded-lg bg-tank-gray px-4 py-2 text-gray-300 transition-colors hover:bg-tank-light"
+              >
+                Keep account
+              </button>
+              <button
+                type="button"
+                disabled={cancelRegLoading || !cancelRegUsername.trim()}
+                onClick={() => void handleConfirmCancelRegistration()}
+                className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {cancelRegLoading ? 'Deleting…' : 'Delete forever'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Verification Code Modal */}
       {showVerifyModal && (
