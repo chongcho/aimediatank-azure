@@ -91,7 +91,7 @@ Replace with your real connection string and the E.164 number from step 3.
 ## 5. Verify behavior
 
 - **When both variables are set:**  
-  “Send verification code” on the Sign Up page sends a real SMS to the entered phone number. The code is **not** returned in the API response.
+  “Send verification code” on the Join (registration) page sends a real SMS to the entered phone number. The code is **not** returned in the API response.
 
 - **When either variable is missing:**  
   The app does not call Azure SMS. The 6-digit code is still generated and stored; in the API response the code is included so the UI can pre-fill it for testing (e.g. in dev or before ACS is configured).

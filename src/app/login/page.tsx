@@ -12,14 +12,14 @@ import {
 } from '@/lib/adminFreshStep2'
 
 const ERROR_MESSAGES: Record<string, string> = {
-  OAuthCallback: 'Social sign-in failed. You can try again or sign in with email below.',
-  Callback: 'Sign-in failed. Try again or use email to sign in.',
-  OAuthSignin: 'Social sign-in failed. Try again or use email.',
-  OAuthCreateAccount: 'Could not create account with that provider. Try email sign-up.',
-  OAuthAccountNotLinked: 'Sign in with the same account you used originally.',
+  OAuthCallback: 'Social login failed. You can try again or log in with email below.',
+  Callback: 'Login failed. Try again or use email to log in.',
+  OAuthSignin: 'Social login failed. Try again or use email.',
+  OAuthCreateAccount: 'Could not create account with that provider. Try joining with email.',
+  OAuthAccountNotLinked: 'Log in with the same account you used originally.',
   CredentialsSignin: 'Invalid email or password. Please try again.',
-  EmailSignin: 'Email sign-in failed. Please try again.',
-  SessionRequired: 'Please sign in to access this page.',
+  EmailSignin: 'Email login failed. Please try again.',
+  SessionRequired: 'Please log in to access this page.',
   default: 'Something went wrong. Please try again.',
 }
 
@@ -135,7 +135,7 @@ function LoginContent() {
           </Link>
           {returningToAdmin && (
             <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-2">
-              Step 1 of 2 · Account sign-in
+              Step 1 of 2 · Account login
             </p>
           )}
           <div className="flex items-center justify-center relative">
@@ -151,10 +151,10 @@ function LoginContent() {
               </svg>
             </button>
           </div>
-          <p className="text-gray-400">Sign in to your account</p>
+          <p className="text-gray-400">Log in to your account</p>
           {returningToAdmin && (
             <p className="text-sm text-gray-300 mt-3 max-w-md mx-auto">
-              Use your email and password here first. Step 2 (after sign-in) is Admin Panel verification: a server-configured admin passphrase plus email or phone code.
+              Use your email and password here first. Step 2 (after login) is Admin Panel verification: a server-configured admin passphrase plus email or phone code.
             </p>
           )}
         </div>
@@ -190,11 +190,11 @@ function LoginContent() {
 
               {forgotEmailResult?.maskedEmail && (
                 <div className="p-4 bg-emerald-900/40 border border-emerald-700/50 rounded-xl text-center">
-                  <p className="text-sm font-semibold text-white mb-2">Your sign-in email:</p>
+                  <p className="text-sm font-semibold text-white mb-2">Your login email:</p>
                   <p className="text-lg font-bold text-emerald-400 bg-emerald-900/50 px-4 py-2 rounded-lg tracking-wide">
                     {forgotEmailResult.maskedEmail}
                   </p>
-                  <p className="text-xs text-emerald-300/70 mt-2">Use this email to sign in</p>
+                  <p className="text-xs text-emerald-300/70 mt-2">Use this email to log in</p>
                 </div>
               )}
 
@@ -218,7 +218,7 @@ function LoginContent() {
                 onClick={closeForgotEmail}
                 className="w-full text-center text-sm text-gray-400 hover:text-gray-200 transition-colors py-2"
               >
-                ← Back to Sign In
+                ← Back to Log in
               </button>
             </form>
           ) : !showCredentialsForm ? (
@@ -239,7 +239,7 @@ function LoginContent() {
                 onClick={() => setShowEmailForm(true)}
                 className="mt-6 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-gray-200"
               >
-                Sign in with Email
+                Log in with Email
               </button>
             </>
           ) : (
@@ -305,10 +305,10 @@ function LoginContent() {
                 {loading ? (
                   <>
                     <span className="spinner" />
-                    Signing in...
+                    Logging in...
                   </>
                 ) : (
-                  'Sign In'
+                  'Log in'
                 )}
               </button>
             </form>
@@ -330,13 +330,13 @@ function LoginContent() {
                 hideDividerAbove
               />
               <p className="text-xs text-gray-500 text-center mt-3">
-                Social sign-in only if your admin account uses that provider. Email/password above is recommended for admin access.
+                Social login only if your admin account uses that provider. Email/password above is recommended for admin access.
               </p>
             </>
           )}
 
           <p className="mt-6 text-center text-sm text-gray-400">
-            By signing in, you agree to the AI Media Tank (AiM){' '}
+            By logging in, you agree to the AI Media Tank (AiM){' '}
             <Link href="/terms?from=login" className="text-tank-accent hover:underline font-medium">
               Terms of Service
             </Link>
@@ -351,7 +351,7 @@ function LoginContent() {
         <p className="text-center mt-6 text-gray-400">
           Don't have an account?{' '}
           <Link href="/register" className="text-tank-accent hover:underline">
-            Sign up
+            Join
           </Link>
         </p>
       </div>
@@ -372,7 +372,7 @@ function LoginFallback() {
             </span>
           </Link>
           <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
-          <p className="text-gray-400">Sign in to your account</p>
+          <p className="text-gray-400">Log in to your account</p>
         </div>
         <div className="card flex items-center justify-center py-12">
           <span className="spinner w-8 h-8" />

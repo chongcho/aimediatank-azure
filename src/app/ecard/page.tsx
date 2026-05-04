@@ -39,12 +39,12 @@ export default function EcardPage() {
       <div className="min-h-[60vh] flex items-center justify-center px-4 py-12">
         <div className="max-w-md w-full bg-tank-dark/80 border border-tank-light rounded-2xl p-8 text-center space-y-6">
           <h1 className="text-2xl font-bold text-white">Celebration Card</h1>
-          <p className="text-gray-300">Sign in to create and send celebration cards.</p>
+          <p className="text-gray-300">Log in to create and send celebration cards.</p>
           <Link
             href="/login"
             className="inline-block px-6 py-3 bg-tank-accent hover:bg-tank-accent/90 text-white font-medium rounded-lg transition-colors"
           >
-            Sign in
+            Log in
           </Link>
         </div>
       </div>

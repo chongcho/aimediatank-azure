@@ -172,7 +172,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
             Welcome Back
           </h2>
           <p style={{ color: '#888', fontSize: '14px', margin: 0 }}>
-            Sign in to your account
+            Log in to your account
           </p>
         </div>
 
@@ -228,7 +228,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
                   fontSize: '14px',
                   textAlign: 'center',
                 }}>
-                  <div style={{ marginBottom: '8px', fontWeight: '600' }}>📧 Your sign-in email:</div>
+                  <div style={{ marginBottom: '8px', fontWeight: '600' }}>📧 Your login email:</div>
                   <div style={{ 
                     fontSize: '18px', 
                     fontWeight: 'bold',
@@ -240,7 +240,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
                     {forgotEmailResult.maskedEmail}
                   </div>
                   <div style={{ marginTop: '8px', fontSize: '12px', color: '#a7f3d0' }}>
-                    Use this email to sign in
+                    Use this email to log in
                   </div>
                 </div>
               )}
@@ -280,12 +280,12 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
                   marginBottom: '20px',
                 }}
               >
-                ← Back to Sign In
+                ← Back to Log in
               </button>
             </form>
           </div>
         ) : !showEmailForm ? (
-          /* Social first, then Sign in with Email */
+          /* Social first, then Log in with Email */
           <>
             {error && (
               <div style={{
@@ -331,7 +331,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
                 cursor: 'pointer',
               }}
             >
-              Sign in with Email
+              Log in with Email
             </button>
           </>
         ) : (
@@ -457,14 +457,14 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
                 marginBottom: '20px',
               }}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Logging in...' : 'Log in'}
             </button>
           </form>
         )}
 
         {/* Legal disclaimer */}
         <p style={{ textAlign: 'center', color: '#888', fontSize: '12px', margin: '20px 0 0 0', lineHeight: 1.5 }}>
-          By signing in, you agree to the AI Media Tank (AiM){' '}
+          By logging in, you agree to the AI Media Tank (AiM){' '}
           <Link href="/terms" onClick={onClose} style={{ color: '#10b981', textDecoration: 'underline', fontWeight: 600 }}>
             Terms of Service
           </Link>
@@ -483,7 +483,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             style={{ color: '#10b981', textDecoration: 'underline' }}
           >
-            Sign up
+            Join
           </Link>
         </p>
       </div>

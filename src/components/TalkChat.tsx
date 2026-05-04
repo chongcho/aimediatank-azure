@@ -1601,7 +1601,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
     const username = currentUsername || session?.user?.username
     if (!username) {
-      setMediaPickerQuickUploadError('Sign in to upload.')
+      setMediaPickerQuickUploadError('Log in to upload.')
       return
     }
 

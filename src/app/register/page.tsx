@@ -618,7 +618,7 @@ export default function RegisterPage() {
                 onClick={() => setShowEmailForm(true)}
                 className="mt-6 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-gray-200"
               >
-                Sign up with Email
+                Join with Email
               </button>
             </>
           ) : (
@@ -1071,7 +1071,7 @@ export default function RegisterPage() {
         <p className="text-center mt-6 text-gray-400">
           Already have an account?{' '}
           <Link href="/login" className="text-tank-accent hover:underline">
-            Sign in
+            Log in
           </Link>
         </p>
 

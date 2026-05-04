@@ -36,7 +36,7 @@ export function useUiLocale() {
         })()
       : browserTag
 
-  /** Shell copy keyed by UI locale (e.g. Sign In on feed cards). */
+  /** Shell copy keyed by UI locale (e.g. Log in on feed cards). */
   const t = useCallback((key: NavBarKey) => navBarT(localeTag, key), [localeTag])
   /** Top nav / hamburger / alerts chrome — always English regardless of profile or browser. */
   const tNavbar = useCallback((key: NavBarKey) => navBarT('en', key), [])

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
-      return NextResponse.json({ error: 'Please sign in' }, { status: 401 })
+      return NextResponse.json({ error: 'Please log in' }, { status: 401 })
     }
 
     // Parse body safely

@@ -97,17 +97,17 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error:
-              'Admin sign-in Step 2 requires ADMIN_USER_STEP2_PASSWORD_HASH (or ADMIN_USER_STEP2_PASSWORD for local dev)—a passphrase separate from your account login password.',
+              'Admin login Step 2 requires ADMIN_USER_STEP2_PASSWORD_HASH (or ADMIN_USER_STEP2_PASSWORD for local dev)—a passphrase separate from your account login password.',
           },
           { status: 503 }
         )
       }
       if (!password) {
-        return NextResponse.json({ error: 'Admin sign-in passphrase is required' }, { status: 400 })
+        return NextResponse.json({ error: 'Admin login passphrase is required' }, { status: 400 })
       }
       const validUserStep2 = await verifyAdminUserStep2Password(password)
       if (!validUserStep2) {
-        return NextResponse.json({ error: 'Invalid admin sign-in passphrase' }, { status: 400 })
+        return NextResponse.json({ error: 'Invalid admin login passphrase' }, { status: 400 })
       }
     } else {
       if (isDedicatedAdminPanelPasswordRequired() && !isAdminPanelAccessPasswordConfigured()) {

@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Sign in to view sent cards' }, { status: 401 })
+      return NextResponse.json({ error: 'Log in to view sent cards' }, { status: 401 })
     }
 
     const cards = await prisma.celebrationCard.findMany({

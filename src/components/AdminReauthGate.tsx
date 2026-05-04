@@ -175,7 +175,7 @@ export default function AdminReauthGate({
     }
 
     if (status === 'unauthenticated') {
-      return <AdminReauthPlaceholder message="Redirecting to sign in…" />
+      return <AdminReauthPlaceholder message="Redirecting to log in…" />
     }
 
     if (!session?.user) {
@@ -195,7 +195,7 @@ export default function AdminReauthGate({
     }
   } else {
     if (status === 'unauthenticated') {
-      return <AdminReauthPlaceholder message="Redirecting to sign in…" />
+      return <AdminReauthPlaceholder message="Redirecting to log in…" />
     }
     if (
       status === 'authenticated' &&
@@ -234,10 +234,10 @@ export default function AdminReauthGate({
           {verifyMode === 'adminUser' ? 'Admin account verification' : 'Admin Panel access'}
         </h1>
         <p className="text-gray-300 text-sm mb-1">
-          Signed in as <span className="font-medium text-white">{adminUsername}</span>.
+          Logged in as <span className="font-medium text-white">{adminUsername}</span>.
           {verifyMode === 'adminUser'
-            ? ' Enter the admin sign-in passphrase and a verification code to finish signing in.'
-            : ' App sign-in is complete; use the Admin Panel passphrase and a verification code to open the panel.'}
+            ? ' Enter the admin login passphrase and a verification code to finish logging in.'
+            : ' App login is complete; use the Admin Panel passphrase and a verification code to open the panel.'}
         </p>
         <p className="text-gray-400 text-sm mb-6">
           {verifyMode === 'adminUser'
@@ -248,7 +248,7 @@ export default function AdminReauthGate({
           bootstrappedFromServer &&
           !initialAdminUserStep2Configured && (
             <div className="mb-4 p-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-200 text-sm">
-              Admin sign-in Step 2 is not configured. Set{' '}
+              Admin login Step 2 is not configured. Set{' '}
               <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_USER_STEP2_PASSWORD_HASH</code> (or for
               local dev only{' '}
               <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_USER_STEP2_PASSWORD</code>
@@ -273,7 +273,7 @@ export default function AdminReauthGate({
         <form onSubmit={handleVerify} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
-              {verifyMode === 'adminUser' ? 'Admin sign-in passphrase' : 'Admin Panel passphrase'}
+              {verifyMode === 'adminUser' ? 'Admin login passphrase' : 'Admin Panel passphrase'}
             </label>
             <input
               type="password"

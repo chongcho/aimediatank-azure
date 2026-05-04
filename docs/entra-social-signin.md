@@ -1,6 +1,6 @@
-# Social Sign In / Sign Up (Microsoft Entra External ID)
+# Social Log In / Join (Microsoft Entra External ID)
 
-The app supports **Sign In** and **Sign Up** via **Microsoft Entra External ID** (or Azure AD B2C) as a **single integration point**. Azure handles federation with Google, Facebook, Apple, and Microsoft accounts; you configure those identity providers once in the Azure portal.
+The app supports **Log in** and **Join** via **Microsoft Entra External ID** (or Azure AD B2C) as a **single integration point**. Azure handles federation with Google, Facebook, Apple, and Microsoft accounts; you configure those identity providers once in the Azure portal.
 
 ## Behaviour
 

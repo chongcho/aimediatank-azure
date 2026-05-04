@@ -127,7 +127,7 @@ export default function ResendVerificationPage() {
               <p className="text-center text-sm text-gray-400">
                 Remember your password?{' '}
                 <Link href="/login" className="text-tank-accent hover:underline">
-                  Sign in
+                  Log in
                 </Link>
               </p>
             </form>

@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       success: true,
       maskedEmail,
       username: user.username,
-      message: 'Email found! Use this email to sign in.'
+      message: 'Email found! Use this email to log in.'
     })
   } catch (error) {
     console.error('Error in forgot-email:', error)

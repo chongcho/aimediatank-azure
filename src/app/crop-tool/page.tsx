@@ -1034,7 +1034,7 @@ export default function CropToolPage() {
               <h2 className="text-lg font-bold text-white mb-2">Crop Tool is Disabled</h2>
               <p className="text-sm text-gray-200">
                 The Crop Tool link is hidden in <span className="font-semibold">Navbar Control</span>. Ask an admin to
-                enable the Crop Tool menu item, or sign in as an admin to use the standalone tool from the admin panel.
+                enable the Crop Tool menu item, or log in as an admin to use the standalone tool from the admin panel.
               </p>
             </div>
             {closeButton}

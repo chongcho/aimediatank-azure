@@ -314,7 +314,7 @@ export default function AboutPage() {
 
           <div className="grid md:grid-cols-4 gap-6">
             {[
-              { step: '01', title: 'Create an Account', desc: 'Sign up free with email or social login (Google, Microsoft, Facebook, Apple). Set up your creator profile in minutes.' },
+              { step: '01', title: 'Create an Account', desc: 'Join free with email or social login (Google, Microsoft, Facebook, Apple). Set up your creator profile in minutes.' },
               { step: '02', title: 'Upload Your Media', desc: 'Use the streamlined upload form to publish videos, images, or music. Tag AI tools, real devices, and set pricing.' },
               { step: '03', title: 'Get Discovered', desc: 'Your content appears in the feed with professional badges, hashtags, and metadata. The community rates, comments, and shares.' },
               { step: '04', title: 'Earn & Grow', desc: 'Sell your work directly through Stripe-powered checkout. Build your reputation, grow your audience, and scale your creative business.' },
@@ -1146,7 +1146,7 @@ export default function AboutPage() {
               <ul className="space-y-2 text-sm text-gray-400">
                 <li>
                   <Link href="/login" className="hover:text-white transition-colors">
-                    <AboutTrans text="Sign In" />
+                    <AboutTrans text="Log in" />
                   </Link>
                 </li>
                 <li>

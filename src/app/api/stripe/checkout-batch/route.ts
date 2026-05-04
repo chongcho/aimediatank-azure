@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
-      return NextResponse.json({ error: 'Please sign in to make a purchase' }, { status: 401 })
+      return NextResponse.json({ error: 'Please log in to make a purchase' }, { status: 401 })
     }
 
     // Get current user data (in case username was changed)

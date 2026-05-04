@@ -34,12 +34,12 @@ function TermsPageContent() {
           <div className={`flex gap-2 ${fromAuth ? '' : 'ml-auto'}`}>
             {(!fromAuth || fromLogin) && (
               <Link href="/login" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">
-                Back to Sign in
+                Back to Log in
               </Link>
             )}
             {(!fromAuth || fromRegister) && (
               <Link href="/register" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">
-                Back to Sign up
+                Back to Join
               </Link>
             )}
           </div>
@@ -358,7 +358,7 @@ function TermsPageContent() {
               href="/login"
               className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
             >
-              Back to Sign in
+              Back to Log in
             </Link>
           )}
           {(!fromAuth || fromRegister) && !fromPolicy && (
@@ -366,7 +366,7 @@ function TermsPageContent() {
               href="/register"
               className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
             >
-              Back to Sign up
+              Back to Join
             </Link>
           )}
         </div>
@@ -383,8 +383,8 @@ function TermsPageFallback() {
         <span className="text-gray-500">|</span>
         <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link>
         <div className="ml-auto flex gap-2">
-          <Link href="/login" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">Back to Sign in</Link>
-          <Link href="/register" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">Back to Sign up</Link>
+          <Link href="/login" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">Back to Log in</Link>
+          <Link href="/register" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">Back to Join</Link>
         </div>
       </div>
       <div className="card prose prose-invert max-w-none">

@@ -430,7 +430,7 @@ export default function LiveChat() {
                 )
               ) : (
                 <div className="text-gray-500 text-xs flex items-center">
-                  <Link href="/login" className="text-tank-accent hover:underline">Sign in</Link>&nbsp;to chat
+                  <Link href="/login" className="text-tank-accent hover:underline">Log in</Link>&nbsp;to chat
                 </div>
               )}
             </div>

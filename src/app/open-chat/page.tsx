@@ -25,7 +25,7 @@ export default function OpenChatPage() {
       <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Open Chat (TalkChat)</h1>
       <p className="text-gray-400 mb-6">
         Open Chat is the public chat room in the app. Use the button below to go to the home page with TalkChat open
-        (sign in may be required to participate).
+        (log in may be required to participate).
       </p>
       <Link
         href="/?openChat=1"
