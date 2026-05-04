@@ -1027,7 +1027,7 @@ export default function EditProfilePage() {
             </div>
           </div>
 
-          {/* Actions: Cancel Registration (left), Cancel + Save (right) */}
+          {/* Actions: Deactivate Account (left), Cancel + Save (right) */}
           <div className="flex w-full flex-wrap items-center justify-between gap-4 pt-0">
             <button
               type="button"
@@ -1038,7 +1038,7 @@ export default function EditProfilePage() {
               }}
               className="shrink-0 px-4 py-3 bg-red-600/90 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors border border-red-500/80"
             >
-              Cancel Registration
+              Deactivate Account
             </button>
             <div className="flex shrink-0 gap-4 sm:ml-auto">
               <button
@@ -1074,7 +1074,7 @@ export default function EditProfilePage() {
             aria-labelledby="cancel-reg-edit-title"
           >
             <h3 id="cancel-reg-edit-title" className="mb-2 text-xl font-bold text-red-400">
-              Cancel registration
+              Deactivate account
             </h3>
             <p className="mb-4 text-sm text-gray-400">
               This permanently deletes your account, uploads, purchases record, and messages. This cannot be undone.
