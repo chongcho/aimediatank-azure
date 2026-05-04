@@ -576,7 +576,6 @@ export default function EditProfilePage() {
       if (!res.ok) {
         setError(data.error || 'Failed to update profile')
       } else {
-        setSuccess('Profile updated successfully!')
         setFormData((prev) => ({
           ...prev,
           password: '',
@@ -584,7 +583,7 @@ export default function EditProfilePage() {
         }))
         setOriginalPhone(formData.phone)
         setPhoneVerificationState({ codeSent: false, sending: false, code: '', error: '', codeInMessage: false })
-        
+
         window.dispatchEvent(new Event('profileUpdated'))
 
         const sessionPayload = {
@@ -596,12 +595,12 @@ export default function EditProfilePage() {
             locale: localeTagFromUserLocation(data.user.location),
           },
         }
-        await Promise.race([
-          updateSession(sessionPayload),
-          new Promise<void>((resolve) => setTimeout(resolve, 2000)),
-        ]).catch((err) => console.error('profile edit: session update failed', err))
+        void updateSession(sessionPayload).catch((err) =>
+          console.error('profile edit: session update failed', err)
+        )
 
         // Hard navigation: intercepted @modal routes often keep the overlay when using router.push('/').
+        // No success flash — go straight home after save.
         window.location.replace('/')
       }
     } catch (error) {
