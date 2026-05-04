@@ -48,11 +48,10 @@ export async function GET(request: Request) {
       where.AND = [publicHomeFeedMediaReadyClause]
     }
 
-    // Filter by username if provided
-    if (user) {
-      where.user = {
-        username: decodeURIComponent(user),
-      }
+    // Exclude deactivated owners from all listings; filter by username when provided
+    where.user = {
+      accountDeactivatedAt: null,
+      ...(user ? { username: decodeURIComponent(user) } : {}),
     }
 
     if (type && ['VIDEO', 'IMAGE', 'MUSIC'].includes(type)) {

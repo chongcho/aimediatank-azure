@@ -10,6 +10,8 @@ declare module 'next-auth' {
       legalName: string | null
       /** UI language from registration location (see `localeTagFromUserLocation`). */
       locale?: string | null
+      /** True when `accountDeactivatedAt` is set (soft deactivation). */
+      accountDeactivated?: boolean
     } & DefaultSession['user']
   }
 
@@ -33,6 +35,7 @@ declare module 'next-auth/jwt' {
     avatar: string | null
     legalName: string | null
     locale?: string | null
+    accountDeactivatedAt?: string | null
   }
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { signOut, useSession } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
@@ -53,10 +53,12 @@ export default function EditProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [maxUploadBytes, setMaxUploadBytes] = useState(10 * 1024 * 1024)
+  const [deactivateIntroOpen, setDeactivateIntroOpen] = useState(false)
   const [cancelRegOpen, setCancelRegOpen] = useState(false)
   const [cancelRegUsername, setCancelRegUsername] = useState('')
   const [cancelRegPassword, setCancelRegPassword] = useState('')
   const [cancelRegLoading, setCancelRegLoading] = useState(false)
+  const [accountDeactivated, setAccountDeactivated] = useState(false)
 
   const notifyAvatarFileSizeExceeded = (actualFileBytes: number) => {
     setError(buildUploadFileSizeExceededMessage(maxUploadBytes, actualFileBytes))
@@ -186,6 +188,7 @@ export default function EditProfilePage() {
         if (data.user.avatar) {
           setAvatarPreview(data.user.avatar)
         }
+        setAccountDeactivated(Boolean(data.user.accountDeactivatedAt))
       }
     } catch (error) {
       console.error('Error fetching profile:', error)
@@ -616,11 +619,11 @@ export default function EditProfilePage() {
 
   const accountUsernameForDelete = originalUsername || session?.user?.username || ''
 
-  const handleConfirmCancelRegistration = async () => {
+  const handleConfirmAccountDeactivation = async () => {
     setCancelRegLoading(true)
     try {
       const res = await fetch('/api/user/account', {
-        method: 'DELETE',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           confirmUsername: cancelRegUsername,
@@ -629,16 +632,19 @@ export default function EditProfilePage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        alert(typeof data.error === 'string' ? data.error : 'Could not delete account.')
+        alert(typeof data.error === 'string' ? data.error : 'Could not deactivate account.')
         return
       }
       setCancelRegOpen(false)
+      setDeactivateIntroOpen(false)
       setCancelRegUsername('')
       setCancelRegPassword('')
-      await signOut({ callbackUrl: '/' })
+      setAccountDeactivated(true)
+      await updateSession({ user: { accountDeactivated: true } })
+      window.dispatchEvent(new Event('profileUpdated'))
     } catch (e) {
       console.error(e)
-      alert('Could not delete account.')
+      alert('Could not deactivate account.')
     } finally {
       setCancelRegLoading(false)
     }
@@ -682,6 +688,13 @@ export default function EditProfilePage() {
           {success && (
             <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-sm">
               {success}
+            </div>
+          )}
+
+          {accountDeactivated && (
+            <div className="rounded-xl border border-gray-600/50 bg-gray-800/40 p-4 text-sm text-gray-300">
+              Your account is deactivated. Your uploads are hidden from the feed and your username no longer appears
+              in search. Profile editing is disabled. Contact support if you need your account restored.
             </div>
           )}
 
@@ -1029,17 +1042,17 @@ export default function EditProfilePage() {
 
           {/* Actions: Deactivate Account (left), Cancel + Save (right) */}
           <div className="flex w-full flex-wrap items-center justify-between gap-4 pt-0">
+            {!accountDeactivated && (
             <button
               type="button"
               onClick={() => {
-                setCancelRegUsername('')
-                setCancelRegPassword('')
-                setCancelRegOpen(true)
+                setDeactivateIntroOpen(true)
               }}
               className="shrink-0 px-4 py-3 bg-red-600/90 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors border border-red-500/80"
             >
               Deactivate Account
             </button>
+            )}
             <div className="flex shrink-0 gap-4 sm:ml-auto">
               <button
                 type="button"
@@ -1050,8 +1063,8 @@ export default function EditProfilePage() {
               </button>
               <button
                 type="submit"
-                disabled={saving}
-                className="px-8 py-3 btn-primary"
+                disabled={saving || accountDeactivated}
+                className="px-8 py-3 btn-primary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -1059,6 +1072,52 @@ export default function EditProfilePage() {
           </div>
         </form>
       </div>
+
+      {deactivateIntroOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setDeactivateIntroOpen(false)}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-tank-light bg-tank-dark p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="deactivate-intro-title"
+          >
+            <h3 id="deactivate-intro-title" className="mb-2 text-xl font-bold text-red-400">
+              Account deactivation
+            </h3>
+            <p className="mb-4 text-sm text-gray-400">
+              This hides your uploads from the home feed and your profile, removes your username from search, and
+              limits what you can do while signed in. You will not be able to sign in again on this account until
+              support restores it. Active subscriptions are cancelled when you confirm.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeactivateIntroOpen(false)}
+                className="rounded-lg bg-tank-gray px-4 py-2 text-gray-300 transition-colors hover:bg-tank-light"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeactivateIntroOpen(false)
+                  setCancelRegUsername('')
+                  setCancelRegPassword('')
+                  setCancelRegOpen(true)
+                }}
+                className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-500"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {cancelRegOpen && (
         <div
@@ -1074,10 +1133,11 @@ export default function EditProfilePage() {
             aria-labelledby="cancel-reg-edit-title"
           >
             <h3 id="cancel-reg-edit-title" className="mb-2 text-xl font-bold text-red-400">
-              Deactivate account
+              Confirm account deactivation
             </h3>
             <p className="mb-4 text-sm text-gray-400">
-              This permanently deletes your account, uploads, purchases record, and messages. This cannot be undone.
+              Type your username and password (if you use one) to confirm. This cannot be undone without contacting
+              support.
             </p>
             <label className="mb-1 block text-sm text-gray-300" htmlFor="cancel-reg-edit-username">
               Type your username{' '}
@@ -1118,10 +1178,10 @@ export default function EditProfilePage() {
               <button
                 type="button"
                 disabled={cancelRegLoading || !cancelRegUsername.trim()}
-                onClick={() => void handleConfirmCancelRegistration()}
+                onClick={() => void handleConfirmAccountDeactivation()}
                 className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {cancelRegLoading ? 'Deleting…' : 'Delete forever'}
+                {cancelRegLoading ? 'Deactivating…' : 'Deactivate'}
               </button>
             </div>
           </div>

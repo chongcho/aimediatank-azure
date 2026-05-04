@@ -165,6 +165,14 @@ export async function POST(request: Request) {
       )
     }
 
+    const u = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { accountDeactivatedAt: true },
+    })
+    if (u?.accountDeactivatedAt) {
+      return NextResponse.json({ error: 'Account is deactivated.' }, { status: 403 })
+    }
+
     const { content, isPrivate, recipientId } = await request.json()
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {

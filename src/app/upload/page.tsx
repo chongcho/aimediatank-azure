@@ -495,6 +495,20 @@ function UploadPageContent() {
     )
   }
 
+  if (session?.user?.accountDeactivated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center">
+          <h1 className="mb-2 text-2xl font-bold">Account deactivated</h1>
+          <p className="mb-4 text-gray-400">Uploads are not available while your account is deactivated.</p>
+          <button type="button" onClick={() => router.push('/')} className="btn-primary">
+            Go home
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (!session || (session.user.role !== 'SUBSCRIBER' && session.user.role !== 'ADMIN')) {
     return (
       <div className="min-h-screen flex items-center justify-center">

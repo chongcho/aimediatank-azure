@@ -131,6 +131,21 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email: normalizedEmail },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            legalName: true,
+            username: true,
+            role: true,
+            avatar: true,
+            location: true,
+            password: true,
+            isSuspended: true,
+            suspendedUntil: true,
+            suspendReason: true,
+            accountDeactivatedAt: true,
+          },
         })
 
         if (!user) {
@@ -161,6 +176,10 @@ export const authOptions: NextAuthOptions = {
               : ''
             throw new Error(`Account suspended${until}: ${reason}`)
           }
+        }
+
+        if (user.accountDeactivatedAt) {
+          throw new Error('This account has been deactivated. Contact support to restore access.')
         }
 
         return {
@@ -199,6 +218,7 @@ export const authOptions: NextAuthOptions = {
           const u = user as { locale?: string | null; location?: string | null }
           const loc = typeof u.location === 'string' && u.location.trim() ? u.location : null
           token.locale = loc != null ? localeTagFromUserLocation(loc) : u.locale?.trim() || 'en'
+          token.accountDeactivatedAt = null
           return token
         }
         // OAuth (Entra/B2C): find or create our User and attach to token
@@ -276,6 +296,11 @@ export const authOptions: NextAuthOptions = {
             )
           }
         }
+        if (dbUser.accountDeactivatedAt) {
+          throw new Error(
+            'This account has been deactivated. Contact support to restore access.',
+          )
+        }
         token.id = dbUser.id
         token.name = dbUser.name ?? token.name ?? null
         token.legalName = dbUser.legalName ?? null
@@ -283,13 +308,19 @@ export const authOptions: NextAuthOptions = {
         token.role = dbUser.role
         token.avatar = dbUser.avatar
         token.locale = localeTagFromUserLocation(dbUser.location)
+        token.accountDeactivatedAt = null
       }
 
-      // Backfill legalName / locale for tokens created before those fields were on the JWT
-      if (token.id && (token.legalName === undefined || token.locale === undefined)) {
+      // Backfill legalName / locale / deactivation for older JWTs
+      if (
+        token.id &&
+        (token.legalName === undefined ||
+          token.locale === undefined ||
+          token.accountDeactivatedAt === undefined)
+      ) {
         const u = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { legalName: true, location: true },
+          select: { legalName: true, location: true, accountDeactivatedAt: true },
         })
         if (token.legalName === undefined) {
           token.legalName = u?.legalName ?? null
@@ -297,10 +328,17 @@ export const authOptions: NextAuthOptions = {
         if (token.locale === undefined) {
           token.locale = localeTagFromUserLocation(u?.location)
         }
+        if (token.accountDeactivatedAt === undefined) {
+          token.accountDeactivatedAt = u?.accountDeactivatedAt?.toISOString() ?? null
+        }
       }
 
       // Handle session updates (e.g., when username is changed)
       if (trigger === 'update' && session?.user) {
+        const su = session.user as { accountDeactivated?: boolean }
+        if (su.accountDeactivated === true) {
+          token.accountDeactivatedAt = new Date().toISOString()
+        }
         if (session.user.username) token.username = session.user.username
         if (session.user.name) token.name = session.user.name
         if (session.user.legalName !== undefined) token.legalName = session.user.legalName
@@ -322,6 +360,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string
         session.user.avatar = token.avatar as string | null
         session.user.locale = (token.locale as string | null | undefined) ?? null
+        session.user.accountDeactivated = Boolean(token.accountDeactivatedAt)
       }
       return session
     },

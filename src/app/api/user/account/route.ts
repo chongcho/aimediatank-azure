@@ -3,27 +3,36 @@ import bcrypt from 'bcryptjs'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { sendEmail, generateAccountDeletedEmail } from '@/lib/email'
 import { getStripe, isStripeConfigured } from '@/lib/stripe'
 
 export const dynamic = 'force-dynamic'
 
+type DeactivateBody = { confirmUsername?: unknown; password?: unknown }
+
+async function parseJsonBody(request: Request): Promise<DeactivateBody | null> {
+  try {
+    const text = await request.text()
+    if (!text) return {}
+    return JSON.parse(text) as DeactivateBody
+  } catch {
+    return null
+  }
+}
+
 /**
- * Permanently delete the signed-in user's account (GDPR-style self-service).
+ * Soft-deactivate the signed-in user's account (hide content from feed/search; stay signed in).
  * Requires exact username confirmation; password if the account has a credentials password.
+ * Cancels an active Stripe subscription when configured.
  */
-export async function DELETE(request: Request) {
+export async function PATCH(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    let body: { confirmUsername?: unknown; password?: unknown } = {}
-    try {
-      const text = await request.text()
-      if (text) body = JSON.parse(text) as typeof body
-    } catch {
+    const body = await parseJsonBody(request)
+    if (body === null) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
 
@@ -37,10 +46,9 @@ export async function DELETE(request: Request) {
         id: true,
         username: true,
         password: true,
-        email: true,
-        name: true,
         role: true,
         stripeSubscriptionId: true,
+        accountDeactivatedAt: true,
       },
     })
 
@@ -48,9 +56,13 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    if (user.accountDeactivatedAt) {
+      return NextResponse.json({ error: 'Account is already deactivated.' }, { status: 400 })
+    }
+
     if (user.role === 'ADMIN') {
       return NextResponse.json(
-        { error: 'Admin accounts cannot be deleted here. Contact support.' },
+        { error: 'Admin accounts cannot be deactivated here. Contact support.' },
         { status: 403 },
       )
     }
@@ -74,28 +86,21 @@ export async function DELETE(request: Request) {
         const stripe = getStripe()
         await stripe.subscriptions.cancel(user.stripeSubscriptionId)
       } catch (e) {
-        console.error('Stripe subscription cancel on account delete:', e)
+        console.error('Stripe subscription cancel on account deactivate:', e)
       }
     }
 
-    const recipientEmail = user.email
-    const recipientName = user.name || user.username
-
-    await prisma.user.delete({ where: { id: user.id } })
-
-    try {
-      await sendEmail({
-        to: recipientEmail,
-        subject: '🗑️ Your AI Media Tank (AiM) Account Has Been Deleted',
-        html: generateAccountDeletedEmail(recipientName || 'User', 'At your request'),
-      })
-    } catch (emailError) {
-      console.error('Account deletion confirmation email failed:', emailError)
-    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        accountDeactivatedAt: new Date(),
+        stripeSubscriptionId: null,
+      },
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error deleting account:', error)
-    return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
+    console.error('Error deactivating account:', error)
+    return NextResponse.json({ error: 'Failed to deactivate account' }, { status: 500 })
   }
 }

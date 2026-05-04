@@ -26,7 +26,11 @@ export async function POST(request: Request) {
     }
 
     const media = await prisma.media.findMany({
-      where: { id: { in: cleaned }, isDeleted: false },
+      where: {
+        id: { in: cleaned },
+        isDeleted: false,
+        user: { accountDeactivatedAt: null },
+      },
       select: {
         id: true,
         title: true,

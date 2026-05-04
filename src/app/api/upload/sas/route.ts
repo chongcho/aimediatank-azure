@@ -5,6 +5,7 @@ import { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, 
 import { v4 as uuidv4 } from 'uuid'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { getMaxUploadFileBytes } from '@/lib/uploadMaxFileSize'
+import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +23,14 @@ export async function POST(request: Request) {
         { error: 'Only subscribers can upload media' },
         { status: 403 }
       )
+    }
+
+    const row = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { accountDeactivatedAt: true },
+    })
+    if (row?.accountDeactivatedAt) {
+      return NextResponse.json({ error: 'Account is deactivated.' }, { status: 403 })
     }
 
     const { fileName, contentType, fileType, fileSize } = await request.json()

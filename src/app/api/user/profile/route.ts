@@ -34,6 +34,7 @@ export async function GET(request: Request) {
         membershipType: true,
         emailVerified: true,
         createdAt: true,
+        accountDeactivatedAt: true,
       },
     })
 
@@ -61,6 +62,17 @@ export async function PUT(request: Request) {
 
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const self = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { accountDeactivatedAt: true },
+    })
+    if (self?.accountDeactivatedAt) {
+      return NextResponse.json(
+        { error: 'Account is deactivated. Profile cannot be edited.' },
+        { status: 403 },
+      )
     }
 
     const body = await request.json()

@@ -171,7 +171,8 @@ export default function CropToolPage() {
         // Upload & Download → "Crop/Re-encoding" only gates /upload, not this standalone page.
 
         const isSubscriber =
-          session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'
+          !session?.user?.accountDeactivated &&
+          (session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN')
 
         setQualitySettings(
           isSubscriber
@@ -191,7 +192,7 @@ export default function CropToolPage() {
       })
       .catch(() => {})
     // We intentionally want settings to refresh when subscription changes.
-  }, [session?.user?.role])
+  }, [session?.user?.role, session?.user?.accountDeactivated])
 
   // Initialize user-selected encoding overrides from admin settings.
   useEffect(() => {
@@ -267,7 +268,12 @@ export default function CropToolPage() {
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [resetCropWorkspace])
 
-  const isSubscriber = useMemo(() => session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN', [session?.user?.role])
+  const isSubscriber = useMemo(
+    () =>
+      !session?.user?.accountDeactivated &&
+      (session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'),
+    [session?.user?.role, session?.user?.accountDeactivated],
+  )
 
   const effectiveAutoCapHeight = useMemo(() => {
     if (!cropSettings) return 720

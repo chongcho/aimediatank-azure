@@ -15,6 +15,7 @@ interface UserProfile {
   bio: string | null
   role: string
   createdAt: string
+  accountDeactivatedAt?: string | null
   media: Array<{
     id: string
     title: string
@@ -121,43 +122,41 @@ export default function ProfilePage() {
      session.user.id === profile?.id)
   )
 
-  // Debug logging - remove after testing
-  console.log('Profile Debug:', {
-    urlUsername: decodedUsername,
-    sessionUsername: session?.user?.username,
-    sessionEmail: session?.user?.email,
-    sessionId: session?.user?.id,
-    profileId: profile?.id,
-    isOwnProfile
-  })
-
   useEffect(() => {
     if (decodedUsername) {
       fetchProfile()
     }
   }, [decodedUsername, session])
 
-  // Fetch counts for own profile on initial load
+  // Fetch counts for own profile on initial load (skip when account is deactivated)
   useEffect(() => {
-    if (isOwnProfile && session?.user?.id) {
-      console.log('Fetching saved/purchased for own profile, user ID:', session.user.id)
-      fetchPurchases()
-      fetchSaved()
+    if (!isOwnProfile || !session?.user?.id) return
+    if (profile?.accountDeactivatedAt || session.user.accountDeactivated) {
+      setPurchases([])
+      setSavedMedia([])
+      return
     }
-  }, [isOwnProfile, session?.user?.id])
+    fetchPurchases()
+    fetchSaved()
+  }, [isOwnProfile, session?.user?.id, profile?.accountDeactivatedAt, session?.user?.accountDeactivated])
 
   // Refetch data when switching tabs (in case new items were added)
   useEffect(() => {
-    if (isOwnProfile && session?.user?.id) {
-      if (mainSection === 'purchased') {
+    if (!isOwnProfile || !session?.user?.id) return
+    if (profile?.accountDeactivatedAt || session?.user?.accountDeactivated) return
+    if (mainSection === 'purchased') {
       fetchPurchases()
     }
-      if (mainSection === 'saved') {
-        console.log('Fetching saved for tab switch')
+    if (mainSection === 'saved') {
       fetchSaved()
-      }
     }
-  }, [mainSection, isOwnProfile, session?.user?.id])
+  }, [
+    mainSection,
+    isOwnProfile,
+    session?.user?.id,
+    profile?.accountDeactivatedAt,
+    session?.user?.accountDeactivated,
+  ])
 
   const fetchProfile = async () => {
     try {
@@ -173,7 +172,9 @@ export default function ProfilePage() {
       const mediaUrl = `/api/media?user=${encodeURIComponent(decodedUsername)}&limit=100${isOwn ? '&includeProcessing=1' : ''}`
       const res = await fetch(mediaUrl)
       const data = await res.json()
-      
+      const deactivated = Boolean(userData.user?.accountDeactivatedAt)
+      const mediaList = deactivated ? [] : data.media || []
+
       if (userData.user) {
         setProfile({
           id: userData.user.id || '',
@@ -183,9 +184,10 @@ export default function ProfilePage() {
           bio: userData.user.bio,
           role: userData.user.role || 'SUBSCRIBER',
           createdAt: userData.user.createdAt || '',
-          media: data.media || [],
+          accountDeactivatedAt: userData.user.accountDeactivatedAt ?? null,
+          media: mediaList,
           _count: {
-            media: data.media?.length || userData.user._count?.media || 0,
+            media: deactivated ? 0 : data.media?.length || userData.user._count?.media || 0,
           },
         })
       } else if (data.media && data.media.length > 0) {
@@ -198,6 +200,7 @@ export default function ProfilePage() {
           bio: null,
           role: 'SUBSCRIBER',
           createdAt: '',
+          accountDeactivatedAt: null,
           media: data.media,
           _count: {
             media: data.media.length,
@@ -233,7 +236,6 @@ export default function ProfilePage() {
     try {
       const res = await fetch('/api/user/saved')
       const data = await res.json()
-      console.log('Fetched saved media:', data)
       if (data.saved) {
         setSavedMedia(data.saved)
       } else if (data.error) {
@@ -428,6 +430,12 @@ export default function ProfilePage() {
             <h1 className="text-[18px] font-bold mb-4">
               {profile.name || profile.username}
             </h1>
+
+            {profile.accountDeactivatedAt && (
+              <p className="mb-4 rounded-lg border border-gray-600/60 bg-gray-800/50 px-3 py-2 text-sm text-gray-300">
+                This account is deactivated. Public uploads are hidden and this username does not appear in search.
+              </p>
+            )}
             
             <p className="text-xl text-gray-300 mb-4">My Contents Summary</p>
 

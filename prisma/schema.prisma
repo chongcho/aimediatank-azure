@@ -52,7 +52,8 @@ model User {
   verificationExpires DateTime?
   policyAgreedAt DateTime?  // When user agreed to Terms of Service and Privacy Policy
   pwaInstalledAt DateTime?  // Server-side record of PWA installation (survives cache clears)
-  
+  accountDeactivatedAt DateTime? // Self-service: hide public content / feed / username search
+
   // Admin moderation fields
   isSuspended   Boolean   @default(false)    // Account suspended
   suspendedAt   DateTime?                     // When suspended

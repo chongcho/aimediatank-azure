@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     // Search users by username (case-insensitive)
     const users = await prisma.user.findMany({
       where: {
+        accountDeactivatedAt: null,
         username: {
           contains: query,
           mode: 'insensitive',

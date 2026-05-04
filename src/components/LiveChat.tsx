@@ -58,7 +58,9 @@ export default function LiveChat() {
     objects: ['💡', '📱', '💻', '⌨️', '🖥️', '📷', '🎥', '📺', '🔔', '📢', '💰', '💎', '🎁', '🏆', '🎖️'],
   }
 
-  const isSubscriber = session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'
+  const isSubscriber =
+    !session?.user?.accountDeactivated &&
+    (session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN')
 
   // Close emoji picker when clicking outside
   useEffect(() => {

@@ -64,7 +64,14 @@ function NavbarContent() {
   const [expandedNotificationId, setExpandedNotificationId] = useState<string | null>(null)
   const [isSelectMode, setIsSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
+  const [userData, setUserData] = useState<{
+    name: string | null
+    username: string | null
+    avatar: string | null
+    membershipType: string | null
+    role: string | null
+    accountDeactivatedAt: string | null
+  } | null>(null)
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
   const [feedTextMenuOpen, setFeedTextMenuOpen] = useState(false)
   const [feedTextMenuPos, setFeedTextMenuPos] = useState<{ top: number; left: number } | null>(null)
@@ -132,10 +139,20 @@ function NavbarContent() {
     openChatDeepLinkConsumedRef.current = true
   }, [searchParams, isNavbarItemEnabled])
 
+  const accountDeactivated = Boolean(
+    userData?.accountDeactivatedAt || session?.user?.accountDeactivated,
+  )
+
   // Check subscriber status from fetched data (more reliable than session)
-  const isSubscriber = userData?.role === 'SUBSCRIBER' || userData?.role === 'ADMIN' || 
-                       userData?.membershipType === 'BASIC' || userData?.membershipType === 'ADVANCED' || userData?.membershipType === 'PREMIUM' ||
-                       session?.user?.role === 'SUBSCRIBER' || session?.user?.role === 'ADMIN'
+  const isSubscriber =
+    !accountDeactivated &&
+    (userData?.role === 'SUBSCRIBER' ||
+      userData?.role === 'ADMIN' ||
+      userData?.membershipType === 'BASIC' ||
+      userData?.membershipType === 'ADVANCED' ||
+      userData?.membershipType === 'PREMIUM' ||
+      session?.user?.role === 'SUBSCRIBER' ||
+      session?.user?.role === 'ADMIN')
   const isAdmin = isAppAdminRole(userData?.role) || isAppAdminRole(session?.user?.role)
   
   // Display name - show Nickname (username) in navbar
@@ -364,6 +381,9 @@ function NavbarContent() {
           avatar: data.user?.avatar || null,
           membershipType: data.user?.membershipType || null,
           role: data.user?.role || null,
+          accountDeactivatedAt: data.user?.accountDeactivatedAt
+            ? String(data.user.accountDeactivatedAt)
+            : null,
         })
       }
     } catch (error) {
@@ -644,13 +664,23 @@ function NavbarContent() {
                     <div className="absolute right-0 mt-2 w-56 bg-tank-dark border border-tank-light rounded-xl shadow-xl py-1">
                       <div className="px-4 py-1 border-b border-tank-light">
                         <p className="font-semibold">{userData?.username || session.user?.username || 'User'}</p>
-                        <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded-full ${
-                          isAdmin ? 'bg-red-500/20 text-red-400' :
-                          isSubscriber ? 'bg-tank-accent/20 text-tank-accent' :
-                          'bg-gray-500/20 text-gray-400'
-                        }`}>
-                          {session.user?.role}
-                        </span>
+                        {accountDeactivated ? (
+                          <span className="mt-1 inline-block rounded-full bg-gray-600/35 px-2 py-0.5 text-xs text-gray-300">
+                            Account Deactivated
+                          </span>
+                        ) : (
+                          <span
+                            className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs ${
+                              isAdmin
+                                ? 'bg-red-500/20 text-red-400'
+                                : isSubscriber
+                                  ? 'bg-tank-accent/20 text-tank-accent'
+                                  : 'bg-gray-500/20 text-gray-400'
+                            }`}
+                          >
+                            {session.user?.role}
+                          </span>
+                        )}
                       </div>
                       {isNavbarItemEnabled('notification') && (
                         <button

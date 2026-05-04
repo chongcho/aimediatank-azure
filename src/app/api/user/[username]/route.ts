@@ -22,6 +22,7 @@ export async function GET(
         bio: true,
         role: true,
         createdAt: true,
+        accountDeactivatedAt: true,
         _count: {
           select: {
             media: true,
@@ -42,6 +43,7 @@ export async function GET(
           bio: true,
           role: true,
           createdAt: true,
+          accountDeactivatedAt: true,
           _count: {
             select: {
               media: true,

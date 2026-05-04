@@ -22,6 +22,7 @@ export function wherePublicHomeFeedVisible(): Prisma.MediaWhereInput {
     isPublic: true,
     isApproved: true,
     isDeleted: false,
+    user: { accountDeactivatedAt: null },
     AND: [publicHomeFeedMediaReadyClause],
   }
 }
