@@ -111,6 +111,7 @@ export default function EditProfilePage() {
   const [authSettings, setAuthSettings] = useState({
     emailVerificationEnabled: true,
     phoneVerificationEnabled: true,
+    selfServiceDeactivateAccountEnabled: true,
   })
 
   useEffect(() => {
@@ -142,6 +143,7 @@ export default function EditProfilePage() {
           setAuthSettings({
             emailVerificationEnabled: data.emailVerificationEnabled !== false,
             phoneVerificationEnabled: data.phoneVerificationEnabled !== false,
+            selfServiceDeactivateAccountEnabled: data.selfServiceDeactivateAccountEnabled !== false,
           })
         }
       } catch {
@@ -1042,7 +1044,7 @@ export default function EditProfilePage() {
 
           {/* Actions: Deactivate Account (left), Cancel + Save (right) */}
           <div className="flex w-full flex-wrap items-center justify-between gap-4 pt-0">
-            {!accountDeactivated && (
+            {!accountDeactivated && authSettings.selfServiceDeactivateAccountEnabled && (
             <button
               type="button"
               onClick={() => {

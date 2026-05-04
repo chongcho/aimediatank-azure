@@ -139,7 +139,7 @@ interface ChatMessage {
   }
 }
 
-type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'authentication' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool' | 'standaloneCropTool' | 'accessLogs' | 'blockedIps'
+type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'authentication' | 'manageAccount' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool' | 'standaloneCropTool' | 'accessLogs' | 'blockedIps'
 
 interface CropToolSettings {
   id?: string
@@ -417,6 +417,9 @@ export default function AdminPage() {
   const [phoneVerificationEnabled, setPhoneVerificationEnabled] = useState(true)
   const [authenticationLoading, setAuthenticationLoading] = useState(false)
   const [authenticationSaving, setAuthenticationSaving] = useState(false)
+  const [selfServiceDeactivateAccountEnabled, setSelfServiceDeactivateAccountEnabled] = useState(true)
+  const [manageAccountLoading, setManageAccountLoading] = useState(false)
+  const [manageAccountSaving, setManageAccountSaving] = useState(false)
   const [mediaBadgeItems, setMediaBadgeItems] = useState<MediaBadgeItem[]>([])
   const [mediaBadgeLoading, setMediaBadgeLoading] = useState(false)
   const [cropToolSettings, setCropToolSettings] = useState<CropToolSettings>({
@@ -947,6 +950,15 @@ export default function AdminPage() {
         } finally {
           setAuthenticationLoading(false)
         }
+      } else if (activeTab === 'manageAccount') {
+        setManageAccountLoading(true)
+        try {
+          const res = await fetch('/api/admin?action=authenticationSettings')
+          const data = await res.json()
+          setSelfServiceDeactivateAccountEnabled(data.selfServiceDeactivateAccountEnabled !== false)
+        } finally {
+          setManageAccountLoading(false)
+        }
       } else if (activeTab === 'badges') {
         const [resBadges, resHome] = await Promise.all([
           fetch('/api/admin?action=badgeSettings'),
@@ -1434,6 +1446,38 @@ export default function AdminPage() {
     }
   }
 
+  const persistSelfServiceDeactivateAccount = async (next: boolean) => {
+    const prev = selfServiceDeactivateAccountEnabled
+    setManageAccountSaving(true)
+    setSelfServiceDeactivateAccountEnabled(next)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setAccountManagementSettings',
+          data: { selfServiceDeactivateAccountEnabled: next },
+        }),
+      })
+      if (!res.ok) {
+        setSelfServiceDeactivateAccountEnabled(prev)
+        const err = await res.json().catch(() => ({}))
+        console.error('Account management save failed:', err)
+        alert(typeof err.error === 'string' ? err.error : 'Could not save setting.')
+        return
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('authenticationSettingsUpdated'))
+      }
+    } catch (error) {
+      setSelfServiceDeactivateAccountEnabled(prev)
+      console.error('Error saving account management settings:', error)
+      alert('Could not save setting.')
+    } finally {
+      setManageAccountSaving(false)
+    }
+  }
+
   const fetchWarningHistory = async (userId: string, username: string, warningCount: number, lastWarningReason: string | null, lastWarningAt: string | null) => {
     setWarningModal({
       show: true,
@@ -1684,6 +1728,7 @@ export default function AdminPage() {
           { id: 'promotions', label: 'Promotions' },
           { id: 'games', label: 'Game Control' },
           { id: 'authentication', label: 'Authentication' },
+          { id: 'manageAccount', label: 'Manage Account' },
           { id: 'navbar', label: 'Navbar Control' },
           { id: 'layout', label: 'Home Layout' },
           { id: 'mediaDetail', label: 'Media Detail' },
@@ -3471,6 +3516,59 @@ export default function AdminPage() {
           )}
 
           {/* Navbar Control */}
+          {activeTab === 'manageAccount' && (
+            <div className="space-y-4">
+              <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-xl font-bold text-white">Manage Account</h2>
+                <p className="text-sm text-gray-400">
+                  Control whether members see <span className="font-medium text-gray-300">Deactivate Account</span> on
+                  Edit Profile and can self-deactivate.
+                </p>
+              </div>
+
+              {manageAccountLoading ? (
+                <div className="flex justify-center py-10">
+                  <div className="spinner" />
+                </div>
+              ) : (
+                <div
+                  className={`card rounded-xl border-2 p-4 md:p-6 transition-all ${
+                    selfServiceDeactivateAccountEnabled
+                      ? 'border-green-500/50 bg-tank-gray'
+                      : 'border-gray-700 bg-tank-dark opacity-80'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="font-bold text-white">Deactivate Account</h3>
+                      <p className="mt-1 text-xs text-gray-400">
+                        {selfServiceDeactivateAccountEnabled
+                          ? 'ON — users may deactivate from Edit Profile (with confirmation).'
+                          : 'OFF — self-service deactivation is hidden and blocked.'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={selfServiceDeactivateAccountEnabled}
+                      disabled={manageAccountSaving}
+                      onClick={() => void persistSelfServiceDeactivateAccount(!selfServiceDeactivateAccountEnabled)}
+                      className={`relative h-7 w-14 shrink-0 rounded-full transition-colors ${
+                        selfServiceDeactivateAccountEnabled ? 'bg-green-500' : 'bg-gray-600'
+                      } ${manageAccountSaving ? 'cursor-wait opacity-60' : ''}`}
+                    >
+                      <span
+                        className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                          selfServiceDeactivateAccountEnabled ? 'translate-x-8' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'authentication' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">

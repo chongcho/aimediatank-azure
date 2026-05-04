@@ -961,12 +961,14 @@ export async function GET(request: Request) {
         return NextResponse.json({
           emailVerificationEnabled: auth?.emailVerificationEnabled !== false,
           phoneVerificationEnabled: auth?.phoneVerificationEnabled !== false,
+          selfServiceDeactivateAccountEnabled: auth?.selfServiceDeactivateAccountEnabled !== false,
         })
       } catch (error) {
         console.error('Authentication settings unavailable:', error)
         return NextResponse.json({
           emailVerificationEnabled: true,
           phoneVerificationEnabled: true,
+          selfServiceDeactivateAccountEnabled: true,
         })
       }
     }
@@ -2420,6 +2422,55 @@ export async function POST(request: Request) {
           message: 'Authentication settings updated',
           emailVerificationEnabled: appliedEmail,
           phoneVerificationEnabled: appliedPhone,
+        })
+      }
+
+      case 'setAccountManagementSettings': {
+        const { selfServiceDeactivateAccountEnabled: deactPayload } = data || {}
+        const selfServiceDeactivateAccountEnabled =
+          typeof deactPayload === 'boolean' ? deactPayload : undefined
+        if (selfServiceDeactivateAccountEnabled === undefined) {
+          return NextResponse.json(
+            { error: 'selfServiceDeactivateAccountEnabled boolean is required' },
+            { status: 400 },
+          )
+        }
+
+        let row = await prisma.mediaDetailSetting.findFirst()
+        if (!row) {
+          row = await prisma.mediaDetailSetting.create({ data: {} })
+        }
+        const raw =
+          (row as { shareAppsEnabled?: unknown }).shareAppsEnabled &&
+          typeof (row as { shareAppsEnabled?: unknown }).shareAppsEnabled === 'object' &&
+          !Array.isArray((row as { shareAppsEnabled?: unknown }).shareAppsEnabled)
+            ? ((row as { shareAppsEnabled?: unknown }).shareAppsEnabled as Record<string, unknown>)
+            : {}
+        const prevAuth =
+          raw.__auth && typeof raw.__auth === 'object' && !Array.isArray(raw.__auth)
+            ? (raw.__auth as Record<string, unknown>)
+            : {}
+        const nextAuth = {
+          ...prevAuth,
+          selfServiceDeactivateAccountEnabled,
+        }
+        row = await prisma.mediaDetailSetting.update({
+          where: { id: row.id },
+          data: {
+            shareAppsEnabled: {
+              ...raw,
+              __auth: nextAuth,
+            } as Prisma.InputJsonValue,
+          },
+        })
+
+        await logAdminAction(adminId, 'SET_ACCOUNT_MANAGEMENT', 'ACCOUNT', row.id, {
+          selfServiceDeactivateAccountEnabled,
+        })
+
+        return NextResponse.json({
+          message: 'Account management settings updated',
+          selfServiceDeactivateAccountEnabled,
         })
       }
 

@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic'
 async function getOrCreateSetting(): Promise<{
   emailVerificationEnabled: boolean
   phoneVerificationEnabled: boolean
+  selfServiceDeactivateAccountEnabled: boolean
 }> {
   let row = await prisma.mediaDetailSetting.findFirst()
   if (!row) {
@@ -21,18 +22,25 @@ async function getOrCreateSetting(): Promise<{
   return {
     emailVerificationEnabled: auth?.emailVerificationEnabled !== false,
     phoneVerificationEnabled: auth?.phoneVerificationEnabled !== false,
+    selfServiceDeactivateAccountEnabled: auth?.selfServiceDeactivateAccountEnabled !== false,
   }
 }
 
 export async function GET() {
   try {
-    const { emailVerificationEnabled, phoneVerificationEnabled } = await getOrCreateSetting()
-    return NextResponse.json({ emailVerificationEnabled, phoneVerificationEnabled })
+    const { emailVerificationEnabled, phoneVerificationEnabled, selfServiceDeactivateAccountEnabled } =
+      await getOrCreateSetting()
+    return NextResponse.json({
+      emailVerificationEnabled,
+      phoneVerificationEnabled,
+      selfServiceDeactivateAccountEnabled,
+    })
   } catch (error) {
     console.error('Authentication settings unavailable:', error)
     return NextResponse.json({
       emailVerificationEnabled: true,
       phoneVerificationEnabled: true,
+      selfServiceDeactivateAccountEnabled: true,
     })
   }
 }

@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getStripe, isStripeConfigured } from '@/lib/stripe'
+import { isSelfServiceAccountDeactivationEnabled } from '@/lib/selfServiceAccountDeactivation'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,13 @@ export async function PATCH(request: Request) {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await isSelfServiceAccountDeactivationEnabled())) {
+      return NextResponse.json(
+        { error: 'Account deactivation has been disabled by an administrator.' },
+        { status: 403 },
+      )
     }
 
     const body = await parseJsonBody(request)
