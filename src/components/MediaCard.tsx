@@ -78,6 +78,14 @@ const COMMENT_TEXTAREA_MAX_PX = 200
 
 type BadgePayload = { items: BadgeItem[]; homePreplaySound: boolean; autoTranslation: boolean }
 
+const HOME_CARD_TEXT_MODE_KEY = 'homeFeedCardTextMode'
+
+function readStoredCardTextMode(): 'original' | 'local' {
+  if (typeof window === 'undefined') return 'local'
+  const v = window.sessionStorage.getItem(HOME_CARD_TEXT_MODE_KEY)
+  return v === 'original' ? 'original' : 'local'
+}
+
 let badgePayloadCache: BadgePayload | null = null
 let badgePayloadPromise: Promise<BadgePayload | null> | null = null
 
@@ -171,13 +179,108 @@ export default function MediaCard({
     Boolean(media.id) && autoTranslationEffective
   )
 
+  const [cardTextMode, setCardTextMode] = useState<'original' | 'local'>(readStoredCardTextMode)
+  const [translationMenuOpen, setTranslationMenuOpen] = useState(false)
+  const [translationMenuPos, setTranslationMenuPos] = useState<{ top: number; left: number } | null>(
+    null
+  )
+  const translateTriggerRef = useRef<HTMLButtonElement>(null)
+  const translationMenuRef = useRef<HTMLDivElement>(null)
+
+  const persistCardTextMode = useCallback((mode: 'original' | 'local') => {
+    setCardTextMode(mode)
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(HOME_CARD_TEXT_MODE_KEY, mode)
+    }
+  }, [])
+
+  const displayTitle =
+    cardTextMode === 'original' || !autoTranslationEffective ? titlePlain : translatedTitle
+  const displayDescriptionSource =
+    cardTextMode === 'original' || !autoTranslationEffective ? descPlain : translatedDescription
+  const thumbnailTranslateEnabled =
+    autoTranslationEffective && cardTextMode === 'local'
+
+  const localeBadgeCode = useMemo(() => {
+    const raw = (mtLocaleTag || 'en').trim() || 'en'
+    const base = raw.split(/[-_]/)[0] || raw
+    const two = base.slice(0, 2).toUpperCase()
+    return two.length === 2 ? two : 'EN'
+  }, [mtLocaleTag])
+
   const descriptionOverlay = useMemo(() => {
-    const raw = translatedDescription.trim()
+    const raw = displayDescriptionSource.trim()
     if (!raw) return null
     const cleaned = stripHashtags(raw)
     if (!cleaned) return null
     return { text: truncateText(cleaned, 220), title: cleaned }
-  }, [translatedDescription])
+  }, [displayDescriptionSource])
+
+  const showHomeTranslateControl = homeScrollContext != null && autoTranslationEffective
+
+  const updateTranslationMenuPosition = useCallback(() => {
+    const el = translateTriggerRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const menuWidth = 148
+    setTranslationMenuPos({
+      top: r.bottom + 6,
+      left: Math.max(8, Math.min(r.right - menuWidth, window.innerWidth - menuWidth - 8)),
+    })
+  }, [])
+
+  const closeTranslationMenu = useCallback(() => {
+    setTranslationMenuOpen(false)
+    setTranslationMenuPos(null)
+  }, [])
+
+  const toggleTranslationMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (translationMenuOpen) {
+        closeTranslationMenu()
+      } else {
+        updateTranslationMenuPosition()
+        setTranslationMenuOpen(true)
+      }
+    },
+    [translationMenuOpen, closeTranslationMenu, updateTranslationMenuPosition]
+  )
+
+  useEffect(() => {
+    if (!translationMenuOpen) return
+    const onScrollResize = () => {
+      closeTranslationMenu()
+    }
+    window.addEventListener('scroll', onScrollResize, true)
+    window.addEventListener('resize', onScrollResize)
+    return () => {
+      window.removeEventListener('scroll', onScrollResize, true)
+      window.removeEventListener('resize', onScrollResize)
+    }
+  }, [translationMenuOpen, closeTranslationMenu])
+
+  useEffect(() => {
+    if (!translationMenuOpen) return
+    const onDocDown = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (translateTriggerRef.current?.contains(t)) return
+      if (translationMenuRef.current?.contains(t)) return
+      closeTranslationMenu()
+    }
+    document.addEventListener('mousedown', onDocDown, true)
+    return () => document.removeEventListener('mousedown', onDocDown, true)
+  }, [translationMenuOpen, closeTranslationMenu])
+
+  useEffect(() => {
+    if (!translationMenuOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeTranslationMenu()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [translationMenuOpen, closeTranslationMenu])
 
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
@@ -1050,7 +1153,7 @@ export default function MediaCard({
           e.preventDefault()
           navigateToMedia()
         }}
-        aria-label={tFeed('openMediaAria', { title: translatedTitle || titlePlain })}
+        aria-label={tFeed('openMediaAria', { title: displayTitle || titlePlain })}
       >
       <div ref={cardRef} className="media-card-inner bg-tank-gray rounded-md overflow-hidden border border-tank-light transition-all duration-300 [@media(hover:hover)]:hover:border-tank-accent/50 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:shadow-tank-accent/10">
         {/* Thumbnail — natural aspect ratio for masonry layout */}
@@ -1064,15 +1167,17 @@ export default function MediaCard({
             <div className="aspect-video skeleton" />
           )}
 
-          {isBadgeEnabled('ai') && (
-            <div className="absolute top-2 left-2 z-10 px-2 py-1 rounded-md text-[11px] font-bold uppercase bg-black/70 text-white/70 backdrop-blur-sm">
-              {aiLabel}
-            </div>
-          )}
-
-          {/* Price and Sold badges - render independently based on their own settings */}
-          {(priceLabel && isBadgeEnabled('price')) || (showSoldBadge && isBadgeEnabled('sold')) ? (
-            <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
+          {(isBadgeEnabled('ai') ||
+            (priceLabel && isBadgeEnabled('price')) ||
+            (showSoldBadge && isBadgeEnabled('sold')) ||
+            showHomeTranslateControl ||
+            showHomePreplaySoundChip) && (
+            <div className="absolute top-2 right-2 z-[30] flex flex-col items-end gap-1 pointer-events-none">
+              {isBadgeEnabled('ai') && (
+                <div className="px-2 py-1 rounded-md text-[11px] font-bold uppercase bg-black/70 text-white/70 backdrop-blur-sm">
+                  {aiLabel}
+                </div>
+              )}
               {priceLabel && isBadgeEnabled('price') && (
                 <div className="px-2 py-1 rounded-md text-[11px] font-bold bg-black/70 text-white/70 backdrop-blur-sm">
                   {priceLabel}
@@ -1092,14 +1197,63 @@ export default function MediaCard({
                   </svg>
                 </div>
               )}
+              {showHomeTranslateControl && (
+                <button
+                  ref={translateTriggerRef}
+                  type="button"
+                  onClick={toggleTranslationMenu}
+                  aria-haspopup="menu"
+                  aria-expanded={translationMenuOpen}
+                  aria-label={tFeed('cardTranslationToggleAria')}
+                  className="pointer-events-auto relative flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full border border-white/25 bg-black/70 text-white shadow-[0_1px_4px_rgba(0,0,0,0.65)] backdrop-blur-sm transition-opacity hover:opacity-95 active:opacity-100 [-webkit-tap-highlight-color:transparent]"
+                >
+                  <svg
+                    className="pointer-events-none absolute inset-0.5 opacity-35"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.25}
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 21a9 9 0 100-18 9 9 0 000 18z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 010 18M12 3a15.3 15.3 0 000 18"
+                    />
+                  </svg>
+                  <span className="pointer-events-none relative z-[1] text-[10px] font-bold leading-none tracking-tight">
+                    {localeBadgeCode}
+                  </span>
+                </button>
+              )}
+              {showHomePreplaySoundChip && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    togglePreviewSound()
+                  }}
+                  aria-pressed={previewSoundOn}
+                  className="pointer-events-auto inline-flex h-9 min-w-9 touch-manipulation items-center justify-center rounded-md bg-transparent px-1.5 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] transition-opacity hover:opacity-90 active:opacity-100 [-webkit-tap-highlight-color:transparent]"
+                  title={previewSoundOn ? tFeed('mutePreplayTitle') : tFeed('unmutePreplayTitle')}
+                >
+                  <PreplayVolumeIcon muted={!preplayAudible} className="h-[15.4px] w-[15.4px]" />
+                </button>
+              )}
             </div>
-          ) : null}
+          )}
 
           {thumbnailSrc && !thumbnailError ? (
             <>
               <img
                 src={thumbnailSrc}
-                alt={translatedTitle || titlePlain}
+                alt={displayTitle || titlePlain}
                 className={`w-full h-auto block group-hover:scale-105 transition-transform duration-500${thumbnailLoaded ? '' : ' invisible absolute'}`}
                 onLoad={() => setThumbnailLoaded(true)}
                 onError={() => setThumbnailError(true)}
@@ -1172,27 +1326,6 @@ export default function MediaCard({
             </div>
           )}
 
-          {showHomePreplaySoundChip && (
-            <div
-              className="pointer-events-none absolute inset-x-0 top-2 z-[30] flex items-center justify-center px-14 sm:px-16"
-              role="presentation"
-            >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  togglePreviewSound()
-                }}
-                aria-pressed={previewSoundOn}
-                className="pointer-events-auto inline-flex touch-manipulation items-center justify-center rounded-md bg-transparent px-2 py-1 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] transition-opacity hover:opacity-90 active:opacity-100 [-webkit-tap-highlight-color:transparent]"
-                title={previewSoundOn ? tFeed('mutePreplayTitle') : tFeed('unmutePreplayTitle')}
-              >
-                <PreplayVolumeIcon muted={!preplayAudible} className="h-[15.4px] w-[15.4px]" />
-              </button>
-            </div>
-          )}
-
           {/* Processing overlay: only when no playable stream yet (pending or processing before 480p ready) */}
           {media.processingStatus && media.processingStatus !== 'completed' && !hasPreviewStream && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20">
@@ -1242,7 +1375,10 @@ export default function MediaCard({
                       className="text-[13px] text-white/90 leading-snug line-clamp-2 break-words [text-shadow:0_1px_3px_rgba(0,0,0,0.95)]"
                       title={c.content}
                     >
-                      <TranslatedPlaintext text={c.content} translateEnabled={autoTranslationEffective} />
+                      <TranslatedPlaintext
+                        text={c.content}
+                        translateEnabled={thumbnailTranslateEnabled}
+                      />
                     </p>
                   ))}
                 </div>
@@ -1266,9 +1402,9 @@ export default function MediaCard({
         <div className="p-4 grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-2 items-start">
           <h3
             className="font-semibold text-white transition-colors truncate min-w-0 col-start-1 row-start-1"
-            title={translatedTitle || titlePlain}
+            title={displayTitle || titlePlain}
           >
-            {renderTitle(translatedTitle || titlePlain)}
+            {renderTitle(displayTitle || titlePlain)}
           </h3>
           <div className="col-start-2 row-start-1 justify-self-end flex items-center gap-1 text-xs font-bold text-gray-300 tabular-nums">
             {getTypeIcon()}
@@ -1405,8 +1541,8 @@ export default function MediaCard({
                   {latestModalComments.map((c) => renderModalCommentRow(c))}
                 </div>
               ) : null}
-              <p className="text-sm text-gray-400 mb-3 truncate" title={translatedTitle || titlePlain}>
-                {translatedTitle || titlePlain}
+              <p className="text-sm text-gray-400 mb-3 truncate" title={displayTitle || titlePlain}>
+                {displayTitle || titlePlain}
               </p>
               {session?.user ? (
                 <>
@@ -1495,6 +1631,47 @@ export default function MediaCard({
                 </div>
               )}
             </div>
+          </div>,
+          document.body
+        )}
+
+      {translationMenuOpen &&
+        translationMenuPos &&
+        createPortal(
+          <div
+            ref={translationMenuRef}
+            role="menu"
+            tabIndex={-1}
+            className="fixed z-[110] min-w-[148px] rounded-lg border border-tank-light bg-tank-gray py-1 shadow-xl outline-none"
+            style={{ top: translationMenuPos.top, left: translationMenuPos.left }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-white hover:bg-tank-light/30"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                persistCardTextMode('original')
+                closeTranslationMenu()
+              }}
+            >
+              {tFeed('cardTextOriginal')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-white hover:bg-tank-light/30"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                persistCardTextMode('local')
+                closeTranslationMenu()
+              }}
+            >
+              {tFeed('cardTextLocal')}
+            </button>
           </div>,
           document.body
         )}

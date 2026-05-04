@@ -25,6 +25,9 @@ export type FeedCardKey =
   | 'unmutePreplayTitle'
   | 'encodingHd'
   | 'editHelpLine'
+  | 'cardTextOriginal'
+  | 'cardTextLocal'
+  | 'cardTranslationToggleAria'
 
 type Pack = Record<FeedCardKey, string>
 
@@ -54,6 +57,9 @@ const EN: Pack = {
   unmutePreplayTitle: 'Play video previews with sound on the home feed',
   encodingHd: 'Encoding HD…',
   editHelpLine: 'Editing… change text below, then press Save to close.',
+  cardTextOriginal: 'Original',
+  cardTextLocal: 'Local',
+  cardTranslationToggleAria: 'Title and description language',
 }
 
 const KO: Pack = {
@@ -83,6 +89,9 @@ const KO: Pack = {
   unmutePreplayTitle: '홈 피드에서 동영상 미리듣기 소리 켜기',
   encodingHd: 'HD 인코딩 중…',
   editHelpLine: '수정 중… 아래에서 텍스트를 바꾼 뒤 저장을 누르면 닫힙니다.',
+  cardTextOriginal: '원문',
+  cardTextLocal: '로컬',
+  cardTranslationToggleAria: '제목·설명 언어',
 }
 
 const JA: Pack = {
@@ -112,6 +121,9 @@ const JA: Pack = {
   unmutePreplayTitle: 'ホームフィードの動画プレビューで音声をオン',
   encodingHd: 'HDをエンコード中…',
   editHelpLine: '編集中…下のテキストを変更して保存で閉じます。',
+  cardTextOriginal: '原文',
+  cardTextLocal: 'ローカル',
+  cardTranslationToggleAria: 'タイトルと説明の言語',
 }
 
 const ZH: Pack = {
@@ -141,6 +153,9 @@ const ZH: Pack = {
   unmutePreplayTitle: '在首页动态中播放带声音的视频预览',
   encodingHd: '正在编码高清…',
   editHelpLine: '正在编辑…在下方修改文字后按保存关闭。',
+  cardTextOriginal: '原文',
+  cardTextLocal: '本地',
+  cardTranslationToggleAria: '标题与说明语言',
 }
 
 const MESSAGES: Record<string, Pack> = {
