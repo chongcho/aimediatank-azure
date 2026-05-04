@@ -424,26 +424,8 @@ export default function RegisterPage() {
       return
     }
 
-    const birthdayTrim = formData.birthday.trim()
-    if (!birthdayTrim) {
+    if (!formData.birthday) {
       setError('Please enter your birthday')
-      return
-    }
-    const isoBirth = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdayTrim)
-    if (!isoBirth) {
-      setError('Use birthday format YYYY-MM-DD (example: 1999-03-15)')
-      return
-    }
-    const y = Number(isoBirth[1])
-    const mo = Number(isoBirth[2])
-    const day = Number(isoBirth[3])
-    const parsed = new Date(Date.UTC(y, mo - 1, day))
-    if (
-      parsed.getUTCFullYear() !== y ||
-      parsed.getUTCMonth() !== mo - 1 ||
-      parsed.getUTCDate() !== day
-    ) {
-      setError('Please enter a valid date')
       return
     }
 
@@ -501,7 +483,7 @@ export default function RegisterPage() {
           phone: formData.phone,
           location: formData.location,
           bio: formData.bio,
-          birthday: birthdayTrim || undefined,
+          birthday: formData.birthday.trim() || undefined,
         }),
       })
 
@@ -671,23 +653,20 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Birthday — text field so mobile users can type (native date pickers are picker-first) */}
+            {/* Birthday — same as Edit Profile (`type="date"`) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Birthday *
               </label>
               <input
-                type="text"
+                type="date"
                 name="birthday"
                 value={formData.birthday}
                 onChange={handleChange}
-                placeholder="YYYY-MM-DD"
                 autoComplete="bday"
-                maxLength={10}
                 required
                 className="w-full"
               />
-              <p className="text-xs text-gray-500 mt-1">Example: 1999-03-15</p>
             </div>
 
             <div>
