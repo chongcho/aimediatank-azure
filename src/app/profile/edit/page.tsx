@@ -993,8 +993,8 @@ export default function EditProfilePage() {
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-center gap-4 pt-0">
+          {/* Actions — aligned right */}
+          <div className="flex w-full justify-end gap-4 pt-0">
             <button
               type="button"
               onClick={() => router.back()}

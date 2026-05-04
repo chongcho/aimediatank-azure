@@ -848,8 +848,8 @@ export default function ProfilePage() {
         </>
       )}
 
-      {/* Bottom bar: Cancel Registration (own profile) + Back */}
-      <div className="flex flex-wrap justify-start items-center gap-3 mt-8 pl-[10px]">
+      {/* Bottom bar: own profile — Cancel Registration (left), Back (right); else Back only (left) */}
+      <div className="mt-8 flex w-full flex-wrap items-center gap-3 px-[10px]">
         {isOwnProfile && (
           <button
             type="button"
@@ -858,7 +858,7 @@ export default function ProfilePage() {
               setCancelRegPassword('')
               setCancelRegOpen(true)
             }}
-            className="flex items-center gap-1 px-3 py-1.5 bg-red-600/90 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors border border-red-500/80"
+            className="flex shrink-0 items-center gap-1 px-3 py-1.5 bg-red-600/90 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors border border-red-500/80"
           >
             Cancel Registration
           </button>
@@ -866,7 +866,9 @@ export default function ProfilePage() {
         <button
           type="button"
           onClick={() => router.back()}
-          className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+          className={`flex shrink-0 items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors ${
+            isOwnProfile ? 'ml-auto' : ''
+          }`}
         >
           ← Back
         </button>
