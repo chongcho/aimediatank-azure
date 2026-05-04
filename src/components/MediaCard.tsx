@@ -11,6 +11,9 @@ import { pickInitialRenditionIndex, sortRenditions } from '@/lib/adaptiveVideoTi
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
 import { formatViewCount } from '@/lib/formatViewCount'
 import { formatRelativeUploadDay } from '@/lib/formatRelativeDay'
+import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
+import { mediaPageT, type MediaPageKey } from '@/messages/mediaPage'
+import { navBarT, type NavBarKey } from '@/messages/navBar'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { useTranslatedPair } from '@/hooks/useTranslatedTexts'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
@@ -91,18 +94,9 @@ export default function MediaCard({
   const router = useRouter()
   const { data: session } = useSession()
   const { mode: cardTextMode } = useFeedCardTextMode()
-  const { localeTag, mtLocaleTag, tMedia, tFeed, t } = useUiLocale()
+  const { localeTag, mtLocaleTag } = useUiLocale()
   const titlePlain = stripHashtags(media.title)
   const descPlain = (media.description ?? '').trim()
-
-  const mediaTypeLabel =
-    media.type === 'VIDEO'
-      ? tMedia('typeVideo')
-      : media.type === 'IMAGE'
-        ? tMedia('typeImage')
-        : media.type === 'MUSIC'
-          ? tMedia('typeMusic')
-          : media.type
   /** Inline `homeScrollContext={{...}}` from the parent is a new object every render — use a boolean + ref for stable deps. */
   const hasHomeScrollContext = homeScrollContext != null
   const homeScrollContextRef = useRef(homeScrollContext)
@@ -129,6 +123,37 @@ export default function MediaCard({
   })
   const autoTranslationEffective =
     autoTranslationFromBadges !== null ? autoTranslationFromBadges : true
+
+  /** With auto-translation on: Original → English chrome; Local → UI locale (bundles). */
+  const chromeLocaleTag = useMemo(() => {
+    if (!autoTranslationEffective) return localeTag
+    return cardTextMode === 'original' ? 'en' : localeTag
+  }, [autoTranslationEffective, cardTextMode, localeTag])
+
+  const tFeedCard = useCallback(
+    (key: FeedCardKey, vars?: Record<string, string>) => feedCardT(chromeLocaleTag, key, vars),
+    [chromeLocaleTag]
+  )
+  const tMediaCard = useCallback(
+    (key: MediaPageKey) => mediaPageT(chromeLocaleTag, key),
+    [chromeLocaleTag]
+  )
+  const tNavChrome = useCallback(
+    (key: NavBarKey) => navBarT(chromeLocaleTag, key),
+    [chromeLocaleTag]
+  )
+
+  const mediaTypeLabel = useMemo(
+    () =>
+      media.type === 'VIDEO'
+        ? tMediaCard('typeVideo')
+        : media.type === 'IMAGE'
+          ? tMediaCard('typeImage')
+          : media.type === 'MUSIC'
+            ? tMediaCard('typeMusic')
+            : media.type,
+    [media.type, tMediaCard]
+  )
 
   const { title: translatedTitle, description: translatedDescription } = useTranslatedPair(
     titlePlain,
@@ -633,11 +658,11 @@ export default function MediaCard({
 
   const isAiGenerated = Boolean(media.aiTool && media.aiTool.trim())
   const isRealGenerated = Boolean(media.realDevice && media.realDevice.trim())
-  const aiLabel = isAiGenerated ? tFeed('aiBadge') : tFeed('realBadge')
+  const aiLabel = isAiGenerated ? tFeedCard('aiBadge') : tFeedCard('realBadge')
 
   // Show 'Free' for null/undefined or zero price, otherwise show the price
   const priceLabel =
-    media.price == null || media.price === 0 ? tFeed('free') : `$${media.price.toFixed(2)}`
+    media.price == null || media.price === 0 ? tFeedCard('free') : `$${media.price.toFixed(2)}`
   const soldCount = media.soldCount ?? (media.isSold ? 1 : 0)
   const showSoldBadge = soldCount > 0
 
@@ -697,12 +722,12 @@ export default function MediaCard({
         body: JSON.stringify({ content }),
       })
       if (res.status === 401) {
-        setCommentError(tFeed('signInToPostComment'))
+        setCommentError(tFeedCard('signInToPostComment'))
         return
       }
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string }
-        setCommentError(data.error || tFeed('couldNotPost'))
+        setCommentError(data.error || tFeedCard('couldNotPost'))
         return
       }
       const data = (await res.json()) as {
@@ -751,7 +776,7 @@ export default function MediaCard({
       })
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string }
-        setCommentError(err.error || tFeed('couldNotUpdate'))
+        setCommentError(err.error || tFeedCard('couldNotUpdate'))
         return
       }
       const data = (await res.json().catch(() => ({}))) as {
@@ -789,7 +814,7 @@ export default function MediaCard({
       )
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string }
-        setCommentError(err.error || tFeed('couldNotDelete'))
+        setCommentError(err.error || tFeedCard('couldNotDelete'))
         setDeleteConfirmCommentId(null)
         return
       }
@@ -806,7 +831,7 @@ export default function MediaCard({
       }
       setCommentModalOpen(false)
     } catch {
-      setCommentError(tFeed('couldNotDeleteGeneric'))
+      setCommentError(tFeedCard('couldNotDeleteGeneric'))
       setDeleteConfirmCommentId(null)
     } finally {
       setCommentModerating(false)
@@ -953,7 +978,7 @@ export default function MediaCard({
       {editingCommentId === c.id ? (
         <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
           <p className={commentTextClass}>{c.content}</p>
-          <p className="text-[11px] text-tank-accent/80">{tFeed('editHelpLine')}</p>
+          <p className="text-[11px] text-tank-accent/80">{tFeedCard('editHelpLine')}</p>
         </div>
       ) : (
         <>
@@ -989,7 +1014,7 @@ export default function MediaCard({
                   setCommentActionId(null)
                 }}
               >
-                {tMedia('edit')}
+                {tMediaCard('edit')}
               </button>
               <button
                 type="button"
@@ -997,7 +1022,7 @@ export default function MediaCard({
                 disabled={commentModerating}
                 onClick={() => setDeleteConfirmCommentId(c.id)}
               >
-                {tMedia('delete')}
+                {tMediaCard('delete')}
               </button>
             </div>
           ) : null}
@@ -1024,7 +1049,7 @@ export default function MediaCard({
           e.preventDefault()
           navigateToMedia()
         }}
-        aria-label={tFeed('openMediaAria', { title: displayTitle || titlePlain })}
+        aria-label={tFeedCard('openMediaAria', { title: displayTitle || titlePlain })}
       >
       <div ref={cardRef} className="media-card-inner bg-tank-gray rounded-md overflow-hidden border border-tank-light transition-all duration-300 [@media(hover:hover)]:hover:border-tank-accent/50 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:shadow-tank-accent/10">
         {/* Thumbnail — natural aspect ratio for masonry layout */}
@@ -1077,7 +1102,7 @@ export default function MediaCard({
                   }}
                   aria-pressed={previewSoundOn}
                   className="pointer-events-auto inline-flex h-9 min-w-9 touch-manipulation items-center justify-center rounded-md bg-transparent px-1.5 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] transition-opacity hover:opacity-90 active:opacity-100 [-webkit-tap-highlight-color:transparent]"
-                  title={previewSoundOn ? tFeed('mutePreplayTitle') : tFeed('unmutePreplayTitle')}
+                  title={previewSoundOn ? tFeedCard('mutePreplayTitle') : tFeedCard('unmutePreplayTitle')}
                 >
                   <PreplayVolumeIcon muted={!preplayAudible} className="h-[15.4px] w-[15.4px]" />
                 </button>
@@ -1166,11 +1191,11 @@ export default function MediaCard({
           {media.processingStatus && media.processingStatus !== 'completed' && !hasPreviewStream && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20">
               {media.processingStatus === 'failed' ? (
-                <p className="text-red-400/70 text-xs font-medium">{tMedia('failedTitle')}</p>
+                <p className="text-red-400/70 text-xs font-medium">{tMediaCard('failedTitle')}</p>
               ) : (
                 <>
                   <div className="w-8 h-8 border-3 border-tank-accent/30 border-t-tank-accent rounded-full animate-spin mb-2" />
-                  <p className="text-white/70 text-xs font-medium">{tMedia('processingShort')}</p>
+                  <p className="text-white/70 text-xs font-medium">{tMediaCard('processingShort')}</p>
                 </>
               )}
             </div>
@@ -1179,7 +1204,7 @@ export default function MediaCard({
           {!homeScrollContext && hasPreviewStream && (
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded-full bg-black/70 text-[10px] font-medium flex items-center gap-1.5 z-10">
               <div className="w-2 h-2 border-2 border-tank-accent/50 border-t-white/80 rounded-full animate-spin" />
-              <span className="text-white/70">{tFeed('encodingHd')}</span>
+              <span className="text-white/70">{tFeedCard('encodingHd')}</span>
             </div>
           )}
 
@@ -1283,7 +1308,7 @@ export default function MediaCard({
                     openCommentModal(e)
                   }
                 }}
-                aria-label={tFeed('openCommentsAria')}
+                aria-label={tFeedCard('openCommentsAria')}
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path
@@ -1293,14 +1318,14 @@ export default function MediaCard({
                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                   />
                 </svg>
-                <span>{tFeed('feedComment')}</span>
+                <span>{tFeedCard('feedComment')}</span>
               </button>
             )}
           </div>
 
           {isBadgeEnabled('postDate') && (
             <span className="col-start-2 row-start-2 justify-self-end text-sm text-gray-300 whitespace-nowrap tabular-nums">
-              {formatRelativeUploadDay(media.createdAt, localeTag)}
+              {formatRelativeUploadDay(media.createdAt, chromeLocaleTag)}
             </span>
           )}
         </div>
@@ -1341,10 +1366,10 @@ export default function MediaCard({
                 >
                   <div className="w-full max-w-sm rounded-lg border border-tank-light bg-tank-gray px-4 py-4 shadow-lg">
                     <h4 id="media-card-delete-comment-title" className="text-base font-semibold text-white">
-                      {tFeed('deleteCommentTitle')}
+                      {tFeedCard('deleteCommentTitle')}
                     </h4>
                     <p id="media-card-delete-comment-desc" className="mt-2 text-sm text-gray-400">
-                      {tMedia('cannotUndo')}
+                      {tMediaCard('cannotUndo')}
                     </p>
                     <div className="mt-4 flex justify-end gap-2">
                       <button
@@ -1353,7 +1378,7 @@ export default function MediaCard({
                         disabled={commentModerating}
                         onClick={() => setDeleteConfirmCommentId(null)}
                       >
-                        {tMedia('cancel')}
+                        {tMediaCard('cancel')}
                       </button>
                       <button
                         type="button"
@@ -1361,17 +1386,17 @@ export default function MediaCard({
                         disabled={commentModerating}
                         onClick={() => void confirmDeleteHomeComment(deleteConfirmCommentId)}
                       >
-                        {commentModerating ? tMedia('deleting') : tMedia('delete')}
+                        {commentModerating ? tMediaCard('deleting') : tMediaCard('delete')}
                       </button>
                     </div>
                   </div>
                 </div>
               ) : null}
               <h3 id="media-card-comment-title" className="text-lg font-semibold text-white mb-1 truncate pr-8">
-                {tFeed('feedComment')}
+                {tFeedCard('feedComment')}
               </h3>
               {modalCommentsLoading ? (
-                <p className="text-xs text-gray-500 mb-3">{tFeed('commentModalLoading')}</p>
+                <p className="text-xs text-gray-500 mb-3">{tFeedCard('commentModalLoading')}</p>
               ) : latestModalComments.length > 0 ? (
                 <div className="mb-3 flex flex-col divide-y divide-tank-light/25">
                   {latestModalComments.map((c) => renderModalCommentRow(c))}
@@ -1403,7 +1428,7 @@ export default function MediaCard({
                       else void submitHomeComment()
                     }}
                     placeholder={
-                      editingCommentId ? tFeed('placeholderEditComment') : tFeed('placeholderWriteComment')
+                      editingCommentId ? tFeedCard('placeholderEditComment') : tFeedCard('placeholderWriteComment')
                     }
                     className="w-full min-h-[2.5rem] max-h-[200px] resize-none overflow-y-auto rounded-lg border border-tank-light bg-tank-dark px-3 py-2 text-sm leading-snug text-white placeholder:text-gray-500 focus:border-tank-accent focus:outline-none focus:ring-1 focus:ring-tank-accent"
                     disabled={commentSubmitting || commentModerating}
@@ -1417,7 +1442,7 @@ export default function MediaCard({
                       onClick={() => setCommentModalOpen(false)}
                       disabled={commentSubmitting || commentModerating}
                     >
-                      {editingCommentId ? tFeed('cancelEdit') : tMedia('cancel')}
+                      {editingCommentId ? tFeedCard('cancelEdit') : tMediaCard('cancel')}
                     </button>
                     <button
                       type="button"
@@ -1429,14 +1454,14 @@ export default function MediaCard({
                       disabled={!canSubmitPost}
                     >
                       {commentSubmitting
-                        ? tFeed('posting')
+                        ? tFeedCard('posting')
                         : commentModerating
                           ? editingCommentId
-                            ? tFeed('saving')
-                            : tFeed('posting')
+                            ? tFeedCard('saving')
+                            : tFeedCard('posting')
                           : editingCommentId
-                            ? tFeed('save')
-                            : tFeed('post')}
+                            ? tFeedCard('save')
+                            : tFeedCard('post')}
                     </button>
                   </div>
                 </>
@@ -1447,7 +1472,7 @@ export default function MediaCard({
                       {olderModalComments.map((c) => renderModalCommentRow(c))}
                     </div>
                   )}
-                  <p className="text-sm text-gray-300">{tFeed('signInBlurb')}</p>
+                  <p className="text-sm text-gray-300">{tFeedCard('signInBlurb')}</p>
                   {commentError && <p className="text-sm text-red-400">{commentError}</p>}
                   <div className="flex flex-wrap gap-2 justify-end">
                     <button
@@ -1455,13 +1480,13 @@ export default function MediaCard({
                       className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-tank-light/50 transition-colors"
                       onClick={() => setCommentModalOpen(false)}
                     >
-                      {tMedia('close')}
+                      {tMediaCard('close')}
                     </button>
                     <Link
                       href={`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`}
                       className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold bg-tank-accent text-tank-black hover:opacity-90"
                     >
-                      {t('signIn')}
+                      {tNavChrome('signIn')}
                     </Link>
                   </div>
                 </div>
