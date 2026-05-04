@@ -31,6 +31,7 @@ export type NavBarKey =
   | 'support'
   | 'policy'
   | 'adminPanel'
+  | 'closePanel'
 
 type Pack = Record<NavBarKey, string>
 
@@ -66,6 +67,7 @@ const EN: Pack = {
   support: 'Support',
   policy: 'Policy',
   adminPanel: 'Admin Panel',
+  closePanel: 'Close',
 }
 
 const DE: Pack = {
@@ -97,6 +99,7 @@ const DE: Pack = {
   support: 'Hilfe',
   policy: 'Richtlinien',
   adminPanel: 'Administration',
+  closePanel: 'Schließen',
 }
 
 const FR: Pack = {
@@ -127,6 +130,7 @@ const FR: Pack = {
   support: 'Assistance',
   policy: 'Politique',
   adminPanel: 'Administration',
+  closePanel: 'Fermer',
 }
 
 const ES: Pack = {
