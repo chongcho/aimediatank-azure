@@ -14,6 +14,7 @@ import { formatRelativeUploadDay } from '@/lib/formatRelativeDay'
 import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
 import { mediaPageT, type MediaPageKey } from '@/messages/mediaPage'
 import { navBarT, type NavBarKey } from '@/messages/navBar'
+import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { useTranslatedPair } from '@/hooks/useTranslatedTexts'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
@@ -94,7 +95,7 @@ export default function MediaCard({
   const router = useRouter()
   const { data: session } = useSession()
   const { mode: cardTextMode } = useFeedCardTextMode()
-  const { localeTag, mtLocaleTag } = useUiLocale()
+  const { localeTag } = useUiLocale()
   const titlePlain = stripHashtags(media.title)
   const descPlain = (media.description ?? '').trim()
   /** Inline `homeScrollContext={{...}}` from the parent is a new object every render — use a boolean + ref for stable deps. */
@@ -124,11 +125,17 @@ export default function MediaCard({
   const autoTranslationEffective =
     autoTranslationFromBadges !== null ? autoTranslationFromBadges : true
 
+  const { bundledTag, mtTag, guestLocal, ensureGuestGeoLoaded } =
+    useGuestFeedLocalTargets(autoTranslationEffective)
+  useEffect(() => {
+    if (guestLocal) void ensureGuestGeoLoaded()
+  }, [guestLocal, ensureGuestGeoLoaded])
+
   /** With auto-translation on: Original → English chrome; Local → UI locale (bundles). */
   const chromeLocaleTag = useMemo(() => {
     if (!autoTranslationEffective) return localeTag
-    return cardTextMode === 'original' ? 'en' : localeTag
-  }, [autoTranslationEffective, cardTextMode, localeTag])
+    return cardTextMode === 'original' ? 'en' : bundledTag
+  }, [autoTranslationEffective, bundledTag, cardTextMode, localeTag])
 
   const tFeedCard = useCallback(
     (key: FeedCardKey, vars?: Record<string, string>) => feedCardT(chromeLocaleTag, key, vars),
@@ -158,7 +165,7 @@ export default function MediaCard({
   const { title: translatedTitle, description: translatedDescription } = useTranslatedPair(
     titlePlain,
     descPlain,
-    mtLocaleTag,
+    mtTag,
     Boolean(media.id) && autoTranslationEffective
   )
 
@@ -991,7 +998,11 @@ export default function MediaCard({
                 setCommentActionId((prev) => (prev === c.id ? null : c.id))
               }}
             >
-              <TranslatedPlaintext text={c.content} translateEnabled={autoTranslationEffective} />
+              <TranslatedPlaintext
+                text={c.content}
+                translateEnabled={autoTranslationEffective}
+                mtLocaleTagOverride={mtTag}
+              />
             </button>
           ) : (
             <TranslatedPlaintext
@@ -999,6 +1010,7 @@ export default function MediaCard({
               text={c.content}
               className={commentTextClass}
               translateEnabled={autoTranslationEffective}
+              mtLocaleTagOverride={mtTag}
             />
           )}
           {commentActionId === c.id && canModerateComment(c.userId) ? (
@@ -1239,6 +1251,7 @@ export default function MediaCard({
                       <TranslatedPlaintext
                         text={c.content}
                         translateEnabled={thumbnailTranslateEnabled}
+                        mtLocaleTagOverride={mtTag}
                       />
                     </p>
                   ))}

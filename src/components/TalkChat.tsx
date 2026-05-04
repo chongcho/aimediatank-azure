@@ -11,6 +11,7 @@ import { TranslatedChatMessageBody } from '@/components/TranslatedChatMessageBod
 import { normalizeChatMessagePlainText } from '@/lib/chatMessageDisplay'
 import { useTranslatedPair, useTranslatedSingle } from '@/hooks/useTranslatedTexts'
 import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
+import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { TALK_CHAT_MAP, talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
 
@@ -469,10 +470,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const isSignedIn = !!session?.user
 
-  const { localeTag, mtLocaleTag } = useUiLocale()
+  const { localeTag } = useUiLocale()
   const autoTranslationEnabled = useAutoTranslationEnabled()
   const { mode: feedTextMode } = useFeedCardTextMode()
   const chatMtEnabled = autoTranslationEnabled && feedTextMode === 'local'
+  const { mtTag, guestLocal, ensureGuestGeoLoaded } = useGuestFeedLocalTargets(autoTranslationEnabled)
+  useEffect(() => {
+    if (guestLocal) void ensureGuestGeoLoaded()
+  }, [guestLocal, ensureGuestGeoLoaded])
   const tr = useMemo(() => talkChatTr(localeTag), [localeTag])
   const trRef = useRef(tr)
   trRef.current = tr
@@ -489,7 +494,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return TALK_CHAT_MAP.placeholderPubKong
   }, [isSignedIn, chatMode, selectedRecipients])
 
-  const composerPlaceholderTr = useTranslatedSingle(composerPlaceholderEn, mtLocaleTag, chatMtEnabled)
+  const composerPlaceholderTr = useTranslatedSingle(composerPlaceholderEn, mtTag, chatMtEnabled)
 
   const inviteBannerEn = useMemo(
     () =>
@@ -500,7 +505,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   )
   const inviteBannerTr = useTranslatedSingle(
     inviteBannerEn,
-    mtLocaleTag,
+    mtTag,
     inviteBannerEn.length > 0 && chatMtEnabled,
   )
 
@@ -513,18 +518,18 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   )
   const memberLineTr = useTranslatedSingle(
     memberLineEn,
-    mtLocaleTag,
+    mtTag,
     memberLineEn.length > 0 && chatMtEnabled,
   )
 
   const pairTitle = confirmModal.show ? confirmModal.title : ''
   const pairMsg = confirmModal.show ? confirmModal.message : ''
-  const confirmTr = useTranslatedPair(pairTitle, pairMsg, mtLocaleTag, confirmModal.show && chatMtEnabled)
+  const confirmTr = useTranslatedPair(pairTitle, pairMsg, mtTag, confirmModal.show && chatMtEnabled)
 
-  const noticeTr = useTranslatedSingle(inlineNotice || '', mtLocaleTag, Boolean(inlineNotice) && chatMtEnabled)
+  const noticeTr = useTranslatedSingle(inlineNotice || '', mtTag, Boolean(inlineNotice) && chatMtEnabled)
   const quickUploadErrTr = useTranslatedSingle(
     mediaPickerQuickUploadError,
-    mtLocaleTag,
+    mtTag,
     Boolean(mediaPickerQuickUploadError) && chatMtEnabled,
   )
 
@@ -3741,7 +3746,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                             >
                               <TranslatedChatMessageBody
                                 content={msg.content}
-                                mtLocaleTag={mtLocaleTag}
+                                mtLocaleTag={mtTag}
                                 autoTranslationEnabled={chatMtEnabled}
                               />
                             </p>

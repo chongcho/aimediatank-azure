@@ -12,6 +12,7 @@ import { clearHomeFeed } from '@/lib/homePrefetchCache'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { useFeedGridAutoTranslation } from '@/hooks/useFeedGridAutoTranslation'
+import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
 
 // Dynamic import TalkChat to prevent SSR issues
@@ -45,9 +46,10 @@ export default function Navbar() {
 function NavbarContent() {
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
-  const { tNavbar: t, tFeed, mtLocaleTag } = useUiLocale()
+  const { tNavbar: t, tFeed } = useUiLocale()
   const feedAutoTranslation = useFeedGridAutoTranslation()
   const { mode: feedCardTextMode, setMode: setFeedCardTextMode } = useFeedCardTextMode()
+  const { mtTag, ensureGuestGeoLoaded } = useGuestFeedLocalTargets(feedAutoTranslation)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
@@ -140,11 +142,11 @@ function NavbarContent() {
   const displayName = userData?.username || session?.user?.username || 'User'
 
   const localeBadgeCode = useMemo(() => {
-    const raw = (mtLocaleTag || 'en').trim() || 'en'
+    const raw = (mtTag || 'en').trim() || 'en'
     const base = raw.split(/[-_]/)[0] || raw
     const two = base.slice(0, 2).toUpperCase()
     return two.length === 2 ? two : 'EN'
-  }, [mtLocaleTag])
+  }, [mtTag])
 
   const updateFeedTextMenuPosition = useCallback(() => {
     const el = feedTextTriggerRef.current
@@ -178,11 +180,12 @@ function NavbarContent() {
       if (feedTextMenuOpen) {
         closeFeedTextMenu()
       } else {
+        if (status === 'unauthenticated') void ensureGuestGeoLoaded()
         updateFeedTextMenuPosition()
         setFeedTextMenuOpen(true)
       }
     },
-    [feedTextMenuOpen, closeFeedTextMenu, updateFeedTextMenuPosition]
+    [feedTextMenuOpen, closeFeedTextMenu, updateFeedTextMenuPosition, ensureGuestGeoLoaded, status]
   )
 
   useEffect(() => {
@@ -861,6 +864,7 @@ function NavbarContent() {
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
+                if (status === 'unauthenticated') void ensureGuestGeoLoaded()
                 setFeedCardTextMode('local')
                 closeFeedTextMenu()
               }}
