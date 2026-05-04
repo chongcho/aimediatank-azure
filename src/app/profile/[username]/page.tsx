@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { useSession } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
@@ -80,6 +80,10 @@ export default function ProfilePage() {
   const [selectedSaved, setSelectedSaved] = useState<Set<string>>(new Set())
   const [unsaving, setUnsaving] = useState(false)
   const [columns, setColumns] = useState(1)
+  const [cancelRegOpen, setCancelRegOpen] = useState(false)
+  const [cancelRegUsername, setCancelRegUsername] = useState('')
+  const [cancelRegPassword, setCancelRegPassword] = useState('')
+  const [cancelRegLoading, setCancelRegLoading] = useState(false)
 
   useEffect(() => {
     const getColumns = () => {
@@ -393,6 +397,34 @@ export default function ProfilePage() {
     const diffTime = deleteDate.getTime() - now.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     return diffDays > 0 ? diffDays : 0
+  }
+
+  const handleConfirmCancelRegistration = async () => {
+    setCancelRegLoading(true)
+    try {
+      const res = await fetch('/api/user/account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          confirmUsername: cancelRegUsername,
+          password: cancelRegPassword,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(typeof data.error === 'string' ? data.error : 'Could not delete account.')
+        return
+      }
+      setCancelRegOpen(false)
+      setCancelRegUsername('')
+      setCancelRegPassword('')
+      await signOut({ callbackUrl: '/' })
+    } catch (e) {
+      console.error(e)
+      alert('Could not delete account.')
+    } finally {
+      setCancelRegLoading(false)
+    }
   }
 
   return (
@@ -816,8 +848,21 @@ export default function ProfilePage() {
         </>
       )}
 
-      {/* Back Button at bottom left */}
-      <div className="flex justify-start mt-8">
+      {/* Bottom bar: Cancel Registration (own profile) + Back */}
+      <div className="flex flex-wrap justify-start items-center gap-3 mt-8 pl-[10px]">
+        {isOwnProfile && (
+          <button
+            type="button"
+            onClick={() => {
+              setCancelRegUsername('')
+              setCancelRegPassword('')
+              setCancelRegOpen(true)
+            }}
+            className="flex items-center gap-1 px-3 py-1.5 bg-red-600/90 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors border border-red-500/80"
+          >
+            Cancel Registration
+          </button>
+        )}
         <button
           type="button"
           onClick={() => router.back()}
@@ -826,6 +871,73 @@ export default function ProfilePage() {
           ← Back
         </button>
       </div>
+
+      {isOwnProfile && cancelRegOpen && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={() => !cancelRegLoading && setCancelRegOpen(false)}
+          role="presentation"
+        >
+          <div
+            className="bg-tank-dark border border-tank-light rounded-2xl max-w-md w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-reg-title"
+          >
+            <h3 id="cancel-reg-title" className="text-xl font-bold text-red-400 mb-2">
+              Cancel registration
+            </h3>
+            <p className="text-gray-400 text-sm mb-4">
+              This permanently deletes your account, uploads, purchases record, and messages. This cannot be undone.
+            </p>
+            <label className="block text-sm text-gray-300 mb-1" htmlFor="cancel-reg-username">
+              Type your username <span className="text-tank-accent font-mono">@{profile?.username}</span> to confirm
+            </label>
+            <input
+              id="cancel-reg-username"
+              name="cancel-reg-username"
+              type="text"
+              autoComplete="username"
+              value={cancelRegUsername}
+              onChange={(e) => setCancelRegUsername(e.target.value)}
+              className="w-full mb-4 px-3 py-2 rounded-lg bg-tank-gray border border-tank-light text-white text-sm"
+              disabled={cancelRegLoading}
+            />
+            <label className="block text-sm text-gray-300 mb-1" htmlFor="cancel-reg-password">
+              Account password (leave blank if you only use social sign-in)
+            </label>
+            <input
+              id="cancel-reg-password"
+              name="cancel-reg-password"
+              type="password"
+              autoComplete="current-password"
+              value={cancelRegPassword}
+              onChange={(e) => setCancelRegPassword(e.target.value)}
+              className="w-full mb-6 px-3 py-2 rounded-lg bg-tank-gray border border-tank-light text-white text-sm"
+              disabled={cancelRegLoading}
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                disabled={cancelRegLoading}
+                onClick={() => setCancelRegOpen(false)}
+                className="px-4 py-2 rounded-lg bg-tank-gray text-gray-300 hover:bg-tank-light transition-colors"
+              >
+                Keep account
+              </button>
+              <button
+                type="button"
+                disabled={cancelRegLoading || !cancelRegUsername.trim()}
+                onClick={() => void handleConfirmCancelRegistration()}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {cancelRegLoading ? 'Deleting…' : 'Delete forever'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
