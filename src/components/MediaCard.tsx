@@ -1174,12 +1174,12 @@ export default function MediaCard({
             showHomePreplaySoundChip) && (
             <div className="absolute top-2 right-2 z-[30] flex flex-col items-end gap-1 pointer-events-none">
               {isBadgeEnabled('ai') && (
-                <div className="px-2 py-1 rounded-md text-[11px] font-bold uppercase bg-black/70 text-white/70 backdrop-blur-sm">
+                <div className="px-2 py-1 rounded-md text-[11px] font-bold uppercase bg-transparent text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]">
                   {aiLabel}
                 </div>
               )}
               {priceLabel && isBadgeEnabled('price') && (
-                <div className="px-2 py-1 rounded-md text-[11px] font-bold bg-black/70 text-white/70 backdrop-blur-sm">
+                <div className="px-2 py-1 rounded-md text-[11px] font-bold bg-transparent text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]">
                   {priceLabel}
                 </div>
               )}
@@ -1205,10 +1205,10 @@ export default function MediaCard({
                   aria-haspopup="menu"
                   aria-expanded={translationMenuOpen}
                   aria-label={tFeed('cardTranslationToggleAria')}
-                  className="pointer-events-auto relative flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full border border-white/25 bg-black/70 text-white shadow-[0_1px_4px_rgba(0,0,0,0.65)] backdrop-blur-sm transition-opacity hover:opacity-95 active:opacity-100 [-webkit-tap-highlight-color:transparent]"
+                  className="pointer-events-auto relative flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full bg-transparent text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] transition-opacity hover:opacity-90 active:opacity-100 [-webkit-tap-highlight-color:transparent]"
                 >
                   <svg
-                    className="pointer-events-none absolute inset-0.5 opacity-35"
+                    className="pointer-events-none absolute inset-0.5 text-white/85"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
