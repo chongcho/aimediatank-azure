@@ -81,6 +81,29 @@ function LoginContent() {
 
   const showCredentialsForm = returningToAdmin || showEmailForm
 
+  const showDeactivateActivateCta =
+    Boolean(error && error.toLowerCase().includes('deactivated') && showCredentialsForm)
+
+  const finishLoginAfterCredentialsOk = async () => {
+    let dest = safeCallbackUrl
+    if (safeCallbackUrl === '/admin' || safeCallbackUrl.startsWith('/admin?')) {
+      dest = appendAdminFreshStep2Param(safeCallbackUrl)
+    } else {
+      const s = await getSession()
+      if (isAppAdminRole(s?.user?.role)) {
+        dest = `/login/admin-verify?next=${encodeURIComponent(safeCallbackUrl)}`
+      }
+    }
+    try {
+      if (dest.startsWith('/admin')) {
+        sessionStorage.setItem(ADMIN_FORCE_STEP2_STORAGE_KEY, '1')
+      }
+    } catch {
+      /* private mode */
+    }
+    window.location.replace(dest)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -97,26 +120,47 @@ function LoginContent() {
         setError(ERROR_MESSAGES[result.error] ?? result.error)
         setLoading(false)
       } else if (result?.ok) {
-        let dest = safeCallbackUrl
-        if (safeCallbackUrl === '/admin' || safeCallbackUrl.startsWith('/admin?')) {
-          dest = appendAdminFreshStep2Param(safeCallbackUrl)
-        } else {
-          const s = await getSession()
-          if (isAppAdminRole(s?.user?.role)) {
-            dest = `/login/admin-verify?next=${encodeURIComponent(safeCallbackUrl)}`
-          }
-        }
-        try {
-          if (dest.startsWith('/admin')) {
-            sessionStorage.setItem(ADMIN_FORCE_STEP2_STORAGE_KEY, '1')
-          }
-        } catch {
-          /* private mode */
-        }
-        window.location.replace(dest)
+        await finishLoginAfterCredentialsOk()
         return
       }
     } catch (err) {
+      setError('Something went wrong')
+      setLoading(false)
+    }
+  }
+
+  const handleActivate = async () => {
+    if (!email.trim() || !password) {
+      setError(
+        'This account has been deactivated. Enter the email and password for this account, then tap Activate.',
+      )
+      return
+    }
+    setLoading(true)
+    try {
+      const act = await fetch('/api/user/account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+      })
+      const data = await act.json().catch(() => ({}))
+      if (!act.ok) {
+        setError(typeof data.error === 'string' ? data.error : 'Could not activate account.')
+        setLoading(false)
+        return
+      }
+      const result = await signIn('credentials', {
+        email: email.trim(),
+        password,
+        redirect: false,
+      })
+      if (result?.error) {
+        setError(ERROR_MESSAGES[result.error] ?? result.error)
+        setLoading(false)
+      } else if (result?.ok) {
+        await finishLoginAfterCredentialsOk()
+      }
+    } catch {
       setError('Something went wrong')
       setLoading(false)
     }
@@ -162,7 +206,24 @@ function LoginContent() {
         <div className="card">
           {error && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
-              {error}
+              <p className={showDeactivateActivateCta ? 'font-bold' : undefined}>{error}</p>
+              {showDeactivateActivateCta && (
+                <button
+                  type="button"
+                  onClick={() => void handleActivate()}
+                  disabled={loading}
+                  className="mt-4 w-full btn-primary flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <span className="spinner" />
+                      Activating...
+                    </>
+                  ) : (
+                    'Activate'
+                  )}
+                </button>
+              )}
             </div>
           )}
 

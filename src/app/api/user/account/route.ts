@@ -9,6 +9,17 @@ import { isSelfServiceAccountDeactivationEnabled } from '@/lib/selfServiceAccoun
 export const dynamic = 'force-dynamic'
 
 type AccountBody = { confirmUsername?: unknown; password?: unknown; restore?: unknown }
+type ActivateBody = { email?: unknown; password?: unknown }
+
+async function parseActivateBody(request: Request): Promise<ActivateBody | null> {
+  try {
+    const text = await request.text()
+    if (!text) return {}
+    return JSON.parse(text) as ActivateBody
+  } catch {
+    return null
+  }
+}
 
 async function parseJsonBody(request: Request): Promise<AccountBody | null> {
   try {
@@ -17,6 +28,48 @@ async function parseJsonBody(request: Request): Promise<AccountBody | null> {
     return JSON.parse(text) as AccountBody
   } catch {
     return null
+  }
+}
+
+/**
+ * Email/password: clear soft deactivation so the next credentials sign-in succeeds.
+ * Does not create a session (client calls signIn after).
+ */
+export async function POST(request: Request) {
+  try {
+    const body = await parseActivateBody(request)
+    if (body === null) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+    const emailRaw = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+    const password = typeof body.password === 'string' ? body.password : ''
+    if (!emailRaw || !password) {
+      return NextResponse.json({ error: 'Email and password are required.' }, { status: 400 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: emailRaw },
+      select: { id: true, password: true, accountDeactivatedAt: true },
+    })
+    if (!user?.password || user.password.length === 0) {
+      return NextResponse.json({ error: 'Invalid email or password.' }, { status: 400 })
+    }
+    const ok = await bcrypt.compare(password, user.password)
+    if (!ok) {
+      return NextResponse.json({ error: 'Invalid email or password.' }, { status: 400 })
+    }
+    if (!user.accountDeactivatedAt) {
+      return NextResponse.json({ error: 'Account is not deactivated. Use Log in.' }, { status: 400 })
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { accountDeactivatedAt: null },
+    })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error activating account:', error)
+    return NextResponse.json({ error: 'Failed to activate account' }, { status: 500 })
   }
 }
 

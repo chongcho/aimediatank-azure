@@ -179,7 +179,9 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (user.accountDeactivatedAt) {
-          throw new Error('This account has been deactivated. Contact support to restore access.')
+          throw new Error(
+            'This account has been deactivated. Enter your password and tap Activate to log in, or contact support for help.',
+          )
         }
 
         return {
@@ -298,7 +300,7 @@ export const authOptions: NextAuthOptions = {
         }
         if (dbUser.accountDeactivatedAt) {
           throw new Error(
-            'This account has been deactivated. Contact support to restore access.',
+            'This account has been deactivated. If you use email and password, open Log in with Email and tap Activate after entering your password. Or contact support for help.',
           )
         }
         token.id = dbUser.id
