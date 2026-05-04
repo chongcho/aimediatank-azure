@@ -3,12 +3,15 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
+import { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import MediaMessageModal from './MediaMessageModal'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
 import { clearHomeFeed } from '@/lib/homePrefetchCache'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
+import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
+import { useFeedGridAutoTranslation } from '@/hooks/useFeedGridAutoTranslation'
 import { useUiLocale } from '@/hooks/useUiLocale'
 
 // Dynamic import TalkChat to prevent SSR issues
@@ -40,9 +43,12 @@ export default function Navbar() {
 }
 
 function NavbarContent() {
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
-  const { tNavbar: t } = useUiLocale()
+  const { tNavbar: t, tFeed, mtLocaleTag } = useUiLocale()
+  const feedAutoTranslation = useFeedGridAutoTranslation()
+  const { mode: feedCardTextMode, setMode: setFeedCardTextMode } = useFeedCardTextMode()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
@@ -59,6 +65,10 @@ function NavbarContent() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [userData, setUserData] = useState<{ name: string | null; username: string | null; avatar: string | null; membershipType: string | null; role: string | null } | null>(null)
   const [navbarMenuItems, setNavbarMenuItems] = useState<NavbarMenuItem[]>([])
+  const [feedTextMenuOpen, setFeedTextMenuOpen] = useState(false)
+  const [feedTextMenuPos, setFeedTextMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const feedTextTriggerRef = useRef<HTMLButtonElement>(null)
+  const feedTextMenuRef = useRef<HTMLDivElement>(null)
 
   /** Once per `?openChat=1` in the URL — avoids re-opening TalkChat when navbar settings refetch changes `isNavbarItemEnabled`. */
   const openChatDeepLinkConsumedRef = useRef(false)
@@ -131,6 +141,87 @@ function NavbarContent() {
   
   // Display name - show Nickname (username) in navbar
   const displayName = userData?.username || session?.user?.username || 'User'
+
+  const showFeedTextModeInNav = useMemo(
+    () =>
+      feedAutoTranslation &&
+      (pathname === '/' ||
+        (pathname.startsWith('/profile/') && !pathname.startsWith('/profile/edit'))),
+    [feedAutoTranslation, pathname]
+  )
+
+  const localeBadgeCode = useMemo(() => {
+    const raw = (mtLocaleTag || 'en').trim() || 'en'
+    const base = raw.split(/[-_]/)[0] || raw
+    const two = base.slice(0, 2).toUpperCase()
+    return two.length === 2 ? two : 'EN'
+  }, [mtLocaleTag])
+
+  const updateFeedTextMenuPosition = useCallback(() => {
+    const el = feedTextTriggerRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const menuWidth = 148
+    setFeedTextMenuPos({
+      top: r.bottom + 6,
+      left: Math.max(8, Math.min(r.right - menuWidth, window.innerWidth - menuWidth - 8)),
+    })
+  }, [])
+
+  const closeFeedTextMenu = useCallback(() => {
+    setFeedTextMenuOpen(false)
+    setFeedTextMenuPos(null)
+  }, [])
+
+  const toggleFeedTextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsProfileOpen(false)
+      setIsAlertsOpen(false)
+      if (feedTextMenuOpen) {
+        closeFeedTextMenu()
+      } else {
+        updateFeedTextMenuPosition()
+        setFeedTextMenuOpen(true)
+      }
+    },
+    [feedTextMenuOpen, closeFeedTextMenu, updateFeedTextMenuPosition]
+  )
+
+  useEffect(() => {
+    if (!feedTextMenuOpen) return
+    const onScrollResize = () => {
+      closeFeedTextMenu()
+    }
+    window.addEventListener('scroll', onScrollResize, true)
+    window.addEventListener('resize', onScrollResize)
+    return () => {
+      window.removeEventListener('scroll', onScrollResize, true)
+      window.removeEventListener('resize', onScrollResize)
+    }
+  }, [feedTextMenuOpen, closeFeedTextMenu])
+
+  useEffect(() => {
+    if (!feedTextMenuOpen) return
+    const onDocDown = (e: MouseEvent) => {
+      const node = e.target as Node
+      if (feedTextTriggerRef.current?.contains(node)) return
+      if (feedTextMenuRef.current?.contains(node)) return
+      closeFeedTextMenu()
+    }
+    document.addEventListener('mousedown', onDocDown, true)
+    return () => document.removeEventListener('mousedown', onDocDown, true)
+  }, [feedTextMenuOpen, closeFeedTextMenu])
+
+  useEffect(() => {
+    if (!feedTextMenuOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeFeedTextMenu()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [feedTextMenuOpen, closeFeedTextMenu])
 
   // Keep notification dropdown within viewport, positioned just below the navbar
   useLayoutEffect(() => {
@@ -472,12 +563,78 @@ function NavbarContent() {
 
           {/* Right Side */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Notification Bell - signed-in users */}
+            {/* Card (/ecard) — visibility via mediaMessage */}
+            {isNavbarItemEnabled('mediaMessage') && (
+              <Link
+                href="/ecard"
+                className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-pink-500 px-px text-center hover:bg-pink-600 transition-colors"
+                aria-label={t('card')}
+                title={t('card')}
+              >
+                <span className="text-sm font-bold text-white">{t('card')}</span>
+              </Link>
+            )}
+            {/* Kong (Talk chat) button */}
+            {isNavbarItemEnabled('chat') && (
+              <div className="relative">
+                <button
+                  onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
+                  className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-yellow-300 px-px text-center hover:bg-yellow-400 transition-colors"
+                  aria-label={t('kong')}
+                  title={t('kong')}
+                >
+                  <span className="text-sm font-bold text-gray-900">{t('kong')}</span>
+                </button>
+                {/* My Kong invite notification badge */}
+                {chatInviteCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                    {chatInviteCount > 9 ? '9+' : chatInviteCount}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {showFeedTextModeInNav && (
+              <button
+                ref={feedTextTriggerRef}
+                type="button"
+                onClick={toggleFeedTextMenu}
+                aria-haspopup="menu"
+                aria-expanded={feedTextMenuOpen}
+                aria-label={tFeed('cardTranslationToggleAria')}
+                className="relative flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full text-gray-200 hover:text-white hover:bg-tank-light transition-colors [-webkit-tap-highlight-color:transparent]"
+              >
+                <svg
+                  className="pointer-events-none absolute inset-0.5 opacity-60"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.25}
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 21a9 9 0 100-18 9 9 0 000 18z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 010 18M12 3a15.3 15.3 0 000 18"
+                  />
+                </svg>
+                <span className="pointer-events-none relative z-[1] text-[10px] font-bold leading-none tracking-tight">
+                  {localeBadgeCode}
+                </span>
+              </button>
+            )}
+
             {session && isNavbarItemEnabled('notification') && (
               <div className="relative" ref={alertsRef}>
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
+                    closeFeedTextMenu()
                     setIsAlertsOpen(!isAlertsOpen)
                     setIsProfileOpen(false)
                     setExpandedNotificationId(null)
@@ -501,7 +658,6 @@ function NavbarContent() {
                     )}
                   </div>
                 </button>
-                {/* Notifications Dropdown - positioned in viewport via alertsDropdownStyle */}
                 {isAlertsOpen && (
                   <div
                     ref={alertsDropdownRef}
@@ -534,7 +690,7 @@ function NavbarContent() {
                                 if (selectedIds.size === visible.length) {
                                   setSelectedIds(new Set())
                                 } else {
-                                  setSelectedIds(new Set(visible.map(n => n.id)))
+                                  setSelectedIds(new Set(visible.map((n) => n.id)))
                                 }
                               }}
                               className="text-xs text-gray-400 hover:text-white"
@@ -618,7 +774,9 @@ function NavbarContent() {
                               <div className="flex gap-2 items-start">
                                 {isSelectMode && (
                                   <div className="flex items-center pt-0.5">
-                                    <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-tank-accent border-tank-accent' : 'border-gray-500'}`}>
+                                    <div
+                                      className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-tank-accent border-tank-accent' : 'border-gray-500'}`}
+                                    >
                                       {isSelected && (
                                         <svg className="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -652,37 +810,6 @@ function NavbarContent() {
               </div>
             )}
 
-            {/* Card (/ecard) — visibility via mediaMessage */}
-            {isNavbarItemEnabled('mediaMessage') && (
-              <Link
-                href="/ecard"
-                className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-pink-500 px-px text-center hover:bg-pink-600 transition-colors"
-                aria-label={t('card')}
-                title={t('card')}
-              >
-                <span className="text-sm font-bold text-white">{t('card')}</span>
-              </Link>
-            )}
-            {/* Kong (Talk chat) button */}
-            {isNavbarItemEnabled('chat') && (
-              <div className="relative">
-                <button
-                  onClick={() => setIsTalkChatOpen(!isTalkChatOpen)}
-                  className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-yellow-300 px-px text-center hover:bg-yellow-400 transition-colors"
-                  aria-label={t('kong')}
-                  title={t('kong')}
-                >
-                  <span className="text-sm font-bold text-gray-900">{t('kong')}</span>
-                </button>
-                {/* My Kong invite notification badge */}
-                {chatInviteCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                    {chatInviteCount > 9 ? '9+' : chatInviteCount}
-                  </span>
-                )}
-              </div>
-            )}
-
             {status === 'loading' ? (
               <div className="w-8 h-8 rounded-full bg-tank-light animate-pulse" />
             ) : session ? (
@@ -703,6 +830,7 @@ function NavbarContent() {
                 <div className="relative" ref={profileRef}>
                   <button
                     onClick={() => {
+                      closeFeedTextMenu()
                       setIsProfileOpen(!isProfileOpen)
                       setIsAlertsOpen(false)
                     }}
@@ -887,6 +1015,47 @@ function NavbarContent() {
           </div>
         )}
       </div>
+
+      {feedTextMenuOpen &&
+        feedTextMenuPos &&
+        createPortal(
+          <div
+            ref={feedTextMenuRef}
+            role="menu"
+            tabIndex={-1}
+            className="fixed z-[110] min-w-[148px] rounded-lg border border-tank-light bg-tank-gray py-1 shadow-xl outline-none"
+            style={{ top: feedTextMenuPos.top, left: feedTextMenuPos.left }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className={`block w-full px-3 py-2 text-left text-sm hover:bg-tank-light/30 ${feedCardTextMode === 'original' ? 'bg-tank-light/20 text-white font-medium' : 'text-white'}`}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setFeedCardTextMode('original')
+                closeFeedTextMenu()
+              }}
+            >
+              {tFeed('cardTextOriginal')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className={`block w-full px-3 py-2 text-left text-sm hover:bg-tank-light/30 ${feedCardTextMode === 'local' ? 'bg-tank-light/20 text-white font-medium' : 'text-white'}`}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setFeedCardTextMode('local')
+                closeFeedTextMenu()
+              }}
+            >
+              {tFeed('cardTextLocal')}
+            </button>
+          </div>,
+          document.body
+        )}
 
       {/* Talk Chat */}
       {isNavbarItemEnabled('chat') && isTalkChatOpen && (

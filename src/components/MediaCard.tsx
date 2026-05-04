@@ -15,7 +15,14 @@ import { useUiLocale } from '@/hooks/useUiLocale'
 import { useTranslatedPair } from '@/hooks/useTranslatedTexts'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
 import { TranslatedPlaintext } from '@/components/TranslatedPlaintext'
+import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { PreplayVolumeIcon, useHomePreplayFocus } from '@/contexts/HomePreplayFocusContext'
+import type { FeedBadgeItem } from '@/lib/feedBadgePayloadClient'
+import {
+  fetchFeedBadgePayload,
+  getFeedBadgePayloadSync,
+  resetFeedBadgePayloadCache,
+} from '@/lib/feedBadgePayloadClient'
 
 interface MediaCardProps {
   media: {
@@ -69,64 +76,10 @@ interface MediaCardProps {
   homePreplaySound?: boolean
 }
 
-type BadgeItem = { itemKey: string; isEnabled: boolean }
-
 type ModalCommentLine = { id: string; content: string; userId: string }
 
 /** Max height (px) for the comment textarea before it scrolls internally. */
 const COMMENT_TEXTAREA_MAX_PX = 200
-
-type BadgePayload = { items: BadgeItem[]; homePreplaySound: boolean; autoTranslation: boolean }
-
-const HOME_CARD_TEXT_MODE_KEY = 'homeFeedCardTextMode'
-
-function readStoredCardTextMode(): 'original' | 'local' {
-  if (typeof window === 'undefined') return 'local'
-  const v = window.sessionStorage.getItem(HOME_CARD_TEXT_MODE_KEY)
-  return v === 'original' ? 'original' : 'local'
-}
-
-let badgePayloadCache: BadgePayload | null = null
-let badgePayloadPromise: Promise<BadgePayload | null> | null = null
-
-function resetBadgeItemsCache() {
-  badgePayloadCache = null
-  badgePayloadPromise = null
-}
-
-async function fetchBadgePayload(): Promise<BadgePayload | null> {
-  if (badgePayloadCache) return badgePayloadCache
-  if (badgePayloadPromise) return badgePayloadPromise
-
-  badgePayloadPromise = (async () => {
-    try {
-      const res = await fetch(`/api/ui/badges?_=${Date.now()}`, {
-        cache: 'no-store',
-        credentials: 'same-origin',
-      })
-      if (!res.ok) return null
-      const data = await res.json()
-      const items = (data.items || []) as BadgeItem[]
-      const homePreplaySound = data.homePreplaySound !== false
-      const autoTranslation = data.autoTranslation !== false
-      const payload: BadgePayload = { items, homePreplaySound, autoTranslation }
-      badgePayloadCache = payload
-      return payload
-    } catch (error) {
-      console.error('Error fetching badge settings:', error)
-      return null
-    } finally {
-      badgePayloadPromise = null
-    }
-  })()
-
-  return badgePayloadPromise
-}
-
-async function getBadgeItems(): Promise<BadgeItem[] | null> {
-  const p = await fetchBadgePayload()
-  return p?.items ?? null
-}
 
 export default function MediaCard({
   media,
@@ -137,6 +90,7 @@ export default function MediaCard({
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
+  const { mode: cardTextMode } = useFeedCardTextMode()
   const { localeTag, mtLocaleTag, tMedia, tFeed, t } = useUiLocale()
   const titlePlain = stripHashtags(media.title)
   const descPlain = (media.description ?? '').trim()
@@ -159,16 +113,20 @@ export default function MediaCard({
   const videoRef = useRef<HTMLVideoElement>(null)
   const preplayVideoRef = useRef<HTMLVideoElement>(null)
   const [preplayHover, setPreplayHover] = useState(false)
-  const [badgeItems, setBadgeItems] = useState<BadgeItem[] | null>(badgePayloadCache?.items ?? null)
-  /** From `/api/ui/badges` (same source as tile badges); null until first fetch — then overrides parent prop for homepage sound UI. */
-  const [homePreplaySoundFromBadges, setHomePreplaySoundFromBadges] = useState<boolean | null>(
-    badgePayloadCache ? badgePayloadCache.homePreplaySound : null
+  const [badgeItems, setBadgeItems] = useState<FeedBadgeItem[] | null>(
+    () => getFeedBadgePayloadSync()?.items ?? null
   )
+  /** From `/api/ui/badges` (same source as tile badges); null until first fetch — then overrides parent prop for homepage sound UI. */
+  const [homePreplaySoundFromBadges, setHomePreplaySoundFromBadges] = useState<boolean | null>(() => {
+    const p = getFeedBadgePayloadSync()
+    return p ? p.homePreplaySound : null
+  })
   const homePreplaySoundEffective =
     homePreplaySoundFromBadges !== null ? homePreplaySoundFromBadges : homePreplaySound
-  const [autoTranslationFromBadges, setAutoTranslationFromBadges] = useState<boolean | null>(
-    badgePayloadCache ? badgePayloadCache.autoTranslation !== false : null
-  )
+  const [autoTranslationFromBadges, setAutoTranslationFromBadges] = useState<boolean | null>(() => {
+    const p = getFeedBadgePayloadSync()
+    return p ? p.autoTranslation !== false : null
+  })
   const autoTranslationEffective =
     autoTranslationFromBadges !== null ? autoTranslationFromBadges : true
 
@@ -179,34 +137,12 @@ export default function MediaCard({
     Boolean(media.id) && autoTranslationEffective
   )
 
-  const [cardTextMode, setCardTextMode] = useState<'original' | 'local'>(readStoredCardTextMode)
-  const [translationMenuOpen, setTranslationMenuOpen] = useState(false)
-  const [translationMenuPos, setTranslationMenuPos] = useState<{ top: number; left: number } | null>(
-    null
-  )
-  const translateTriggerRef = useRef<HTMLButtonElement>(null)
-  const translationMenuRef = useRef<HTMLDivElement>(null)
-
-  const persistCardTextMode = useCallback((mode: 'original' | 'local') => {
-    setCardTextMode(mode)
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem(HOME_CARD_TEXT_MODE_KEY, mode)
-    }
-  }, [])
-
   const displayTitle =
     cardTextMode === 'original' || !autoTranslationEffective ? titlePlain : translatedTitle
   const displayDescriptionSource =
     cardTextMode === 'original' || !autoTranslationEffective ? descPlain : translatedDescription
   const thumbnailTranslateEnabled =
     autoTranslationEffective && cardTextMode === 'local'
-
-  const localeBadgeCode = useMemo(() => {
-    const raw = (mtLocaleTag || 'en').trim() || 'en'
-    const base = raw.split(/[-_]/)[0] || raw
-    const two = base.slice(0, 2).toUpperCase()
-    return two.length === 2 ? two : 'EN'
-  }, [mtLocaleTag])
 
   const descriptionOverlay = useMemo(() => {
     const raw = displayDescriptionSource.trim()
@@ -215,72 +151,6 @@ export default function MediaCard({
     if (!cleaned) return null
     return { text: truncateText(cleaned, 220), title: cleaned }
   }, [displayDescriptionSource])
-
-  const showHomeTranslateControl = homeScrollContext != null && autoTranslationEffective
-
-  const updateTranslationMenuPosition = useCallback(() => {
-    const el = translateTriggerRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const menuWidth = 148
-    setTranslationMenuPos({
-      top: r.bottom + 6,
-      left: Math.max(8, Math.min(r.right - menuWidth, window.innerWidth - menuWidth - 8)),
-    })
-  }, [])
-
-  const closeTranslationMenu = useCallback(() => {
-    setTranslationMenuOpen(false)
-    setTranslationMenuPos(null)
-  }, [])
-
-  const toggleTranslationMenu = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      if (translationMenuOpen) {
-        closeTranslationMenu()
-      } else {
-        updateTranslationMenuPosition()
-        setTranslationMenuOpen(true)
-      }
-    },
-    [translationMenuOpen, closeTranslationMenu, updateTranslationMenuPosition]
-  )
-
-  useEffect(() => {
-    if (!translationMenuOpen) return
-    const onScrollResize = () => {
-      closeTranslationMenu()
-    }
-    window.addEventListener('scroll', onScrollResize, true)
-    window.addEventListener('resize', onScrollResize)
-    return () => {
-      window.removeEventListener('scroll', onScrollResize, true)
-      window.removeEventListener('resize', onScrollResize)
-    }
-  }, [translationMenuOpen, closeTranslationMenu])
-
-  useEffect(() => {
-    if (!translationMenuOpen) return
-    const onDocDown = (e: MouseEvent) => {
-      const t = e.target as Node
-      if (translateTriggerRef.current?.contains(t)) return
-      if (translationMenuRef.current?.contains(t)) return
-      closeTranslationMenu()
-    }
-    document.addEventListener('mousedown', onDocDown, true)
-    return () => document.removeEventListener('mousedown', onDocDown, true)
-  }, [translationMenuOpen, closeTranslationMenu])
-
-  useEffect(() => {
-    if (!translationMenuOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeTranslationMenu()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [translationMenuOpen, closeTranslationMenu])
 
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
@@ -354,8 +224,8 @@ export default function MediaCard({
 
   useEffect(() => {
     const onBadgeUpdate = () => {
-      resetBadgeItemsCache()
-      void fetchBadgePayload().then((payload) => {
+      resetFeedBadgePayloadCache()
+      void fetchFeedBadgePayload().then((payload) => {
         if (!payload) return
         setBadgeItems(payload.items)
         setHomePreplaySoundFromBadges(payload.homePreplaySound)
@@ -626,15 +496,16 @@ export default function MediaCard({
   useEffect(() => {
     let isMounted = true
     const loadBadges = async () => {
-      if (badgePayloadCache) {
+      const cached = getFeedBadgePayloadSync()
+      if (cached) {
         if (isMounted) {
-          setBadgeItems(badgePayloadCache.items)
-          setHomePreplaySoundFromBadges(badgePayloadCache.homePreplaySound)
-          setAutoTranslationFromBadges(badgePayloadCache.autoTranslation !== false)
+          setBadgeItems(cached.items)
+          setHomePreplaySoundFromBadges(cached.homePreplaySound)
+          setAutoTranslationFromBadges(cached.autoTranslation !== false)
         }
         return
       }
-      const payload = await fetchBadgePayload()
+      const payload = await fetchFeedBadgePayload()
       if (isMounted && payload) {
         setBadgeItems(payload.items)
         setHomePreplaySoundFromBadges(payload.homePreplaySound)
@@ -1170,7 +1041,6 @@ export default function MediaCard({
           {(isBadgeEnabled('ai') ||
             (priceLabel && isBadgeEnabled('price')) ||
             (showSoldBadge && isBadgeEnabled('sold')) ||
-            showHomeTranslateControl ||
             showHomePreplaySoundChip) && (
             <div className="absolute top-2 right-2 z-[30] flex flex-col items-end gap-1 pointer-events-none">
               {isBadgeEnabled('ai') && (
@@ -1196,40 +1066,6 @@ export default function MediaCard({
                     />
                   </svg>
                 </div>
-              )}
-              {showHomeTranslateControl && (
-                <button
-                  ref={translateTriggerRef}
-                  type="button"
-                  onClick={toggleTranslationMenu}
-                  aria-haspopup="menu"
-                  aria-expanded={translationMenuOpen}
-                  aria-label={tFeed('cardTranslationToggleAria')}
-                  className="pointer-events-auto relative flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full bg-transparent text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] transition-opacity hover:opacity-90 active:opacity-100 [-webkit-tap-highlight-color:transparent]"
-                >
-                  <svg
-                    className="pointer-events-none absolute inset-0.5 text-white/85"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.25}
-                    aria-hidden
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 21a9 9 0 100-18 9 9 0 000 18z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 010 18M12 3a15.3 15.3 0 000 18"
-                    />
-                  </svg>
-                  <span className="pointer-events-none relative z-[1] text-[10px] font-bold leading-none tracking-tight">
-                    {localeBadgeCode}
-                  </span>
-                </button>
               )}
               {showHomePreplaySoundChip && (
                 <button
@@ -1631,47 +1467,6 @@ export default function MediaCard({
                 </div>
               )}
             </div>
-          </div>,
-          document.body
-        )}
-
-      {translationMenuOpen &&
-        translationMenuPos &&
-        createPortal(
-          <div
-            ref={translationMenuRef}
-            role="menu"
-            tabIndex={-1}
-            className="fixed z-[110] min-w-[148px] rounded-lg border border-tank-light bg-tank-gray py-1 shadow-xl outline-none"
-            style={{ top: translationMenuPos.top, left: translationMenuPos.left }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-white hover:bg-tank-light/30"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                persistCardTextMode('original')
-                closeTranslationMenu()
-              }}
-            >
-              {tFeed('cardTextOriginal')}
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-white hover:bg-tank-light/30"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                persistCardTextMode('local')
-                closeTranslationMenu()
-              }}
-            >
-              {tFeed('cardTextLocal')}
-            </button>
           </div>,
           document.body
         )}

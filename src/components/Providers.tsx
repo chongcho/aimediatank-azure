@@ -2,6 +2,7 @@
 
 import { SessionProvider } from 'next-auth/react'
 import { ReactNode } from 'react'
+import { FeedCardTextModeProvider } from '@/contexts/FeedCardTextModeContext'
 import DocumentLang from './DocumentLang'
 import SessionLocaleFromProfileSync from './SessionLocaleFromProfileSync'
 
@@ -10,7 +11,7 @@ export default function Providers({ children }: { children: ReactNode }) {
     <SessionProvider>
       <SessionLocaleFromProfileSync />
       <DocumentLang />
-      {children}
+      <FeedCardTextModeProvider>{children}</FeedCardTextModeProvider>
     </SessionProvider>
   )
 }
