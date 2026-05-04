@@ -43,7 +43,6 @@ export default function Navbar() {
 }
 
 function NavbarContent() {
-  const pathname = usePathname()
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const { tNavbar: t, tFeed, mtLocaleTag } = useUiLocale()
@@ -141,14 +140,6 @@ function NavbarContent() {
   
   // Display name - show Nickname (username) in navbar
   const displayName = userData?.username || session?.user?.username || 'User'
-
-  const showFeedTextModeInNav = useMemo(
-    () =>
-      feedAutoTranslation &&
-      (pathname === '/' ||
-        (pathname.startsWith('/profile/') && !pathname.startsWith('/profile/edit'))),
-    [feedAutoTranslation, pathname]
-  )
 
   const localeBadgeCode = useMemo(() => {
     const raw = (mtLocaleTag || 'en').trim() || 'en'
@@ -594,7 +585,7 @@ function NavbarContent() {
               </div>
             )}
 
-            {showFeedTextModeInNav && (
+            {feedAutoTranslation && (
               <button
                 ref={feedTextTriggerRef}
                 type="button"

@@ -11,6 +11,7 @@ import { TranslatedChatMessageBody } from '@/components/TranslatedChatMessageBod
 import { normalizeChatMessagePlainText } from '@/lib/chatMessageDisplay'
 import { useTranslatedPair, useTranslatedSingle } from '@/hooks/useTranslatedTexts'
 import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
+import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { TALK_CHAT_MAP, talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
 
 const TC = talkChatIdx
@@ -470,6 +471,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const { localeTag, mtLocaleTag } = useUiLocale()
   const autoTranslationEnabled = useAutoTranslationEnabled()
+  const { mode: feedTextMode } = useFeedCardTextMode()
+  const chatMtEnabled = autoTranslationEnabled && feedTextMode === 'local'
   const tr = useMemo(() => talkChatTr(localeTag), [localeTag])
   const trRef = useRef(tr)
   trRef.current = tr
@@ -486,7 +489,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return TALK_CHAT_MAP.placeholderPubKong
   }, [isSignedIn, chatMode, selectedRecipients])
 
-  const composerPlaceholderTr = useTranslatedSingle(composerPlaceholderEn, mtLocaleTag, autoTranslationEnabled)
+  const composerPlaceholderTr = useTranslatedSingle(composerPlaceholderEn, mtLocaleTag, chatMtEnabled)
 
   const inviteBannerEn = useMemo(
     () =>
@@ -498,7 +501,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const inviteBannerTr = useTranslatedSingle(
     inviteBannerEn,
     mtLocaleTag,
-    inviteBannerEn.length > 0 && autoTranslationEnabled,
+    inviteBannerEn.length > 0 && chatMtEnabled,
   )
 
   const memberLineEn = useMemo(
@@ -511,18 +514,18 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const memberLineTr = useTranslatedSingle(
     memberLineEn,
     mtLocaleTag,
-    memberLineEn.length > 0 && autoTranslationEnabled,
+    memberLineEn.length > 0 && chatMtEnabled,
   )
 
   const pairTitle = confirmModal.show ? confirmModal.title : ''
   const pairMsg = confirmModal.show ? confirmModal.message : ''
-  const confirmTr = useTranslatedPair(pairTitle, pairMsg, mtLocaleTag, confirmModal.show && autoTranslationEnabled)
+  const confirmTr = useTranslatedPair(pairTitle, pairMsg, mtLocaleTag, confirmModal.show && chatMtEnabled)
 
-  const noticeTr = useTranslatedSingle(inlineNotice || '', mtLocaleTag, Boolean(inlineNotice) && autoTranslationEnabled)
+  const noticeTr = useTranslatedSingle(inlineNotice || '', mtLocaleTag, Boolean(inlineNotice) && chatMtEnabled)
   const quickUploadErrTr = useTranslatedSingle(
     mediaPickerQuickUploadError,
     mtLocaleTag,
-    Boolean(mediaPickerQuickUploadError) && autoTranslationEnabled,
+    Boolean(mediaPickerQuickUploadError) && chatMtEnabled,
   )
 
   // Desktop drag and resize state
@@ -3739,7 +3742,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                               <TranslatedChatMessageBody
                                 content={msg.content}
                                 mtLocaleTag={mtLocaleTag}
-                                autoTranslationEnabled={autoTranslationEnabled}
+                                autoTranslationEnabled={chatMtEnabled}
                               />
                             </p>
                           ) : null}
