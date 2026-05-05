@@ -1063,18 +1063,18 @@ export default function EditProfilePage() {
                 <span className="block w-full leading-tight">Account</span>
               </button>
             )}
-            <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-2 sm:gap-3">
+            <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-4 sm:gap-6">
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="rounded-[0.225rem] border border-tank-light bg-tank-gray p-0 text-sm font-semibold leading-none text-white transition-colors hover:bg-tank-light"
+                className="inline-flex min-h-[2.5rem] items-center justify-center rounded-[0.225rem] border border-tank-light bg-tank-dark px-3 py-2 text-sm font-semibold leading-none text-white transition-colors hover:bg-tank-light"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-[0.225rem] bg-tank-accent p-0 text-sm font-semibold leading-none text-tank-black transition-colors hover:bg-tank-accent/90 hover:shadow-lg hover:shadow-tank-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-h-[2.5rem] items-center justify-center rounded-[0.225rem] bg-tank-accent px-3 py-2 text-sm font-semibold leading-none text-tank-black transition-colors hover:bg-tank-accent/90 hover:shadow-lg hover:shadow-tank-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
