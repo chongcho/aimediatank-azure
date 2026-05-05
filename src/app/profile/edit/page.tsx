@@ -59,6 +59,7 @@ export default function EditProfilePage() {
   const [cancelRegUsername, setCancelRegUsername] = useState('')
   const [cancelRegPassword, setCancelRegPassword] = useState('')
   const [cancelRegLoading, setCancelRegLoading] = useState(false)
+  const [cancelRegError, setCancelRegError] = useState('')
 
   const notifyAvatarFileSizeExceeded = (actualFileBytes: number) => {
     setError(buildUploadFileSizeExceededMessage(maxUploadBytes, actualFileBytes))
@@ -629,6 +630,7 @@ export default function EditProfilePage() {
 
   const handleConfirmAccountDeactivation = async () => {
     setCancelRegLoading(true)
+    setCancelRegError('')
     try {
       const res = await fetch('/api/user/account', {
         method: 'PATCH',
@@ -640,19 +642,23 @@ export default function EditProfilePage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        alert(typeof data.error === 'string' ? data.error : 'Could not deactivate account.')
+        setCancelRegError(
+          typeof data.error === 'string' ? data.error : 'Could not deactivate account.'
+        )
         return
       }
       setCancelRegOpen(false)
       setDeactivateIntroOpen(false)
       setCancelRegUsername('')
       setCancelRegPassword('')
-      await updateSession({ user: { accountDeactivated: true } })
-      window.dispatchEvent(new Event('profileUpdated'))
-      router.replace('/')
+      setCancelRegError('')
+      // Hard navigation: avoid (1) full-page spinner from accountDeactivatedSession before
+      // client navigation runs, and (2) intercepted / modal routes that keep the edit view
+      // on router.replace — same pattern as successful profile save on this page.
+      window.location.replace('/')
     } catch (e) {
       console.error(e)
-      alert('Could not deactivate account.')
+      setCancelRegError('Could not deactivate account.')
     } finally {
       setCancelRegLoading(false)
     }
@@ -1118,6 +1124,7 @@ export default function EditProfilePage() {
                   setDeactivateIntroOpen(false)
                   setCancelRegUsername('')
                   setCancelRegPassword('')
+                  setCancelRegError('')
                   setCancelRegOpen(true)
                 }}
                 className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-500"
@@ -1132,7 +1139,12 @@ export default function EditProfilePage() {
       {cancelRegOpen && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
-          onClick={() => !cancelRegLoading && setCancelRegOpen(false)}
+          onClick={() => {
+            if (!cancelRegLoading) {
+              setCancelRegOpen(false)
+              setCancelRegError('')
+            }
+          }}
           role="presentation"
         >
           <div
@@ -1159,7 +1171,10 @@ export default function EditProfilePage() {
               type="text"
               autoComplete="username"
               value={cancelRegUsername}
-              onChange={(e) => setCancelRegUsername(e.target.value)}
+              onChange={(e) => {
+                setCancelRegUsername(e.target.value)
+                if (cancelRegError) setCancelRegError('')
+              }}
               className="mb-4 w-full rounded-lg border border-tank-light bg-tank-gray px-3 py-2 text-sm text-white"
               disabled={cancelRegLoading}
             />
@@ -1172,15 +1187,32 @@ export default function EditProfilePage() {
               type="password"
               autoComplete="current-password"
               value={cancelRegPassword}
-              onChange={(e) => setCancelRegPassword(e.target.value)}
-              className="mb-6 w-full rounded-lg border border-tank-light bg-tank-gray px-3 py-2 text-sm text-white"
+              onChange={(e) => {
+                setCancelRegPassword(e.target.value)
+                if (cancelRegError) setCancelRegError('')
+              }}
+              className="mb-4 w-full rounded-lg border border-tank-light bg-tank-gray px-3 py-2 text-sm text-white"
               disabled={cancelRegLoading}
+              aria-invalid={Boolean(cancelRegError)}
+              aria-describedby={cancelRegError ? 'cancel-reg-edit-error' : undefined}
             />
+            {cancelRegError && (
+              <div
+                id="cancel-reg-edit-error"
+                role="alert"
+                className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400"
+              >
+                {cancelRegError}
+              </div>
+            )}
             <div className="flex justify-end gap-3">
               <button
                 type="button"
                 disabled={cancelRegLoading}
-                onClick={() => setCancelRegOpen(false)}
+                onClick={() => {
+                  setCancelRegOpen(false)
+                  setCancelRegError('')
+                }}
                 className="rounded-lg bg-tank-gray px-4 py-2 text-gray-300 transition-colors hover:bg-tank-light"
               >
                 Keep account
