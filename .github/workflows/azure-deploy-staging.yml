@@ -85,6 +85,10 @@ jobs:
             echo "::error::deploy/node_modules/next missing. Standalone build must include node_modules."
             exit 1
           fi
+          if [ ! -f deploy/public/ads.txt ]; then
+            echo "::error::deploy/public/ads.txt missing. public/ must be copied for AdSense /ads.txt."
+            exit 1
+          fi
           echo "deploy/node_modules/next present"
           ls -la deploy/ deploy/node_modules/ | head -50
 

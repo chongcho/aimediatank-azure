@@ -88,6 +88,12 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const clientIp = getClientIp(request)
 
+  // AdSense (and other crawlers) must fetch /ads.txt without IP block or bot heuristics.
+  // Otherwise a 403 or failed check can flip "Ads.txt status" to Not found after a later recrawl.
+  if (pathname === '/ads.txt') {
+    return NextResponse.next()
+  }
+
   if (!isSecurityExemptPath(pathname) && clientIp) {
     const blocked = await isClientIpBlocked(clientIp, request.nextUrl.origin)
     if (blocked) {
