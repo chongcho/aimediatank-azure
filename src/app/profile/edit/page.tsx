@@ -1057,7 +1057,7 @@ export default function EditProfilePage() {
               onClick={() => {
                 setDeactivateIntroOpen(true)
               }}
-              className="shrink-0 px-4 py-3 bg-red-600/90 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors border border-red-500/80"
+              className="shrink-0 p-0 bg-red-600/90 hover:bg-red-600 text-white text-xs font-semibold leading-none rounded-xl transition-colors border border-red-500/80"
             >
               Deactivate Account
             </button>
