@@ -1049,32 +1049,32 @@ export default function EditProfilePage() {
             </div>
           </div>
 
-          {/* Actions: Deactivate Account (left), Cancel + Save (right) */}
-          <div className="flex w-full flex-wrap items-center justify-between gap-4 pt-0">
+          {/* Actions: Deactivate | Cancel | Save — single row; radius ~70% less than rounded-xl */}
+          <div className="flex w-full min-w-0 flex-nowrap items-center justify-between gap-2 pt-0 sm:gap-3">
             {authSettings.selfServiceDeactivateAccountEnabled && (
-            <button
-              type="button"
-              onClick={() => {
-                setDeactivateIntroOpen(true)
-              }}
-              className="inline-flex w-[5.5rem] shrink-0 flex-col items-center justify-center gap-0 bg-red-600/90 p-0 text-center text-xs font-semibold leading-tight text-white hover:bg-red-600 rounded-xl transition-colors border border-red-500/80"
-            >
-              <span className="block w-full leading-tight">Deactivate</span>
-              <span className="block w-full leading-tight">Account</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeactivateIntroOpen(true)
+                }}
+                className="inline-flex w-[5.5rem] shrink-0 flex-col items-center justify-center gap-0 rounded-[0.225rem] border border-red-500/80 bg-red-600/90 p-0 text-center text-xs font-semibold leading-tight text-white transition-colors hover:bg-red-600"
+              >
+                <span className="block w-full leading-tight">Deactivate</span>
+                <span className="block w-full leading-tight">Account</span>
+              </button>
             )}
-            <div className="flex shrink-0 gap-4 sm:ml-auto">
+            <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="px-8 py-3 bg-tank-gray border border-tank-light rounded-xl hover:bg-tank-light transition-colors"
+                className="rounded-[0.225rem] border border-tank-light bg-tank-gray p-0 text-sm font-semibold leading-none text-white transition-colors hover:bg-tank-light"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="px-8 py-3 btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-[0.225rem] bg-tank-accent p-0 text-sm font-semibold leading-none text-tank-black transition-colors hover:bg-tank-accent/90 hover:shadow-lg hover:shadow-tank-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
