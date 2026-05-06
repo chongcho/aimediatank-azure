@@ -71,7 +71,7 @@ export default function NotificationsPage() {
               ) : (
                 <span>{n.title}: {n.message}</span>
               )}
-              <span className="text-xs text-gray-500 block mt-1">{new Date(n.createdAt).toLocaleString()}</span>
+              <span className={`text-xs block mt-1 ${n.read ? 'text-gray-400' : 'text-gray-300'}`}>{new Date(n.createdAt).toLocaleString()}</span>
             </li>
           ))}
         </ul>

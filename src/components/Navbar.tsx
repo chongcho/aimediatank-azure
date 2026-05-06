@@ -500,43 +500,6 @@ function NavbarContent() {
     })
   }
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'purchase':
-        return (
-          <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-        )
-      case 'download_reminder':
-        return (
-          <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-            <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        )
-      case 'message':
-        return (
-          <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-            <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-            </svg>
-          </div>
-        )
-      default:
-        return (
-          <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-          </div>
-        )
-    }
-  }
-
   const feedTextModeButton = feedAutoTranslation ? (
     <button
       ref={feedTextTriggerRef}
@@ -1145,7 +1108,6 @@ function NavbarContent() {
                               </div>
                             </div>
                           )}
-                          {getNotificationIcon(notification.type)}
                           <div className="min-w-0 flex-1">
                             <p className={`text-xs font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
                               {notification.title}
@@ -1153,8 +1115,8 @@ function NavbarContent() {
                             <p className={`mt-0.5 text-[12px] text-gray-300 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-1'}`}>
                               {notification.message}
                             </p>
-                            {isExpanded && !isSelectMode && (
-                              <p className="mt-1 text-[9px] text-gray-600">
+                            {!isSelectMode && (
+                              <p className="mt-1 text-[12px] text-gray-300">
                                 {new Date(notification.createdAt).toLocaleString()}
                               </p>
                             )}
