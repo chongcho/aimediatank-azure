@@ -29,6 +29,7 @@ function LoginContent() {
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -349,13 +350,26 @@ function LoginContent() {
                     Forgot password?
                   </Link>
                 </div>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                    className="pr-[4.5rem]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-tank-accent hover:text-tank-accent/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-tank-accent/40 rounded px-1.5 py-0.5"
+                  >
+                    {showPassword ? 'Hide' : 'View'}
+                  </button>
+                </div>
               </div>
 
               <button
