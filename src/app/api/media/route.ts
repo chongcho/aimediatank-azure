@@ -115,7 +115,12 @@ export async function GET(request: Request) {
           comments: {
             orderBy: { createdAt: 'desc' },
             take: 3,
-            select: { id: true, content: true, userId: true },
+            select: {
+              id: true,
+              content: true,
+              userId: true,
+              user: { select: { username: true } },
+            },
           },
           _count: {
             select: {
@@ -202,7 +207,11 @@ export async function GET(request: Request) {
 
         const { versions: _v, comments: rawComments, ...rest } = m as any
         const commentsPreview = Array.isArray(rawComments)
-          ? rawComments.map((c: { id: string; content: string }) => ({ id: c.id, content: c.content }))
+          ? rawComments.map((c: { id: string; content: string; user?: { username?: string | null } }) => ({
+              id: c.id,
+              content: c.content,
+              username: c.user?.username ?? null,
+            }))
           : []
         return {
           ...rest,

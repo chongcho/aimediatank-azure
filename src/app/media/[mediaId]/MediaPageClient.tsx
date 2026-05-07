@@ -672,7 +672,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
   const latestCommentPreview = useMemo(() => {
     if (!commentBadgeEnabled || !media?.comments?.length) return []
-    return media.comments.slice(0, 3).map((c) => ({ id: c.id, content: c.content }))
+    return media.comments
+      .slice(0, 3)
+      .map((c) => ({ id: c.id, content: c.content, username: c.user?.username ?? '' }))
   }, [commentBadgeEnabled, media])
 
   if (loading) {
@@ -1066,29 +1068,41 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </div>
           </div>
 
-          {/* Latest comments (newest first, text only) + description — below action row */}
+          {/* Description + Comment sections — below action row */}
           {(latestCommentPreview.length > 0 || displayDescriptionSource) && (
             <div className="mt-6 w-full border-t border-tank-light/20 pt-6 space-y-4">
-              {latestCommentPreview.length > 0 && (
-                <div className="space-y-1.5">
-                  {latestCommentPreview.map((c) => (
-                    <p
-                      key={c.id}
-                      className="text-sm text-gray-400 leading-snug whitespace-pre-wrap break-words"
-                    >
-                      <TranslatedPlaintext
-                        text={c.content}
-                        translateEnabled={autoTranslationEnabled}
-                        mtLocaleTagOverride={mtTag}
-                      />
-                    </p>
-                  ))}
-                </div>
-              )}
               {displayDescriptionSource && (
-                <p className="text-gray-300 whitespace-pre-wrap break-words">
-                  {displayDescriptionSource}
-                </p>
+                <section className="space-y-2">
+                  <h3 className="text-sm font-semibold text-white/90">Description</h3>
+                  <p className="text-gray-300 whitespace-pre-wrap break-words">
+                    {displayDescriptionSource}
+                  </p>
+                </section>
+              )}
+              {latestCommentPreview.length > 0 && (
+                <section className="space-y-2">
+                  <h3 className="text-sm font-semibold text-white/90">Comment</h3>
+                  <div className="space-y-1.5">
+                    {latestCommentPreview.map((c) => (
+                      <p
+                        key={c.id}
+                        className="text-sm text-gray-400 leading-snug whitespace-pre-wrap break-words"
+                      >
+                        <span className="inline-flex items-start gap-2">
+                          {c.username ? (
+                            <span className="shrink-0 text-white/90 font-semibold">@{c.username}</span>
+                          ) : null}
+                          <TranslatedPlaintext
+                            as="span"
+                            text={c.content}
+                            translateEnabled={autoTranslationEnabled}
+                            mtLocaleTagOverride={mtTag}
+                          />
+                        </span>
+                      </p>
+                    ))}
+                  </div>
+                </section>
               )}
             </div>
           )}

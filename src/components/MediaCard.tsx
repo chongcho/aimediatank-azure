@@ -66,7 +66,7 @@ interface MediaCardProps {
       ratings: number
     }
     /** Newest first, up to 3 from list API — shown on thumbnail when comment badge is on. */
-    comments?: { id: string; content: string; userId?: string }[]
+    comments?: { id: string; content: string; userId?: string; username?: string | null }[]
   }
   homeScrollContext?: {
     page: number
@@ -80,7 +80,7 @@ interface MediaCardProps {
   homePreplaySound?: boolean
 }
 
-type ModalCommentLine = { id: string; content: string; userId: string }
+type ModalCommentLine = { id: string; content: string; userId: string; username: string }
 
 /** Max height (px) for the comment textarea before it scrolls internally. */
 const COMMENT_TEXTAREA_MAX_PX = 200
@@ -339,12 +339,18 @@ export default function MediaCard({
         })
         if (res.ok) {
           const data = (await res.json()) as {
-            comments?: { id: string; content: string; userId?: string; user?: { id: string } }[]
+            comments?: {
+              id: string
+              content: string
+              userId?: string
+              user?: { id: string; username?: string | null }
+            }[]
           }
           const list = (data.comments || []).map((c) => ({
             id: c.id,
             content: c.content,
             userId: c.userId ?? c.user?.id ?? '',
+            username: c.user?.username ?? '',
           }))
           if (!ac.signal.aborted) setModalComments(list)
         }
@@ -634,6 +640,7 @@ export default function MediaCard({
       id: c.id,
       content: c.content,
       userId: c.userId ?? '',
+      username: c.username ?? '',
     }))
     const apiIds = new Set(api.map((c) => c.id))
     const suppressedSet = new Set(
@@ -738,14 +745,16 @@ export default function MediaCard({
         return
       }
       const data = (await res.json()) as {
-        comment?: { id: string; content: string; userId?: string }
+        comment?: { id: string; content: string; userId?: string; user?: { username?: string | null } }
       }
       if (data.comment?.id) {
         const uid = session?.user?.id ?? ''
+        const uname = session?.user?.username ?? data.comment.user?.username ?? ''
         const line: ModalCommentLine = {
           id: data.comment.id,
           content: data.comment.content,
           userId: data.comment.userId ?? uid,
+          username: uname,
         }
         setOptimisticThumbnailComments((prev) => [line, ...prev])
         setModalComments((prev) => [line, ...prev.filter((p) => p.id !== line.id)])
@@ -787,7 +796,7 @@ export default function MediaCard({
         return
       }
       const data = (await res.json().catch(() => ({}))) as {
-        comment?: { id: string; content: string; userId?: string }
+        comment?: { id: string; content: string; userId?: string; user?: { username?: string | null } }
       }
       const savedContent = data.comment?.content ?? text
       const savedUserId =
@@ -795,11 +804,25 @@ export default function MediaCard({
         modalComments.find((c) => c.id === id)?.userId ??
         session?.user?.id ??
         ''
+      const savedUsername =
+        data.comment?.user?.username ??
+        modalComments.find((c) => c.id === id)?.username ??
+        session?.user?.username ??
+        ''
       setModalComments((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, content: savedContent, userId: savedUserId || c.userId } : c))
+        prev.map((c) =>
+          c.id === id
+            ? { ...c, content: savedContent, userId: savedUserId || c.userId, username: savedUsername || c.username }
+            : c
+        )
       )
       setOptimisticThumbnailComments((prev) => {
-        const line: ModalCommentLine = { id, content: savedContent, userId: savedUserId }
+        const line: ModalCommentLine = {
+          id,
+          content: savedContent,
+          userId: savedUserId,
+          username: savedUsername,
+        }
         return [line, ...prev.filter((c) => c.id !== id)]
       })
       setEditingCommentId(null)
@@ -979,6 +1002,14 @@ export default function MediaCard({
   }, [commentModalOpen, session?.user, activeDraft, editingCommentId])
 
   const commentTextClass = 'text-sm text-gray-200 whitespace-pre-wrap break-words'
+  const renderCommentNickname = (username: string) => {
+    if (!username) return null
+    return (
+      <span className="shrink-0 font-semibold text-white/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.95)]">
+        @{username}
+      </span>
+    )
+  }
 
   const renderModalCommentRow = (c: ModalCommentLine) => (
     <div key={c.id} className="py-2 first:pt-0">
@@ -998,20 +1029,27 @@ export default function MediaCard({
                 setCommentActionId((prev) => (prev === c.id ? null : c.id))
               }}
             >
-              <TranslatedPlaintext
-                text={c.content}
-                translateEnabled={autoTranslationEffective}
-                mtLocaleTagOverride={mtTag}
-              />
+              <span className="flex items-start gap-2">
+                {renderCommentNickname(c.username)}
+                <TranslatedPlaintext
+                  text={c.content}
+                  translateEnabled={autoTranslationEffective}
+                  mtLocaleTagOverride={mtTag}
+                />
+              </span>
             </button>
           ) : (
-            <TranslatedPlaintext
-              as="p"
-              text={c.content}
-              className={commentTextClass}
-              translateEnabled={autoTranslationEffective}
-              mtLocaleTagOverride={mtTag}
-            />
+            <p className={commentTextClass}>
+              <span className="flex items-start gap-2">
+                {renderCommentNickname(c.username)}
+                <TranslatedPlaintext
+                  as="span"
+                  text={c.content}
+                  translateEnabled={autoTranslationEffective}
+                  mtLocaleTagOverride={mtTag}
+                />
+              </span>
+            </p>
           )}
           {commentActionId === c.id && canModerateComment(c.userId) ? (
             <div className="mt-1.5 flex flex-wrap gap-3" onClick={(e) => e.stopPropagation()}>
@@ -1248,11 +1286,14 @@ export default function MediaCard({
                       className="text-[13px] text-white/90 leading-snug line-clamp-2 break-words [text-shadow:0_1px_3px_rgba(0,0,0,0.95)]"
                       title={c.content}
                     >
-                      <TranslatedPlaintext
-                        text={c.content}
-                        translateEnabled={thumbnailTranslateEnabled}
-                        mtLocaleTagOverride={mtTag}
-                      />
+                      <span className="inline-flex items-start gap-1.5">
+                        {renderCommentNickname(c.username)}
+                        <TranslatedPlaintext
+                          text={c.content}
+                          translateEnabled={thumbnailTranslateEnabled}
+                          mtLocaleTagOverride={mtTag}
+                        />
+                      </span>
                     </p>
                   ))}
                 </div>
