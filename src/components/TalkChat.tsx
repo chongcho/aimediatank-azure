@@ -499,7 +499,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const inviteBannerEn = useMemo(
     () =>
       !showUserPicker && chatInvites.length > 0 && chatMode === 'private' && !privateRecipient
-        ? `${chatInvites.length} pending My Kong invite${chatInvites.length > 1 ? 's' : ''}`
+        ? `${chatInvites.length} pending My Gong invite${chatInvites.length > 1 ? 's' : ''}`
         : '',
     [showUserPicker, chatInvites.length, chatMode, privateRecipient],
   )
@@ -1433,8 +1433,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     
     setConfirmModal({
       show: true,
-      title: 'Leave My Kong',
-      message: 'Are you sure you want to leave this My Kong? You will no longer see messages from it.',
+      title: 'Leave My Gong',
+      message: 'Are you sure you want to leave this My Gong? You will no longer see messages from it.',
       onConfirm: async () => {
         try {
           const res = await fetch(`/api/chat/conversations/${conversationId}`, {
@@ -2501,7 +2501,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               )}
             </div>
             
-            {/* Pub Kong (public / open chat) */}
+            {/* Pub Gong (public / open chat) */}
             <button
               onClick={switchToOpenChat}
               className="chat-btn-responsive"
@@ -2521,7 +2521,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               {tr[TC.pubKong]}
             </button>
             
-            {/* My Kong (private chat) — records / DMs */}
+            {/* My Gong (private chat) — records / DMs */}
             <div style={{ position: 'relative' }}>
             <button
               onClick={switchToPrivateChat}
@@ -2541,7 +2541,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
             >
                 {tr[TC.myKong]}
             </button>
-              {/* Unread private message badge on My Kong button */}
+              {/* Unread private message badge on My Gong button */}
               {unreadPrivateCount > 0 && (
                 <span
                   onClick={(e) => { e.stopPropagation(); switchToPrivateChat(); }}
@@ -2568,7 +2568,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               )}
             </div>
 
-            {/* New Kong (+) — purple when active to match My Kong */}
+            {/* New Gong (+) — purple when active to match My Gong */}
             <button
               onClick={toggleNewChat}
               className="chat-btn-responsive"
@@ -2700,7 +2700,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* New Kong picker — full panel when active */}
+        {/* New Gong picker — full panel when active */}
         {showUserPicker && (
             <div
               ref={userPickerRef}
@@ -2712,7 +2712,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 overflow: 'hidden',
               }}
             >
-            {/* Optional My Kong title + Start */}
+            {/* Optional My Gong title + Start */}
               <div style={{
               padding: '8px 12px',
               display: 'flex',
@@ -2900,7 +2900,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         )}
 
 
-        {/* My Kong invites — hidden when New Kong picker is open */}
+        {/* My Gong invites — hidden when New Gong picker is open */}
         {!showUserPicker && chatInvites.length > 0 && chatMode === 'private' && !privateRecipient && (
           <div style={{
             background: '#fef3c7',
@@ -2977,7 +2977,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
         
-        {/* Inline notice — hidden when New Kong picker is open */}
+        {/* Inline notice — hidden when New Gong picker is open */}
         {!showUserPicker && inlineNotice && (
           <div style={{
             padding: '10px 16px',
@@ -3013,7 +3013,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {/* Messages — hidden when minimized or when New Kong picker is open */}
+        {/* Messages — hidden when minimized or when New Gong picker is open */}
         {!showUserPicker && chatSize !== 'min' && (
         <div 
           ref={messagesContainerRef}
@@ -3347,7 +3347,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 )}
               </div>
               
-              {/* Context menu for My Kong conversation list */}
+              {/* Context menu for My Gong conversation list */}
               {contextMenu.show && (
                 <div
                   onClick={(e) => e.stopPropagation()}
@@ -3860,7 +3860,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         </div>
         )}
 
-        {/* Composer — hidden when minimized or when New Kong picker is open */}
+        {/* Composer — hidden when minimized or when New Gong picker is open */}
         {!showUserPicker && chatSize !== 'min' && (
         <form 
           onSubmit={sendMessage} 
