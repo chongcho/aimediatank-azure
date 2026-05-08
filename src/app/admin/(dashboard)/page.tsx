@@ -5399,6 +5399,7 @@ export default function AdminPage() {
                   <option value="premium">Premium Only</option>
                   <option value="basic,advanced">Basic & Advanced</option>
                   <option value="advanced,premium">Advanced & Premium</option>
+                  <option value="new_subscriber">New Subscriber</option>
                 </select>
               </div>
               
