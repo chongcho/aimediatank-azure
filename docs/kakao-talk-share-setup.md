@@ -14,21 +14,29 @@ This guide configures **Kakao Talk Share** so users can share media from **AI Me
 
 ---
 
-## 2. Register your site domain (required)
+## 2. Register your site domain (required) — TWO places
 
-1. Under **App Settings** → **App**, find **Platform** or **Web platform**.
-2. Add your site domain(s), for example:
+Kakao validates the calling domain in **two separate places**. If either is missing you will see Kakao's red "Failed request — Verification failed due to an incorrect request" page on `sharer.kakao.com/picker/link?app_key=…` (Kakao error `-401 domain mismatched` / `4019`, or `4002` for Product Link).
+
+### 2a. App Platform → Web (JavaScript SDK domain)
+
+1. **My Application** → select **AI Media Tank (AiM)** (ID 1398467).
+2. **App Settings** → **Platform** → **Web**.
+3. Add every origin the SDK will run from, with scheme but no path/trailing slash:
    - `https://www.aimediatank.com`
    - `https://aimediatank.com`
+   - `https://staging-aimediatank.azurewebsites.net` (or your staging slot URL)
    - For local testing: `http://localhost:3000`
-3. Save. The Kakao JS SDK will only work on these domains.
+4. Save.
 
----
+### 2b. Product Settings → Kakao Talk Sharing → Domain (Product Link)
 
-## 3. Link the product to your app (if needed)
+1. **My Application** → AiM app → **Product Settings** → **Kakao Talk Sharing** (or **Kakao Talk Share** / **Kakao Talk Message**, depending on console language).
+2. Enable the product if not already enabled.
+3. Under **Domain** (a.k.a. **Product Link**), add the **same domains** you used in 2a — this is the domain of the URL you pass into `link.webUrl` / `link.mobileWebUrl`. Missing this is what triggers Kakao error `4002`.
+4. Save and wait ~1 minute for Kakao to propagate.
 
-1. In **Product Settings** → **Kakao Talk Message**, ensure the product is **Linked** to your app (e.g. “Product Link” or “Connect to app”).
-2. If you use **Kakao Talk Share** (not Message), enable/link that product instead, per the console labels.
+> Both lists must contain the current page origin. They are checked independently — registering the App Platform domain alone is **not** enough on the latest Kakao console.
 
 ---
 
@@ -61,11 +69,22 @@ NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY="your_javascript_key_here"
 - **KakaoTalk button not visible**  
   Ensure `NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY` is set and the app was restarted/rebuilt after adding it.
 
-- **“Invalid domain” or share not opening**  
-  Confirm the current origin (e.g. `https://www.aimediatank.com`) is registered in **App** → **Platform** → Web domain list.
+- **"Failed request — Verification failed due to an incorrect request" on `sharer.kakao.com/picker/link`**  
+  This is Kakao's server-side domain check failing. It is **not** a bug in this app. Fix:
+  1. In **App Settings → Platform → Web**, confirm the current page origin (open browser devtools → `location.origin`) is in the list.
+  2. In **Product Settings → Kakao Talk Sharing → Domain**, confirm the same origin is in the list (this is the new requirement that catches most teams).
+  3. If you use a `www.` and an apex variant, register **both**.
+  4. Save and re-test in an incognito window (Kakao caches the failure).
+  5. Confirm the `app_key` in the failing URL matches `NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY` for the AiM app — if it's a different app's key, you registered the domain on the wrong app.
+
+- **"Invalid domain" / `-401 domain mismatched! caller=…`**  
+  Same as above — Kakao is reporting the `caller` origin it received. Add that exact origin (scheme + host, no path) to both lists in §2.
 
 - **Script / init errors**  
-  Check the browser console. Ensure the JavaScript key is the **Web (JavaScript)** key, not the REST API or Admin key.
+  Check the browser console. Ensure the JavaScript key is the **Web (JavaScript)** key, not the REST API or Admin key. The key must be the one shown on the Kakao app whose domains you registered.
+
+- **Image not appearing in the Kakao card**  
+  The image URL must be HTTPS and reachable from the public internet (Kakao's scraper fetches it server-side). Private/firewalled URLs and `http://` are rejected. The app already filters `imageUrl` to require `https://`.
 
 - **Docs**  
-  [Kakao Talk Share – JavaScript](https://developers.kakao.com/docs/latest/en/kakaotalk-share/js-link), [JavaScript SDK](https://developers.kakao.com/docs/latest/en/javascript/getting-started).
+  [Kakao Talk Share – JavaScript](https://developers.kakao.com/docs/latest/en/kakaotalk-share/js-link), [JavaScript SDK](https://developers.kakao.com/docs/latest/en/javascript/getting-started), [Kakao Talk Share troubleshooting](https://developers.kakao.com/docs/en/kakaotalk-share/trouble-shooting).

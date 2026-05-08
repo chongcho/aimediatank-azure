@@ -510,7 +510,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         content: {
           title: shareTitle,
           description: displayDescriptionSource || shareTitle,
-          imageUrl: imageUrl && imageUrl.startsWith('http') ? imageUrl : undefined,
+          // Kakao's image scraper requires an HTTPS, publicly-reachable URL; HTTP/local URLs cause the share card to fail.
+          imageUrl: imageUrl && imageUrl.startsWith('https://') ? imageUrl : undefined,
           link: {
             mobileWebUrl: shareUrl,
             webUrl: shareUrl,
@@ -528,8 +529,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       })
       recordShareAction()
       setShowShareModal(false)
-    } catch {
-      runKakaoCopyFallback()
+    } catch (err) {
+      // sendDefault may open the popup successfully and still throw a non-fatal SDK error afterwards (e.g. metadata warning).
+      // Do not auto-copy in that case — it produces a misleading "Copied" toast on top of a working Kakao popup.
+      // The earlier guards (no SDK / not initialized) already handle the genuine "couldn't open Kakao" cases.
+      // eslint-disable-next-line no-console
+      console.warn('[Kakao.Share.sendDefault]', err)
+      setShowShareModal(false)
     }
   }
 
