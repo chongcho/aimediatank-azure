@@ -562,6 +562,54 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     recordShareAction()
   }
 
+  /** TikTok has no public web share URL/SDK. Prefer Web Share (mobile can target the TikTok app); on desktop, copy link and open the TikTok upload page so the user can paste. */
+  const handleTikTokShare = async () => {
+    if (!shareUrl) return
+    const body = `${shareTitle}\n\n${shareUrl}`
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: body,
+          url: shareUrl,
+        })
+        recordShareAction()
+        setShowShareModal(false)
+        return
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return
+      }
+    }
+    void handleCopyLink().then((copied) => {
+      if (!copied) recordShareAction()
+    })
+    window.open('https://www.tiktok.com/upload', '_blank', 'noopener,noreferrer')
+  }
+
+  /** YouTube has no public web share URL. Prefer Web Share (mobile can target the YouTube/Studio app); on desktop, copy link and open YouTube Studio so the user can paste into a video/community post. */
+  const handleYouTubeShare = async () => {
+    if (!shareUrl) return
+    const body = `${shareTitle}\n\n${shareUrl}`
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: body,
+          url: shareUrl,
+        })
+        recordShareAction()
+        setShowShareModal(false)
+        return
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return
+      }
+    }
+    void handleCopyLink().then((copied) => {
+      if (!copied) recordShareAction()
+    })
+    window.open('https://studio.youtube.com/', '_blank', 'noopener,noreferrer')
+  }
+
   const handleSendByEmail = async () => {
     if (emailDeliveryMethod === 'email') {
       const to = emailTo.trim()
@@ -1297,15 +1345,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 </a>
               )}
               {shareAppsEnabled.youtube !== false && (
-                <a
-                  href="https://www.youtube.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => {
-                    void handleCopyLink().then((recorded) => {
-                      if (!recorded) recordShareAction()
-                    })
-                  }}
+                <button
+                  type="button"
+                  onClick={() => void handleYouTubeShare()}
                   className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
                   title={tMedia('youtubeCopied')}
                 >
@@ -1313,14 +1355,12 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                   </svg>
                   <span className="text-xs">YouTube</span>
-                </a>
+                </button>
               )}
               {shareAppsEnabled.tiktok !== false && (
-                <a
-                  href="https://www.tiktok.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => void handleCopyLink()}
+                <button
+                  type="button"
+                  onClick={() => void handleTikTokShare()}
                   className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
                   title={tMedia('tiktokCopied')}
                 >
@@ -1328,7 +1368,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
                   </svg>
                   <span className="text-xs">TikTok</span>
-                </a>
+                </button>
               )}
               {shareAppsEnabled.instagram !== false && (
                 <button
