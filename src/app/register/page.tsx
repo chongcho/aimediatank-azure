@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import PasswordField from '@/components/PasswordField'
 import { SocialSignIn } from '@/components/SocialSignIn'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
 
@@ -899,14 +900,14 @@ export default function RegisterPage() {
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Password *
                   </label>
-                  <input
-                    type="password"
+                  <PasswordField
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="••••••••"
                     required
                     minLength={6}
+                    autoComplete="new-password"
                     className={`w-full ${
                       formData.password.length > 0 && formData.password.length < 6
                         ? 'border-yellow-500 focus:border-yellow-500'
@@ -922,13 +923,13 @@ export default function RegisterPage() {
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Confirm Password *
                   </label>
-                  <input
-                    type="password"
+                  <PasswordField
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     placeholder="••••••••"
                     required
+                    autoComplete="new-password"
                     className={`w-full ${
                       formData.confirmPassword.length > 0
                         ? formData.password === formData.confirmPassword

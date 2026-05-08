@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import PasswordField from '@/components/PasswordField'
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
@@ -268,13 +269,13 @@ export default function ForgotPasswordPage() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   New Password
                 </label>
-                <input
-                  type="password"
+                <PasswordField
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
                   required
                   minLength={6}
+                  autoComplete="new-password"
                   className={`w-full ${
                     newPassword.length > 0 && newPassword.length < 6
                       ? 'border-yellow-500 focus:border-yellow-500'
@@ -290,12 +291,12 @@ export default function ForgotPasswordPage() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Confirm New Password
                 </label>
-                <input
-                  type="password"
+                <PasswordField
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
                   required
+                  autoComplete="new-password"
                   className={`w-full ${
                     confirmPassword.length > 0
                       ? newPassword === confirmPassword

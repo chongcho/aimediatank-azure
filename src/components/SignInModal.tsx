@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { signIn, getSession } from 'next-auth/react'
 import Link from 'next/link'
 import { SocialSignIn } from '@/components/SocialSignIn'
+import PasswordField from '@/components/PasswordField'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
 
 interface SignInModalProps {
@@ -16,7 +17,6 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   
@@ -409,49 +409,26 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
                   Forgot password?
                 </Link>
               </div>
-              <div style={{ position: 'relative', width: '100%' }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                  style={{
-                    width: '100%',
-                    padding: '12px 72px 12px 16px',
-                    borderRadius: '8px',
-                    border: '1px solid #333',
-                    background: '#2a2a2a',
-                    color: 'white',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  aria-pressed={showPassword}
-                  style={{
-                    position: 'absolute',
-                    right: '10px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: '#10b981',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    padding: '4px 6px',
-                    borderRadius: '4px',
-                  }}
-                >
-                  {showPassword ? 'Hide' : 'View'}
-                </button>
-              </div>
+              <PasswordField
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+                className=""
+                style={{
+                  width: '100%',
+                  padding: '12px 72px 12px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid #333',
+                  background: '#2a2a2a',
+                  color: 'white',
+                  fontSize: '14px',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+                toggleButtonClassName="absolute right-2.5 top-1/2 -translate-y-1/2 border-0 bg-transparent p-1 text-[12px] font-semibold text-[#10b981] cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#10b981]/40"
+              />
             </div>
 
             {error && (

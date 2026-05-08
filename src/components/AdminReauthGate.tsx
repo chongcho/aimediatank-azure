@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
+import PasswordField from '@/components/PasswordField'
 
 function isAppAdminRole(role: string | undefined | null): boolean {
   if (role == null || typeof role !== 'string') return false
@@ -275,8 +276,7 @@ export default function AdminReauthGate({
             <label className="block text-sm font-medium text-gray-300 mb-1">
               {verifyMode === 'adminUser' ? 'Admin login passphrase' : 'Admin Panel passphrase'}
             </label>
-            <input
-              type="password"
+            <PasswordField
               value={reauthPassword}
               onChange={(e) => {
                 setReauthPassword(e.target.value)

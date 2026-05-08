@@ -7,6 +7,7 @@ import { compressImage } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
+import PasswordField from '@/components/PasswordField'
 
 interface ProfileData {
   name: string
@@ -996,12 +997,12 @@ export default function EditProfilePage() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   New Password
                 </label>
-                <input
-                  type="password"
+                <PasswordField
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="••••••••"
                   minLength={6}
+                  autoComplete="new-password"
                   className={`w-full ${
                     formData.password.length > 0 && formData.password.length < 6
                       ? 'border-yellow-500 focus:border-yellow-500'
@@ -1017,11 +1018,11 @@ export default function EditProfilePage() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Confirm New Password
                 </label>
-                <input
-                  type="password"
+                <PasswordField
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   placeholder="••••••••"
+                  autoComplete="new-password"
                   className={`w-full ${
                     formData.confirmPassword.length > 0
                       ? formData.password === formData.confirmPassword
@@ -1181,21 +1182,22 @@ export default function EditProfilePage() {
             <label className="mb-1 block text-sm text-gray-300" htmlFor="cancel-reg-edit-password">
               Account password (leave blank if you only use social sign-in)
             </label>
-            <input
-              id="cancel-reg-edit-password"
-              name="cancel-reg-edit-password"
-              type="password"
-              autoComplete="current-password"
-              value={cancelRegPassword}
-              onChange={(e) => {
-                setCancelRegPassword(e.target.value)
-                if (cancelRegError) setCancelRegError('')
-              }}
-              className="mb-4 w-full rounded-lg border border-tank-light bg-tank-gray px-3 py-2 text-sm text-white"
-              disabled={cancelRegLoading}
-              aria-invalid={Boolean(cancelRegError)}
-              aria-describedby={cancelRegError ? 'cancel-reg-edit-error' : undefined}
-            />
+            <div className="mb-4">
+              <PasswordField
+                id="cancel-reg-edit-password"
+                name="cancel-reg-edit-password"
+                autoComplete="current-password"
+                value={cancelRegPassword}
+                onChange={(e) => {
+                  setCancelRegPassword(e.target.value)
+                  if (cancelRegError) setCancelRegError('')
+                }}
+                className="w-full rounded-lg border border-tank-light bg-tank-gray px-3 py-2 text-sm text-white"
+                disabled={cancelRegLoading}
+                aria-invalid={Boolean(cancelRegError)}
+                aria-describedby={cancelRegError ? 'cancel-reg-edit-error' : undefined}
+              />
+            </div>
             {cancelRegError && (
               <div
                 id="cancel-reg-edit-error"
