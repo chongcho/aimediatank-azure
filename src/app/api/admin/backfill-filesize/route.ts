@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
+import { requireAdminPanelElevation } from '@/lib/requireAdminElevation'
 import { BlobServiceClient } from '@azure/storage-blob'
 
 export const dynamic = 'force-dynamic'
@@ -77,10 +77,8 @@ async function requireAdmin() {
 export async function GET(request: Request) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  const reauth = getAdminReauthFromRequest(request)
-  if (!reauth || reauth.userId !== session.user.id) {
-    return NextResponse.json({ error: 'Re-authentication required' }, { status: 403 })
-  }
+  const panelErr = requireAdminPanelElevation(request, session)
+  if (panelErr) return panelErr
 
   const missing = await prisma.media.count({
     where: { fileSize: null, isDeleted: false },
@@ -92,10 +90,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  const reauth = getAdminReauthFromRequest(request)
-  if (!reauth || reauth.userId !== session.user.id) {
-    return NextResponse.json({ error: 'Re-authentication required' }, { status: 403 })
-  }
+  const panelErr = requireAdminPanelElevation(request, session)
+  if (panelErr) return panelErr
 
   const { searchParams } = new URL(request.url)
   const limit = Math.min(500, Math.max(1, parseInt(searchParams.get('limit') || '200', 10) || 200))

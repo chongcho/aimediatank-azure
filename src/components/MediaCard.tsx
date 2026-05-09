@@ -27,6 +27,7 @@ import {
   getFeedBadgePayloadSync,
   resetFeedBadgePayloadCache,
 } from '@/lib/feedBadgePayloadClient'
+import { useAdminContentElevation } from '@/hooks/useAdminContentElevation'
 
 interface MediaCardProps {
   media: {
@@ -94,6 +95,7 @@ export default function MediaCard({
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
+  const { contentElevated: adminContentElevated } = useAdminContentElevation()
   const { mode: cardTextMode } = useFeedCardTextMode()
   const { localeTag } = useUiLocale()
   const titlePlain = stripHashtags(media.title)
@@ -770,11 +772,11 @@ export default function MediaCard({
     (commentAuthorId: string) => {
       const uid = session?.user?.id
       if (!uid) return false
-      if (session?.user?.role === 'ADMIN') return true
+      if (session?.user?.role === 'ADMIN' && adminContentElevated) return true
       if (media.user?.id && uid === media.user.id) return true
       return commentAuthorId !== '' && uid === commentAuthorId
     },
-    [session, media.user?.id]
+    [session, media.user?.id, adminContentElevated]
   )
 
   const saveEditComment = async () => {

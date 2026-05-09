@@ -44,8 +44,8 @@ function AdminReauthPlaceholder({ message }: { message?: string }) {
 type AdminReauthGateProps = {
   onVerified: () => void
   /**
-   * adminUser: ADMIN_USER_STEP2_PASSWORD_* + 2FA after app sign-in → home (no admin_reauth cookie).
-   * adminPanel: ADMIN_PANEL_ACCESS_PASSWORD_* + 2FA → sets admin_reauth for /admin.
+   * adminUser: ADMIN_USER_STEP2_PASSWORD_* + 2FA → short-lived admin_reauth cookie with app scope (moderate/edit across the site).
+   * adminPanel: ADMIN_PANEL_ACCESS_PASSWORD_* + 2FA → admin_reauth with panel scope (/admin dashboard).
    */
   verifyMode?: 'adminUser' | 'adminPanel'
   /** Server already verified session + admin role — skip useSession loading placeholder (fixes flash). */
@@ -242,7 +242,7 @@ export default function AdminReauthGate({
         </p>
         <p className="text-gray-400 text-sm mb-6">
           {verifyMode === 'adminUser'
-            ? 'Step 2 uses ADMIN_USER_STEP2_PASSWORD_HASH on the server—not your account login password. The Admin Panel uses a different passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH).'
+            ? "Step 2 uses ADMIN_USER_STEP2_PASSWORD_HASH on the server—not your account login password. Completing this step sets a short-lived cookie needed to moderate or edit other users' content. The Admin Panel uses a separate passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH)."
             : 'Enter the Admin Panel passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH on the server—not your account login password) and complete two-step verification.'}
         </p>
         {verifyMode === 'adminUser' &&

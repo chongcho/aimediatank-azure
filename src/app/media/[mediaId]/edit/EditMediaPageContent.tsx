@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAdminContentElevation } from '@/hooks/useAdminContentElevation'
+import { isAppAdminRole } from '@/lib/adminFreshStep2'
 
 interface MediaData {
   id: string
@@ -26,6 +28,7 @@ interface MediaData {
 export default function EditMediaPageContent({ intercepted = false }: { intercepted?: boolean }) {
   const { mediaId } = useParams()
   const { data: session, status } = useSession()
+  const { loaded: adminElevLoaded, contentElevated: adminContentElevated } = useAdminContentElevation()
   const router = useRouter()
   const [media, setMedia] = useState<MediaData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -56,10 +59,10 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
       router.push('/login')
       return
     }
-    if (status === 'authenticated') {
-      fetchMedia()
-    }
-  }, [status, mediaId])
+    if (status !== 'authenticated') return
+    if (isAppAdminRole(session?.user?.role) && !adminElevLoaded) return
+    void fetchMedia()
+  }, [status, mediaId, session?.user?.role, session?.user?.id, adminElevLoaded, adminContentElevated])
 
   const fetchMedia = async () => {
     try {
@@ -71,7 +74,9 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
         return
       }
 
-      if (data.user.id !== session?.user?.id && session?.user?.role !== 'ADMIN') {
+      const isOwner = data.user.id === session?.user?.id
+      const adminRole = isAppAdminRole(session?.user?.role)
+      if (!isOwner && !(adminRole && adminContentElevated)) {
         returnToDetail()
         return
       }
@@ -116,6 +121,7 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
       const res = await fetch(`/api/media/${mediaId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({
           title: fullTitle,
           description: description.trim() || null,
@@ -129,10 +135,14 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
       if (res.ok) {
         returnToDetail()
         return
-      } else {
-        const data = await res.json()
-        setError(data.error || 'Failed to update media')
       }
+      const data = await res.json()
+      if (res.status === 403 && data.code === 'ADMIN_CONTENT_ELEVATION_REQUIRED') {
+        const next = encodeURIComponent(`/media/${mediaId}/edit`)
+        window.location.href = `/login/admin-verify?next=${next}`
+        return
+      }
+      setError(data.error || 'Failed to update media')
     } catch (error) {
       console.error('Error updating media:', error)
       setError('Failed to update media')
@@ -148,6 +158,7 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
     try {
       const res = await fetch(`/api/media/${mediaId}`, {
         method: 'DELETE',
+        credentials: 'same-origin',
       })
 
       if (res.ok) {
@@ -155,6 +166,11 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
         router.push('/')
       } else {
         const data = await res.json()
+        if (res.status === 403 && data.code === 'ADMIN_CONTENT_ELEVATION_REQUIRED') {
+          const next = encodeURIComponent(`/media/${mediaId}/edit`)
+          window.location.href = `/login/admin-verify?next=${next}`
+          return
+        }
         setError(data.error || 'Failed to delete media')
       }
     } catch (error) {
@@ -166,7 +182,10 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
     }
   }
 
-  if (loading || status === 'loading') {
+  const awaitingAdminElevProbe =
+    status === 'authenticated' && isAppAdminRole(session?.user?.role) && !adminElevLoaded
+
+  if (loading || status === 'loading' || awaitingAdminElevProbe) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="spinner" />

@@ -9,6 +9,8 @@ import {
   isHttpOrHttpsUrl,
 } from '@/lib/azureBlobDelete'
 import { selectVideoStreams } from '@/lib/videoStreamRenditions'
+import { isAppAdminRole } from '@/lib/adminFreshStep2'
+import { requireAdminContentElevation } from '@/lib/requireAdminElevation'
 
 // Force dynamic rendering to always get fresh data
 export const dynamic = 'force-dynamic'
@@ -177,9 +179,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Media not found' }, { status: 404 })
     }
 
-    // Only owner or admin can update
-    if (media.userId !== session.user.id && session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const isOwner = media.userId === session.user.id
+    const adminRole = isAppAdminRole(session.user.role)
+    if (!isOwner) {
+      if (!adminRole) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      const elevErr = requireAdminContentElevation(request, session)
+      if (elevErr) return elevErr
     }
 
     const body = await request.json()
@@ -196,7 +203,7 @@ export async function PATCH(
     if (isPublic !== undefined) updateData.isPublic = isPublic
 
     // Only admin can change approval status
-    if (session.user.role === 'ADMIN' && isApproved !== undefined) {
+    if (adminRole && isApproved !== undefined) {
       updateData.isApproved = isApproved
     }
 
@@ -255,9 +262,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Media not found' }, { status: 404 })
     }
 
-    // Only owner or admin can delete
-    if (media.userId !== session.user.id && session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const isOwner = media.userId === session.user.id
+    const adminRole = isAppAdminRole(session.user.role)
+    if (!isOwner) {
+      if (!adminRole) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      const elevErr = requireAdminContentElevation(request, session)
+      if (elevErr) return elevErr
     }
 
     // Azure URLs must use Blob API; local dev may still use paths under /public

@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { verifyAdminReauthCookie } from '@/lib/adminReauthCookie'
+import { adminCookieAllowsPanel, verifyAdminReauthCookie } from '@/lib/adminReauthCookie'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +31,7 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
   const cookieStore = cookies()
   const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ')
   const payload = verifyAdminReauthCookie(cookieHeader)
-  const ok = !!(payload && payload.userId === userId)
+  const ok = !!(payload && payload.userId === userId && adminCookieAllowsPanel(payload))
   if (!ok) {
     redirect('/admin/reauth')
   }

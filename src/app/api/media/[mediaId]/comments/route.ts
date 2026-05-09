@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isAppAdminRole } from '@/lib/adminFreshStep2'
+import { requireAdminContentElevation } from '@/lib/requireAdminElevation'
 
 // POST - Add comment to media
 export async function POST(
@@ -109,9 +111,13 @@ export async function PATCH(
 
     const isCommentAuthor = comment.userId === session.user.id
     const isMediaOwner = media.userId === session.user.id
-    const isAdmin = session.user.role === 'ADMIN'
-    if (!isCommentAuthor && !isMediaOwner && !isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const adminRole = isAppAdminRole(session.user.role)
+    if (!isCommentAuthor && !isMediaOwner) {
+      if (!adminRole) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      const elevErr = requireAdminContentElevation(request, session)
+      if (elevErr) return elevErr
     }
 
     const updatedComment = await prisma.comment.update({
@@ -180,9 +186,13 @@ export async function DELETE(
 
     const isCommentAuthor = comment.userId === session.user.id
     const isMediaOwner = media.userId === session.user.id
-    const isAdmin = session.user.role === 'ADMIN'
-    if (!isCommentAuthor && !isMediaOwner && !isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const adminRole = isAppAdminRole(session.user.role)
+    if (!isCommentAuthor && !isMediaOwner) {
+      if (!adminRole) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      const elevErr = requireAdminContentElevation(request, session)
+      if (elevErr) return elevErr
     }
 
     await prisma.comment.delete({

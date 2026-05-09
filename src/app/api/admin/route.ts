@@ -3,19 +3,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getFirstHomeLayoutSetting } from '@/lib/homeLayoutSetting'
-import { getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
+import { requireAdminPanelElevation } from '@/lib/requireAdminElevation'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
 import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
-
-function requireAdminReauth(request: Request, session: { user: { id: string } }): NextResponse | null {
-  const payload = getAdminReauthFromRequest(request)
-  if (!payload || payload.userId !== session.user.id) {
-    return NextResponse.json({ error: 'Re-authentication required' }, { status: 403 })
-  }
-  return null
-}
 
 /** Hide blocked client IPs from Access Logs (they remain visible only under Blocked IPs). */
 async function blockedIpAddressList(): Promise<string[]> {
@@ -60,7 +52,7 @@ export async function GET(request: Request) {
     if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    const reauthErr = requireAdminReauth(request, session)
+    const reauthErr = requireAdminPanelElevation(request, session)
     if (reauthErr) return reauthErr
 
     const { searchParams } = new URL(request.url)
@@ -1104,7 +1096,7 @@ export async function POST(request: Request) {
     if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    const reauthErr = requireAdminReauth(request, session)
+    const reauthErr = requireAdminPanelElevation(request, session)
     if (reauthErr) return reauthErr
 
     const { action, targetId, data } = await request.json()

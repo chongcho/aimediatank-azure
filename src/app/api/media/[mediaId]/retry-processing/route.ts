@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isAppAdminRole } from '@/lib/adminFreshStep2'
+import { requireAdminContentElevation } from '@/lib/requireAdminElevation'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +13,7 @@ export const dynamic = 'force-dynamic'
  * Owner or admin only; only allowed when processingStatus === 'failed'.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
@@ -37,9 +39,13 @@ export async function POST(
     }
 
     const isOwner = media.userId === session.user.id
-    const isAdmin = (session.user as { role?: string }).role === 'ADMIN'
-    if (!isOwner && !isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const adminRole = isAppAdminRole((session.user as { role?: string }).role)
+    if (!isOwner) {
+      if (!adminRole) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      const elevErr = requireAdminContentElevation(request, session)
+      if (elevErr) return elevErr
     }
 
     if (media.processingStatus !== 'failed') {

@@ -16,6 +16,7 @@ import { TranslatedPlaintext } from '@/components/TranslatedPlaintext'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
+import { useAdminContentElevation } from '@/hooks/useAdminContentElevation'
 import { formatMediaViewsLabel, mediaPageInterpolate } from '@/messages/mediaPage'
 
 interface MediaDetail {
@@ -113,9 +114,10 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const [i18nMedia, setI18nMedia] = useState<{ title: string; description: string | null } | null>(null)
 
   const kakaoJsKey = useKakaoJsKey()
+  const { loaded: adminElevLoaded, contentElevated: adminContentElevated } = useAdminContentElevation()
   const isOwner = session?.user?.id === media?.user?.id
   const isAdmin = session?.user?.role === 'ADMIN'
-  const canManage = isOwner || isAdmin
+  const canManage = isOwner || (isAdmin && adminElevLoaded && adminContentElevated)
 
   useEffect(() => {
     const ac = new AbortController()
@@ -705,6 +707,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     try {
       const res = await fetch(`/api/media/${mediaId}`, {
         method: 'DELETE',
+        credentials: 'same-origin',
       })
 
       if (res.ok) {
@@ -713,6 +716,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         router.replace(`/profile/${username}`)
       } else {
         const data = await res.json()
+        if (res.status === 403 && data.code === 'ADMIN_CONTENT_ELEVATION_REQUIRED') {
+          const next = encodeURIComponent(`/media/${mediaId}`)
+          window.location.href = `/login/admin-verify?next=${next}`
+          return
+        }
         alert(data.error || tMedia('deleteFail'))
       }
     } catch (error) {
@@ -874,9 +882,17 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   if (retrying) return
                   setRetrying(true)
                   try {
-                    const res = await fetch(`/api/media/${mediaId}/retry-processing`, { method: 'POST' })
+                    const res = await fetch(`/api/media/${mediaId}/retry-processing`, {
+                      method: 'POST',
+                      credentials: 'same-origin',
+                    })
                     const data = await res.json()
                     if (!res.ok) {
+                      if (res.status === 403 && data.code === 'ADMIN_CONTENT_ELEVATION_REQUIRED') {
+                        const next = encodeURIComponent(`/media/${mediaId}`)
+                        window.location.href = `/login/admin-verify?next=${next}`
+                        return
+                      }
                       alert(data.error || tMedia('retryFailed'))
                       return
                     }

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
+import { requireAdminPanelElevation } from '@/lib/requireAdminElevation'
 import { BlobServiceClient } from '@azure/storage-blob'
 
 export const dynamic = 'force-dynamic'
@@ -52,10 +52,8 @@ export async function POST(request: Request) {
     if (!session?.user || (session.user as { role?: string }).role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    const reauth = getAdminReauthFromRequest(request)
-    if (!reauth || reauth.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Re-authentication required' }, { status: 403 })
-    }
+    const panelErr = requireAdminPanelElevation(request, session)
+    if (panelErr) return panelErr
 
     const legacy = await prisma.mediaVersion.findMany({
       where: { height: { in: LEGACY_HEIGHTS } },

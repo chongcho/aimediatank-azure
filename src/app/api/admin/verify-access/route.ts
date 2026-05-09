@@ -11,7 +11,12 @@ import {
   isAdminUserStep2PasswordConfigured,
   verifyAdminUserStep2Password,
 } from '@/lib/adminUserStep2Password'
-import { createAdminReauthCookie, getAdminReauthFromRequest } from '@/lib/adminReauthCookie'
+import {
+  adminCookieAllowsContentElevation,
+  adminCookieAllowsPanel,
+  createAdminReauthCookie,
+  getAdminReauthFromRequest,
+} from '@/lib/adminReauthCookie'
 import { buildExpiredAdminReauthCookie } from '@/lib/adminReauthConstants'
 import { verifyCode } from '@/lib/verificationCodes'
 import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
@@ -38,6 +43,8 @@ export async function GET(request: Request) {
     if (url.searchParams.get('init') === '1') {
       const res = NextResponse.json({
         verified: false,
+        panelElevated: false,
+        contentElevated: false,
         adminPanelPasswordConfigured,
         dedicatedPasswordRequired,
         adminUserStep2Configured,
@@ -48,10 +55,16 @@ export async function GET(request: Request) {
     }
 
     const payload = getAdminReauthFromRequest(request)
-    const verified = !!(payload && payload.userId === session.user.id)
-    if (!verified) {
+    const okUser = !!(payload && payload.userId === session.user.id)
+    const panelElevated =
+      !!payload && payload.userId === session.user.id && adminCookieAllowsPanel(payload)
+    const contentElevated =
+      !!payload && payload.userId === session.user.id && adminCookieAllowsContentElevation(payload)
+    if (!okUser) {
       return NextResponse.json({
         verified: false,
+        panelElevated: false,
+        contentElevated: false,
         adminPanelPasswordConfigured,
         dedicatedPasswordRequired,
         adminUserStep2Configured,
@@ -59,6 +72,8 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({
       verified: true,
+      panelElevated,
+      contentElevated,
       adminPanelPasswordConfigured,
       dedicatedPasswordRequired,
       adminUserStep2Configured,
@@ -69,7 +84,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: Verify password + 2FA. verifyMode: adminUser = ADMIN_USER_STEP2_PASSWORD_* only, no cookie. adminPanel = panel env password + admin_reauth cookie.
+// POST: Verify password + 2FA. adminUser sets admin_reauth with app scope; adminPanel sets panel scope.
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -162,10 +177,13 @@ export async function POST(request: Request) {
     }
 
     if (verifyMode === 'adminUser') {
-      return NextResponse.json({ success: true, verifyMode: 'adminUser' })
+      const { name, value, options } = createAdminReauthCookie(user.id, ['app'])
+      const res = NextResponse.json({ success: true, verifyMode: 'adminUser' })
+      res.cookies.set(name, value, options)
+      return res
     }
 
-    const { name, value, options } = createAdminReauthCookie(user.id)
+    const { name, value, options } = createAdminReauthCookie(user.id, ['panel'])
     const res = NextResponse.json({ success: true, verifyMode: 'adminPanel' })
     res.cookies.set(name, value, options)
     return res

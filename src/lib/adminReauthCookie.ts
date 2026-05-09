@@ -8,9 +8,32 @@ const COOKIE_NAME = ADMIN_REAUTH_COOKIE_NAME
 const MAX_AGE_SEC = 30 * 60 // 30 minutes
 const SECRET = process.env.NEXTAUTH_SECRET ?? ''
 
+/** What the signed admin cookie authorizes. Legacy payloads omit scopes → treated as panel-only. */
+export type AdminReauthScope = 'panel' | 'app'
+
 export interface AdminReauthPayload {
   userId: string
   exp: number
+  scopes?: AdminReauthScope[]
+}
+
+export function normalizeAdminReauthScopes(payload: AdminReauthPayload): AdminReauthScope[] {
+  const s = payload.scopes
+  if (!Array.isArray(s) || s.length === 0) {
+    return ['panel']
+  }
+  return s.filter((x): x is AdminReauthScope => x === 'panel' || x === 'app')
+}
+
+/** Dashboard + /api/admin/* style routes (Admin Panel passphrase + 2FA), or legacy cookie. */
+export function adminCookieAllowsPanel(payload: AdminReauthPayload): boolean {
+  return normalizeAdminReauthScopes(payload).includes('panel')
+}
+
+/** Cross-user content edits anywhere in the app (login Step 2 + 2FA and/or panel elevation). */
+export function adminCookieAllowsContentElevation(payload: AdminReauthPayload): boolean {
+  const n = normalizeAdminReauthScopes(payload)
+  return n.includes('panel') || n.includes('app')
 }
 
 function getSecret(): string {
@@ -29,9 +52,12 @@ function sign(payload: AdminReauthPayload): string {
   return Buffer.from(data, 'utf8').toString('base64url') + '.' + sig
 }
 
-export function createAdminReauthCookie(userId: string): { name: string; value: string; options: { httpOnly: boolean; secure: boolean; sameSite: 'lax'; path: string; maxAge: number } } {
+export function createAdminReauthCookie(
+  userId: string,
+  scopes: AdminReauthScope[] = ['panel']
+): { name: string; value: string; options: { httpOnly: boolean; secure: boolean; sameSite: 'lax'; path: string; maxAge: number } } {
   const exp = Math.floor(Date.now() / 1000) + MAX_AGE_SEC
-  const value = sign({ userId, exp })
+  const value = sign({ userId, exp, scopes })
   const isProduction = process.env.NODE_ENV === 'production'
   return {
     name: COOKIE_NAME,
@@ -74,6 +100,7 @@ export function verifyAdminReauthCookie(cookieHeader: string | null): AdminReaut
     return null
   }
   if (!payload.userId || typeof payload.exp !== 'number') return null
+  if (payload.scopes !== undefined && !Array.isArray(payload.scopes)) return null
   if (payload.exp < Math.floor(Date.now() / 1000)) return null
   return payload
 }
