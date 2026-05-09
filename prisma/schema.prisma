@@ -565,7 +565,7 @@ model Promotion {
   showPopup       Boolean   @default(false)
   popupTitle      String?
   popupMessage    String?
-  popupButtonText String?   @default("Get Offer")
+  popupButtonText String?   @default("Join")
   popupImageUrl   String?
   popupCtaUrl     String?             // Optional landing URL the CTA button opens (in addition to copying promo code)
   

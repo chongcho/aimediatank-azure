@@ -452,9 +452,9 @@ export default function AdminPage() {
     showPopup: false,
     popupTitle: '',
     popupMessage: '',
-    popupButtonText: 'Get Offer',
+    popupButtonText: 'Join',
     popupImageUrl: '',
-    popupCtaUrl: '',
+    popupCtaUrl: '/register',
   })
   const [showPromotionPreview, setShowPromotionPreview] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -1164,9 +1164,9 @@ export default function AdminPage() {
       showPopup: false,
       popupTitle: '',
       popupMessage: '',
-      popupButtonText: 'Get Offer',
+      popupButtonText: 'Join',
       popupImageUrl: '',
-      popupCtaUrl: '',
+      popupCtaUrl: '/register',
     })
     setShowPromotionModal(true)
   }
@@ -1190,7 +1190,7 @@ export default function AdminPage() {
       showPopup: promo.showPopup,
       popupTitle: promo.popupTitle || '',
       popupMessage: promo.popupMessage || '',
-      popupButtonText: promo.popupButtonText || 'Get Offer',
+      popupButtonText: promo.popupButtonText || 'Join',
       popupImageUrl: promo.popupImageUrl || '',
       popupCtaUrl: promo.popupCtaUrl || '',
     })
@@ -5483,7 +5483,7 @@ export default function AdminPage() {
                           type="text"
                           value={promotionForm.popupButtonText}
                           onChange={(e) => setPromotionForm(prev => ({ ...prev, popupButtonText: e.target.value }))}
-                          placeholder="Get Offer"
+                          placeholder="Join"
                           className="w-full bg-tank-gray border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
                         />
                       </div>
@@ -5504,10 +5504,10 @@ export default function AdminPage() {
                         type="text"
                         value={promotionForm.popupCtaUrl}
                         onChange={(e) => setPromotionForm(prev => ({ ...prev, popupCtaUrl: e.target.value }))}
-                        placeholder="https://... or /pricing"
+                        placeholder="/register or https://..."
                         className="w-full bg-tank-gray border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
                       />
-                      <p className="text-xs text-gray-500 mt-1">If set, clicking the button opens this URL (and copies the promo code, if any). Leave empty to just copy the promo code.</p>
+                      <p className="text-xs text-gray-500 mt-1">If set, clicking the button opens this URL (and copies the promo code, if any). New-subscriber promotions usually point to <code>/register</code>. Leave empty to just copy the promo code.</p>
                     </div>
                     <div className="flex justify-end">
                       <button
