@@ -6,6 +6,7 @@ import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 import { HomePreplayFocusProvider } from '@/contexts/HomePreplayFocusContext'
 import LiveChat from '@/components/LiveChat'
+import MarketingPopup from '@/components/MarketingPopup'
 import { getHomeFeed, saveHomeFeed } from '@/lib/homePrefetchCache'
 
 interface Media {
@@ -1099,6 +1100,9 @@ function HomeContent() {
 
       {/* Live Feed - Disabled */}
       {/* <LiveChat /> */}
+
+      {/* Admin-controlled marketing popup (Promotion.showPopup === true). Hidden once dismissed per promotion id. */}
+      <MarketingPopup />
     </div>
   )
 }
