@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 export type MarketingPopupViewProps = {
   popupTitle: string | null
@@ -27,6 +28,10 @@ export function isUsableExternalUrl(u: string | null | undefined): u is string {
   return !!u && /^https?:\/\/|^\//i.test(u)
 }
 
+function isInternalPath(u: string | null | undefined): u is string {
+  return !!u && u.startsWith('/') && !u.startsWith('//')
+}
+
 /** Pure presentational popup. Data fetching, dismissal persistence, and targeting live in the wrappers. */
 export default function MarketingPopupView({
   popupTitle,
@@ -40,6 +45,7 @@ export default function MarketingPopupView({
   onCta,
 }: MarketingPopupViewProps) {
   const [copied, setCopied] = useState(false)
+  const router = useRouter()
 
   const defaultCtaHandler = async () => {
     if (promoCode) {
@@ -48,6 +54,14 @@ export default function MarketingPopupView({
         setCopied(true)
         window.setTimeout(() => setCopied(false), 1500)
       } catch {}
+    }
+    // Internal paths (e.g. "/register") navigate in the same tab via the
+    // Next.js router so the user stays inside the app instead of getting a
+    // new browser window.
+    if (isInternalPath(popupCtaUrl)) {
+      onClose()
+      router.push(popupCtaUrl)
+      return
     }
     if (isUsableExternalUrl(popupCtaUrl)) {
       window.open(popupCtaUrl, '_blank', 'noopener,noreferrer')
