@@ -100,7 +100,7 @@ const CONFIG_RES = [
   /(^|\/)asset-manifest\.json$/i,
   /(^|\/)build-manifest\.json$/i,
   /(^|\/)config\/(?:secrets|database)\.ya?ml$/i,
-  /(^|\/)\.gitlab-ci\.ya?ml$/i,
+  /(^|\/)\.gitlab-ci(?:\.ya?ml)?(?:\/|$)/i,
   /(^|\/)terraform\.tfstate(?:\.backup)?$/i,
   /(^|\/)appsettings(?:\.[^.\/]+)?\.json$/i,
   /(^|\/)application\.ya?ml$/i,
@@ -133,7 +133,7 @@ const CONFIG_RES = [
   /\/local\.settings\.json$/i,
   /\/properties\/launchsettings\.json$/i,
   /\/sftp-config\.json$/i,
-  /\/\.vscode\/sftp\.json$/i,
+  /(^|\/)\.vscode(?:\/|$)/i,
   /\/\.composer\/auth\.json$/i,
   /\/(?:swagger(?:\/index\.html)?|openapi(?:\/v\d+)?(?:\/?[^\/]*)?|v3\/api-docs|redoc|scalar|docs)(?:\/|$)/i, // API-doc scanner probes
   /\/debug\/default(\/|$)/i, // Yii2 debug module (e.g. /debug/default/view)
