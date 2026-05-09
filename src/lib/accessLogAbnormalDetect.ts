@@ -87,6 +87,9 @@ const PHP_RES = [
   /vendor\/phpunit/i,
   /\.php(?:\d+)?$/i,
   /\.php$/i,
+  // Laravel Ignition RCE (CVE-2021-3129) and Debugbar exposure probes.
+  /(^|\/)_ignition(?:\/|$)/i,
+  /(^|\/)_debugbar(?:\/|$)/i,
 ]
 
 const CONFIG_RES = [
