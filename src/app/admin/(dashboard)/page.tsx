@@ -5307,7 +5307,7 @@ export default function AdminPage() {
                 <label className="block text-gray-400 text-sm mb-2">Promotion Type *</label>
                 <div className="flex gap-2">
                   {[
-                    { value: 'subscription_discount', label: '💰 Subscription Discount', desc: 'Discount on subscription fees' },
+                    { value: 'subscription_discount', label: '💰 Welcome', desc: 'Discount on subscription fees' },
                     { value: 'bonus_uploads', label: '📤 Bonus Uploads', desc: 'Free upload credits' },
                     { value: 'free_trial', label: '🎁 Free Trial', desc: 'Extended free trial' },
                   ].map(opt => (
