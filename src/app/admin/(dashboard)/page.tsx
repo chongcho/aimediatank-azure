@@ -721,6 +721,18 @@ export default function AdminPage() {
     }
   }, [toast])
 
+  // Lock body scroll while the Promotion create/edit modal is open so the
+  // background admin page is fully deactivated. The dim overlay already blocks
+  // clicks; this also stops the page from scrolling underneath.
+  useEffect(() => {
+    if (!showPromotionModal) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [showPromotionModal])
+
   useEffect(() => {
     if (status === 'loading') return
 
@@ -5267,9 +5279,14 @@ export default function AdminPage() {
 
       {/* Promotion Create/Edit Modal */}
       {showPromotionModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowPromotionModal(false)}>
-          <div className="bg-[#1a1a2e] rounded-xl p-6 max-w-2xl w-full border border-gray-700 my-8" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-6 text-tank-accent">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="promotion-modal-title"
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto"
+        >
+          <div className="bg-[#1a1a2e] rounded-xl p-6 max-w-2xl w-full border border-gray-700 my-8">
+            <h2 id="promotion-modal-title" className="text-xl font-bold mb-6 text-tank-accent">
               {editingPromotion ? '✏️ Edit Promotion' : '🎉 Create Promotion'}
             </h2>
             
