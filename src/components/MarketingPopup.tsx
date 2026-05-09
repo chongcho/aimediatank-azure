@@ -17,13 +17,17 @@ type ActivePopup = {
   endDate: string | null
 }
 
-const DISMISS_KEY_PREFIX = 'marketingPopupDismissed:'
+// Previous versions used this key for "permanent X-button dismiss". The
+// product decision changed to "X without snooze should reappear on refresh"
+// so we no longer write this key — but we proactively clean up any leftover
+// values on mount so existing users see the popup again.
+const LEGACY_DISMISS_KEY_PREFIX = 'marketingPopupDismissed:'
+
 const SNOOZE_UNTIL_KEY_PREFIX = 'marketingPopupSnoozeUntil:'
 const APPEAR_DELAY_MS = 700
 const SNOOZE_DURATION_MS = 24 * 60 * 60 * 1000
 
-// Hoisted promise so the active-popup endpoint is hit at most once per tab,
-// even if MarketingPopup unmounts/remounts.
+// Hoisted promise so the active-popup endpoint is hit at most once per tab.
 let activePopupPromise: Promise<ActivePopup | null> | null = null
 function fetchActivePopupOnce(): Promise<ActivePopup | null> {
   if (activePopupPromise) return activePopupPromise
@@ -34,24 +38,15 @@ function fetchActivePopupOnce(): Promise<ActivePopup | null> {
   return activePopupPromise
 }
 
-// Module-level "the user has not closed this popup yet" state. Survives
-// MarketingPopup unmount/remount within the same page so the popup truly
-// stays on until the user closes it via the X button. The home page subtree
-// can remount the popup wrapper for various reasons (filter changes, scroll
-// restoration); without this the popup would silently disappear on remount.
-//
-// This state intentionally lives in module scope so it resets on a full page
-// load (new tab, hard refresh) but survives soft remounts.
-let activePromoIdShown: string | null = null
-function markPromoShown(id: string) {
-  activePromoIdShown = id
-}
-function isPromoStillOpen(id: string) {
-  return activePromoIdShown === id
-}
-function markPromoClosed() {
-  activePromoIdShown = null
-}
+// Module-level state, scoped to the current JS runtime. Resets on full page
+// reload (browser refresh) so the popup returns then; survives soft remounts
+// of <MarketingPopup /> within the same page.
+//   - shownPromoId: popup is currently visible (not yet closed). On remount,
+//     restore visibility instantly without re-running the appear delay.
+//   - dismissedPromoId: user closed the popup with the X button (without
+//     ticking the 24h checkbox). Stay hidden for the rest of this runtime.
+let shownPromoId: string | null = null
+let dismissedPromoId: string | null = null
 
 export default function MarketingPopup() {
   const [promo, setPromo] = useState<ActivePopup | null>(null)
@@ -69,8 +64,15 @@ export default function MarketingPopup() {
     fetchActivePopupOnce().then((p) => {
       if (cancelled || !p) return
       if (!p.popupTitle && !p.popupMessage && !isUsableImageUrl(p.popupImageUrl)) return
+
+      // Closed via X earlier in this runtime — stay hidden until refresh.
+      if (dismissedPromoId === p.id) return
+
       try {
-        if (localStorage.getItem(`${DISMISS_KEY_PREFIX}${p.id}`) === '1') return
+        // One-time migration: clear any legacy permanent-dismiss flag so the
+        // popup can re-appear under the new "X = session-only close" rule.
+        localStorage.removeItem(`${LEGACY_DISMISS_KEY_PREFIX}${p.id}`)
+
         const snoozeUntilRaw = localStorage.getItem(`${SNOOZE_UNTIL_KEY_PREFIX}${p.id}`)
         if (snoozeUntilRaw) {
           const snoozeUntil = parseInt(snoozeUntilRaw, 10)
@@ -81,11 +83,9 @@ export default function MarketingPopup() {
 
       setPromo(p)
 
-      // If a previous mount already showed this popup and the user never
-      // closed it, restore visibility immediately on remount — no extra
-      // appear delay, no fade-in flicker. Otherwise schedule the first
-      // appearance.
-      if (isPromoStillOpen(p.id)) {
+      // Soft remount during a still-open popup — restore visibility now,
+      // skip the appear delay and the fade-in (already past that).
+      if (shownPromoId === p.id) {
         setVisible(true)
         setEntered(true)
         return
@@ -93,7 +93,7 @@ export default function MarketingPopup() {
 
       appearTimer = window.setTimeout(() => {
         setVisible(true)
-        markPromoShown(p.id)
+        shownPromoId = p.id
         requestAnimationFrame(() => setEntered(true))
       }, APPEAR_DELAY_MS)
     })
@@ -106,19 +106,21 @@ export default function MarketingPopup() {
 
   const handleClose = (options?: MarketingPopupCloseOptions) => {
     if (promo) {
-      try {
-        if (options?.snooze24h) {
+      if (options?.snooze24h) {
+        try {
           localStorage.setItem(
             `${SNOOZE_UNTIL_KEY_PREFIX}${promo.id}`,
             String(Date.now() + SNOOZE_DURATION_MS),
           )
-          localStorage.removeItem(`${DISMISS_KEY_PREFIX}${promo.id}`)
-        } else {
-          localStorage.setItem(`${DISMISS_KEY_PREFIX}${promo.id}`, '1')
-        }
-      } catch {}
+        } catch {}
+      } else {
+        // Plain X close: do NOT persist anything. Popup returns on next
+        // browser refresh / new tab. Mark in-runtime so it stays gone for
+        // this tab session even if the wrapper remounts.
+        dismissedPromoId = promo.id
+      }
     }
-    markPromoClosed()
+    shownPromoId = null
     // Fade out, then unmount.
     setEntered(false)
     window.setTimeout(() => setVisible(false), 200)
