@@ -61,20 +61,16 @@ export default function MarketingPopupView({
         window.setTimeout(() => setCopied(false), 1500)
       } catch {}
     }
-    // Internal paths (e.g. "/register") navigate in the same tab via the
-    // Next.js router so the user stays inside the app instead of getting a
-    // new browser window.
+    // The popup is intentionally persistent — only the X button closes it.
+    // CTA actions (copy code, navigate) do not dismiss the popup.
     if (isInternalPath(popupCtaUrl)) {
-      onClose()
       router.push(popupCtaUrl)
       return
     }
     if (isUsableExternalUrl(popupCtaUrl)) {
       window.open(popupCtaUrl, '_blank', 'noopener,noreferrer')
-      onClose()
       return
     }
-    if (!promoCode) onClose()
   }
 
   const handleCta = onCta ?? defaultCtaHandler

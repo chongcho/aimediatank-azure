@@ -19,13 +19,11 @@ type ActivePopup = {
 
 const DISMISS_KEY_PREFIX = 'marketingPopupDismissed:'
 const SNOOZE_UNTIL_KEY_PREFIX = 'marketingPopupSnoozeUntil:'
-const SESSION_SHOWN_KEY = 'marketingPopupShown'
 const APPEAR_DELAY_MS = 700
 const SNOOZE_DURATION_MS = 24 * 60 * 60 * 1000
 
 // Hoisted promise so the active-popup endpoint is hit at most once per tab,
-// even if MarketingPopup unmounts/remounts (HomeContent has many effects that
-// can briefly retrigger child mounts on the home page).
+// even if MarketingPopup unmounts/remounts.
 let activePopupPromise: Promise<ActivePopup | null> | null = null
 function fetchActivePopupOnce(): Promise<ActivePopup | null> {
   if (activePopupPromise) return activePopupPromise
@@ -36,10 +34,28 @@ function fetchActivePopupOnce(): Promise<ActivePopup | null> {
   return activePopupPromise
 }
 
+// Module-level "the user has not closed this popup yet" state. Survives
+// MarketingPopup unmount/remount within the same page so the popup truly
+// stays on until the user closes it via the X button. The home page subtree
+// can remount the popup wrapper for various reasons (filter changes, scroll
+// restoration); without this the popup would silently disappear on remount.
+//
+// This state intentionally lives in module scope so it resets on a full page
+// load (new tab, hard refresh) but survives soft remounts.
+let activePromoIdShown: string | null = null
+function markPromoShown(id: string) {
+  activePromoIdShown = id
+}
+function isPromoStillOpen(id: string) {
+  return activePromoIdShown === id
+}
+function markPromoClosed() {
+  activePromoIdShown = null
+}
+
 export default function MarketingPopup() {
   const [promo, setPromo] = useState<ActivePopup | null>(null)
   const [visible, setVisible] = useState(false)
-  // Drives the opacity transition: false = transparent, true = full opacity.
   const [entered, setEntered] = useState(false)
   const fetchedRef = useRef(false)
 
@@ -59,22 +75,25 @@ export default function MarketingPopup() {
         if (snoozeUntilRaw) {
           const snoozeUntil = parseInt(snoozeUntilRaw, 10)
           if (!Number.isNaN(snoozeUntil) && snoozeUntil > Date.now()) return
-          // Snooze expired — clean up so we don't keep parsing it.
           localStorage.removeItem(`${SNOOZE_UNTIL_KEY_PREFIX}${p.id}`)
         }
-        // Once shown in this tab, don't show again until the user reloads the
-        // tab or navigates away. Prevents the popup from re-appearing if the
-        // home subtree happens to remount.
-        if (sessionStorage.getItem(SESSION_SHOWN_KEY) === p.id) return
       } catch {}
 
       setPromo(p)
+
+      // If a previous mount already showed this popup and the user never
+      // closed it, restore visibility immediately on remount — no extra
+      // appear delay, no fade-in flicker. Otherwise schedule the first
+      // appearance.
+      if (isPromoStillOpen(p.id)) {
+        setVisible(true)
+        setEntered(true)
+        return
+      }
+
       appearTimer = window.setTimeout(() => {
         setVisible(true)
-        try {
-          sessionStorage.setItem(SESSION_SHOWN_KEY, p.id)
-        } catch {}
-        // Trigger fade-in on the next frame so the transition runs.
+        markPromoShown(p.id)
         requestAnimationFrame(() => setEntered(true))
       }, APPEAR_DELAY_MS)
     })
@@ -89,19 +108,17 @@ export default function MarketingPopup() {
     if (promo) {
       try {
         if (options?.snooze24h) {
-          // 24-hour snooze: store the wall-clock expiration, do NOT mark as
-          // permanently dismissed so the popup will return after 24h.
           localStorage.setItem(
             `${SNOOZE_UNTIL_KEY_PREFIX}${promo.id}`,
             String(Date.now() + SNOOZE_DURATION_MS),
           )
           localStorage.removeItem(`${DISMISS_KEY_PREFIX}${promo.id}`)
         } else {
-          // Default close = permanent dismiss for this promo on this device.
           localStorage.setItem(`${DISMISS_KEY_PREFIX}${promo.id}`, '1')
         }
       } catch {}
     }
+    markPromoClosed()
     // Fade out, then unmount.
     setEntered(false)
     window.setTimeout(() => setVisible(false), 200)
