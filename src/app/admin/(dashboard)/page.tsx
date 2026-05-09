@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
 import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX } from '@/lib/uploadPlanConfig'
+import MarketingPopupView from '@/components/MarketingPopupView'
 const RUNTIME_RISK_FLAG_LABELS: Record<string, string> = {
   TRAFFIC_BURST_IP: 'High request burst from IP in last 10 minutes',
   TRAFFIC_BURST_IP_HIGH: 'Very high request burst from IP in last 10 minutes',
@@ -195,6 +196,7 @@ interface Promotion {
   popupMessage: string | null
   popupButtonText: string | null
   popupImageUrl: string | null
+  popupCtaUrl: string | null
   createdAt: string
 }
 
@@ -452,7 +454,9 @@ export default function AdminPage() {
     popupMessage: '',
     popupButtonText: 'Get Offer',
     popupImageUrl: '',
+    popupCtaUrl: '',
   })
+  const [showPromotionPreview, setShowPromotionPreview] = useState(false)
   const [loading, setLoading] = useState(true)
   
   // User modal state
@@ -1162,6 +1166,7 @@ export default function AdminPage() {
       popupMessage: '',
       popupButtonText: 'Get Offer',
       popupImageUrl: '',
+      popupCtaUrl: '',
     })
     setShowPromotionModal(true)
   }
@@ -1187,6 +1192,7 @@ export default function AdminPage() {
       popupMessage: promo.popupMessage || '',
       popupButtonText: promo.popupButtonText || 'Get Offer',
       popupImageUrl: promo.popupImageUrl || '',
+      popupCtaUrl: promo.popupCtaUrl || '',
     })
     setShowPromotionModal(true)
   }
@@ -5492,6 +5498,26 @@ export default function AdminPage() {
                         />
                       </div>
                     </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-1">Button Link URL (optional)</label>
+                      <input
+                        type="text"
+                        value={promotionForm.popupCtaUrl}
+                        onChange={(e) => setPromotionForm(prev => ({ ...prev, popupCtaUrl: e.target.value }))}
+                        placeholder="https://... or /pricing"
+                        className="w-full bg-tank-gray border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">If set, clicking the button opens this URL (and copies the promo code, if any). Leave empty to just copy the promo code.</p>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setShowPromotionPreview(true)}
+                        className="text-sm bg-tank-gray hover:bg-tank-light text-tank-accent border border-tank-accent/40 rounded-lg px-3 py-1.5 font-medium transition-colors"
+                      >
+                        👁 Preview popup
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -5525,6 +5551,20 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showPromotionPreview && (
+        <MarketingPopupView
+          popupTitle={promotionForm.popupTitle || null}
+          popupMessage={promotionForm.popupMessage || null}
+          popupButtonText={promotionForm.popupButtonText || null}
+          popupImageUrl={promotionForm.popupImageUrl || null}
+          popupCtaUrl={promotionForm.popupCtaUrl || null}
+          promoCode={promotionForm.promoCode || null}
+          endDate={promotionForm.endDate || null}
+          onClose={() => setShowPromotionPreview(false)}
+          onCta={() => setShowPromotionPreview(false)}
+        />
       )}
     </div>
   )

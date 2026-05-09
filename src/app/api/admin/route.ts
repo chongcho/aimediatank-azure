@@ -2096,6 +2096,7 @@ export async function POST(request: Request) {
             popupMessage: promotionData.popupMessage || null,
             popupButtonText: promotionData.popupButtonText || 'Get Offer',
             popupImageUrl: promotionData.popupImageUrl || null,
+            popupCtaUrl: promotionData.popupCtaUrl || null,
           },
         })
         
@@ -2130,6 +2131,7 @@ export async function POST(request: Request) {
         if (updateData.popupMessage !== undefined) updateObj.popupMessage = updateData.popupMessage
         if (updateData.popupButtonText !== undefined) updateObj.popupButtonText = updateData.popupButtonText
         if (updateData.popupImageUrl !== undefined) updateObj.popupImageUrl = updateData.popupImageUrl
+        if (updateData.popupCtaUrl !== undefined) updateObj.popupCtaUrl = updateData.popupCtaUrl || null
         
         const promotion = await prisma.promotion.update({
           where: { id: promotionId },

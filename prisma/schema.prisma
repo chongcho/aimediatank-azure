@@ -567,6 +567,7 @@ model Promotion {
   popupMessage    String?
   popupButtonText String?   @default("Get Offer")
   popupImageUrl   String?
+  popupCtaUrl     String?             // Optional landing URL the CTA button opens (in addition to copying promo code)
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
