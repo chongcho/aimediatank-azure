@@ -2,15 +2,61 @@ import { NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
+import { BlobServiceClient } from '@azure/storage-blob'
 
 // Function to generate verification token
 function generateVerificationToken() {
   return uuidv4().replace(/-/g, '') + uuidv4().replace(/-/g, '')
 }
 
+type ParsedAvatarData = {
+  contentType: string
+  buffer: Buffer
+}
+
+function parseAvatarDataUrl(input: string): ParsedAvatarData | null {
+  const match = input.match(/^data:(image\/(?:jpeg|jpg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/i)
+  if (!match) return null
+  const contentType = match[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : match[1].toLowerCase()
+  const base64 = match[2]
+  const buffer = Buffer.from(base64, 'base64')
+  if (!buffer || buffer.length === 0) return null
+  return { contentType, buffer }
+}
+
+async function uploadRegistrationAvatar(avatarDataUrl: string): Promise<string | null> {
+  const parsed = parseAvatarDataUrl(avatarDataUrl)
+  if (!parsed) return null
+  // Guard rails for request payload abuse
+  if (parsed.buffer.length > 5 * 1024 * 1024) return null
+
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+  if (!connectionString) return null
+  const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'media'
+  const ext = parsed.contentType === 'image/png'
+    ? 'png'
+    : parsed.contentType === 'image/webp'
+      ? 'webp'
+      : parsed.contentType === 'image/gif'
+        ? 'gif'
+        : 'jpg'
+  const blobName = `avatar-${uuidv4()}.${ext}`
+
+  const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString)
+  const containerClient = blobServiceClient.getContainerClient(containerName)
+  const blockBlobClient = containerClient.getBlockBlobClient(blobName)
+  await blockBlobClient.uploadData(parsed.buffer, {
+    blobHTTPHeaders: {
+      blobContentType: parsed.contentType,
+      blobCacheControl: 'public, max-age=31536000',
+    },
+  })
+  return blockBlobClient.url
+}
+
 export async function POST(request: Request) {
   try {
-    const { email: rawEmail, username, password, name, legalName, phone, location, bio, birthday } = await request.json()
+    const { email: rawEmail, username, password, name, legalName, phone, location, bio, birthday, avatarDataUrl } = await request.json()
 
     // Validation
     if (!rawEmail || !username || !password) {
@@ -54,6 +100,15 @@ export async function POST(request: Request) {
       )
     }
 
+    let avatarUrl: string | null = null
+    if (typeof avatarDataUrl === 'string' && avatarDataUrl.trim()) {
+      try {
+        avatarUrl = await uploadRegistrationAvatar(avatarDataUrl.trim())
+      } catch (e) {
+        console.error('Registration avatar upload failed:', e)
+      }
+    }
+
     // Hash password
     const hashedPassword = await hash(password, 12)
     
@@ -80,6 +135,7 @@ export async function POST(request: Request) {
           phone: phone || null,
           location: location || null,
           bio: bio || null,
+          avatar: avatarUrl,
           birthday: birthday ? new Date(birthday) : null,
           role: userRole,
           policyAgreedAt: new Date(),
@@ -108,6 +164,7 @@ export async function POST(request: Request) {
             phone: phone || null,
             location: location || null,
             bio: bio || null,
+            avatar: avatarUrl,
             birthday: birthday ? new Date(birthday) : null,
           },
     })

@@ -7,6 +7,7 @@ import Link from 'next/link'
 import PasswordField from '@/components/PasswordField'
 import { SocialSignIn } from '@/components/SocialSignIn'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
+import { compressImage } from '@/lib/mediaCompression'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -30,8 +31,9 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState(false)
   const [verificationUrl, setVerificationUrl] = useState('')
   
-  // Avatar state (preview only - actual upload after login in profile edit)
+  // Avatar state for registration-time upload
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
   
   // Email verification state
   const [emailStatus, setEmailStatus] = useState<{
@@ -250,15 +252,37 @@ export default function RegisterPage() {
     }
   }
 
-  // Avatar preview only — upload after login in profile edit
-  const handleAvatarFile = (file: File) => {
+  const fileToDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (typeof reader.result === 'string') resolve(reader.result)
+        else reject(new Error('Failed to read image'))
+      }
+      reader.onerror = () => reject(new Error('Failed to read image'))
+      reader.readAsDataURL(file)
+    })
+
+  // Prepare avatar at registration time and persist during account creation.
+  const handleAvatarFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file')
       return
     }
 
-    const previewUrl = URL.createObjectURL(file)
-    setAvatarPreview(previewUrl)
+    try {
+      const prepared = await compressImage(file, {
+        maxWidth: 400,
+        maxHeight: 400,
+        quality: 0.82,
+      })
+      setAvatarFile(prepared)
+      const previewUrl = URL.createObjectURL(prepared)
+      setAvatarPreview(previewUrl)
+      setError('')
+    } catch {
+      setError('Failed to prepare avatar image')
+    }
   }
 
   // Send verification code
@@ -472,6 +496,10 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
+      let avatarDataUrl: string | undefined
+      if (avatarFile) {
+        avatarDataUrl = await fileToDataUrl(avatarFile)
+      }
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -485,6 +513,7 @@ export default function RegisterPage() {
           location: formData.location,
           bio: formData.bio,
           birthday: formData.birthday.trim() || undefined,
+          avatarDataUrl,
         }),
       })
 
