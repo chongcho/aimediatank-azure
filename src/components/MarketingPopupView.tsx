@@ -61,8 +61,8 @@ export default function MarketingPopupView({
         window.setTimeout(() => setCopied(false), 1500)
       } catch {}
     }
-    // The popup is intentionally persistent — only the X button closes it.
-    // CTA actions (copy code, navigate) do not dismiss the popup.
+    // CTA click should dismiss the popup.
+    onClose()
     if (isInternalPath(popupCtaUrl)) {
       router.push(popupCtaUrl)
       return
@@ -138,7 +138,7 @@ export default function MarketingPopupView({
             <button
               type="button"
               onClick={handleCta}
-              className="min-w-[100px] px-7 py-2 rounded-sm bg-white text-orange-600 text-3xl font-extrabold hover:bg-orange-50 transition-colors shadow leading-none"
+              className="min-w-[100px] px-7 py-2 rounded-xl bg-green-500 text-white text-3xl font-extrabold hover:bg-green-600 transition-colors shadow leading-none"
             >
               {copied ? 'Copied!' : popupButtonText || 'Join'}
             </button>

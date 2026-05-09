@@ -17,9 +17,8 @@ export const dynamic = 'force-dynamic'
  *
  * Targeting:
  *  - When applicablePlans === "new_subscriber" the popup is hidden for users
- *    who already have an active paid membership (membershipType is BASIC /
- *    PREMIUM and not expired). It still shows to logged-out users and to
- *    free/expired members so they can claim the offer.
+ *    who are already subscribers (role SUBSCRIBER or any non-VIEWER
+ *    membership type). It still shows to logged-out users / viewers.
  *  - All other applicablePlans values fall through to "show to everyone"
  *    (no behavioural targeting from the popup; the value is informational
  *    until per-plan eligibility is wired in subscription flows).
@@ -46,17 +45,19 @@ export async function GET() {
 
     if (promo.applicablePlans === 'new_subscriber') {
       const session = await getServerSession(authOptions)
-      const userId = (session?.user as { id?: string } | undefined)?.id
+      const sUser = session?.user as { id?: string; role?: string } | undefined
+      const userId = sUser?.id
       if (userId) {
         const u = await prisma.user.findUnique({
           where: { id: userId },
-          select: { membershipType: true, membershipExpiresAt: true },
+          select: { membershipType: true },
         })
-        const isPaidActive =
+        const sessionRole = typeof sUser?.role === 'string' ? sUser.role.trim().toUpperCase() : ''
+        const userRole = sessionRole || 'VIEWER'
+        const isExistingSubscriber =
           !!u &&
-          u.membershipType !== 'VIEWER' &&
-          (!u.membershipExpiresAt || u.membershipExpiresAt > now)
-        if (isPaidActive) return NextResponse.json({ promo: null })
+          (userRole === 'SUBSCRIBER' || userRole === 'ADMIN' || u.membershipType !== 'VIEWER')
+        if (isExistingSubscriber) return NextResponse.json({ promo: null })
       }
     }
 
