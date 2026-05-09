@@ -129,21 +129,22 @@ export default function MarketingPopupView({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={handleCta}
-            className="w-full py-2.5 rounded-lg bg-white text-orange-600 font-semibold hover:bg-orange-50 transition-colors shadow"
-          >
-            {copied ? 'Copied!' : popupButtonText || 'Join'}
-          </button>
+          <div className="mt-2 flex items-center justify-center gap-4">
+            {endDate && (
+              <p className="text-xs text-white/80 whitespace-nowrap">
+                Ends {new Date(endDate).toLocaleDateString()}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleCta}
+              className="min-w-[100px] px-7 py-2 rounded-sm bg-white text-orange-600 text-3xl font-extrabold hover:bg-orange-50 transition-colors shadow leading-none"
+            >
+              {copied ? 'Copied!' : popupButtonText || 'Join'}
+            </button>
+          </div>
 
-          {endDate && (
-            <p className="mt-3 text-center text-xs text-white/80">
-              Ends {new Date(endDate).toLocaleDateString()}
-            </p>
-          )}
-
-          <label className="mt-3 flex items-center justify-center gap-2 text-xs text-white/90 cursor-pointer select-none">
+          <label className="mt-2 flex items-center justify-start gap-2 text-xs text-white/90 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={snooze24h}
