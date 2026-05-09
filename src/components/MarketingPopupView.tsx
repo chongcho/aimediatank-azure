@@ -3,6 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+export type MarketingPopupCloseOptions = {
+  /** If true, hide the popup for 24 hours (instead of permanently). */
+  snooze24h?: boolean
+}
+
 export type MarketingPopupViewProps = {
   popupTitle: string | null
   popupMessage: string | null
@@ -11,7 +16,7 @@ export type MarketingPopupViewProps = {
   popupCtaUrl?: string | null
   promoCode: string | null
   endDate: string | null
-  onClose: () => void
+  onClose: (options?: MarketingPopupCloseOptions) => void
   /**
    * If provided, called on CTA click instead of the default behaviour
    * (copy promoCode → optionally navigate to popupCtaUrl). Used by the admin
@@ -45,6 +50,7 @@ export default function MarketingPopupView({
   onCta,
 }: MarketingPopupViewProps) {
   const [copied, setCopied] = useState(false)
+  const [snooze24h, setSnooze24h] = useState(false)
   const router = useRouter()
 
   const defaultCtaHandler = async () => {
@@ -87,7 +93,7 @@ export default function MarketingPopupView({
       >
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => onClose({ snooze24h })}
           aria-label="Close"
           className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 text-white transition-colors"
         >
@@ -140,6 +146,16 @@ export default function MarketingPopupView({
               Ends {new Date(endDate).toLocaleDateString()}
             </p>
           )}
+
+          <label className="mt-3 flex items-center justify-center gap-2 text-xs text-white/90 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={snooze24h}
+              onChange={(e) => setSnooze24h(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-white/40 bg-white/10 text-orange-600 focus:ring-1 focus:ring-white/60 cursor-pointer"
+            />
+            Don&apos;t show for 24 hours
+          </label>
         </div>
       </div>
     </div>

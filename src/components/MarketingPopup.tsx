@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import MarketingPopupView, { isUsableImageUrl } from '@/components/MarketingPopupView'
+import MarketingPopupView, {
+  isUsableImageUrl,
+  type MarketingPopupCloseOptions,
+} from '@/components/MarketingPopupView'
 
 type ActivePopup = {
   id: string
@@ -15,8 +18,10 @@ type ActivePopup = {
 }
 
 const DISMISS_KEY_PREFIX = 'marketingPopupDismissed:'
+const SNOOZE_UNTIL_KEY_PREFIX = 'marketingPopupSnoozeUntil:'
 const SESSION_SHOWN_KEY = 'marketingPopupShown'
 const APPEAR_DELAY_MS = 700
+const SNOOZE_DURATION_MS = 24 * 60 * 60 * 1000
 
 // Hoisted promise so the active-popup endpoint is hit at most once per tab,
 // even if MarketingPopup unmounts/remounts (HomeContent has many effects that
@@ -50,6 +55,13 @@ export default function MarketingPopup() {
       if (!p.popupTitle && !p.popupMessage && !isUsableImageUrl(p.popupImageUrl)) return
       try {
         if (localStorage.getItem(`${DISMISS_KEY_PREFIX}${p.id}`) === '1') return
+        const snoozeUntilRaw = localStorage.getItem(`${SNOOZE_UNTIL_KEY_PREFIX}${p.id}`)
+        if (snoozeUntilRaw) {
+          const snoozeUntil = parseInt(snoozeUntilRaw, 10)
+          if (!Number.isNaN(snoozeUntil) && snoozeUntil > Date.now()) return
+          // Snooze expired — clean up so we don't keep parsing it.
+          localStorage.removeItem(`${SNOOZE_UNTIL_KEY_PREFIX}${p.id}`)
+        }
         // Once shown in this tab, don't show again until the user reloads the
         // tab or navigates away. Prevents the popup from re-appearing if the
         // home subtree happens to remount.
@@ -73,10 +85,21 @@ export default function MarketingPopup() {
     }
   }, [])
 
-  const handleClose = () => {
+  const handleClose = (options?: MarketingPopupCloseOptions) => {
     if (promo) {
       try {
-        localStorage.setItem(`${DISMISS_KEY_PREFIX}${promo.id}`, '1')
+        if (options?.snooze24h) {
+          // 24-hour snooze: store the wall-clock expiration, do NOT mark as
+          // permanently dismissed so the popup will return after 24h.
+          localStorage.setItem(
+            `${SNOOZE_UNTIL_KEY_PREFIX}${promo.id}`,
+            String(Date.now() + SNOOZE_DURATION_MS),
+          )
+          localStorage.removeItem(`${DISMISS_KEY_PREFIX}${promo.id}`)
+        } else {
+          // Default close = permanent dismiss for this promo on this device.
+          localStorage.setItem(`${DISMISS_KEY_PREFIX}${promo.id}`, '1')
+        }
       } catch {}
     }
     // Fade out, then unmount.
