@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import MarketingPopupView, { isUsableImageUrl } from '@/components/MarketingPopupView'
 
 type ActivePopup = {
@@ -15,29 +15,57 @@ type ActivePopup = {
 }
 
 const DISMISS_KEY_PREFIX = 'marketingPopupDismissed:'
+const SESSION_SHOWN_KEY = 'marketingPopupShown'
 const APPEAR_DELAY_MS = 700
+
+// Hoisted promise so the active-popup endpoint is hit at most once per tab,
+// even if MarketingPopup unmounts/remounts (HomeContent has many effects that
+// can briefly retrigger child mounts on the home page).
+let activePopupPromise: Promise<ActivePopup | null> | null = null
+function fetchActivePopupOnce(): Promise<ActivePopup | null> {
+  if (activePopupPromise) return activePopupPromise
+  activePopupPromise = fetch('/api/promotion/active-popup', { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => (data?.promo ?? null) as ActivePopup | null)
+    .catch(() => null)
+  return activePopupPromise
+}
 
 export default function MarketingPopup() {
   const [promo, setPromo] = useState<ActivePopup | null>(null)
-  const [show, setShow] = useState(false)
+  const [visible, setVisible] = useState(false)
+  // Drives the opacity transition: false = transparent, true = full opacity.
+  const [entered, setEntered] = useState(false)
+  const fetchedRef = useRef(false)
 
   useEffect(() => {
+    if (fetchedRef.current) return
+    fetchedRef.current = true
+
     let cancelled = false
     let appearTimer: number | undefined
 
-    fetch('/api/promotion/active-popup', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !data?.promo) return
-        const p = data.promo as ActivePopup
-        if (!p.popupTitle && !p.popupMessage && !isUsableImageUrl(p.popupImageUrl)) return
+    fetchActivePopupOnce().then((p) => {
+      if (cancelled || !p) return
+      if (!p.popupTitle && !p.popupMessage && !isUsableImageUrl(p.popupImageUrl)) return
+      try {
+        if (localStorage.getItem(`${DISMISS_KEY_PREFIX}${p.id}`) === '1') return
+        // Once shown in this tab, don't show again until the user reloads the
+        // tab or navigates away. Prevents the popup from re-appearing if the
+        // home subtree happens to remount.
+        if (sessionStorage.getItem(SESSION_SHOWN_KEY) === p.id) return
+      } catch {}
+
+      setPromo(p)
+      appearTimer = window.setTimeout(() => {
+        setVisible(true)
         try {
-          if (localStorage.getItem(`${DISMISS_KEY_PREFIX}${p.id}`) === '1') return
+          sessionStorage.setItem(SESSION_SHOWN_KEY, p.id)
         } catch {}
-        setPromo(p)
-        appearTimer = window.setTimeout(() => setShow(true), APPEAR_DELAY_MS)
-      })
-      .catch(() => {})
+        // Trigger fade-in on the next frame so the transition runs.
+        requestAnimationFrame(() => setEntered(true))
+      }, APPEAR_DELAY_MS)
+    })
 
     return () => {
       cancelled = true
@@ -51,21 +79,30 @@ export default function MarketingPopup() {
         localStorage.setItem(`${DISMISS_KEY_PREFIX}${promo.id}`, '1')
       } catch {}
     }
-    setShow(false)
+    // Fade out, then unmount.
+    setEntered(false)
+    window.setTimeout(() => setVisible(false), 200)
   }
 
-  if (!promo || !show) return null
+  if (!promo || !visible) return null
 
   return (
-    <MarketingPopupView
-      popupTitle={promo.popupTitle}
-      popupMessage={promo.popupMessage}
-      popupButtonText={promo.popupButtonText}
-      popupImageUrl={promo.popupImageUrl}
-      popupCtaUrl={promo.popupCtaUrl}
-      promoCode={promo.promoCode}
-      endDate={promo.endDate}
-      onClose={handleClose}
-    />
+    <div
+      style={{
+        opacity: entered ? 1 : 0,
+        transition: 'opacity 200ms ease-out',
+      }}
+    >
+      <MarketingPopupView
+        popupTitle={promo.popupTitle}
+        popupMessage={promo.popupMessage}
+        popupButtonText={promo.popupButtonText}
+        popupImageUrl={promo.popupImageUrl}
+        popupCtaUrl={promo.popupCtaUrl}
+        promoCode={promo.promoCode}
+        endDate={promo.endDate}
+        onClose={handleClose}
+      />
+    </div>
   )
 }
