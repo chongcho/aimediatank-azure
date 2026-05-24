@@ -74,11 +74,26 @@ function clamp(n: number, min: number, max: number) {
 }
 
 function formatTimeSec(t: number) {
-  if (!Number.isFinite(t) || t < 0) return '0:00'
+  if (!Number.isFinite(t) || t < 0) return '0:00:00'
   const totalSeconds = Math.floor(t)
-  const m = Math.floor(totalSeconds / 60)
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
   const s = totalSeconds % 60
-  return `${m}:${String(s).padStart(2, '0')}`
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+function parseTrimTime(str: string): number | null {
+  const t = str.trim().replace(/,/g, '.')
+  if (t === '' || /^\d+(\.\d+)?$/.test(t)) {
+    const n = parseFloat(t || '0')
+    return Number.isNaN(n) ? null : Math.max(0, n)
+  }
+  const parts = t.split(':').map((p) => parseFloat(p.trim()))
+  if (parts.some(Number.isNaN)) return null
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  if (parts.length === 2) return parts[0] * 60 + parts[1]
+  if (parts.length === 1) return parts[0]
+  return null
 }
 
 export default function CropToolPage() {
@@ -102,6 +117,8 @@ export default function CropToolPage() {
   const [videoDuration, setVideoDuration] = useState(0)
   const [trimStart, setTrimStart] = useState(0)
   const [trimEnd, setTrimEnd] = useState(0)
+  const [trimStartInput, setTrimStartInput] = useState<string | null>(null)
+  const [trimEndInput, setTrimEndInput] = useState<string | null>(null)
 
   const [processing, setProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -238,6 +255,8 @@ export default function CropToolPage() {
     setVideoDuration(0)
     setTrimStart(0)
     setTrimEnd(0)
+    setTrimStartInput(null)
+    setTrimEndInput(null)
     setProcessing(false)
     setProgress(0)
     setOutputResolution('auto')
@@ -619,6 +638,8 @@ export default function CropToolPage() {
     setVideoDuration(0)
     setTrimStart(0)
     setTrimEnd(0)
+    setTrimStartInput(null)
+    setTrimEndInput(null)
     setPrivacyMaskFaces(false)
     setPrivacyMaskPlates(false)
     setPrivacyMaskStyle('blur')
@@ -1318,6 +1339,8 @@ export default function CropToolPage() {
                         }
                         setTrimStart(0)
                         setTrimEnd(v.duration || 0)
+                        setTrimStartInput(null)
+                        setTrimEndInput(null)
                         setPreviewTime(0)
                         setPreviewPlaying(false)
                         // Native controls are removed, but the browser may still
@@ -1480,29 +1503,47 @@ export default function CropToolPage() {
                 {mediaType === 'video' && videoDuration > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-sm text-gray-300">Trim Start (sec)</label>
+                      <label className="text-sm text-gray-300">Trim Start</label>
                       <input
-                        type="number"
-                        min={0}
-                        max={Math.max(0, trimEnd - 0.1)}
-                        step={0.1}
-                        value={trimStart}
-                        onChange={(e) => setTrimStart(Math.max(0, Number(e.target.value) || 0))}
-                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                        type="text"
+                        placeholder="h:mm:ss"
+                        value={trimStartInput ?? formatTimeSec(trimStart)}
+                        onFocus={() => setTrimStartInput(formatTimeSec(trimStart))}
+                        onChange={(e) => setTrimStartInput(e.target.value)}
+                        onBlur={(e) => {
+                          const sec = parseTrimTime(e.target.value)
+                          if (sec != null) {
+                            const v = Math.max(0, Math.min(sec, Math.max(0, trimEnd - 0.1)))
+                            setTrimStart(v)
+                            if (trimEnd < v) setTrimEnd(v)
+                          }
+                          setTrimStartInput(null)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                        }}
+                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded tabular-nums"
                       />
                     </div>
                     <div>
-                      <label className="text-sm text-gray-300">Trim End (sec)</label>
+                      <label className="text-sm text-gray-300">Trim End</label>
                       <input
-                        type="number"
-                        min={Math.max(0.1, trimStart + 0.1)}
-                        max={videoDuration}
-                        step={0.1}
-                        value={trimEnd}
-                        onChange={(e) =>
-                          setTrimEnd(Math.max(trimStart + 0.1, Number(e.target.value) || videoDuration))
-                        }
-                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
+                        type="text"
+                        placeholder="h:mm:ss"
+                        value={trimEndInput ?? formatTimeSec(trimEnd)}
+                        onFocus={() => setTrimEndInput(formatTimeSec(trimEnd))}
+                        onChange={(e) => setTrimEndInput(e.target.value)}
+                        onBlur={(e) => {
+                          const sec = parseTrimTime(e.target.value)
+                          if (sec != null) {
+                            setTrimEnd(Math.max(trimStart + 0.1, Math.min(sec, videoDuration)))
+                          }
+                          setTrimEndInput(null)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                        }}
+                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded tabular-nums"
                       />
                     </div>
                   </div>
