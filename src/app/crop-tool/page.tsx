@@ -96,61 +96,6 @@ function parseTrimTime(str: string): number | null {
   return null
 }
 
-function TrimTimeField({
-  label,
-  seconds,
-  min,
-  max,
-  draft,
-  setDraft,
-  onCommit,
-}: {
-  label: string
-  seconds: number
-  min: number
-  max: number
-  draft: string | null
-  setDraft: (value: string | null) => void
-  onCommit: (seconds: number) => void
-}) {
-  return (
-    <div>
-      <label className="text-sm text-gray-300">{label}</label>
-      <div className="relative mt-1">
-        <input
-          type="text"
-          placeholder="h:mm:ss"
-          value={draft ?? formatTimeSec(seconds)}
-          onFocus={() => setDraft(formatTimeSec(seconds))}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={(e) => {
-            const sec = parseTrimTime(e.target.value)
-            if (sec != null) onCommit(sec)
-            setDraft(null)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-          }}
-          className="w-full bg-tank-gray border border-tank-light pl-3 pr-9 py-2 text-white rounded tabular-nums"
-        />
-        <input
-          type="number"
-          min={min}
-          max={max}
-          step={1}
-          value={Math.floor(seconds)}
-          onChange={(e) => {
-            setDraft(null)
-            onCommit(Number(e.target.value) || 0)
-          }}
-          aria-label={`Adjust ${label}`}
-          className="absolute inset-y-0 right-0 w-9 border-0 bg-transparent text-transparent caret-transparent rounded-r focus:outline-none focus:ring-0"
-        />
-      </div>
-    </div>
-  )
-}
-
 export default function CropToolPage() {
   const { data: session } = useSession()
 
@@ -1557,30 +1502,50 @@ export default function CropToolPage() {
 
                 {mediaType === 'video' && videoDuration > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <TrimTimeField
-                      label="Trim Start"
-                      seconds={trimStart}
-                      min={0}
-                      max={Math.max(0, Math.floor(trimEnd) - 1)}
-                      draft={trimStartInput}
-                      setDraft={setTrimStartInput}
-                      onCommit={(sec) => {
-                        const v = Math.max(0, Math.min(sec, Math.max(0, trimEnd - 0.1)))
-                        setTrimStart(v)
-                        if (trimEnd < v) setTrimEnd(v)
-                      }}
-                    />
-                    <TrimTimeField
-                      label="Trim End"
-                      seconds={trimEnd}
-                      min={Math.floor(trimStart) + 1}
-                      max={Math.floor(videoDuration)}
-                      draft={trimEndInput}
-                      setDraft={setTrimEndInput}
-                      onCommit={(sec) => {
-                        setTrimEnd(Math.max(trimStart + 0.1, Math.min(sec, videoDuration)))
-                      }}
-                    />
+                    <div>
+                      <label className="text-sm text-gray-300">Trim Start</label>
+                      <input
+                        type="text"
+                        placeholder="h:mm:ss"
+                        value={trimStartInput ?? formatTimeSec(trimStart)}
+                        onFocus={() => setTrimStartInput(formatTimeSec(trimStart))}
+                        onChange={(e) => setTrimStartInput(e.target.value)}
+                        onBlur={(e) => {
+                          const sec = parseTrimTime(e.target.value)
+                          if (sec != null) {
+                            const v = Math.max(0, Math.min(sec, Math.max(0, trimEnd - 0.1)))
+                            setTrimStart(v)
+                            if (trimEnd < v) setTrimEnd(v)
+                          }
+                          setTrimStartInput(null)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                        }}
+                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded tabular-nums"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-300">Trim End</label>
+                      <input
+                        type="text"
+                        placeholder="h:mm:ss"
+                        value={trimEndInput ?? formatTimeSec(trimEnd)}
+                        onFocus={() => setTrimEndInput(formatTimeSec(trimEnd))}
+                        onChange={(e) => setTrimEndInput(e.target.value)}
+                        onBlur={(e) => {
+                          const sec = parseTrimTime(e.target.value)
+                          if (sec != null) {
+                            setTrimEnd(Math.max(trimStart + 0.1, Math.min(sec, videoDuration)))
+                          }
+                          setTrimEndInput(null)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                        }}
+                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded tabular-nums"
+                      />
+                    </div>
                   </div>
                 )}
 
