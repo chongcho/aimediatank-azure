@@ -30,7 +30,11 @@ const TRAVERSAL_RE = /\.\.(?:\/|\\)|%2e%2e|%252e|\.%2e|\.\.%2f/i
 const SUSPICIOUS_PAYLOAD_RE =
   /(?:\bunion(?:\s+all)?\s+select\b|\bdrop\s+table\b|\binformation_schema\b|<script\b|javascript:|onerror=|onload=|cmd=|exec=|\/etc\/passwd|\.\.\/|%00|%3cscript|%3e|%27\s*or\s*%271%27=%271)/i
 
-const GIT_RES = [/\/\.git(\/|$)/i, /\.git\/(config|HEAD|index|objects)/i]
+const GIT_RES = [
+  /\/\.git(\/|$)/i,
+  /\.git\/(config|HEAD|index|objects)/i,
+  /(^|\/)\.gitmodules$/i,
+]
 
 const ENV_RES = [
   /\.env/i,
@@ -51,6 +55,26 @@ const ENV_RES = [
   /\.dockerenv/i,
   /\.pgpass/i,
   /\.mysql_history/i,
+  // GCP / Firebase credential dumps (common scanner dictionary).
+  /(^|\/)application_default_credentials\.json$/i,
+  /(^|\/)firebase-adminsdk\.json$/i,
+  /(^|\/)firebase-credentials\.json$/i,
+  /(^|\/)firebase-service-account\.json$/i,
+  /(^|\/)firebase\.json$/i,
+  /(^|\/)gcp-service-account\.json$/i,
+  /(^|\/)gcp-credentials\.json$/i,
+  /(^|\/)google-credentials\.json$/i,
+  /(^|\/)google-service-account\.json$/i,
+  /(^|\/)client_secrets\.json$/i,
+  /(^|\/)client_secret\.json$/i,
+  /(^|\/)keyfile\.json$/i,
+  /(^|\/)key\.json$/i,
+  /(^|\/)sa-key\.json$/i,
+  /(^|\/)service-account\.json$/i,
+  /(^|\/)config\/service-account\.json$/i,
+  /(^|\/)env\.txt$/i,
+  // Exact /credentials only — not /api/auth/callback/credentials.
+  /^\/credentials\n/i,
 ]
 
 const AWS_RES = [
@@ -80,7 +104,7 @@ const PHP_RES = [
   /\/pma\//i,
   /(^|\/)phpinfo(?:\.php)?(?:\/|$)/i,
   /(^|\/)info(?:\/|$)/i,
-  /\/cgi-bin\//i,
+  /(^|\/)cgi-bin(?:\/|$)/i,
   /(^|\/)index\.php(?:\/|$)/i,
   /eval-stdin\.php/i,
   /thinkphp/i,
@@ -125,6 +149,13 @@ const CONFIG_RES = [
   /(^|\/)20(?:1[7-9]|2[0-4])(?:\/|$)/i,
   // Common scanner probes for downloadable backup dumps.
   /(^|\/)(?:db|web|website|site|public_html|htdocs|www|backup(?:[_-]?(?:full|tpl|2))?|backups?|archive|old|bak|bkp|back|7bk)(?:[_-][^\/]+)?\.(?:zip|tar(?:\.gz)?|tgz|gz)$/i,
+  // Site-specific archive probes (aimediatank*.zip/rar/tar.gz variants).
+  /(^|\/)aimediatank(?:\.com)?(?:[_\-.][^\/]*)?\.(?:zip|rar|tar(?:\.gz)?|tgz|gz)$/i,
+  // WordPress-style upload dir and generic scanner stubs.
+  /(^|\/)uploads(?:\/|$)/i,
+  /(^|\/)blank-\d+(?:\/|$)/i,
+  // Non-standard .well-known probes (keep openid-configuration / assetlinks.json reachable).
+  /\/\.well-known\/connection-check(?:\/|$)/i,
   /web\.config$/i,
   /\/\.kube\//i,
   /(^|\/)\.?(?:kube)?config$/i, // kubeconfig / .kubeconfig probes
@@ -147,6 +178,17 @@ const CONFIG_RES = [
   /(^|\/)symfony(?:\/|$)/i,
   /(^|\/)app\/config\.ya?ml$/i,
   /(^|\/)app\/config\/[^/]+\.ya?ml$/i,
+  /(^|\/)config\.json$/i,
+  /(^|\/)config\.ya?ml$/i,
+  /(^|\/)docker-compose\.ya?ml$/i,
+  /(^|\/)vercel\.json$/i,
+  /(^|\/)amplify\.ya?ml$/i,
+  /(^|\/)var\/task(?:\/|$)/i,
+  /(^|\/)public\/stripe\.js$/i,
+  // CMS / legacy app-server fingerprint probes.
+  /(^|\/)magento_version(?:\/|$)/i,
+  /(^|\/)media\/system(?:\/|$)/i,
+  /\.jsp(?:\/|$)/i,
 ]
 
 function matchesAny(path: string, res: RegExp[]): boolean {
