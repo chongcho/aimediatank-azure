@@ -96,6 +96,74 @@ function parseTrimTime(str: string): number | null {
   return null
 }
 
+function TrimStepButton({
+  direction,
+  label,
+  onStep,
+}: {
+  direction: 'up' | 'down'
+  label: string
+  onStep: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={direction === 'up' ? `Increase ${label}` : `Decrease ${label}`}
+      onClick={onStep}
+      className="flex flex-1 min-h-[22px] w-9 items-center justify-center text-gray-500 hover:bg-gray-100 active:bg-gray-200 touch-manipulation"
+    >
+      <svg viewBox="0 0 10 6" className="h-1.5 w-2.5" fill="currentColor" aria-hidden>
+        {direction === 'up' ? <path d="M5 0 10 6H0z" /> : <path d="M0 0h10l-5 6z" />}
+      </svg>
+    </button>
+  )
+}
+
+function TrimTimeField({
+  label,
+  seconds,
+  draft,
+  setDraft,
+  onCommit,
+  onStep,
+}: {
+  label: string
+  seconds: number
+  draft: string | null
+  setDraft: (value: string | null) => void
+  onCommit: (seconds: number) => void
+  onStep: (delta: number) => void
+}) {
+  return (
+    <div>
+      <label className="text-sm text-gray-300">{label}</label>
+      <div className="mt-1 flex overflow-hidden rounded border border-tank-light bg-tank-gray">
+        <input
+          type="text"
+          placeholder="h:mm:ss"
+          value={draft ?? formatTimeSec(seconds)}
+          onFocus={() => setDraft(formatTimeSec(seconds))}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => {
+            const sec = parseTrimTime(e.target.value)
+            if (sec != null) onCommit(sec)
+            setDraft(null)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          }}
+          className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-white tabular-nums focus:outline-none focus:ring-0"
+        />
+        <div className="flex shrink-0 flex-col border-l border-tank-light bg-white">
+          <TrimStepButton direction="up" label={label} onStep={() => onStep(1)} />
+          <div className="h-px bg-tank-light" />
+          <TrimStepButton direction="down" label={label} onStep={() => onStep(-1)} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function CropToolPage() {
   const { data: session } = useSession()
 
@@ -386,6 +454,18 @@ export default function CropToolPage() {
   }, [previewUrl, mediaSize, mediaType])
 
   const effectiveTrimEnd = Math.max(trimStart + 0.01, trimEnd || videoDuration || trimStart + 0.01)
+
+  const stepTrimStart = (delta: number) => {
+    setTrimStartInput(null)
+    const v = clamp(Math.floor(trimStart) + delta, 0, Math.max(0, Math.floor(trimEnd) - 1))
+    setTrimStart(v)
+    if (trimEnd <= v) setTrimEnd(v + 1)
+  }
+
+  const stepTrimEnd = (delta: number) => {
+    setTrimEndInput(null)
+    setTrimEnd(clamp(Math.floor(trimEnd) + delta, Math.floor(trimStart) + 1, Math.floor(videoDuration)))
+  }
 
   // Drive custom trim-preview playback progress.
   useEffect(() => {
@@ -1502,50 +1582,28 @@ export default function CropToolPage() {
 
                 {mediaType === 'video' && videoDuration > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-sm text-gray-300">Trim Start</label>
-                      <input
-                        type="text"
-                        placeholder="h:mm:ss"
-                        value={trimStartInput ?? formatTimeSec(trimStart)}
-                        onFocus={() => setTrimStartInput(formatTimeSec(trimStart))}
-                        onChange={(e) => setTrimStartInput(e.target.value)}
-                        onBlur={(e) => {
-                          const sec = parseTrimTime(e.target.value)
-                          if (sec != null) {
-                            const v = Math.max(0, Math.min(sec, Math.max(0, trimEnd - 0.1)))
-                            setTrimStart(v)
-                            if (trimEnd < v) setTrimEnd(v)
-                          }
-                          setTrimStartInput(null)
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                        }}
-                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded tabular-nums"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-300">Trim End</label>
-                      <input
-                        type="text"
-                        placeholder="h:mm:ss"
-                        value={trimEndInput ?? formatTimeSec(trimEnd)}
-                        onFocus={() => setTrimEndInput(formatTimeSec(trimEnd))}
-                        onChange={(e) => setTrimEndInput(e.target.value)}
-                        onBlur={(e) => {
-                          const sec = parseTrimTime(e.target.value)
-                          if (sec != null) {
-                            setTrimEnd(Math.max(trimStart + 0.1, Math.min(sec, videoDuration)))
-                          }
-                          setTrimEndInput(null)
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                        }}
-                        className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded tabular-nums"
-                      />
-                    </div>
+                    <TrimTimeField
+                      label="Trim Start"
+                      seconds={trimStart}
+                      draft={trimStartInput}
+                      setDraft={setTrimStartInput}
+                      onCommit={(sec) => {
+                        const v = Math.max(0, Math.min(sec, Math.max(0, trimEnd - 0.1)))
+                        setTrimStart(v)
+                        if (trimEnd < v) setTrimEnd(v)
+                      }}
+                      onStep={stepTrimStart}
+                    />
+                    <TrimTimeField
+                      label="Trim End"
+                      seconds={trimEnd}
+                      draft={trimEndInput}
+                      setDraft={setTrimEndInput}
+                      onCommit={(sec) => {
+                        setTrimEnd(Math.max(trimStart + 0.1, Math.min(sec, videoDuration)))
+                      }}
+                      onStep={stepTrimEnd}
+                    />
                   </div>
                 )}
 
