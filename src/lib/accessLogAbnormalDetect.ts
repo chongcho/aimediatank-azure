@@ -27,6 +27,8 @@ function decodePathSegment(path: string): string {
 }
 
 const TRAVERSAL_RE = /\.\.(?:\/|\\)|%2e%2e|%252e|\.%2e|\.\.%2f/i
+const ENCODED_DOTENV_RE =
+  /(?:^|\/)%2e%65%6e%76(?:\/|$|\n)|\.%2565(?:%256e%2576|nv)|\.%65(?:%6e%76|nv)/i
 const SUSPICIOUS_PAYLOAD_RE =
   /(?:\bunion(?:\s+all)?\s+select\b|\bdrop\s+table\b|\binformation_schema\b|<script\b|javascript:|onerror=|onload=|cmd=|exec=|\/etc\/passwd|\.\.\/|%00|%3cscript|%3e|%27\s*or\s*%271%27=%271)/i
 
@@ -73,6 +75,9 @@ const ENV_RES = [
   /(^|\/)service-account\.json$/i,
   /(^|\/)config\/service-account\.json$/i,
   /(^|\/)env\.txt$/i,
+  /(^|\/)env\.backup$/i,
+  /^\/env\n/i,
+  /\/etc\/environment(?:\/|$)/i,
   // Exact /credentials only — not /api/auth/callback/credentials.
   /^\/credentials\n/i,
 ]
@@ -84,6 +89,7 @@ const AWS_RES = [
   // Scanners probe YAML named like AWS exports (not the same as /.aws/credentials).
   /(^|\/)aws\.ya?ml$/i,
   /(^|\/)config\/aws\.ya?ml$/i,
+  /(^|\/)aws-secret\.ya?ml$/i,
 ]
 
 const WP_RES = [
@@ -188,7 +194,13 @@ const CONFIG_RES = [
   // CMS / legacy app-server fingerprint probes.
   /(^|\/)magento_version(?:\/|$)/i,
   /(^|\/)media\/system(?:\/|$)/i,
+  /(^|\/)administrator(?:\/|$)/i,
   /\.jsp(?:\/|$)/i,
+  // Generic CMS / scanner stub paths (no app routes at these URLs).
+  /^\/home\n/i,
+  /^\/page\n/i,
+  // Random underscore web-shell style probes (e.g. /_rNd9xZ7kL3); min 10 chars skips /_next.
+  /(^|\/)_[a-z0-9]{10,}(?:\/|$)/i,
 ]
 
 function matchesAny(path: string, res: RegExp[]): boolean {
@@ -215,6 +227,14 @@ export function detectAbnormalAccess(input: {
 
   if (TRAVERSAL_RE.test(raw) || TRAVERSAL_RE.test(decoded)) {
     flags.add('PATH_TRAVERSAL')
+  }
+  if (
+    ENCODED_DOTENV_RE.test(raw) ||
+    ENCODED_DOTENV_RE.test(lower) ||
+    ENCODED_DOTENV_RE.test(decoded) ||
+    ENCODED_DOTENV_RE.test(check)
+  ) {
+    flags.add('PROBE_ENV')
   }
 
   if (matchesAny(check, GIT_RES)) flags.add('PROBE_GIT')
