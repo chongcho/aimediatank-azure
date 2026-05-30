@@ -92,6 +92,7 @@ const AWS_RES = [
   /(^|\/)aws\.ya?ml$/i,
   /(^|\/)config\/aws\.ya?ml$/i,
   /(^|\/)aws-secret\.ya?ml$/i,
+  /(^|\/)aws[-.]config\.js$/i,
 ]
 
 const WP_RES = [
@@ -187,6 +188,7 @@ const CONFIG_RES = [
   /(^|\/)app\/config\.ya?ml$/i,
   /(^|\/)app\/config\/[^/]+\.ya?ml$/i,
   /(^|\/)config\.json$/i,
+  /(^|\/)config\.json\.(?:save|bak|old|backup|swp|tmp)$/i,
   /(^|\/)config\.ya?ml$/i,
   /(^|\/)docker-compose\.ya?ml$/i,
   /(^|\/)vercel\.json$/i,
