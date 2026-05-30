@@ -27,6 +27,8 @@ function decodePathSegment(path: string): string {
 }
 
 const TRAVERSAL_RE = /\.\.(?:\/|\\)|%2e%2e|%252e|\.%2e|\.\.%2f/i
+// Encoded quote/apostrophe prefix (e.g. /%22/_next/static/...) — path normalization probes.
+const ENCODED_DELIMITER_PREFIX_RE = /^\/(?:%22|%2522|%27|%2527)(?:\/|$)/i
 const ENCODED_DOTENV_RE =
   /(?:^|\/)%2e%65%6e%76(?:\/|$|\n)|\.%2565(?:%256e%2576|nv)|\.%65(?:%6e%76|nv)/i
 const SUSPICIOUS_PAYLOAD_RE =
@@ -226,6 +228,9 @@ export function detectAbnormalAccess(input: {
   const flags = new Set<string>()
 
   if (TRAVERSAL_RE.test(raw) || TRAVERSAL_RE.test(decoded)) {
+    flags.add('PATH_TRAVERSAL')
+  }
+  if (ENCODED_DELIMITER_PREFIX_RE.test(raw) || ENCODED_DELIMITER_PREFIX_RE.test(lower)) {
     flags.add('PATH_TRAVERSAL')
   }
   if (
