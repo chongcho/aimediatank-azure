@@ -1,5 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { getSiteUrl } from '@/lib/siteUrl'
+import { isGameRouteAllowed } from '@/lib/gameRouteAccess'
+import { getGameRouteAccessFromDb } from '@/lib/gameRouteAccessServer'
 
 /**
  * Sitemap entries mirror the app footer (Discover, Community, Account, Legal & Support) plus /about.
@@ -31,14 +33,18 @@ const SITEMAP_PATHS: {
   { path: '/support', changeFrequency: 'monthly', priority: 0.6 },
 ]
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = getSiteUrl()
   const lastModified = new Date()
+  const gameAccess = await getGameRouteAccessFromDb()
+  const includeGameHub = isGameRouteAllowed({ kind: 'index' }, gameAccess)
 
-  return SITEMAP_PATHS.map(({ path, changeFrequency, priority }) => ({
-    url: `${base}${path}`,
-    lastModified,
-    changeFrequency,
-    priority,
-  }))
+  return SITEMAP_PATHS.filter(({ path }) => path !== '/game' || includeGameHub).map(
+    ({ path, changeFrequency, priority }) => ({
+      url: `${base}${path}`,
+      lastModified,
+      changeFrequency,
+      priority,
+    }),
+  )
 }

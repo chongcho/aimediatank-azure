@@ -6,6 +6,9 @@ import { buildExpiredAdminReauthCookie } from '@/lib/adminReauthConstants'
 import { BLOCKED_IP_LIST_HEADER, isClientIpBlocked } from '@/lib/blockedIpListClient'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
 import { detectBadBotUserAgent } from '@/lib/badBotDetect'
+import { isAppAdminRole } from '@/lib/adminFreshStep2'
+import { parseGamePath, isGameRouteAllowed } from '@/lib/gameRouteAccess'
+import { fetchGameRouteAccess } from '@/lib/gameRouteAccessClient'
 
 const LOG_ACCESS_PATH = '/api/admin/log-access'
 const SESSION_COOKIE = '_sa_sid'
@@ -148,6 +151,24 @@ export async function middleware(request: NextRequest) {
 
   if (SKIP_PATHS.has(pathname) || pathname.startsWith('/api/')) {
     return NextResponse.next()
+  }
+
+  const gamePath = parseGamePath(pathname)
+  if (gamePath.kind !== 'none') {
+    let isAdmin = false
+    try {
+      const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+      isAdmin = isAppAdminRole(typeof token?.role === 'string' ? token.role : undefined)
+    } catch {
+      /* ignore */
+    }
+    const gameAccess = await fetchGameRouteAccess(request.nextUrl.origin)
+    if (!isGameRouteAllowed(gamePath, gameAccess, { isAdmin })) {
+      return new NextResponse('Not Found', {
+        status: 404,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      })
+    }
   }
 
   const ip = clientIp
