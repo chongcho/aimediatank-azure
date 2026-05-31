@@ -90,6 +90,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     const stored = getStoredLikes(mediaId)
     return stored?.liked ? 'happy' : null
   })
+  const [likePending, setLikePending] = useState(false)
+  const likeInFlightRef = useRef(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
@@ -362,6 +364,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   }
 
   const handleReaction = async (type: 'happy') => {
+    // Block rapid double-clicks: a second request must not capture the first click's optimistic state as "prev".
+    if (likeInFlightRef.current) return
+    likeInFlightRef.current = true
+    setLikePending(true)
+
     // Allow reactions without sign-in using visitorId
     const visitorId = getVisitorId()
 
@@ -401,6 +408,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       setReactions(prevReactions)
       setUserReaction(prevUserReaction)
       publishLikes(mediaId, { happy: prevReactions.happy, liked: prevUserReaction === 'happy' })
+    } finally {
+      likeInFlightRef.current = false
+      setLikePending(false)
     }
   }
 
@@ -1055,7 +1065,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 <button
                   type="button"
                   onClick={() => handleReaction('happy')}
-                  className={`flex items-center gap-2 text-sm text-gray-400 transition-transform hover:scale-110 ${
+                  disabled={likePending}
+                  className={`flex items-center gap-2 text-sm text-gray-400 transition-transform hover:scale-110 disabled:opacity-60 disabled:pointer-events-none ${
                     userReaction === 'happy' ? 'scale-110' : ''
                   }`}
                   aria-label={userReaction === 'happy' ? tMedia('unlike') : tMedia('like')}
