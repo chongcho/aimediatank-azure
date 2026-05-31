@@ -9,6 +9,12 @@ import { formatMediaTitle, stripHashtags, truncateText } from '@/lib/text'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { pickInitialRenditionIndex, sortRenditions } from '@/lib/adaptiveVideoTier'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
+import {
+  getVisitorId,
+  publishLikes,
+  resolveDisplayLikes,
+  subscribeLikes,
+} from '@/lib/mediaLikesSync'
 import { formatViewCount } from '@/lib/formatViewCount'
 import { formatRelativeUploadDay } from '@/lib/formatRelativeDay'
 import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
@@ -195,6 +201,71 @@ export default function MediaCard({
   // Local count: list API + session snapshot (detail/preplay); prefetch updates without refetch
   const [displayViews, setDisplayViews] = useState(() =>
     resolveDisplayViews(media.id, media.views)
+  )
+  // Thumbs-up: feed value merged with anything synced from the detail page / a prior click.
+  const [likeState, setLikeState] = useState(() =>
+    resolveDisplayLikes(media.id, media.reactions?.happy ?? 0)
+  )
+  const [likePending, setLikePending] = useState(false)
+
+  // Keep this card aligned when the same media is liked elsewhere (detail page/modal, another card).
+  useEffect(() => {
+    return subscribeLikes((id, state) => {
+      if (id === media.id) setLikeState(state)
+    })
+  }, [media.id])
+
+  // Adopt fresh feed values on refetch unless we already have a (more authoritative) client-side count.
+  useEffect(() => {
+    setLikeState((prev) => resolveDisplayLikes(media.id, media.reactions?.happy ?? prev.happy))
+  }, [media.id, media.reactions?.happy])
+
+  const handleToggleLike = useCallback(
+    async (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (likePending) return
+      setLikePending(true)
+
+      // Optimistic toggle for snappy feedback; reconciled with the server response below.
+      const optimistic = {
+        happy: Math.max(0, likeState.happy + (likeState.liked ? -1 : 1)),
+        liked: !likeState.liked,
+      }
+      setLikeState(optimistic)
+      publishLikes(media.id, optimistic)
+
+      try {
+        const visitorId = getVisitorId()
+        const res = await fetch(`/api/media/${media.id}/reactions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'happy', visitorId }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data?.counts && typeof data.counts.happy === 'number') {
+            const authoritative = {
+              happy: data.counts.happy,
+              liked: data.userReaction === 'happy',
+            }
+            setLikeState(authoritative)
+            publishLikes(media.id, authoritative)
+          }
+        } else {
+          // Roll back on failure.
+          setLikeState(likeState)
+          publishLikes(media.id, likeState)
+        }
+      } catch (error) {
+        console.error('Error toggling like:', error)
+        setLikeState(likeState)
+        publishLikes(media.id, likeState)
+      } finally {
+        setLikePending(false)
+      }
+    },
+    [likePending, likeState, media.id]
   )
   const [commentModalOpen, setCommentModalOpen] = useState(false)
   const [commentDraft, setCommentDraft] = useState('')
@@ -1343,10 +1414,29 @@ export default function MediaCard({
               </span>
             )}
             {isBadgeEnabled('smileRate') && (
-              <span className="flex items-center gap-1 shrink-0">
-                <ThumbsUpIcon className="w-4 h-4 shrink-0 text-gray-400" />
-                <span>{media.reactions?.happy ?? 0}</span>
-              </span>
+              <button
+                type="button"
+                data-media-card-like
+                className="flex items-center gap-1 shrink-0 rounded-md transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-tank-accent/50 disabled:opacity-60"
+                onClick={handleToggleLike}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleToggleLike(e)
+                  }
+                }}
+                disabled={likePending}
+                aria-pressed={likeState.liked}
+                aria-label={likeState.liked ? tMediaCard('unlike') : tMediaCard('like')}
+              >
+                <ThumbsUpIcon
+                  className={`w-4 h-4 shrink-0 transition-colors ${
+                    likeState.liked
+                      ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]'
+                      : 'text-gray-400'
+                  }`}
+                />
+                <span>{likeState.happy}</span>
+              </button>
             )}
             {isBadgeEnabled('comment') && (
               <button

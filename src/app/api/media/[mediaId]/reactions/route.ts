@@ -164,7 +164,33 @@ export async function POST(
       )
     }
 
-    return NextResponse.json({ success: true })
+    // Recompute authoritative counts + the viewer's resulting reaction so callers
+    // (homepage card + detail page) can sync without a second request.
+    const [userRatings, anonymousRatings] = await Promise.all([
+      prisma.rating.findMany({ where: { mediaId }, select: { score: true, userId: true } }),
+      prisma.anonymousRating.findMany({ where: { mediaId }, select: { score: true, visitorId: true } }),
+    ])
+
+    const counts = {
+      happy: userRatings.filter(r => r.score === 3).length + anonymousRatings.filter(r => r.score === 3).length,
+      neutral: userRatings.filter(r => r.score === 2).length + anonymousRatings.filter(r => r.score === 2).length,
+      sad: userRatings.filter(r => r.score === 1).length + anonymousRatings.filter(r => r.score === 1).length,
+    }
+
+    let userReaction: 'happy' | 'neutral' | 'sad' | null = null
+    if (session?.user?.id) {
+      const userRating = userRatings.find(r => r.userId === session.user.id)
+      if (userRating && userRating.score >= 1 && userRating.score <= 3) {
+        userReaction = scoreToReaction[userRating.score]
+      }
+    } else if (visitorId) {
+      const anonRating = anonymousRatings.find(r => r.visitorId === visitorId)
+      if (anonRating && anonRating.score >= 1 && anonRating.score <= 3) {
+        userReaction = scoreToReaction[anonRating.score]
+      }
+    }
+
+    return NextResponse.json({ success: true, counts, userReaction })
   } catch (error) {
     console.error('Error setting reaction:', error)
     return NextResponse.json(

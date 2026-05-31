@@ -9,6 +9,7 @@ import { formatMediaTitle, stripHashtags } from '@/lib/text'
 import { pauseAllMedia, stopAllMedia } from '@/lib/mediaStop'
 import { getMediaPlayCache } from '@/lib/mediaPlayCache'
 import { mergeStoredMediaViews } from '@/lib/mediaViewsSync'
+import { getStoredLikes, publishLikes, subscribeLikes } from '@/lib/mediaLikesSync'
 import { calendarLocaleFromUiTag } from '@/lib/localeUi'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
@@ -81,8 +82,14 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const [media, setMedia] = useState<MediaDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [reactions, setReactions] = useState({ happy: 0, sad: 0 })
-  const [userReaction, setUserReaction] = useState<'happy' | 'sad' | 'neutral' | null>(null)
+  const [reactions, setReactions] = useState(() => {
+    const stored = getStoredLikes(mediaId)
+    return { happy: stored?.happy ?? 0, sad: 0 }
+  })
+  const [userReaction, setUserReaction] = useState<'happy' | 'sad' | 'neutral' | null>(() => {
+    const stored = getStoredLikes(mediaId)
+    return stored?.liked ? 'happy' : null
+  })
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
@@ -130,6 +137,15 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     return () => ac.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, session])
+
+  // Reflect like changes made from a feed card (or another open view) without refetching.
+  useEffect(() => {
+    return subscribeLikes((id, state) => {
+      if (id !== mediaId) return
+      setReactions((prev) => ({ ...prev, happy: state.happy }))
+      setUserReaction(state.liked ? 'happy' : null)
+    })
+  }, [mediaId])
 
   // When media is not found (e.g. deleted and user pressed Back), go home so they don't see the error screen.
   // Use window.location so it works reliably inside intercepted route modals.
@@ -337,6 +353,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       if (res.ok) {
         setReactions(data.counts)
         setUserReaction(data.userReaction)
+        publishLikes(mediaId, { happy: data.counts.happy, liked: data.userReaction === 'happy' })
       }
     } catch (error) {
       if ((error as Error).name === 'AbortError') return
@@ -348,6 +365,15 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     // Allow reactions without sign-in using visitorId
     const visitorId = getVisitorId()
 
+    // Optimistic toggle; reconciled with the authoritative server response below.
+    const wasLiked = userReaction === 'happy'
+    const prevReactions = reactions
+    const prevUserReaction = userReaction
+    const optimisticHappy = Math.max(0, reactions.happy + (wasLiked ? -1 : 1))
+    setReactions({ ...reactions, happy: optimisticHappy })
+    setUserReaction(wasLiked ? null : 'happy')
+    publishLikes(mediaId, { happy: optimisticHappy, liked: !wasLiked })
+
     try {
       const res = await fetch(`/api/media/${mediaId}/reactions`, {
         method: 'POST',
@@ -356,10 +382,25 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       })
 
       if (res.ok) {
-        fetchReactions()
+        const data = await res.json()
+        if (data?.counts && typeof data.counts.happy === 'number') {
+          setReactions(data.counts)
+          setUserReaction(data.userReaction)
+          publishLikes(mediaId, { happy: data.counts.happy, liked: data.userReaction === 'happy' })
+        } else {
+          fetchReactions()
+        }
+      } else {
+        // Roll back on failure.
+        setReactions(prevReactions)
+        setUserReaction(prevUserReaction)
+        publishLikes(mediaId, { happy: prevReactions.happy, liked: prevUserReaction === 'happy' })
       }
     } catch (error) {
       console.error('Error setting reaction:', error)
+      setReactions(prevReactions)
+      setUserReaction(prevUserReaction)
+      publishLikes(mediaId, { happy: prevReactions.happy, liked: prevUserReaction === 'happy' })
     }
   }
 
