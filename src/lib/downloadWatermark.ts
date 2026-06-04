@@ -1,7 +1,7 @@
 import { BlobServiceClient } from '@azure/storage-blob'
 import { createRequire } from 'module'
 import { existsSync } from 'fs'
-import { mkdir, readFile, unlink, writeFile } from 'fs/promises'
+import { copyFile, mkdir, readFile, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { spawn } from 'child_process'
@@ -103,7 +103,7 @@ function runFfmpeg(args: string[]): Promise<void> {
       if (settled) return
       settle(() => {
         if (code === 0) resolve()
-        else reject(new Error(`FFmpeg exited ${code}: ${stderr.slice(-2000)}`))
+        else reject(new Error(`FFmpeg exited ${code}: ${stderr.slice(-1200)}`))
       })
     })
     proc.on('error', (err) => {
@@ -186,15 +186,25 @@ export function buildGuestWatermarkLines(username: string): { line1: string; lin
   }
 }
 
-function buildDrawtextFilter(username: string): string {
-  const fontPath = resolveWatermarkFontPath()
+async function ensureFontInWorkDir(workDir: string): Promise<string> {
+  await mkdir(workDir, { recursive: true })
+  const dest = join(workDir, 'DejaVuSans-Bold.ttf')
+  if (!existsSync(dest)) {
+    await copyFile(resolveWatermarkFontPath(), dest)
+  }
+  return dest
+}
+
+/** drawtext filter chain (no textfile=; no color@alpha — older Linux ffmpeg-static rejects those). */
+async function buildDrawtextFilter(username: string, workDir: string): Promise<string> {
+  const fontPath = await ensureFontInWorkDir(workDir)
   const { line1, line2 } = buildGuestWatermarkLines(username)
   const fontOpt = `fontfile=${ffmpegFilterPath(fontPath)}:`
   const t1 = `text='${escapeDrawtextLiteral(line1)}':`
   const t2 = `text='${escapeDrawtextLiteral(line2)}':`
   return [
-    `format=yuv420p,drawtext=${fontOpt}${t1}fontsize=28:fontcolor=white@0.92:box=1:boxcolor=black@0.45:boxborderw=8:x=(w-text_w)/2:y=h-120`,
-    `drawtext=${fontOpt}${t2}fontsize=22:fontcolor=white@0.88:box=1:boxcolor=black@0.45:boxborderw=6:x=(w-text_w)/2:y=h-68`,
+    `format=yuv420p,drawtext=${fontOpt}${t1}fontsize=28:fontcolor=white:box=1:boxcolor=black:boxborderw=8:x=(w-text_w)/2:y=h-120`,
+    `drawtext=${fontOpt}${t2}fontsize=22:fontcolor=white:box=1:boxcolor=black:boxborderw=6:x=(w-text_w)/2:y=h-68`,
   ].join(',')
 }
 
@@ -328,7 +338,7 @@ export async function createWatermarkedDownloadFile(
   const { inputPath, ext: inExt } = await downloadBlobToTemp(sourceBlobUrl)
   const dir = join(tmpdir(), 'download-watermark')
   const type = mediaType.toUpperCase()
-  const filter = buildDrawtextFilter(username)
+  const filter = await buildDrawtextFilter(username, dir)
 
   try {
     if (type === 'MUSIC') {

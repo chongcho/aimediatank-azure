@@ -257,7 +257,7 @@ export async function GET(
         return NextResponse.json(
           {
             error: 'Failed to prepare watermarked download. Please try again or register for full quality.',
-            ...(exposeDebug ? { debug: detail.slice(0, 800), diag } : {}),
+            ...(exposeDebug ? { debug: detail.slice(-1200), diag } : {}),
           },
           { status: 500 }
         )
