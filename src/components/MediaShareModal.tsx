@@ -314,8 +314,10 @@ export default function MediaShareModal({
       trimmedMessage !== trimmedTitle && trimmedTitle
         ? `${trimmedTitle}\n\n${trimmedMessage}`
         : trimmedMessage || trimmedTitle
-    return Math.min(combined.length, KAKAO_SHARE_TEXT_MAX)
+    return combined.length
   }, [kakaoTitle, kakaoMessage])
+
+  const kakaoShareOverLimit = kakaoCombinedCharCount > KAKAO_SHARE_TEXT_MAX
 
   if (!open || !portalMounted) return null
 
@@ -417,7 +419,13 @@ export default function MediaShareModal({
                 placeholder={tMedia('messagePlaceholder')}
                 className="w-full rounded-lg bg-tank-black/60 border border-tank-light px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-tank-accent resize-none"
               />
-              <p className="mt-1 text-right text-xs text-gray-500">
+              <p
+                className={`mt-1 text-right text-xs ${
+                  kakaoShareOverLimit ? 'text-amber-400' : 'text-gray-500'
+                }`}
+                role="status"
+                aria-live="polite"
+              >
                 {mediaPageInterpolate(tMedia('kakaoCharLimit'), {
                   count: String(kakaoCombinedCharCount),
                 })}
