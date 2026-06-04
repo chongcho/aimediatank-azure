@@ -4,6 +4,7 @@ export type FeedCardKey =
   | 'feedComment'
   | 'feedChat'
   | 'feedDownload'
+  | 'downloading'
   | 'openCommentsAria'
   | 'openFeedChatAria'
   | 'openFeedDownloadAria'
@@ -40,6 +41,7 @@ const EN: Pack = {
   feedComment: 'Comment',
   feedChat: 'Chat',
   feedDownload: 'Download',
+  downloading: 'Downloading ...',
   openCommentsAria: 'Open comments',
   openFeedChatAria: 'Open chat',
   openFeedDownloadAria: 'Download media',
@@ -76,6 +78,7 @@ const KO: Pack = {
   feedComment: '댓글',
   feedChat: '채팅',
   feedDownload: '다운로드',
+  downloading: '다운로드 중…',
   openCommentsAria: '댓글 열기',
   openFeedChatAria: '채팅 열기',
   openFeedDownloadAria: '미디어 다운로드',
@@ -112,6 +115,7 @@ const JA: Pack = {
   feedComment: 'コメント',
   feedChat: 'チャット',
   feedDownload: 'ダウンロード',
+  downloading: 'ダウンロード中…',
   openCommentsAria: 'コメントを開く',
   openFeedChatAria: 'チャットを開く',
   openFeedDownloadAria: 'メディアをダウンロード',
@@ -148,6 +152,7 @@ const ZH: Pack = {
   feedComment: '评论',
   feedChat: '聊天',
   feedDownload: '下载',
+  downloading: '下载中…',
   openCommentsAria: '打开评论',
   openFeedChatAria: '打开聊天',
   openFeedDownloadAria: '下载媒体',

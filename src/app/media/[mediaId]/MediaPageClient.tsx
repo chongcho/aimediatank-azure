@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaPlayer from '@/components/MediaPlayer'
+import MediaDownloadingOverlay from '@/components/MediaDownloadingOverlay'
 import { formatMediaTitle, stripHashtags } from '@/lib/text'
 import { pauseAllMedia, stopAllMedia } from '@/lib/mediaStop'
 import { getMediaPlayCache } from '@/lib/mediaPlayCache'
@@ -709,7 +710,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         />
       )}
       {/* Media Player - Full Width with top padding, content aligned to top */}
-      <div className="w-full bg-black pt-5">
+      <div className="relative w-full bg-black pt-5">
+        {downloading && <MediaDownloadingOverlay label={tMedia('downloading')} />}
         {media.processingStatus === 'pending' || (media.processingStatus === 'processing' && !hasPreviewStream) ? (
           <div className="flex justify-center px-4">
             <div className="relative w-full max-w-2xl aspect-video bg-black overflow-hidden rounded-xl border border-tank-light">
@@ -979,7 +981,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                         />
                       </svg>
                     )}
-                    {downloading ? tMedia('preparing') : tMedia('download')}
+                    {downloading ? tMedia('downloading') : tMedia('download')}
                   </button>
                 )}
 

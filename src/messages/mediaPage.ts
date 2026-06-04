@@ -26,6 +26,7 @@ export type MediaPageKey =
   | 'savedToMyContents'
   | 'download'
   | 'preparing'
+  | 'downloading'
   | 'share'
   | 'copied'
   | 'sendByEmail'
@@ -106,6 +107,7 @@ const EN: Pack = {
   savedToMyContents: 'Saved to My Contents',
   download: 'Download',
   preparing: 'Preparing...',
+  downloading: 'Downloading ...',
   share: 'Share',
   copied: 'Copied!',
   sendByEmail: 'Send by email',
@@ -188,6 +190,7 @@ const KO: Pack = {
   savedToMyContents: '내 콘텐츠에 저장됨',
   download: '다운로드',
   preparing: '준비 중…',
+  downloading: '다운로드 중…',
   share: '공유',
   copied: '복사됨!',
   sendByEmail: '이메일로 보내기',
@@ -269,6 +272,7 @@ const JA: Pack = {
   savedToMyContents: '保存済み',
   download: 'ダウンロード',
   preparing: '準備中…',
+  downloading: 'ダウンロード中…',
   share: '共有',
   copied: 'コピーしました',
   sendByEmail: 'メールで送る',
@@ -348,6 +352,7 @@ const ZH: Pack = {
   savedToMyContents: '已保存到我的内容',
   download: '下载',
   preparing: '准备中…',
+  downloading: '下载中…',
   share: '分享',
   copied: '已复制！',
   sendByEmail: '通过邮件发送',

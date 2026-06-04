@@ -15,6 +15,7 @@ import {
   resetMediaDetailSettingsCache,
 } from '@/lib/mediaDetailSettingsClient'
 import MediaShareModal from '@/components/MediaShareModal'
+import MediaDownloadingOverlay from '@/components/MediaDownloadingOverlay'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { pickInitialRenditionIndex, sortRenditions } from '@/lib/adaptiveVideoTier'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
@@ -121,6 +122,7 @@ export default function MediaCard({
   homeScrollContextRef.current = homeScrollContext
   const [commentPortalMounted, setCommentPortalMounted] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [feedDownloading, setFeedDownloading] = useState(false)
   const [shareEnabled, setShareEnabled] = useState(
     () => getMediaDetailSettingsSync()?.shareEnabled ?? true
   )
@@ -886,16 +888,19 @@ export default function MediaCard({
   }
 
   const openFeedDownload = async (e: React.SyntheticEvent) => {
-    if (!showFeedDownload) return
+    if (!showFeedDownload || feedDownloading) return
     e.preventDefault()
     e.stopPropagation()
     pauseAllMedia()
+    setFeedDownloading(true)
     try {
       const { triggerMediaDownload } = await import('@/lib/triggerMediaDownload')
       await triggerMediaDownload(media.id)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Download failed'
       alert(message)
+    } finally {
+      setFeedDownloading(false)
     }
   }
 
@@ -1285,6 +1290,9 @@ export default function MediaCard({
           onPointerEnter={handlePreplayPointerEnter}
           onPointerLeave={handlePreplayPointerLeave}
         >
+          {feedDownloading && (
+            <MediaDownloadingOverlay label={tFeedCard('downloading')} />
+          )}
           {/* Skeleton placeholder while thumbnail loads */}
           {thumbnailSrc && !thumbnailLoaded && !thumbnailError && (
             <div className="aspect-video skeleton" />
@@ -1631,7 +1639,8 @@ export default function MediaCard({
               <button
                 type="button"
                 data-media-card-download
-                className="flex items-center gap-1 shrink-0 rounded-md text-sm text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-tank-accent/50"
+                disabled={feedDownloading}
+                className="flex items-center gap-1 shrink-0 rounded-md text-sm text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-tank-accent/50 disabled:opacity-60"
                 onClick={openFeedDownload}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -1650,7 +1659,7 @@ export default function MediaCard({
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                   />
                 </svg>
-                <span>{tFeedCard('feedDownload')}</span>
+                <span>{feedDownloading ? tFeedCard('downloading') : tFeedCard('feedDownload')}</span>
               </button>
             )}
           </div>
