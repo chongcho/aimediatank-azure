@@ -885,12 +885,18 @@ export default function MediaCard({
     requestOpenTalkChat()
   }
 
-  const openFeedDownload = (e: React.SyntheticEvent) => {
+  const openFeedDownload = async (e: React.SyntheticEvent) => {
     if (!showFeedDownload) return
     e.preventDefault()
     e.stopPropagation()
     pauseAllMedia()
-    window.open(`/api/download/${media.id}`, '_blank')
+    try {
+      const { triggerMediaDownload } = await import('@/lib/triggerMediaDownload')
+      await triggerMediaDownload(media.id)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Download failed'
+      alert(message)
+    }
   }
 
   const submitHomeComment = async () => {

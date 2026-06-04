@@ -470,10 +470,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const handleDownload = async () => {
     setDownloading(true)
     try {
-      // Registered users: direct SAS. Guests: server applies watermark then attachment.
-      window.open(`/api/download/${mediaId}`, '_blank')
+      const { triggerMediaDownload } = await import('@/lib/triggerMediaDownload')
+      await triggerMediaDownload(mediaId)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Download failed. Please try again.'
+      alert(message)
     } finally {
-      setTimeout(() => setDownloading(false), session ? 1500 : 8000)
+      setDownloading(false)
     }
   }
 

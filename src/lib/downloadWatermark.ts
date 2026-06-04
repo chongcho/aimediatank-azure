@@ -139,6 +139,7 @@ function ffmpegFilterPath(absPath: string): string {
 function escapeDrawtextLiteral(text: string): string {
   return text
     .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
     .replace(/'/g, "\\'")
     .replace(/:/g, '\\:')
     .replace(/@/g, '\\@')
@@ -218,14 +219,11 @@ async function buildDrawtextFilter(username: string, workDir: string): Promise<s
   const fontPath = await ensureFontInWorkDir(workDir)
   const { line1, line2 } = buildGuestWatermarkLines(username)
   const fontOpt = `fontfile=${ffmpegFilterPath(fontPath)}:`
-  const t1 = `text='${escapeDrawtextLiteral(line1)}':`
-  const t2 = `text='${escapeDrawtextLiteral(line2)}':`
+  const multiLine = escapeDrawtextLiteral(`${line1}\n${line2}`)
+  const t = `text='${multiLine}':`
   const fs = WATERMARK_FONT_SIZE
   const fc = WATERMARK_FONT_COLOR
-  return [
-    `format=yuv420p,drawtext=${fontOpt}${t1}fontsize=${fs}:fontcolor=${fc}:x=(w-text_w)/2:y=h-40`,
-    `drawtext=${fontOpt}${t2}fontsize=${fs}:fontcolor=${fc}:x=(w-text_w)/2:y=h-24`,
-  ].join(',')
+  return `format=yuv420p,drawtext=${fontOpt}${t}fontsize=${fs}:fontcolor=${fc}:x=(w-text_w)/2:y=(h-text_h)/2`
 }
 
 function escapeAssText(text: string): string {
@@ -237,6 +235,7 @@ async function buildAssSubtitleFilter(username: string, workDir: string): Promis
   await ensureFontInWorkDir(workDir)
   const { line1, line2 } = buildGuestWatermarkLines(username)
   const assPath = join(workDir, `${uuidv4()}.ass`)
+  const assText = `${escapeAssText(line1)}\\N${escapeAssText(line2)}`
   const ass = `[Script Info]
 ScriptType: v4.00+
 PlayResX: 1280
@@ -245,13 +244,11 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: W1,DejaVu Sans,${WATERMARK_FONT_SIZE},${WATERMARK_ASS_PRIMARY_COLOUR},&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,0,0,0,2,20,20,36,1
-Style: W2,DejaVu Sans,${WATERMARK_FONT_SIZE},${WATERMARK_ASS_PRIMARY_COLOUR},&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,0,0,0,2,20,20,20,1
+Style: W,DejaVu Sans,${WATERMARK_FONT_SIZE},${WATERMARK_ASS_PRIMARY_COLOUR},&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,0,0,0,5,10,10,10,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,0:00:00.00,99:00:00.00,W1,,0,0,0,,${escapeAssText(line1)}
-Dialogue: 0,0:00:00.00,99:00:00.00,W2,,0,0,0,,${escapeAssText(line2)}
+Dialogue: 0,0:00:00.00,99:00:00.00,W,,0,0,0,,${assText}
 `
   await writeFile(assPath, ass, 'utf8')
   const fontsDir = ffmpegFilterPath(workDir)
@@ -467,8 +464,9 @@ export async function watermarkedDownloadResponse(
   await cleanupWatermarkedFiles([outputPath, inputPath])
   return new Response(data, {
     headers: {
-      'Content-Type': contentType,
+      'Content-Type': 'application/octet-stream',
       'Content-Disposition': `attachment; filename="${fileName}"`,
+      'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'private, no-store',
     },
   })
