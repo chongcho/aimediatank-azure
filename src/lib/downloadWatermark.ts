@@ -11,6 +11,12 @@ import { parseBlobUrl } from '@/lib/azureBlobDelete'
 const WATERMARK_TIMEOUT_MS = 10 * 60 * 1000
 const projectRequire = createRequire(join(process.cwd(), 'package.json'))
 
+/** Guest watermark typography (ASS Fontsize ≈ pt at PlayResY; drawtext uses same pixel size). */
+const WATERMARK_FONT_SIZE = 12
+const WATERMARK_FONT_COLOR = 'gray'
+/** ASS PrimaryColour: gray in BGR (&H00BBGGRR). */
+const WATERMARK_ASS_PRIMARY_COLOUR = '&H00808080'
+
 const NO_AUDIO_RE =
   /matches no streams|does not contain any stream|invalid audio stream|Error (initializing|binding) filtergraph|Decoder \(aac\)|Could not find tag for codec|Output file #0 does not contain any stream|no decoder found/i
 
@@ -141,15 +147,15 @@ function escapeDrawtextLiteral(text: string): string {
 function resolveWatermarkFontPath(): string {
   const cwd = process.cwd()
   const candidates = [
-    join(cwd, 'public', 'fonts', 'DejaVuSans-Bold.ttf'),
     join(cwd, 'public', 'fonts', 'DejaVuSans.ttf'),
-    join(cwd, 'node_modules', 'dejavu-fonts-ttf', 'ttf', 'DejaVuSans-Bold.ttf'),
+    join(cwd, 'public', 'fonts', 'DejaVuSans-Bold.ttf'),
     join(cwd, 'node_modules', 'dejavu-fonts-ttf', 'ttf', 'DejaVuSans.ttf'),
+    join(cwd, 'node_modules', 'dejavu-fonts-ttf', 'ttf', 'DejaVuSans-Bold.ttf'),
   ]
   for (const p of candidates) {
     if (existsSync(p)) return p
   }
-  for (const subpath of ['dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf', 'dejavu-fonts-ttf/ttf/DejaVuSans.ttf']) {
+  for (const subpath of ['dejavu-fonts-ttf/ttf/DejaVuSans.ttf', 'dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf']) {
     try {
       const p = projectRequire.resolve(subpath)
       if (existsSync(p)) return p
@@ -200,7 +206,7 @@ export function buildGuestWatermarkLines(username: string): { line1: string; lin
 async function ensureFontInWorkDir(workDir: string): Promise<string> {
   await mkdir(workDir, { recursive: true })
   const src = resolveWatermarkFontPath()
-  const dest = join(workDir, 'DejaVuSans-Bold.ttf')
+  const dest = join(workDir, 'DejaVuSans.ttf')
   const destSpaced = join(workDir, 'DejaVu Sans.ttf')
   if (!existsSync(dest)) await copyFile(src, dest)
   if (!existsSync(destSpaced)) await copyFile(src, destSpaced)
@@ -214,9 +220,11 @@ async function buildDrawtextFilter(username: string, workDir: string): Promise<s
   const fontOpt = `fontfile=${ffmpegFilterPath(fontPath)}:`
   const t1 = `text='${escapeDrawtextLiteral(line1)}':`
   const t2 = `text='${escapeDrawtextLiteral(line2)}':`
+  const fs = WATERMARK_FONT_SIZE
+  const fc = WATERMARK_FONT_COLOR
   return [
-    `format=yuv420p,drawtext=${fontOpt}${t1}fontsize=28:fontcolor=white:box=1:boxcolor=black:boxborderw=8:x=(w-text_w)/2:y=h-120`,
-    `drawtext=${fontOpt}${t2}fontsize=22:fontcolor=white:box=1:boxcolor=black:boxborderw=6:x=(w-text_w)/2:y=h-68`,
+    `format=yuv420p,drawtext=${fontOpt}${t1}fontsize=${fs}:fontcolor=${fc}:x=(w-text_w)/2:y=h-40`,
+    `drawtext=${fontOpt}${t2}fontsize=${fs}:fontcolor=${fc}:x=(w-text_w)/2:y=h-24`,
   ].join(',')
 }
 
@@ -237,8 +245,8 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: W1,DejaVu Sans,28,&H00FFFFFF,&H000000FF,&H00000000,&H96000000,1,0,0,0,100,100,0,0,3,2,0,2,20,20,90,1
-Style: W2,DejaVu Sans,22,&H00FFFFFF,&H000000FF,&H00000000,&H96000000,1,0,0,0,100,100,0,0,3,2,0,2,20,20,50,1
+Style: W1,DejaVu Sans,${WATERMARK_FONT_SIZE},${WATERMARK_ASS_PRIMARY_COLOUR},&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,0,0,0,2,20,20,36,1
+Style: W2,DejaVu Sans,${WATERMARK_FONT_SIZE},${WATERMARK_ASS_PRIMARY_COLOUR},&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,0,0,0,2,20,20,20,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

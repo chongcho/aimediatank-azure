@@ -60,8 +60,9 @@ jobs:
       - name: Prepare watermark font in public (guest downloads)
         run: |
           mkdir -p public/fonts
+          cp node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf public/fonts/
           cp node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf public/fonts/
-          test -f public/fonts/DejaVuSans-Bold.ttf
+          test -f public/fonts/DejaVuSans.ttf
 
       - name: Build application
         run: npm run build
