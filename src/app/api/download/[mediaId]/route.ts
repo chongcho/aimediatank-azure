@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import {
   createWatermarkedDownloadFile,
+  guestWatermarkDiagnostics,
   watermarkedDownloadResponse,
 } from '@/lib/downloadWatermark'
 import {
@@ -250,11 +251,13 @@ export async function GET(
       } catch (err) {
         const detail = err instanceof Error ? err.message : String(err)
         console.error('Guest watermarked download failed:', detail, err)
-        const isStaging = /staging/i.test(process.env.WEBSITE_HOSTNAME || '')
+        const site = process.env.WEBSITE_SITE_NAME || process.env.WEBSITE_HOSTNAME || ''
+        const exposeDebug = /staging/i.test(site)
+        const diag = exposeDebug ? guestWatermarkDiagnostics() : undefined
         return NextResponse.json(
           {
             error: 'Failed to prepare watermarked download. Please try again or register for full quality.',
-            ...(isStaging ? { debug: detail.slice(0, 500) } : {}),
+            ...(exposeDebug ? { debug: detail.slice(0, 800), diag } : {}),
           },
           { status: 500 }
         )

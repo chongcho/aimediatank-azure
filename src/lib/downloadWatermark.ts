@@ -151,6 +151,33 @@ function resolveWatermarkFontPath(): string {
   )
 }
 
+/** Staging diagnostics when guest watermark fails (no secrets). */
+export function guestWatermarkDiagnostics(): Record<string, string | boolean> {
+  const cwd = process.cwd()
+  let fontPath = ''
+  let fontOk = false
+  try {
+    fontPath = resolveWatermarkFontPath()
+    fontOk = existsSync(fontPath)
+  } catch (e) {
+    fontPath = e instanceof Error ? e.message : String(e)
+  }
+  const ffmpeg = getFfmpegPath()
+  const ffprobe = getFfprobePath()
+  return {
+    cwd,
+    fontPath,
+    fontOk,
+    ffmpegPath: ffmpeg,
+    ffmpegOk: existsSync(ffmpeg),
+    ffprobePath: ffprobe,
+    ffprobeOk: existsSync(ffprobe),
+    publicFont: existsSync(join(cwd, 'public', 'fonts', 'DejaVuSans-Bold.ttf')),
+    nodeDejaVu: existsSync(join(cwd, 'node_modules', 'dejavu-fonts-ttf', 'ttf', 'DejaVuSans-Bold.ttf')),
+    site: process.env.WEBSITE_SITE_NAME || '',
+  }
+}
+
 export function buildGuestWatermarkLines(username: string): { line1: string; line2: string } {
   const safeUser = (username || 'creator').replace(/[^\w.-]/g, '_').slice(0, 40)
   return {
