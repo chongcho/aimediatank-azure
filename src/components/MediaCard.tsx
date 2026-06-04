@@ -1449,15 +1449,19 @@ export default function MediaCard({
         {/* Content: grid so type + date share one right column (aligned right edges, same gray as date) */}
         <div className="p-4 grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-2 items-start">
           <h3
-            className="font-semibold text-white transition-colors truncate min-w-0 col-start-1 row-start-1"
+            className={`font-semibold text-white transition-colors truncate min-w-0 row-start-1 ${
+              isBadgeEnabled('mediaType') ? 'col-start-1' : 'col-span-2'
+            }`}
             title={displayTitle || titlePlain}
           >
             {renderTitle(displayTitle || titlePlain)}
           </h3>
-          <div className="col-start-2 row-start-1 justify-self-end flex items-center gap-1 text-xs font-bold text-gray-300 tabular-nums">
-            {getTypeIcon()}
-            <span className="uppercase">{mediaTypeLabel}</span>
-          </div>
+          {isBadgeEnabled('mediaType') && (
+            <div className="col-start-2 row-start-1 justify-self-end flex items-center gap-1 text-xs font-bold text-gray-300 tabular-nums">
+              {getTypeIcon()}
+              <span className="uppercase">{mediaTypeLabel}</span>
+            </div>
+          )}
 
           <div
             className={`row-start-2 flex items-center gap-3 text-sm text-gray-300 min-w-0 ${

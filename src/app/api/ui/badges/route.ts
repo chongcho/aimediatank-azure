@@ -25,6 +25,7 @@ const defaultItems = [
     sortOrder: 7,
   },
   { itemKey: 'share', label: 'Share', isEnabled: true, sortOrder: 8 },
+  { itemKey: 'mediaType', label: 'Media type', isEnabled: true, sortOrder: 9 },
 ]
 
 export async function GET() {
