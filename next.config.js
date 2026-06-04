@@ -2,7 +2,13 @@
 const nextConfig = {
   output: 'standalone', // Required for Azure App Service
   experimental: {
-    serverComponentsExternalPackages: ['ffmpeg-static', 'ffprobe-static'],
+    serverComponentsExternalPackages: ['ffmpeg-static', 'ffprobe-static', 'dejavu-fonts-ttf'],
+    outputFileTracingIncludes: {
+      '/api/download/[mediaId]': [
+        './node_modules/ffmpeg-static/**',
+        './node_modules/dejavu-fonts-ttf/ttf/**',
+      ],
+    },
     staleTimes: {
       dynamic: 300,
     },

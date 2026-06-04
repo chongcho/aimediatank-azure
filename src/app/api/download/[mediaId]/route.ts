@@ -13,6 +13,7 @@ import {
 } from '@azure/storage-blob'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 /** Guest watermarks can take several minutes on large video; allow long serverless timeout where supported */
 export const maxDuration = 600
@@ -247,7 +248,8 @@ export async function GET(
         )
         return watermarkedDownloadResponse(watermarked, fileName)
       } catch (err) {
-        console.error('Guest watermarked download failed:', err)
+        const detail = err instanceof Error ? err.message : String(err)
+        console.error('Guest watermarked download failed:', detail, err)
         return NextResponse.json(
           { error: 'Failed to prepare watermarked download. Please try again or register for full quality.' },
           { status: 500 }

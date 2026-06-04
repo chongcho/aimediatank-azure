@@ -76,7 +76,9 @@ jobs:
           mkdir -p deploy/node_modules
           cp -r node_modules/ffmpeg-static deploy/node_modules/
           cp -r node_modules/ffprobe-static deploy/node_modules/
+          cp -r node_modules/dejavu-fonts-ttf deploy/node_modules/
           test -x deploy/node_modules/ffprobe-static/bin/linux/x64/ffprobe
+          test -f deploy/node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf
 
       - name: Verify deploy package has Next.js (avoids MODULE_NOT_FOUND on Azure)
         run: |

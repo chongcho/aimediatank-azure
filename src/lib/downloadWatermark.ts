@@ -1,4 +1,5 @@
 import { BlobServiceClient } from '@azure/storage-blob'
+import { createRequire } from 'module'
 import { existsSync } from 'fs'
 import { mkdir, readFile, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
@@ -8,6 +9,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { parseBlobUrl } from '@/lib/azureBlobDelete'
 
 const WATERMARK_TIMEOUT_MS = 10 * 60 * 1000
+const projectRequire = createRequire(join(process.cwd(), 'package.json'))
+
+const NO_AUDIO_RE =
+  /matches no streams|does not contain any stream|invalid audio stream|Error binding filtergraph|Decoder \(aac\)|Could not find tag for codec|Output file #0 does not contain any stream/i
 
 function getBlobService() {
   const cs = process.env.AZURE_STORAGE_CONNECTION_STRING
@@ -16,11 +21,20 @@ function getBlobService() {
 }
 
 function getFfmpegPath(): string {
+  const candidates: string[] = []
   try {
-    const staticPath = require('ffmpeg-static') as string | null
-    if (staticPath && existsSync(staticPath)) return staticPath
+    const staticPath = projectRequire('ffmpeg-static') as string | null
+    if (staticPath) candidates.push(staticPath)
   } catch {
-    // fall through
+    // optional at build time
+  }
+  const cwd = process.cwd()
+  candidates.push(
+    join(cwd, 'node_modules/ffmpeg-static/ffmpeg'),
+    join(cwd, 'node_modules/ffmpeg-static/ffmpeg.exe')
+  )
+  for (const p of candidates) {
+    if (p && existsSync(p)) return p
   }
   return 'ffmpeg'
 }
@@ -54,34 +68,45 @@ function runFfmpeg(args: string[]): Promise<void> {
       if (settled) return
       settle(() => {
         if (code === 0) resolve()
-        else reject(new Error(`FFmpeg exited ${code}: ${stderr.slice(-1500)}`))
+        else reject(new Error(`FFmpeg exited ${code}: ${stderr.slice(-2000)}`))
       })
     })
     proc.on('error', (err) => {
       clearTimeout(timeoutId)
-      settle(() => reject(err))
+      settle(() => reject(new Error(`FFmpeg spawn error: ${err.message}`)))
     })
   })
 }
 
-function getDejaVuFontPathForFfmpeg(): string {
-  const candidates = [
-    join(process.cwd(), 'node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf'),
-    join(process.cwd(), 'node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf'),
-  ]
-  for (const p of candidates) {
-    if (existsSync(p)) return p.replace(/\\/g, '/').replace(/:/g, '\\:')
-  }
-  return ''
+/** FFmpeg filter paths: forward slashes, escape drive colons on Windows dev machines */
+function ffmpegFilterPath(absPath: string): string {
+  return absPath.replace(/\\/g, '/').replace(/:/g, '\\:')
 }
 
-/** Escape text for ffmpeg drawtext single-quoted string */
-function escapeDrawtext(text: string): string {
-  return text
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "'\\''")
-    .replace(/:/g, '\\:')
-    .replace(/@/g, '\\@')
+function resolveWatermarkFontPath(): string {
+  const fallbacks = [
+    () => projectRequire.resolve('dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf'),
+    () => projectRequire.resolve('dejavu-fonts-ttf/ttf/DejaVuSans.ttf'),
+  ]
+  for (const resolve of fallbacks) {
+    try {
+      const p = resolve()
+      if (existsSync(p)) return p
+    } catch {
+      // try next
+    }
+  }
+  const cwd = process.cwd()
+  for (const rel of [
+    'node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf',
+    'node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf',
+  ]) {
+    const p = join(cwd, rel)
+    if (existsSync(p)) return p
+  }
+  throw new Error(
+    'DejaVu watermark font not found. Ensure dejavu-fonts-ttf is installed and included in the deploy bundle.'
+  )
 }
 
 export function buildGuestWatermarkLines(username: string): { line1: string; line2: string } {
@@ -92,14 +117,81 @@ export function buildGuestWatermarkLines(username: string): { line1: string; lin
   }
 }
 
-function buildDrawtextFilter(username: string): string {
-  const fontfile = getDejaVuFontPathForFfmpeg()
-  const fontOpt = fontfile ? `fontfile=${fontfile}:` : ''
+async function buildDrawtextFilter(username: string, workDir: string): Promise<string> {
+  const fontPath = resolveWatermarkFontPath()
   const { line1, line2 } = buildGuestWatermarkLines(username)
+  const id = uuidv4()
+  const textFile1 = join(workDir, `${id}-w1.txt`)
+  const textFile2 = join(workDir, `${id}-w2.txt`)
+  await writeFile(textFile1, line1, 'utf8')
+  await writeFile(textFile2, line2, 'utf8')
+  const fontOpt = `fontfile=${ffmpegFilterPath(fontPath)}:`
+  const t1 = `textfile=${ffmpegFilterPath(textFile1)}:`
+  const t2 = `textfile=${ffmpegFilterPath(textFile2)}:`
   return [
-    `drawtext=${fontOpt}text='${escapeDrawtext(line1)}':fontsize=28:fontcolor=white@0.92:box=1:boxcolor=black@0.45:boxborderw=8:x=(w-text_w)/2:y=h-120`,
-    `drawtext=${fontOpt}text='${escapeDrawtext(line2)}':fontsize=22:fontcolor=white@0.88:box=1:boxcolor=black@0.45:boxborderw=6:x=(w-text_w)/2:y=h-68`,
+    `drawtext=${fontOpt}${t1}fontsize=28:fontcolor=white@0.92:box=1:boxcolor=black@0.45:boxborderw=8:x=(w-text_w)/2:y=h-120`,
+    `drawtext=${fontOpt}${t2}fontsize=22:fontcolor=white@0.88:box=1:boxcolor=black@0.45:boxborderw=6:x=(w-text_w)/2:y=h-68`,
   ].join(',')
+}
+
+async function runVideoWatermark(inputPath: string, outputPath: string, vf: string): Promise<void> {
+  const withAudio = [
+    '-y',
+    '-i',
+    inputPath,
+    '-vf',
+    vf,
+    '-map',
+    '0:v:0',
+    '-map',
+    '0:a?',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'fast',
+    '-crf',
+    '23',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '128k',
+    '-movflags',
+    '+faststart',
+    '-max_muxing_queue_size',
+    '1024',
+    outputPath,
+  ]
+  const videoOnly = [
+    '-y',
+    '-i',
+    inputPath,
+    '-vf',
+    vf,
+    '-map',
+    '0:v:0',
+    '-an',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'fast',
+    '-crf',
+    '23',
+    '-movflags',
+    '+faststart',
+    '-max_muxing_queue_size',
+    '1024',
+    outputPath,
+  ]
+  try {
+    await runFfmpeg(withAudio)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (NO_AUDIO_RE.test(msg)) {
+      await runFfmpeg(videoOnly)
+      return
+    }
+    throw err
+  }
 }
 
 async function downloadBlobToTemp(blobUrl: string): Promise<{ inputPath: string; ext: string }> {
@@ -120,7 +212,9 @@ async function downloadBlobToTemp(blobUrl: string): Promise<{ inputPath: string;
   for await (const chunk of downloadResponse.readableStreamBody as AsyncIterable<Buffer>) {
     chunks.push(chunk)
   }
-  await writeFile(inputPath, Buffer.concat(chunks))
+  const body = Buffer.concat(chunks)
+  if (body.length === 0) throw new Error('Downloaded blob is empty')
+  await writeFile(inputPath, body)
   return { inputPath, ext }
 }
 
@@ -142,19 +236,18 @@ export async function createWatermarkedDownloadFile(
   const { inputPath, ext: inExt } = await downloadBlobToTemp(sourceBlobUrl)
   const dir = join(tmpdir(), 'download-watermark')
   const type = mediaType.toUpperCase()
-  const filter = buildDrawtextFilter(username)
+  const filter = await buildDrawtextFilter(username, dir)
 
   try {
     if (type === 'MUSIC') {
       const outPath = join(dir, `${uuidv4()}.${inExt || 'mp3'}`)
       const { line1, line2 } = buildGuestWatermarkLines(username)
-      const meta = `${line1} — ${line2}`
       await runFfmpeg([
         '-y',
         '-i',
         inputPath,
         '-metadata',
-        `comment=${meta}`,
+        `comment=${line1} - ${line2}`,
         '-metadata',
         `copyright=${line1}`,
         '-codec',
@@ -175,30 +268,10 @@ export async function createWatermarkedDownloadFile(
     const outputPath = join(dir, `${uuidv4()}.${outExt}`)
 
     if (isVideo) {
-      await runFfmpeg([
-        '-y',
-        '-i',
-        inputPath,
-        '-vf',
-        filter,
-        '-c:v',
-        'libx264',
-        '-preset',
-        'fast',
-        '-crf',
-        '23',
-        '-c:a',
-        'aac',
-        '-b:a',
-        '128k',
-        '-movflags',
-        '+faststart',
-        outputPath,
-      ])
+      await runVideoWatermark(inputPath, outputPath, filter)
       return { outputPath, inputPath, contentType: 'video/mp4', ext: outExt === 'webm' ? 'mp4' : outExt }
     }
 
-    // IMAGE (and unknown types treated as image-like)
     await runFfmpeg(['-y', '-i', inputPath, '-vf', filter, '-q:v', '2', outputPath])
     const contentType =
       outExt === 'png'
