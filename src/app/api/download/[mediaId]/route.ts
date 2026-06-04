@@ -3,12 +3,19 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import {
+  createWatermarkedDownloadFile,
+  watermarkedDownloadResponse,
+} from '@/lib/downloadWatermark'
+import {
   StorageSharedKeyCredential,
   generateBlobSASQueryParameters,
   BlobSASPermissions,
 } from '@azure/storage-blob'
 
 export const dynamic = 'force-dynamic'
+
+/** Guest watermarks can take several minutes on large video; allow long serverless timeout where supported */
+export const maxDuration = 600
 
 /**
  * Parse Azure Storage connection string into its parts.
@@ -68,6 +75,86 @@ function generateDownloadSasUrl(
   }
 }
 
+function resolveDownloadBlobUrl(
+  media: {
+    type: string
+    url: string
+    urlHq?: string | null
+    versions?: { height: number; url: string }[]
+  },
+  opts: {
+    isOwner: boolean
+    hasPurchased: boolean
+    freeDownloadMaxHeight: number
+    paidQuality: string
+  }
+): string {
+  const { isOwner, hasPurchased, freeDownloadMaxHeight, paidQuality } = opts
+  const versions = media.versions || []
+
+  if (media.type === 'VIDEO' && versions.length > 0) {
+    if (isOwner || hasPurchased) {
+      if (paidQuality === 'hq') {
+        const bestVersion = versions[versions.length - 1]
+        return media.urlHq ?? bestVersion?.url ?? media.url
+      }
+      if (paidQuality === '1080p') {
+        const v = versions.find((v) => v.height === 1080)
+        return v?.url ?? media.urlHq ?? media.url
+      }
+      const v = versions.find((v) => v.height === 720)
+      return v?.url ?? media.url
+    }
+    const cap = Math.max(480, freeDownloadMaxHeight)
+    const best = versions.filter((v) => v.height <= cap).pop()
+    return best?.url ?? media.url
+  }
+
+  const useHq = (isOwner || hasPurchased) && media.urlHq
+  return useHq ? media.urlHq! : media.url
+}
+
+function preferMp4ForVideo(
+  media: { type: string; url: string; urlHq?: string | null; versions?: { url: string }[] },
+  downloadBlobUrl: string
+): string {
+  if (media.type !== 'VIDEO') return downloadBlobUrl
+  const isWebm = downloadBlobUrl.toLowerCase().includes('.webm')
+  if (!isWebm) return downloadBlobUrl
+  const urlHq = media.urlHq
+  const versions = media.versions || []
+  const mp4Version = versions.find((v) => v?.url && String(v.url).toLowerCase().includes('.mp4'))
+  if (urlHq && urlHq.toLowerCase().includes('.mp4')) return urlHq
+  if (mp4Version?.url) return mp4Version.url
+  return downloadBlobUrl
+}
+
+function buildFileName(media: { title: string | null; type: string }, downloadBlobUrl: string): string {
+  const rawExt = downloadBlobUrl.split('.').pop()?.split('?')[0]?.toLowerCase() || ''
+  const ext =
+    media.type === 'VIDEO' && (rawExt === 'mp4' || downloadBlobUrl.toLowerCase().includes('.mp4'))
+      ? 'mp4'
+      : rawExt || 'mp4'
+  const safeTitle = (media.title || 'download')
+    .replace(/[^a-zA-Z0-9 _-]/g, '')
+    .trim()
+    .replace(/\s+/g, '_')
+    .substring(0, 80)
+  return `${safeTitle}.${ext}`
+}
+
+function redirectToDownload(blobUrl: string, fileName: string): NextResponse {
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+  if (connectionString) {
+    const { accountName, accountKey } = parseConnectionString(connectionString)
+    if (accountName && accountKey) {
+      const downloadUrl = generateDownloadSasUrl(blobUrl, accountName, accountKey, fileName)
+      if (downloadUrl) return NextResponse.redirect(downloadUrl)
+    }
+  }
+  return NextResponse.redirect(blobUrl)
+}
+
 // GET - Download media (free content, owner, or purchased)
 export async function GET(
   request: Request,
@@ -76,25 +163,13 @@ export async function GET(
   try {
     const { mediaId } = await params
     const session = await getServerSession(authOptions)
+    const isRegistered = Boolean(session?.user?.id)
 
-    if (!session?.user) {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-
-    // Check if user has purchased this media
-    const purchase = await prisma.purchase.findFirst({
-      where: {
-        mediaId,
-        buyerId: session.user.id,
-        status: 'completed',
-      },
-    })
-
-    // Get the media with versions (for resolution selection)
     const media = await prisma.media.findUnique({
       where: { id: mediaId },
       include: {
         versions: { orderBy: { height: 'asc' } },
+        user: { select: { username: true } },
       },
     })
 
@@ -102,22 +177,34 @@ export async function GET(
       return NextResponse.json({ error: 'Media not found' }, { status: 404 })
     }
 
-    // Allow download if user purchased it OR if they're the owner OR if it's free
-    const isOwner = media.userId === session.user.id
+    const isOwner = isRegistered && media.userId === session!.user!.id
     const isFree = !media.price || media.price === 0
-    const hasPurchased = !!purchase
+
+    let hasPurchased = false
+    if (isRegistered) {
+      const purchase = await prisma.purchase.findFirst({
+        where: {
+          mediaId,
+          buyerId: session!.user!.id,
+          status: 'completed',
+        },
+      })
+      hasPurchased = !!purchase
+    }
 
     if (!isOwner && !isFree && !hasPurchased) {
+      if (!isRegistered) {
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
       return NextResponse.json(
         { error: 'You must purchase this content to download it' },
         { status: 403 }
       )
     }
 
-    // If this is a paid purchase (not owner, not free), mark as sold
-    if (hasPurchased && !isOwner && !(media as any).isSold) {
+    if (isRegistered && hasPurchased && !isOwner && !media.isSold) {
       const deleteAfterDate = new Date()
-      deleteAfterDate.setDate(deleteAfterDate.getDate() + 10) // 10 days from now
+      deleteAfterDate.setDate(deleteAfterDate.getDate() + 10)
 
       await prisma.media.update({
         where: { id: mediaId },
@@ -125,95 +212,52 @@ export async function GET(
           isSold: true,
           soldAt: new Date(),
           deleteAfter: deleteAfterDate,
-          isPublic: false, // Hide from public listings
+          isPublic: false,
         },
       })
     }
 
-    // Increment download counter
-    await prisma.media.update({
-      where: { id: mediaId },
-      data: { downloadCount: { increment: 1 } },
-    }).catch(() => {}) // non-blocking — don't fail the download if counter update fails
+    await prisma.media
+      .update({
+        where: { id: mediaId },
+        data: { downloadCount: { increment: 1 } },
+      })
+      .catch(() => {})
 
-    // Choose download URL from admin settings (free vs paid/sell)
     const cropSettings = await prisma.cropToolSetting.findFirst()
     const freeDownloadMaxHeight = cropSettings?.freeDownloadMaxHeight ?? 720
     const paidQuality = cropSettings?.paidDownloadQuality ?? 'hq'
-    const versions = (media as any).versions || []
 
-    let downloadBlobUrl: string
-    if (media.type === 'VIDEO' && versions.length > 0) {
-      if (isOwner || hasPurchased) {
-        if (paidQuality === 'hq') {
-          // Prefer urlHq when present; otherwise use best available version (versions ordered by height asc)
-          const bestVersion = versions[versions.length - 1]
-          downloadBlobUrl = (media as any).urlHq ?? bestVersion?.url ?? media.url
-        } else if (paidQuality === '1080p') {
-          const v = versions.find((v: any) => v.height === 1080)
-          downloadBlobUrl = v?.url ?? (media as any).urlHq ?? media.url
-        } else {
-          const v = versions.find((v: any) => v.height === 720)
-          downloadBlobUrl = v?.url ?? media.url
-        }
-      } else {
-        // Normalize cap to at least 480 so legacy DB values (144/240/360) don't yield no match and fallback to 720p
-        const cap = Math.max(480, freeDownloadMaxHeight)
-        const best = versions.filter((v: any) => v.height <= cap).pop()
-        downloadBlobUrl = best?.url ?? media.url
-      }
-    } else {
-      const useHq = (isOwner || hasPurchased) && (media as any).urlHq
-      downloadBlobUrl = useHq ? (media as any).urlHq : media.url
-    }
+    let downloadBlobUrl = resolveDownloadBlobUrl(media, {
+      isOwner,
+      hasPurchased,
+      freeDownloadMaxHeight,
+      paidQuality,
+    })
+    downloadBlobUrl = preferMp4ForVideo(media, downloadBlobUrl)
+    const fileName = buildFileName(media, downloadBlobUrl)
 
-    // Prefer MP4 over WebM for VIDEO when we have an MP4 source (better compatibility)
-    if (media.type === 'VIDEO') {
-      const isWebm = downloadBlobUrl.toLowerCase().includes('.webm')
-      if (isWebm) {
-        const urlHq = (media as any).urlHq as string | undefined
-        const mp4Version = versions.find((v: any) => v?.url && String(v.url).toLowerCase().includes('.mp4'))
-        if (urlHq && urlHq.toLowerCase().includes('.mp4')) {
-          downloadBlobUrl = urlHq
-        } else if (mp4Version?.url) {
-          downloadBlobUrl = mp4Version.url
-        }
+    // Guests (not logged in): free downloads only, with burned-in watermark
+    if (!isRegistered) {
+      try {
+        const watermarked = await createWatermarkedDownloadFile(
+          downloadBlobUrl,
+          media.type,
+          media.user.username
+        )
+        return watermarkedDownloadResponse(watermarked, fileName)
+      } catch (err) {
+        console.error('Guest watermarked download failed:', err)
+        return NextResponse.json(
+          { error: 'Failed to prepare watermarked download. Please try again or register for full quality.' },
+          { status: 500 }
+        )
       }
     }
 
-    // Build a friendly file name from the title; use .mp4 for VIDEO when we're serving an MP4
-    const rawExt = downloadBlobUrl.split('.').pop()?.split('?')[0]?.toLowerCase() || ''
-    const ext =
-      media.type === 'VIDEO' && (rawExt === 'mp4' || downloadBlobUrl.toLowerCase().includes('.mp4'))
-        ? 'mp4'
-        : rawExt || 'mp4'
-    const safeTitle = (media.title || 'download')
-      .replace(/[^a-zA-Z0-9 _-]/g, '')
-      .trim()
-      .replace(/\s+/g, '_')
-      .substring(0, 80)
-    const fileName = `${safeTitle}.${ext}`
-
-    // Generate a SAS URL with Content-Disposition: attachment so the browser
-    // triggers a file download instead of playing/displaying the file inline.
-    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
-    if (connectionString) {
-      const { accountName, accountKey } = parseConnectionString(connectionString)
-      if (accountName && accountKey) {
-        const downloadUrl = generateDownloadSasUrl(downloadBlobUrl, accountName, accountKey, fileName)
-        if (downloadUrl) {
-          return NextResponse.redirect(downloadUrl)
-        }
-      }
-    }
-
-    // Fallback: redirect to the blob URL (may play inline instead of downloading)
-    return NextResponse.redirect(downloadBlobUrl)
+    return redirectToDownload(downloadBlobUrl, fileName)
   } catch (error) {
     console.error('Download error:', error)
-    return NextResponse.json(
-      { error: 'Failed to process download' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to process download' }, { status: 500 })
   }
 }

@@ -468,18 +468,12 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   }
 
   const handleDownload = async () => {
-    if (!session) {
-      router.push('/login')
-      return
-    }
     setDownloading(true)
     try {
-      // Open download in a new tab — the API generates a SAS URL with
-      // Content-Disposition: attachment so the browser triggers a file save dialog.
+      // Registered users: direct SAS. Guests: server applies watermark then attachment.
       window.open(`/api/download/${mediaId}`, '_blank')
     } finally {
-      // Small delay before resetting so the button doesn't flash
-      setTimeout(() => setDownloading(false), 1500)
+      setTimeout(() => setDownloading(false), session ? 1500 : 8000)
     }
   }
 
@@ -963,7 +957,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
               {/* Download & Share row */}
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Download Button — shown for free content (any logged-in user) and owners, when enabled */}
+                {/* Download — free content for all visitors (guests get watermarked file); owners always */}
                 {mediaDetailDownloadEnabled && (isOwner || !media.price || media.price === 0) && (
                   <button
                     onClick={handleDownload}
