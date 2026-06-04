@@ -37,24 +37,20 @@ function triggerUrlDownload(url: string) {
   window.setTimeout(() => iframe.remove(), 120000)
 }
 
+const CLIENT_DOWNLOAD_HEADER = 'X-AiMT-Download-Client'
+
 /**
  * Download media via /api/download without opening a blank tab that shows a black video player.
- * Guests receive a watermarked blob; registered users follow the SAS redirect in a hidden iframe.
+ * Guests receive a watermarked blob; logged-in users get a SAS URL in JSON (fetch cannot read 302 Location).
  */
 export async function triggerMediaDownload(mediaId: string): Promise<void> {
   const res = await fetch(`/api/download/${mediaId}`, {
     credentials: 'include',
-    redirect: 'manual',
+    headers: { [CLIENT_DOWNLOAD_HEADER]: '1' },
   })
 
-  if (res.status >= 300 && res.status < 400) {
-    const location = res.headers.get('Location')
-    if (!location) throw new Error('Download redirect missing')
-    triggerUrlDownload(location)
-    return
-  }
-
   const contentType = res.headers.get('Content-Type') ?? ''
+
   if (!res.ok) {
     let message = 'Download failed'
     if (contentType.includes('application/json')) {
@@ -66,6 +62,15 @@ export async function triggerMediaDownload(mediaId: string): Promise<void> {
       }
     }
     throw new Error(message)
+  }
+
+  if (contentType.includes('application/json')) {
+    const data = (await res.json()) as { downloadUrl?: string; fileName?: string; error?: string }
+    if (!data.downloadUrl) {
+      throw new Error(data.error || 'Download failed')
+    }
+    triggerUrlDownload(data.downloadUrl)
+    return
   }
 
   const blob = await res.blob()

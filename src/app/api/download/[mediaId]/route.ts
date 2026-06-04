@@ -145,16 +145,30 @@ function buildFileName(media: { title: string | null; type: string }, downloadBl
   return `${safeTitle}.${ext}`
 }
 
-function redirectToDownload(blobUrl: string, fileName: string): NextResponse {
+function resolveDownloadUrl(blobUrl: string, fileName: string): string | null {
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
   if (connectionString) {
     const { accountName, accountKey } = parseConnectionString(connectionString)
     if (accountName && accountKey) {
       const downloadUrl = generateDownloadSasUrl(blobUrl, accountName, accountKey, fileName)
-      if (downloadUrl) return NextResponse.redirect(downloadUrl)
+      if (downloadUrl) return downloadUrl
     }
   }
-  return NextResponse.redirect(blobUrl)
+  return blobUrl
+}
+
+function redirectToDownload(blobUrl: string, fileName: string): NextResponse {
+  const downloadUrl = resolveDownloadUrl(blobUrl, fileName)
+  return NextResponse.redirect(downloadUrl!)
+}
+
+/** In-app fetch cannot read Location on 302 (opaqueredirect); return SAS URL as JSON instead. */
+function jsonDownloadUrl(blobUrl: string, fileName: string): NextResponse {
+  const downloadUrl = resolveDownloadUrl(blobUrl, fileName)
+  if (!downloadUrl) {
+    return NextResponse.json({ error: 'Failed to prepare download URL' }, { status: 500 })
+  }
+  return NextResponse.json({ downloadUrl, fileName })
 }
 
 // GET - Download media (free content, owner, or purchased)
@@ -264,6 +278,10 @@ export async function GET(
       }
     }
 
+    const clientFetch = request.headers.get('X-AiMT-Download-Client') === '1'
+    if (clientFetch) {
+      return jsonDownloadUrl(downloadBlobUrl, fileName)
+    }
     return redirectToDownload(downloadBlobUrl, fileName)
   } catch (error) {
     console.error('Download error:', error)
