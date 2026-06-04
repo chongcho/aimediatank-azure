@@ -984,6 +984,7 @@ export async function GET(request: Request) {
         { itemKey: 'share', label: 'Share', isEnabled: true, sortOrder: 8 },
         { itemKey: 'mediaType', label: 'Media type', isEnabled: true, sortOrder: 9 },
         { itemKey: 'feedChat', label: 'Chat', isEnabled: true, sortOrder: 10 },
+        { itemKey: 'feedDownload', label: 'Download', isEnabled: true, sortOrder: 11 },
       ]
 
       try {

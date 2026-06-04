@@ -3,8 +3,10 @@ export type FeedCardKey =
   | 'openMediaAria'
   | 'feedComment'
   | 'feedChat'
+  | 'feedDownload'
   | 'openCommentsAria'
   | 'openFeedChatAria'
+  | 'openFeedDownloadAria'
   | 'free'
   | 'aiBadge'
   | 'realBadge'
@@ -37,8 +39,10 @@ const EN: Pack = {
   openMediaAria: 'Open {title}',
   feedComment: 'Comment',
   feedChat: 'Chat',
+  feedDownload: 'Download',
   openCommentsAria: 'Open comments',
   openFeedChatAria: 'Open chat',
+  openFeedDownloadAria: 'Download media',
   free: 'Free',
   aiBadge: 'AI',
   realBadge: 'Real',
@@ -71,8 +75,10 @@ const KO: Pack = {
   openMediaAria: '{title} 열기',
   feedComment: '댓글',
   feedChat: '채팅',
+  feedDownload: '다운로드',
   openCommentsAria: '댓글 열기',
   openFeedChatAria: '채팅 열기',
+  openFeedDownloadAria: '미디어 다운로드',
   free: '무료',
   aiBadge: 'AI',
   realBadge: '실사',
@@ -105,8 +111,10 @@ const JA: Pack = {
   openMediaAria: '{title}を開く',
   feedComment: 'コメント',
   feedChat: 'チャット',
+  feedDownload: 'ダウンロード',
   openCommentsAria: 'コメントを開く',
   openFeedChatAria: 'チャットを開く',
+  openFeedDownloadAria: 'メディアをダウンロード',
   free: '無料',
   aiBadge: 'AI',
   realBadge: '実写',
@@ -139,8 +147,10 @@ const ZH: Pack = {
   openMediaAria: '打开 {title}',
   feedComment: '评论',
   feedChat: '聊天',
+  feedDownload: '下载',
   openCommentsAria: '打开评论',
   openFeedChatAria: '打开聊天',
+  openFeedDownloadAria: '下载媒体',
   free: '免费',
   aiBadge: 'AI',
   realBadge: '实拍',

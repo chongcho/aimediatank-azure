@@ -124,6 +124,9 @@ export default function MediaCard({
   const [shareEnabled, setShareEnabled] = useState(
     () => getMediaDetailSettingsSync()?.shareEnabled ?? true
   )
+  const [downloadEnabled, setDownloadEnabled] = useState(
+    () => getMediaDetailSettingsSync()?.downloadEnabled ?? true
+  )
   const [shareAppsEnabled, setShareAppsEnabled] = useState<Record<string, boolean>>(
     () => getMediaDetailSettingsSync()?.shareAppsEnabled ?? { ...DEFAULT_SHARE_APPS }
   )
@@ -386,8 +389,13 @@ export default function MediaCard({
 
   useEffect(() => {
     if (!hasHomeScrollContext) return
-    const apply = (data: { shareEnabled: boolean; shareAppsEnabled: Record<string, boolean> }) => {
+    const apply = (data: {
+      shareEnabled: boolean
+      downloadEnabled: boolean
+      shareAppsEnabled: Record<string, boolean>
+    }) => {
       setShareEnabled(data.shareEnabled)
+      setDownloadEnabled(data.downloadEnabled)
       setShareAppsEnabled(data.shareAppsEnabled)
     }
     const cached = getMediaDetailSettingsSync()
@@ -684,6 +692,14 @@ export default function MediaCard({
     return badgeItems.find((item) => item.itemKey === key)?.isEnabled !== false
   }
 
+  const isMediaOwner = session?.user?.id === media.user?.id
+  const isFreeMedia = !media.price || media.price === 0
+  const showFeedDownload =
+    hasHomeScrollContext &&
+    downloadEnabled &&
+    isBadgeEnabled('feedDownload') &&
+    (isMediaOwner || isFreeMedia)
+
   // Remove hashtags and limit to 35 characters for display
   const renderTitle = (title: string) => formatMediaTitle(title, 35)
 
@@ -838,7 +854,8 @@ export default function MediaCard({
     Boolean(
       el.closest('[data-media-card-comment]') ||
         el.closest('[data-media-card-share]') ||
-        el.closest('[data-media-card-chat]')
+        el.closest('[data-media-card-chat]') ||
+        el.closest('[data-media-card-download]')
     )
 
   const openCommentModal = (e: React.SyntheticEvent) => {
@@ -866,6 +883,14 @@ export default function MediaCard({
     e.stopPropagation()
     pauseAllMedia()
     requestOpenTalkChat()
+  }
+
+  const openFeedDownload = (e: React.SyntheticEvent) => {
+    if (!showFeedDownload) return
+    e.preventDefault()
+    e.stopPropagation()
+    pauseAllMedia()
+    window.open(`/api/download/${media.id}`, '_blank')
   }
 
   const submitHomeComment = async () => {
@@ -1594,6 +1619,32 @@ export default function MediaCard({
                   />
                 </svg>
                 <span>{tMediaCard('share')}</span>
+              </button>
+            )}
+            {showFeedDownload && (
+              <button
+                type="button"
+                data-media-card-download
+                className="flex items-center gap-1 shrink-0 rounded-md text-sm text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-tank-accent/50"
+                onClick={openFeedDownload}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    openFeedDownload(e)
+                  }
+                }}
+                aria-label={tFeedCard('openFeedDownloadAria')}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                <span>{tFeedCard('feedDownload')}</span>
               </button>
             )}
           </div>
