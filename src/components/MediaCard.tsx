@@ -1674,22 +1674,18 @@ export default function MediaCard({
       </div>
 
       {commentPortalMounted &&
-        shareModalOpen &&
         hasHomeScrollContext &&
         shareEnabled &&
-        isBadgeEnabled('share') &&
-        createPortal(
+        isBadgeEnabled('share') && (
           <MediaShareModal
-            open
+            open={shareModalOpen}
             onClose={() => setShareModalOpen(false)}
             mediaId={media.id}
             shareTitle={shareTitle}
             shareDescription={displayDescriptionSource || null}
             thumbnailUrl={media.thumbnailUrl}
             shareAppsEnabled={shareAppsEnabled}
-            className="z-[100]"
-          />,
-          document.body
+          />
         )}
 
       {commentPortalMounted &&

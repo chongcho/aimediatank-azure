@@ -80,6 +80,7 @@ export type MediaPageKey =
   | 'kakaoComposeHint'
   | 'kakaoShareSend'
   | 'kakaoTitleLabel'
+  | 'kakaoCharLimit'
   | 'youtubeCopied'
   | 'tiktokCopied'
   | 'instagramShare'
@@ -169,9 +170,11 @@ const EN: Pack = {
     'KakaoTalk share is not configured on this deployment (JavaScript key missing at build). Link copied — paste it in KakaoTalk.',
   kakaoShareFailed:
     'KakaoTalk share could not open. Link copied — paste it in KakaoTalk. If this keeps happening, register this site domain in Kakao Developers (Platform Web + Talk Share Domain).',
-  kakaoComposeHint: 'Edit your message below, then choose who to send it to in KakaoTalk.',
+  kakaoComposeHint:
+    'Edit your message below, then choose who to send it to in KakaoTalk. Up to 200 characters are shown in full (no View button).',
   kakaoShareSend: 'Share on KakaoTalk',
   kakaoTitleLabel: 'Title',
+  kakaoCharLimit: '{count}/200 characters',
   youtubeCopied: 'YouTube (link copied)',
   tiktokCopied: 'TikTok (link copied)',
   instagramShare:
@@ -259,9 +262,11 @@ const KO: Pack = {
     '카카오톡 공유가 설정되지 않았습니다(빌드 시 JavaScript 키 없음). 링크가 복사되었습니다 — 카카오톡에 붙여넣으세요.',
   kakaoShareFailed:
     '카카오톡 공유를 열 수 없습니다. 링크가 복사되었습니다 — 카카오톡에 붙여넣으세요. 계속 실패하면 Kakao Developers에서 이 사이트 도메인을 등록하세요.',
-  kakaoComposeHint: '아래 메시지를 수정한 뒤 카카오톡에서 보낼 대상을 선택하세요.',
+  kakaoComposeHint:
+    '아래 메시지를 수정한 뒤 카카오톡에서 보낼 대상을 선택하세요. 최대 200자까지 전체 표시됩니다(보기 버튼 없음).',
   kakaoShareSend: '카카오톡으로 공유',
   kakaoTitleLabel: '제목',
+  kakaoCharLimit: '{count}/200자',
   youtubeCopied: 'YouTube(링크 복사됨)',
   tiktokCopied: 'TikTok(링크 복사됨)',
   instagramShare:
@@ -350,9 +355,11 @@ const JA: Pack = {
     'KakaoTalk共有は未設定です（ビルド時にJavaScriptキーがありません）。リンクをコピーしました — KakaoTalkに貼り付けてください。',
   kakaoShareFailed:
     'KakaoTalk共有を開けませんでした。リンクをコピーしました — KakaoTalkに貼り付けてください。Kakao Developersでドメイン登録を確認してください。',
-  kakaoComposeHint: '下のメッセージを編集してから、KakaoTalkで送信先を選んでください。',
+  kakaoComposeHint:
+    '下のメッセージを編集してから、KakaoTalkで送信先を選んでください。最大200文字まで全文表示（表示ボタンなし）。',
   kakaoShareSend: 'KakaoTalkで共有',
   kakaoTitleLabel: 'タイトル',
+  kakaoCharLimit: '{count}/200文字',
   youtubeCopied: 'YouTube（リンクをコピー）',
   tiktokCopied: 'TikTok（リンクをコピー）',
   instagramShare: EN.instagramShare,
@@ -436,9 +443,10 @@ const ZH: Pack = {
   kakaoNotConfigured: 'KakaoTalk 分享未配置（构建时缺少 JavaScript 密钥）。链接已复制 — 请粘贴到 KakaoTalk。',
   kakaoShareFailed:
     '无法打开 KakaoTalk 分享。链接已复制 — 请粘贴到 KakaoTalk。若仍失败，请在 Kakao Developers 注册本站域名。',
-  kakaoComposeHint: '请先编辑下方消息，然后在 KakaoTalk 中选择发送对象。',
+  kakaoComposeHint: '请先编辑下方消息，然后在 KakaoTalk 中选择发送对象。最多显示 200 个字符（无“查看”按钮）。',
   kakaoShareSend: '通过 KakaoTalk 分享',
   kakaoTitleLabel: '标题',
+  kakaoCharLimit: '{count}/200 字符',
   youtubeCopied: 'YouTube（已复制链接）',
   tiktokCopied: 'TikTok（已复制链接）',
   instagramShare: EN.instagramShare,

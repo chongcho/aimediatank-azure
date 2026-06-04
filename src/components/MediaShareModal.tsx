@@ -1,8 +1,50 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 import { useUiLocale } from '@/hooks/useUiLocale'
+import { mediaPageInterpolate } from '@/messages/mediaPage'
+
+const KAKAO_SHARE_TEXT_MAX = 200
+/** Feed cards truncate description in KakaoTalk; use text template above this length. */
+const KAKAO_FEED_TEXT_MAX = 100
+
+function buildKakaoSharePayload(
+  title: string,
+  message: string,
+  shareUrl: string,
+  imageUrl: string | null | undefined,
+  fallbackTitle: string
+) {
+  const trimmedTitle = title.trim() || fallbackTitle
+  const trimmedMessage = message.trim() || trimmedTitle
+  const link = { mobileWebUrl: shareUrl, webUrl: shareUrl }
+  const combined =
+    trimmedMessage !== trimmedTitle && trimmedTitle
+      ? `${trimmedTitle}\n\n${trimmedMessage}`
+      : trimmedMessage || trimmedTitle
+  const text = combined.slice(0, KAKAO_SHARE_TEXT_MAX)
+  const secureImage = imageUrl && imageUrl.startsWith('https://') ? imageUrl : undefined
+
+  if (text.length <= KAKAO_FEED_TEXT_MAX && secureImage) {
+    return {
+      objectType: 'feed' as const,
+      content: {
+        title: trimmedTitle.slice(0, 80),
+        description: trimmedMessage.slice(0, KAKAO_SHARE_TEXT_MAX),
+        imageUrl: secureImage,
+        link,
+      },
+    }
+  }
+
+  return {
+    objectType: 'text' as const,
+    text,
+    link,
+  }
+}
 
 export type MediaShareModalProps = {
   open: boolean
@@ -26,15 +68,29 @@ export default function MediaShareModal({
   thumbnailUrl = null,
   shareAppsEnabled,
   onCopyStatusChange,
-  className = 'z-50',
+  className = 'z-[100]',
 }: MediaShareModalProps) {
   const { tMedia } = useUiLocale()
   const kakaoJsKey = useKakaoJsKey()
+  const [portalMounted, setPortalMounted] = useState(false)
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
   const [kakaoNotice, setKakaoNotice] = useState<string | null>(null)
   const [kakaoComposeOpen, setKakaoComposeOpen] = useState(false)
   const [kakaoTitle, setKakaoTitle] = useState('')
   const [kakaoMessage, setKakaoMessage] = useState('')
+
+  useEffect(() => {
+    setPortalMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open])
 
   useEffect(() => {
     if (open) {
@@ -110,31 +166,12 @@ export default function MediaShareModal({
         void runKakaoCopyFallback(tMedia('kakaoSdkUnavailable'))
         return
       }
-      const imageUrl = thumbnailUrl || undefined
       const trimmedTitle = title.trim() || shareTitle
       const trimmedMessage = description.trim() || trimmedTitle
       try {
-        shareApi.sendDefault({
-          objectType: 'feed',
-          content: {
-            title: trimmedTitle,
-            description: trimmedMessage,
-            imageUrl: imageUrl && imageUrl.startsWith('https://') ? imageUrl : undefined,
-            link: {
-              mobileWebUrl: shareUrl,
-              webUrl: shareUrl,
-            },
-          },
-          buttons: [
-            {
-              title: tMedia('view'),
-              link: {
-                mobileWebUrl: shareUrl,
-                webUrl: shareUrl,
-              },
-            },
-          ],
-        })
+        shareApi.sendDefault(
+          buildKakaoSharePayload(trimmedTitle, trimmedMessage, shareUrl, thumbnailUrl, shareTitle)
+        )
         recordShareAction()
         onClose()
       } catch (err) {
@@ -270,16 +307,39 @@ export default function MediaShareModal({
     return shareUrl
   }, [shareTitle, thumbnailUrl, shareUrl])
 
-  if (!open) return null
+  const kakaoCombinedCharCount = useMemo(() => {
+    const trimmedTitle = kakaoTitle.trim()
+    const trimmedMessage = kakaoMessage.trim()
+    const combined =
+      trimmedMessage !== trimmedTitle && trimmedTitle
+        ? `${trimmedTitle}\n\n${trimmedMessage}`
+        : trimmedMessage || trimmedTitle
+    return Math.min(combined.length, KAKAO_SHARE_TEXT_MAX)
+  }, [kakaoTitle, kakaoMessage])
 
-  return (
+  if (!open || !portalMounted) return null
+
+  return createPortal(
     <div
-      className={`fixed inset-0 bg-black/50 flex items-center justify-center p-4 ${className}`}
-      onClick={onClose}
+      className={`fixed inset-0 flex items-center justify-center p-4 ${className}`}
+      role="presentation"
     >
-      <div className="card max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="absolute inset-0 bg-black/50 touch-none overscroll-none"
+        aria-hidden
+        onClick={onClose}
+      />
+      <div
+        className="card relative z-10 max-w-md w-full max-h-[min(90vh,720px)] overflow-y-auto touch-auto overscroll-contain"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="media-share-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">{tMedia('shareModalTitle')}</h3>
+          <h3 id="media-share-modal-title" className="text-lg font-semibold text-white">
+            {tMedia('shareModalTitle')}
+          </h3>
           <button
             type="button"
             onClick={onClose}
@@ -353,11 +413,15 @@ export default function MediaShareModal({
                 id="kakao-share-message"
                 value={kakaoMessage}
                 onChange={(e) => setKakaoMessage(e.target.value)}
-                maxLength={200}
                 rows={4}
                 placeholder={tMedia('messagePlaceholder')}
                 className="w-full rounded-lg bg-tank-black/60 border border-tank-light px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-tank-accent resize-none"
               />
+              <p className="mt-1 text-right text-xs text-gray-500">
+                {mediaPageInterpolate(tMedia('kakaoCharLimit'), {
+                  count: String(kakaoCombinedCharCount),
+                })}
+              </p>
             </div>
             {thumbnailUrl && thumbnailUrl.startsWith('https://') ? (
               <div className="flex items-center gap-3 rounded-lg border border-tank-light/60 bg-tank-black/40 p-2">
@@ -540,6 +604,7 @@ export default function MediaShareModal({
         </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
