@@ -14,6 +14,7 @@ import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { useFeedGridAutoTranslation } from '@/hooks/useFeedGridAutoTranslation'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
+import { OPEN_TALK_CHAT_EVENT } from '@/lib/talkChatOpen'
 
 // Dynamic import TalkChat to prevent SSR issues
 const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
@@ -139,6 +140,13 @@ function NavbarContent() {
     setIsTalkChatOpen(true)
     openChatDeepLinkConsumedRef.current = true
   }, [searchParams, isNavbarItemEnabled])
+
+  // Homepage media card Chat button (and other callers) open TalkChat without toggling navbar button.
+  useEffect(() => {
+    const open = () => setIsTalkChatOpen(true)
+    window.addEventListener(OPEN_TALK_CHAT_EVENT, open)
+    return () => window.removeEventListener(OPEN_TALK_CHAT_EVENT, open)
+  }, [])
 
   const accountDeactivated = Boolean(
     userData?.accountDeactivatedAt || session?.user?.accountDeactivated,
@@ -1132,8 +1140,8 @@ function NavbarContent() {
           document.body
         )}
 
-      {/* Talk Chat */}
-      {isNavbarItemEnabled('chat') && isTalkChatOpen && (
+      {/* Talk Chat — mount when open (feed Chat badge can open even if navbar Chat menu is hidden). */}
+      {isTalkChatOpen && (
         <TalkChat
           isOpen={isTalkChatOpen}
           onClose={() => setIsTalkChatOpen(false)}

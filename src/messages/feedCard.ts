@@ -2,7 +2,9 @@
 export type FeedCardKey =
   | 'openMediaAria'
   | 'feedComment'
+  | 'feedChat'
   | 'openCommentsAria'
+  | 'openFeedChatAria'
   | 'free'
   | 'aiBadge'
   | 'realBadge'
@@ -34,7 +36,9 @@ type Pack = Record<FeedCardKey, string>
 const EN: Pack = {
   openMediaAria: 'Open {title}',
   feedComment: 'Comment',
+  feedChat: 'Chat',
   openCommentsAria: 'Open comments',
+  openFeedChatAria: 'Open chat',
   free: 'Free',
   aiBadge: 'AI',
   realBadge: 'Real',
@@ -66,7 +70,9 @@ const KO: Pack = {
   ...EN,
   openMediaAria: '{title} 열기',
   feedComment: '댓글',
+  feedChat: '채팅',
   openCommentsAria: '댓글 열기',
+  openFeedChatAria: '채팅 열기',
   free: '무료',
   aiBadge: 'AI',
   realBadge: '실사',
@@ -98,7 +104,9 @@ const JA: Pack = {
   ...EN,
   openMediaAria: '{title}を開く',
   feedComment: 'コメント',
+  feedChat: 'チャット',
   openCommentsAria: 'コメントを開く',
+  openFeedChatAria: 'チャットを開く',
   free: '無料',
   aiBadge: 'AI',
   realBadge: '実写',
@@ -130,7 +138,9 @@ const ZH: Pack = {
   ...EN,
   openMediaAria: '打开 {title}',
   feedComment: '评论',
+  feedChat: '聊天',
   openCommentsAria: '打开评论',
+  openFeedChatAria: '打开聊天',
   free: '免费',
   aiBadge: 'AI',
   realBadge: '实拍',

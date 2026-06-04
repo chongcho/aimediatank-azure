@@ -7,6 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom'
 import { formatMediaTitle, stripHashtags, truncateText } from '@/lib/text'
 import { pauseAllMedia } from '@/lib/mediaStop'
+import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 import { DEFAULT_SHARE_APPS } from '@/app/api/ui/media-detail/shareAppsConfig'
 import {
   fetchMediaDetailSettings,
@@ -834,7 +835,11 @@ export default function MediaCard({
   }
 
   const isCardActionTarget = (el: HTMLElement) =>
-    Boolean(el.closest('[data-media-card-comment]') || el.closest('[data-media-card-share]'))
+    Boolean(
+      el.closest('[data-media-card-comment]') ||
+        el.closest('[data-media-card-share]') ||
+        el.closest('[data-media-card-chat]')
+    )
 
   const openCommentModal = (e: React.SyntheticEvent) => {
     if (!isBadgeEnabled('comment')) return
@@ -853,6 +858,14 @@ export default function MediaCard({
     e.stopPropagation()
     pauseAllMedia()
     setShareModalOpen(true)
+  }
+
+  const openFeedChat = (e: React.SyntheticEvent) => {
+    if (!isBadgeEnabled('feedChat')) return
+    e.preventDefault()
+    e.stopPropagation()
+    pauseAllMedia()
+    requestOpenTalkChat()
   }
 
   const submitHomeComment = async () => {
@@ -1529,6 +1542,32 @@ export default function MediaCard({
                   />
                 </svg>
                 <span>{tFeedCard('feedComment')}</span>
+              </button>
+            )}
+            {hasHomeScrollContext && isBadgeEnabled('feedChat') && (
+              <button
+                type="button"
+                data-media-card-chat
+                className="flex items-center gap-1 shrink-0 rounded-md text-sm text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-tank-accent/50"
+                onClick={openFeedChat}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    openFeedChat(e)
+                  }
+                }}
+                aria-label={tFeedCard('openFeedChatAria')}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 8h2a2 2 0 012 2v7a2 2 0 01-2 2h-5l-5 5v-5H9a2 2 0 01-2-2v-1M9 8V6a2 2 0 012-2h6a2 2 0 012 2v2"
+                  />
+                </svg>
+                <span>{tFeedCard('feedChat')}</span>
               </button>
             )}
             {hasHomeScrollContext && shareEnabled && isBadgeEnabled('share') && (
