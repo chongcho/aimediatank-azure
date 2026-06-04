@@ -32,10 +32,23 @@ export default function MediaShareModal({
   const kakaoJsKey = useKakaoJsKey()
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
   const [kakaoNotice, setKakaoNotice] = useState<string | null>(null)
+  const [kakaoComposeOpen, setKakaoComposeOpen] = useState(false)
+  const [kakaoTitle, setKakaoTitle] = useState('')
+  const [kakaoMessage, setKakaoMessage] = useState('')
 
   useEffect(() => {
-    if (open) setKakaoNotice(null)
+    if (open) {
+      setKakaoNotice(null)
+      setKakaoComposeOpen(false)
+    }
   }, [open])
+
+  useEffect(() => {
+    if (kakaoComposeOpen) {
+      setKakaoTitle(shareTitle)
+      setKakaoMessage(shareDescription?.trim() || shareTitle)
+    }
+  }, [kakaoComposeOpen, shareTitle, shareDescription])
 
   const shareUrl =
     typeof window !== 'undefined' ? `${window.location.origin}/media/${mediaId}` : ''
@@ -72,9 +85,86 @@ export default function MediaShareModal({
     }
   }, [shareUrl, recordShareAction, setCopied])
 
+  const sendKakaoShare = useCallback(
+    (title: string, description: string) => {
+      if (!shareUrl) return
+      const w = typeof window !== 'undefined' ? window : null
+      type KakaoWindow = {
+        Kakao?: {
+          isInitialized?: () => boolean
+          Share?: { sendDefault: (opts: unknown) => void }
+        }
+      }
+      const Kakao = w && (w as unknown as KakaoWindow).Kakao
+      const shareApi = Kakao?.Share
+      const runKakaoCopyFallback = async (message: string) => {
+        const recorded = await handleCopyLink()
+        if (!recorded) recordShareAction()
+        setKakaoNotice(message)
+      }
+      if (!shareApi?.sendDefault) {
+        void runKakaoCopyFallback(tMedia('kakaoSdkUnavailable'))
+        return
+      }
+      if (typeof Kakao?.isInitialized === 'function' && !Kakao.isInitialized()) {
+        void runKakaoCopyFallback(tMedia('kakaoSdkUnavailable'))
+        return
+      }
+      const imageUrl = thumbnailUrl || undefined
+      const trimmedTitle = title.trim() || shareTitle
+      const trimmedMessage = description.trim() || trimmedTitle
+      try {
+        shareApi.sendDefault({
+          objectType: 'feed',
+          content: {
+            title: trimmedTitle,
+            description: trimmedMessage,
+            imageUrl: imageUrl && imageUrl.startsWith('https://') ? imageUrl : undefined,
+            link: {
+              mobileWebUrl: shareUrl,
+              webUrl: shareUrl,
+            },
+          },
+          buttons: [
+            {
+              title: tMedia('view'),
+              link: {
+                mobileWebUrl: shareUrl,
+                webUrl: shareUrl,
+              },
+            },
+          ],
+        })
+        recordShareAction()
+        onClose()
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[Kakao.Share.sendDefault]', err)
+        void runKakaoCopyFallback(tMedia('kakaoShareFailed'))
+      }
+    },
+    [
+      shareUrl,
+      shareTitle,
+      thumbnailUrl,
+      tMedia,
+      handleCopyLink,
+      recordShareAction,
+      onClose,
+    ]
+  )
+
   const handleKakaoShare = useCallback(() => {
     if (!shareUrl) return
     setKakaoNotice(null)
+    if (!kakaoJsKey) {
+      void (async () => {
+        const recorded = await handleCopyLink()
+        if (!recorded) recordShareAction()
+        setKakaoNotice(tMedia('kakaoNotConfigured'))
+      })()
+      return
+    }
     const w = typeof window !== 'undefined' ? window : null
     type KakaoWindow = {
       Kakao?: {
@@ -84,59 +174,28 @@ export default function MediaShareModal({
     }
     const Kakao = w && (w as unknown as KakaoWindow).Kakao
     const shareApi = Kakao?.Share
-    const runKakaoCopyFallback = async (message: string) => {
-      const recorded = await handleCopyLink()
-      if (!recorded) recordShareAction()
-      setKakaoNotice(message)
-    }
     if (!shareApi?.sendDefault) {
-      void runKakaoCopyFallback(tMedia('kakaoSdkUnavailable'))
+      void (async () => {
+        const recorded = await handleCopyLink()
+        if (!recorded) recordShareAction()
+        setKakaoNotice(tMedia('kakaoSdkUnavailable'))
+      })()
       return
     }
     if (typeof Kakao?.isInitialized === 'function' && !Kakao.isInitialized()) {
-      void runKakaoCopyFallback(tMedia('kakaoSdkUnavailable'))
+      void (async () => {
+        const recorded = await handleCopyLink()
+        if (!recorded) recordShareAction()
+        setKakaoNotice(tMedia('kakaoSdkUnavailable'))
+      })()
       return
     }
-    const imageUrl = thumbnailUrl || undefined
-    try {
-      shareApi.sendDefault({
-        objectType: 'feed',
-        content: {
-          title: shareTitle,
-          description: shareDescription || shareTitle,
-          imageUrl: imageUrl && imageUrl.startsWith('https://') ? imageUrl : undefined,
-          link: {
-            mobileWebUrl: shareUrl,
-            webUrl: shareUrl,
-          },
-        },
-        buttons: [
-          {
-            title: tMedia('view'),
-            link: {
-              mobileWebUrl: shareUrl,
-              webUrl: shareUrl,
-            },
-          },
-        ],
-      })
-      recordShareAction()
-      onClose()
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('[Kakao.Share.sendDefault]', err)
-      void runKakaoCopyFallback(tMedia('kakaoShareFailed'))
-    }
-  }, [
-    shareUrl,
-    shareTitle,
-    shareDescription,
-    thumbnailUrl,
-    tMedia,
-    handleCopyLink,
-    recordShareAction,
-    onClose,
-  ])
+    setKakaoComposeOpen(true)
+  }, [shareUrl, kakaoJsKey, tMedia, handleCopyLink, recordShareAction])
+
+  const handleKakaoComposeSend = useCallback(() => {
+    sendKakaoShare(kakaoTitle, kakaoMessage)
+  }, [sendKakaoShare, kakaoTitle, kakaoMessage])
 
   const handleInstagramShare = useCallback(async () => {
     if (!shareUrl) return
@@ -270,6 +329,65 @@ export default function MediaShareModal({
             {kakaoNotice}
           </p>
         ) : null}
+        {kakaoComposeOpen ? (
+          <div className="space-y-3">
+            <p className="text-gray-400 text-xs leading-relaxed">{tMedia('kakaoComposeHint')}</p>
+            <div>
+              <label htmlFor="kakao-share-title" className="block text-xs text-gray-400 mb-1">
+                {tMedia('kakaoTitleLabel')}
+              </label>
+              <input
+                id="kakao-share-title"
+                type="text"
+                value={kakaoTitle}
+                onChange={(e) => setKakaoTitle(e.target.value)}
+                maxLength={80}
+                className="w-full rounded-lg bg-tank-black/60 border border-tank-light px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-tank-accent"
+              />
+            </div>
+            <div>
+              <label htmlFor="kakao-share-message" className="block text-xs text-gray-400 mb-1">
+                {tMedia('message')}
+              </label>
+              <textarea
+                id="kakao-share-message"
+                value={kakaoMessage}
+                onChange={(e) => setKakaoMessage(e.target.value)}
+                maxLength={200}
+                rows={4}
+                placeholder={tMedia('messagePlaceholder')}
+                className="w-full rounded-lg bg-tank-black/60 border border-tank-light px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-tank-accent resize-none"
+              />
+            </div>
+            {thumbnailUrl && thumbnailUrl.startsWith('https://') ? (
+              <div className="flex items-center gap-3 rounded-lg border border-tank-light/60 bg-tank-black/40 p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={thumbnailUrl}
+                  alt=""
+                  className="w-14 h-14 rounded object-cover shrink-0"
+                />
+                <p className="text-xs text-gray-500 leading-snug">{tMedia('thumbEmailNote')}</p>
+              </div>
+            ) : null}
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setKakaoComposeOpen(false)}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                {tMedia('cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleKakaoComposeSend}
+                className="px-4 py-2 text-sm rounded-lg bg-[#FEE500] text-[#191919] font-medium hover:opacity-90 transition-opacity"
+              >
+                {tMedia('kakaoShareSend')}
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="flex items-center justify-center gap-4 flex-wrap">
           {shareAppsEnabled.email !== false && (
             <a
@@ -420,6 +538,7 @@ export default function MediaShareModal({
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
   )
