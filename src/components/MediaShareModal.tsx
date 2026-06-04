@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 import { useUiLocale } from '@/hooks/useUiLocale'
 
@@ -31,6 +31,11 @@ export default function MediaShareModal({
   const { tMedia } = useUiLocale()
   const kakaoJsKey = useKakaoJsKey()
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
+  const [kakaoNotice, setKakaoNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open) setKakaoNotice(null)
+  }, [open])
 
   const shareUrl =
     typeof window !== 'undefined' ? `${window.location.origin}/media/${mediaId}` : ''
@@ -69,6 +74,7 @@ export default function MediaShareModal({
 
   const handleKakaoShare = useCallback(() => {
     if (!shareUrl) return
+    setKakaoNotice(null)
     const w = typeof window !== 'undefined' ? window : null
     type KakaoWindow = {
       Kakao?: {
@@ -78,18 +84,17 @@ export default function MediaShareModal({
     }
     const Kakao = w && (w as unknown as KakaoWindow).Kakao
     const shareApi = Kakao?.Share
-    const runKakaoCopyFallback = () => {
-      void handleCopyLink().then((recorded) => {
-        if (!recorded) recordShareAction()
-        else onClose()
-      })
+    const runKakaoCopyFallback = async (message: string) => {
+      const recorded = await handleCopyLink()
+      if (!recorded) recordShareAction()
+      setKakaoNotice(message)
     }
     if (!shareApi?.sendDefault) {
-      runKakaoCopyFallback()
+      void runKakaoCopyFallback(tMedia('kakaoSdkUnavailable'))
       return
     }
     if (typeof Kakao?.isInitialized === 'function' && !Kakao.isInitialized()) {
-      runKakaoCopyFallback()
+      void runKakaoCopyFallback(tMedia('kakaoSdkUnavailable'))
       return
     }
     const imageUrl = thumbnailUrl || undefined
@@ -120,7 +125,7 @@ export default function MediaShareModal({
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn('[Kakao.Share.sendDefault]', err)
-      onClose()
+      void runKakaoCopyFallback(tMedia('kakaoShareFailed'))
     }
   }, [
     shareUrl,
@@ -256,6 +261,15 @@ export default function MediaShareModal({
             )}
           </button>
         </div>
+        {kakaoNotice ? (
+          <p
+            className="mb-4 text-xs leading-relaxed text-amber-100/95 bg-amber-950/50 border border-amber-700/45 rounded-lg px-3 py-2.5"
+            role="status"
+            aria-live="polite"
+          >
+            {kakaoNotice}
+          </p>
+        ) : null}
         <div className="flex items-center justify-center gap-4 flex-wrap">
           {shareAppsEnabled.email !== false && (
             <a

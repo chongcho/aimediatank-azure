@@ -25,7 +25,7 @@ Kakao validates the calling domain in **two separate places**. If either is miss
 3. Add every origin the SDK will run from, with scheme but no path/trailing slash:
    - `https://www.aimediatank.com`
    - `https://aimediatank.com`
-   - `https://staging-aimediatank.azurewebsites.net` (or your staging slot URL)
+   - `https://aimediatank-staging-gvg5drcbf2dpemh3.westus2-01.azurewebsites.net` (current staging host — check Azure if this changes)
    - For local testing: `http://localhost:3000`
 4. Save.
 
@@ -42,6 +42,8 @@ Kakao validates the calling domain in **two separate places**. If either is miss
 
 ## 4. Set the JavaScript key in this project
 
+### Local development
+
 1. In the project root, copy `env-example.txt` to `.env` (or `.env.local`) if you have not already.
 2. Add or edit:
 
@@ -51,7 +53,17 @@ NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY="your_javascript_key_here"
 ```
 
 3. Replace `your_javascript_key_here` with the **JavaScript key** from step 1.
-4. Restart the dev server or rebuild so the env var is picked up.
+4. Restart the dev server so the env var is picked up.
+
+### Staging / production (GitHub Actions — required for Azure)
+
+Next.js inlines `NEXT_PUBLIC_*` variables at **`npm run build`**. Setting the key only in Azure App Service **does not** enable KakaoTalk in the deployed client bundle.
+
+1. In GitHub → your repo → **Settings** → **Secrets and variables** → **Actions**, add:
+   - Name: `KAKAO_JAVASCRIPT_KEY`
+   - Value: your Kakao **JavaScript key** (same as above)
+2. Re-run **Deploy to Azure Staging** or **Deploy to Azure Production** (or push to `staging` / `main`) so a new build picks up the secret.
+3. After deploy, hover the KakaoTalk button in Share — the tooltip should say **KakaoTalk**, not “copies link”.
 
 ---
 
@@ -68,6 +80,12 @@ NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY="your_javascript_key_here"
 
 - **KakaoTalk button not visible**  
   Ensure `NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY` is set and the app was restarted/rebuilt after adding it.
+
+- **Share modal says SDK not loaded / link copied instead of Kakao picker**  
+  On Azure, add GitHub secret `KAKAO_JAVASCRIPT_KEY` and redeploy (see §4). Runtime-only Azure App Settings are not enough for `NEXT_PUBLIC_*`.
+
+- **Share modal shows “KakaoTalk share could not open”**  
+  Usually domain registration (§2) or KakaoTalk not installed on the device. The link is copied automatically — paste in KakaoTalk. No territory block from Kakao; register `location.origin` in both Kakao console lists.
 
 - **"Failed request — Verification failed due to an incorrect request" on `sharer.kakao.com/picker/link`**  
   This is Kakao's server-side domain check failing. It is **not** a bug in this app. Fix:
