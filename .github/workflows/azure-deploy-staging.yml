@@ -58,6 +58,12 @@ jobs:
       - name: Clean previous build
         run: rm -rf .next deploy
 
+      - name: Prepare watermark font in public (guest downloads)
+        run: |
+          mkdir -p public/fonts
+          cp node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf public/fonts/
+          test -f public/fonts/DejaVuSans-Bold.ttf
+
       - name: Build application
         run: npm run build
         env:
@@ -78,8 +84,10 @@ jobs:
           cp -r node_modules/ffmpeg-static deploy/node_modules/
           cp -r node_modules/ffprobe-static deploy/node_modules/
           cp -r node_modules/dejavu-fonts-ttf deploy/node_modules/
+          chmod +x deploy/node_modules/ffmpeg-static/ffmpeg
           test -x deploy/node_modules/ffprobe-static/bin/linux/x64/ffprobe
           test -f deploy/node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf
+          test -f deploy/public/fonts/DejaVuSans-Bold.ttf
 
       - name: Verify deploy package has Next.js (avoids MODULE_NOT_FOUND on Azure)
         run: |

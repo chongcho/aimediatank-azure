@@ -6,7 +6,9 @@ const nextConfig = {
     outputFileTracingIncludes: {
       '/api/download/[mediaId]': [
         './node_modules/ffmpeg-static/**',
+        './node_modules/ffprobe-static/**',
         './node_modules/dejavu-fonts-ttf/ttf/**',
+        './public/fonts/**',
       ],
     },
     staleTimes: {

@@ -12,7 +12,10 @@ const WATERMARK_TIMEOUT_MS = 10 * 60 * 1000
 const projectRequire = createRequire(join(process.cwd(), 'package.json'))
 
 const NO_AUDIO_RE =
-  /matches no streams|does not contain any stream|invalid audio stream|Error binding filtergraph|Decoder \(aac\)|Could not find tag for codec|Output file #0 does not contain any stream/i
+  /matches no streams|does not contain any stream|invalid audio stream|Error (initializing|binding) filtergraph|Decoder \(aac\)|Could not find tag for codec|Output file #0 does not contain any stream|no decoder found/i
+
+let ffmpegPathCached: string | null = null
+let ffprobePathCached: string | null = null
 
 function getBlobService() {
   const cs = process.env.AZURE_STORAGE_CONNECTION_STRING
@@ -21,22 +24,54 @@ function getBlobService() {
 }
 
 function getFfmpegPath(): string {
-  const candidates: string[] = []
+  if (ffmpegPathCached) return ffmpegPathCached
   try {
     const staticPath = projectRequire('ffmpeg-static') as string | null
-    if (staticPath) candidates.push(staticPath)
+    if (staticPath && existsSync(staticPath)) {
+      ffmpegPathCached = staticPath
+      return staticPath
+    }
   } catch {
-    // optional at build time
+    // fall through
   }
   const cwd = process.cwd()
-  candidates.push(
-    join(cwd, 'node_modules/ffmpeg-static/ffmpeg'),
-    join(cwd, 'node_modules/ffmpeg-static/ffmpeg.exe')
-  )
-  for (const p of candidates) {
-    if (p && existsSync(p)) return p
+  for (const rel of ['node_modules/ffmpeg-static/ffmpeg', 'node_modules/ffmpeg-static/ffmpeg.exe']) {
+    const p = join(cwd, rel)
+    if (existsSync(p)) {
+      ffmpegPathCached = p
+      return p
+    }
   }
+  ffmpegPathCached = 'ffmpeg'
   return 'ffmpeg'
+}
+
+function getFfprobePath(): string {
+  if (ffprobePathCached) return ffprobePathCached
+  const ffmpegBin = getFfmpegPath()
+  const sibling = ffmpegBin.replace(/ffmpeg(\.exe)?$/i, 'ffprobe$1')
+  if (sibling !== ffmpegBin && existsSync(sibling)) {
+    ffprobePathCached = sibling
+    return sibling
+  }
+  try {
+    const mod = projectRequire('ffprobe-static') as { path?: string }
+    const p = mod?.path
+    if (p && existsSync(p)) {
+      ffprobePathCached = p
+      return p
+    }
+  } catch {
+    // optional
+  }
+  const cwd = process.cwd()
+  const linuxProbe = join(cwd, 'node_modules/ffprobe-static/bin/linux/x64/ffprobe')
+  if (existsSync(linuxProbe)) {
+    ffprobePathCached = linuxProbe
+    return linuxProbe
+  }
+  ffprobePathCached = 'ffprobe'
+  return 'ffprobe'
 }
 
 function runFfmpeg(args: string[]): Promise<void> {
@@ -73,39 +108,46 @@ function runFfmpeg(args: string[]): Promise<void> {
     })
     proc.on('error', (err) => {
       clearTimeout(timeoutId)
-      settle(() => reject(new Error(`FFmpeg spawn error: ${err.message}`)))
+      settle(() => reject(new Error(`FFmpeg spawn error (${bin}): ${err.message}`)))
     })
   })
 }
 
-/** FFmpeg filter paths: forward slashes, escape drive colons on Windows dev machines */
+/** FFmpeg filter paths: forward slashes, escape drive colons on Windows */
 function ffmpegFilterPath(absPath: string): string {
   return absPath.replace(/\\/g, '/').replace(/:/g, '\\:')
 }
 
+/** Inline drawtext literal (do not use textfile= — breaks on paths with spaces) */
+function escapeDrawtextLiteral(text: string): string {
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/:/g, '\\:')
+    .replace(/@/g, '\\@')
+}
+
 function resolveWatermarkFontPath(): string {
-  const fallbacks = [
-    () => projectRequire.resolve('dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf'),
-    () => projectRequire.resolve('dejavu-fonts-ttf/ttf/DejaVuSans.ttf'),
+  const cwd = process.cwd()
+  const candidates = [
+    join(cwd, 'public', 'fonts', 'DejaVuSans-Bold.ttf'),
+    join(cwd, 'public', 'fonts', 'DejaVuSans.ttf'),
+    join(cwd, 'node_modules', 'dejavu-fonts-ttf', 'ttf', 'DejaVuSans-Bold.ttf'),
+    join(cwd, 'node_modules', 'dejavu-fonts-ttf', 'ttf', 'DejaVuSans.ttf'),
   ]
-  for (const resolve of fallbacks) {
+  for (const p of candidates) {
+    if (existsSync(p)) return p
+  }
+  for (const subpath of ['dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf', 'dejavu-fonts-ttf/ttf/DejaVuSans.ttf']) {
     try {
-      const p = resolve()
+      const p = projectRequire.resolve(subpath)
       if (existsSync(p)) return p
     } catch {
       // try next
     }
   }
-  const cwd = process.cwd()
-  for (const rel of [
-    'node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf',
-    'node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf',
-  ]) {
-    const p = join(cwd, rel)
-    if (existsSync(p)) return p
-  }
   throw new Error(
-    'DejaVu watermark font not found. Ensure dejavu-fonts-ttf is installed and included in the deploy bundle.'
+    'DejaVu watermark font not found. Ensure public/fonts/DejaVuSans-Bold.ttf or dejavu-fonts-ttf is in the deploy bundle.'
   )
 }
 
@@ -117,77 +159,100 @@ export function buildGuestWatermarkLines(username: string): { line1: string; lin
   }
 }
 
-async function buildDrawtextFilter(username: string, workDir: string): Promise<string> {
+function buildDrawtextFilter(username: string): string {
   const fontPath = resolveWatermarkFontPath()
   const { line1, line2 } = buildGuestWatermarkLines(username)
-  const id = uuidv4()
-  const textFile1 = join(workDir, `${id}-w1.txt`)
-  const textFile2 = join(workDir, `${id}-w2.txt`)
-  await writeFile(textFile1, line1, 'utf8')
-  await writeFile(textFile2, line2, 'utf8')
   const fontOpt = `fontfile=${ffmpegFilterPath(fontPath)}:`
-  const t1 = `textfile=${ffmpegFilterPath(textFile1)}:`
-  const t2 = `textfile=${ffmpegFilterPath(textFile2)}:`
+  const t1 = `text='${escapeDrawtextLiteral(line1)}':`
+  const t2 = `text='${escapeDrawtextLiteral(line2)}':`
   return [
-    `drawtext=${fontOpt}${t1}fontsize=28:fontcolor=white@0.92:box=1:boxcolor=black@0.45:boxborderw=8:x=(w-text_w)/2:y=h-120`,
+    `format=yuv420p,drawtext=${fontOpt}${t1}fontsize=28:fontcolor=white@0.92:box=1:boxcolor=black@0.45:boxborderw=8:x=(w-text_w)/2:y=h-120`,
     `drawtext=${fontOpt}${t2}fontsize=22:fontcolor=white@0.88:box=1:boxcolor=black@0.45:boxborderw=6:x=(w-text_w)/2:y=h-68`,
   ].join(',')
 }
 
+interface StreamProbe {
+  videoStreamIndex: number
+  audioStreamIndex: number | null
+}
+
+function pickPrimaryVideoStream(streams: { codec_type?: string; disposition?: { attached_pic?: number }; index?: number }[]) {
+  const isAttachedPic = (s: { disposition?: { attached_pic?: number } }) => Number(s?.disposition?.attached_pic) === 1
+  return (
+    streams.find((s) => s.codec_type === 'video' && !isAttachedPic(s)) ||
+    streams.find((s) => s.codec_type === 'video')
+  )
+}
+
+async function probeMediaStreams(filePath: string): Promise<StreamProbe> {
+  const probeBin = getFfprobePath()
+  return new Promise((resolve) => {
+    const args = ['-v', 'quiet', '-print_format', 'json', '-show_streams', filePath]
+    const proc = spawn(probeBin, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    proc.stdout.on('data', (d: Buffer) => {
+      stdout += d.toString()
+    })
+    proc.on('close', (code) => {
+      if (code !== 0 || !stdout) {
+        resolve({ videoStreamIndex: 0, audioStreamIndex: null })
+        return
+      }
+      try {
+        const info = JSON.parse(stdout) as { streams?: { codec_type?: string; index?: number; disposition?: { attached_pic?: number } }[] }
+        const streams = info.streams || []
+        const videoStream = pickPrimaryVideoStream(streams)
+        const audioStream = streams.find((s) => s.codec_type === 'audio')
+        const videoStreamIndex = Number(videoStream?.index ?? 0)
+        const audioStreamIndex = audioStream != null ? Number(audioStream.index) : null
+        resolve({
+          videoStreamIndex: Number.isFinite(videoStreamIndex) ? videoStreamIndex : 0,
+          audioStreamIndex:
+            audioStreamIndex != null && Number.isFinite(audioStreamIndex) ? audioStreamIndex : null,
+        })
+      } catch {
+        resolve({ videoStreamIndex: 0, audioStreamIndex: null })
+      }
+    })
+    proc.on('error', () => resolve({ videoStreamIndex: 0, audioStreamIndex: null }))
+  })
+}
+
 async function runVideoWatermark(inputPath: string, outputPath: string, vf: string): Promise<void> {
-  const withAudio = [
-    '-y',
-    '-i',
-    inputPath,
-    '-vf',
-    vf,
-    '-map',
-    '0:v:0',
-    '-map',
-    '0:a?',
-    '-c:v',
-    'libx264',
-    '-preset',
-    'fast',
-    '-crf',
-    '23',
-    '-c:a',
-    'aac',
-    '-b:a',
-    '128k',
-    '-movflags',
-    '+faststart',
-    '-max_muxing_queue_size',
-    '1024',
-    outputPath,
-  ]
-  const videoOnly = [
-    '-y',
-    '-i',
-    inputPath,
-    '-vf',
-    vf,
-    '-map',
-    '0:v:0',
-    '-an',
-    '-c:v',
-    'libx264',
-    '-preset',
-    'fast',
-    '-crf',
-    '23',
-    '-movflags',
-    '+faststart',
-    '-max_muxing_queue_size',
-    '1024',
-    outputPath,
-  ]
+  const { videoStreamIndex: vi, audioStreamIndex: ai } = await probeMediaStreams(inputPath)
+  const buildArgs = (withAudio: boolean): string[] => {
+    const maps: string[] = ['-map', `0:${vi}`]
+    const audioOpts: string[] =
+      withAudio && ai != null
+        ? ['-map', `0:${ai}`, '-c:a', 'aac', '-b:a', '128k']
+        : ['-an']
+    return [
+      '-y',
+      '-i',
+      inputPath,
+      ...maps,
+      '-vf',
+      vf,
+      '-c:v',
+      'libx264',
+      '-preset',
+      'fast',
+      '-crf',
+      '23',
+      ...audioOpts,
+      '-movflags',
+      '+faststart',
+      '-max_muxing_queue_size',
+      '1024',
+      outputPath,
+    ]
+  }
   try {
-    await runFfmpeg(withAudio)
+    await runFfmpeg(buildArgs(ai != null))
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    if (NO_AUDIO_RE.test(msg)) {
-      await runFfmpeg(videoOnly)
+    if (ai != null && NO_AUDIO_RE.test(msg)) {
+      await runFfmpeg(buildArgs(false))
       return
     }
     throw err
@@ -236,7 +301,7 @@ export async function createWatermarkedDownloadFile(
   const { inputPath, ext: inExt } = await downloadBlobToTemp(sourceBlobUrl)
   const dir = join(tmpdir(), 'download-watermark')
   const type = mediaType.toUpperCase()
-  const filter = await buildDrawtextFilter(username, dir)
+  const filter = buildDrawtextFilter(username)
 
   try {
     if (type === 'MUSIC') {
