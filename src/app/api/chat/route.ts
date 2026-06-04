@@ -239,8 +239,8 @@ export async function POST(request: Request) {
           data: {
             userId: recipientId,
             type: 'private_chat',
-            title: 'New My Gong',
-            message: `${senderName} invited you to My Gong`,
+            title: 'New My Chat',
+            message: `${senderName} invited you to My Chat`,
             link: session.user.id, // Store sender's ID to open chat with them
             read: false,
           },

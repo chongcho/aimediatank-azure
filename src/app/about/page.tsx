@@ -1124,7 +1124,7 @@ export default function AboutPage() {
                 </li>
                 <li>
                   <Link href="/?openChat=1" className="hover:text-white transition-colors">
-                    <AboutTrans text="Gong" />
+                    <AboutTrans text="Chat" />
                   </Link>
                 </li>
                 <li>

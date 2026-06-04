@@ -10,7 +10,7 @@ const defaultItems = [
   { itemKey: 'images', label: 'Images', isEnabled: true, sortOrder: 3 },
   { itemKey: 'about', label: 'About', isEnabled: true, sortOrder: 4 },
   { itemKey: 'play', label: 'Play', isEnabled: true, sortOrder: 5 },
-  { itemKey: 'chat', label: 'Gong', isEnabled: true, sortOrder: 6 },
+  { itemKey: 'chat', label: 'Chat', isEnabled: true, sortOrder: 6 },
   { itemKey: 'mediaMessage', label: 'Celebration Card', isEnabled: true, sortOrder: 7 },
   { itemKey: 'upload', label: 'Post', isEnabled: true, sortOrder: 8 },
   { itemKey: 'cropTool', label: 'Crop Tool', isEnabled: true, sortOrder: 9 },

@@ -596,7 +596,7 @@ function NavbarContent() {
                 <span className="text-sm font-bold text-white">{t('card')}</span>
               </Link>
             )}
-            {/* Gong (Talk chat) button */}
+            {/* Chat (Talk chat) button */}
             {isNavbarItemEnabled('chat') && (
               <div className="relative">
                 <button
@@ -607,7 +607,7 @@ function NavbarContent() {
                 >
                   <span className="text-sm font-bold text-gray-900">{t('kong')}</span>
                 </button>
-                {/* My Gong invite notification badge */}
+                {/* My Chat invite notification badge */}
                 {chatInviteCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
                     {chatInviteCount > 9 ? '9+' : chatInviteCount}
