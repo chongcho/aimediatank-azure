@@ -79,6 +79,7 @@ function runFfmpeg(args: string[]): Promise<void> {
     const bin = getFfmpegPath()
     const proc = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] })
     let stderr = ''
+    let stdout = ''
     let settled = false
     const settle = (fn: () => void) => {
       if (settled) return
@@ -95,6 +96,9 @@ function runFfmpeg(args: string[]): Promise<void> {
         reject(new Error('Watermark FFmpeg timed out'))
       })
     }, WATERMARK_TIMEOUT_MS)
+    proc.stdout.on('data', (d: Buffer) => {
+      stdout += d.toString()
+    })
     proc.stderr.on('data', (d: Buffer) => {
       stderr += d.toString()
     })
@@ -103,7 +107,14 @@ function runFfmpeg(args: string[]): Promise<void> {
       if (settled) return
       settle(() => {
         if (code === 0) resolve()
-        else reject(new Error(`FFmpeg exited ${code}: ${stderr.slice(-1200)}`))
+        else {
+          const tail = (stderr + stdout).trim().slice(-1500)
+          reject(
+            new Error(
+              `FFmpeg exited ${code} [${bin}]: ${tail || '(no output)'} | args: ${args.slice(0, 12).join(' ')}…`
+            )
+          )
+        }
       })
     })
     proc.on('error', (err) => {
@@ -188,10 +199,11 @@ export function buildGuestWatermarkLines(username: string): { line1: string; lin
 
 async function ensureFontInWorkDir(workDir: string): Promise<string> {
   await mkdir(workDir, { recursive: true })
+  const src = resolveWatermarkFontPath()
   const dest = join(workDir, 'DejaVuSans-Bold.ttf')
-  if (!existsSync(dest)) {
-    await copyFile(resolveWatermarkFontPath(), dest)
-  }
+  const destSpaced = join(workDir, 'DejaVu Sans.ttf')
+  if (!existsSync(dest)) await copyFile(src, dest)
+  if (!existsSync(destSpaced)) await copyFile(src, destSpaced)
   return dest
 }
 
@@ -206,6 +218,48 @@ async function buildDrawtextFilter(username: string, workDir: string): Promise<s
     `format=yuv420p,drawtext=${fontOpt}${t1}fontsize=28:fontcolor=white:box=1:boxcolor=black:boxborderw=8:x=(w-text_w)/2:y=h-120`,
     `drawtext=${fontOpt}${t2}fontsize=22:fontcolor=white:box=1:boxcolor=black:boxborderw=6:x=(w-text_w)/2:y=h-68`,
   ].join(',')
+}
+
+function escapeAssText(text: string): string {
+  return text.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}')
+}
+
+/** ASS/subtitles burn-in — works on Azure linux ffmpeg-static where drawtext often exits 8. */
+async function buildAssSubtitleFilter(username: string, workDir: string): Promise<string> {
+  await ensureFontInWorkDir(workDir)
+  const { line1, line2 } = buildGuestWatermarkLines(username)
+  const assPath = join(workDir, `${uuidv4()}.ass`)
+  const ass = `[Script Info]
+ScriptType: v4.00+
+PlayResX: 1280
+PlayResY: 720
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: W1,DejaVu Sans,28,&H00FFFFFF,&H000000FF,&H00000000,&H96000000,1,0,0,0,100,100,0,0,3,2,0,2,20,20,90,1
+Style: W2,DejaVu Sans,22,&H00FFFFFF,&H000000FF,&H00000000,&H96000000,1,0,0,0,100,100,0,0,3,2,0,2,20,20,50,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,99:00:00.00,W1,,0,0,0,,${escapeAssText(line1)}
+Dialogue: 0,0:00:00.00,99:00:00.00,W2,,0,0,0,,${escapeAssText(line2)}
+`
+  await writeFile(assPath, ass, 'utf8')
+  const fontsDir = ffmpegFilterPath(workDir)
+  const assFile = ffmpegFilterPath(assPath)
+  return `subtitles=${assFile}:fontsdir=${fontsDir}`
+}
+
+async function buildVideoWatermarkFilter(username: string, workDir: string): Promise<string> {
+  if (process.platform === 'linux') {
+    return buildAssSubtitleFilter(username, workDir)
+  }
+  return buildDrawtextFilter(username, workDir)
+}
+
+async function buildImageWatermarkFilter(username: string, workDir: string): Promise<string> {
+  return buildDrawtextFilter(username, workDir)
 }
 
 interface StreamProbe {
@@ -256,24 +310,22 @@ async function probeMediaStreams(filePath: string): Promise<StreamProbe> {
 }
 
 async function runVideoWatermark(inputPath: string, outputPath: string, vf: string): Promise<void> {
-  const { videoStreamIndex: vi, audioStreamIndex: ai } = await probeMediaStreams(inputPath)
+  const { audioStreamIndex: ai } = await probeMediaStreams(inputPath)
   const buildArgs = (withAudio: boolean): string[] => {
-    const maps: string[] = ['-map', `0:${vi}`]
     const audioOpts: string[] =
       withAudio && ai != null
-        ? ['-map', `0:${ai}`, '-c:a', 'aac', '-b:a', '128k']
+        ? ['-c:a', 'aac', '-b:a', '128k']
         : ['-an']
     return [
       '-y',
       '-i',
       inputPath,
-      ...maps,
       '-vf',
       vf,
       '-c:v',
       'libx264',
       '-preset',
-      'fast',
+      'ultrafast',
       '-crf',
       '23',
       ...audioOpts,
@@ -338,7 +390,10 @@ export async function createWatermarkedDownloadFile(
   const { inputPath, ext: inExt } = await downloadBlobToTemp(sourceBlobUrl)
   const dir = join(tmpdir(), 'download-watermark')
   const type = mediaType.toUpperCase()
-  const filter = await buildDrawtextFilter(username, dir)
+  const filter =
+    type === 'VIDEO'
+      ? await buildVideoWatermarkFilter(username, dir)
+      : await buildImageWatermarkFilter(username, dir)
 
   try {
     if (type === 'MUSIC') {
