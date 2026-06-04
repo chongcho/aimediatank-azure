@@ -3717,7 +3717,7 @@ export default function AdminPage() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">🏷️ Media Badge Control</h2>
                 <p className="text-gray-400 text-sm">
-                  Toggle badge items ON/OFF to show or hide them on media tiles. Description thumbnails toggles the description text overlay on each tile thumbnail. The Comment control shows or hides the comment button on the tile so viewers can add comments from the feed without opening the media page first. Automatic Translation controls whether titles, descriptions, comments, and TalkChat copy are machine-translated for non-English UI locales (calls to the translation API are skipped when OFF).
+                  Toggle badge items ON/OFF to show or hide them on media tiles. Description thumbnails toggles the description text overlay on each tile thumbnail. The Comment control shows or hides the comment button on the tile so viewers can add comments from the feed without opening the media page first. Share shows or hides the homepage share button on each tile (the share modal and apps still follow Media Detail share settings). Automatic Translation controls whether titles, descriptions, comments, and TalkChat copy are machine-translated for non-English UI locales (calls to the translation API are skipped when OFF).
                 </p>
               </div>
 

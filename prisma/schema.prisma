@@ -627,7 +627,7 @@ model NavbarMenuSetting {
 // Media badge settings (managed by admin)
 model MediaBadgeSetting {
   id        String   @id @default(uuid())
-  itemKey   String   @unique // "ai", "price", "sold", "views", "postDate", "smileRate", "comment", "descriptionThumbnails"
+  itemKey   String   @unique // "ai", "price", "sold", "views", "postDate", "smileRate", "comment", "descriptionThumbnails", "share"
   label     String
   isEnabled Boolean  @default(true)
   sortOrder Int      @default(0)

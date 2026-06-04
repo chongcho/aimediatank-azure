@@ -24,6 +24,7 @@ const defaultItems = [
     isEnabled: true,
     sortOrder: 7,
   },
+  { itemKey: 'share', label: 'Share', isEnabled: true, sortOrder: 8 },
 ]
 
 export async function GET() {

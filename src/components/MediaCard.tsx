@@ -6,6 +6,14 @@ import { useSession } from 'next-auth/react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatMediaTitle, stripHashtags, truncateText } from '@/lib/text'
+import { pauseAllMedia } from '@/lib/mediaStop'
+import { DEFAULT_SHARE_APPS } from '@/app/api/ui/media-detail/shareAppsConfig'
+import {
+  fetchMediaDetailSettings,
+  getMediaDetailSettingsSync,
+  resetMediaDetailSettingsCache,
+} from '@/lib/mediaDetailSettingsClient'
+import MediaShareModal from '@/components/MediaShareModal'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
 import { pickInitialRenditionIndex, sortRenditions } from '@/lib/adaptiveVideoTier'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
@@ -111,6 +119,13 @@ export default function MediaCard({
   const homeScrollContextRef = useRef(homeScrollContext)
   homeScrollContextRef.current = homeScrollContext
   const [commentPortalMounted, setCommentPortalMounted] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [shareEnabled, setShareEnabled] = useState(
+    () => getMediaDetailSettingsSync()?.shareEnabled ?? true
+  )
+  const [shareAppsEnabled, setShareAppsEnabled] = useState<Record<string, boolean>>(
+    () => getMediaDetailSettingsSync()?.shareAppsEnabled ?? { ...DEFAULT_SHARE_APPS }
+  )
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false)
   const [thumbnailError, setThumbnailError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -191,6 +206,11 @@ export default function MediaCard({
     if (!cleaned) return null
     return { text: truncateText(cleaned, 220), title: cleaned }
   }, [displayDescriptionSource])
+
+  const shareTitle = useMemo(
+    () => stripHashtags(displayTitle || titlePlain),
+    [displayTitle, titlePlain]
+  )
 
   const cardRef = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
@@ -353,8 +373,37 @@ export default function MediaCard({
   }, [commentModalOpen, badgeItems])
 
   useEffect(() => {
+    if (!shareModalOpen || !badgeItems?.length) return
+    if (badgeItems.find((b) => b.itemKey === 'share')?.isEnabled === false) {
+      setShareModalOpen(false)
+    }
+  }, [shareModalOpen, badgeItems])
+
+  useEffect(() => {
     setCommentPortalMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (!hasHomeScrollContext) return
+    const apply = (data: { shareEnabled: boolean; shareAppsEnabled: Record<string, boolean> }) => {
+      setShareEnabled(data.shareEnabled)
+      setShareAppsEnabled(data.shareAppsEnabled)
+    }
+    const cached = getMediaDetailSettingsSync()
+    if (cached) apply(cached)
+    void fetchMediaDetailSettings().then(apply)
+    const onMediaDetailUpdated = () => {
+      resetMediaDetailSettingsCache()
+      void fetchMediaDetailSettings().then(apply)
+    }
+    window.addEventListener('mediaDetailUpdated', onMediaDetailUpdated)
+    return () => window.removeEventListener('mediaDetailUpdated', onMediaDetailUpdated)
+  }, [hasHomeScrollContext])
+
+  useLayoutEffect(() => {
+    if (!shareModalOpen) return
+    pauseAllMedia()
+  }, [shareModalOpen])
 
   useEffect(() => {
     commentSubmittingRef.current = commentSubmitting
@@ -771,18 +820,21 @@ export default function MediaCard({
   }, [media.id, router])
 
   const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('[data-media-card-comment]')) return
+    if (isCardActionTarget(e.target as HTMLElement)) return
     if (e.button !== 0) return
     navigateToMedia()
   }
 
   const handleCardAuxClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('[data-media-card-comment]')) return
+    if (isCardActionTarget(e.target as HTMLElement)) return
     if (e.button === 1) {
       e.preventDefault()
       window.open(`/media/${media.id}`, '_blank', 'noopener,noreferrer')
     }
   }
+
+  const isCardActionTarget = (el: HTMLElement) =>
+    Boolean(el.closest('[data-media-card-comment]') || el.closest('[data-media-card-share]'))
 
   const openCommentModal = (e: React.SyntheticEvent) => {
     if (!isBadgeEnabled('comment')) return
@@ -793,6 +845,14 @@ export default function MediaCard({
     setEditingCommentId(null)
     setEditCommentDraft('')
     setCommentModalOpen(true)
+  }
+
+  const openShareModal = (e: React.SyntheticEvent) => {
+    if (!shareEnabled || !isBadgeEnabled('share')) return
+    e.preventDefault()
+    e.stopPropagation()
+    pauseAllMedia()
+    setShareModalOpen(true)
   }
 
   const submitHomeComment = async () => {
@@ -1167,8 +1227,8 @@ export default function MediaCard({
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key !== 'Enter' && e.key !== ' ') return
-          // Match handleCardClick: do not hijack keyboard activation of the Comment button.
-          if ((e.target as HTMLElement).closest('[data-media-card-comment]')) return
+          // Match handleCardClick: do not hijack keyboard activation of Comment / Share.
+          if (isCardActionTarget(e.target as HTMLElement)) return
           e.preventDefault()
           navigateToMedia()
         }}
@@ -1467,6 +1527,32 @@ export default function MediaCard({
                 <span>{tFeedCard('feedComment')}</span>
               </button>
             )}
+            {hasHomeScrollContext && shareEnabled && isBadgeEnabled('share') && (
+              <button
+                type="button"
+                data-media-card-share
+                className="flex items-center gap-1 shrink-0 rounded-md text-sm text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-tank-accent/50"
+                onClick={openShareModal}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    openShareModal(e)
+                  }
+                }}
+                aria-label={tMediaCard('share')}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                  />
+                </svg>
+                <span>{tMediaCard('share')}</span>
+              </button>
+            )}
           </div>
 
           {isBadgeEnabled('postDate') && (
@@ -1477,6 +1563,25 @@ export default function MediaCard({
         </div>
       </div>
       </div>
+
+      {commentPortalMounted &&
+        shareModalOpen &&
+        hasHomeScrollContext &&
+        shareEnabled &&
+        isBadgeEnabled('share') &&
+        createPortal(
+          <MediaShareModal
+            open
+            onClose={() => setShareModalOpen(false)}
+            mediaId={media.id}
+            shareTitle={shareTitle}
+            shareDescription={displayDescriptionSource || null}
+            thumbnailUrl={media.thumbnailUrl}
+            shareAppsEnabled={shareAppsEnabled}
+            className="z-[100]"
+          />,
+          document.body
+        )}
 
       {commentPortalMounted &&
         commentModalOpen &&
