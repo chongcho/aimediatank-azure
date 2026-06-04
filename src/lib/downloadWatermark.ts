@@ -395,10 +395,6 @@ export async function createWatermarkedDownloadFile(
   const { inputPath, ext: inExt } = await downloadBlobToTemp(sourceBlobUrl)
   const dir = join(tmpdir(), 'download-watermark')
   const type = mediaType.toUpperCase()
-  const filter =
-    type === 'VIDEO'
-      ? await buildVideoWatermarkFilter(username, dir)
-      : await buildImageWatermarkFilter(username, dir)
 
   try {
     if (type === 'MUSIC') {
@@ -428,6 +424,9 @@ export async function createWatermarkedDownloadFile(
     const isVideo = type === 'VIDEO'
     const outExt = isVideo ? (inExt === 'webm' ? 'mp4' : inExt || 'mp4') : inExt || 'jpg'
     const outputPath = join(dir, `${uuidv4()}.${outExt}`)
+    const filter = isVideo
+      ? await buildVideoWatermarkFilter(username, dir)
+      : await buildImageWatermarkFilter(username, dir)
 
     if (isVideo) {
       await runVideoWatermark(inputPath, outputPath, filter)
