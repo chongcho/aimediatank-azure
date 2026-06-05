@@ -1,15 +1,15 @@
 /**
- * Spoken voice announcements for TalkChat voice calls while ringing (no beep tones).
- * Incoming: "Call from {name}". Outgoing: "Calling {name}".
+ * Ring audio for TalkChat voice calls while unanswered.
  *
- * Preferred path: server-side TTS (/api/chat/voice/tts) decoded into an
- * AudioBuffer and looped through the unlocked AudioContext. iOS allows that
- * without a fresh gesture (once the context is unlocked), so incoming calls can
- * ring before the user touches the screen.
+ * Desktop: spoken announcements — server TTS when configured, else speechSynthesis.
  *
- * Fallback path: on-device speechSynthesis. iOS Safari/PWA blocks speech until
- * an in-page gesture — notification taps do not count — so the fallback can only
- * speak after the first touch. Use installVoiceCallAudioUnlock() at startup.
+ * iPhone/iPad: Web Audio beep patterns (speechSynthesis is unreliable on iOS).
+ * Incoming uses a double-beep ring; outgoing uses a single ringback beep every
+ * ~2s. Beeps loop via timers once the AudioContext is running, which does not
+ * need a fresh gesture the way speechSynthesis does.
+ *
+ * Use installVoiceCallAudioUnlock() at startup so the first in-app tap unlocks
+ * audio for later incoming rings while the app stays open.
  */
 
 /** Tiny silent WAV — primes iOS HTML audio output on first user tap. */
@@ -23,19 +23,23 @@ const LOOP_PAUSE_MS = 2000
 export const VOICE_CALL_RING_TIMEOUT_MS = 60000
 // iOS only honors speechSynthesis.speak() shortly after a real in-page gesture.
 const IOS_GESTURE_WINDOW_MS = 2500
-// Approx. silence Apple TTS adds per sentence-break ". " beat. Used to match the
-// ~LOOP_PAUSE_MS gap the PC loop leaves between repeats (iOS can't use timers).
-const IOS_PAUSE_BEAT_MS = 500
+// iPhone ring beeps (Web Audio — reliable once AudioContext is unlocked).
+const INCOMING_BEEP_HZ = 880
+const INCOMING_BEEP_MS = 320
+const INCOMING_DOUBLE_GAP_MS = 300
+const OUTGOING_BEEP_HZ = 440
+const OUTGOING_BEEP_MS = 380
+const BEEP_VOLUME = 0.28
 
 let audioContext: AudioContext | null = null
 let unlockListenersInstalled = false
 let loopGeneration = 0
 let loopScheduleTimer: ReturnType<typeof setTimeout> | null = null
-let iosKeepAliveTimer: ReturnType<typeof setInterval> | null = null
-let iosSpeakNonce = 0
 let lastUserGestureAt = 0
 let lastAnnouncement: string | null = null
 let lastLang: string | undefined
+let ringDirection: 'incoming' | 'outgoing' = 'outgoing'
+let ringMode: 'beep' | 'speech' | 'tts' = 'speech'
 let pendingAnnouncementStart: (() => void) | null = null
 let openedFromCallNotification = false
 let ttsActiveSource: AudioBufferSourceNode | null = null
@@ -79,25 +83,8 @@ function clearLoopScheduleTimer() {
   }
 }
 
-function stopIosSpeechKeepAlive() {
-  if (iosKeepAliveTimer !== null) {
-    clearInterval(iosKeepAliveTimer)
-    iosKeepAliveTimer = null
-  }
-}
-
 function hasRecentUserGesture(): boolean {
   return Date.now() - lastUserGestureAt < IOS_GESTURE_WINDOW_MS
-}
-
-function startIosSpeechKeepAlive() {
-  if (!isIosDevice() || iosKeepAliveTimer !== null) return
-  iosKeepAliveTimer = setInterval(() => {
-    const synth = window.speechSynthesis
-    if (!synth?.speaking) return
-    synth.pause()
-    synth.resume()
-  }, 4000)
 }
 
 function stopTtsPlayback() {
@@ -118,9 +105,7 @@ function stopTtsPlayback() {
 
 function stopSpeech() {
   loopGeneration += 1
-  iosSpeakNonce += 1
   clearLoopScheduleTimer()
-  stopIosSpeechKeepAlive()
   stopTtsPlayback()
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel()
@@ -188,13 +173,16 @@ function flushPendingAnnouncement() {
 }
 
 /**
- * Flush a pending announcement, but on iOS only when a real user gesture
- * happened recently. iOS blocks speechSynthesis without a fresh gesture even
- * when the AudioContext is already running, so flushing otherwise would
- * "speak" into the void and consume the pending start.
+ * Flush a pending ring start. Beeps only need a running AudioContext; speech on
+ * iOS also needs a recent in-page gesture or WebKit silently drops speak().
  */
 function maybeFlushPendingAnnouncement() {
   if (!pendingAnnouncementStart) return
+  if (ringMode === 'beep') {
+    const ctx = getAudioContext()
+    if (ctx && isAudioContextRunning(ctx)) flushPendingAnnouncement()
+    return
+  }
   if (isIosDevice() && !hasRecentUserGesture()) return
   flushPendingAnnouncement()
 }
@@ -239,7 +227,6 @@ function onUserGesture() {
     lastAnnouncement &&
     isIosDevice() &&
     loopScheduleTimer === null &&
-    iosKeepAliveTimer === null &&
     pendingAnnouncementStart === null
   ) {
     retryVoiceCallAnnouncement()
@@ -283,21 +270,68 @@ export function primeVoiceCallAfterNotificationOpen() {
   if (!wasOpenedFromCallNotification() && !lastAnnouncement) return
   primeIosHtmlAudio()
   void unlockVoiceCallAudio()
-  // On iOS this only speaks if a real gesture happened recently; otherwise it
-  // stays pending until the user's first touch (see maybeFlushPendingAnnouncement).
   maybeFlushPendingAnnouncement()
-  if (lastAnnouncement && (!isIosDevice() || hasRecentUserGesture())) {
-    void startVoiceAnnouncement(lastAnnouncement, lastLang)
+  const announcement = lastAnnouncement
+  const canRetry =
+    announcement &&
+    (!isIosDevice() || ringMode === 'beep' || hasRecentUserGesture())
+  if (canRetry) {
+    void startVoiceAnnouncement(announcement, lastLang, ringDirection)
     clearOpenedFromCallNotification()
   }
 }
 
-/** Stop any playing spoken announcement. */
+/** Stop any playing ring audio. */
 export function stopVoiceCallRingtone() {
   stopSpeech()
   pendingAnnouncementStart = null
   lastAnnouncement = null
   lastLang = undefined
+  ringMode = 'speech'
+}
+
+function playBeep(frequency: number, durationMs: number) {
+  const ctx = getAudioContext()
+  if (!ctx || !isAudioContextRunning(ctx)) return
+
+  try {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    const now = ctx.currentTime
+    const dur = durationMs / 1000
+    osc.frequency.setValueAtTime(frequency, now)
+    gain.gain.setValueAtTime(BEEP_VOLUME, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + dur)
+    osc.start(now)
+    osc.stop(now + dur)
+  } catch {
+    // ignore transient playback errors
+  }
+}
+
+/** Loop beep patterns until accept/cancel (iPhone — timers are reliable here). */
+function runBeepLoop(direction: 'incoming' | 'outgoing', generation: number) {
+  const playOutgoing = () => {
+    if (generation !== loopGeneration || !lastAnnouncement) return
+    playBeep(OUTGOING_BEEP_HZ, OUTGOING_BEEP_MS)
+    loopScheduleTimer = setTimeout(playOutgoing, OUTGOING_BEEP_MS + LOOP_PAUSE_MS)
+  }
+
+  const playIncoming = () => {
+    if (generation !== loopGeneration || !lastAnnouncement) return
+    playBeep(INCOMING_BEEP_HZ, INCOMING_BEEP_MS)
+    loopScheduleTimer = setTimeout(() => {
+      if (generation !== loopGeneration || !lastAnnouncement) return
+      playBeep(INCOMING_BEEP_HZ, INCOMING_BEEP_MS)
+      loopScheduleTimer = setTimeout(playIncoming, INCOMING_BEEP_MS + LOOP_PAUSE_MS)
+    }, INCOMING_BEEP_MS + INCOMING_DOUBLE_GAP_MS)
+  }
+
+  if (direction === 'incoming') playIncoming()
+  else playOutgoing()
 }
 
 function estimateSpeechDurationMs(text: string): number {
@@ -309,86 +343,12 @@ function speakAnnouncementOnce(text: string, lang?: string) {
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
   if (!synth || !text.trim()) return
 
-  if (isIosDevice()) {
-    synth.getVoices()
-  }
-
   const utterance = new SpeechSynthesisUtterance(text.trim())
   if (lang) utterance.lang = lang
   synth.speak(utterance)
 }
 
-/**
- * Repeat the phrase inside one utterance, with a ~LOOP_PAUSE_MS gap between
- * repeats so the iPhone cadence matches the PC loop. iOS can't time speak()
- * calls, so the pause is built from sentence-break ". " beats (each ~IOS_PAUSE_
- * BEAT_MS of silence on Apple voices, never spoken aloud).
- */
-function buildRepeatedAnnouncement(text: string, repeats: number): string {
-  const phrase = text.trim().replace(/\s+/g, ' ').replace(/[.\s]+$/, '')
-  const beats = Math.max(1, Math.round(LOOP_PAUSE_MS / IOS_PAUSE_BEAT_MS))
-  // e.g. "Calling John. . . ." → speak phrase, then ~beats of silent pause.
-  const separator = '.' + ' .'.repeat(beats) + ' '
-  return Array.from({ length: repeats }, () => phrase).join(separator) + '.'
-}
-
-/**
- * iOS-specific ring loop. iOS blocks speechSynthesis.speak() when it is called
- * from a timer (setTimeout/setInterval) — only calls tied to the speech session
- * itself are honored. So we never schedule speak() from a timer: a single
- * gesture-triggered utterance repeats the phrase many times, and onend/onerror
- * re-speaks the next block synchronously (allowed on iOS) for longer calls. The
- * pause/resume keep-alive guards against the iOS long-utterance cutoff.
- */
-function runIosAnnouncementLoop(announcement: string, lang: string | undefined, generation: number) {
-  const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
-  if (!synth) return
-
-  startIosSpeechKeepAlive()
-
-  // Size the single utterance to cover the ~60s ring window. Each repeat takes
-  // about the same as the PC loop's per-repeat delay (speech + pause), so the
-  // whole block runs ~VOICE_CALL_RING_TIMEOUT_MS; onend re-chains as a backup.
-  const perRepeatMs = estimateSpeechDurationMs(announcement) + LOOP_PAUSE_MS
-  const repeats = Math.max(1, Math.ceil(VOICE_CALL_RING_TIMEOUT_MS / perRepeatMs))
-  const block = buildRepeatedAnnouncement(announcement, repeats)
-
-  const speakBlock = () => {
-    if (generation !== loopGeneration || !lastAnnouncement) return
-    const myNonce = ++iosSpeakNonce
-
-    try {
-      synth.getVoices()
-    } catch {
-      // ignore
-    }
-
-    const utterance = new SpeechSynthesisUtterance(block)
-    if (lang) utterance.lang = lang
-
-    const chainNext = () => {
-      // Ignore end/error of superseded utterances or a stopped/changed ring.
-      if (myNonce !== iosSpeakNonce) return
-      if (generation !== loopGeneration || !lastAnnouncement) return
-      // Re-speak synchronously inside the end handler (NOT via setTimeout, which
-      // iOS would block) so the announcement keeps repeating until accept/cancel.
-      speakBlock()
-    }
-
-    utterance.onend = chainNext
-    utterance.onerror = chainNext
-    synth.speak(utterance)
-  }
-
-  speakBlock()
-}
-
 function runAnnouncementLoop(announcement: string, lang: string | undefined, generation: number) {
-  if (isIosDevice()) {
-    runIosAnnouncementLoop(announcement, lang, generation)
-    return
-  }
-
   const scheduleNext = () => {
     if (generation !== loopGeneration) return
 
@@ -404,29 +364,51 @@ function isSameAnnouncementRunning(announcement: string, lang?: string) {
   return (
     announcement === lastAnnouncement &&
     lang === lastLang &&
-    (loopScheduleTimer !== null ||
-      iosKeepAliveTimer !== null ||
-      pendingAnnouncementStart !== null)
+    (loopScheduleTimer !== null || pendingAnnouncementStart !== null)
   )
 }
 
-async function startVoiceAnnouncement(announcement: string, lang?: string) {
+async function startVoiceAnnouncement(
+  announcement: string,
+  lang: string | undefined,
+  direction: 'incoming' | 'outgoing',
+) {
   if (isSameAnnouncementRunning(announcement, lang)) return
 
   stopVoiceCallRingtone()
   lastAnnouncement = announcement
   lastLang = lang
+  ringDirection = direction
   const generation = loopGeneration
 
   if (typeof window !== 'undefined') primeIosHtmlAudio()
 
-  // Preferred: server TTS looped through the AudioContext (works on iOS without
-  // a fresh gesture once the context is unlocked, so incoming rings before any
-  // touch). The fetch is cached after the first call for a given name.
+  // iPhone/iPad: beep ring — speechSynthesis repeats too fast and incoming
+  // calls are often silent without a fresh gesture.
+  if (isIosDevice()) {
+    ringMode = 'beep'
+    pendingAnnouncementStart = () => runBeepLoop(direction, loopGeneration)
+
+    const ctx = getAudioContext()
+    if (ctx && !isAudioContextRunning(ctx)) {
+      try {
+        await ctx.resume()
+      } catch {
+        // stays pending until onUserGesture unlocks audio
+      }
+      if (generation !== loopGeneration) return
+    }
+    maybeFlushPendingAnnouncement()
+    clearOpenedFromCallNotification()
+    return
+  }
+
+  // Desktop: server TTS looped through the AudioContext when configured.
   const buffer = await getTtsBuffer(announcement, lang)
   if (generation !== loopGeneration) return // superseded while fetching
 
   if (buffer) {
+    ringMode = 'tts'
     pendingAnnouncementStart = () => playTtsLoop(buffer, loopGeneration)
 
     const ctx = getAudioContext()
@@ -445,21 +427,9 @@ async function startVoiceAnnouncement(announcement: string, lang?: string) {
     return
   }
 
-  // Fallback: on-device speechSynthesis (gesture-gated on iOS).
+  // Fallback: on-device speechSynthesis.
+  ringMode = 'speech'
   pendingAnnouncementStart = () => runAnnouncementLoop(announcement, lang, loopGeneration)
-
-  if (isIosDevice()) {
-    void unlockVoiceCallAudio()
-    // iOS needs a *recent* in-page gesture to speak. Outgoing calls start right
-    // after the user taps "Call", so a gesture is fresh and we speak now.
-    // Incoming calls arrive with no gesture (poll / push), so we keep the
-    // announcement pending until the user's first touch (see onUserGesture).
-    if (hasRecentUserGesture()) {
-      flushPendingAnnouncement()
-      clearOpenedFromCallNotification()
-    }
-    return
-  }
 
   await unlockVoiceCallAudio()
 
@@ -469,30 +439,30 @@ async function startVoiceAnnouncement(announcement: string, lang?: string) {
   }
 }
 
-/** Callee: repeat spoken announcement while incoming call is unanswered. */
+/** Callee: ring while incoming call is unanswered. */
 export function startIncomingRingtone(announcement: string, lang?: string) {
-  void startVoiceAnnouncement(announcement, lang)
+  void startVoiceAnnouncement(announcement, lang, 'incoming')
 }
 
-/** Caller: repeat spoken announcement while waiting for the other person to answer. */
+/** Caller: ringback while waiting for the other person to answer. */
 export function startOutgoingRingback(announcement: string, lang?: string) {
-  void startVoiceAnnouncement(announcement, lang)
+  void startVoiceAnnouncement(announcement, lang, 'outgoing')
 }
 
 /** Retry the last announcement (e.g. after mic opens on iOS or tab becomes visible). */
 export function retryVoiceCallAnnouncement() {
   if (!lastAnnouncement) return
 
-  // On iOS, never tear down a healthy running loop when there's no fresh gesture:
-  // the loop self-heals via its watchdog, and restarting would set it back to
-  // "pending" and silence it until the next touch.
-  const loopRunning = iosKeepAliveTimer !== null || loopScheduleTimer !== null
-  if (isIosDevice() && loopRunning && !hasRecentUserGesture()) return
+  const loopRunning = loopScheduleTimer !== null
+  if (isIosDevice() && ringMode === 'beep' && loopRunning) return
+  if (isIosDevice() && ringMode === 'speech' && loopRunning && !hasRecentUserGesture()) return
 
   const announcement = lastAnnouncement
   const lang = lastLang
+  const direction = ringDirection
   stopVoiceCallRingtone()
   lastAnnouncement = announcement
   lastLang = lang
-  void startVoiceAnnouncement(announcement, lang)
+  ringDirection = direction
+  void startVoiceAnnouncement(announcement, lang, direction)
 }
