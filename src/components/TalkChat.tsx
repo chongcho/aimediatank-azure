@@ -1202,11 +1202,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       setVoiceCallSearchQuery('')
       setVoiceCallSearchedUsers([])
       setVoiceCallAllUsers([])
+      setLoadingVoiceCallAllUsers(true)
     } else {
       setVoiceCallPickTarget(null)
       setVoiceCallSearchQuery('')
       setVoiceCallSearchedUsers([])
       setVoiceCallAllUsers([])
+      setLoadingVoiceCallAllUsers(false)
     }
     setShowVoiceCallPicker(next)
   }
