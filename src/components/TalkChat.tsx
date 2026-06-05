@@ -2624,32 +2624,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               )}
             </div>
 
-            {/* New Chat (+) — purple when active to match My Chat */}
-            <button
-              onClick={toggleNewChat}
-              className="chat-btn-responsive"
-              style={{
-                padding: '4px 6px',
-                borderRadius: '4px',
-                border: 'none',
-                background: showUserPicker ? '#8b5cf6' : '#facc15',
-                color: 'white',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title={tr[TC.newKongTitle]}
-            >
-              {/* Chat bubble with plus icon */}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={showUserPicker ? 'white' : '#1a1a1a'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                <line x1="12" y1="8" x2="12" y2="14" />
-                <line x1="9" y1="11" x2="15" y2="11" />
-              </svg>
-            </button>
-
             {/* Voice call — My Chat navbar */}
             {chatMode === 'private' && isSignedIn && voiceCall && (
               <button
@@ -3308,7 +3282,24 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 justifyContent: 'space-between',
                 gap: '8px',
               }}>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: '#7c3aed' }}>{tr[TC.selectConversationOrNewKong]}</span>
+                <button
+                  type="button"
+                  onClick={toggleNewChat}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: showUserPicker ? '#7c3aed' : '#8b5cf6',
+                    color: 'white',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  {tr[TC.selectConversationOrNewKong]}
+                </button>
                 <button
                   onClick={() => switchToOpenChat()}
                   style={{
