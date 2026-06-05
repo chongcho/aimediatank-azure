@@ -23,6 +23,9 @@ const LOOP_PAUSE_MS = 2000
 export const VOICE_CALL_RING_TIMEOUT_MS = 60000
 // iOS only honors speechSynthesis.speak() shortly after a real in-page gesture.
 const IOS_GESTURE_WINDOW_MS = 2500
+// Approx. silence Apple TTS adds per sentence-break ". " beat. Used to match the
+// ~LOOP_PAUSE_MS gap the PC loop leaves between repeats (iOS can't use timers).
+const IOS_PAUSE_BEAT_MS = 500
 
 let audioContext: AudioContext | null = null
 let unlockListenersInstalled = false
@@ -38,7 +41,6 @@ let openedFromCallNotification = false
 let ttsActiveSource: AudioBufferSourceNode | null = null
 let ttsUnavailable = false
 const ttsBufferCache = new Map<string, AudioBuffer>()
-let speechPrimed = false
 
 type AudioContextCtor = typeof AudioContext
 
@@ -228,7 +230,6 @@ function primeIosHtmlAudio() {
 function onUserGesture() {
   lastUserGestureAt = Date.now()
   primeIosHtmlAudio()
-  primeSpeechSynthesis()
   void unlockVoiceCallAudio()
   if (pendingAnnouncementStart) {
     flushPendingAnnouncement()
@@ -304,74 +305,99 @@ function estimateSpeechDurationMs(text: string): number {
   return Math.max(2200, words * 450)
 }
 
-/**
- * Unlock iOS speechSynthesis by speaking a muted empty utterance inside a user
- * gesture. Once this "trusted session" is created, later speak() calls from
- * timers (our ring loop) are honored on iOS — otherwise WebKit silently drops
- * any speak() not tied to a gesture. Safe/no-op on other browsers.
- */
-function primeSpeechSynthesis() {
-  if (speechPrimed) return
+function speakAnnouncementOnce(text: string, lang?: string) {
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
-  if (!synth) return
-  try {
-    const utterance = new SpeechSynthesisUtterance('')
-    utterance.volume = 0
-    synth.speak(utterance)
-    speechPrimed = true
-  } catch {
-    // ignore
+  if (!synth || !text.trim()) return
+
+  if (isIosDevice()) {
+    synth.getVoices()
   }
+
+  const utterance = new SpeechSynthesisUtterance(text.trim())
+  if (lang) utterance.lang = lang
+  synth.speak(utterance)
 }
 
 /**
- * Speak the announcement on a loop with an exact LOOP_PAUSE_MS gap of silence
- * between repeats (matching the PC cadence). The next repeat is scheduled from
- * onend/onerror (so the pause starts when speech actually finishes); a backup
- * timer advances the loop if those events never fire. iOS honors the timer-
- * driven speak() because the engine was primed on the first gesture.
+ * Repeat the phrase inside one utterance, with a ~LOOP_PAUSE_MS gap between
+ * repeats so the iPhone cadence matches the PC loop. iOS can't time speak()
+ * calls, so the pause is built from sentence-break ". " beats (each ~IOS_PAUSE_
+ * BEAT_MS of silence on Apple voices, never spoken aloud).
  */
-function runAnnouncementLoop(announcement: string, lang: string | undefined, generation: number) {
+function buildRepeatedAnnouncement(text: string, repeats: number): string {
+  const phrase = text.trim().replace(/\s+/g, ' ').replace(/[.\s]+$/, '')
+  const beats = Math.max(1, Math.round(LOOP_PAUSE_MS / IOS_PAUSE_BEAT_MS))
+  // e.g. "Calling John. . . ." → speak phrase, then ~beats of silent pause.
+  const separator = '.' + ' .'.repeat(beats) + ' '
+  return Array.from({ length: repeats }, () => phrase).join(separator) + '.'
+}
+
+/**
+ * iOS-specific ring loop. iOS blocks speechSynthesis.speak() when it is called
+ * from a timer (setTimeout/setInterval) — only calls tied to the speech session
+ * itself are honored. So we never schedule speak() from a timer: a single
+ * gesture-triggered utterance repeats the phrase many times, and onend/onerror
+ * re-speaks the next block synchronously (allowed on iOS) for longer calls. The
+ * pause/resume keep-alive guards against the iOS long-utterance cutoff.
+ */
+function runIosAnnouncementLoop(announcement: string, lang: string | undefined, generation: number) {
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
   if (!synth) return
 
-  if (isIosDevice()) startIosSpeechKeepAlive()
-  const phrase = announcement.trim()
-  if (!phrase) return
+  startIosSpeechKeepAlive()
 
-  const speakNext = () => {
+  // Size the single utterance to cover the ~60s ring window. Each repeat takes
+  // about the same as the PC loop's per-repeat delay (speech + pause), so the
+  // whole block runs ~VOICE_CALL_RING_TIMEOUT_MS; onend re-chains as a backup.
+  const perRepeatMs = estimateSpeechDurationMs(announcement) + LOOP_PAUSE_MS
+  const repeats = Math.max(1, Math.ceil(VOICE_CALL_RING_TIMEOUT_MS / perRepeatMs))
+  const block = buildRepeatedAnnouncement(announcement, repeats)
+
+  const speakBlock = () => {
     if (generation !== loopGeneration || !lastAnnouncement) return
     const myNonce = ++iosSpeakNonce
 
-    if (isIosDevice()) {
-      try {
-        synth.getVoices()
-      } catch {
-        // ignore
-      }
+    try {
+      synth.getVoices()
+    } catch {
+      // ignore
     }
 
-    const advance = () => {
-      if (myNonce !== iosSpeakNonce) return // already advanced (onend vs backup)
-      if (generation !== loopGeneration || !lastAnnouncement) return
-      iosSpeakNonce += 1 // invalidate the backup timer for this utterance
-      clearLoopScheduleTimer()
-      loopScheduleTimer = setTimeout(speakNext, LOOP_PAUSE_MS)
-    }
-
-    const utterance = new SpeechSynthesisUtterance(phrase)
+    const utterance = new SpeechSynthesisUtterance(block)
     if (lang) utterance.lang = lang
-    utterance.onend = advance
-    utterance.onerror = advance
-    synth.speak(utterance)
 
-    // Backup: if the utterance is silently dropped (no onend/onerror), keep the
-    // loop alive so a later gesture-primed speak() can start ringing.
-    clearLoopScheduleTimer()
-    loopScheduleTimer = setTimeout(advance, estimateSpeechDurationMs(phrase) + LOOP_PAUSE_MS + 1500)
+    const chainNext = () => {
+      // Ignore end/error of superseded utterances or a stopped/changed ring.
+      if (myNonce !== iosSpeakNonce) return
+      if (generation !== loopGeneration || !lastAnnouncement) return
+      // Re-speak synchronously inside the end handler (NOT via setTimeout, which
+      // iOS would block) so the announcement keeps repeating until accept/cancel.
+      speakBlock()
+    }
+
+    utterance.onend = chainNext
+    utterance.onerror = chainNext
+    synth.speak(utterance)
   }
 
-  speakNext()
+  speakBlock()
+}
+
+function runAnnouncementLoop(announcement: string, lang: string | undefined, generation: number) {
+  if (isIosDevice()) {
+    runIosAnnouncementLoop(announcement, lang, generation)
+    return
+  }
+
+  const scheduleNext = () => {
+    if (generation !== loopGeneration) return
+
+    speakAnnouncementOnce(announcement, lang)
+    const delay = estimateSpeechDurationMs(announcement) + LOOP_PAUSE_MS
+    loopScheduleTimer = setTimeout(scheduleNext, delay)
+  }
+
+  scheduleNext()
 }
 
 function isSameAnnouncementRunning(announcement: string, lang?: string) {
