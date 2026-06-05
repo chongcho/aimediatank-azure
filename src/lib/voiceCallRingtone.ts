@@ -12,10 +12,10 @@ const SILENT_WAV =
   'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
 
 const LOOP_PAUSE_MS = 2000
-// iOS blocks speechSynthesis.speak() from timers, so one gesture-triggered
-// utterance must ring for a while on its own. Repeat the phrase this many times
-// inside a single utterance; onend re-chains another block for longer calls.
-const IOS_BLOCK_REPEATS = 20
+// How long an unanswered call rings before it is dropped automatically. The iOS
+// single-utterance block is sized to cover this, and useVoiceCall ends/rejects
+// the call when it elapses.
+export const VOICE_CALL_RING_TIMEOUT_MS = 60000
 // iOS only honors speechSynthesis.speak() shortly after a real in-page gesture.
 const IOS_GESTURE_WINDOW_MS = 2500
 // Approx. silence Apple TTS adds per sentence-break ". " beat. Used to match the
@@ -268,7 +268,12 @@ function runIosAnnouncementLoop(announcement: string, lang: string | undefined, 
 
   startIosSpeechKeepAlive()
 
-  const block = buildRepeatedAnnouncement(announcement, IOS_BLOCK_REPEATS)
+  // Size the single utterance to cover the ~60s ring window. Each repeat takes
+  // about the same as the PC loop's per-repeat delay (speech + pause), so the
+  // whole block runs ~VOICE_CALL_RING_TIMEOUT_MS; onend re-chains as a backup.
+  const perRepeatMs = estimateSpeechDurationMs(announcement) + LOOP_PAUSE_MS
+  const repeats = Math.max(1, Math.ceil(VOICE_CALL_RING_TIMEOUT_MS / perRepeatMs))
+  const block = buildRepeatedAnnouncement(announcement, repeats)
 
   const speakBlock = () => {
     if (generation !== loopGeneration || !lastAnnouncement) return

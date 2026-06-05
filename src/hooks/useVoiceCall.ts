@@ -6,6 +6,7 @@ import {
   markOpenedFromCallNotification,
   retryVoiceCallAnnouncement,
   stopVoiceCallRingtone,
+  VOICE_CALL_RING_TIMEOUT_MS,
 } from '@/lib/voiceCallRingtone'
 import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 
@@ -509,6 +510,19 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       void lock?.release()
     }
   }, [callState])
+
+  // Auto-drop an unanswered call after the ring timeout (caller hangs up,
+  // callee rejects). The timer is cleared once the call connects or ends.
+  useEffect(() => {
+    if (callState !== 'outgoing' && callState !== 'incoming') return
+
+    const timer = window.setTimeout(() => {
+      if (callStateRef.current === 'outgoing') void endCall()
+      else if (callStateRef.current === 'incoming') void rejectCall()
+    }, VOICE_CALL_RING_TIMEOUT_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [callState, endCall, rejectCall])
 
   useEffect(() => {
     if (!enabled || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
