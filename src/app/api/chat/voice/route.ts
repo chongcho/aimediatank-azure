@@ -224,7 +224,7 @@ export async function POST(request: Request) {
         caller: call.caller,
         title: 'Incoming voice call',
         body: `${callerLabel} is calling on AiMediaTank`,
-        url: '/?openChat=1&voiceIncoming=1',
+        url: `/?openChat=1&voiceIncoming=1&callId=${encodeURIComponent(call.id)}`,
       }).catch((err) => console.error('Voice call push failed:', err))
 
       return NextResponse.json({

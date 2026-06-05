@@ -81,6 +81,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           # NEXT_PUBLIC_* must be set at build time (inlined into client bundle).
           NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY: ${{ secrets.KAKAO_JAVASCRIPT_KEY }}
+          NEXT_PUBLIC_BUILD_ID: ${{ github.sha }}
 
       - name: Copy standalone files
         run: |
@@ -89,7 +90,8 @@ jobs:
           cp -r .next/static ./deploy/.next/static
           cp -r public ./deploy/public || true
           cp scripts/azure-run.js ./deploy/run.js
-          echo "Staging build at $(date)" > ./deploy/BUILD_INFO.txt
+          echo "commit=${{ github.sha }}" > ./deploy/BUILD_INFO.txt
+          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> ./deploy/BUILD_INFO.txt
 
       - name: Copy ffmpeg/ffprobe static binaries for video processing on Azure
         run: |

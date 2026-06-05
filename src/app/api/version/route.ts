@@ -5,7 +5,11 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   return NextResponse.json(
-    { version: APP_VERSION, buildId: APP_BUILD_ID },
+    {
+      version: APP_BUILD_ID,
+      buildId: APP_BUILD_ID,
+      packageVersion: APP_VERSION,
+    },
     { headers: { 'Cache-Control': 'no-store' } }
   )
 }

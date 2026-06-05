@@ -1,16 +1,24 @@
+const { execSync } = require('child_process')
 const { version } = require('./package.json')
+
+/** Short git SHA — same identifier in local dev, staging, and production builds. */
+function resolveBuildId() {
+  const fromEnv =
+    process.env.NEXT_PUBLIC_BUILD_ID || process.env.BUILD_ID || process.env.GITHUB_SHA
+  if (fromEnv) return fromEnv.slice(0, 7)
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
+  } catch {
+    return 'dev'
+  }
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone', // Required for Azure App Service
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
-    NEXT_PUBLIC_BUILD_ID:
-      process.env.NODE_ENV === 'development'
-        ? 'dev'
-        : process.env.BUILD_ID ||
-          process.env.GITHUB_SHA?.slice(0, 7) ||
-          String(Date.now()),
+    NEXT_PUBLIC_BUILD_ID: resolveBuildId(),
   },
   experimental: {
     serverComponentsExternalPackages: ['ffmpeg-static', 'ffprobe-static', 'dejavu-fonts-ttf'],

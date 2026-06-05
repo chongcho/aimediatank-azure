@@ -89,7 +89,7 @@ export const TALK_CHAT_MAP = {
   voiceUserBusy: 'User is busy',
   voiceCallFailed: 'Voice call failed',
   voiceCallInAppHint:
-    'In-app voice (browser mic/speaker). Does not dial a phone number — the other person must be signed in on AiMediaTank to answer.',
+    'In-app voice (browser mic/speaker). When the phone sleeps, allow notifications and install the AiM app — incoming calls alert on the lock screen (Accept / Decline).',
 } as const
 
 export type TalkChatKey = keyof typeof TALK_CHAT_MAP
@@ -283,7 +283,7 @@ const KO: Pack = {
   voiceUserBusy: '상대방이 통화 중입니다',
   voiceCallFailed: '음성 통화에 실패했습니다',
   voiceCallInAppHint:
-    '앱 내 음성 통화(브라우저 마이크/스피커)입니다. 전화번호로 연결되지 않으며, 상대방이 AiMediaTank에 로그인해야 받을 수 있습니다.',
+    '앱 내 음성 통화입니다. 휴대폰이 잠자기 상태일 때는 AiM 앱 설치와 알림 허용이 필요하며, 잠금 화면에서 수락/거절할 수 있습니다.',
 }
 
 const JA: Pack = {
@@ -376,7 +376,7 @@ const JA: Pack = {
   voiceUserBusy: '相手は通話中です',
   voiceCallFailed: '音声通話に失敗しました',
   voiceCallInAppHint:
-    'アプリ内の音声通話（ブラウザのマイク/スピーカー）です。電話番号には発信しません。相手は AiMediaTank にサインインしている必要があります。',
+    'アプリ内の音声通話です。スリープ中は AiM アプリのインストールと通知許可が必要です。ロック画面で応答/拒否できます。',
 }
 
 const ZH: Pack = {
@@ -469,7 +469,7 @@ const ZH: Pack = {
   voiceUserBusy: '对方正在通话中',
   voiceCallFailed: '语音通话失败',
   voiceCallInAppHint:
-    '应用内语音通话（浏览器麦克风/扬声器），不会拨打手机号码。对方须登录 AiMediaTank 才能接听。',
+    '应用内语音通话。手机休眠时请安装 AiM 应用并允许通知，可在锁屏界面接听或拒绝。',
 }
 
 const MESSAGES: Record<string, Pack> = {

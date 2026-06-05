@@ -7,6 +7,7 @@ import {
   startOutgoingRingback,
   stopVoiceCallRingtone,
 } from '@/lib/voiceCallRingtone'
+import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 
 export interface VoiceCallUser {
   id: string
@@ -68,6 +69,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null)
   const callStateRef = useRef<VoiceCallState>('idle')
   callStateRef.current = callState
+  const pendingVoiceActionRef = useRef<'accept' | 'reject' | null>(null)
 
   const reportError = useCallback(
     (message: string) => {
@@ -375,16 +377,56 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     [callState, handleRemoteAnswer, handleRemoteIce, handleRemoteOffer, resetCall, storePendingOffer],
   )
 
+  const runPendingVoiceAction = useCallback(() => {
+    const action = pendingVoiceActionRef.current
+    if (!action || callStateRef.current !== 'incoming') return
+    pendingVoiceActionRef.current = null
+    if (action === 'accept') void answerCall()
+    else void rejectCall()
+  }, [answerCall, rejectCall])
+
   const applyIncomingCall = useCallback((callId: string, caller: VoiceCallUser) => {
-    if (callStateRef.current !== 'idle') return
-    if (handledIncomingRef.current.has(`call-${callId}`)) return
+    if (callStateRef.current !== 'idle' && callStateRef.current !== 'incoming') return
+    if (handledIncomingRef.current.has(`call-${callId}`)) {
+      runPendingVoiceAction()
+      return
+    }
     handledIncomingRef.current.add(`call-${callId}`)
     callIdRef.current = callId
     setCallId(callId)
     setRemoteUser(caller)
     isCallerRef.current = false
     setCallState('incoming')
-  }, [])
+  }, [runPendingVoiceAction])
+
+  useEffect(() => {
+    if (callState === 'incoming') {
+      runPendingVoiceAction()
+    }
+  }, [callState, runPendingVoiceAction])
+
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('voiceIncoming') !== '1') return
+
+    requestOpenTalkChat()
+
+    const action = params.get('voiceAction')
+    if (action === 'accept' || action === 'reject') {
+      pendingVoiceActionRef.current = action
+    }
+
+    const callId = params.get('callId')
+    if (callId) {
+      params.delete('voiceIncoming')
+      params.delete('voiceAction')
+      params.delete('callId')
+      const next = params.toString()
+      const nextUrl = next ? `${window.location.pathname}?${next}` : window.location.pathname
+      window.history.replaceState({}, '', nextUrl)
+    }
+  }, [enabled])
 
   useEffect(() => {
     if (callState === 'incoming') {
@@ -399,6 +441,25 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
   }, [callState])
 
+  // Keep screen on while ringing or in a call (after user opens the app)
+  useEffect(() => {
+    const active =
+      callState === 'incoming' ||
+      callState === 'outgoing' ||
+      callState === 'connecting' ||
+      callState === 'connected'
+    if (!active || typeof navigator === 'undefined' || !('wakeLock' in navigator)) return
+
+    let lock: WakeLockSentinel | null = null
+    void navigator.wakeLock.request('screen').then((l) => {
+      lock = l
+    }).catch(() => {})
+
+    return () => {
+      void lock?.release()
+    }
+  }, [callState])
+
   useEffect(() => {
     if (!enabled || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
 
@@ -408,13 +469,36 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         callId?: string
         caller?: VoiceCallUser
       } | null
-      if (data?.type !== 'VOICE_CALL_INCOMING' || !data.callId || !data.caller) return
-      applyIncomingCall(data.callId, data.caller)
+      if (!data?.callId) return
+
+      if (data.type === 'VOICE_CALL_ACCEPT') {
+        pendingVoiceActionRef.current = 'accept'
+        requestOpenTalkChat()
+        if (data.caller) applyIncomingCall(data.callId, data.caller)
+        return
+      }
+      if (data.type === 'VOICE_CALL_REJECT') {
+        pendingVoiceActionRef.current = 'reject'
+        if (data.caller) {
+          applyIncomingCall(data.callId, data.caller)
+        } else if (callStateRef.current === 'incoming') {
+          void rejectCall()
+        } else if (data.callId) {
+          callIdRef.current = data.callId
+          setCallId(data.callId)
+          void rejectCall()
+        }
+        return
+      }
+      if (data.type === 'VOICE_CALL_INCOMING' && data.caller) {
+        requestOpenTalkChat()
+        applyIncomingCall(data.callId, data.caller)
+      }
     }
 
     navigator.serviceWorker.addEventListener('message', onSwMessage)
     return () => navigator.serviceWorker.removeEventListener('message', onSwMessage)
-  }, [applyIncomingCall, enabled])
+  }, [applyIncomingCall, enabled, rejectCall])
 
   useEffect(() => {
     if (!enabled || !currentUserId) return

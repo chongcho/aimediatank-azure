@@ -1,5 +1,5 @@
 // Bump this when changing caching behavior to force refresh.
-const CACHE_NAME = 'aimediatank-v15';
+const CACHE_NAME = 'aimediatank-v16';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install
@@ -67,9 +67,6 @@ self.addEventListener('fetch', (event) => {
         }
       }
 
-      // Next.js assets are content-hashed, but cache-first kept *stale* chunks after deploys
-      // (CacheStorage survives SW unregister in many browsers). Network-first + update cache
-      // so new bundles load; offline still falls back to cached chunk.
       if (isNextAsset) {
         const cachedResponse = await caches.match(event.request);
         try {
@@ -85,7 +82,6 @@ self.addEventListener('fetch', (event) => {
         }
       }
 
-      // Default: network-first, cache fallback.
       try {
         const response = await fetch(event.request);
         if (response && response.status === 200) {
@@ -106,10 +102,44 @@ function notifyOpenClients(payload) {
     for (const client of clients) {
       client.postMessage(payload);
     }
+    return clients;
   });
 }
 
-// Web Push — voice calls use high urgency + ring-like vibration
+function voiceCallDeepLink(data, voiceAction) {
+  const params = new URLSearchParams({
+    openChat: '1',
+    voiceIncoming: '1',
+  });
+  if (data.callId) params.set('callId', data.callId);
+  if (voiceAction) params.set('voiceAction', voiceAction);
+  return '/?' + params.toString();
+}
+
+function focusOrOpenVoiceCall(data, voiceAction) {
+  const targetUrl = voiceCallDeepLink(data, voiceAction);
+  const messageType =
+    voiceAction === 'accept'
+      ? 'VOICE_CALL_ACCEPT'
+      : voiceAction === 'reject'
+        ? 'VOICE_CALL_REJECT'
+        : 'VOICE_CALL_INCOMING';
+
+  return notifyOpenClients({
+    type: messageType,
+    callId: data.callId,
+    caller: data.caller,
+  }).then((clients) => {
+    for (const client of clients) {
+      if ('focus' in client) {
+        return client.focus();
+      }
+    }
+    return self.clients.openWindow(targetUrl);
+  });
+}
+
+// Web Push — voice calls: lock-screen alert + ring-like vibration (OS-dependent)
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
@@ -124,7 +154,7 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: '/logo.png',
+    icon: data.caller?.avatar || '/logo.png',
     badge: '/logo.png',
     tag: isVoiceCall ? 'voice-call-' + (data.callId || 'incoming') : 'aimediatank-notification',
     renotify: true,
@@ -134,12 +164,19 @@ self.addEventListener('push', (event) => {
       : [100, 50, 100],
     silent: false,
     data: {
-      url: data.url || '/',
+      url: data.url || voiceCallDeepLink(data, ''),
       type: data.type || 'generic',
       callId: data.callId || null,
       caller: data.caller || null,
     },
   };
+
+  if (isVoiceCall) {
+    options.actions = [
+      { action: 'accept', title: data.acceptLabel || 'Accept' },
+      { action: 'reject', title: data.rejectLabel || 'Decline' },
+    ];
+  }
 
   event.waitUntil(
     Promise.all([
@@ -155,29 +192,31 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Handle notification click — focus app and surface incoming call
+// Notification tap or lock-screen action (Accept / Decline)
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
-  const targetUrl = data.url || '/?openChat=1';
+  const action = event.action || '';
 
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
-        if ('focus' in client) {
-          if (data.type === 'voice_call' && data.callId) {
-            client.postMessage({
-              type: 'VOICE_CALL_INCOMING',
-              callId: data.callId,
-              caller: data.caller,
-            });
-          }
-          return client.focus();
-        }
-      }
-      return self.clients.openWindow(targetUrl);
-    })
-  );
+  if (data.type !== 'voice_call') {
+    event.waitUntil(
+      self.clients.openWindow(data.url || '/')
+    );
+    return;
+  }
+
+  if (action === 'accept') {
+    event.waitUntil(focusOrOpenVoiceCall(data, 'accept'));
+    return;
+  }
+
+  if (action === 'reject') {
+    event.waitUntil(focusOrOpenVoiceCall(data, 'reject'));
+    return;
+  }
+
+  // Tap notification body — show incoming call UI
+  event.waitUntil(focusOrOpenVoiceCall(data, ''));
 });
 
 // Handle messages from client for badge updates

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
-import { APP_BUILD_ID, APP_VERSION } from '@/lib/appVersion'
+import { APP_BUILD_ID, APP_RELEASE_VERSION } from '@/lib/appVersion'
 
 const VERSION_POLL_MS = 5 * 60 * 1000
 
@@ -102,7 +102,7 @@ export function useAppUpdate() {
   }, [])
 
   return {
-    version: APP_VERSION,
+    version: APP_RELEASE_VERSION,
     buildId: APP_BUILD_ID,
     updateAvailable,
     isUpdating,
