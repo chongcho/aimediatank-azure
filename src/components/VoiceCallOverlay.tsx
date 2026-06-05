@@ -31,6 +31,11 @@ function displayName(user: VoiceCallUser | null) {
   return (user.name || user.username || '').trim()
 }
 
+function formatCallStatus(template: string, user: VoiceCallUser | null) {
+  const name = displayName(user) || '?'
+  return template.replace('{name}', name)
+}
+
 export function VoiceCallOverlay({
   callState,
   remoteUser,
@@ -47,9 +52,9 @@ export function VoiceCallOverlay({
 
   const statusLabel =
     callState === 'incoming'
-      ? labels.incomingCall
+      ? formatCallStatus(labels.incomingCall, remoteUser)
       : callState === 'outgoing'
-        ? labels.calling
+        ? formatCallStatus(labels.calling, remoteUser)
         : callState === 'connecting'
           ? labels.connecting
           : labels.connected
