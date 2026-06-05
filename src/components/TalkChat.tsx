@@ -1196,26 +1196,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
   }, [session?.user?.id])
 
-  const searchUsersForVoiceCall = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      setVoiceCallSearchedUsers([])
-      return
-    }
-    setSearchingVoiceCallUsers(true)
-    try {
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}&limit=50`)
-      if (res.ok) {
-        const data = await res.json()
-        const filtered = (data.users || []).filter((u: UserSuggestion) => u.id !== session?.user?.id)
-        setVoiceCallSearchedUsers(filtered)
-      }
-    } catch (error) {
-      console.error('Error searching voice call users:', error)
-    } finally {
-      setSearchingVoiceCallUsers(false)
-    }
-  }, [session?.user?.id])
-
   const toggleVoiceCallPicker = () => {
     if (!isSignedIn) {
       setInlineNotice(TALK_CHAT_MAP.noticeSignInMyKong)
@@ -1245,11 +1225,28 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       setVoiceCallSearchedUsers([])
       return
     }
+    let cancelled = false
     const timer = window.setTimeout(() => {
-      void searchUsersForVoiceCall(q)
+      void (async () => {
+        setSearchingVoiceCallUsers(true)
+        try {
+          const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}&limit=50`)
+          if (cancelled || !res.ok) return
+          const data = await res.json()
+          const filtered = (data.users || []).filter((u: UserSuggestion) => u.id !== session?.user?.id)
+          if (!cancelled) setVoiceCallSearchedUsers(filtered)
+        } catch (error) {
+          if (!cancelled) console.error('Error searching voice call users:', error)
+        } finally {
+          if (!cancelled) setSearchingVoiceCallUsers(false)
+        }
+      })()
     }, 300)
-    return () => window.clearTimeout(timer)
-  }, [showVoiceCallPicker, voiceCallSearchQuery, searchUsersForVoiceCall])
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [showVoiceCallPicker, voiceCallSearchQuery, session?.user?.id])
 
   // Toggle new chat picker (renamed from chat records)
   const toggleNewChat = () => {
@@ -3015,6 +3012,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 onChange={(e) => {
                   setVoiceCallSearchQuery(e.target.value)
                   setVoiceCallPickTarget(null)
+                  setVoiceCallSearchedUsers([])
                 }}
                 placeholder={tr[TC.voiceCallPickSomeone]}
                 style={{
