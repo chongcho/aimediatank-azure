@@ -45,8 +45,8 @@ const nextConfig = {
       },
       {
         key: 'Permissions-Policy',
-        // camera=(self) allows getUserMedia on this origin (avatar “Take photo”). camera=() blocks all camera APIs.
-        value: 'camera=(self), microphone=(), geolocation=()',
+        // camera/microphone=(self) allow getUserMedia on this origin (avatar photo, TalkChat voice calls).
+        value: 'camera=(self), microphone=(self), geolocation=()',
       },
       {
         key: 'Cache-Control',
