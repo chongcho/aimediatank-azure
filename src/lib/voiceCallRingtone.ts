@@ -2,9 +2,14 @@
  * Spoken voice announcements for TalkChat voice calls while ringing (no beep tones).
  * Incoming: "Call from {name}". Outgoing: "Calling {name}".
  *
- * iOS Safari/PWA blocks speech until an in-page gesture — notification taps do not
- * count. Use installVoiceCallAudioUnlock() at startup; opening from a push notification
- * primes audio on pageshow and retries after the first touch.
+ * Preferred path: server-side TTS (/api/chat/voice/tts) decoded into an
+ * AudioBuffer and looped through the unlocked AudioContext. iOS allows that
+ * without a fresh gesture (once the context is unlocked), so incoming calls can
+ * ring before the user touches the screen.
+ *
+ * Fallback path: on-device speechSynthesis. iOS Safari/PWA blocks speech until
+ * an in-page gesture — notification taps do not count — so the fallback can only
+ * speak after the first touch. Use installVoiceCallAudioUnlock() at startup.
  */
 
 /** Tiny silent WAV — primes iOS HTML audio output on first user tap. */
@@ -33,6 +38,9 @@ let lastAnnouncement: string | null = null
 let lastLang: string | undefined
 let pendingAnnouncementStart: (() => void) | null = null
 let openedFromCallNotification = false
+let ttsActiveSource: AudioBufferSourceNode | null = null
+let ttsUnavailable = false
+const ttsBufferCache = new Map<string, AudioBuffer>()
 
 type AudioContextCtor = typeof AudioContext
 
@@ -92,14 +100,84 @@ function startIosSpeechKeepAlive() {
   }, 4000)
 }
 
+function stopTtsPlayback() {
+  if (!ttsActiveSource) return
+  try {
+    ttsActiveSource.onended = null
+    ttsActiveSource.stop()
+  } catch {
+    // already stopped
+  }
+  try {
+    ttsActiveSource.disconnect()
+  } catch {
+    // ignore
+  }
+  ttsActiveSource = null
+}
+
 function stopSpeech() {
   loopGeneration += 1
   iosSpeakNonce += 1
   clearLoopScheduleTimer()
   stopIosSpeechKeepAlive()
+  stopTtsPlayback()
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel()
   }
+}
+
+/** Fetch + decode server TTS audio for an announcement; null when unavailable. */
+async function getTtsBuffer(text: string, lang?: string): Promise<AudioBuffer | null> {
+  if (ttsUnavailable || typeof fetch === 'undefined') return null
+  const ctx = getAudioContext()
+  if (!ctx) return null
+
+  const key = `${lang || ''}::${text}`
+  const cached = ttsBufferCache.get(key)
+  if (cached) return cached
+
+  try {
+    const params = new URLSearchParams({ text })
+    if (lang) params.set('lang', lang)
+    const res = await fetch(`/api/chat/voice/tts?${params.toString()}`, { cache: 'force-cache' })
+    if (res.status === 503) {
+      // Not configured server-side — stop trying for this session.
+      ttsUnavailable = true
+      return null
+    }
+    if (!res.ok) return null
+    const arrayBuffer = await res.arrayBuffer()
+    const buffer = await ctx.decodeAudioData(arrayBuffer.slice(0))
+    ttsBufferCache.set(key, buffer)
+    return buffer
+  } catch {
+    return null
+  }
+}
+
+/** Loop a decoded TTS buffer with ~LOOP_PAUSE_MS gaps via the AudioContext. */
+function playTtsLoop(buffer: AudioBuffer, generation: number) {
+  const ctx = getAudioContext()
+  if (!ctx) return
+  void ctx.resume?.().catch(() => {})
+
+  const playOnce = () => {
+    if (generation !== loopGeneration || !lastAnnouncement) return
+    try {
+      const source = ctx.createBufferSource()
+      source.buffer = buffer
+      source.connect(ctx.destination)
+      source.start()
+      ttsActiveSource = source
+    } catch {
+      // ignore transient playback errors; the timer below retries
+    }
+    const delay = buffer.duration * 1000 + LOOP_PAUSE_MS
+    loopScheduleTimer = setTimeout(playOnce, delay)
+  }
+
+  playOnce()
 }
 
 function flushPendingAnnouncement() {
@@ -338,16 +416,39 @@ async function startVoiceAnnouncement(announcement: string, lang?: string) {
   stopVoiceCallRingtone()
   lastAnnouncement = announcement
   lastLang = lang
+  const generation = loopGeneration
 
-  const start = () => {
-    const generation = loopGeneration
-    runAnnouncementLoop(announcement, lang, generation)
+  if (typeof window !== 'undefined') primeIosHtmlAudio()
+
+  // Preferred: server TTS looped through the AudioContext (works on iOS without
+  // a fresh gesture once the context is unlocked, so incoming rings before any
+  // touch). The fetch is cached after the first call for a given name.
+  const buffer = await getTtsBuffer(announcement, lang)
+  if (generation !== loopGeneration) return // superseded while fetching
+
+  if (buffer) {
+    pendingAnnouncementStart = () => playTtsLoop(buffer, loopGeneration)
+
+    const ctx = getAudioContext()
+    if (ctx && !isAudioContextRunning(ctx)) {
+      try {
+        await ctx.resume()
+      } catch {
+        // needs a gesture — onUserGesture will resume + flush
+      }
+      if (generation !== loopGeneration) return
+    }
+    if (ctx && isAudioContextRunning(ctx)) {
+      flushPendingAnnouncement()
+      clearOpenedFromCallNotification()
+    }
+    return
   }
 
-  pendingAnnouncementStart = start
+  // Fallback: on-device speechSynthesis (gesture-gated on iOS).
+  pendingAnnouncementStart = () => runAnnouncementLoop(announcement, lang, loopGeneration)
 
   if (isIosDevice()) {
-    primeIosHtmlAudio()
     void unlockVoiceCallAudio()
     // iOS needs a *recent* in-page gesture to speak. Outgoing calls start right
     // after the user taps "Call", so a gesture is fresh and we speak now.
