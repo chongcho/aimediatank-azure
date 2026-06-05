@@ -40,6 +40,9 @@ publish-profile.xml
 docs/session-*.md
 docs/session-log-*.md
 
-# Native app builds (unused)
+# Native app builds
 /android/
-/ios/
+/ios/App/Pods/
+ios/App/App/public/
+ios/DerivedData/
+*.xcuserdata

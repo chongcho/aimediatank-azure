@@ -9,6 +9,11 @@ import {
   VOICE_CALL_RING_TIMEOUT_MS,
 } from '@/lib/voiceCallRingtone'
 import { requestOpenTalkChat } from '@/lib/talkChatOpen'
+import {
+  endNativeCall,
+  initNativeCallBridge,
+  type NativeIncomingCallPayload,
+} from '@/lib/nativeCallBridge'
 
 export interface VoiceCallUser {
   id: string
@@ -175,7 +180,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [])
 
   const endCall = useCallback(async () => {
+    const id = callIdRef.current
     await endCallOnServer()
+    await endNativeCall(id)
     resetCall()
   }, [endCallOnServer, resetCall])
 
@@ -300,6 +307,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     } catch {
       // best effort
     }
+    await endNativeCall(id)
     resetCall()
   }, [resetCall])
 
@@ -465,6 +473,85 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       runPendingVoiceAction()
     }
   }, [callState, runPendingVoiceAction])
+
+  const applyIncomingCallRef = useRef(applyIncomingCall)
+  applyIncomingCallRef.current = applyIncomingCall
+  const answerCallRef = useRef(answerCall)
+  answerCallRef.current = answerCall
+  const rejectCallRef = useRef(rejectCall)
+  rejectCallRef.current = rejectCall
+  const endCallRef = useRef(endCall)
+  endCallRef.current = endCall
+
+  useEffect(() => {
+    if (!enabled || !currentUserId) return
+
+    const callerFromNative = (call: NativeIncomingCallPayload): VoiceCallUser | null => {
+      const meta = call.metadata
+      if (!meta?.callerId) return null
+      return {
+        id: meta.callerId,
+        username: meta.callerUsername || meta.callerId,
+        name: meta.callerName ?? null,
+        avatar: meta.callerAvatar ?? null,
+      }
+    }
+
+    const ensureIncomingCall = async (callId: string, call?: NativeIncomingCallPayload) => {
+      if (callIdRef.current === callId && callStateRef.current === 'incoming') return
+
+      const fromMeta = call ? callerFromNative(call) : null
+      if (fromMeta) {
+        applyIncomingCallRef.current(callId, fromMeta)
+        return
+      }
+
+      try {
+        const res = await fetch(
+          `/api/chat/voice?since=${encodeURIComponent(new Date(0).toISOString())}`,
+          { cache: 'no-store' },
+        )
+        if (!res.ok) return
+        const data = await res.json()
+        const incoming = (data.incomingCalls as PollIncomingCall[] | undefined)?.find(
+          (row) => row.id === callId,
+        )
+        if (incoming) {
+          applyIncomingCallRef.current(callId, incoming.caller)
+          return
+        }
+      } catch {
+        // poll fallback below on answer
+      }
+
+      callIdRef.current = callId
+      setCallId(callId)
+      isCallerRef.current = false
+      setCallState('incoming')
+    }
+
+    void initNativeCallBridge({
+      onIncomingCall: (call) => {
+        stopVoiceCallRingtone()
+        void ensureIncomingCall(call.callId, call)
+      },
+      onCallAnswered: (callId) => {
+        stopVoiceCallRingtone()
+        void (async () => {
+          await ensureIncomingCall(callId)
+          await answerCallRef.current()
+        })()
+      },
+      onCallRejected: (callId) => {
+        if (callIdRef.current && callIdRef.current !== callId) return
+        void rejectCallRef.current()
+      },
+      onCallEnded: (callId) => {
+        if (callIdRef.current && callIdRef.current !== callId) return
+        void endCallRef.current()
+      },
+    })
+  }, [currentUserId, enabled])
 
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendVoiceCallPushToUser } from '@/lib/webPush'
+import { sendVoipCallPushToUser } from '@/lib/voipPush'
 
 export const dynamic = 'force-dynamic'
 
@@ -226,6 +227,13 @@ export async function POST(request: Request) {
         body: `${callerLabel} is calling on AiMediaTank`,
         url: `/?openChat=1&voiceIncoming=1&callId=${encodeURIComponent(call.id)}`,
       }).catch((err) => console.error('Voice call push failed:', err))
+
+      void sendVoipCallPushToUser(calleeId, {
+        callId: call.id,
+        caller: call.caller,
+        displayName: callerLabel,
+        handle: call.caller.username || call.caller.id,
+      }).catch((err) => console.error('VoIP push failed:', err))
 
       return NextResponse.json({
         call: {

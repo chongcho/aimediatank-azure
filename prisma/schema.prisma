@@ -88,6 +88,7 @@ model User {
   voiceCallsAsCaller VoiceCall[] @relation("VoiceCallsAsCaller")
   voiceCallsAsCallee VoiceCall[] @relation("VoiceCallsAsCallee")
   pushSubscriptions    PushSubscription[]
+  voipPushTokens       VoipPushToken[]
 }
 
 model Media {
@@ -473,6 +474,21 @@ model PushSubscription {
   endpoint  String   @unique
   p256dh    String
   auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// PushKit VoIP tokens for native iOS app (CallKit lock-screen incoming calls)
+model VoipPushToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  platform  String   @default("ios")
   userAgent String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
