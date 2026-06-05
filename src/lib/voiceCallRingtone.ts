@@ -12,15 +12,21 @@ const SILENT_WAV =
   'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
 
 const LOOP_PAUSE_MS = 2000
-const IOS_SPEECH_RETRY_MS = 2000
-const IOS_SPEECH_RETRY_MAX = 30
+const IOS_WATCHDOG_MS = 2500
+// Consecutive idle watchdog ticks before forcing a re-speak (avoids firing
+// during the normal LOOP_PAUSE_MS gap between utterances).
+const IOS_WATCHDOG_IDLE_TICKS = 2
+// iOS only honors speechSynthesis.speak() shortly after a real in-page gesture.
+const IOS_GESTURE_WINDOW_MS = 2500
 
 let audioContext: AudioContext | null = null
 let unlockListenersInstalled = false
 let loopGeneration = 0
 let loopScheduleTimer: ReturnType<typeof setTimeout> | null = null
 let iosKeepAliveTimer: ReturnType<typeof setInterval> | null = null
-let iosSpeechRetryTimer: ReturnType<typeof setInterval> | null = null
+let iosWatchdogTimer: ReturnType<typeof setInterval> | null = null
+let iosSpeakNonce = 0
+let lastUserGestureAt = 0
 let lastAnnouncement: string | null = null
 let lastLang: string | undefined
 let pendingAnnouncementStart: (() => void) | null = null
@@ -70,11 +76,15 @@ function stopIosSpeechKeepAlive() {
   }
 }
 
-function stopIosSpeechRetry() {
-  if (iosSpeechRetryTimer !== null) {
-    clearInterval(iosSpeechRetryTimer)
-    iosSpeechRetryTimer = null
+function stopIosWatchdog() {
+  if (iosWatchdogTimer !== null) {
+    clearInterval(iosWatchdogTimer)
+    iosWatchdogTimer = null
   }
+}
+
+function hasRecentUserGesture(): boolean {
+  return Date.now() - lastUserGestureAt < IOS_GESTURE_WINDOW_MS
 }
 
 function startIosSpeechKeepAlive() {
@@ -89,9 +99,10 @@ function startIosSpeechKeepAlive() {
 
 function stopSpeech() {
   loopGeneration += 1
+  iosSpeakNonce += 1
   clearLoopScheduleTimer()
   stopIosSpeechKeepAlive()
-  stopIosSpeechRetry()
+  stopIosWatchdog()
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel()
   }
@@ -102,6 +113,18 @@ function flushPendingAnnouncement() {
   const start = pendingAnnouncementStart
   pendingAnnouncementStart = null
   start()
+}
+
+/**
+ * Flush a pending announcement, but on iOS only when a real user gesture
+ * happened recently. iOS blocks speechSynthesis without a fresh gesture even
+ * when the AudioContext is already running, so flushing otherwise would
+ * "speak" into the void and consume the pending start.
+ */
+function maybeFlushPendingAnnouncement() {
+  if (!pendingAnnouncementStart) return
+  if (isIosDevice() && !hasRecentUserGesture()) return
+  flushPendingAnnouncement()
 }
 
 /** Resume Web Audio after a user gesture (required on iOS for call audio). */
@@ -118,7 +141,9 @@ export async function unlockVoiceCallAudio(): Promise<boolean> {
   }
 
   if (!isAudioContextRunning(ctx)) return false
-  flushPendingAnnouncement()
+  // AudioContext running does not mean iOS will speak — that needs a fresh
+  // gesture, so only flush when one happened recently (real gesture / outgoing).
+  maybeFlushPendingAnnouncement()
   return true
 }
 
@@ -131,6 +156,7 @@ function primeIosHtmlAudio() {
 }
 
 function onUserGesture() {
+  lastUserGestureAt = Date.now()
   primeIosHtmlAudio()
   void unlockVoiceCallAudio()
   if (pendingAnnouncementStart) {
@@ -141,6 +167,7 @@ function onUserGesture() {
     lastAnnouncement &&
     isIosDevice() &&
     loopScheduleTimer === null &&
+    iosWatchdogTimer === null &&
     pendingAnnouncementStart === null
   ) {
     retryVoiceCallAnnouncement()
@@ -184,8 +211,10 @@ export function primeVoiceCallAfterNotificationOpen() {
   if (!wasOpenedFromCallNotification() && !lastAnnouncement) return
   primeIosHtmlAudio()
   void unlockVoiceCallAudio()
-  flushPendingAnnouncement()
-  if (lastAnnouncement) {
+  // On iOS this only speaks if a real gesture happened recently; otherwise it
+  // stays pending until the user's first touch (see maybeFlushPendingAnnouncement).
+  maybeFlushPendingAnnouncement()
+  if (lastAnnouncement && (!isIosDevice() || hasRecentUserGesture())) {
     void startVoiceAnnouncement(lastAnnouncement, lastLang)
     clearOpenedFromCallNotification()
   }
@@ -217,40 +246,83 @@ function speakAnnouncementOnce(text: string, lang?: string) {
   synth.speak(utterance)
 }
 
-function startIosSpeechRetry(announcement: string, lang: string | undefined, generation: number) {
-  stopIosSpeechRetry()
-  if (!isIosDevice()) return
+/**
+ * iOS-specific ring loop. iOS frequently leaves `speechSynthesis.speaking`
+ * stuck `true` after the first utterance, which silently swallows every later
+ * `speak()`. So we drive the loop one utterance at a time via `onend`/`onerror`
+ * chaining (which iOS honors as a continuation) and add a watchdog that clears
+ * the stuck state and re-speaks if the chain ever stalls.
+ */
+function runIosAnnouncementLoop(announcement: string, lang: string | undefined, generation: number) {
+  const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
+  if (!synth) return
 
-  let attempts = 0
-  iosSpeechRetryTimer = setInterval(() => {
+  startIosSpeechKeepAlive()
+
+  const speakBlock = () => {
+    if (generation !== loopGeneration || !lastAnnouncement) return
+    const myNonce = ++iosSpeakNonce
+
+    try {
+      synth.getVoices()
+    } catch {
+      // ignore
+    }
+
+    const utterance = new SpeechSynthesisUtterance(announcement.trim())
+    if (lang) utterance.lang = lang
+
+    const chainNext = () => {
+      // Ignore end/error events for utterances we have already superseded
+      // (e.g. via cancel() in the watchdog) or for a stopped/changed ring.
+      if (myNonce !== iosSpeakNonce) return
+      if (generation !== loopGeneration || !lastAnnouncement) return
+      clearLoopScheduleTimer()
+      loopScheduleTimer = setTimeout(speakBlock, LOOP_PAUSE_MS)
+    }
+
+    utterance.onend = chainNext
+    utterance.onerror = chainNext
+    synth.speak(utterance)
+  }
+
+  // Watchdog: recover if the onend chain stalls (no event fired, not speaking).
+  let idleTicks = 0
+  stopIosWatchdog()
+  iosWatchdogTimer = setInterval(() => {
     if (generation !== loopGeneration || !lastAnnouncement) {
-      stopIosSpeechRetry()
+      stopIosWatchdog()
       return
     }
-    if (attempts++ >= IOS_SPEECH_RETRY_MAX) {
-      stopIosSpeechRetry()
+    if (synth.speaking || synth.pending) {
+      idleTicks = 0
       return
     }
+    // A short idle gap is the normal LOOP_PAUSE_MS pause; only recover after
+    // sustained silence so we don't double-speak.
+    if (loopScheduleTimer !== null && ++idleTicks < IOS_WATCHDOG_IDLE_TICKS) return
+    idleTicks = 0
+    iosSpeakNonce += 1
+    clearLoopScheduleTimer()
+    try {
+      synth.cancel()
+    } catch {
+      // ignore
+    }
+    speakBlock()
+  }, IOS_WATCHDOG_MS)
 
-    const synth = window.speechSynthesis
-    if (synth?.speaking || synth?.pending) return
-
-    speakAnnouncementOnce(announcement, lang)
-  }, IOS_SPEECH_RETRY_MS)
+  speakBlock()
 }
 
 function runAnnouncementLoop(announcement: string, lang: string | undefined, generation: number) {
-  startIosSpeechKeepAlive()
   if (isIosDevice()) {
-    startIosSpeechRetry(announcement, lang, generation)
+    runIosAnnouncementLoop(announcement, lang, generation)
+    return
   }
 
   const scheduleNext = () => {
-    if (generation !== loopGeneration) {
-      stopIosSpeechKeepAlive()
-      stopIosSpeechRetry()
-      return
-    }
+    if (generation !== loopGeneration) return
 
     speakAnnouncementOnce(announcement, lang)
     const delay = estimateSpeechDurationMs(announcement) + LOOP_PAUSE_MS
@@ -264,7 +336,10 @@ function isSameAnnouncementRunning(announcement: string, lang?: string) {
   return (
     announcement === lastAnnouncement &&
     lang === lastLang &&
-    (loopScheduleTimer !== null || iosKeepAliveTimer !== null || pendingAnnouncementStart !== null)
+    (loopScheduleTimer !== null ||
+      iosKeepAliveTimer !== null ||
+      iosWatchdogTimer !== null ||
+      pendingAnnouncementStart !== null)
   )
 }
 
@@ -284,13 +359,15 @@ async function startVoiceAnnouncement(announcement: string, lang?: string) {
 
   if (isIosDevice()) {
     primeIosHtmlAudio()
-    const unlocked = await unlockVoiceCallAudio()
-    if (unlocked) {
+    void unlockVoiceCallAudio()
+    // iOS needs a *recent* in-page gesture to speak. Outgoing calls start right
+    // after the user taps "Call", so a gesture is fresh and we speak now.
+    // Incoming calls arrive with no gesture (poll / push), so we keep the
+    // announcement pending until the user's first touch (see onUserGesture).
+    if (hasRecentUserGesture()) {
       flushPendingAnnouncement()
       clearOpenedFromCallNotification()
-      return
     }
-    // Wait for first in-page touch (notification tap does not unlock iOS speech).
     return
   }
 
@@ -315,6 +392,14 @@ export function startOutgoingRingback(announcement: string, lang?: string) {
 /** Retry the last announcement (e.g. after mic opens on iOS or tab becomes visible). */
 export function retryVoiceCallAnnouncement() {
   if (!lastAnnouncement) return
+
+  // On iOS, never tear down a healthy running loop when there's no fresh gesture:
+  // the loop self-heals via its watchdog, and restarting would set it back to
+  // "pending" and silence it until the next touch.
+  const loopRunning =
+    iosKeepAliveTimer !== null || iosWatchdogTimer !== null || loopScheduleTimer !== null
+  if (isIosDevice() && loopRunning && !hasRecentUserGesture()) return
+
   const announcement = lastAnnouncement
   const lang = lastLang
   stopVoiceCallRingtone()
