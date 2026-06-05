@@ -85,6 +85,8 @@ model User {
   conversationMemberships ConversationMember[]
   creditHistory CreditHistory[]
   celebrationCardsSent CelebrationCard[] @relation("CelebrationCardSender")
+  voiceCallsAsCaller VoiceCall[] @relation("VoiceCallsAsCaller")
+  voiceCallsAsCallee VoiceCall[] @relation("VoiceCallsAsCallee")
 }
 
 model Media {
@@ -441,6 +443,43 @@ model ChatMessage {
   @@index([recipientId])
   @@index([conversationId])
   @@index([contentInspectionStatus])
+}
+
+// WebRTC voice calls between TalkChat users (1-on-1)
+model VoiceCall {
+  id             String    @id @default(uuid())
+  callerId       String
+  calleeId       String
+  conversationId String?
+  status         String    @default("ringing") // ringing | active | ended | rejected | missed
+  createdAt      DateTime  @default(now())
+  endedAt        DateTime?
+
+  caller   User              @relation("VoiceCallsAsCaller", fields: [callerId], references: [id], onDelete: Cascade)
+  callee   User              @relation("VoiceCallsAsCallee", fields: [calleeId], references: [id], onDelete: Cascade)
+  signals  VoiceCallSignal[]
+
+  @@index([callerId])
+  @@index([calleeId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model VoiceCallSignal {
+  id         String    @id @default(uuid())
+  callId     String
+  fromUserId String
+  toUserId   String
+  type       String    // offer | answer | ice | hangup | reject
+  payload    String    // JSON
+  createdAt  DateTime  @default(now())
+  consumedAt DateTime?
+
+  call VoiceCall @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId])
+  @@index([toUserId, consumedAt])
+  @@index([createdAt])
 }
 
 // Email verification codes (persisted for serverless environments)

@@ -73,6 +73,18 @@ export const TALK_CHAT_MAP = {
   alertFailedDelete: 'Failed to delete message',
   deleteMessageConfirm: 'Delete this message?',
   uploadLinkWord: 'Upload',
+  voiceCall: 'Voice call',
+  voiceCallOneOnOneOnly: 'Voice calls are available in 1-on-1 My Chat',
+  voiceIncomingCall: 'Incoming voice call…',
+  voiceCalling: 'Calling…',
+  voiceConnecting: 'Connecting…',
+  voiceConnected: 'Connected',
+  voiceEndCall: 'End call',
+  voiceMute: 'Mute',
+  voiceUnmute: 'Unmute',
+  voiceMicRequired: 'Microphone access is required for voice calls',
+  voiceUserBusy: 'User is busy',
+  voiceCallFailed: 'Voice call failed',
 } as const
 
 export type TalkChatKey = keyof typeof TALK_CHAT_MAP
@@ -151,6 +163,18 @@ const ORDER: readonly TalkChatKey[] = [
   'alertFailedDelete',
   'deleteMessageConfirm',
   'uploadLinkWord',
+  'voiceCall',
+  'voiceCallOneOnOneOnly',
+  'voiceIncomingCall',
+  'voiceCalling',
+  'voiceConnecting',
+  'voiceConnected',
+  'voiceEndCall',
+  'voiceMute',
+  'voiceUnmute',
+  'voiceMicRequired',
+  'voiceUserBusy',
+  'voiceCallFailed',
 ]
 
 type Pack = Record<TalkChatKey, string>
@@ -234,6 +258,18 @@ const KO: Pack = {
   alertFailedDelete: '메시지 삭제에 실패했습니다',
   deleteMessageConfirm: '이 메시지를 삭제할까요?',
   uploadLinkWord: '업로드',
+  voiceCall: '음성 통화',
+  voiceCallOneOnOneOnly: '음성 통화는 1:1 마이 채팅에서만 가능합니다',
+  voiceIncomingCall: '수신 음성 통화…',
+  voiceCalling: '전화 거는 중…',
+  voiceConnecting: '연결 중…',
+  voiceConnected: '연결됨',
+  voiceEndCall: '통화 종료',
+  voiceMute: '음소거',
+  voiceUnmute: '음소거 해제',
+  voiceMicRequired: '음성 통화에는 마이크 권한이 필요합니다',
+  voiceUserBusy: '상대방이 통화 중입니다',
+  voiceCallFailed: '음성 통화에 실패했습니다',
 }
 
 const JA: Pack = {
@@ -310,6 +346,18 @@ const JA: Pack = {
   alertFailedDelete: 'メッセージの削除に失敗しました',
   deleteMessageConfirm: 'このメッセージを削除しますか？',
   uploadLinkWord: 'アップロード',
+  voiceCall: '音声通話',
+  voiceCallOneOnOneOnly: '音声通話は1対1のマイ・チャットでのみ利用できます',
+  voiceIncomingCall: '着信音声通話…',
+  voiceCalling: '発信中…',
+  voiceConnecting: '接続中…',
+  voiceConnected: '接続済み',
+  voiceEndCall: '通話終了',
+  voiceMute: 'ミュート',
+  voiceUnmute: 'ミュート解除',
+  voiceMicRequired: '音声通話にはマイクの許可が必要です',
+  voiceUserBusy: '相手は通話中です',
+  voiceCallFailed: '音声通話に失敗しました',
 }
 
 const ZH: Pack = {
@@ -386,6 +434,18 @@ const ZH: Pack = {
   alertFailedDelete: '删除消息失败',
   deleteMessageConfirm: '删除这条消息？',
   uploadLinkWord: '上传',
+  voiceCall: '语音通话',
+  voiceCallOneOnOneOnly: '语音通话仅在一对一我的聊天中可用',
+  voiceIncomingCall: '来电语音通话…',
+  voiceCalling: '正在呼叫…',
+  voiceConnecting: '正在连接…',
+  voiceConnected: '已连接',
+  voiceEndCall: '结束通话',
+  voiceMute: '静音',
+  voiceUnmute: '取消静音',
+  voiceMicRequired: '语音通话需要麦克风权限',
+  voiceUserBusy: '对方正在通话中',
+  voiceCallFailed: '语音通话失败',
 }
 
 const MESSAGES: Record<string, Pack> = {

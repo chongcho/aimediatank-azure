@@ -14,6 +14,7 @@ import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { TALK_CHAT_MAP, talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
+import { useVoiceCallContext } from '@/contexts/VoiceCallContext'
 
 const TC = talkChatIdx
 
@@ -481,6 +482,26 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const tr = useMemo(() => talkChatTr(localeTag), [localeTag])
   const trRef = useRef(tr)
   trRef.current = tr
+
+  const voiceCall = useVoiceCallContext()
+
+  const callPeer = useMemo((): UserSuggestion | null => {
+    if (!session?.user?.id || chatMode !== 'private') return null
+    if (activeConversation?.isGroup) return null
+    if (activeConversation && activeConversation.members.length === 2) {
+      return activeConversation.members.find((m) => m.id !== session.user!.id) || null
+    }
+    if (selectedRecipients.length === 1) {
+      return selectedRecipients[0]
+    }
+    return null
+  }, [session?.user?.id, chatMode, activeConversation, selectedRecipients])
+
+  const handleStartVoiceCall = () => {
+    if (!callPeer || !voiceCall) return
+    if (voiceCall.callState !== 'idle') return
+    void voiceCall.startCall(callPeer, activeConversation?.id ?? null)
+  }
 
   const composerPlaceholderEn = useMemo(() => {
     if (!isSignedIn) return TALK_CHAT_MAP.placeholderSignIn
@@ -2603,8 +2624,34 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 fontSize: '13px',
                 fontWeight: '700',
                 color: '#333',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
               }}>
                 {memberLineTr}
+                {callPeer && voiceCall && (
+                  <button
+                    type="button"
+                    onClick={handleStartVoiceCall}
+                    disabled={voiceCall.callState !== 'idle'}
+                    title={tr[TC.voiceCall]}
+                    style={{
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      border: 'none',
+                      background: voiceCall.callState === 'idle' ? '#059669' : '#9ca3af',
+                      color: 'white',
+                      cursor: voiceCall.callState === 'idle' ? 'pointer' : 'not-allowed',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                    </svg>
+                  </button>
+                )}
             </div>
             )}
           </div>
