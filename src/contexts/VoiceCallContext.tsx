@@ -62,7 +62,6 @@ export function VoiceCallOverlayPanel({
       callState={ctx.callState}
       remoteUser={ctx.remoteUser}
       isMuted={ctx.isMuted}
-      remoteAudioRef={ctx.remoteAudioRef}
       labels={labels}
       inAppHint={labels.inAppHint}
       onAccept={() => void ctx.answerCall()}
@@ -114,6 +113,18 @@ export function VoiceCallProvider({
       }}
     >
       {children}
+      {session?.user && (
+        <audio
+          ref={(el) => {
+            voiceCall.remoteAudioRef.current = el
+            if (el) voiceCall.reattachRemoteAudio()
+          }}
+          autoPlay
+          playsInline
+          aria-hidden
+          style={{ display: 'none' }}
+        />
+      )}
       {session?.user && showFloatingOverlay && <VoiceCallOverlayPanel placement="floating" />}
     </VoiceCallContext.Provider>
   )

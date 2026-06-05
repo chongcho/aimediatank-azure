@@ -1,13 +1,11 @@
 'use client'
 
-import type { MutableRefObject } from 'react'
 import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
 
 interface VoiceCallOverlayProps {
   callState: VoiceCallState
   remoteUser: VoiceCallUser | null
   isMuted: boolean
-  remoteAudioRef: MutableRefObject<HTMLAudioElement | null>
   labels: {
     incomingCall: string
     calling: string
@@ -37,7 +35,6 @@ export function VoiceCallOverlay({
   callState,
   remoteUser,
   isMuted,
-  remoteAudioRef,
   labels,
   onAccept,
   onReject,
@@ -90,8 +87,6 @@ export function VoiceCallOverlay({
         borderTop: embedded ? '2px solid #312e81' : undefined,
       }}
     >
-      <audio ref={(el) => { remoteAudioRef.current = el }} autoPlay playsInline />
-
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <div
           style={{

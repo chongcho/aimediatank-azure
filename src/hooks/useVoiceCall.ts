@@ -67,6 +67,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const makingOfferRef = useRef(false)
   const handledIncomingRef = useRef<Set<string>>(new Set())
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null)
+  const pendingIceRef = useRef<RTCIceCandidateInit[]>([])
+  const remoteDescriptionSetRef = useRef(false)
+  const remoteStreamRef = useRef<MediaStream | null>(null)
   const callStateRef = useRef<VoiceCallState>('idle')
   callStateRef.current = callState
   const pendingVoiceActionRef = useRef<'accept' | 'reject' | null>(null)
@@ -104,6 +107,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     isCallerRef.current = false
     makingOfferRef.current = false
     pendingOfferRef.current = null
+    pendingIceRef.current = []
+    remoteDescriptionSetRef.current = false
+    remoteStreamRef.current = null
     pendingVoiceActionRef.current = null
     setCallId(null)
     setRemoteUser(null)
@@ -115,6 +121,34 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     const id = callIdRef.current
     if (!id) return
     await voiceApi('signal', { callId: id, type, payload })
+  }, [])
+
+  const reattachRemoteAudio = useCallback(() => {
+    const audio = remoteAudioRef.current
+    const stream = remoteStreamRef.current
+    if (!audio || !stream) return
+    if (audio.srcObject !== stream) {
+      audio.srcObject = stream
+    }
+    void audio.play().catch(() => {})
+  }, [])
+
+  const flushPendingIceCandidates = useCallback(async (pc: RTCPeerConnection) => {
+    if (!remoteDescriptionSetRef.current || pendingIceRef.current.length === 0) return
+
+    const queued = pendingIceRef.current
+    pendingIceRef.current = []
+    for (const candidate of queued) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate))
+      } catch {
+        pendingIceRef.current.push(candidate)
+      }
+    }
+  }, [])
+
+  const queueRemoteIceCandidate = useCallback((candidate: RTCIceCandidateInit) => {
+    pendingIceRef.current.push(candidate)
   }, [])
 
   const ensureLocalAudio = useCallback(async () => {
@@ -145,6 +179,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [endCallOnServer, resetCall])
 
   const createPeerConnection = useCallback(() => {
+    closePeerConnection()
+    remoteDescriptionSetRef.current = false
+
     const pc = new RTCPeerConnection({ iceServers: getIceServers() })
 
     pc.onicecandidate = (event) => {
@@ -154,16 +191,18 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
 
     pc.ontrack = (event) => {
-      const audio = remoteAudioRef.current
-      if (audio && event.streams[0]) {
-        audio.srcObject = event.streams[0]
-        void audio.play().catch(() => {})
-      }
+      const stream =
+        event.streams[0] ??
+        (event.track ? new MediaStream([event.track]) : null)
+      if (!stream) return
+      remoteStreamRef.current = stream
+      reattachRemoteAudio()
     }
 
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') {
         setCallState('connected')
+        reattachRemoteAudio()
       } else if (pc.connectionState === 'failed') {
         reportError('Call connection failed')
         void endCall()
@@ -172,7 +211,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
     pcRef.current = pc
     return pc
-  }, [endCall, reportError, sendSignal])
+  }, [closePeerConnection, endCall, reattachRemoteAudio, reportError, sendSignal])
 
   const attachLocalTracks = useCallback(async (pc: RTCPeerConnection) => {
     const stream = await ensureLocalAudio()
@@ -224,21 +263,28 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       const sdp = payload.sdp as RTCSessionDescriptionInit | undefined
       if (!pc || !sdp) return
       await pc.setRemoteDescription(new RTCSessionDescription(sdp))
+      remoteDescriptionSetRef.current = true
+      await flushPendingIceCandidates(pc)
       setCallState('connecting')
+      reattachRemoteAudio()
     },
-    [],
+    [flushPendingIceCandidates, reattachRemoteAudio],
   )
 
   const handleRemoteIce = useCallback(async (payload: Record<string, unknown>) => {
     const pc = pcRef.current
     const candidate = payload.candidate as RTCIceCandidateInit | undefined
-    if (!pc || !candidate) return
+    if (!candidate) return
+    if (!pc || !remoteDescriptionSetRef.current) {
+      queueRemoteIceCandidate(candidate)
+      return
+    }
     try {
       await pc.addIceCandidate(new RTCIceCandidate(candidate))
     } catch {
-      // ICE can arrive before remote description; ignore transient errors
+      queueRemoteIceCandidate(candidate)
     }
-  }, [])
+  }, [queueRemoteIceCandidate])
 
   const rejectCall = useCallback(async () => {
     const id = callIdRef.current
@@ -287,16 +333,19 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       await attachLocalTracks(pc)
 
       await pc.setRemoteDescription(new RTCSessionDescription(offerSdp))
+      remoteDescriptionSetRef.current = true
+      await flushPendingIceCandidates(pc)
       const answer = await pc.createAnswer()
       await pc.setLocalDescription(answer)
       await sendSignal('answer', { sdp: answer })
       pendingOfferRef.current = null
       setCallState('connecting')
+      reattachRemoteAudio()
     } catch (err) {
       reportError(err instanceof Error ? err.message : 'Failed to answer call')
       await endCall()
     }
-  }, [attachLocalTracks, createPeerConnection, endCall, reportError, resolvePendingOffer, sendSignal])
+  }, [attachLocalTracks, createPeerConnection, endCall, flushPendingIceCandidates, reportError, reattachRemoteAudio, resolvePendingOffer, sendSignal])
 
   const startCall = useCallback(
     async (peer: VoiceCallUser, conversationId?: string | null) => {
@@ -598,6 +647,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     callId,
     isMuted,
     remoteAudioRef,
+    reattachRemoteAudio,
     startCall,
     answerCall,
     rejectCall,
