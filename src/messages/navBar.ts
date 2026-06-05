@@ -32,6 +32,12 @@ export type NavBarKey =
   | 'policy'
   | 'adminPanel'
   | 'closePanel'
+  | 'versionUpdate'
+  | 'currentVersion'
+  | 'upToDate'
+  | 'updateAvailable'
+  | 'updateNow'
+  | 'updating'
 
 type Pack = Record<NavBarKey, string>
 
@@ -68,6 +74,12 @@ const EN: Pack = {
   policy: 'Policy',
   adminPanel: 'Admin Panel',
   closePanel: 'Close',
+  versionUpdate: 'Version/Update',
+  currentVersion: 'Current version',
+  upToDate: 'You are on the latest version',
+  updateAvailable: 'A new version is available',
+  updateNow: 'Update',
+  updating: 'Updating…',
 }
 
 const DE: Pack = {

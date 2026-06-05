@@ -1,6 +1,17 @@
+const { version } = require('./package.json')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone', // Required for Azure App Service
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
+    NEXT_PUBLIC_BUILD_ID:
+      process.env.NODE_ENV === 'development'
+        ? 'dev'
+        : process.env.BUILD_ID ||
+          process.env.GITHUB_SHA?.slice(0, 7) ||
+          String(Date.now()),
+  },
   experimental: {
     serverComponentsExternalPackages: ['ffmpeg-static', 'ffprobe-static', 'dejavu-fonts-ttf'],
     outputFileTracingIncludes: {

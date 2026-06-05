@@ -14,6 +14,7 @@ import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { useFeedGridAutoTranslation } from '@/hooks/useFeedGridAutoTranslation'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
+import { useAppUpdate } from '@/hooks/useAppUpdate'
 import { OPEN_TALK_CHAT_EVENT } from '@/lib/talkChatOpen'
 import { VoiceCallProvider } from '@/contexts/VoiceCallContext'
 
@@ -50,12 +51,14 @@ function NavbarContent() {
   const { data: session, status, update: updateSession } = useSession()
   const [restoreLoading, setRestoreLoading] = useState(false)
   const { tNavbar: t, tFeed } = useUiLocale()
+  const { version, updateAvailable, isUpdating, applyUpdate, checkForUpdate } = useAppUpdate()
   const feedAutoTranslation = useFeedGridAutoTranslation()
   const { mode: feedCardTextMode, setMode: setFeedCardTextMode } = useFeedCardTextMode()
   const { mtTag, ensureGuestGeoLoaded } = useGuestFeedLocalTargets(feedAutoTranslation)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
+  const [isVersionOpen, setIsVersionOpen] = useState(false)
   // IMPORTANT: keep chat closed by default to avoid background polling slowing the app.
   const [isTalkChatOpen, setIsTalkChatOpen] = useState(false)
   const [isPageVisible, setIsPageVisible] = useState(true)
@@ -86,6 +89,7 @@ function NavbarContent() {
   const navRef = useRef<HTMLElement>(null)
   const profileRef = useRef<HTMLDivElement>(null)
   const alertsPanelRef = useRef<HTMLDivElement>(null)
+  const versionPanelRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -222,6 +226,10 @@ function NavbarContent() {
     setSelectedIds(new Set())
   }, [])
 
+  const closeVersionPanel = useCallback(() => {
+    setIsVersionOpen(false)
+  }, [])
+
   useEffect(() => {
     if (accountDeactivated) {
       closeAlertsPanel()
@@ -234,6 +242,7 @@ function NavbarContent() {
       e.stopPropagation()
       setIsProfileOpen(false)
       setIsAlertsOpen(false)
+      setIsVersionOpen(false)
       if (feedTextMenuOpen) {
         closeFeedTextMenu()
       } else {
@@ -293,6 +302,13 @@ function NavbarContent() {
       ) {
         closeAlertsPanel()
       }
+      if (
+        isVersionOpen &&
+        versionPanelRef.current &&
+        !versionPanelRef.current.contains(node)
+      ) {
+        closeVersionPanel()
+      }
       // Close mobile menu when clicking outside
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(node) &&
           mobileMenuButtonRef.current && !mobileMenuButtonRef.current.contains(node)) {
@@ -304,7 +320,7 @@ function NavbarContent() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isAlertsOpen, closeAlertsPanel])
+  }, [isAlertsOpen, isVersionOpen, closeAlertsPanel, closeVersionPanel])
 
   useEffect(() => {
     if (!isAlertsOpen) return
@@ -314,6 +330,16 @@ function NavbarContent() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [isAlertsOpen, closeAlertsPanel])
+
+  useEffect(() => {
+    if (!isVersionOpen) return
+    void checkForUpdate()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeVersionPanel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isVersionOpen, closeVersionPanel, checkForUpdate])
 
   // Pause background polling when tab is hidden
   useEffect(() => {
@@ -645,6 +671,7 @@ function NavbarContent() {
                     onClick={() => {
                       closeFeedTextMenu()
                       closeAlertsPanel()
+                      closeVersionPanel()
                       setIsProfileOpen(!isProfileOpen)
                     }}
                     className="relative flex items-center p-0 rounded-lg hover:ring-2 hover:ring-tank-accent transition-all"
@@ -744,6 +771,7 @@ function NavbarContent() {
                                 setIsSelectMode(false)
                                 setSelectedIds(new Set())
                                 setIsProfileOpen(false)
+                                setIsVersionOpen(false)
                                 setIsAlertsOpen(true)
                               }}
                             >
@@ -760,6 +788,30 @@ function NavbarContent() {
                               <span className="flex-1 text-left">{t('notifications')}</span>
                             </button>
                           )}
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-3 px-4 py-2 text-sm text-white hover:bg-tank-light/30"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              closeFeedTextMenu()
+                              setExpandedNotificationId(null)
+                              setIsSelectMode(false)
+                              setSelectedIds(new Set())
+                              setIsProfileOpen(false)
+                              setIsAlertsOpen(false)
+                              setIsVersionOpen(true)
+                            }}
+                          >
+                            <div className="relative flex h-5 w-5 shrink-0 items-center justify-center text-gray-400">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              {updateAvailable && (
+                                <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-tank-accent" aria-hidden />
+                              )}
+                            </div>
+                            <span className="flex-1 text-left">{t('versionUpdate')}</span>
+                          </button>
                           <Link
                             href="/profile/edit"
                             className="flex items-center gap-3 px-4 py-px hover:bg-tank-light transition-colors"
@@ -1136,6 +1188,71 @@ function NavbarContent() {
                     )
                   })
                 )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {session &&
+        !accountDeactivated &&
+        isVersionOpen &&
+        createPortal(
+          <div
+            ref={versionPanelRef}
+            className="fixed inset-0 z-[105] flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-16 sm:py-20"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="navbar-version-title"
+          >
+            <button
+              type="button"
+              className="absolute inset-0 cursor-default"
+              aria-label={t('closePanel')}
+              onClick={closeVersionPanel}
+            />
+            <div
+              className="relative z-[106] w-full max-w-md overflow-hidden rounded-xl border border-tank-light bg-tank-gray shadow-2xl"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-tank-light bg-tank-dark px-3 py-2">
+                <h2 id="navbar-version-title" className="truncate text-sm font-semibold text-white">
+                  {t('versionUpdate')}
+                </h2>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    closeVersionPanel()
+                  }}
+                  className="rounded p-1 text-gray-400 hover:bg-tank-light/40 hover:text-white"
+                  aria-label={t('closePanel')}
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="space-y-4 px-4 py-6">
+                <div>
+                  <p className="text-xs text-gray-400">{t('currentVersion')}</p>
+                  <p className="mt-1 text-lg font-semibold text-white">v{version}</p>
+                </div>
+                <p className={`text-sm ${updateAvailable ? 'text-tank-accent' : 'text-gray-400'}`}>
+                  {updateAvailable ? t('updateAvailable') : t('upToDate')}
+                </p>
+                <button
+                  type="button"
+                  disabled={!updateAvailable || isUpdating}
+                  onClick={() => applyUpdate()}
+                  className={`w-full rounded-lg py-2.5 text-sm font-semibold transition-colors ${
+                    updateAvailable
+                      ? 'bg-tank-accent text-black hover:bg-tank-accent/90'
+                      : 'cursor-not-allowed bg-tank-light/30 text-gray-500'
+                  } disabled:cursor-wait disabled:opacity-60`}
+                >
+                  {isUpdating ? t('updating') : t('updateNow')}
+                </button>
               </div>
             </div>
           </div>,
