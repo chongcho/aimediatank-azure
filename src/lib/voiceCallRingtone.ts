@@ -12,10 +12,10 @@ const SILENT_WAV =
   'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
 
 const LOOP_PAUSE_MS = 2000
-const IOS_WATCHDOG_MS = 2500
-// Consecutive idle watchdog ticks before forcing a re-speak (avoids firing
-// during the normal LOOP_PAUSE_MS gap between utterances).
-const IOS_WATCHDOG_IDLE_TICKS = 2
+// iOS blocks speechSynthesis.speak() from timers, so one gesture-triggered
+// utterance must ring for a while on its own. Repeat the phrase this many times
+// inside a single utterance; onend re-chains another block for longer calls.
+const IOS_BLOCK_REPEATS = 20
 // iOS only honors speechSynthesis.speak() shortly after a real in-page gesture.
 const IOS_GESTURE_WINDOW_MS = 2500
 
@@ -24,7 +24,6 @@ let unlockListenersInstalled = false
 let loopGeneration = 0
 let loopScheduleTimer: ReturnType<typeof setTimeout> | null = null
 let iosKeepAliveTimer: ReturnType<typeof setInterval> | null = null
-let iosWatchdogTimer: ReturnType<typeof setInterval> | null = null
 let iosSpeakNonce = 0
 let lastUserGestureAt = 0
 let lastAnnouncement: string | null = null
@@ -76,13 +75,6 @@ function stopIosSpeechKeepAlive() {
   }
 }
 
-function stopIosWatchdog() {
-  if (iosWatchdogTimer !== null) {
-    clearInterval(iosWatchdogTimer)
-    iosWatchdogTimer = null
-  }
-}
-
 function hasRecentUserGesture(): boolean {
   return Date.now() - lastUserGestureAt < IOS_GESTURE_WINDOW_MS
 }
@@ -102,7 +94,6 @@ function stopSpeech() {
   iosSpeakNonce += 1
   clearLoopScheduleTimer()
   stopIosSpeechKeepAlive()
-  stopIosWatchdog()
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel()
   }
@@ -167,7 +158,7 @@ function onUserGesture() {
     lastAnnouncement &&
     isIosDevice() &&
     loopScheduleTimer === null &&
-    iosWatchdogTimer === null &&
+    iosKeepAliveTimer === null &&
     pendingAnnouncementStart === null
   ) {
     retryVoiceCallAnnouncement()
@@ -246,18 +237,28 @@ function speakAnnouncementOnce(text: string, lang?: string) {
   synth.speak(utterance)
 }
 
+/** Repeat the phrase inside one utterance, with pauses, so a single speak() rings. */
+function buildRepeatedAnnouncement(text: string, repeats: number): string {
+  const phrase = text.trim().replace(/\s+/g, ' ').replace(/\.+$/, '')
+  // Period + spaces yields a natural pause between repeats in iOS speech.
+  return Array.from({ length: repeats }, () => phrase).join('.   ') + '.'
+}
+
 /**
- * iOS-specific ring loop. iOS frequently leaves `speechSynthesis.speaking`
- * stuck `true` after the first utterance, which silently swallows every later
- * `speak()`. So we drive the loop one utterance at a time via `onend`/`onerror`
- * chaining (which iOS honors as a continuation) and add a watchdog that clears
- * the stuck state and re-speaks if the chain ever stalls.
+ * iOS-specific ring loop. iOS blocks speechSynthesis.speak() when it is called
+ * from a timer (setTimeout/setInterval) — only calls tied to the speech session
+ * itself are honored. So we never schedule speak() from a timer: a single
+ * gesture-triggered utterance repeats the phrase many times, and onend/onerror
+ * re-speaks the next block synchronously (allowed on iOS) for longer calls. The
+ * pause/resume keep-alive guards against the iOS long-utterance cutoff.
  */
 function runIosAnnouncementLoop(announcement: string, lang: string | undefined, generation: number) {
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
   if (!synth) return
 
   startIosSpeechKeepAlive()
+
+  const block = buildRepeatedAnnouncement(announcement, IOS_BLOCK_REPEATS)
 
   const speakBlock = () => {
     if (generation !== loopGeneration || !lastAnnouncement) return
@@ -269,48 +270,22 @@ function runIosAnnouncementLoop(announcement: string, lang: string | undefined, 
       // ignore
     }
 
-    const utterance = new SpeechSynthesisUtterance(announcement.trim())
+    const utterance = new SpeechSynthesisUtterance(block)
     if (lang) utterance.lang = lang
 
     const chainNext = () => {
-      // Ignore end/error events for utterances we have already superseded
-      // (e.g. via cancel() in the watchdog) or for a stopped/changed ring.
+      // Ignore end/error of superseded utterances or a stopped/changed ring.
       if (myNonce !== iosSpeakNonce) return
       if (generation !== loopGeneration || !lastAnnouncement) return
-      clearLoopScheduleTimer()
-      loopScheduleTimer = setTimeout(speakBlock, LOOP_PAUSE_MS)
+      // Re-speak synchronously inside the end handler (NOT via setTimeout, which
+      // iOS would block) so the announcement keeps repeating until accept/cancel.
+      speakBlock()
     }
 
     utterance.onend = chainNext
     utterance.onerror = chainNext
     synth.speak(utterance)
   }
-
-  // Watchdog: recover if the onend chain stalls (no event fired, not speaking).
-  let idleTicks = 0
-  stopIosWatchdog()
-  iosWatchdogTimer = setInterval(() => {
-    if (generation !== loopGeneration || !lastAnnouncement) {
-      stopIosWatchdog()
-      return
-    }
-    if (synth.speaking || synth.pending) {
-      idleTicks = 0
-      return
-    }
-    // A short idle gap is the normal LOOP_PAUSE_MS pause; only recover after
-    // sustained silence so we don't double-speak.
-    if (loopScheduleTimer !== null && ++idleTicks < IOS_WATCHDOG_IDLE_TICKS) return
-    idleTicks = 0
-    iosSpeakNonce += 1
-    clearLoopScheduleTimer()
-    try {
-      synth.cancel()
-    } catch {
-      // ignore
-    }
-    speakBlock()
-  }, IOS_WATCHDOG_MS)
 
   speakBlock()
 }
@@ -338,7 +313,6 @@ function isSameAnnouncementRunning(announcement: string, lang?: string) {
     lang === lastLang &&
     (loopScheduleTimer !== null ||
       iosKeepAliveTimer !== null ||
-      iosWatchdogTimer !== null ||
       pendingAnnouncementStart !== null)
   )
 }
@@ -396,8 +370,7 @@ export function retryVoiceCallAnnouncement() {
   // On iOS, never tear down a healthy running loop when there's no fresh gesture:
   // the loop self-heals via its watchdog, and restarting would set it back to
   // "pending" and silence it until the next touch.
-  const loopRunning =
-    iosKeepAliveTimer !== null || iosWatchdogTimer !== null || loopScheduleTimer !== null
+  const loopRunning = iosKeepAliveTimer !== null || loopScheduleTimer !== null
   if (isIosDevice() && loopRunning && !hasRecentUserGesture()) return
 
   const announcement = lastAnnouncement
