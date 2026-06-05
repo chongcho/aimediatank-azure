@@ -452,6 +452,25 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
   }, [callState])
 
+  // iOS may block ring audio until the user touches the screen — retry when the tab is visible.
+  useEffect(() => {
+    if (!enabled || typeof document === 'undefined') return
+
+    const onVisible = () => {
+      if (document.hidden) return
+      const state = callStateRef.current
+      if (state === 'incoming') startIncomingRingtone()
+      else if (state === 'outgoing') startOutgoingRingback()
+    }
+
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pageshow', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pageshow', onVisible)
+    }
+  }, [enabled])
+
   // Keep screen on while ringing or in a call (after user opens the app)
   useEffect(() => {
     const active =

@@ -1,15 +1,38 @@
 /**
  * Browser-generated ring tones for TalkChat voice calls (no audio files).
  * Incoming: short double-ring pattern. Outgoing: ringback (long tone, pause).
+ *
+ * iOS Safari/PWA keeps AudioContext suspended until a user gesture — use
+ * installVoiceCallAudioUnlock() at app startup and retry when a call rings.
  */
+
+/** Tiny silent WAV — primes iOS HTML audio output on first user tap. */
+const SILENT_WAV =
+  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
 
 let audioContext: AudioContext | null = null
 let loopTimer: ReturnType<typeof setTimeout> | null = null
 let activeOscillators: OscillatorNode[] = []
+let unlockListenersInstalled = false
+let pendingRing: (() => void) | null = null
 
-function getAudioContext(): AudioContext {
+type AudioContextCtor = typeof AudioContext
+
+function getAudioContextCtor(): AudioContextCtor | null {
+  if (typeof window === 'undefined') return null
+  const w = window as Window & { webkitAudioContext?: AudioContextCtor }
+  return window.AudioContext || w.webkitAudioContext || null
+}
+
+function getAudioContext(): AudioContext | null {
   if (!audioContext) {
-    audioContext = new AudioContext()
+    const Ctor = getAudioContextCtor()
+    if (!Ctor) return null
+    try {
+      audioContext = new Ctor()
+    } catch {
+      return null
+    }
   }
   return audioContext
 }
@@ -32,15 +55,68 @@ function stopActiveOscillators() {
   activeOscillators = []
 }
 
+function flushPendingRing() {
+  const ctx = getAudioContext()
+  if (!ctx || ctx.state !== 'running' || !pendingRing) return
+  const start = pendingRing
+  pendingRing = null
+  start()
+}
+
+/** Resume Web Audio after a user gesture (required on iOS). */
+export async function unlockVoiceCallAudio(): Promise<boolean> {
+  const ctx = getAudioContext()
+  if (!ctx) return false
+  if (ctx.state === 'running') {
+    flushPendingRing()
+    return true
+  }
+  try {
+    await ctx.resume()
+  } catch {
+    return false
+  }
+  if (ctx.state === 'running') {
+    flushPendingRing()
+    return true
+  }
+  return false
+}
+
+function primeIosHtmlAudio() {
+  if (typeof document === 'undefined') return
+  const audio = document.createElement('audio')
+  audio.setAttribute('playsinline', 'true')
+  audio.src = SILENT_WAV
+  void audio.play().catch(() => {})
+}
+
+/** Call once at app startup so the first tap unlocks audio for later calls. */
+export function installVoiceCallAudioUnlock() {
+  if (typeof document === 'undefined' || unlockListenersInstalled) return
+  unlockListenersInstalled = true
+
+  const onGesture = () => {
+    primeIosHtmlAudio()
+    void unlockVoiceCallAudio()
+  }
+
+  document.addEventListener('touchstart', onGesture, { passive: true, capture: true })
+  document.addEventListener('pointerdown', onGesture, { passive: true, capture: true })
+  document.addEventListener('click', onGesture, { capture: true })
+  document.addEventListener('keydown', onGesture, { capture: true })
+}
+
 /** Stop any playing ring or ringback tone. */
 export function stopVoiceCallRingtone() {
   clearLoopTimer()
   stopActiveOscillators()
+  pendingRing = null
 }
 
 function playDualTone(durationMs: number, volume = 0.12) {
   const ctx = getAudioContext()
-  void ctx.resume()
+  if (!ctx || ctx.state !== 'running') return
 
   const gain = ctx.createGain()
   const now = ctx.currentTime
@@ -83,13 +159,26 @@ function runPattern(steps: ReadonlyArray<{ toneMs: number; pauseMs: number }>) {
     loopTimer = setTimeout(runStep, step.toneMs + step.pauseMs)
   }
 
-  void getAudioContext().resume().then(runStep)
+  runStep()
+}
+
+async function startRingPattern(steps: ReadonlyArray<{ toneMs: number; pauseMs: number }>) {
+  stopVoiceCallRingtone()
+
+  const start = () => runPattern(steps)
+  const unlocked = await unlockVoiceCallAudio()
+  const ctx = getAudioContext()
+  if (unlocked && ctx?.state === 'running') {
+    start()
+    return
+  }
+
+  pendingRing = start
 }
 
 /** Callee: repeating double-ring while incoming call is unanswered. */
 export function startIncomingRingtone() {
-  stopVoiceCallRingtone()
-  runPattern([
+  void startRingPattern([
     { toneMs: 400, pauseMs: 200 },
     { toneMs: 400, pauseMs: 2000 },
   ])
@@ -97,6 +186,5 @@ export function startIncomingRingtone() {
 
 /** Caller: ringback while waiting for the other person to answer. */
 export function startOutgoingRingback() {
-  stopVoiceCallRingtone()
-  runPattern([{ toneMs: 2000, pauseMs: 4000 }])
+  void startRingPattern([{ toneMs: 2000, pauseMs: 4000 }])
 }
