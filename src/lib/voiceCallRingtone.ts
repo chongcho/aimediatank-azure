@@ -1,20 +1,24 @@
 /**
- * Browser-generated ring tones for TalkChat voice calls (no audio files).
- * Incoming: short double-ring pattern. Outgoing: ringback (long tone, pause).
+ * Spoken voice announcements for TalkChat voice calls while ringing (no beep tones).
+ * Incoming: "Call from {name}". Outgoing: "Calling {name}".
  *
- * iOS Safari/PWA keeps AudioContext suspended until a user gesture — use
- * installVoiceCallAudioUnlock() at app startup and retry when a call rings.
+ * iOS Safari/PWA may block audio until a user gesture — use installVoiceCallAudioUnlock()
+ * at app startup and retry when a call rings.
  */
 
 /** Tiny silent WAV — primes iOS HTML audio output on first user tap. */
 const SILENT_WAV =
   'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
 
+const LOOP_PAUSE_MS = 2000
+
 let audioContext: AudioContext | null = null
-let loopTimer: ReturnType<typeof setTimeout> | null = null
-let activeOscillators: OscillatorNode[] = []
 let unlockListenersInstalled = false
-let pendingRing: (() => void) | null = null
+let loopGeneration = 0
+let loopPauseTimer: ReturnType<typeof setTimeout> | null = null
+let lastAnnouncement: string | null = null
+let lastLang: string | undefined
+let pendingAnnouncementStart: (() => void) | null = null
 
 type AudioContextCtor = typeof AudioContext
 
@@ -37,37 +41,33 @@ function getAudioContext(): AudioContext | null {
   return audioContext
 }
 
-function clearLoopTimer() {
-  if (loopTimer !== null) {
-    clearTimeout(loopTimer)
-    loopTimer = null
-  }
-}
-
-function stopActiveOscillators() {
-  for (const osc of activeOscillators) {
-    try {
-      osc.stop()
-    } catch {
-      // already stopped
-    }
-  }
-  activeOscillators = []
-}
-
-function flushPendingRing() {
-  const ctx = getAudioContext()
-  if (!ctx || ctx.state !== 'running' || !pendingRing) return
-  const start = pendingRing
-  pendingRing = null
-  start()
-}
-
 function isAudioContextRunning(ctx: AudioContext): boolean {
   return ctx.state === 'running'
 }
 
-/** Resume Web Audio after a user gesture (required on iOS). */
+function clearLoopPauseTimer() {
+  if (loopPauseTimer !== null) {
+    clearTimeout(loopPauseTimer)
+    loopPauseTimer = null
+  }
+}
+
+function stopSpeech() {
+  loopGeneration += 1
+  clearLoopPauseTimer()
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.cancel()
+  }
+}
+
+function flushPendingAnnouncement() {
+  if (!pendingAnnouncementStart) return
+  const start = pendingAnnouncementStart
+  pendingAnnouncementStart = null
+  start()
+}
+
+/** Resume Web Audio after a user gesture (required on iOS for call audio). */
 export async function unlockVoiceCallAudio(): Promise<boolean> {
   const ctx = getAudioContext()
   if (!ctx) return false
@@ -81,7 +81,7 @@ export async function unlockVoiceCallAudio(): Promise<boolean> {
   }
 
   if (!isAudioContextRunning(ctx)) return false
-  flushPendingRing()
+  flushPendingAnnouncement()
   return true
 }
 
@@ -101,6 +101,7 @@ export function installVoiceCallAudioUnlock() {
   const onGesture = () => {
     primeIosHtmlAudio()
     void unlockVoiceCallAudio()
+    flushPendingAnnouncement()
   }
 
   document.addEventListener('touchstart', onGesture, { passive: true, capture: true })
@@ -109,84 +110,77 @@ export function installVoiceCallAudioUnlock() {
   document.addEventListener('keydown', onGesture, { capture: true })
 }
 
-/** Stop any playing ring or ringback tone. */
+/** Stop any playing spoken announcement. */
 export function stopVoiceCallRingtone() {
-  clearLoopTimer()
-  stopActiveOscillators()
-  pendingRing = null
+  stopSpeech()
+  pendingAnnouncementStart = null
+  lastAnnouncement = null
+  lastLang = undefined
 }
 
-function playDualTone(durationMs: number, volume = 0.12) {
-  const ctx = getAudioContext()
-  if (!ctx || ctx.state !== 'running') return
+function speakOnce(text: string, lang?: string): Promise<void> {
+  return new Promise((resolve) => {
+    const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
+    if (!synth || !text.trim()) {
+      resolve()
+      return
+    }
 
-  const gain = ctx.createGain()
-  const now = ctx.currentTime
-  const end = now + durationMs / 1000
-  gain.gain.setValueAtTime(0, now)
-  gain.gain.linearRampToValueAtTime(volume, now + 0.02)
-  gain.gain.setValueAtTime(volume, end - 0.04)
-  gain.gain.linearRampToValueAtTime(0, end)
-  gain.connect(ctx.destination)
+    synth.cancel()
+    const utterance = new SpeechSynthesisUtterance(text.trim())
+    if (lang) utterance.lang = lang
+    utterance.onend = () => resolve()
+    utterance.onerror = () => resolve()
+    synth.speak(utterance)
+  })
+}
 
-  const oscs: OscillatorNode[] = []
-  for (const freq of [440, 480]) {
-    const osc = ctx.createOscillator()
-    osc.type = 'sine'
-    osc.frequency.value = freq
-    osc.connect(gain)
-    osc.start(now)
-    osc.stop(end)
-    oscs.push(osc)
+async function runAnnouncementLoop(announcement: string, lang: string | undefined, generation: number) {
+  while (generation === loopGeneration) {
+    await speakOnce(announcement, lang)
+    if (generation !== loopGeneration) break
+
+    await new Promise<void>((resolve) => {
+      loopPauseTimer = setTimeout(() => {
+        loopPauseTimer = null
+        resolve()
+      }, LOOP_PAUSE_MS)
+    })
   }
-  activeOscillators.push(...oscs)
-  window.setTimeout(() => {
-    activeOscillators = activeOscillators.filter((o) => !oscs.includes(o))
-  }, durationMs + 100)
 }
 
-function runPattern(steps: ReadonlyArray<{ toneMs: number; pauseMs: number }>) {
-  clearLoopTimer()
-  stopActiveOscillators()
-
-  let index = 0
-
-  const runStep = () => {
-    const step = steps[index]
-    if (!step) return
-
-    playDualTone(step.toneMs)
-    index = (index + 1) % steps.length
-
-    loopTimer = setTimeout(runStep, step.toneMs + step.pauseMs)
-  }
-
-  runStep()
-}
-
-async function startRingPattern(steps: ReadonlyArray<{ toneMs: number; pauseMs: number }>) {
+async function startVoiceAnnouncement(announcement: string, lang?: string) {
   stopVoiceCallRingtone()
+  lastAnnouncement = announcement
+  lastLang = lang
 
-  const start = () => runPattern(steps)
-  const unlocked = await unlockVoiceCallAudio()
-  const ctx = getAudioContext()
-  if (unlocked && ctx?.state === 'running') {
+  const start = () => {
+    const generation = loopGeneration
+    void runAnnouncementLoop(announcement, lang, generation)
+  }
+
+  await unlockVoiceCallAudio()
+
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
     start()
     return
   }
 
-  pendingRing = start
+  pendingAnnouncementStart = start
 }
 
-/** Callee: repeating double-ring while incoming call is unanswered. */
-export function startIncomingRingtone() {
-  void startRingPattern([
-    { toneMs: 400, pauseMs: 200 },
-    { toneMs: 400, pauseMs: 2000 },
-  ])
+/** Callee: repeat spoken announcement while incoming call is unanswered. */
+export function startIncomingRingtone(announcement: string, lang?: string) {
+  void startVoiceAnnouncement(announcement, lang)
 }
 
-/** Caller: ringback while waiting for the other person to answer. */
-export function startOutgoingRingback() {
-  void startRingPattern([{ toneMs: 2000, pauseMs: 4000 }])
+/** Caller: repeat spoken announcement while waiting for the other person to answer. */
+export function startOutgoingRingback(announcement: string, lang?: string) {
+  void startVoiceAnnouncement(announcement, lang)
+}
+
+/** Retry the last announcement (e.g. after tab becomes visible on iOS). */
+export function retryVoiceCallAnnouncement() {
+  if (!lastAnnouncement) return
+  void startVoiceAnnouncement(lastAnnouncement, lastLang)
 }

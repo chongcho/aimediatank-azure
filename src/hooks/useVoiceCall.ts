@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { getIceServers } from '@/lib/voiceCallConfig'
-import {
-  startIncomingRingtone,
-  startOutgoingRingback,
-  stopVoiceCallRingtone,
-} from '@/lib/voiceCallRingtone'
+import { stopVoiceCallRingtone } from '@/lib/voiceCallRingtone'
 import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 
 export interface VoiceCallUser {
@@ -485,38 +481,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       const next = params.toString()
       const nextUrl = next ? `${window.location.pathname}?${next}` : window.location.pathname
       window.history.replaceState({}, '', nextUrl)
-    }
-  }, [enabled])
-
-  useEffect(() => {
-    if (callState === 'incoming') {
-      startIncomingRingtone()
-    } else if (callState === 'outgoing') {
-      startOutgoingRingback()
-    } else {
-      stopVoiceCallRingtone()
-    }
-    return () => {
-      stopVoiceCallRingtone()
-    }
-  }, [callState])
-
-  // iOS may block ring audio until the user touches the screen — retry when the tab is visible.
-  useEffect(() => {
-    if (!enabled || typeof document === 'undefined') return
-
-    const onVisible = () => {
-      if (document.hidden) return
-      const state = callStateRef.current
-      if (state === 'incoming') startIncomingRingtone()
-      else if (state === 'outgoing') startOutgoingRingback()
-    }
-
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('pageshow', onVisible)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('pageshow', onVisible)
     }
   }, [enabled])
 

@@ -1,8 +1,14 @@
 'use client'
 
-import { createContext, useContext, useEffect, type MutableRefObject, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, type MutableRefObject, type ReactNode } from 'react'
 import { registerVoiceCallPush } from '@/lib/pushSubscriptionClient'
-import { installVoiceCallAudioUnlock } from '@/lib/voiceCallRingtone'
+import {
+  installVoiceCallAudioUnlock,
+  retryVoiceCallAnnouncement,
+  startIncomingRingtone,
+  startOutgoingRingback,
+  stopVoiceCallRingtone,
+} from '@/lib/voiceCallRingtone'
 import { useSession } from 'next-auth/react'
 import { useVoiceCall, type VoiceCallState, type VoiceCallUser } from '@/hooks/useVoiceCall'
 import { VoiceCallOverlay } from '@/components/VoiceCallOverlay'
@@ -31,6 +37,7 @@ function useVoiceCallLabels() {
   const { localeTag } = useUiLocale()
   const tr = talkChatTr(localeTag)
   return {
+    localeTag,
     incomingCall: tr[TC.voiceIncomingCall],
     calling: tr[TC.voiceCalling],
     connecting: tr[TC.voiceConnecting],
@@ -42,6 +49,11 @@ function useVoiceCallLabels() {
     unmute: tr[TC.voiceUnmute],
     inAppHint: tr[TC.voiceCallInAppHint],
   }
+}
+
+function formatCallAnnouncement(template: string, user: VoiceCallUser | null) {
+  const name = (user?.name || user?.username || '').trim() || '?'
+  return template.replace('{name}', name)
 }
 
 /** Renders active-call UI. Use embedded inside TalkChat; floating when chat is closed. */
@@ -86,6 +98,9 @@ export function VoiceCallProvider({
     currentUserId: session?.user?.id,
     enabled: Boolean(session?.user),
   })
+  const labels = useVoiceCallLabels()
+  const callStateRef = useRef(voiceCall.callState)
+  callStateRef.current = voiceCall.callState
 
   useEffect(() => {
     installVoiceCallAudioUnlock()
@@ -95,6 +110,56 @@ export function VoiceCallProvider({
     if (!session?.user?.id) return
     void registerVoiceCallPush()
   }, [session?.user?.id])
+
+  useEffect(() => {
+    if (!session?.user) return
+
+    const user = voiceCall.remoteUser
+    if (voiceCall.callState === 'incoming') {
+      startIncomingRingtone(
+        formatCallAnnouncement(labels.incomingCall, user),
+        labels.localeTag,
+      )
+    } else if (voiceCall.callState === 'outgoing') {
+      startOutgoingRingback(
+        formatCallAnnouncement(labels.calling, user),
+        labels.localeTag,
+      )
+    } else {
+      stopVoiceCallRingtone()
+    }
+
+    return () => {
+      stopVoiceCallRingtone()
+    }
+  }, [
+    session?.user,
+    voiceCall.callState,
+    voiceCall.remoteUser,
+    labels.incomingCall,
+    labels.calling,
+    labels.localeTag,
+  ])
+
+  // iOS may block speech until the user touches the screen — retry when the tab is visible.
+  useEffect(() => {
+    if (!session?.user) return
+
+    const onVisible = () => {
+      if (document.hidden) return
+      const state = callStateRef.current
+      if (state === 'incoming' || state === 'outgoing') {
+        retryVoiceCallAnnouncement()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pageshow', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pageshow', onVisible)
+    }
+  }, [session?.user])
 
   return (
     <VoiceCallContext.Provider
