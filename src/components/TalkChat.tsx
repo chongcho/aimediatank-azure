@@ -334,6 +334,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [showUserPicker, setShowUserPicker] = useState(false)
   const [showVoiceCallPicker, setShowVoiceCallPicker] = useState(false)
   const [voiceCallPickTarget, setVoiceCallPickTarget] = useState<UserSuggestion | null>(null)
+  const [voiceCallSearchQuery, setVoiceCallSearchQuery] = useState('')
+  const [voiceCallSearchedUsers, setVoiceCallSearchedUsers] = useState<UserSuggestion[]>([])
+  const [searchingVoiceCallUsers, setSearchingVoiceCallUsers] = useState(false)
   const chatOverlayOpen = showUserPicker || showVoiceCallPicker
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [searchedUsers, setSearchedUsers] = useState<UserSuggestion[]>([])
@@ -488,18 +491,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const voiceCall = useVoiceCallContext()
 
-  const callCandidateUsers = useMemo((): UserSuggestion[] => {
+  const allVoiceCallContacts = useMemo((): UserSuggestion[] => {
     if (!session?.user?.id) return []
     const selfId = session.user.id
-    const excludeSelf = (users: UserSuggestion[]) => users.filter((u) => u.id !== selfId)
-
-    if (activeConversation?.members?.length) {
-      return excludeSelf(activeConversation.members)
-    }
-    if (selectedRecipients.length > 0) {
-      return excludeSelf(selectedRecipients)
-    }
-
     const seen = new Set<string>()
     const out: UserSuggestion[] = []
     for (const record of chatRecords) {
@@ -511,8 +505,28 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         }
       }
     }
-    return out
-  }, [session?.user?.id, activeConversation, selectedRecipients, chatRecords])
+    return out.sort((a, b) =>
+      formatDisplayUsername(a.username).localeCompare(formatDisplayUsername(b.username)),
+    )
+  }, [session?.user?.id, chatRecords])
+
+  const displayedVoiceCallUsers = useMemo((): UserSuggestion[] => {
+    const q = voiceCallSearchQuery.trim()
+    if (q) {
+      if (voiceCallSearchedUsers.length > 0) return voiceCallSearchedUsers
+      const lower = q.toLowerCase()
+      return allVoiceCallContacts.filter(
+        (u) =>
+          formatDisplayUsername(u.username).toLowerCase().includes(lower) ||
+          (u.name || '').toLowerCase().includes(lower),
+      )
+    }
+    return allVoiceCallContacts
+  }, [allVoiceCallContacts, voiceCallSearchQuery, voiceCallSearchedUsers])
+
+  const pubNavActive = chatMode === 'open' && !showVoiceCallPicker
+  const myNavActive = chatMode === 'private' && !showVoiceCallPicker
+  const phoneNavActive = showVoiceCallPicker
 
   const handleConfirmVoiceCall = () => {
     if (!voiceCallPickTarget || !voiceCall) return
@@ -1061,6 +1075,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setSelectedRecipients([])
     setActiveConversation(null)
     setMessages([])
+    setShowVoiceCallPicker(false)
+    setVoiceCallPickTarget(null)
+    setVoiceCallSearchQuery('')
+    setVoiceCallSearchedUsers([])
     // Close all popups
     setShowUserPicker(false)
     setShowChatRecords(false)
@@ -1133,6 +1151,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     // Close all popups
     setShowUserPicker(false)
     setShowVoiceCallPicker(false)
+    setVoiceCallPickTarget(null)
+    setVoiceCallSearchQuery('')
+    setVoiceCallSearchedUsers([])
     setShowChatRecords(false)
     setShowInvites(false)
   }
@@ -1175,6 +1196,26 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
   }, [session?.user?.id])
 
+  const searchUsersForVoiceCall = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setVoiceCallSearchedUsers([])
+      return
+    }
+    setSearchingVoiceCallUsers(true)
+    try {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}&limit=50`)
+      if (res.ok) {
+        const data = await res.json()
+        const filtered = (data.users || []).filter((u: UserSuggestion) => u.id !== session?.user?.id)
+        setVoiceCallSearchedUsers(filtered)
+      }
+    } catch (error) {
+      console.error('Error searching voice call users:', error)
+    } finally {
+      setSearchingVoiceCallUsers(false)
+    }
+  }, [session?.user?.id])
+
   const toggleVoiceCallPicker = () => {
     if (!isSignedIn) {
       setInlineNotice(TALK_CHAT_MAP.noticeSignInMyKong)
@@ -1184,24 +1225,31 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
     const next = !showVoiceCallPicker
     if (next) {
-      setChatMode('private')
       setShowUserPicker(false)
       setVoiceCallPickTarget(null)
-      if (chatRecords.length === 0) {
-        fetchChatRecords()
-      }
+      setVoiceCallSearchQuery('')
+      setVoiceCallSearchedUsers([])
+      fetchChatRecords()
     } else {
       setVoiceCallPickTarget(null)
+      setVoiceCallSearchQuery('')
+      setVoiceCallSearchedUsers([])
     }
     setShowVoiceCallPicker(next)
   }
 
   useEffect(() => {
     if (!showVoiceCallPicker) return
-    if (callCandidateUsers.length === 1) {
-      setVoiceCallPickTarget(callCandidateUsers[0])
+    const q = voiceCallSearchQuery.trim()
+    if (!q) {
+      setVoiceCallSearchedUsers([])
+      return
     }
-  }, [showVoiceCallPicker, callCandidateUsers])
+    const timer = window.setTimeout(() => {
+      void searchUsersForVoiceCall(q)
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [showVoiceCallPicker, voiceCallSearchQuery, searchUsersForVoiceCall])
 
   // Toggle new chat picker (renamed from chat records)
   const toggleNewChat = () => {
@@ -2565,8 +2613,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 padding: '4px 8px',
                 borderRadius: '4px',
                 border: 'none',
-                background: chatMode === 'open' ? '#10b981' : 'transparent',
-                color: chatMode === 'open' ? 'white' : '#666',
+                background: pubNavActive ? '#10b981' : 'transparent',
+                color: pubNavActive ? 'white' : '#666',
                 fontWeight: '700',
                 fontSize: '12px',
                 cursor: 'pointer',
@@ -2586,8 +2634,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   padding: '4px 8px',
                 borderRadius: '4px',
                 border: 'none',
-                  background: chatMode === 'private' ? '#8b5cf6' : 'transparent',
-                  color: chatMode === 'private' ? 'white' : '#666',
+                  background: myNavActive ? '#8b5cf6' : 'transparent',
+                  color: myNavActive ? 'white' : '#666',
                 fontWeight: '700',
                 fontSize: '12px',
                 cursor: 'pointer',
@@ -2624,8 +2672,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               )}
             </div>
 
-            {/* Voice call — My Chat navbar */}
-            {chatMode === 'private' && isSignedIn && voiceCall && (
+            {/* Voice call — always visible when signed in */}
+            {isSignedIn && voiceCall && (
               <button
                 type="button"
                 onClick={toggleVoiceCallPicker}
@@ -2634,17 +2682,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 style={{
                   padding: '4px 6px',
                   borderRadius: '4px',
-                  border: 'none',
-                  background: showVoiceCallPicker
-                    ? '#047857'
-                    : voiceCall.callState === 'idle'
-                      ? '#059669'
-                      : '#9ca3af',
+                  border: phoneNavActive ? '2px solid #065f46' : 'none',
+                  background: voiceCall.callState === 'idle'
+                    ? (phoneNavActive ? '#047857' : '#059669')
+                    : '#9ca3af',
                   color: 'white',
                   cursor: voiceCall.callState === 'idle' ? 'pointer' : 'not-allowed',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  boxShadow: phoneNavActive ? '0 0 0 1px rgba(6,95,70,0.35)' : 'none',
                 }}
                 title={tr[TC.voiceCall]}
               >
@@ -2954,29 +3001,69 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               flexDirection: 'column',
               background: '#fafafa',
               overflow: 'hidden',
+              minHeight: 0,
             }}
           >
             <div style={{
               padding: '10px 12px',
               background: '#ecfdf5',
               borderBottom: '1px solid #a7f3d0',
-              fontSize: '14px',
-              fontWeight: '700',
-              color: '#065f46',
             }}>
-              {tr[TC.voiceCallPickSomeone]}
+              <input
+                type="text"
+                value={voiceCallSearchQuery}
+                onChange={(e) => {
+                  setVoiceCallSearchQuery(e.target.value)
+                  setVoiceCallPickTarget(null)
+                }}
+                placeholder={tr[TC.voiceCallPickSomeone]}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '2px solid #059669',
+                  fontSize: '14px',
+                  outline: 'none',
+                  background: 'white',
+                  color: '#111',
+                }}
+              />
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
-              {loadingChatRecords && callCandidateUsers.length === 0 ? (
+            <div
+              className="chat-voice-call-scroll"
+              style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 12px' }}
+            >
+              <style>{`
+                .chat-voice-call-scroll::-webkit-scrollbar {
+                  width: 10px;
+                }
+                .chat-voice-call-scroll::-webkit-scrollbar-track {
+                  background: #e0e0e0;
+                  border-radius: 5px;
+                }
+                .chat-voice-call-scroll::-webkit-scrollbar-thumb {
+                  background: #888;
+                  border-radius: 5px;
+                  min-height: 40px;
+                }
+                .chat-voice-call-scroll::-webkit-scrollbar-thumb:hover {
+                  background: #666;
+                }
+              `}</style>
+              {searchingVoiceCallUsers && voiceCallSearchQuery.trim() ? (
+                <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
+                  {tr[TC.searchingUsers]}
+                </div>
+              ) : loadingChatRecords && displayedVoiceCallUsers.length === 0 && !voiceCallSearchQuery.trim() ? (
                 <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
                   {tr[TC.loading]}
                 </div>
-              ) : callCandidateUsers.length === 0 ? (
+              ) : displayedVoiceCallUsers.length === 0 ? (
                 <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
-                  {tr[TC.voiceCallNoContacts]}
+                  {voiceCallSearchQuery.trim() ? tr[TC.noUsersFound] : tr[TC.voiceCallNoContacts]}
                 </div>
               ) : (
-                callCandidateUsers.map((user) => {
+                displayedVoiceCallUsers.map((user) => {
                   const selected = voiceCallPickTarget?.id === user.id
                   return (
                     <button
@@ -3061,6 +3148,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 onClick={() => {
                   setShowVoiceCallPicker(false)
                   setVoiceCallPickTarget(null)
+                  setVoiceCallSearchQuery('')
+                  setVoiceCallSearchedUsers([])
                 }}
                 style={{
                   padding: '8px 14px',
