@@ -1,5 +1,5 @@
 // Bump this when changing caching behavior to force refresh.
-const CACHE_NAME = 'aimediatank-v16';
+const CACHE_NAME = 'aimediatank-v17';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install
@@ -9,6 +9,9 @@ const PRECACHE_ASSETS = [
   '/manifest.json',
   '/logo.png',
   '/logo-192.png',
+  '/sounds/incoming-ring.wav',
+  '/sounds/outgoing-ring.wav',
+  '/sounds/silent.wav',
 ];
 
 // Install event - cache essential assets

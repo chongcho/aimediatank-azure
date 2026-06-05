@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useRef, type MutableRefObject, type ReactNode } from 'react'
 import { registerVoiceCallPush } from '@/lib/pushSubscriptionClient'
 import {
+  attachIosIncomingRingAudio,
+  attachIosOutgoingRingAudio,
   installVoiceCallAudioUnlock,
   primeVoiceCallAfterNotificationOpen,
   retryVoiceCallAnnouncement,
@@ -132,10 +134,6 @@ export function VoiceCallProvider({
       state === 'incoming' ? startIncomingRingtone : startOutgoingRingback
     start(announcement, labels.localeTag)
     primeVoiceCallAfterNotificationOpen()
-
-    return () => {
-      stopVoiceCallRingtone()
-    }
   }, [
     session?.user?.id,
     voiceCall.callState,
@@ -187,16 +185,36 @@ export function VoiceCallProvider({
     >
       {children}
       {session?.user && (
-        <audio
-          ref={(el) => {
-            voiceCall.remoteAudioRef.current = el
-            if (el) voiceCall.reattachRemoteAudio()
-          }}
-          autoPlay
-          playsInline
-          aria-hidden
-          style={{ display: 'none' }}
-        />
+        <>
+          <audio
+            ref={attachIosIncomingRingAudio}
+            src="/sounds/incoming-ring.wav"
+            loop
+            playsInline
+            preload="auto"
+            aria-hidden
+            style={{ display: 'none' }}
+          />
+          <audio
+            ref={attachIosOutgoingRingAudio}
+            src="/sounds/outgoing-ring.wav"
+            loop
+            playsInline
+            preload="auto"
+            aria-hidden
+            style={{ display: 'none' }}
+          />
+          <audio
+            ref={(el) => {
+              voiceCall.remoteAudioRef.current = el
+              if (el) voiceCall.reattachRemoteAudio()
+            }}
+            autoPlay
+            playsInline
+            aria-hidden
+            style={{ display: 'none' }}
+          />
+        </>
       )}
       {session?.user && showFloatingOverlay && <VoiceCallOverlayPanel placement="floating" />}
     </VoiceCallContext.Provider>

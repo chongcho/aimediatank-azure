@@ -3,89 +3,21 @@
  *
  * Desktop: spoken announcements — server TTS when configured, else speechSynthesis.
  *
- * iPhone/iPad: looping HTML audio beep patterns (Web Audio stays suspended on
- * incoming calls without a gesture). Incoming = double-beep ring; outgoing =
- * single ringback beep every ~2s. Prime audio with installVoiceCallAudioUnlock()
- * so the first in-app tap unlocks rings for later incoming calls.
+ * iPhone/iPad (PWA): looping HTML audio ring files under /sounds/. Native apps
+ * like KakaoTalk use CallKit and can ring on the lock screen; iOS delivers web
+ * push silently, so in-app HTML audio is the only ring path while the app is
+ * open. Audio must be primed once per session via any in-app tap (scroll,
+ * chat, etc.) before incoming calls can ring.
  */
 
-/** Tiny silent WAV — primes iOS HTML audio output on first user tap. */
-const SILENT_WAV =
-  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
+const INCOMING_RING_URL = '/sounds/incoming-ring.wav'
+const OUTGOING_RING_URL = '/sounds/outgoing-ring.wav'
+const SILENT_RING_URL = '/sounds/silent.wav'
 
 const LOOP_PAUSE_MS = 2000
-// How long an unanswered call rings before it is dropped automatically. The iOS
-// single-utterance block is sized to cover this, and useVoiceCall ends/rejects
-// the call when it elapses.
 export const VOICE_CALL_RING_TIMEOUT_MS = 60000
-// iOS only honors speechSynthesis.speak() shortly after a real in-page gesture.
 const IOS_GESTURE_WINDOW_MS = 2500
-// iPhone ring beeps via HTML audio (works after one in-app tap primes output).
-const INCOMING_BEEP_HZ = 880
-const INCOMING_BEEP_MS = 320
-const INCOMING_DOUBLE_GAP_MS = 300
-const OUTGOING_BEEP_HZ = 440
-const OUTGOING_BEEP_MS = 380
-const BEEP_VOLUME = 0.28
-
-type WavSegment = { type: 'tone' | 'silence'; hz?: number; ms: number }
-
-/** Build a short WAV data URI (tone + silence segments) for HTML audio on iOS. */
-function makeRingWavDataUri(segments: WavSegment[]): string {
-  const sampleRate = 44100
-  const numSamples = segments.reduce(
-    (sum, s) => sum + Math.floor((sampleRate * s.ms) / 1000),
-    0,
-  )
-  const buffer = new ArrayBuffer(44 + numSamples * 2)
-  const view = new DataView(buffer)
-
-  const writeStr = (offset: number, str: string) => {
-    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i))
-  }
-  writeStr(0, 'RIFF')
-  view.setUint32(4, 36 + numSamples * 2, true)
-  writeStr(8, 'WAVE')
-  writeStr(12, 'fmt ')
-  view.setUint32(16, 16, true)
-  view.setUint16(20, 1, true)
-  view.setUint16(22, 1, true)
-  view.setUint32(24, sampleRate, true)
-  view.setUint32(28, sampleRate * 2, true)
-  view.setUint16(32, 2, true)
-  view.setUint16(34, 16, true)
-  writeStr(36, 'data')
-  view.setUint32(40, numSamples * 2, true)
-
-  let offset = 0
-  for (const segment of segments) {
-    const count = Math.floor((sampleRate * segment.ms) / 1000)
-    for (let i = 0; i < count; i++) {
-      let sample = 0
-      if (segment.type === 'tone' && segment.hz) {
-        sample = Math.sin((2 * Math.PI * segment.hz * i) / sampleRate) * BEEP_VOLUME
-      }
-      view.setInt16(44 + (offset + i) * 2, Math.max(-32767, Math.min(32767, sample * 32767)), true)
-    }
-    offset += count
-  }
-
-  const bytes = new Uint8Array(buffer)
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!)
-  return `data:audio/wav;base64,${btoa(binary)}`
-}
-
-const INCOMING_RING_WAV = makeRingWavDataUri([
-  { type: 'tone', hz: INCOMING_BEEP_HZ, ms: INCOMING_BEEP_MS },
-  { type: 'silence', ms: INCOMING_DOUBLE_GAP_MS },
-  { type: 'tone', hz: INCOMING_BEEP_HZ, ms: INCOMING_BEEP_MS },
-  { type: 'silence', ms: LOOP_PAUSE_MS },
-])
-const OUTGOING_RING_WAV = makeRingWavDataUri([
-  { type: 'tone', hz: OUTGOING_BEEP_HZ, ms: OUTGOING_BEEP_MS },
-  { type: 'silence', ms: LOOP_PAUSE_MS },
-])
+const IOS_RING_RETRY_MS = 800
 
 let audioContext: AudioContext | null = null
 let unlockListenersInstalled = false
@@ -97,7 +29,12 @@ let lastLang: string | undefined
 let ringDirection: 'incoming' | 'outgoing' = 'outgoing'
 let ringMode: 'beep' | 'speech' | 'tts' = 'speech'
 let pendingAnnouncementStart: (() => void) | null = null
-let iosRingAudio: HTMLAudioElement | null = null
+/** React-mounted ring elements (preferred on iOS over dynamic createElement). */
+let iosIncomingRingEl: HTMLAudioElement | null = null
+let iosOutgoingRingEl: HTMLAudioElement | null = null
+let iosPrimeAudioEl: HTMLAudioElement | null = null
+let iosRingActiveDirection: 'incoming' | 'outgoing' | null = null
+let iosRingAudioPrimed = false
 let iosRingRetryTimer: ReturnType<typeof setInterval> | null = null
 let openedFromCallNotification = false
 let ttsActiveSource: AudioBufferSourceNode | null = null
@@ -154,51 +91,91 @@ function stopIosRingRetry() {
 
 function stopIosHtmlRing() {
   stopIosRingRetry()
-  if (!iosRingAudio) return
+  iosRingActiveDirection = null
+  for (const audio of [iosIncomingRingEl, iosOutgoingRingEl]) {
+    if (!audio) continue
+    try {
+      audio.pause()
+      audio.currentTime = 0
+      audio.loop = false
+    } catch {
+      // ignore
+    }
+  }
+}
+
+/** Wire React-mounted <audio> elements (VoiceCallProvider) for reliable iOS playback. */
+export function attachIosIncomingRingAudio(el: HTMLAudioElement | null) {
+  iosIncomingRingEl = el
+}
+
+export function attachIosOutgoingRingAudio(el: HTMLAudioElement | null) {
+  iosOutgoingRingEl = el
+}
+
+function getIosRingElement(direction: 'incoming' | 'outgoing'): HTMLAudioElement | null {
+  const attached = direction === 'incoming' ? iosIncomingRingEl : iosOutgoingRingEl
+  if (attached) return attached
+  // Fallback if provider audio not mounted yet
+  if (typeof document === 'undefined') return null
+  const id = direction === 'incoming' ? 'voice-call-incoming-ring' : 'voice-call-outgoing-ring'
+  let el = document.getElementById(id) as HTMLAudioElement | null
+  if (!el) {
+    el = document.createElement('audio')
+    el.id = id
+    el.setAttribute('playsinline', 'true')
+    el.setAttribute('webkit-playsinline', 'true')
+    el.preload = 'auto'
+    el.style.display = 'none'
+    el.src = direction === 'incoming' ? INCOMING_RING_URL : OUTGOING_RING_URL
+    document.body.appendChild(el)
+  }
+  if (direction === 'incoming') iosIncomingRingEl = el
+  else iosOutgoingRingEl = el
+  return el
+}
+
+function isIosHtmlRingPlaying(): boolean {
+  if (iosRingActiveDirection === 'incoming' && iosIncomingRingEl) {
+    return !iosIncomingRingEl.paused && !iosIncomingRingEl.ended
+  }
+  if (iosRingActiveDirection === 'outgoing' && iosOutgoingRingEl) {
+    return !iosOutgoingRingEl.paused && !iosOutgoingRingEl.ended
+  }
+  return false
+}
+
+function pauseOtherIosRing(direction: 'incoming' | 'outgoing') {
+  const other = direction === 'incoming' ? iosOutgoingRingEl : iosIncomingRingEl
+  if (!other) return
   try {
-    iosRingAudio.pause()
-    iosRingAudio.currentTime = 0
-    iosRingAudio.loop = false
-    iosRingAudio.removeAttribute('src')
-    iosRingAudio.load()
+    other.pause()
+    other.currentTime = 0
   } catch {
     // ignore
   }
 }
 
-function getIosRingAudio(): HTMLAudioElement | null {
-  if (typeof document === 'undefined') return null
-  if (!iosRingAudio) {
-    const audio = document.createElement('audio')
-    audio.setAttribute('playsinline', 'true')
-    audio.setAttribute('webkit-playsinline', 'true')
-    audio.preload = 'auto'
-    audio.style.display = 'none'
-    document.body.appendChild(audio)
-    iosRingAudio = audio
-  }
-  return iosRingAudio
-}
-
-function isIosHtmlRingPlaying(): boolean {
-  return Boolean(iosRingAudio && !iosRingAudio.paused && !iosRingAudio.ended)
-}
-
-/** Play a looping ring WAV on the persistent iOS HTML audio element. */
+/** Play a looping ring file on the iOS HTML audio element for this direction. */
 function tryPlayIosHtmlRing(direction: 'incoming' | 'outgoing') {
-  const audio = getIosRingAudio()
+  if (isIosHtmlRingPlaying() && iosRingActiveDirection === direction) return
+
+  const audio = getIosRingElement(direction)
   if (!audio) return
 
-  const src = direction === 'incoming' ? INCOMING_RING_WAV : OUTGOING_RING_WAV
-  if (isIosHtmlRingPlaying() && audio.src === src) return
+  pauseOtherIosRing(direction)
 
   try {
-    audio.pause()
     audio.loop = true
-    audio.src = src
     audio.currentTime = 0
-    audio.load()
-    void audio.play().then(() => stopIosRingRetry()).catch(() => {})
+    void audio
+      .play()
+      .then(() => {
+        iosRingActiveDirection = direction
+        iosRingAudioPrimed = true
+        stopIosRingRetry()
+      })
+      .catch(() => {})
   } catch {
     // ignore
   }
@@ -206,26 +183,22 @@ function tryPlayIosHtmlRing(direction: 'incoming' | 'outgoing') {
 
 function startIosRingRetry(direction: 'incoming' | 'outgoing') {
   stopIosRingRetry()
-  // Incoming often arrives without a gesture — keep trying until play succeeds
-  // (e.g. after the user scrolls/taps, or AudioContext unlock completes).
   iosRingRetryTimer = setInterval(() => {
-    if (ringMode !== 'beep' || !lastAnnouncement) return
+    if (ringMode !== 'beep' || !lastAnnouncement || ringDirection !== direction) return
     if (isIosHtmlRingPlaying()) {
       stopIosRingRetry()
       return
     }
-    void unlockVoiceCallAudio()
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate([300, 150, 300, 600])
+      navigator.vibrate([400, 200, 400, 800])
     }
     tryPlayIosHtmlRing(direction)
-  }, 1200)
+  }, IOS_RING_RETRY_MS)
 }
 
 function runIosHtmlRing(direction: 'incoming' | 'outgoing') {
-  void unlockVoiceCallAudio()
   tryPlayIosHtmlRing(direction)
-  if (direction === 'incoming' && !isIosHtmlRingPlaying()) startIosRingRetry(direction)
+  if (direction === 'incoming') startIosRingRetry(direction)
 }
 
 function stopTtsPlayback() {
@@ -348,18 +321,61 @@ export async function unlockVoiceCallAudio(): Promise<boolean> {
   return true
 }
 
-function primeIosHtmlAudio() {
+function getIosPrimeAudio(): HTMLAudioElement | null {
+  if (typeof document === 'undefined') return null
+  if (!iosPrimeAudioEl) {
+    const el = document.createElement('audio')
+    el.setAttribute('playsinline', 'true')
+    el.setAttribute('webkit-playsinline', 'true')
+    el.preload = 'auto'
+    el.style.display = 'none'
+    document.body.appendChild(el)
+    iosPrimeAudioEl = el
+  }
+  return iosPrimeAudioEl
+}
+
+async function primeIosHtmlAudio() {
   if (isIosHtmlRingPlaying()) return
-  const audio = getIosRingAudio()
-  if (!audio) return
-  audio.loop = false
-  audio.src = SILENT_WAV
-  void audio.play().catch(() => {})
+
+  const el = getIosPrimeAudio()
+  if (!el) return
+
+  try {
+    el.loop = false
+    el.src = SILENT_RING_URL
+    el.load()
+    await el.play()
+    el.pause()
+    el.currentTime = 0
+    iosRingAudioPrimed = true
+  } catch {
+    // needs user gesture — onUserGesture calls this inside a gesture handler
+  }
+
+  // Unlock the React-mounted ring elements (volume 0) so later incoming play()
+  // works without a fresh gesture while the app stays open.
+  for (const ringEl of [iosIncomingRingEl, iosOutgoingRingEl]) {
+    if (!ringEl) continue
+    const savedVolume = ringEl.volume
+    try {
+      ringEl.volume = 0
+      ringEl.currentTime = 0
+      await ringEl.play()
+      ringEl.pause()
+      ringEl.currentTime = 0
+      iosRingAudioPrimed = true
+    } catch {
+      // ignore — element may not be mounted yet
+    } finally {
+      ringEl.volume = savedVolume
+    }
+  }
 }
 
 async function onUserGesture() {
   lastUserGestureAt = Date.now()
-  primeIosHtmlAudio()
+  await primeIosHtmlAudio()
   await unlockVoiceCallAudio()
   if (pendingAnnouncementStart) {
     flushPendingAnnouncement()
@@ -380,8 +396,6 @@ async function onUserGesture() {
 export function installVoiceCallAudioUnlock() {
   if (typeof document === 'undefined' || unlockListenersInstalled) return
   unlockListenersInstalled = true
-
-  if (isIosDevice()) getIosRingAudio()
 
   document.addEventListener('touchstart', onUserGesture, { passive: true, capture: true })
   document.addEventListener('pointerdown', onUserGesture, { passive: true, capture: true })
@@ -485,9 +499,8 @@ async function startVoiceAnnouncement(
   ringDirection = direction
   const generation = loopGeneration
 
-  if (typeof window !== 'undefined') primeIosHtmlAudio()
-
-  // iPhone/iPad: looping HTML audio ring (Web Audio stays suspended on incoming).
+  // iPhone/iPad: looping HTML audio ring files (never prime silent here — that
+  // breaks play() on incoming calls that arrive without a fresh gesture).
   if (isIosDevice()) {
     ringMode = 'beep'
     pendingAnnouncementStart = () => runIosHtmlRing(direction)
