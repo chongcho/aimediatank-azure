@@ -130,6 +130,10 @@ export function VoiceCallProvider({
     const start =
       state === 'incoming' ? startIncomingRingtone : startOutgoingRingback
     start(announcement, labels.localeTag)
+
+    return () => {
+      stopVoiceCallRingtone()
+    }
   }, [
     session?.user,
     voiceCall.callState,
