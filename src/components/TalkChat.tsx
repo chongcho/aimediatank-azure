@@ -332,6 +332,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
   // Show user picker for private chat
   const [showUserPicker, setShowUserPicker] = useState(false)
+  const [showVoiceCallPicker, setShowVoiceCallPicker] = useState(false)
+  const [voiceCallPickTarget, setVoiceCallPickTarget] = useState<UserSuggestion | null>(null)
+  const chatOverlayOpen = showUserPicker || showVoiceCallPicker
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [searchedUsers, setSearchedUsers] = useState<UserSuggestion[]>([])
   const [searchingUsers, setSearchingUsers] = useState(false)
@@ -426,7 +429,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
       const tryScroll = (b: ScrollBehavior) => {
         if (chatSize === 'min') return
-        if (showUserPicker) return
+        if (chatOverlayOpen) return
         if (!isAutoScrollEnabledRef.current) return
         messagesEndRef.current?.scrollIntoView({ behavior: b })
       }
@@ -440,7 +443,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         window.setTimeout(() => tryScroll('auto'), 900)
       )
     },
-    [chatSize, showUserPicker, clearScrollSettleTimers]
+    [chatSize, chatOverlayOpen, clearScrollSettleTimers]
   )
 
   // Keep bottom pinned while auto-scroll is enabled, even when thumbnails/images load later.
@@ -450,7 +453,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
     const obs = new ResizeObserver(() => {
       if (!isAutoScrollEnabledRef.current) return
-      if (chatSize === 'min' || showUserPicker) return
+      if (chatSize === 'min' || chatOverlayOpen) return
       if (resizeScrollRafRef.current !== null) return
       resizeScrollRafRef.current = requestAnimationFrame(() => {
         resizeScrollRafRef.current = null
@@ -467,7 +470,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         resizeScrollRafRef.current = null
       }
     }
-  }, [chatSize, showUserPicker])
+  }, [chatSize, chatOverlayOpen])
 
   const isSignedIn = !!session?.user
 
@@ -485,22 +488,37 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const voiceCall = useVoiceCallContext()
 
-  const callPeer = useMemo((): UserSuggestion | null => {
-    if (!session?.user?.id || chatMode !== 'private') return null
-    if (activeConversation?.isGroup) return null
-    if (activeConversation && activeConversation.members.length === 2) {
-      return activeConversation.members.find((m) => m.id !== session.user!.id) || null
-    }
-    if (selectedRecipients.length === 1) {
-      return selectedRecipients[0]
-    }
-    return null
-  }, [session?.user?.id, chatMode, activeConversation, selectedRecipients])
+  const callCandidateUsers = useMemo((): UserSuggestion[] => {
+    if (!session?.user?.id) return []
+    const selfId = session.user.id
+    const excludeSelf = (users: UserSuggestion[]) => users.filter((u) => u.id !== selfId)
 
-  const handleStartVoiceCall = () => {
-    if (!callPeer || !voiceCall) return
-    if (voiceCall.callState !== 'idle') return
-    void voiceCall.startCall(callPeer, activeConversation?.id ?? null)
+    if (activeConversation?.members?.length) {
+      return excludeSelf(activeConversation.members)
+    }
+    if (selectedRecipients.length > 0) {
+      return excludeSelf(selectedRecipients)
+    }
+
+    const seen = new Set<string>()
+    const out: UserSuggestion[] = []
+    for (const record of chatRecords) {
+      const members = record.members || (record.user ? [record.user] : [])
+      for (const member of members) {
+        if (member.id !== selfId && !seen.has(member.id)) {
+          seen.add(member.id)
+          out.push(member)
+        }
+      }
+    }
+    return out
+  }, [session?.user?.id, activeConversation, selectedRecipients, chatRecords])
+
+  const handleConfirmVoiceCall = () => {
+    if (!voiceCallPickTarget || !voiceCall) return
+    setShowVoiceCallPicker(false)
+    void voiceCall.startCall(voiceCallPickTarget, activeConversation?.id ?? null)
+    setVoiceCallPickTarget(null)
   }
 
   const composerPlaceholderEn = useMemo(() => {
@@ -519,28 +537,15 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const inviteBannerEn = useMemo(
     () =>
-      !showUserPicker && chatInvites.length > 0 && chatMode === 'private' && !privateRecipient
+      !chatOverlayOpen && chatInvites.length > 0 && chatMode === 'private' && !privateRecipient
         ? `${chatInvites.length} pending My Chat invite${chatInvites.length > 1 ? 's' : ''}`
         : '',
-    [showUserPicker, chatInvites.length, chatMode, privateRecipient],
+    [chatOverlayOpen, chatInvites.length, chatMode, privateRecipient],
   )
   const inviteBannerTr = useTranslatedSingle(
     inviteBannerEn,
     mtTag,
     inviteBannerEn.length > 0 && chatMtEnabled,
-  )
-
-  const memberLineEn = useMemo(
-    () =>
-      chatMode === 'private' && selectedRecipients.length > 0
-        ? `${selectedRecipients.length} member${selectedRecipients.length > 1 ? 's' : ''}`
-        : '',
-    [chatMode, selectedRecipients.length],
-  )
-  const memberLineTr = useTranslatedSingle(
-    memberLineEn,
-    mtTag,
-    memberLineEn.length > 0 && chatMtEnabled,
   )
 
   const pairTitle = confirmModal.show ? confirmModal.title : ''
@@ -893,11 +898,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         setShowChatRecords(false)
       }
     }
-    if (showEmojiPicker || showMediaPicker || showMentionPicker || showUserPicker || showChatRecords) {
+    if (showEmojiPicker || showMediaPicker || showMentionPicker || chatOverlayOpen || showChatRecords) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showEmojiPicker, showMediaPicker, showMentionPicker, showUserPicker, showChatRecords])
+  }, [showEmojiPicker, showMediaPicker, showMentionPicker, chatOverlayOpen, showChatRecords])
 
   // Prevent wheel/touch scroll on Chat Records popup from scrolling main page
   useEffect(() => {
@@ -1127,6 +1132,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     fetchChatRecords() // Fetch chat records to display in main window
     // Close all popups
     setShowUserPicker(false)
+    setShowVoiceCallPicker(false)
     setShowChatRecords(false)
     setShowInvites(false)
   }
@@ -1169,6 +1175,34 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
   }, [session?.user?.id])
 
+  const toggleVoiceCallPicker = () => {
+    if (!isSignedIn) {
+      setInlineNotice(TALK_CHAT_MAP.noticeSignInMyKong)
+      return
+    }
+    if (voiceCall?.callState !== 'idle') return
+
+    const next = !showVoiceCallPicker
+    if (next) {
+      setChatMode('private')
+      setShowUserPicker(false)
+      setVoiceCallPickTarget(null)
+      if (chatRecords.length === 0) {
+        fetchChatRecords()
+      }
+    } else {
+      setVoiceCallPickTarget(null)
+    }
+    setShowVoiceCallPicker(next)
+  }
+
+  useEffect(() => {
+    if (!showVoiceCallPicker) return
+    if (callCandidateUsers.length === 1) {
+      setVoiceCallPickTarget(callCandidateUsers[0])
+    }
+  }, [showVoiceCallPicker, callCandidateUsers])
+
   // Toggle new chat picker (renamed from chat records)
   const toggleNewChat = () => {
     if (!isSignedIn) {
@@ -1184,6 +1218,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       setSelectedRecipients([])
       setUserSearchQuery('')
       setSearchedUsers([])
+      setShowVoiceCallPicker(false)
     }
     // Close other popups
     setShowChatRecords(false)
@@ -1280,7 +1315,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
 
     if (didAutoOpenLastChatRef.current) return
-    if (showUserPicker) return
+    if (chatOverlayOpen) return
     if (loadingChatRecords) return
     if (activeConversation) {
       didAutoOpenLastChatRef.current = true
@@ -1315,7 +1350,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     loadingChatRecords,
     activeConversation,
     selectedRecipients.length,
-    showUserPicker,
+    chatOverlayOpen,
   ])
 
   // Context menu handlers for chat records
@@ -2060,7 +2095,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
     // On open / chat switch: force one scroll-to-bottom once we have messages rendered.
     if (shouldScrollToBottomOnNextMessagesRef.current) {
-      if (chatSize !== 'min' && !showUserPicker) {
+      if (chatSize !== 'min' && !chatOverlayOpen) {
         shouldScrollToBottomOnNextMessagesRef.current = false
         isAutoScrollEnabledRef.current = true
         lastAutoScrolledMessageIdRef.current = lastId
@@ -2087,11 +2122,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       lastAutoScrolledMessageIdRef.current = lastId
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [messages, chatSize, showUserPicker, settleScrollToBottom])
+  }, [messages, chatSize, chatOverlayOpen, settleScrollToBottom])
 
   useLayoutEffect(() => {
     if (didInitialScroll || messages.length === 0) return
-    if (showUserPicker || chatSize === 'min') return
+    if (chatOverlayOpen || chatSize === 'min') return
     ignoreInitialScrollRef.current = true
     scrollToBottomInstant()
     const raf = requestAnimationFrame(() => {
@@ -2100,7 +2135,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       setDidInitialScroll(true)
     })
     return () => cancelAnimationFrame(raf)
-  }, [messages.length, didInitialScroll, showUserPicker, chatSize, scrollToBottomInstant])
+  }, [messages.length, didInitialScroll, chatOverlayOpen, chatSize, scrollToBottomInstant])
 
   useEffect(() => {
     if (isInitialized) {
@@ -2614,45 +2649,35 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 <line x1="9" y1="11" x2="15" y2="11" />
               </svg>
             </button>
-            
-            {/* Member count - shown when in private chat with recipients */}
-            {chatMode === 'private' && selectedRecipients.length > 0 && (
-              <div style={{
-                marginLeft: '8px',
-                paddingLeft: '8px',
-                borderLeft: '1px solid #ccc',
-                fontSize: '13px',
-                fontWeight: '700',
-                color: '#333',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}>
-                {memberLineTr}
-                {callPeer && voiceCall && (
-                  <button
-                    type="button"
-                    onClick={handleStartVoiceCall}
-                    disabled={voiceCall.callState !== 'idle'}
-                    title={tr[TC.voiceCall]}
-                    style={{
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      border: 'none',
-                      background: voiceCall.callState === 'idle' ? '#059669' : '#9ca3af',
-                      color: 'white',
-                      cursor: voiceCall.callState === 'idle' ? 'pointer' : 'not-allowed',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                    </svg>
-                  </button>
-                )}
-            </div>
+
+            {/* Voice call — My Chat navbar */}
+            {chatMode === 'private' && isSignedIn && voiceCall && (
+              <button
+                type="button"
+                onClick={toggleVoiceCallPicker}
+                disabled={voiceCall.callState !== 'idle'}
+                className="chat-btn-responsive"
+                style={{
+                  padding: '4px 6px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  background: showVoiceCallPicker
+                    ? '#047857'
+                    : voiceCall.callState === 'idle'
+                      ? '#059669'
+                      : '#9ca3af',
+                  color: 'white',
+                  cursor: voiceCall.callState === 'idle' ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title={tr[TC.voiceCall]}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                </svg>
+              </button>
             )}
           </div>
           
@@ -2946,9 +2971,160 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
+        {/* Voice call picker — select one user, then Call */}
+        {showVoiceCallPicker && (
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              background: '#fafafa',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{
+              padding: '10px 12px',
+              background: '#ecfdf5',
+              borderBottom: '1px solid #a7f3d0',
+              fontSize: '14px',
+              fontWeight: '700',
+              color: '#065f46',
+            }}>
+              {tr[TC.voiceCallPickSomeone]}
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
+              {loadingChatRecords && callCandidateUsers.length === 0 ? (
+                <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
+                  {tr[TC.loading]}
+                </div>
+              ) : callCandidateUsers.length === 0 ? (
+                <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
+                  {tr[TC.voiceCallNoContacts]}
+                </div>
+              ) : (
+                callCandidateUsers.map((user) => {
+                  const selected = voiceCallPickTarget?.id === user.id
+                  return (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => setVoiceCallPickTarget(user)}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 12px',
+                        marginBottom: '6px',
+                        border: selected ? '2px solid #059669' : '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        background: selected ? '#ecfdf5' : 'white',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        background: '#8b5cf6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        {user.avatar ? (
+                          <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ color: 'white', fontWeight: 700, fontSize: '14px' }}>
+                            {(user.username || '?')[0]?.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: '14px', color: '#111' }}>
+                          @{formatDisplayUsername(user.username)}
+                        </div>
+                        {user.name && (
+                          <div style={{ fontSize: '12px', color: '#666' }}>{user.name}</div>
+                        )}
+                      </div>
+                      <div style={{
+                        marginLeft: 'auto',
+                        width: '18px',
+                        height: '18px',
+                        borderRadius: '50%',
+                        border: selected ? 'none' : '2px solid #d1d5db',
+                        background: selected ? '#059669' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        {selected && (
+                          <svg width="10" height="10" fill="white" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+            <div style={{
+              padding: '8px 12px',
+              background: '#e8e8e8',
+              borderTop: '1px solid #ccc',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: '8px',
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVoiceCallPicker(false)
+                  setVoiceCallPickTarget(null)
+                }}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: '#9ca3af',
+                  color: 'white',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                }}
+              >
+                {tr[TC.cancel]}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmVoiceCall}
+                disabled={!voiceCallPickTarget}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: voiceCallPickTarget ? '#059669' : '#9ca3af',
+                  color: 'white',
+                  fontWeight: 700,
+                  cursor: voiceCallPickTarget ? 'pointer' : 'not-allowed',
+                  fontSize: '14px',
+                }}
+              >
+                {tr[TC.voiceCallStartButton]}
+              </button>
+            </div>
+          </div>
+        )}
+
 
         {/* My Chat invites — hidden when New Chat picker is open */}
-        {!showUserPicker && chatInvites.length > 0 && chatMode === 'private' && !privateRecipient && (
+        {!chatOverlayOpen && chatInvites.length > 0 && chatMode === 'private' && !privateRecipient && (
           <div style={{
             background: '#fef3c7',
             padding: '10px 12px',
@@ -3025,7 +3201,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         )}
         
         {/* Inline notice — hidden when New Chat picker is open */}
-        {!showUserPicker && inlineNotice && (
+        {!chatOverlayOpen && inlineNotice && (
           <div style={{
             padding: '10px 16px',
             background: '#fef3c7',
@@ -3061,7 +3237,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Messages — hidden when minimized or when New Chat picker is open */}
-        {!showUserPicker && chatSize !== 'min' && (
+        {!chatOverlayOpen && chatSize !== 'min' && (
         <div 
           ref={messagesContainerRef}
           className="chat-messages-scroll"
@@ -3908,7 +4084,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Composer — hidden when minimized or when New Chat picker is open */}
-        {!showUserPicker && chatSize !== 'min' && (
+        {!chatOverlayOpen && chatSize !== 'min' && (
         <form 
           onSubmit={sendMessage} 
           onClick={(e) => e.stopPropagation()}

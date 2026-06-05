@@ -112,6 +112,21 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
   }, [reportError])
 
+  const endCallOnServer = useCallback(async () => {
+    const id = callIdRef.current
+    if (!id) return
+    try {
+      await voiceApi('end', { callId: id })
+    } catch {
+      // best effort
+    }
+  }, [])
+
+  const endCall = useCallback(async () => {
+    await endCallOnServer()
+    resetCall()
+  }, [endCallOnServer, resetCall])
+
   const createPeerConnection = useCallback(() => {
     const pc = new RTCPeerConnection({ iceServers: getIceServers() })
 
@@ -134,13 +149,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         setCallState('connected')
       } else if (pc.connectionState === 'failed') {
         reportError('Call connection failed')
-        resetCall()
+        void endCall()
       }
     }
 
     pcRef.current = pc
     return pc
-  }, [reportError, resetCall, sendSignal])
+  }, [endCall, reportError, sendSignal])
 
   const attachLocalTracks = useCallback(async (pc: RTCPeerConnection) => {
     const stream = await ensureLocalAudio()
@@ -164,8 +179,16 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
   }, [attachLocalTracks, createPeerConnection, sendSignal])
 
+  const storePendingOffer = useCallback((payload: Record<string, unknown>) => {
+    const sdp = payload?.sdp as RTCSessionDescriptionInit | undefined
+    if (sdp) {
+      pendingOfferRef.current = sdp
+    }
+  }, [])
+
   const handleRemoteOffer = useCallback(
     async (signal: PollSignal, caller: VoiceCallUser) => {
+      storePendingOffer(signal.payload)
       callIdRef.current = signal.callId
       setCallId(signal.callId)
       setRemoteUser(caller)
@@ -175,7 +198,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (handledIncomingRef.current.has(signal.id)) return
       handledIncomingRef.current.add(signal.id)
     },
-    [],
+    [storePendingOffer],
   )
 
   const handleRemoteAnswer = useCallback(
@@ -200,21 +223,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
   }, [])
 
-  const endCallOnServer = useCallback(async () => {
-    const id = callIdRef.current
-    if (!id) return
-    try {
-      await voiceApi('end', { callId: id })
-    } catch {
-      // best effort
-    }
-  }, [])
-
-  const endCall = useCallback(async () => {
-    await endCallOnServer()
-    resetCall()
-  }, [endCallOnServer, resetCall])
-
   const rejectCall = useCallback(async () => {
     const id = callIdRef.current
     if (!id) {
@@ -229,42 +237,49 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     resetCall()
   }, [resetCall])
 
+  const resolvePendingOffer = useCallback(async (callId: string) => {
+    if (pendingOfferRef.current) return pendingOfferRef.current
+
+    const res = await fetch(`/api/chat/voice?since=${encodeURIComponent(new Date(0).toISOString())}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    const offerSignal = (data.signals as PollSignal[] | undefined)?.find(
+      (s) => s.callId === callId && s.type === 'offer',
+    )
+    const sdp = offerSignal?.payload?.sdp as RTCSessionDescriptionInit | undefined
+    if (sdp) {
+      pendingOfferRef.current = sdp
+      return sdp
+    }
+    return null
+  }, [])
+
   const answerCall = useCallback(async () => {
     const id = callIdRef.current
     if (!id) return
     try {
+      const offerSdp = await resolvePendingOffer(id)
+      if (!offerSdp) {
+        reportError('Could not connect — offer missing')
+        await endCall()
+        return
+      }
+
       await voiceApi('accept', { callId: id })
       const pc = createPeerConnection()
       await attachLocalTracks(pc)
 
-      let offerSdp = pendingOfferRef.current
-      if (!offerSdp) {
-        const res = await fetch(`/api/chat/voice?since=${encodeURIComponent(new Date(0).toISOString())}`)
-        const data = await res.json()
-        const offerSignal = (data.signals as PollSignal[] | undefined)?.find(
-          (s) => s.callId === id && s.type === 'offer',
-        )
-        if (offerSignal?.payload?.sdp) {
-          offerSdp = offerSignal.payload.sdp as RTCSessionDescriptionInit
-        }
-      }
-
-      if (offerSdp) {
-        await pc.setRemoteDescription(new RTCSessionDescription(offerSdp))
-        const answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-        await sendSignal('answer', { sdp: answer })
-        pendingOfferRef.current = null
-        setCallState('connecting')
-      } else {
-        reportError('Could not connect — offer missing')
-        await endCall()
-      }
+      await pc.setRemoteDescription(new RTCSessionDescription(offerSdp))
+      const answer = await pc.createAnswer()
+      await pc.setLocalDescription(answer)
+      await sendSignal('answer', { sdp: answer })
+      pendingOfferRef.current = null
+      setCallState('connecting')
     } catch (err) {
       reportError(err instanceof Error ? err.message : 'Failed to answer call')
-      resetCall()
+      await endCall()
     }
-  }, [attachLocalTracks, createPeerConnection, endCall, reportError, resetCall, sendSignal])
+  }, [attachLocalTracks, createPeerConnection, endCall, reportError, resolvePendingOffer, sendSignal])
 
   const startCall = useCallback(
     async (peer: VoiceCallUser, conversationId?: string | null) => {
@@ -321,10 +336,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       }
 
       for (const signal of data.signals || []) {
-        if (signal.type === 'offer' && callState === 'idle') {
-          const caller = data.incomingCalls?.find((c) => c.id === signal.callId)?.caller
-          if (caller) {
-            await handleRemoteOffer(signal, caller)
+        if (signal.type === 'offer') {
+          storePendingOffer(signal.payload)
+          if (callState === 'idle') {
+            const caller = data.incomingCalls?.find((c) => c.id === signal.callId)?.caller
+            if (caller) {
+              await handleRemoteOffer(signal, caller)
+            }
           }
           continue
         }
@@ -337,18 +355,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           await handleRemoteIce(signal.payload)
         } else if (signal.type === 'hangup' || signal.type === 'reject') {
           resetCall()
-        } else if (signal.type === 'offer') {
-          const sdp = signal.payload?.sdp as RTCSessionDescriptionInit | undefined
-          if (sdp) {
-            pendingOfferRef.current = sdp
-          }
-          if (!isCallerRef.current && callState === 'idle') {
-            // incoming offer before call row was seen
-          }
         }
       }
     },
-    [callState, handleRemoteAnswer, handleRemoteIce, handleRemoteOffer, resetCall],
+    [callState, handleRemoteAnswer, handleRemoteIce, handleRemoteOffer, resetCall, storePendingOffer],
   )
 
   useEffect(() => {
