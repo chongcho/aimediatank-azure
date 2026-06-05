@@ -18,6 +18,9 @@ const LOOP_PAUSE_MS = 2000
 const IOS_BLOCK_REPEATS = 20
 // iOS only honors speechSynthesis.speak() shortly after a real in-page gesture.
 const IOS_GESTURE_WINDOW_MS = 2500
+// Approx. silence Apple TTS adds per sentence-break ". " beat. Used to match the
+// ~LOOP_PAUSE_MS gap the PC loop leaves between repeats (iOS can't use timers).
+const IOS_PAUSE_BEAT_MS = 500
 
 let audioContext: AudioContext | null = null
 let unlockListenersInstalled = false
@@ -237,11 +240,18 @@ function speakAnnouncementOnce(text: string, lang?: string) {
   synth.speak(utterance)
 }
 
-/** Repeat the phrase inside one utterance, with pauses, so a single speak() rings. */
+/**
+ * Repeat the phrase inside one utterance, with a ~LOOP_PAUSE_MS gap between
+ * repeats so the iPhone cadence matches the PC loop. iOS can't time speak()
+ * calls, so the pause is built from sentence-break ". " beats (each ~IOS_PAUSE_
+ * BEAT_MS of silence on Apple voices, never spoken aloud).
+ */
 function buildRepeatedAnnouncement(text: string, repeats: number): string {
-  const phrase = text.trim().replace(/\s+/g, ' ').replace(/\.+$/, '')
-  // Period + spaces yields a natural pause between repeats in iOS speech.
-  return Array.from({ length: repeats }, () => phrase).join('.   ') + '.'
+  const phrase = text.trim().replace(/\s+/g, ' ').replace(/[.\s]+$/, '')
+  const beats = Math.max(1, Math.round(LOOP_PAUSE_MS / IOS_PAUSE_BEAT_MS))
+  // e.g. "Calling John. . . ." → speak phrase, then ~beats of silent pause.
+  const separator = '.' + ' .'.repeat(beats) + ' '
+  return Array.from({ length: repeats }, () => phrase).join(separator) + '.'
 }
 
 /**
