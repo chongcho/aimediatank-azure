@@ -2,8 +2,9 @@
  * Spoken voice announcements for TalkChat voice calls while ringing (no beep tones).
  * Incoming: "Call from {name}". Outgoing: "Calling {name}".
  *
- * iOS Safari/PWA may block audio until a user gesture — use installVoiceCallAudioUnlock()
- * at app startup and retry when a call rings.
+ * iOS Safari/PWA blocks speech until an in-page gesture — notification taps do not
+ * count. Use installVoiceCallAudioUnlock() at startup; opening from a push notification
+ * primes audio on pageshow and retries after the first touch.
  */
 
 /** Tiny silent WAV — primes iOS HTML audio output on first user tap. */
@@ -11,15 +12,19 @@ const SILENT_WAV =
   'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
 
 const LOOP_PAUSE_MS = 2000
+const IOS_SPEECH_RETRY_MS = 2000
+const IOS_SPEECH_RETRY_MAX = 30
 
 let audioContext: AudioContext | null = null
 let unlockListenersInstalled = false
 let loopGeneration = 0
 let loopScheduleTimer: ReturnType<typeof setTimeout> | null = null
 let iosKeepAliveTimer: ReturnType<typeof setInterval> | null = null
+let iosSpeechRetryTimer: ReturnType<typeof setInterval> | null = null
 let lastAnnouncement: string | null = null
 let lastLang: string | undefined
 let pendingAnnouncementStart: (() => void) | null = null
+let openedFromCallNotification = false
 
 type AudioContextCtor = typeof AudioContext
 
@@ -65,9 +70,15 @@ function stopIosSpeechKeepAlive() {
   }
 }
 
+function stopIosSpeechRetry() {
+  if (iosSpeechRetryTimer !== null) {
+    clearInterval(iosSpeechRetryTimer)
+    iosSpeechRetryTimer = null
+  }
+}
+
 function startIosSpeechKeepAlive() {
   if (!isIosDevice() || iosKeepAliveTimer !== null) return
-  // iOS Safari can freeze speechSynthesis mid-loop without periodic resume.
   iosKeepAliveTimer = setInterval(() => {
     const synth = window.speechSynthesis
     if (!synth?.speaking) return
@@ -80,6 +91,7 @@ function stopSpeech() {
   loopGeneration += 1
   clearLoopScheduleTimer()
   stopIosSpeechKeepAlive()
+  stopIosSpeechRetry()
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel()
   }
@@ -118,21 +130,65 @@ function primeIosHtmlAudio() {
   void audio.play().catch(() => {})
 }
 
+function onUserGesture() {
+  primeIosHtmlAudio()
+  void unlockVoiceCallAudio()
+  if (pendingAnnouncementStart) {
+    flushPendingAnnouncement()
+    return
+  }
+  if (
+    lastAnnouncement &&
+    isIosDevice() &&
+    loopScheduleTimer === null &&
+    pendingAnnouncementStart === null
+  ) {
+    retryVoiceCallAnnouncement()
+  }
+}
+
 /** Call once at app startup so the first tap unlocks audio for later calls. */
 export function installVoiceCallAudioUnlock() {
   if (typeof document === 'undefined' || unlockListenersInstalled) return
   unlockListenersInstalled = true
 
-  const onGesture = () => {
-    primeIosHtmlAudio()
-    void unlockVoiceCallAudio()
-    flushPendingAnnouncement()
-  }
+  document.addEventListener('touchstart', onUserGesture, { passive: true, capture: true })
+  document.addEventListener('pointerdown', onUserGesture, { passive: true, capture: true })
+  document.addEventListener('click', onUserGesture, { capture: true })
+  document.addEventListener('keydown', onUserGesture, { capture: true })
+}
 
-  document.addEventListener('touchstart', onGesture, { passive: true, capture: true })
-  document.addEventListener('pointerdown', onGesture, { passive: true, capture: true })
-  document.addEventListener('click', onGesture, { capture: true })
-  document.addEventListener('keydown', onGesture, { capture: true })
+/** App opened from an incoming-call push notification (cold start). */
+export function markOpenedFromCallNotification() {
+  openedFromCallNotification = true
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem('voiceCallNotificationOpen', '1')
+  }
+}
+
+function wasOpenedFromCallNotification() {
+  if (openedFromCallNotification) return true
+  if (typeof sessionStorage === 'undefined') return false
+  return sessionStorage.getItem('voiceCallNotificationOpen') === '1'
+}
+
+function clearOpenedFromCallNotification() {
+  openedFromCallNotification = false
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem('voiceCallNotificationOpen')
+  }
+}
+
+/** Prime audio after opening the PWA from a notification (pageshow / visibility). */
+export function primeVoiceCallAfterNotificationOpen() {
+  if (!wasOpenedFromCallNotification() && !lastAnnouncement) return
+  primeIosHtmlAudio()
+  void unlockVoiceCallAudio()
+  flushPendingAnnouncement()
+  if (lastAnnouncement) {
+    void startVoiceAnnouncement(lastAnnouncement, lastLang)
+    clearOpenedFromCallNotification()
+  }
 }
 
 /** Stop any playing spoken announcement. */
@@ -161,12 +217,38 @@ function speakAnnouncementOnce(text: string, lang?: string) {
   synth.speak(utterance)
 }
 
+function startIosSpeechRetry(announcement: string, lang: string | undefined, generation: number) {
+  stopIosSpeechRetry()
+  if (!isIosDevice()) return
+
+  let attempts = 0
+  iosSpeechRetryTimer = setInterval(() => {
+    if (generation !== loopGeneration || !lastAnnouncement) {
+      stopIosSpeechRetry()
+      return
+    }
+    if (attempts++ >= IOS_SPEECH_RETRY_MAX) {
+      stopIosSpeechRetry()
+      return
+    }
+
+    const synth = window.speechSynthesis
+    if (synth?.speaking || synth?.pending) return
+
+    speakAnnouncementOnce(announcement, lang)
+  }, IOS_SPEECH_RETRY_MS)
+}
+
 function runAnnouncementLoop(announcement: string, lang: string | undefined, generation: number) {
   startIosSpeechKeepAlive()
+  if (isIosDevice()) {
+    startIosSpeechRetry(announcement, lang, generation)
+  }
 
   const scheduleNext = () => {
     if (generation !== loopGeneration) {
       stopIosSpeechKeepAlive()
+      stopIosSpeechRetry()
       return
     }
 
@@ -182,7 +264,7 @@ function isSameAnnouncementRunning(announcement: string, lang?: string) {
   return (
     announcement === lastAnnouncement &&
     lang === lastLang &&
-    (loopScheduleTimer !== null || iosKeepAliveTimer !== null)
+    (loopScheduleTimer !== null || iosKeepAliveTimer !== null || pendingAnnouncementStart !== null)
   )
 }
 
@@ -198,14 +280,26 @@ async function startVoiceAnnouncement(announcement: string, lang?: string) {
     runAnnouncementLoop(announcement, lang, generation)
   }
 
-  await unlockVoiceCallAudio()
+  pendingAnnouncementStart = start
 
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-    start()
+  if (isIosDevice()) {
+    primeIosHtmlAudio()
+    const unlocked = await unlockVoiceCallAudio()
+    if (unlocked) {
+      flushPendingAnnouncement()
+      clearOpenedFromCallNotification()
+      return
+    }
+    // Wait for first in-page touch (notification tap does not unlock iOS speech).
     return
   }
 
-  pendingAnnouncementStart = start
+  await unlockVoiceCallAudio()
+
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    flushPendingAnnouncement()
+    return
+  }
 }
 
 /** Callee: repeat spoken announcement while incoming call is unanswered. */

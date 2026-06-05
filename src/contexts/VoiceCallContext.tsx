@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, type MutableRefObject, ty
 import { registerVoiceCallPush } from '@/lib/pushSubscriptionClient'
 import {
   installVoiceCallAudioUnlock,
+  primeVoiceCallAfterNotificationOpen,
   retryVoiceCallAnnouncement,
   startIncomingRingtone,
   startOutgoingRingback,
@@ -130,12 +131,13 @@ export function VoiceCallProvider({
     const start =
       state === 'incoming' ? startIncomingRingtone : startOutgoingRingback
     start(announcement, labels.localeTag)
+    primeVoiceCallAfterNotificationOpen()
 
     return () => {
       stopVoiceCallRingtone()
     }
   }, [
-    session?.user,
+    session?.user?.id,
     voiceCall.callState,
     voiceCall.remoteUser?.id,
     voiceCall.remoteUser?.name,
@@ -151,12 +153,14 @@ export function VoiceCallProvider({
 
     const onVisible = () => {
       if (document.hidden) return
+      primeVoiceCallAfterNotificationOpen()
       const state = callStateRef.current
       if (state === 'incoming' || state === 'outgoing') {
         retryVoiceCallAnnouncement()
       }
     }
 
+    primeVoiceCallAfterNotificationOpen()
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('pageshow', onVisible)
     return () => {

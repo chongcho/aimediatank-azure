@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { getIceServers } from '@/lib/voiceCallConfig'
-import { retryVoiceCallAnnouncement, stopVoiceCallRingtone } from '@/lib/voiceCallRingtone'
+import {
+  markOpenedFromCallNotification,
+  retryVoiceCallAnnouncement,
+  stopVoiceCallRingtone,
+} from '@/lib/voiceCallRingtone'
 import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 
 export interface VoiceCallUser {
@@ -466,6 +470,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     const params = new URLSearchParams(window.location.search)
     if (params.get('voiceIncoming') !== '1') return
 
+    markOpenedFromCallNotification()
     requestOpenTalkChat()
 
     const action = params.get('voiceAction')
