@@ -63,24 +63,26 @@ function flushPendingRing() {
   start()
 }
 
+function isAudioContextRunning(ctx: AudioContext): boolean {
+  return ctx.state === 'running'
+}
+
 /** Resume Web Audio after a user gesture (required on iOS). */
 export async function unlockVoiceCallAudio(): Promise<boolean> {
   const ctx = getAudioContext()
   if (!ctx) return false
-  if (ctx.state === 'running') {
-    flushPendingRing()
-    return true
-  }
+
   try {
-    await ctx.resume()
+    if (!isAudioContextRunning(ctx)) {
+      await ctx.resume()
+    }
   } catch {
     return false
   }
-  if (ctx.state === 'running') {
-    flushPendingRing()
-    return true
-  }
-  return false
+
+  if (!isAudioContextRunning(ctx)) return false
+  flushPendingRing()
+  return true
 }
 
 function primeIosHtmlAudio() {
