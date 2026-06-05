@@ -116,6 +116,17 @@ function voiceCallDeepLink(data, voiceAction) {
   return '/?' + params.toString();
 }
 
+function focusOrOpenUrl(targetUrl) {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    for (const client of clients) {
+      if ('focus' in client) {
+        return client.focus();
+      }
+    }
+    return self.clients.openWindow(targetUrl);
+  });
+}
+
 function focusOrOpenVoiceCall(data, voiceAction) {
   const targetUrl = voiceCallDeepLink(data, voiceAction);
   const messageType =
@@ -164,7 +175,7 @@ self.addEventListener('push', (event) => {
       : [100, 50, 100],
     silent: false,
     data: {
-      url: data.url || voiceCallDeepLink(data, ''),
+      url: isVoiceCall ? (data.url || voiceCallDeepLink(data, '')) : (data.url || '/'),
       type: data.type || 'generic',
       callId: data.callId || null,
       caller: data.caller || null,
@@ -199,9 +210,7 @@ self.addEventListener('notificationclick', (event) => {
   const action = event.action || '';
 
   if (data.type !== 'voice_call') {
-    event.waitUntil(
-      self.clients.openWindow(data.url || '/')
-    );
+    event.waitUntil(focusOrOpenUrl(data.url || '/'));
     return;
   }
 

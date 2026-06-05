@@ -104,6 +104,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     isCallerRef.current = false
     makingOfferRef.current = false
     pendingOfferRef.current = null
+    pendingVoiceActionRef.current = null
     setCallId(null)
     setRemoteUser(null)
     setIsMuted(false)
@@ -352,6 +353,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       }
 
       for (const signal of data.signals || []) {
+        if (
+          (signal.type === 'hangup' || signal.type === 'reject') &&
+          callStateRef.current === 'idle' &&
+          pendingVoiceActionRef.current
+        ) {
+          pendingVoiceActionRef.current = null
+        }
+
         if (signal.type === 'offer') {
           storePendingOffer(signal.payload)
           if (callState === 'idle') {
@@ -419,6 +428,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
     const callId = params.get('callId')
     if (callId) {
+      callIdRef.current = callId
+      setCallId(callId)
       params.delete('voiceIncoming')
       params.delete('voiceAction')
       params.delete('callId')
