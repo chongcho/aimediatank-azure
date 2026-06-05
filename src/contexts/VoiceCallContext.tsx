@@ -112,30 +112,30 @@ export function VoiceCallProvider({
   }, [session?.user?.id])
 
   useEffect(() => {
-    if (!session?.user) return
-
-    const user = voiceCall.remoteUser
-    if (voiceCall.callState === 'incoming') {
-      startIncomingRingtone(
-        formatCallAnnouncement(labels.incomingCall, user),
-        labels.localeTag,
-      )
-    } else if (voiceCall.callState === 'outgoing') {
-      startOutgoingRingback(
-        formatCallAnnouncement(labels.calling, user),
-        labels.localeTag,
-      )
-    } else {
+    if (!session?.user) {
       stopVoiceCallRingtone()
+      return
     }
 
-    return () => {
+    const state = voiceCall.callState
+    if (state !== 'incoming' && state !== 'outgoing') {
       stopVoiceCallRingtone()
+      return
     }
+
+    const announcement = formatCallAnnouncement(
+      state === 'incoming' ? labels.incomingCall : labels.calling,
+      voiceCall.remoteUser,
+    )
+    const start =
+      state === 'incoming' ? startIncomingRingtone : startOutgoingRingback
+    start(announcement, labels.localeTag)
   }, [
     session?.user,
     voiceCall.callState,
-    voiceCall.remoteUser,
+    voiceCall.remoteUser?.id,
+    voiceCall.remoteUser?.name,
+    voiceCall.remoteUser?.username,
     labels.incomingCall,
     labels.calling,
     labels.localeTag,

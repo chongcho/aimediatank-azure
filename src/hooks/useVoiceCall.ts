@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { getIceServers } from '@/lib/voiceCallConfig'
-import { stopVoiceCallRingtone } from '@/lib/voiceCallRingtone'
+import { retryVoiceCallAnnouncement, stopVoiceCallRingtone } from '@/lib/voiceCallRingtone'
 import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 
 export interface VoiceCallUser {
@@ -225,6 +225,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
       await sendSignal('offer', { sdp: offer })
+      if (callStateRef.current === 'outgoing') {
+        retryVoiceCallAnnouncement()
+      }
     } finally {
       makingOfferRef.current = false
     }
