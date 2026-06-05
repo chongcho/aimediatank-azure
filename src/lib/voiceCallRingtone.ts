@@ -15,7 +15,7 @@ const LOOP_PAUSE_MS = 2000
 let audioContext: AudioContext | null = null
 let unlockListenersInstalled = false
 let loopGeneration = 0
-let loopScheduleTimer: ReturnType<typeof setTimeout> | null = null
+let loopActive = false
 let iosKeepAliveTimer: ReturnType<typeof setInterval> | null = null
 let lastAnnouncement: string | null = null
 let lastLang: string | undefined
@@ -46,16 +46,9 @@ function isAudioContextRunning(ctx: AudioContext): boolean {
   return ctx.state === 'running'
 }
 
-function isIosDevice(): boolean {
+function isMobileDevice(): boolean {
   if (typeof navigator === 'undefined') return false
-  return /iPad|iPhone|iPod/.test(navigator.userAgent)
-}
-
-function clearLoopScheduleTimer() {
-  if (loopScheduleTimer !== null) {
-    clearTimeout(loopScheduleTimer)
-    loopScheduleTimer = null
-  }
+  return /Android|iPad|iPhone|iPod/i.test(navigator.userAgent)
 }
 
 function stopIosSpeechKeepAlive() {
@@ -66,19 +59,18 @@ function stopIosSpeechKeepAlive() {
 }
 
 function startIosSpeechKeepAlive() {
-  if (!isIosDevice() || iosKeepAliveTimer !== null) return
-  // iOS Safari can freeze speechSynthesis mid-loop without periodic resume.
+  if (!isMobileDevice() || iosKeepAliveTimer !== null) return
   iosKeepAliveTimer = setInterval(() => {
     const synth = window.speechSynthesis
     if (!synth?.speaking) return
     synth.pause()
     synth.resume()
-  }, 4000)
+  }, 3000)
 }
 
 function stopSpeech() {
   loopGeneration += 1
-  clearLoopScheduleTimer()
+  loopActive = false
   stopIosSpeechKeepAlive()
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel()
@@ -145,14 +137,36 @@ export function stopVoiceCallRingtone() {
 
 function estimateSpeechDurationMs(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length
-  return Math.max(2200, words * 450)
+  return Math.max(2500, words * 500)
+}
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+async function waitForSpeechIdle(generation: number, maxMs = 10000) {
+  const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
+  if (!synth) return
+
+  const started = Date.now()
+  while (synth.speaking && Date.now() - started < maxMs) {
+    if (generation !== loopGeneration) return
+    await delay(120)
+  }
+
+  if (synth.speaking) {
+    synth.cancel()
+    await delay(200)
+  }
 }
 
 function speakAnnouncementOnce(text: string, lang?: string) {
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
   if (!synth || !text.trim()) return
 
-  if (isIosDevice()) {
+  if (isMobileDevice()) {
     synth.getVoices()
   }
 
@@ -161,41 +175,41 @@ function speakAnnouncementOnce(text: string, lang?: string) {
   synth.speak(utterance)
 }
 
-function runAnnouncementLoop(announcement: string, lang: string | undefined, generation: number) {
+async function runAnnouncementLoop(
+  announcement: string,
+  lang: string | undefined,
+  generation: number,
+) {
+  loopActive = true
   startIosSpeechKeepAlive()
 
-  const scheduleNext = () => {
-    if (generation !== loopGeneration) {
-      stopIosSpeechKeepAlive()
-      return
-    }
+  while (generation === loopGeneration && loopActive) {
+    await waitForSpeechIdle(generation)
+    if (generation !== loopGeneration || !loopActive) break
 
     speakAnnouncementOnce(announcement, lang)
-    const delay = estimateSpeechDurationMs(announcement) + LOOP_PAUSE_MS
-    loopScheduleTimer = setTimeout(scheduleNext, delay)
+    await delay(estimateSpeechDurationMs(announcement) + LOOP_PAUSE_MS)
   }
 
-  scheduleNext()
+  if (generation === loopGeneration) {
+    stopIosSpeechKeepAlive()
+  }
 }
 
 function isSameAnnouncementRunning(announcement: string, lang?: string) {
-  return (
-    announcement === lastAnnouncement &&
-    lang === lastLang &&
-    (loopScheduleTimer !== null || iosKeepAliveTimer !== null)
-  )
+  return announcement === lastAnnouncement && lang === lastLang && loopActive
 }
 
 async function startVoiceAnnouncement(announcement: string, lang?: string) {
   if (isSameAnnouncementRunning(announcement, lang)) return
 
-  stopVoiceCallRingtone()
+  stopSpeech()
   lastAnnouncement = announcement
   lastLang = lang
 
   const start = () => {
     const generation = loopGeneration
-    runAnnouncementLoop(announcement, lang, generation)
+    void runAnnouncementLoop(announcement, lang, generation)
   }
 
   await unlockVoiceCallAudio()
@@ -218,12 +232,12 @@ export function startOutgoingRingback(announcement: string, lang?: string) {
   void startVoiceAnnouncement(announcement, lang)
 }
 
-/** Retry the last announcement (e.g. after mic opens on iOS or tab becomes visible). */
+/** Restart loop after mic opens on mobile or tab becomes visible. */
 export function retryVoiceCallAnnouncement() {
   if (!lastAnnouncement) return
   const announcement = lastAnnouncement
   const lang = lastLang
-  stopVoiceCallRingtone()
+  stopSpeech()
   lastAnnouncement = announcement
   lastLang = lang
   void startVoiceAnnouncement(announcement, lang)
