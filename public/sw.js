@@ -117,12 +117,16 @@ function voiceCallDeepLink(data, voiceAction) {
 }
 
 function focusOrOpenUrl(targetUrl) {
-  return notifyOpenClients({ type: 'NOTIFICATION_NAVIGATE', url: targetUrl }).then((clients) => {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
     for (const client of clients) {
       if ('focus' in client) {
         if (typeof client.navigate === 'function') {
-          return client.navigate(targetUrl);
+          return client.navigate(targetUrl).then(
+            () => client.focus(),
+            () => client.focus(),
+          );
         }
+        client.postMessage({ type: 'NOTIFICATION_NAVIGATE', url: targetUrl });
         return client.focus();
       }
     }

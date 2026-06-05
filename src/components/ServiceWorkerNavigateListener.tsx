@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 
-/** Routes open app tabs when a generic push notification is tapped (see public/sw.js). */
+/** Fallback navigation when the SW cannot use WindowClient.navigate (see public/sw.js). */
 export default function ServiceWorkerNavigateListener() {
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
