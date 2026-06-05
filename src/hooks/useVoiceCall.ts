@@ -225,7 +225,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
       await sendSignal('offer', { sdp: offer })
-      setCallState('connecting')
     } finally {
       makingOfferRef.current = false
     }
