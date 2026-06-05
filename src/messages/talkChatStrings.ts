@@ -79,7 +79,7 @@ export const TALK_CHAT_MAP = {
   voiceCallNoContacts: 'No My Chat contacts to call yet',
   voiceCallOneOnOneOnly: 'Voice calls are available in 1-on-1 My Chat',
   voiceIncomingCall: 'Call from {name}',
-  voiceCalling: 'Calling to {name}',
+  voiceCalling: 'Calling {name}',
   voiceConnecting: 'Connecting…',
   voiceConnected: 'Connected',
   voiceEndCall: 'End call',
