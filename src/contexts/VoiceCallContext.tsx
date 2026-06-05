@@ -100,7 +100,6 @@ export function VoiceCallProvider({
   })
   const labels = useVoiceCallLabels()
   const callStateRef = useRef(voiceCall.callState)
-  const activeRingKeyRef = useRef<string | null>(null)
   callStateRef.current = voiceCall.callState
 
   useEffect(() => {
@@ -113,25 +112,14 @@ export function VoiceCallProvider({
   }, [session?.user?.id])
 
   useEffect(() => {
-    return () => {
-      activeRingKeyRef.current = null
-      stopVoiceCallRingtone()
-    }
-  }, [])
-
-  useEffect(() => {
     if (!session?.user) {
-      activeRingKeyRef.current = null
       stopVoiceCallRingtone()
       return
     }
 
     const state = voiceCall.callState
     if (state !== 'incoming' && state !== 'outgoing') {
-      if (activeRingKeyRef.current) {
-        activeRingKeyRef.current = null
-        stopVoiceCallRingtone()
-      }
+      stopVoiceCallRingtone()
       return
     }
 
@@ -139,13 +127,13 @@ export function VoiceCallProvider({
       state === 'incoming' ? labels.incomingCall : labels.calling,
       voiceCall.remoteUser,
     )
-    const ringKey = `${state}|${voiceCall.remoteUser?.id ?? ''}|${announcement}|${labels.localeTag}`
-    if (activeRingKeyRef.current === ringKey) return
-
-    activeRingKeyRef.current = ringKey
     const start =
       state === 'incoming' ? startIncomingRingtone : startOutgoingRingback
     start(announcement, labels.localeTag)
+
+    return () => {
+      stopVoiceCallRingtone()
+    }
   }, [
     session?.user,
     voiceCall.callState,
