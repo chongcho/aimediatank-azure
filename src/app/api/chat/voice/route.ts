@@ -37,6 +37,30 @@ async function cleanupOldSignals() {
   })
 }
 
+/** End ringing/active rows left behind when WebRTC or the client fails without calling `end`. */
+async function expireStaleVoiceCalls() {
+  const now = new Date()
+  const ringingCutoff = new Date(now.getTime() - 60_000)
+  const activeCutoff = new Date(now.getTime() - 4 * 60 * 60 * 1000)
+
+  await prisma.voiceCall.updateMany({
+    where: { status: 'ringing', createdAt: { lt: ringingCutoff } },
+    data: { status: 'missed', endedAt: now },
+  })
+  await prisma.voiceCall.updateMany({
+    where: { status: 'active', createdAt: { lt: activeCutoff } },
+    data: { status: 'ended', endedAt: now },
+  })
+}
+
+/** Caller abandoned an outbound ring — allow placing a new call. */
+async function clearCallerRinging(userId: string) {
+  await prisma.voiceCall.updateMany({
+    where: { callerId: userId, status: 'ringing' },
+    data: { status: 'missed', endedAt: new Date() },
+  })
+}
+
 // GET - Poll for incoming calls and unconsumed WebRTC signals
 export async function GET(request: Request) {
   try {
@@ -46,6 +70,7 @@ export async function GET(request: Request) {
     const userId = auth.userId
 
     await cleanupOldSignals()
+    await expireStaleVoiceCalls()
 
     const { searchParams } = new URL(request.url)
     const since = searchParams.get('since')
@@ -145,6 +170,10 @@ export async function POST(request: Request) {
       if (calleeId === userId) {
         return NextResponse.json({ error: 'Cannot call yourself' }, { status: 400 })
       }
+
+      await cleanupOldSignals()
+      await expireStaleVoiceCalls()
+      await clearCallerRinging(userId)
 
       const callee = await prisma.user.findUnique({
         where: { id: calleeId },

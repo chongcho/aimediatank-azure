@@ -50,6 +50,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const [remoteUser, setRemoteUser] = useState<VoiceCallUser | null>(null)
   const [callId, setCallId] = useState<string | null>(null)
   const [isMuted, setIsMuted] = useState(false)
+  const [lastError, setLastError] = useState<string | null>(null)
 
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
@@ -63,10 +64,15 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   const reportError = useCallback(
     (message: string) => {
+      setLastError(message)
       onError?.(message)
     },
     [onError],
   )
+
+  const clearLastError = useCallback(() => {
+    setLastError(null)
+  }, [])
 
   const stopLocalStream = useCallback(() => {
     localStreamRef.current?.getTracks().forEach((t) => t.stop())
@@ -299,10 +305,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         await createAndSendOffer()
       } catch (err) {
         reportError(err instanceof Error ? err.message : 'Failed to start call')
-        resetCall()
+        await endCall()
       }
     },
-    [callState, createAndSendOffer, currentUserId, reportError, resetCall],
+    [callState, createAndSendOffer, currentUserId, endCall, reportError],
   )
 
   const toggleMute = useCallback(() => {
@@ -408,5 +414,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     rejectCall,
     endCall,
     toggleMute,
+    lastError,
+    clearLastError,
   }
 }

@@ -18,6 +18,8 @@ interface VoiceCallContextValue {
   endCall: () => Promise<void>
   toggleMute: () => void
   isMuted: boolean
+  lastError: string | null
+  clearLastError: () => void
 }
 
 const VoiceCallContext = createContext<VoiceCallContextValue | null>(null)
@@ -43,6 +45,8 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         endCall: voiceCall.endCall,
         toggleMute: voiceCall.toggleMute,
         isMuted: voiceCall.isMuted,
+        lastError: voiceCall.lastError,
+        clearLastError: voiceCall.clearLastError,
       }}
     >
       {children}

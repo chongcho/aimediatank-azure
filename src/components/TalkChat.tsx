@@ -335,7 +335,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [showVoiceCallPicker, setShowVoiceCallPicker] = useState(false)
   const [voiceCallPickTarget, setVoiceCallPickTarget] = useState<UserSuggestion | null>(null)
   const [voiceCallSearchQuery, setVoiceCallSearchQuery] = useState('')
+  const [voiceCallAllUsers, setVoiceCallAllUsers] = useState<UserSuggestion[]>([])
   const [voiceCallSearchedUsers, setVoiceCallSearchedUsers] = useState<UserSuggestion[]>([])
+  const [loadingVoiceCallAllUsers, setLoadingVoiceCallAllUsers] = useState(false)
   const [searchingVoiceCallUsers, setSearchingVoiceCallUsers] = useState(false)
   const chatOverlayOpen = showUserPicker || showVoiceCallPicker
   const [userSearchQuery, setUserSearchQuery] = useState('')
@@ -491,38 +493,26 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const voiceCall = useVoiceCallContext()
 
-  const allVoiceCallContacts = useMemo((): UserSuggestion[] => {
-    if (!session?.user?.id) return []
-    const selfId = session.user.id
-    const seen = new Set<string>()
-    const out: UserSuggestion[] = []
-    for (const record of chatRecords) {
-      const members = record.members || (record.user ? [record.user] : [])
-      for (const member of members) {
-        if (member.id !== selfId && !seen.has(member.id)) {
-          seen.add(member.id)
-          out.push(member)
-        }
-      }
-    }
-    return out.sort((a, b) =>
-      formatDisplayUsername(a.username).localeCompare(formatDisplayUsername(b.username)),
-    )
-  }, [session?.user?.id, chatRecords])
+  useEffect(() => {
+    const err = voiceCall?.lastError
+    if (!err) return
+    setInlineNotice(err)
+    voiceCall.clearLastError()
+  }, [voiceCall?.lastError, voiceCall?.clearLastError])
 
   const displayedVoiceCallUsers = useMemo((): UserSuggestion[] => {
     const q = voiceCallSearchQuery.trim()
     if (q) {
       if (voiceCallSearchedUsers.length > 0) return voiceCallSearchedUsers
       const lower = q.toLowerCase()
-      return allVoiceCallContacts.filter(
+      return voiceCallAllUsers.filter(
         (u) =>
           formatDisplayUsername(u.username).toLowerCase().includes(lower) ||
           (u.name || '').toLowerCase().includes(lower),
       )
     }
-    return allVoiceCallContacts
-  }, [allVoiceCallContacts, voiceCallSearchQuery, voiceCallSearchedUsers])
+    return voiceCallAllUsers
+  }, [voiceCallAllUsers, voiceCallSearchQuery, voiceCallSearchedUsers])
 
   const pubNavActive = chatMode === 'open' && !showVoiceCallPicker
   const myNavActive = chatMode === 'private' && !showVoiceCallPicker
@@ -1079,6 +1069,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setVoiceCallPickTarget(null)
     setVoiceCallSearchQuery('')
     setVoiceCallSearchedUsers([])
+    setVoiceCallAllUsers([])
     // Close all popups
     setShowUserPicker(false)
     setShowChatRecords(false)
@@ -1154,6 +1145,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setVoiceCallPickTarget(null)
     setVoiceCallSearchQuery('')
     setVoiceCallSearchedUsers([])
+    setVoiceCallAllUsers([])
     setShowChatRecords(false)
     setShowInvites(false)
   }
@@ -1209,14 +1201,36 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       setVoiceCallPickTarget(null)
       setVoiceCallSearchQuery('')
       setVoiceCallSearchedUsers([])
-      fetchChatRecords()
+      setVoiceCallAllUsers([])
     } else {
       setVoiceCallPickTarget(null)
       setVoiceCallSearchQuery('')
       setVoiceCallSearchedUsers([])
+      setVoiceCallAllUsers([])
     }
     setShowVoiceCallPicker(next)
   }
+
+  useEffect(() => {
+    if (!showVoiceCallPicker || !session?.user?.id) return
+    let cancelled = false
+    setLoadingVoiceCallAllUsers(true)
+    void (async () => {
+      try {
+        const res = await fetch('/api/users/search?listAll=1&limit=500')
+        if (cancelled || !res.ok) return
+        const data = await res.json()
+        if (!cancelled) setVoiceCallAllUsers(data.users || [])
+      } catch (error) {
+        if (!cancelled) console.error('Error loading voice call users:', error)
+      } finally {
+        if (!cancelled) setLoadingVoiceCallAllUsers(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [showVoiceCallPicker, session?.user?.id])
 
   useEffect(() => {
     if (!showVoiceCallPicker) return
@@ -1230,11 +1244,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       void (async () => {
         setSearchingVoiceCallUsers(true)
         try {
-          const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}&limit=50`)
+          const res = await fetch(
+            `/api/users/search?listAll=1&q=${encodeURIComponent(q)}&limit=50`,
+          )
           if (cancelled || !res.ok) return
           const data = await res.json()
-          const filtered = (data.users || []).filter((u: UserSuggestion) => u.id !== session?.user?.id)
-          if (!cancelled) setVoiceCallSearchedUsers(filtered)
+          if (!cancelled) setVoiceCallSearchedUsers(data.users || [])
         } catch (error) {
           if (!cancelled) console.error('Error searching voice call users:', error)
         } finally {
@@ -1246,7 +1261,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [showVoiceCallPicker, voiceCallSearchQuery, session?.user?.id])
+  }, [showVoiceCallPicker, voiceCallSearchQuery])
 
   // Toggle new chat picker (renamed from chat records)
   const toggleNewChat = () => {
@@ -3052,13 +3067,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
                   {tr[TC.searchingUsers]}
                 </div>
-              ) : loadingChatRecords && displayedVoiceCallUsers.length === 0 && !voiceCallSearchQuery.trim() ? (
+              ) : loadingVoiceCallAllUsers && displayedVoiceCallUsers.length === 0 && !voiceCallSearchQuery.trim() ? (
                 <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
                   {tr[TC.loading]}
                 </div>
               ) : displayedVoiceCallUsers.length === 0 ? (
                 <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
-                  {voiceCallSearchQuery.trim() ? tr[TC.noUsersFound] : tr[TC.voiceCallNoContacts]}
+                  {tr[TC.noUsersFound]}
                 </div>
               ) : (
                 displayedVoiceCallUsers.map((user) => {
