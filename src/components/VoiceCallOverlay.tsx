@@ -23,6 +23,9 @@ interface VoiceCallOverlayProps {
   onReject: () => void
   onEnd: () => void
   onToggleMute: () => void
+  /** floating = fixed on viewport; embedded = inside TalkChat panel */
+  placement?: 'floating' | 'embedded'
+  inAppHint?: string
 }
 
 function displayName(user: VoiceCallUser | null) {
@@ -40,6 +43,8 @@ export function VoiceCallOverlay({
   onReject,
   onEnd,
   onToggleMute,
+  placement = 'floating',
+  inAppHint,
 }: VoiceCallOverlayProps) {
   if (callState === 'idle' || callState === 'ended') return null
 
@@ -52,25 +57,37 @@ export function VoiceCallOverlay({
           ? labels.connecting
           : labels.connected
 
+  const embedded = placement === 'embedded'
+
   return (
     <div
       style={{
-        position: 'fixed',
-        bottom: '88px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 10050,
+        ...(embedded
+          ? {
+              position: 'relative',
+              width: '100%',
+              flexShrink: 0,
+              boxSizing: 'border-box',
+            }
+          : {
+              position: 'fixed',
+              bottom: '88px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 10050,
+              minWidth: '260px',
+              maxWidth: '90vw',
+            }),
         background: 'linear-gradient(135deg, #1e1b4b, #312e81)',
         color: 'white',
-        borderRadius: '12px',
+        borderRadius: embedded ? '0' : '12px',
         padding: '12px 16px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
-        minWidth: '260px',
-        maxWidth: '90vw',
+        boxShadow: embedded ? 'none' : '0 8px 32px rgba(0,0,0,0.35)',
         display: 'flex',
         flexDirection: 'column',
         gap: '10px',
-        border: '1px solid rgba(255,255,255,0.15)',
+        border: embedded ? 'none' : '1px solid rgba(255,255,255,0.15)',
+        borderTop: embedded ? '2px solid #312e81' : undefined,
       }}
     >
       <audio ref={(el) => { remoteAudioRef.current = el }} autoPlay playsInline />
@@ -108,6 +125,10 @@ export function VoiceCallOverlay({
           <div style={{ fontSize: '12px', opacity: 0.85 }}>{statusLabel}</div>
         </div>
       </div>
+
+      {inAppHint && (
+        <div style={{ fontSize: '11px', opacity: 0.8, lineHeight: 1.35 }}>{inAppHint}</div>
+      )}
 
       <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
         {callState === 'incoming' ? (

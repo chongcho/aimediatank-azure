@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, type MutableRefObject, type ReactNode } from 'react'
 import { useSession } from 'next-auth/react'
 import { useVoiceCall, type VoiceCallState, type VoiceCallUser } from '@/hooks/useVoiceCall'
 import { VoiceCallOverlay } from '@/components/VoiceCallOverlay'
@@ -20,14 +20,66 @@ interface VoiceCallContextValue {
   isMuted: boolean
   lastError: string | null
   clearLastError: () => void
+  remoteAudioRef: MutableRefObject<HTMLAudioElement | null>
 }
 
 const VoiceCallContext = createContext<VoiceCallContextValue | null>(null)
 
-export function VoiceCallProvider({ children }: { children: ReactNode }) {
-  const { data: session } = useSession()
+function useVoiceCallLabels() {
   const { localeTag } = useUiLocale()
   const tr = talkChatTr(localeTag)
+  return {
+    incomingCall: tr[TC.voiceIncomingCall],
+    calling: tr[TC.voiceCalling],
+    connecting: tr[TC.voiceConnecting],
+    connected: tr[TC.voiceConnected],
+    accept: tr[TC.accept],
+    reject: tr[TC.cancel],
+    endCall: tr[TC.voiceEndCall],
+    mute: tr[TC.voiceMute],
+    unmute: tr[TC.voiceUnmute],
+    inAppHint: tr[TC.voiceCallInAppHint],
+  }
+}
+
+/** Renders active-call UI. Use embedded inside TalkChat; floating when chat is closed. */
+export function VoiceCallOverlayPanel({
+  placement = 'floating',
+}: {
+  placement?: 'floating' | 'embedded'
+}) {
+  const ctx = useVoiceCallContext()
+  const { data: session } = useSession()
+  const labels = useVoiceCallLabels()
+
+  if (!session?.user || !ctx) return null
+
+  return (
+    <VoiceCallOverlay
+      placement={placement}
+      callState={ctx.callState}
+      remoteUser={ctx.remoteUser}
+      isMuted={ctx.isMuted}
+      remoteAudioRef={ctx.remoteAudioRef}
+      labels={labels}
+      inAppHint={labels.inAppHint}
+      onAccept={() => void ctx.answerCall()}
+      onReject={() => void ctx.rejectCall()}
+      onEnd={() => void ctx.endCall()}
+      onToggleMute={ctx.toggleMute}
+    />
+  )
+}
+
+export function VoiceCallProvider({
+  children,
+  showFloatingOverlay = true,
+}: {
+  children: ReactNode
+  /** When TalkChat is open, set false so only the in-panel overlay is shown */
+  showFloatingOverlay?: boolean
+}) {
+  const { data: session } = useSession()
 
   const voiceCall = useVoiceCall({
     currentUserId: session?.user?.id,
@@ -47,32 +99,11 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         isMuted: voiceCall.isMuted,
         lastError: voiceCall.lastError,
         clearLastError: voiceCall.clearLastError,
+        remoteAudioRef: voiceCall.remoteAudioRef,
       }}
     >
       {children}
-      {session?.user && (
-        <VoiceCallOverlay
-          callState={voiceCall.callState}
-          remoteUser={voiceCall.remoteUser}
-          isMuted={voiceCall.isMuted}
-          remoteAudioRef={voiceCall.remoteAudioRef}
-          labels={{
-            incomingCall: tr[TC.voiceIncomingCall],
-            calling: tr[TC.voiceCalling],
-            connecting: tr[TC.voiceConnecting],
-            connected: tr[TC.voiceConnected],
-            accept: tr[TC.accept],
-            reject: tr[TC.cancel],
-            endCall: tr[TC.voiceEndCall],
-            mute: tr[TC.voiceMute],
-            unmute: tr[TC.voiceUnmute],
-          }}
-          onAccept={() => void voiceCall.answerCall()}
-          onReject={() => void voiceCall.rejectCall()}
-          onEnd={() => void voiceCall.endCall()}
-          onToggleMute={voiceCall.toggleMute}
-        />
-      )}
+      {session?.user && showFloatingOverlay && <VoiceCallOverlayPanel placement="floating" />}
     </VoiceCallContext.Provider>
   )
 }

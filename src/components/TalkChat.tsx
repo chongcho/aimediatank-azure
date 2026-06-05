@@ -14,7 +14,7 @@ import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { TALK_CHAT_MAP, talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
-import { useVoiceCallContext } from '@/contexts/VoiceCallContext'
+import { useVoiceCallContext, VoiceCallOverlayPanel } from '@/contexts/VoiceCallContext'
 
 const TC = talkChatIdx
 
@@ -4175,6 +4175,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
           <div ref={messagesEndRef} style={{ height: 4, flexShrink: 0 }} />
         </div>
         )}
+
+        {/* Active voice call — inside TalkChat panel above composer */}
+        {voiceCall &&
+          voiceCall.callState !== 'idle' &&
+          voiceCall.callState !== 'ended' && (
+            <VoiceCallOverlayPanel placement="embedded" />
+          )}
 
         {/* Composer — hidden when minimized or when New Chat picker is open */}
         {!chatOverlayOpen && chatSize !== 'min' && (

@@ -88,6 +88,8 @@ export const TALK_CHAT_MAP = {
   voiceMicRequired: 'Microphone access is required for voice calls',
   voiceUserBusy: 'User is busy',
   voiceCallFailed: 'Voice call failed',
+  voiceCallInAppHint:
+    'In-app voice (browser mic/speaker). Does not dial a phone number — the other person must be signed in on AiMediaTank to answer.',
 } as const
 
 export type TalkChatKey = keyof typeof TALK_CHAT_MAP
@@ -181,6 +183,7 @@ const ORDER: readonly TalkChatKey[] = [
   'voiceMicRequired',
   'voiceUserBusy',
   'voiceCallFailed',
+  'voiceCallInAppHint',
 ]
 
 type Pack = Record<TalkChatKey, string>
@@ -279,6 +282,8 @@ const KO: Pack = {
   voiceMicRequired: '음성 통화에는 마이크 권한이 필요합니다',
   voiceUserBusy: '상대방이 통화 중입니다',
   voiceCallFailed: '음성 통화에 실패했습니다',
+  voiceCallInAppHint:
+    '앱 내 음성 통화(브라우저 마이크/스피커)입니다. 전화번호로 연결되지 않으며, 상대방이 AiMediaTank에 로그인해야 받을 수 있습니다.',
 }
 
 const JA: Pack = {
@@ -370,6 +375,8 @@ const JA: Pack = {
   voiceMicRequired: '音声通話にはマイクの許可が必要です',
   voiceUserBusy: '相手は通話中です',
   voiceCallFailed: '音声通話に失敗しました',
+  voiceCallInAppHint:
+    'アプリ内の音声通話（ブラウザのマイク/スピーカー）です。電話番号には発信しません。相手は AiMediaTank にサインインしている必要があります。',
 }
 
 const ZH: Pack = {
@@ -461,6 +468,8 @@ const ZH: Pack = {
   voiceMicRequired: '语音通话需要麦克风权限',
   voiceUserBusy: '对方正在通话中',
   voiceCallFailed: '语音通话失败',
+  voiceCallInAppHint:
+    '应用内语音通话（浏览器麦克风/扬声器），不会拨打手机号码。对方须登录 AiMediaTank 才能接听。',
 }
 
 const MESSAGES: Record<string, Pack> = {
