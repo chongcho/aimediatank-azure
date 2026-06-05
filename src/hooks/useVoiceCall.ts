@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { getIceServers } from '@/lib/voiceCallConfig'
+import {
+  startIncomingRingtone,
+  startOutgoingRingback,
+  stopVoiceCallRingtone,
+} from '@/lib/voiceCallRingtone'
 
 export interface VoiceCallUser {
   id: string
@@ -61,6 +66,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const makingOfferRef = useRef(false)
   const handledIncomingRef = useRef<Set<string>>(new Set())
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null)
+  const callStateRef = useRef<VoiceCallState>('idle')
+  callStateRef.current = callState
 
   const reportError = useCallback(
     (message: string) => {
@@ -85,6 +92,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [])
 
   const resetCall = useCallback(() => {
+    stopVoiceCallRingtone()
     stopLocalStream()
     closePeerConnection()
     if (remoteAudioRef.current) {
@@ -367,12 +375,53 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     [callState, handleRemoteAnswer, handleRemoteIce, handleRemoteOffer, resetCall, storePendingOffer],
   )
 
+  const applyIncomingCall = useCallback((callId: string, caller: VoiceCallUser) => {
+    if (callStateRef.current !== 'idle') return
+    if (handledIncomingRef.current.has(`call-${callId}`)) return
+    handledIncomingRef.current.add(`call-${callId}`)
+    callIdRef.current = callId
+    setCallId(callId)
+    setRemoteUser(caller)
+    isCallerRef.current = false
+    setCallState('incoming')
+  }, [])
+
+  useEffect(() => {
+    if (callState === 'incoming') {
+      startIncomingRingtone()
+    } else if (callState === 'outgoing') {
+      startOutgoingRingback()
+    } else {
+      stopVoiceCallRingtone()
+    }
+    return () => {
+      stopVoiceCallRingtone()
+    }
+  }, [callState])
+
+  useEffect(() => {
+    if (!enabled || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+
+    const onSwMessage = (event: MessageEvent) => {
+      const data = event.data as {
+        type?: string
+        callId?: string
+        caller?: VoiceCallUser
+      } | null
+      if (data?.type !== 'VOICE_CALL_INCOMING' || !data.callId || !data.caller) return
+      applyIncomingCall(data.callId, data.caller)
+    }
+
+    navigator.serviceWorker.addEventListener('message', onSwMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', onSwMessage)
+  }, [applyIncomingCall, enabled])
+
   useEffect(() => {
     if (!enabled || !currentUserId) return
 
     let cancelled = false
     const poll = async () => {
-      if (cancelled || document.hidden) return
+      if (cancelled) return
       try {
         const res = await fetch(
           `/api/chat/voice?since=${encodeURIComponent(pollSinceRef.current)}`,
@@ -387,7 +436,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
 
     poll()
-    const intervalMs = callState === 'idle' ? 4000 : 1200
+    const hidden = typeof document !== 'undefined' && document.hidden
+    const intervalMs = hidden
+      ? callState === 'idle'
+        ? 1500
+        : 800
+      : callState === 'idle'
+        ? 4000
+        : 1200
     const timer = window.setInterval(poll, intervalMs)
     return () => {
       cancelled = true
@@ -396,7 +452,26 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [callState, currentUserId, enabled, processPoll])
 
   useEffect(() => {
+    if (!enabled || !currentUserId) return
+    const onVisible = () => {
+      if (!document.hidden) {
+        void fetch(`/api/chat/voice?since=${encodeURIComponent(pollSinceRef.current)}`, {
+          cache: 'no-store',
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data) return processPoll(data)
+          })
+          .catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [currentUserId, enabled, processPoll])
+
+  useEffect(() => {
     return () => {
+      stopVoiceCallRingtone()
       void endCallOnServer()
       stopLocalStream()
       closePeerConnection()

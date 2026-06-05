@@ -1,5 +1,5 @@
 // Bump this when changing caching behavior to force refresh.
-const CACHE_NAME = 'aimediatank-v14';
+const CACHE_NAME = 'aimediatank-v15';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install
@@ -101,30 +101,82 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Handle push notifications (for future use)
+function notifyOpenClients(payload) {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    for (const client of clients) {
+      client.postMessage(payload);
+    }
+  });
+}
+
+// Web Push — voice calls use high urgency + ring-like vibration
 self.addEventListener('push', (event) => {
-  if (event.data) {
-    const data = event.data.json();
-    const options = {
-      body: data.body,
-      icon: '/logo.png',
-      badge: '/logo.png',
-      vibrate: [100, 50, 100],
-      data: {
-        url: data.url || '/',
-      },
-    };
-    event.waitUntil(
-      self.registration.showNotification(data.title, options)
-    );
+  if (!event.data) return;
+
+  let data;
+  try {
+    data = event.data.json();
+  } catch {
+    return;
   }
+
+  const isVoiceCall = data.type === 'voice_call';
+
+  const options = {
+    body: data.body,
+    icon: '/logo.png',
+    badge: '/logo.png',
+    tag: isVoiceCall ? 'voice-call-' + (data.callId || 'incoming') : 'aimediatank-notification',
+    renotify: true,
+    requireInteraction: isVoiceCall,
+    vibrate: isVoiceCall
+      ? [400, 200, 400, 200, 400, 800, 400, 200, 400, 2000]
+      : [100, 50, 100],
+    silent: false,
+    data: {
+      url: data.url || '/',
+      type: data.type || 'generic',
+      callId: data.callId || null,
+      caller: data.caller || null,
+    },
+  };
+
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(data.title || 'AiMediaTank', options),
+      isVoiceCall
+        ? notifyOpenClients({
+            type: 'VOICE_CALL_INCOMING',
+            callId: data.callId,
+            caller: data.caller,
+          })
+        : Promise.resolve(),
+    ])
+  );
 });
 
-// Handle notification click
+// Handle notification click — focus app and surface incoming call
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const data = event.notification.data || {};
+  const targetUrl = data.url || '/?openChat=1';
+
   event.waitUntil(
-    clients.openWindow(event.notification.data.url)
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          if (data.type === 'voice_call' && data.callId) {
+            client.postMessage({
+              type: 'VOICE_CALL_INCOMING',
+              callId: data.callId,
+              caller: data.caller,
+            });
+          }
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(targetUrl);
+    })
   );
 });
 
@@ -149,4 +201,3 @@ self.addEventListener('message', (event) => {
     }
   }
 });
-

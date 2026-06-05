@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, type MutableRefObject, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, type MutableRefObject, type ReactNode } from 'react'
+import { registerVoiceCallPush } from '@/lib/pushSubscriptionClient'
 import { useSession } from 'next-auth/react'
 import { useVoiceCall, type VoiceCallState, type VoiceCallUser } from '@/hooks/useVoiceCall'
 import { VoiceCallOverlay } from '@/components/VoiceCallOverlay'
@@ -85,6 +86,11 @@ export function VoiceCallProvider({
     currentUserId: session?.user?.id,
     enabled: Boolean(session?.user),
   })
+
+  useEffect(() => {
+    if (!session?.user?.id) return
+    void registerVoiceCallPush()
+  }, [session?.user?.id])
 
   return (
     <VoiceCallContext.Provider
