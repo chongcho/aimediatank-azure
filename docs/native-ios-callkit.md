@@ -13,17 +13,19 @@ AiMediaTank can ring on the **iPhone lock screen** when installed as a **native 
 
 ## Prerequisites
 
-- Mac with **Xcode 16+**
+- Mac with **Xcode 26+** (Capacitor 8 + Swift Package Manager; Xcode 16 fails to compile plugins)
 - **Apple Developer Program** membership
-- App ID with **Push Notifications** + **Background Modes → Voice over IP**
+- App ID **`com.aimediatank.apple`** with **Push Notifications** + **Background Modes → Voice over IP**
 - APNs **Auth Key** (.p8) from Apple Developer → Keys
+
+Or build in **GitHub Actions** (no local Mac/Xcode 26 required) — see [iOS TestFlight CI](./ios-testflight-ci.md).
 
 ## Azure / server environment variables
 
 ```env
 APNS_TEAM_ID=XXXXXXXXXX
 APNS_KEY_ID=XXXXXXXXXX
-APNS_BUNDLE_ID=com.aimediatank.app
+APNS_BUNDLE_ID=com.aimediatank.apple
 APNS_SIGNING_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
 # Or: APNS_SIGNING_KEY_PATH=/path/to/AuthKey_XXXX.p8
 APNS_PRODUCTION=false   # true for App Store / TestFlight production pushes
@@ -46,7 +48,7 @@ npm run cap:ios
 In Xcode:
 
 1. Select the **App** target → **Signing & Capabilities**
-2. Set your Team and bundle ID `com.aimediatank.app`
+2. Set your Team and bundle ID `com.aimediatank.apple`
 3. Add capabilities: **Push Notifications**, **Background Modes** → *Voice over IP*, *Audio*
 4. Build to a **physical iPhone** (CallKit / PushKit do not work in Simulator for VoIP)
 

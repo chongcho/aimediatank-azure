@@ -10,7 +10,7 @@ const serverUrl =
   'https://aimediatank.com'
 
 const config: CapacitorConfig = {
-  appId: 'com.aimediatank.app',
+  appId: 'com.aimediatank.apple',
   appName: 'AiMediaTank',
   webDir: 'public',
   server: {
