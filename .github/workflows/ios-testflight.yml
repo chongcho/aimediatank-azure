@@ -34,7 +34,13 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: "26.4.1"
+
+      - name: Install iOS platform
+        run: xcodebuild -downloadPlatform iOS
+
+      - name: Verify Xcode project loads
+        run: xcodebuild -list -project ios/App/App.xcodeproj
 
       - name: Import distribution certificate
         uses: apple-actions/import-codesign-certs@v3
