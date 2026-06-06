@@ -65,19 +65,27 @@ jobs:
           UUID="$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$(security cms -D -i "$PROFILE_PATH")")"
           cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
 
+      - name: Resolve Swift packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release
+
       - name: Archive iOS app
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_DEVELOPER_TEAM_ID }}
           IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
         run: |
           set -euo pipefail
+          security find-identity -v -p codesigning
           ARCHIVE_PATH="$RUNNER_TEMP/App.xcarchive"
           xcodebuild \
             -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Release \
+            -sdk iphoneos \
             -archivePath "$ARCHIVE_PATH" \
-            -destination "generic/platform=iOS" \
             archive \
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="$IOS_TEAM_ID" \

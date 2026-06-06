@@ -12,7 +12,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", exact: "8.4.0"),
-        .package(name: "KapsulaChatCapacitorPushCalls", path: "..\..\..\node_modules\@kapsula-chat\capacitor-push-calls")
+        .package(name: "KapsulaChatCapacitorPushCalls", path: "../../../node_modules/@kapsula-chat/capacitor-push-calls")
     ],
     targets: [
         .target(
