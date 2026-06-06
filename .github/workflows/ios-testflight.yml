@@ -41,7 +41,18 @@ jobs:
 
       - name: Resolve Swift packages (swift CLI)
         working-directory: ios/App/CapApp-SPM
-        run: swift package resolve
+        run: |
+          swift package resolve
+          mkdir -p "$RUNNER_TEMP/SourcePackages"
+          if [ -d .build/checkouts ]; then
+            cp -R .build/checkouts "$RUNNER_TEMP/SourcePackages/"
+          fi
+          if [ -d .build/repositories ]; then
+            cp -R .build/repositories "$RUNNER_TEMP/SourcePackages/"
+          fi
+          if [ -f .build/workspace-state.json ]; then
+            cp .build/workspace-state.json "$RUNNER_TEMP/SourcePackages/"
+          fi
 
       - name: Import distribution certificate
         uses: apple-actions/import-codesign-certs@v3
@@ -87,6 +98,7 @@ jobs:
             -sdk iphoneos \
             -archivePath "$ARCHIVE_PATH" \
             -clonedSourcePackagesDirPath "$RUNNER_TEMP/SourcePackages" \
+            -disableAutomaticPackageResolution \
             -skipPackageUpdates \
             archive \
             CODE_SIGN_STYLE=Manual \
