@@ -1,12 +1,10 @@
 /**
  * Ring audio for TalkChat voice calls while unanswered.
  *
- * Spoken announcements — server TTS when configured (Azure Speech), else
- * speechSynthesis. iOS requires an in-page tap to unlock audio; notification
- * taps do not count. Priming uses a silent WAV only (never ring beep files).
+ * Spoken announcements — server TTS (Azure Speech) on desktop via Web Audio;
+ * iOS uses speechSynthesis only so lock-screen Now Playing is not shown.
+ * iOS requires an in-page tap to unlock audio; notification taps do not count.
  */
-
-const SILENT_RING_URL = '/sounds/silent.wav'
 
 const LOOP_PAUSE_MS = 2000
 export const VOICE_CALL_RING_TIMEOUT_MS = 60000
@@ -21,8 +19,6 @@ let lastAnnouncement: string | null = null
 let lastLang: string | undefined
 let ringMode: 'speech' | 'tts' = 'speech'
 let pendingAnnouncementStart: (() => void) | null = null
-let iosPrimeAudioEl: HTMLAudioElement | null = null
-let iosAudioPrimed = false
 let openedFromCallNotification = false
 let ttsActiveSource: AudioBufferSourceNode | null = null
 let ttsUnavailable = false
@@ -85,10 +81,21 @@ function stopTtsPlayback() {
   ttsActiveSource = null
 }
 
+function clearMediaSession() {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+  try {
+    navigator.mediaSession.metadata = null
+    navigator.mediaSession.playbackState = 'none'
+  } catch {
+    // ignore
+  }
+}
+
 function stopSpeech() {
   loopGeneration += 1
   clearLoopScheduleTimer()
   stopTtsPlayback()
+  clearMediaSession()
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel()
   }
@@ -174,42 +181,8 @@ export async function unlockVoiceCallAudio(): Promise<boolean> {
   return true
 }
 
-function getIosPrimeAudio(): HTMLAudioElement | null {
-  if (typeof document === 'undefined') return null
-  if (!iosPrimeAudioEl) {
-    const el = document.createElement('audio')
-    el.setAttribute('playsinline', 'true')
-    el.setAttribute('webkit-playsinline', 'true')
-    el.preload = 'auto'
-    el.style.display = 'none'
-    document.body.appendChild(el)
-    iosPrimeAudioEl = el
-  }
-  return iosPrimeAudioEl
-}
-
-/** Unlock iOS HTML audio using a silent clip only — no ring beep files. */
-async function primeIosHtmlAudio() {
-  const el = getIosPrimeAudio()
-  if (!el) return
-
-  try {
-    el.loop = false
-    el.src = SILENT_RING_URL
-    el.volume = 0
-    el.load()
-    await el.play()
-    el.pause()
-    el.currentTime = 0
-    iosAudioPrimed = true
-  } catch {
-    // needs user gesture
-  }
-}
-
 async function onUserGesture() {
   lastUserGestureAt = Date.now()
-  await primeIosHtmlAudio()
   await unlockVoiceCallAudio()
   if (pendingAnnouncementStart) {
     flushPendingAnnouncement()
@@ -258,13 +231,10 @@ function clearOpenedFromCallNotification() {
 
 export function primeVoiceCallAfterNotificationOpen() {
   if (!wasOpenedFromCallNotification() && !lastAnnouncement) return
-  void primeIosHtmlAudio()
   void unlockVoiceCallAudio()
   maybeFlushPendingAnnouncement()
   const announcement = lastAnnouncement
-  const canRetry =
-    announcement && (!isIosDevice() || hasRecentUserGesture() || ringMode === 'tts')
-  if (canRetry) {
+  if (announcement && (!isIosDevice() || hasRecentUserGesture())) {
     void startVoiceAnnouncement(announcement, lastLang)
     clearOpenedFromCallNotification()
   }
@@ -323,16 +293,14 @@ async function startVoiceAnnouncement(announcement: string, lang?: string) {
   lastLang = lang
   const generation = loopGeneration
 
-  const buffer = await getTtsBuffer(announcement, lang)
+  // iOS: use speechSynthesis only — Web Audio TTS shows a lock-screen Now Playing
+  // widget (~4s clip) and HTML <audio> priming registers as media playback.
+  const buffer = isIosDevice() ? null : await getTtsBuffer(announcement, lang)
   if (generation !== loopGeneration) return
 
   if (buffer) {
     ringMode = 'tts'
     pendingAnnouncementStart = () => playTtsLoop(buffer, loopGeneration)
-
-    if (isIosDevice()) {
-      await primeIosHtmlAudio()
-    }
 
     const ctx = getAudioContext()
     if (ctx && !isAudioContextRunning(ctx)) {
@@ -349,18 +317,12 @@ async function startVoiceAnnouncement(announcement: string, lang?: string) {
       clearOpenedFromCallNotification()
       return
     }
-
-    if (isIosDevice()) {
-      // TTS pending until in-app tap unlocks AudioContext.
-      return
-    }
   }
 
   ringMode = 'speech'
   pendingAnnouncementStart = () => runAnnouncementLoop(announcement, lang, loopGeneration)
 
   if (isIosDevice()) {
-    await primeIosHtmlAudio()
     const unlocked = await unlockVoiceCallAudio()
     if (unlocked) {
       flushPendingAnnouncement()
