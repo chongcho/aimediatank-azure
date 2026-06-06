@@ -29,12 +29,17 @@ Repo → **Settings** → **Secrets and variables** → **Actions** → **New re
 
 #### Encode cert/profile on Windows (PowerShell)
 
+Save to a file first (avoids clipboard line-wrap corrupting the secret):
+
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\to\AppleDistribution.p12"))
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\to\AiMediaTank_AppStore.mobileprovision"))
+$p12 = "C:\path\to\AppleDistribution.p12"
+$profile = "C:\path\to\AiMediaTank_AppStore.mobileprovision"
+
+[Convert]::ToBase64String([IO.File]::ReadAllBytes($p12)) | Set-Content -NoNewline cert.b64.txt
+[Convert]::ToBase64String([IO.File]::ReadAllBytes($profile)) | Set-Content -NoNewline profile.b64.txt
 ```
 
-Copy each output into the matching GitHub secret (single line, no spaces).
+Open each `.b64.txt` in Notepad → **Select All** → paste into the GitHub secret. Must be **one continuous line** with no spaces or line breaks.
 
 ### 3. App Store Connect app
 
