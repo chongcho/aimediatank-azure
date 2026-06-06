@@ -39,8 +39,9 @@ jobs:
       - name: Install iOS platform
         run: xcodebuild -downloadPlatform iOS
 
-      - name: Verify Xcode project loads
-        run: xcodebuild -list -project ios/App/App.xcodeproj
+      - name: Resolve Swift packages (swift CLI)
+        working-directory: ios/App/CapApp-SPM
+        run: swift package resolve
 
       - name: Import distribution certificate
         uses: apple-actions/import-codesign-certs@v3
@@ -71,13 +72,6 @@ jobs:
           UUID="$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$(security cms -D -i "$PROFILE_PATH")")"
           cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
 
-      - name: Resolve Swift packages
-        run: |
-          xcodebuild -resolvePackageDependencies \
-            -project ios/App/App.xcodeproj \
-            -scheme App \
-            -configuration Release
-
       - name: Archive iOS app
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_DEVELOPER_TEAM_ID }}
@@ -92,6 +86,8 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -archivePath "$ARCHIVE_PATH" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/SourcePackages" \
+            -skipPackageUpdates \
             archive \
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
