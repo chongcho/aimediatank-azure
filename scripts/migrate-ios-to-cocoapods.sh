@@ -5,12 +5,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 if ! command -v pod >/dev/null 2>&1; then
-  echo "Install CocoaPods first: brew install cocoapods"
+  echo "Install CocoaPods first:"
+  echo "  brew install cocoapods"
   exit 1
 fi
 
-echo "Removing SPM-based ios/ platform..."
-npx cap rm ios
+echo "Removing SPM-based ios/ directory..."
+rm -rf ios
 
 echo "Adding ios/ with CocoaPods..."
 npx cap add ios --packagemanager CocoaPods

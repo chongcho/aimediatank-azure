@@ -32,7 +32,11 @@ bash scripts/migrate-ios-to-cocoapods.sh
 
 If the script ends with `xcodebuild -list` succeeding, commit and push the new `ios/` folder (Podfile, `App.xcworkspace`, etc.), then re-run **iOS TestFlight**.
 
-Install CocoaPods first if needed: `brew install cocoapods`
+Install CocoaPods first if needed (run as its own command, not with a trailing comment):
+
+```bash
+brew install cocoapods
+```
 
 ### Alternative: Xcode GUI only
 
