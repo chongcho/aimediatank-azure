@@ -1,6 +1,22 @@
 /** iOS notch fallback when env(safe-area-inset-top) is 0 in Capacitor WKWebView. */
 const IOS_SAFE_TOP_FALLBACK_PX = 47
 
+export function getNativePlatform(): 'ios' | 'android' | 'web' {
+  if (typeof window === 'undefined') return 'web'
+
+  const cap = (window as Window & { Capacitor?: { getPlatform?: () => string } }).Capacitor
+  const fromCap = cap?.getPlatform?.()
+  if (fromCap === 'ios' || fromCap === 'android') return fromCap
+
+  if (detectNativeShell()) {
+    const ua = navigator.userAgent
+    if (/iPhone|iPod|iPad/.test(ua)) return 'ios'
+    if (/Android/.test(ua)) return 'android'
+  }
+
+  return 'web'
+}
+
 /** True when running inside the Capacitor TestFlight/App Store shell (not Safari or installed PWA). */
 export function detectNativeShell(): boolean {
   if (typeof window === 'undefined') return false

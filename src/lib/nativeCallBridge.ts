@@ -1,6 +1,7 @@
 'use client'
 
 import { Capacitor } from '@capacitor/core'
+import { detectNativeShell, getNativePlatform } from '@/lib/nativeShellBoot'
 
 export interface NativeIncomingCallPayload {
   callId: string
@@ -25,15 +26,17 @@ export interface NativeCallBridgeHandlers {
 
 let bridgeInitialized = false
 let voipBootstrapped = false
+let voipListenerAttached = false
 let bridgeHandlers: NativeCallBridgeHandlers | null = null
 let pendingVoipToken: string | null = null
 
 export function isNativeCallApp(): boolean {
-  return typeof window !== 'undefined' && Capacitor.isNativePlatform()
+  if (typeof window === 'undefined') return false
+  return Capacitor.isNativePlatform() || detectNativeShell()
 }
 
 export function isNativeIosCallApp(): boolean {
-  return isNativeCallApp() && Capacitor.getPlatform() === 'ios'
+  return isNativeCallApp() && getNativePlatform() === 'ios'
 }
 
 async function subscribeVoipToken(token: string): Promise<boolean> {
@@ -42,43 +45,68 @@ async function subscribeVoipToken(token: string): Promise<boolean> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, platform: 'ios' }),
+      credentials: 'include',
     })
     if (res.status === 401) {
       pendingVoipToken = token
+      console.warn('[VoIP] token received but user not signed in yet')
       return false
     }
     if (!res.ok) {
-      console.error('VoIP token registration failed:', res.status)
+      const body = await res.json().catch(() => ({}))
+      console.error('[VoIP] token registration failed:', res.status, body)
       return false
     }
     pendingVoipToken = null
+    console.info('[VoIP] device token saved for signed-in user')
     return true
   } catch (error) {
-    console.error('VoIP token registration failed:', error)
+    console.error('[VoIP] token registration failed:', error)
     return false
   }
+}
+
+function attachVoipTokenListener(
+  CapacitorPushCalls: Awaited<
+    typeof import('@kapsula-chat/capacitor-push-calls')
+  >['CapacitorPushCalls'],
+): void {
+  if (voipListenerAttached) return
+  CapacitorPushCalls.addListener('voipPushToken', ({ token }) => {
+    if (!token) return
+    console.info('[VoIP] PushKit token received')
+    void subscribeVoipToken(token)
+  })
+  voipListenerAttached = true
 }
 
 /** Register PushKit early so VoIP pushes wake the app on lock screen. */
 export async function bootstrapNativeVoip(): Promise<boolean> {
   if (!isNativeIosCallApp() || voipBootstrapped) return voipBootstrapped
 
-  const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
-
-  await CapacitorPushCalls.registerVoipNotifications()
   try {
-    await CapacitorPushCalls.requestPermissions()
-  } catch {
-    // user may grant later
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+
+    // Listener must be attached before registerVoipNotifications or the token can be missed.
+    attachVoipTokenListener(CapacitorPushCalls)
+
+    try {
+      const permissions = await CapacitorPushCalls.checkPermissions()
+      if (permissions.receive !== 'granted') {
+        await CapacitorPushCalls.requestPermissions()
+      }
+    } catch {
+      // user may grant later
+    }
+
+    await CapacitorPushCalls.registerVoipNotifications()
+    voipBootstrapped = true
+    console.info('[VoIP] PushKit registration started')
+    return true
+  } catch (error) {
+    console.error('[VoIP] bootstrap failed (native plugin unavailable?):', error)
+    return false
   }
-
-  CapacitorPushCalls.addListener('voipPushToken', ({ token }) => {
-    if (!token) return
-    void subscribeVoipToken(token)
-  })
-
-  voipBootstrapped = true
-  return true
 }
 
 /** After sign-in, attach the VoIP device token to the current user. */

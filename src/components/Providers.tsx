@@ -8,10 +8,12 @@ import DocumentLang from './DocumentLang'
 import ServiceWorkerNavigateListener from './ServiceWorkerNavigateListener'
 import SessionLocaleFromProfileSync from './SessionLocaleFromProfileSync'
 import NativeShellClass from './NativeShellClass'
+import NativeVoipBootstrap from './NativeVoipBootstrap'
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
+      <NativeVoipBootstrap />
       <GuestGeoLocaleProvider>
         <NativeShellClass />
         <SessionLocaleFromProfileSync />

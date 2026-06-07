@@ -41,6 +41,8 @@ export async function POST(request: Request) {
     },
   })
 
+  console.info('[VoIP] token registered for user', session.user.id)
+
   return NextResponse.json({ ok: true })
 }
 
