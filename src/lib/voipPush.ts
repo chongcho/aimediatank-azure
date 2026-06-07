@@ -1,5 +1,6 @@
 import fs from 'fs'
 import { createVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
+import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 import { ApnsClient, ApnsError, Notification, Priority, PushType } from 'apns2'
 import { prisma } from '@/lib/prisma'
 
@@ -81,14 +82,14 @@ function getApnsClient(): ApnsClient | null {
   return apnsClient
 }
 
-/** Send PushKit VoIP push so iOS native app shows CallKit on lock screen. */
-export async function sendVoipCallPushToUser(
+async function sendVoipDataPushToUser(
   userId: string,
-  payload: VoipCallPushPayload,
+  data: Record<string, unknown>,
+  logLabel: string,
 ): Promise<void> {
   const client = getApnsClient()
   if (!client) {
-    console.warn('VoIP push skipped: APNS env vars not configured')
+    console.warn(`VoIP push skipped (${logLabel}): APNS env vars not configured`)
     return
   }
 
@@ -96,11 +97,10 @@ export async function sendVoipCallPushToUser(
     where: { userId, platform: 'ios' },
   })
   if (tokens.length === 0) {
-    console.warn(`VoIP push skipped: no iOS VoIP token for user ${userId}`)
+    console.warn(`VoIP push skipped (${logLabel}): no iOS VoIP token for user ${userId}`)
     return
   }
 
-  const declineToken = createVoiceCallDeclineToken(payload.callId)
   const topic = `${process.env.APNS_BUNDLE_ID}.voip`
   const notifications = tokens.map(
     (row) =>
@@ -108,20 +108,7 @@ export async function sendVoipCallPushToUser(
         type: PushType.voip,
         topic,
         priority: Priority.immediate,
-        data: {
-          callId: payload.callId,
-          handle: payload.handle,
-          displayName: payload.displayName,
-          handleType: 'generic',
-          video: false,
-          metadata: {
-            callerId: payload.caller.id,
-            callerUsername: payload.caller.username,
-            callerName: payload.caller.name,
-            callerAvatar: payload.caller.avatar,
-            ...(declineToken ? { declineToken } : {}),
-          },
-        },
+        data,
       }),
   )
 
@@ -141,17 +128,17 @@ export async function sendVoipCallPushToUser(
       if (reason === 'BadDeviceToken' || reason === 'Unregistered' || reason === 'ExpiredToken') {
         staleTokens.push(tokens[index]!.token)
       } else {
-        console.error('VoIP push failed:', reason, tokens[index]?.token.slice(0, 8))
+        console.error(`VoIP push failed (${logLabel}):`, reason, tokens[index]?.token.slice(0, 8))
       }
     })
   } catch (error) {
-    console.error('VoIP push batch failed:', error)
+    console.error(`VoIP push batch failed (${logLabel}):`, error)
   }
 
   if (sent > 0) {
-    console.info(`[VoIP] push sent to ${sent}/${tokens.length} device(s) for call ${payload.callId}`)
+    console.info(`[VoIP] ${logLabel}: sent to ${sent}/${tokens.length} device(s)`)
   } else if (tokens.length > 0) {
-    console.warn(`[VoIP] push failed for all ${tokens.length} device(s), call ${payload.callId}`)
+    console.warn(`[VoIP] ${logLabel}: failed for all ${tokens.length} device(s)`)
   }
 
   if (staleTokens.length > 0) {
@@ -159,4 +146,41 @@ export async function sendVoipCallPushToUser(
       where: { token: { in: staleTokens } },
     })
   }
+}
+
+/** Dismiss CallKit on callee device when caller cancels while ringing (sleep mode). */
+export async function sendVoipCallCancelPushToUser(userId: string, callId: string): Promise<void> {
+  const normalizedCallId = normalizeVoiceCallId(callId)
+  if (!normalizedCallId) return
+  await sendVoipDataPushToUser(
+    userId,
+    { action: 'cancel', callId: normalizedCallId },
+    `cancel push for call ${normalizedCallId}`,
+  )
+}
+
+/** Send PushKit VoIP push so iOS native app shows CallKit on lock screen. */
+export async function sendVoipCallPushToUser(
+  userId: string,
+  payload: VoipCallPushPayload,
+): Promise<void> {
+  const declineToken = createVoiceCallDeclineToken(payload.callId)
+  await sendVoipDataPushToUser(
+    userId,
+    {
+      callId: payload.callId,
+      handle: payload.handle,
+      displayName: payload.displayName,
+      handleType: 'generic',
+      video: false,
+      metadata: {
+        callerId: payload.caller.id,
+        callerUsername: payload.caller.username,
+        callerName: payload.caller.name,
+        callerAvatar: payload.caller.avatar,
+        ...(declineToken ? { declineToken } : {}),
+      },
+    },
+    `incoming push for call ${payload.callId}`,
+  )
 }

@@ -107,7 +107,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [])
 
   const resetCall = useCallback(() => {
+    const id = callIdRef.current ? normalizeVoiceCallId(callIdRef.current) : null
     stopVoiceCallRingtone()
+    if (id) void endNativeCall(id)
     stopLocalStream()
     closePeerConnection()
     if (remoteAudioRef.current) {

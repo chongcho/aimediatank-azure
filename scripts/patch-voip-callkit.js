@@ -76,6 +76,22 @@ if (!callManager.includes(DECLINE_MARKER)) {
   console.log('[patch-voip-callkit] patched CallManager for native decline sync')
 }
 
+const CANCEL_MARKER = 'AiMediaTank cancelIncomingCall'
+if (!callManager.includes(CANCEL_MARKER)) {
+  callManager = callManager.replace(
+    '    // MARK: - End Call\n    func endCall(uuid: UUID) {',
+    `    // MARK: - Cancel Incoming Call (${CANCEL_MARKER})
+    func cancelIncomingCall(uuid: UUID) {
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+        activeCalls.removeValue(forKey: uuid)
+    }
+
+    // MARK: - End Call
+    func endCall(uuid: UUID) {`,
+  )
+  console.log('[patch-voip-callkit] patched CallManager for remote cancel sync')
+}
+
 fs.writeFileSync(callManagerPath, callManager)
 
 const PLUGIN_MARKER = 'func syncCallDeclineToServer'
@@ -129,6 +145,30 @@ if (pluginSwift && !pluginSwift.includes(PLUGIN_MARKER)) {
 
   fs.writeFileSync(pluginSwiftPath, pluginSwift)
   console.log('[patch-voip-callkit] patched CapacitorVoipCallsPlugin for VoIP push decline sync')
+}
+
+const CANCEL_PUSH_MARKER = 'AiMediaTank voipCancelPush'
+if (pluginSwift && !pluginSwift.includes(CANCEL_PUSH_MARKER)) {
+  pluginSwift = pluginSwift.replace(
+    `        let payloadDict = payload.dictionaryPayload
+
+        guard let callIdString = payloadDict["callId"] as? String,`,
+    `        let payloadDict = payload.dictionaryPayload
+
+        // ${CANCEL_PUSH_MARKER}
+        if let action = payloadDict["action"] as? String, action == "cancel",
+           let cancelCallIdString = payloadDict["callId"] as? String,
+           let cancelCallId = UUID(uuidString: cancelCallIdString) {
+            callManager?.cancelIncomingCall(uuid: cancelCallId)
+            completion()
+            return
+        }
+
+        guard let callIdString = payloadDict["callId"] as? String,`,
+  )
+
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] patched CapacitorVoipCallsPlugin for VoIP cancel push')
 }
 
 console.log('[patch-voip-callkit] done')
