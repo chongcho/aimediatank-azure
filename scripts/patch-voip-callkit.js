@@ -352,4 +352,194 @@ if (pluginSwift.includes(POLL_MARKER) && !callManager.includes(STOP_POLL_MARKER)
   console.log('[patch-voip-callkit] stop polling on CallKit answer/end')
 }
 
+const CANCEL_ALL_MARKER = 'cancelAllIncomingCalls'
+if (!callManager.includes(CANCEL_ALL_MARKER)) {
+  callManager = callManager.replace(
+    `    func cancelIncomingCall(uuid: UUID) {
+        // CXEndCallAction cancel remote ring
+        activeCalls.removeValue(forKey: uuid)
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+        let endCallAction = CXEndCallAction(call: uuid)
+        callController.request(CXTransaction(action: endCallAction)) { _ in }
+    }`,
+    `    func cancelIncomingCall(uuid: UUID) {
+        // CXEndCallAction cancel remote ring
+        activeCalls.removeValue(forKey: uuid)
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+        let endCallAction = CXEndCallAction(call: uuid)
+        callController.request(CXTransaction(action: endCallAction)) { _ in }
+    }
+
+    func cancelAllIncomingCalls() {
+        // ${CANCEL_ALL_MARKER}
+        let incomingIds = activeCalls.filter { !$0.value.isOutgoing }.map(\.key)
+        for uuid in incomingIds {
+            cancelIncomingCall(uuid: uuid)
+        }
+    }`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] added cancelAllIncomingCalls')
+}
+
+const POLL_V2_MARKER = 'beginBackgroundTask call status watch'
+if (pluginSwift && pluginSwift.includes(POLL_MARKER) && !pluginSwift.includes(POLL_V2_MARKER)) {
+  if (!pluginSwift.includes('callStatusBackgroundTasks')) {
+    pluginSwift = pluginSwift.replace(
+      '    private var callStatusPollTimers: [String: Timer] = [:]',
+      '    private var callStatusPollTimers: [String: Timer] = [:]\n    private var callStatusBackgroundTasks: [String: UIBackgroundTaskIdentifier] = [:]',
+    )
+  }
+
+  pluginSwift = pluginSwift.replace(
+    `    internal func startCallStatusPolling(callId: String, token: String) {
+        stopCallStatusPolling(callId: callId)
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.pollCallStatus(callId: callId, token: token)
+        }
+        callStatusPollTimers[callId] = timer
+    }
+
+    internal func stopCallStatusPolling(callId: String) {
+        callStatusPollTimers[callId]?.invalidate()
+        callStatusPollTimers.removeValue(forKey: callId)
+    }
+
+    private func pollCallStatus(callId: String, token: String) {
+        var components = URLComponents(string: "https://aimediatank.com/api/chat/voice/native-status")!
+        components.queryItems = [
+            URLQueryItem(name: "callId", value: callId),
+            URLQueryItem(name: "token", value: token),
+        ]
+        guard let url = components.url else { return }
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            guard let self = self,
+                  let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let status = json["status"] as? String else { return }
+            if status == "ringing" || status == "active" { return }
+            DispatchQueue.main.async {
+                if let uuid = UUID(uuidString: callId) {
+                    self.callManager?.cancelIncomingCall(uuid: uuid)
+                }
+                self.stopCallStatusPolling(callId: callId)
+            }
+        }.resume()
+    }`,
+    `    internal func startCallStatusPolling(callId: String, token: String) {
+        // ${POLL_V2_MARKER}
+        stopCallStatusPolling(callId: callId)
+
+        var bgTask = UIBackgroundTaskIdentifier.invalid
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "AiMediaTank voice call watch") { [weak self] in
+            self?.stopCallStatusPolling(callId: callId)
+        }
+        if bgTask != .invalid {
+            callStatusBackgroundTasks[callId] = bgTask
+        }
+
+        func schedulePoll(attempt: Int) {
+            guard attempt < 120, callStatusBackgroundTasks[callId] != nil else {
+                self.stopCallStatusPolling(callId: callId)
+                return
+            }
+            self.pollCallStatus(callId: callId, token: token) { shouldContinue in
+                if shouldContinue {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        schedulePoll(attempt: attempt + 1)
+                    }
+                } else {
+                    self.stopCallStatusPolling(callId: callId)
+                }
+            }
+        }
+
+        schedulePoll(attempt: 0)
+    }
+
+    internal func stopCallStatusPolling(callId: String) {
+        callStatusPollTimers[callId]?.invalidate()
+        callStatusPollTimers.removeValue(forKey: callId)
+        if let bgTask = callStatusBackgroundTasks.removeValue(forKey: callId), bgTask != .invalid {
+            UIApplication.shared.endBackgroundTask(bgTask)
+        }
+    }
+
+    internal func dismissRemoteVoipCancel(callIdString: String) {
+        let normalized = callIdString.lowercased()
+        stopCallStatusPolling(callId: normalized)
+        if let uuid = UUID(uuidString: normalized) {
+            callManager?.cancelIncomingCall(uuid: uuid)
+        } else {
+            callManager?.cancelAllIncomingCalls()
+        }
+    }
+
+    private func pollCallStatus(callId: String, token: String, completion: @escaping (Bool) -> Void) {
+        var components = URLComponents(string: "https://aimediatank.com/api/chat/voice/native-status")!
+        components.queryItems = [
+            URLQueryItem(name: "callId", value: callId),
+            URLQueryItem(name: "token", value: token),
+        ]
+        guard let url = components.url else {
+            completion(true)
+            return
+        }
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            guard let self = self else {
+                completion(false)
+                return
+            }
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let status = json["status"] as? String else {
+                completion(true)
+                return
+            }
+            if status == "ringing" {
+                completion(true)
+                return
+            }
+            DispatchQueue.main.async {
+                if status != "active" {
+                    if let uuid = UUID(uuidString: callId) {
+                        self.callManager?.cancelIncomingCall(uuid: uuid)
+                    } else {
+                        self.callManager?.cancelAllIncomingCalls()
+                    }
+                }
+                completion(false)
+            }
+        }.resume()
+    }`,
+  )
+
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] upgraded polling to background-task chain')
+}
+
+const CANCEL_PUSH_V3 = 'AiMediaTank voipCancelPushV3'
+if (pluginSwift && pluginSwift.includes('AiMediaTank voipCancelPush') && !pluginSwift.includes(CANCEL_PUSH_V3)) {
+  pluginSwift = pluginSwift.replace(
+    /        \/\/ AiMediaTank voipCancelPush[^\n]*\n        if voipPayloadString\(payloadDict, key: "action"\) == "cancel",[\s\S]*?            return\n        }/,
+    `        // AiMediaTank voipCancelPush / ${CANCEL_PUSH_V3}
+        if voipPayloadString(payloadDict, key: "action") == "cancel",
+           let cancelCallIdString = voipPayloadString(payloadDict, key: "callId") {
+            let dismiss = { [weak self] in
+                self?.dismissRemoteVoipCancel(callIdString: cancelCallIdString)
+            }
+            if Thread.isMainThread {
+                dismiss()
+            } else {
+                DispatchQueue.main.sync(execute: dismiss)
+            }
+            completion()
+            return
+        }`,
+  )
+
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] upgraded VoIP cancel push to sync dismiss')
+}
+
 console.log('[patch-voip-callkit] done')

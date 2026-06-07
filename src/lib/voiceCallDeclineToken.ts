@@ -1,7 +1,12 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 
 function declineSecret(): string | null {
-  return process.env.NEXTAUTH_SECRET || process.env.VOICE_DECLINE_SECRET || null
+  return (
+    process.env.NEXTAUTH_SECRET ||
+    process.env.VOICE_DECLINE_SECRET ||
+    process.env.APNS_KEY_ID ||
+    null
+  )
 }
 
 /** Short-lived secret token so CallKit decline can hit the server without a web session. */

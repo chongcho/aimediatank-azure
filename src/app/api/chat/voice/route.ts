@@ -282,7 +282,7 @@ export async function POST(request: Request) {
       const peerId = call.callerId === userId ? call.calleeId : call.callerId
       await prisma.voiceCallSignal.create({
         data: {
-          callId,
+          callId: call.id,
           fromUserId: userId,
           toUserId: peerId,
           type,
@@ -307,12 +307,12 @@ export async function POST(request: Request) {
       }
 
       await prisma.voiceCall.update({
-        where: { id: callId },
+        where: { id: call.id },
         data: { status: 'active' },
       })
 
       await prisma.voiceCallSignal.updateMany({
-        where: { callId, type: 'offer', consumedAt: null },
+        where: { callId: call.id, type: 'offer', consumedAt: null },
         data: { consumedAt: new Date() },
       })
 
@@ -330,13 +330,13 @@ export async function POST(request: Request) {
       }
 
       await prisma.voiceCall.update({
-        where: { id: callId },
+        where: { id: call.id },
         data: { status: 'rejected', endedAt: new Date() },
       })
 
       await prisma.voiceCallSignal.create({
         data: {
-          callId,
+          callId: call.id,
           fromUserId: userId,
           toUserId: call.callerId,
           type: 'reject',
@@ -363,13 +363,13 @@ export async function POST(request: Request) {
             : 'ended'
 
       await prisma.voiceCall.update({
-        where: { id: callId },
+        where: { id: call.id },
         data: { status: finalStatus, endedAt: new Date() },
       })
 
       await prisma.voiceCallSignal.create({
         data: {
-          callId,
+          callId: call.id,
           fromUserId: userId,
           toUserId: peerId,
           type: 'hangup',
@@ -378,9 +378,11 @@ export async function POST(request: Request) {
       })
 
       if (call.status === 'ringing' && call.callerId === userId) {
-        void sendVoipCallCancelPushToUser(peerId, callId).catch((err) =>
-          console.error('VoIP cancel push failed:', err),
-        )
+        try {
+          await sendVoipCallCancelPushToUser(peerId, call.id)
+        } catch (err) {
+          console.error('VoIP cancel push failed:', err)
+        }
       }
 
       return NextResponse.json({ ok: true })
