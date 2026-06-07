@@ -101,6 +101,10 @@ jobs:
                   print(f"Unexpected existing {key} in App Release config", file=sys.stderr)
                   sys.exit(1)
 
+          def pbx_quote(value: str) -> str:
+              escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+              return f'"{escaped}"'
+
           settings = settings.replace(
               "CODE_SIGN_STYLE = Manual;",
               "\n".join(
@@ -108,7 +112,7 @@ jobs:
                       "CODE_SIGN_STYLE = Manual;",
                       f"\t\t\t\tDEVELOPMENT_TEAM = {team};",
                       '\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";',
-                      f"\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = {profile};",
+                      f"\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = {pbx_quote(profile)};",
                   ]
               ),
           )
