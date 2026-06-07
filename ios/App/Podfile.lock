@@ -1,0 +1,28 @@
+PODS:
+  - Capacitor (8.4.0):
+    - CapacitorCordova
+  - CapacitorCordova (8.4.0)
+  - KapsulaChatCapacitorPushCalls (1.0.3):
+    - Capacitor
+
+DEPENDENCIES:
+  - "Capacitor (from `../../node_modules/@capacitor/ios`)"
+  - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
+  - "KapsulaChatCapacitorPushCalls (from `../../node_modules/@kapsula-chat/capacitor-push-calls`)"
+
+EXTERNAL SOURCES:
+  Capacitor:
+    :path: "../../node_modules/@capacitor/ios"
+  CapacitorCordova:
+    :path: "../../node_modules/@capacitor/ios"
+  KapsulaChatCapacitorPushCalls:
+    :path: "../../node_modules/@kapsula-chat/capacitor-push-calls"
+
+SPEC CHECKSUMS:
+  Capacitor: 75bd117ba037a51bb0f19ded32c67f4b3bc16600
+  CapacitorCordova: 71d81f350e6c30bf2a846593b5c480fbd68e9bac
+  KapsulaChatCapacitorPushCalls: fd36b2967913b568613a49979f68095af822ee19
+
+PODFILE CHECKSUM: eccd28c4620a0c19487ffce910681977dac38170
+
+COCOAPODS: 1.16.2
