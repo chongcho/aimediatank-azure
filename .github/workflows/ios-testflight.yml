@@ -3,6 +3,13 @@ name: iOS TestFlight
 on:
   workflow_dispatch:
     inputs:
+      runner:
+        description: Build runner (self-hosted MacinCloud avoids headless xcodebuild crash)
+        type: choice
+        options:
+          - self-hosted
+          - github-hosted
+        default: self-hosted
       capacitor_server_url:
         description: Remote URL loaded by the native shell
         required: false
@@ -10,8 +17,11 @@ on:
 
 jobs:
   build-and-upload:
-    runs-on: macos-26
+    runs-on: ${{ inputs.runner == 'self-hosted' && fromJson('["self-hosted", "macOS"]') || 'macos-26' }}
     timeout-minutes: 60
+
+    env:
+      TOOLCHAINS: com.apple.dt.toolchain.XcodeDefault
 
     steps:
       - name: Checkout
@@ -34,7 +44,7 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.4.1"
+          xcode-version: "26.5"
 
       - name: Install iOS platform
         run: xcodebuild -downloadPlatform iOS
@@ -49,6 +59,9 @@ jobs:
           fi
           if [ -d .build/repositories ]; then
             cp -R .build/repositories "$RUNNER_TEMP/SourcePackages/"
+          fi
+          if [ -d .build/artifacts ]; then
+            cp -R .build/artifacts "$RUNNER_TEMP/SourcePackages/"
           fi
           if [ -f .build/workspace-state.json ]; then
             cp .build/workspace-state.json "$RUNNER_TEMP/SourcePackages/"
@@ -92,6 +105,7 @@ jobs:
           security find-identity -v -p codesigning
           ARCHIVE_PATH="$RUNNER_TEMP/App.xcarchive"
           xcodebuild \
+            -toolchain com.apple.dt.toolchain.XcodeDefault \
             -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Release \
@@ -124,6 +138,7 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" "$EXPORT_PLIST"
           /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.aimediatank.apple string $IOS_PROVISIONING_PROFILE_NAME" "$EXPORT_PLIST"
           xcodebuild \
+            -toolchain com.apple.dt.toolchain.XcodeDefault \
             -exportArchive \
             -archivePath "$ARCHIVE_PATH" \
             -exportPath "$EXPORT_PATH" \

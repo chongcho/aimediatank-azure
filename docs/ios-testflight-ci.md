@@ -1,8 +1,15 @@
 # iOS TestFlight via GitHub Actions
 
-Build the Capacitor iOS app on **macos-26** (Xcode 26) and upload to **TestFlight** — no MacinCloud/Xcode upgrade needed.
+Build the Capacitor iOS app and upload to **TestFlight**.
 
 Workflow: `.github/workflows/ios-testflight.yml` (manual **Run workflow** only).
+
+## Which runner to use
+
+| Runner | When to use |
+|--------|-------------|
+| **self-hosted** (default) | **Recommended.** MacinCloud Mac registered as a GitHub Actions runner. `xcodebuild` works because the Mac has a logged-in user session. |
+| **github-hosted** | Experimental fallback on `macos-26`. May still crash with `exit code 133` (Trace/BPT trap) when loading the Capacitor SPM project — a known headless-runner issue on macOS 26. |
 
 ## One-time setup
 
@@ -45,12 +52,73 @@ Open each `.b64.txt` in Notepad → **Select All** → paste into the GitHub sec
 
 Create app **AiMediaTank** with bundle ID **`com.aimediatank.apple`** if it does not exist yet.
 
+### 4. Self-hosted runner on MacinCloud (recommended)
+
+Register your MacinCloud Mac so builds run under a logged-in user session (avoids the headless `xcodebuild` crash).
+
+#### Prerequisites on the Mac
+
+- **Xcode 26.5** installed and selected:
+  ```bash
+  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+  xcodebuild -version   # should show 26.5
+  sudo xcodebuild -license accept
+  ```
+- **Node.js 22** (workflow uses `npm ci`):
+  ```bash
+  brew install node@22
+  ```
+- Stay **logged in** to the Mac (do not log out — the runner needs an active user session).
+
+#### Register the runner
+
+1. GitHub repo → **Settings** → **Actions** → **Runners** → **New self-hosted runner**
+2. Select **macOS** → **ARM64** (Apple Silicon) or **x64** to match your MacinCloud machine
+3. On the MacinCloud Mac, create a folder and run the commands GitHub shows, for example:
+
+```bash
+mkdir -p ~/actions-runner && cd ~/actions-runner
+curl -o actions-runner-osx-arm64-2.XXX.X.tar.gz -L https://github.com/actions/runner/releases/download/v2.XXX.X/actions-runner-osx-arm64-2.XXX.X.tar.gz
+tar xzf ./actions-runner-osx-arm64-2.XXX.X.tar.gz
+
+./config.sh --url https://github.com/chongcho/aimediatank-azure --token <TOKEN_FROM_GITHUB> --labels self-hosted,macOS --name macincloud-ios
+```
+
+Use the exact download URL and token from the GitHub UI (they change per registration).
+
+#### Start the runner (must run as the logged-in user)
+
+Interactive (good for first test):
+
+```bash
+cd ~/actions-runner
+./run.sh
+```
+
+Keep the Terminal window open. When a workflow runs, you will see job output here.
+
+Persistent background service (recommended after testing):
+
+```bash
+cd ~/actions-runner
+./svc.sh install
+./svc.sh start
+./svc.sh status   # should show running
+```
+
+Install `svc.sh` **while logged in** as the Mac user — it registers a LaunchAgent in your session, not a headless daemon.
+
+#### Verify the runner appears
+
+GitHub → **Settings** → **Actions** → **Runners** → should show **macincloud-ios** with labels `self-hosted`, `macOS`, and status **Idle**.
+
 ## Run a build
 
 1. GitHub → **Actions** → **iOS TestFlight** → **Run workflow**
-2. Optional: change **capacitor_server_url** (default `https://aimediatank.com`)
-3. Wait ~15–30 minutes (first run may resolve Swift packages)
-4. App Store Connect → **TestFlight** → install on iPhone when processing completes
+2. **runner**: leave as **self-hosted** (or pick **github-hosted** to retry on GitHub's Mac)
+3. Optional: change **capacitor_server_url** (default `https://aimediatank.com`)
+4. Wait ~15–30 minutes (first run may resolve Swift packages)
+5. App Store Connect → **TestFlight** → install on iPhone when processing completes
 
 ## After TestFlight install
 
@@ -62,7 +130,10 @@ Create app **AiMediaTank** with bundle ID **`com.aimediatank.apple`** if it does
 
 | Failure | Fix |
 |---------|-----|
-| `no member reject` / Capacitor Swift errors | Workflow must use `macos-26`; check **Select Xcode** step |
+| Job queued, never starts | Self-hosted runner offline — open MacinCloud, log in, run `./svc.sh start` or `./run.sh` |
+| `no member reject` / Capacitor Swift errors | Xcode must be **26+**; run `xcodebuild -version` on the Mac |
+| `exit code 133` on **github-hosted** | Expected on headless GHA — switch to **self-hosted** runner |
 | Provisioning profile mismatch | `IOS_PROVISIONING_PROFILE_NAME` must match portal exactly; profile must be for `com.aimediatank.apple` |
 | Upload rejected | App record in App Store Connect must use same bundle ID |
 | API key upload error | `APPSTORE_PRIVATE_KEY` must include `BEGIN/END` lines; key needs App Manager+ role |
+| Runner service stops after logout | Re-log into MacinCloud and run `./svc.sh start`; keep session active |
