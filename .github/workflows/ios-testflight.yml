@@ -61,15 +61,62 @@ jobs:
           IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
         run: |
           set -euo pipefail
-          XCCONFIG="Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"
-          cat >> "$XCCONFIG" <<EOF
+          python3 <<'PY'
+          import os
+          import re
+          import sys
 
-          // CI manual signing (App target only; Pod targets disable signing in Podfile)
-          CODE_SIGN_STYLE = Manual
-          DEVELOPMENT_TEAM = $IOS_TEAM_ID
-          CODE_SIGN_IDENTITY = Apple Distribution
-          PROVISIONING_PROFILE_SPECIFIER = $IOS_PROVISIONING_PROFILE_NAME
-          EOF
+          pbxproj = "App.xcodeproj/project.pbxproj"
+          team = os.environ["IOS_TEAM_ID"]
+          profile = os.environ["IOS_PROVISIONING_PROFILE_NAME"]
+
+          content = open(pbxproj, encoding="utf-8").read()
+          if "ProvisioningStyle = Automatic;" not in content:
+              print("Expected Automatic provisioning style in project.pbxproj", file=sys.stderr)
+              sys.exit(1)
+
+          content = content.replace(
+              "ProvisioningStyle = Automatic;",
+              "ProvisioningStyle = Manual;",
+              1,
+          )
+
+          pattern = (
+              r"(baseConfigurationReference = AF51FD2D460BCFE21FA515B2 /\* Pods-App\.release\.xcconfig \*/;\n"
+              r"\t\t\tbuildSettings = \{)(.*?)(\t\t\t\};\n\t\t\tname = Release;)"
+          )
+          match = re.search(pattern, content, re.DOTALL)
+          if not match:
+              print("App Release build configuration not found in project.pbxproj", file=sys.stderr)
+              sys.exit(1)
+
+          settings = match.group(2)
+          if "CODE_SIGN_STYLE = Automatic;" not in settings:
+              print("Expected CODE_SIGN_STYLE = Automatic in App Release config", file=sys.stderr)
+              sys.exit(1)
+
+          settings = settings.replace("CODE_SIGN_STYLE = Automatic;", "CODE_SIGN_STYLE = Manual;")
+          for key in ("DEVELOPMENT_TEAM", "CODE_SIGN_IDENTITY", "PROVISIONING_PROFILE_SPECIFIER"):
+              if key in settings:
+                  print(f"Unexpected existing {key} in App Release config", file=sys.stderr)
+                  sys.exit(1)
+
+          settings = settings.replace(
+              "CODE_SIGN_STYLE = Manual;",
+              "\n".join(
+                  [
+                      "CODE_SIGN_STYLE = Manual;",
+                      f"\t\t\t\tDEVELOPMENT_TEAM = {team};",
+                      '\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";',
+                      f"\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = {profile};",
+                  ]
+              ),
+          )
+
+          content = content[: match.start(2)] + settings + content[match.end(2) :]
+          open(pbxproj, "w", encoding="utf-8").write(content)
+          print("Configured manual signing on App Release target")
+          PY
 
       - name: Prepare signing keychain
         run: security delete-keychain signing_temp.keychain 2>/dev/null || true
