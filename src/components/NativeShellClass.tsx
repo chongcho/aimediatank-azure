@@ -1,15 +1,22 @@
 'use client'
 
 import { useLayoutEffect } from 'react'
-import { Capacitor } from '@capacitor/core'
+import { applyNativeShellLayout, syncNativeSafeAreaInsets } from '@/lib/nativeShellBoot'
 
-/** Tag html/body so Capacitor TestFlight gets the same safe-area layout as installed PWA. */
+/** Ensures Capacitor TestFlight gets safe-area layout (also booted inline in layout.tsx). */
 export default function NativeShellClass() {
   useLayoutEffect(() => {
-    if (!Capacitor.isNativePlatform()) return
+    if (!applyNativeShellLayout()) return
+
     const root = document.documentElement
-    root.classList.add('capacitor-native', Capacitor.getPlatform())
-    document.body.classList.add('capacitor-native-body')
+    const isIOS = root.classList.contains('ios')
+    const onResize = () => syncNativeSafeAreaInsets(root, isIOS)
+    window.addEventListener('resize', onResize)
+    window.visualViewport?.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.visualViewport?.removeEventListener('resize', onResize)
+    }
   }, [])
 
   return null

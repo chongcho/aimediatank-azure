@@ -1,5 +1,5 @@
 // Bump this when changing caching behavior to force refresh.
-const CACHE_NAME = 'aimediatank-v17';
+const CACHE_NAME = 'aimediatank-v18';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install

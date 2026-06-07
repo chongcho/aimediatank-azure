@@ -67,7 +67,13 @@ export default function RootLayout({
         />
         <Script id="register-sw" strategy="afterInteractive">
           {`
-            if ('serviceWorker' in navigator) {
+            if (window.__AIM_NATIVE_SHELL__) {
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(regs) {
+                  regs.forEach(function(r) { r.unregister(); });
+                });
+              }
+            } else if ('serviceWorker' in navigator) {
               window.addEventListener('load', function() {
                 navigator.serviceWorker.register('/sw.js').then(function(registration) {
                   console.log('PWA: Service Worker registered with scope:', registration.scope);
@@ -81,6 +87,9 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="min-h-screen bg-tank-black grid-pattern m-0 p-0">
+        <Script id="native-shell-boot" strategy="beforeInteractive">
+          {`(function(){function d(){var c=window.Capacitor;if(c&&c.isNativePlatform&&c.isNativePlatform())return true;if(window.matchMedia('(display-mode: standalone)').matches)return false;if(window.navigator.standalone)return false;var u=navigator.userAgent;if(!/iPhone|iPod|iPad/.test(u))return false;return/AppleWebKit/.test(u)&&/Mobile\\//.test(u)&&!/Safari\\//.test(u)}function s(){if(!d())return;var r=document.documentElement,b=document.body;if(!b)return;r.classList.add('capacitor-native');b.classList.add('capacitor-native-body');var p=(window.Capacitor&&window.Capacitor.getPlatform&&window.Capacitor.getPlatform())||'ios';if(p)r.classList.add(p);var e=document.createElement('div');e.style.cssText='position:fixed;top:0;padding-top:env(safe-area-inset-top);padding-top:constant(safe-area-inset-top);visibility:hidden;pointer-events:none';b.appendChild(e);var t=parseFloat(getComputedStyle(e).paddingTop)||0;e.style.cssText='position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom);padding-bottom:constant(safe-area-inset-bottom);visibility:hidden;pointer-events:none';var bt=parseFloat(getComputedStyle(e).paddingBottom)||0;e.remove();if(p==='ios'&&t<1)t=47;r.style.setProperty('--app-safe-top',t+'px');r.style.setProperty('--app-safe-bottom',bt+'px');window.__AIM_NATIVE_SHELL__=true}s();document.addEventListener('DOMContentLoaded',s);setTimeout(s,0);setTimeout(s,100)})();`}
+        </Script>
         {/* Landscape mode black padding areas */}
         <div className="landscape-padding-left" aria-hidden="true" />
         <div className="landscape-padding-right" aria-hidden="true" />

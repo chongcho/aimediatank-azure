@@ -95,11 +95,13 @@ body {
 /* Capacitor TestFlight / App Store shell (WKWebView is not display-mode: standalone) */
 html.capacitor-native {
   background: #000000;
+  --app-safe-top-fallback: env(safe-area-inset-top, 0px);
+  --app-safe-bottom-fallback: env(safe-area-inset-bottom, 0px);
 }
 
 html.capacitor-native body {
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-top: var(--app-safe-top, var(--app-safe-top-fallback));
+  padding-bottom: var(--app-safe-bottom, var(--app-safe-bottom-fallback));
   min-height: 100vh;
   min-height: -webkit-fill-available;
 }
@@ -110,7 +112,7 @@ html.capacitor-native body::before {
   top: 0;
   left: 0;
   right: 0;
-  height: env(safe-area-inset-top, 0px);
+  height: var(--app-safe-top, var(--app-safe-top-fallback));
   background: #000000;
   z-index: 40;
   pointer-events: none;
@@ -122,26 +124,33 @@ html.capacitor-native body::after {
   bottom: 0;
   left: 0;
   right: 0;
-  height: env(safe-area-inset-bottom, 0px);
+  height: var(--app-safe-bottom, var(--app-safe-bottom-fallback));
   background: #000000;
   z-index: 40;
   pointer-events: none;
 }
 
 html.capacitor-native .pwa-navbar {
-  top: env(safe-area-inset-top, 0px) !important;
+  top: var(--app-safe-top, var(--app-safe-top-fallback)) !important;
+  z-index: 9990 !important;
+  pointer-events: auto;
 }
 
 html.capacitor-native main.pt-16 {
-  padding-top: calc(4rem + env(safe-area-inset-top, 0px)) !important;
+  padding-top: calc(4rem + var(--app-safe-top, var(--app-safe-top-fallback))) !important;
+}
+
+html.capacitor-native .pwa-navbar a,
+html.capacitor-native .pwa-navbar button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  z-index: 1;
 }
 
 html.capacitor-native .pwa-navbar button[aria-label],
-html.capacitor-native .pwa-navbar a {
-  touch-action: manipulation;
-}
-
-html.capacitor-native .pwa-navbar button[aria-label] {
+html.capacitor-native .pwa-navbar a.h-9,
+html.capacitor-native .pwa-navbar .inline-flex.h-9 {
   min-width: 44px;
   min-height: 44px;
 }

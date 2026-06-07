@@ -72,6 +72,12 @@ export default function InstallPrompt() {
   const skipInstallProbeRef = useRef(false)
 
   useLayoutEffect(() => {
+    if ((window as Window & { __AIM_NATIVE_SHELL__?: boolean }).__AIM_NATIVE_SHELL__) {
+      skipInstallProbeRef.current = true
+      setIsAlreadyInstalled(true)
+      setShowPrompt(false)
+      return
+    }
     if (isRunningAsInstalledPwa()) {
       skipInstallProbeRef.current = true
       markInstalledLocally()
