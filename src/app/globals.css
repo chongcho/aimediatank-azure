@@ -92,6 +92,60 @@ body {
   }
 }
 
+/* Capacitor TestFlight / App Store shell (WKWebView is not display-mode: standalone) */
+html.capacitor-native {
+  background: #000000;
+}
+
+html.capacitor-native body {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+html.capacitor-native body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: #000000;
+  z-index: 40;
+  pointer-events: none;
+}
+
+html.capacitor-native body::after {
+  content: '';
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-bottom, 0px);
+  background: #000000;
+  z-index: 40;
+  pointer-events: none;
+}
+
+html.capacitor-native .pwa-navbar {
+  top: env(safe-area-inset-top, 0px) !important;
+}
+
+html.capacitor-native main.pt-16 {
+  padding-top: calc(4rem + env(safe-area-inset-top, 0px)) !important;
+}
+
+html.capacitor-native .pwa-navbar button[aria-label],
+html.capacitor-native .pwa-navbar a {
+  touch-action: manipulation;
+}
+
+html.capacitor-native .pwa-navbar button[aria-label] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
 /* Landscape padding elements - hidden by default */
 .landscape-padding-left,
 .landscape-padding-right {

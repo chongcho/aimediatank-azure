@@ -7,11 +7,13 @@ import { GuestGeoLocaleProvider } from '@/contexts/GuestGeoLocaleContext'
 import DocumentLang from './DocumentLang'
 import ServiceWorkerNavigateListener from './ServiceWorkerNavigateListener'
 import SessionLocaleFromProfileSync from './SessionLocaleFromProfileSync'
+import NativeShellClass from './NativeShellClass'
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
       <GuestGeoLocaleProvider>
+        <NativeShellClass />
         <SessionLocaleFromProfileSync />
         <ServiceWorkerNavigateListener />
         <DocumentLang />
