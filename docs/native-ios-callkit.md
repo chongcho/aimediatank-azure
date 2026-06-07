@@ -72,7 +72,7 @@ npm run cap:sync
 
 | Symptom | Check |
 |--------|--------|
-| No lock-screen ring | VoIP token in DB? APNS_* env vars set? TestFlight build uses `APNS_PRODUCTION=true`? |
+| No lock-screen ring | VoIP token in DB? APNS_* env vars set? **`APNS_PRODUCTION=true`** for TestFlight? App rebuilt with `UIBackgroundModes` voip + bundled `incoming-ring.wav`? |
 | CallKit UI but no audio after accept | Microphone permission; WebRTC / staging URL reachable from device |
 | VoIP push rejected by Apple | Payload must include valid UUID `callId`, `handle`, `displayName` |
 | Still using PWA | Home-screen Safari PWA **cannot** use CallKit — install the **native app** |

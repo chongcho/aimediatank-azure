@@ -45,5 +45,13 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>voip</string>
+		<string>remote-notification</string>
+	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AiMediaTank needs microphone access for voice calls in TalkChat.</string>
 </dict>
 </plist>

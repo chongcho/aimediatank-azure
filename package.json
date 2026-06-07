@@ -14,7 +14,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "build:azure": "prisma generate && next build",
-    "postinstall": "prisma generate && node scripts/copy-watermark-font.js && node scripts/ensure-voip-plugin-podspec.js",
+    "postinstall": "prisma generate && node scripts/copy-watermark-font.js && node scripts/ensure-voip-plugin-podspec.js && node scripts/patch-voip-callkit.js",
     "start": "node server.js",
     "start:standalone": "node .next/standalone/server.js",
     "lint": "next lint",

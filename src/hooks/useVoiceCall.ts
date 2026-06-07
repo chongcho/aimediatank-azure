@@ -12,6 +12,8 @@ import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 import {
   endNativeCall,
   initNativeCallBridge,
+  isNativeIosCallApp,
+  reportIncomingCallToCallKit,
   type NativeIncomingCallPayload,
 } from '@/lib/nativeCallBridge'
 
@@ -255,6 +257,15 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const handleRemoteOffer = useCallback(
     async (signal: PollSignal, caller: VoiceCallUser) => {
       storePendingOffer(signal.payload)
+      if (isNativeIosCallApp()) {
+        const label = caller.name || caller.username || 'AiMediaTank'
+        void reportIncomingCallToCallKit({
+          callId: signal.callId,
+          handle: caller.username || caller.id,
+          displayName: label,
+          caller,
+        })
+      }
       callIdRef.current = signal.callId
       setCallId(signal.callId)
       setRemoteUser(caller)
@@ -404,6 +415,15 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         const incoming = data.incomingCalls[0]
         if (!handledIncomingRef.current.has(`call-${incoming.id}`)) {
           handledIncomingRef.current.add(`call-${incoming.id}`)
+          if (isNativeIosCallApp()) {
+            const label = incoming.caller.name || incoming.caller.username || 'AiMediaTank'
+            void reportIncomingCallToCallKit({
+              callId: incoming.id,
+              handle: incoming.caller.username || incoming.caller.id,
+              displayName: label,
+              caller: incoming.caller,
+            })
+          }
           callIdRef.current = incoming.id
           setCallId(incoming.id)
           setRemoteUser(incoming.caller)

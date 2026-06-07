@@ -189,9 +189,28 @@ GitHub → **Settings** → **Actions** → **Runners** → should show **macinc
 
 ## After TestFlight install
 
-1. Set Azure `APNS_BUNDLE_ID=com.aimediatank.apple` and other `APNS_*` vars
+1. Set Azure **`APNS_*`** env vars (required for lock-screen ring when phone sleeps):
+   ```env
+   APNS_TEAM_ID=your-team-id
+   APNS_KEY_ID=your-apns-key-id
+   APNS_BUNDLE_ID=com.aimediatank.apple
+   APNS_SIGNING_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+   APNS_PRODUCTION=true
+   ```
+   **TestFlight requires `APNS_PRODUCTION=true`** (production APNs host).
 2. `npx prisma migrate deploy` if not done
-3. Test voice call → lock-screen CallKit UI on **TestFlight app** (not Safari PWA)
+3. Open the **native TestFlight app**, sign in, allow notifications — confirms VoIP token in `VoipPushToken` table
+4. Test voice call → **lock screen / sleep** should show CallKit UI with **incoming-ring.wav**; in-app uses web ring tones
+
+### Sleep mode (KakaoTalk-style)
+
+When the phone is locked or asleep, **only the native shell** can ring — not the website. Flow:
+
+1. VoIP push wakes the app (`UIBackgroundModes`: `voip`)
+2. CallKit shows full-screen incoming call UI
+3. Custom ringtone **`incoming-ring.wav`** plays from the app bundle
+
+Web-only deploy is **not enough** for sleep-mode ring; ship a new TestFlight build after `ios/` changes.
 
 ## Troubleshooting
 

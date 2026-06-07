@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, type MutableRefObject, type ReactNode } from 'react'
 import { registerVoiceCallPush } from '@/lib/pushSubscriptionClient'
+import { bootstrapNativeVoip, isNativeIosCallApp, subscribeNativeVoipIfNeeded } from '@/lib/nativeCallBridge'
 import {
   installVoiceCallAudioUnlock,
   primeVoiceCallAfterNotificationOpen,
@@ -103,8 +104,13 @@ export function VoiceCallProvider({
   }, [])
 
   useEffect(() => {
+    void bootstrapNativeVoip()
+  }, [])
+
+  useEffect(() => {
     if (!session?.user?.id) return
     void registerVoiceCallPush()
+    void subscribeNativeVoipIfNeeded()
   }, [session?.user?.id])
 
   useEffect(() => {
@@ -121,6 +127,10 @@ export function VoiceCallProvider({
 
     const start =
       state === 'incoming' ? startIncomingRingtone : startOutgoingRingback
+    if (state === 'incoming' && isNativeIosCallApp()) {
+      primeVoiceCallAfterNotificationOpen()
+      return
+    }
     start()
     primeVoiceCallAfterNotificationOpen()
   }, [

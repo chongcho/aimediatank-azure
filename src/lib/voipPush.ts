@@ -65,12 +65,18 @@ export async function sendVoipCallPushToUser(
   payload: VoipCallPushPayload,
 ): Promise<void> {
   const client = getApnsClient()
-  if (!client) return
+  if (!client) {
+    console.warn('VoIP push skipped: APNS env vars not configured')
+    return
+  }
 
   const tokens = await prisma.voipPushToken.findMany({
     where: { userId, platform: 'ios' },
   })
-  if (tokens.length === 0) return
+  if (tokens.length === 0) {
+    console.warn(`VoIP push skipped: no iOS VoIP token for user ${userId}`)
+    return
+  }
 
   const topic = `${process.env.APNS_BUNDLE_ID}.voip`
   const notifications = tokens.map(

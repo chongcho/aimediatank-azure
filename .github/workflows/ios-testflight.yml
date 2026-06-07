@@ -54,6 +54,9 @@ jobs:
         working-directory: ios/App
         run: pod install
 
+      - name: Patch CallKit incoming ringtone
+        run: node scripts/patch-voip-callkit.js
+
       - name: Configure App manual signing
         working-directory: ios/App
         env:
