@@ -38,29 +38,21 @@ jobs:
           CAPACITOR_SERVER_URL: ${{ inputs.capacitor_server_url }}
         run: npx cap sync ios
 
-      - name: Select Xcode
+      - name: Select Xcode (GitHub-hosted)
+        if: inputs.runner == 'github-hosted'
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: "26.5"
 
-      - name: Detect iOS package manager
-        id: ios_pm
+      - name: Select Xcode (self-hosted)
+        if: inputs.runner == 'self-hosted'
         run: |
-          if [ -f ios/App/Podfile ] && [ -f ios/App/App.xcworkspace ]; then
-            echo "type=cocoapods" >> "$GITHUB_OUTPUT"
-          else
-            echo "type=spm" >> "$GITHUB_OUTPUT"
-          fi
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
 
       - name: Install CocoaPods dependencies
-        if: steps.ios_pm.outputs.type == 'cocoapods'
         working-directory: ios/App
         run: pod install
-
-      - name: Resolve Swift packages (swift CLI)
-        if: steps.ios_pm.outputs.type == 'spm'
-        working-directory: ios/App/CapApp-SPM
-        run: swift package resolve
 
       - name: Prepare signing keychain
         run: security delete-keychain signing_temp.keychain 2>/dev/null || true
@@ -99,13 +91,10 @@ jobs:
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_DEVELOPER_TEAM_ID }}
           IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
-          IOS_PM: ${{ steps.ios_pm.outputs.type }}
         run: |
           set -euo pipefail
-          if [ "$IOS_PM" = "spm" ]; then
-            echo "SPM-based ios/ detected. xcodebuild crashes (exit 133) on this Mac with Capacitor SPM."
-            echo "Run on MacinCloud: bash scripts/migrate-ios-to-cocoapods.sh"
-            echo "Then commit ios/ and re-run this workflow."
+          if [ ! -f App.xcworkspace/contents.xcworkspacedata ]; then
+            echo "App.xcworkspace missing after pod install."
             exit 1
           fi
           security find-identity -v -p codesigning
