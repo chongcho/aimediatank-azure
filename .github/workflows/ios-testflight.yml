@@ -207,17 +207,42 @@ jobs:
         run: |
           set -euo pipefail
           KEY_FILE="$RUNNER_TEMP/AuthKey.p8"
+
+          decode_base64_key() {
+            local input="$1"
+            local cleaned
+            cleaned="$(printf '%s' "$input" | tr -d '[:space:]')"
+            [ -n "$cleaned" ] || return 1
+            printf '%s' "$cleaned" | base64 --decode -o "$KEY_FILE" 2>/dev/null
+          }
+
           if [ -n "${APPSTORE_PRIVATE_KEY_BASE64:-}" ]; then
-            cleaned="$(printf '%s' "$APPSTORE_PRIVATE_KEY_BASE64" | tr -d '[:space:]')"
-            if ! printf '%s' "$cleaned" | base64 --decode -o "$KEY_FILE" 2>/dev/null; then
-              echo "APPSTORE_PRIVATE_KEY_BASE64 is not valid base64."
+            if ! decode_base64_key "$APPSTORE_PRIVATE_KEY_BASE64"; then
+              echo "APPSTORE_PRIVATE_KEY_BASE64 is set but is not valid base64."
               exit 1
             fi
+            echo "Using APPSTORE_PRIVATE_KEY_BASE64"
           elif printf '%s' "$APPSTORE_PRIVATE_KEY" | grep -q 'BEGIN PRIVATE KEY'; then
             printf '%b' "$APPSTORE_PRIVATE_KEY" | tr -d '\r' > "$KEY_FILE"
+            echo "Using APPSTORE_PRIVATE_KEY (PEM)"
+          elif decode_base64_key "$APPSTORE_PRIVATE_KEY"; then
+            echo "Using APPSTORE_PRIVATE_KEY (base64). Prefer APPSTORE_PRIVATE_KEY_BASE64 instead."
           else
-            echo "APPSTORE_PRIVATE_KEY is missing PEM headers."
-            echo "Re-save the secret from AuthKey_${APPSTORE_KEY_ID}.p8, or set APPSTORE_PRIVATE_KEY_BASE64."
+            echo "No valid App Store Connect API key found."
+            echo "Add repository secret APPSTORE_PRIVATE_KEY_BASE64 (recommended):"
+            echo "  GitHub → Settings → Secrets and variables → Actions → New repository secret"
+            echo "  Name: APPSTORE_PRIVATE_KEY_BASE64"
+            echo "  Value: one-line base64 from appstore-key.b64.txt (no spaces or line breaks)"
+            if [ -n "${APPSTORE_PRIVATE_KEY_BASE64:-}" ]; then
+              echo "APPSTORE_PRIVATE_KEY_BASE64: set but failed decode (${#APPSTORE_PRIVATE_KEY_BASE64} chars)"
+            else
+              echo "APPSTORE_PRIVATE_KEY_BASE64: not set"
+            fi
+            if [ -n "${APPSTORE_PRIVATE_KEY:-}" ]; then
+              echo "APPSTORE_PRIVATE_KEY: set but not PEM or valid base64 (${#APPSTORE_PRIVATE_KEY} chars)"
+            else
+              echo "APPSTORE_PRIVATE_KEY: not set"
+            fi
             exit 1
           fi
           if [ ! -s "$KEY_FILE" ]; then
