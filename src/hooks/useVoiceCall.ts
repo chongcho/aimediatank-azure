@@ -181,8 +181,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
   }, [])
 
-  const endCall = useCallback(async () => {
-    const id = callIdRef.current
+  const endCall = useCallback(async (overrideCallId?: string) => {
+    const id = overrideCallId || callIdRef.current
+    if (id) callIdRef.current = id
     await endCallOnServer()
     await endNativeCall(id)
     resetCall()
@@ -307,16 +308,21 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
   }, [queueRemoteIceCandidate])
 
-  const rejectCall = useCallback(async () => {
-    const id = callIdRef.current
+  const rejectCall = useCallback(async (overrideCallId?: string) => {
+    const id = overrideCallId || callIdRef.current
     if (!id) {
       resetCall()
       return
     }
+    callIdRef.current = id
     try {
       await voiceApi('reject', { callId: id })
     } catch {
-      // best effort
+      try {
+        await voiceApi('end', { callId: id })
+      } catch {
+        // best effort
+      }
     }
     await endNativeCall(id)
     resetCall()
@@ -408,8 +414,28 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       incomingCalls?: PollIncomingCall[]
       signals?: PollSignal[]
       activeCall?: { id: string; status: string; caller: VoiceCallUser; callee: VoiceCallUser } | null
+      endedCalls?: { id: string; status: string }[]
     }) => {
       pollSinceRef.current = new Date().toISOString()
+
+      const localCallId = callIdRef.current
+      const localState = callStateRef.current
+      if (
+        localCallId &&
+        (localState === 'outgoing' ||
+          localState === 'incoming' ||
+          localState === 'connecting' ||
+          localState === 'connected')
+      ) {
+        const ended = data.endedCalls?.some((c) => c.id === localCallId)
+        const stillActive =
+          data.activeCall?.id === localCallId &&
+          (data.activeCall.status === 'ringing' || data.activeCall.status === 'active')
+        if (ended || (data.activeCall && data.activeCall.id !== localCallId) || (!stillActive && !data.activeCall)) {
+          resetCall()
+          return
+        }
+      }
 
       if (callState === 'idle' && data.incomingCalls?.length) {
         const incoming = data.incomingCalls[0]
@@ -564,11 +590,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       },
       onCallRejected: (callId) => {
         if (callIdRef.current && callIdRef.current !== callId) return
-        void rejectCallRef.current()
+        void rejectCallRef.current(callId)
       },
       onCallEnded: (callId) => {
         if (callIdRef.current && callIdRef.current !== callId) return
-        void endCallRef.current()
+        void endCallRef.current(callId)
       },
     })
   }, [currentUserId, enabled])
@@ -692,13 +718,19 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
     poll()
     const hidden = typeof document !== 'undefined' && document.hidden
+    const ringing =
+      callState === 'outgoing' || callState === 'incoming' || callState === 'connecting'
     const intervalMs = hidden
-      ? callState === 'idle'
-        ? 1500
-        : 800
-      : callState === 'idle'
-        ? 4000
-        : 1200
+      ? ringing
+        ? 500
+        : callState === 'idle'
+          ? 1500
+          : 800
+      : ringing
+        ? 500
+        : callState === 'idle'
+          ? 4000
+          : 1200
     const timer = window.setInterval(poll, intervalMs)
     return () => {
       cancelled = true

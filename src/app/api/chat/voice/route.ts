@@ -121,6 +121,17 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' },
     })
 
+    const endedCalls = await prisma.voiceCall.findMany({
+      where: {
+        OR: [{ callerId: userId }, { calleeId: userId }],
+        status: { in: ['rejected', 'missed', 'ended'] },
+        endedAt: { gt: sinceDate },
+      },
+      select: { id: true, status: true, endedAt: true },
+      orderBy: { endedAt: 'asc' },
+      take: 10,
+    })
+
     return NextResponse.json({
       incomingCalls: incomingCalls.map((c) => ({
         id: c.id,
@@ -146,6 +157,11 @@ export async function GET(request: Request) {
             createdAt: activeCall.createdAt.toISOString(),
           }
         : null,
+      endedCalls: endedCalls.map((c) => ({
+        id: c.id,
+        status: c.status,
+        endedAt: c.endedAt?.toISOString() ?? null,
+      })),
     })
   } catch (error) {
     console.error('Voice call GET error:', error)
