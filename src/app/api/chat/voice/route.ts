@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendVoiceCallPushToUser } from '@/lib/webPush'
 import { sendVoipCallPushToUser } from '@/lib/voipPush'
+import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +20,9 @@ async function requireSubscriber(sessionUser: { id: string; role?: string } | un
   return { userId: sessionUser.id }
 }
 
-async function getCallForUser(callId: string, userId: string) {
+async function getCallForUser(callIdRaw: string, userId: string) {
+  const callId = normalizeVoiceCallId(callIdRaw)
+  if (!callId) return null
   return prisma.voiceCall.findFirst({
     where: {
       id: callId,

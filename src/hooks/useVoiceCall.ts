@@ -16,6 +16,7 @@ import {
   reportIncomingCallToCallKit,
   type NativeIncomingCallPayload,
 } from '@/lib/nativeCallBridge'
+import { normalizeVoiceCallId, voiceCallIdsMatch } from '@/lib/voiceCallId'
 
 export interface VoiceCallUser {
   id: string
@@ -50,6 +51,7 @@ async function voiceApi(action: string, body: Record<string, unknown> = {}) {
   const res = await fetch('/api/chat/voice', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ action, ...body }),
   })
   const data = await res.json().catch(() => ({}))
@@ -182,7 +184,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [])
 
   const endCall = useCallback(async (overrideCallId?: string) => {
-    const id = overrideCallId || callIdRef.current
+    const id = normalizeVoiceCallId(overrideCallId || callIdRef.current)
     if (id) callIdRef.current = id
     await endCallOnServer()
     await endNativeCall(id)
@@ -267,8 +269,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           caller,
         })
       }
-      callIdRef.current = signal.callId
-      setCallId(signal.callId)
+      callIdRef.current = normalizeVoiceCallId(signal.callId)
+      setCallId(normalizeVoiceCallId(signal.callId))
       setRemoteUser(caller)
       isCallerRef.current = false
       setCallState('incoming')
@@ -309,7 +311,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [queueRemoteIceCandidate])
 
   const rejectCall = useCallback(async (overrideCallId?: string) => {
-    const id = overrideCallId || callIdRef.current
+    const id = normalizeVoiceCallId(overrideCallId || callIdRef.current)
     if (!id) {
       resetCall()
       return
@@ -388,8 +390,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           conversationId: conversationId || undefined,
         })
         const call = data.call as { id: string }
-        callIdRef.current = call.id
-        setCallId(call.id)
+        const id = normalizeVoiceCallId(call.id)
+        callIdRef.current = id
+        setCallId(id)
         await createAndSendOffer()
       } catch (err) {
         reportError(err instanceof Error ? err.message : 'Failed to start call')
@@ -418,46 +421,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }) => {
       pollSinceRef.current = new Date().toISOString()
 
-      const localCallId = callIdRef.current
-      const localState = callStateRef.current
-      if (
-        localCallId &&
-        (localState === 'outgoing' ||
-          localState === 'incoming' ||
-          localState === 'connecting' ||
-          localState === 'connected')
-      ) {
-        const ended = data.endedCalls?.some((c) => c.id === localCallId)
-        const stillActive =
-          data.activeCall?.id === localCallId &&
-          (data.activeCall.status === 'ringing' || data.activeCall.status === 'active')
-        if (ended || (data.activeCall && data.activeCall.id !== localCallId) || (!stillActive && !data.activeCall)) {
-          resetCall()
-          return
-        }
-      }
-
-      if (callState === 'idle' && data.incomingCalls?.length) {
-        const incoming = data.incomingCalls[0]
-        if (!handledIncomingRef.current.has(`call-${incoming.id}`)) {
-          handledIncomingRef.current.add(`call-${incoming.id}`)
-          if (isNativeIosCallApp()) {
-            const label = incoming.caller.name || incoming.caller.username || 'AiMediaTank'
-            void reportIncomingCallToCallKit({
-              callId: incoming.id,
-              handle: incoming.caller.username || incoming.caller.id,
-              displayName: label,
-              caller: incoming.caller,
-            })
-          }
-          callIdRef.current = incoming.id
-          setCallId(incoming.id)
-          setRemoteUser(incoming.caller)
-          isCallerRef.current = false
-          setCallState('incoming')
-        }
-      }
-
       for (const signal of data.signals || []) {
         if (
           (signal.type === 'hangup' || signal.type === 'reject') &&
@@ -478,7 +441,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           continue
         }
 
-        if (signal.callId !== callIdRef.current) continue
+        if (!voiceCallIdsMatch(signal.callId, callIdRef.current)) continue
 
         if (signal.type === 'answer') {
           await handleRemoteAnswer(signal.payload)
@@ -486,6 +449,51 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           await handleRemoteIce(signal.payload)
         } else if (signal.type === 'hangup' || signal.type === 'reject') {
           resetCall()
+        }
+      }
+
+      const localCallId = callIdRef.current
+      const localState = callStateRef.current
+      if (
+        localCallId &&
+        (localState === 'outgoing' ||
+          localState === 'incoming' ||
+          localState === 'connecting' ||
+          localState === 'connected')
+      ) {
+        const ended = data.endedCalls?.some((c) => voiceCallIdsMatch(c.id, localCallId))
+        const stillActive =
+          data.activeCall?.id &&
+          voiceCallIdsMatch(data.activeCall.id, localCallId) &&
+          (data.activeCall.status === 'ringing' || data.activeCall.status === 'active')
+        if (
+          ended ||
+          (data.activeCall && !voiceCallIdsMatch(data.activeCall.id, localCallId)) ||
+          (!stillActive && !data.activeCall)
+        ) {
+          resetCall()
+          return
+        }
+      }
+
+      if (callState === 'idle' && data.incomingCalls?.length) {
+        const incoming = data.incomingCalls[0]
+        if (!handledIncomingRef.current.has(`call-${incoming.id}`)) {
+          handledIncomingRef.current.add(`call-${incoming.id}`)
+          if (isNativeIosCallApp()) {
+            const label = incoming.caller.name || incoming.caller.username || 'AiMediaTank'
+            void reportIncomingCallToCallKit({
+              callId: incoming.id,
+              handle: incoming.caller.username || incoming.caller.id,
+              displayName: label,
+              caller: incoming.caller,
+            })
+          }
+          callIdRef.current = normalizeVoiceCallId(incoming.id)
+          setCallId(normalizeVoiceCallId(incoming.id))
+          setRemoteUser(incoming.caller)
+          isCallerRef.current = false
+          setCallState('incoming')
         }
       }
     },
@@ -501,14 +509,15 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [answerCall, rejectCall])
 
   const applyIncomingCall = useCallback((callId: string, caller: VoiceCallUser) => {
+    const normalizedId = normalizeVoiceCallId(callId)
     if (callStateRef.current !== 'idle' && callStateRef.current !== 'incoming') return
-    if (handledIncomingRef.current.has(`call-${callId}`)) {
+    if (handledIncomingRef.current.has(`call-${normalizedId}`)) {
       runPendingVoiceAction()
       return
     }
-    handledIncomingRef.current.add(`call-${callId}`)
-    callIdRef.current = callId
-    setCallId(callId)
+    handledIncomingRef.current.add(`call-${normalizedId}`)
+    callIdRef.current = normalizedId
+    setCallId(normalizedId)
     setRemoteUser(caller)
     isCallerRef.current = false
     setCallState('incoming')
@@ -544,34 +553,35 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
 
     const ensureIncomingCall = async (callId: string, call?: NativeIncomingCallPayload) => {
-      if (callIdRef.current === callId && callStateRef.current === 'incoming') return
+      const normalizedId = normalizeVoiceCallId(callId)
+      if (voiceCallIdsMatch(callIdRef.current, normalizedId) && callStateRef.current === 'incoming') return
 
       const fromMeta = call ? callerFromNative(call) : null
       if (fromMeta) {
-        applyIncomingCallRef.current(callId, fromMeta)
+        applyIncomingCallRef.current(normalizedId, fromMeta)
         return
       }
 
       try {
         const res = await fetch(
           `/api/chat/voice?since=${encodeURIComponent(new Date(0).toISOString())}`,
-          { cache: 'no-store' },
+          { cache: 'no-store', credentials: 'include' },
         )
         if (!res.ok) return
         const data = await res.json()
-        const incoming = (data.incomingCalls as PollIncomingCall[] | undefined)?.find(
-          (row) => row.id === callId,
+        const incoming = (data.incomingCalls as PollIncomingCall[] | undefined)?.find((row) =>
+          voiceCallIdsMatch(row.id, normalizedId),
         )
         if (incoming) {
-          applyIncomingCallRef.current(callId, incoming.caller)
+          applyIncomingCallRef.current(normalizedId, incoming.caller)
           return
         }
       } catch {
         // poll fallback below on answer
       }
 
-      callIdRef.current = callId
-      setCallId(callId)
+      callIdRef.current = normalizedId
+      setCallId(normalizedId)
       isCallerRef.current = false
       setCallState('incoming')
     }
@@ -589,11 +599,15 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         })()
       },
       onCallRejected: (callId) => {
-        if (callIdRef.current && callIdRef.current !== callId) return
+        if (callIdRef.current && !voiceCallIdsMatch(callIdRef.current, callId)) return
         void rejectCallRef.current(callId)
       },
       onCallEnded: (callId) => {
-        if (callIdRef.current && callIdRef.current !== callId) return
+        if (callIdRef.current && !voiceCallIdsMatch(callIdRef.current, callId)) return
+        if (callStateRef.current === 'incoming' && !isCallerRef.current) {
+          void rejectCallRef.current(callId)
+          return
+        }
         void endCallRef.current(callId)
       },
     })
@@ -614,8 +628,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
     const callId = params.get('callId')
     if (callId) {
-      callIdRef.current = callId
-      setCallId(callId)
+      const id = normalizeVoiceCallId(callId)
+      callIdRef.current = id
+      setCallId(id)
       params.delete('voiceIncoming')
       params.delete('voiceAction')
       params.delete('callId')
@@ -681,8 +696,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         } else if (callStateRef.current === 'incoming') {
           void rejectCall()
         } else if (data.callId) {
-          callIdRef.current = data.callId
-          setCallId(data.callId)
+          const id = normalizeVoiceCallId(data.callId)
+          callIdRef.current = id
+          setCallId(id)
           void rejectCall()
         }
         return
@@ -706,7 +722,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       try {
         const res = await fetch(
           `/api/chat/voice?since=${encodeURIComponent(pollSinceRef.current)}`,
-          { cache: 'no-store' },
+          { cache: 'no-store', credentials: 'include' },
         )
         if (!res.ok) return
         const data = await res.json()
@@ -722,12 +738,12 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       callState === 'outgoing' || callState === 'incoming' || callState === 'connecting'
     const intervalMs = hidden
       ? ringing
-        ? 500
+        ? 350
         : callState === 'idle'
           ? 1500
           : 800
       : ringing
-        ? 500
+        ? 350
         : callState === 'idle'
           ? 4000
           : 1200
@@ -744,6 +760,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (!document.hidden) {
         void fetch(`/api/chat/voice?since=${encodeURIComponent(pollSinceRef.current)}`, {
           cache: 'no-store',
+          credentials: 'include',
         })
           .then((res) => (res.ok ? res.json() : null))
           .then((data) => {

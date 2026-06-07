@@ -1,4 +1,5 @@
 import fs from 'fs'
+import { createVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
 import { ApnsClient, ApnsError, Notification, Priority, PushType } from 'apns2'
 import { prisma } from '@/lib/prisma'
 
@@ -25,10 +26,31 @@ export function isVoipPushConfigured(): boolean {
   )
 }
 
+function normalizeApnsSigningKey(raw: string): string {
+  let key = raw.replace(/\\n/g, '\n').trim()
+  if (!key.includes('BEGIN PRIVATE KEY')) return key
+
+  if (!key.includes('\n-----BEGIN') && !key.includes('-----\n')) {
+    key = key
+      .replace(/-----BEGIN PRIVATE KEY-----/g, '-----BEGIN PRIVATE KEY-----\n')
+      .replace(/-----END PRIVATE KEY-----/g, '\n-----END PRIVATE KEY-----\n')
+  }
+
+  return key
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim()
+      if (trimmed.startsWith('-----')) return trimmed
+      return trimmed.replace(/\s+/g, '')
+    })
+    .filter(Boolean)
+    .join('\n')
+}
+
 function readSigningKey(): Buffer | null {
   const inline = process.env.APNS_SIGNING_KEY
   if (inline) {
-    return Buffer.from(inline.replace(/\\n/g, '\n'), 'utf8')
+    return Buffer.from(normalizeApnsSigningKey(inline), 'utf8')
   }
 
   const path = process.env.APNS_SIGNING_KEY_PATH
@@ -78,6 +100,7 @@ export async function sendVoipCallPushToUser(
     return
   }
 
+  const declineToken = createVoiceCallDeclineToken(payload.callId)
   const topic = `${process.env.APNS_BUNDLE_ID}.voip`
   const notifications = tokens.map(
     (row) =>
@@ -96,16 +119,22 @@ export async function sendVoipCallPushToUser(
             callerUsername: payload.caller.username,
             callerName: payload.caller.name,
             callerAvatar: payload.caller.avatar,
+            ...(declineToken ? { declineToken } : {}),
           },
         },
       }),
   )
 
   const staleTokens: string[] = []
+  let sent = 0
 
   try {
     const results = await client.sendMany(notifications)
     results.forEach((result, index) => {
+      if (result && typeof result === 'object' && !('error' in result)) {
+        sent += 1
+        return
+      }
       if (!(result && typeof result === 'object' && 'error' in result)) return
       const error = result.error
       const reason = error instanceof ApnsError ? error.reason : String(error)
@@ -117,6 +146,12 @@ export async function sendVoipCallPushToUser(
     })
   } catch (error) {
     console.error('VoIP push batch failed:', error)
+  }
+
+  if (sent > 0) {
+    console.info(`[VoIP] push sent to ${sent}/${tokens.length} device(s) for call ${payload.callId}`)
+  } else if (tokens.length > 0) {
+    console.warn(`[VoIP] push failed for all ${tokens.length} device(s), call ${payload.callId}`)
   }
 
   if (staleTokens.length > 0) {
