@@ -8,8 +8,35 @@ Workflow: `.github/workflows/ios-testflight.yml` (manual **Run workflow** only).
 
 | Runner | When to use |
 |--------|-------------|
-| **self-hosted** (default) | **Recommended.** MacinCloud Mac registered as a GitHub Actions runner. `xcodebuild` works because the Mac has a logged-in user session. |
-| **github-hosted** | Experimental fallback on `macos-26`. May still crash with `exit code 133` (Trace/BPT trap) when loading the Capacitor SPM project — a known headless-runner issue on macOS 26. |
+| **self-hosted** (default) | **Recommended.** MacinCloud Mac registered as a GitHub Actions runner. |
+| **github-hosted** | Fallback on `macos-26` (same `xcodebuild` limits as below). |
+
+## Capacitor SPM vs CocoaPods
+
+The repo must use **CocoaPods** for CI builds. Capacitor 8 defaults to **Swift Package Manager (SPM)**, but on MacinCloud/Xcode 26.5, `xcodebuild` crashes with **exit 133** (Trace/BPT trap) as soon as it loads the SPM `App.xcodeproj` — even in an interactive Terminal:
+
+```bash
+xcodebuild -list -project App.xcodeproj
+# zsh: trace trap  xcodebuild ...
+```
+
+That is an SPM + `xcodebuild` issue on this Mac, not a GitHub Actions runner issue.
+
+### Fix: migrate to CocoaPods (one time, on MacinCloud)
+
+```bash
+cd ~/actions-runner/_work/aimediatank-azure/aimediatank-azure
+git pull
+bash scripts/migrate-ios-to-cocoapods.sh
+```
+
+If the script ends with `xcodebuild -list` succeeding, commit and push the new `ios/` folder (Podfile, `App.xcworkspace`, etc.), then re-run **iOS TestFlight**.
+
+Install CocoaPods first if needed: `brew install cocoapods`
+
+### Alternative: Xcode GUI only
+
+Open `ios/App/App.xcodeproj` in Xcode → **Product → Archive** → **Distribute App** → App Store Connect. Skip CI until CocoaPods migration is done.
 
 ## One-time setup
 
@@ -150,8 +177,8 @@ GitHub → **Settings** → **Actions** → **Runners** → should show **macinc
 |---------|-----|
 | Job queued, never starts | Self-hosted runner offline — open MacinCloud, log in, run `./svc.sh start` or `./run.sh` |
 | `no member reject` / Capacitor Swift errors | Xcode must be **26+**; run `xcodebuild -version` on the Mac |
-| `exit code 133` on **github-hosted** | Expected on headless GHA — switch to **self-hosted** runner |
-| `exit code 133` on **self-hosted** | Stop `./svc.sh`, run `./run.sh` in an open Terminal; stay logged into MacinCloud |
+| `exit code 133` / `trace trap` on `xcodebuild` | Capacitor **SPM** project — run `bash scripts/migrate-ios-to-cocoapods.sh` on MacinCloud |
+| Workflow says "Run migrate-ios-to-cocoapods.sh" | `ios/` is still SPM — complete CocoaPods migration and push |
 | Provisioning profile mismatch | `IOS_PROVISIONING_PROFILE_NAME` must match portal exactly; profile must be for `com.aimediatank.apple` |
 | Upload rejected | App record in App Store Connect must use same bundle ID |
 | API key upload error | `APPSTORE_PRIVATE_KEY` must include `BEGIN/END` lines; key needs App Manager+ role |

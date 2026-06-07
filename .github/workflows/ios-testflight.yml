@@ -43,6 +43,25 @@ jobs:
         with:
           xcode-version: "26.5"
 
+      - name: Detect iOS package manager
+        id: ios_pm
+        run: |
+          if [ -f ios/App/Podfile ] && [ -f ios/App/App.xcworkspace ]; then
+            echo "type=cocoapods" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=spm" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install CocoaPods dependencies
+        if: steps.ios_pm.outputs.type == 'cocoapods'
+        working-directory: ios/App
+        run: pod install
+
+      - name: Resolve Swift packages (swift CLI)
+        if: steps.ios_pm.outputs.type == 'spm'
+        working-directory: ios/App/CapApp-SPM
+        run: swift package resolve
+
       - name: Prepare signing keychain
         run: security delete-keychain signing_temp.keychain 2>/dev/null || true
 
@@ -75,34 +94,36 @@ jobs:
           UUID="$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$(security cms -D -i "$PROFILE_PATH")")"
           cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
 
-      - name: Resolve Swift packages (swift CLI)
-        working-directory: ios/App/CapApp-SPM
-        run: swift package resolve
-
       - name: Archive iOS app
         working-directory: ios/App
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_DEVELOPER_TEAM_ID }}
           IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+          IOS_PM: ${{ steps.ios_pm.outputs.type }}
         run: |
           set -euo pipefail
+          if [ "$IOS_PM" = "spm" ]; then
+            echo "SPM-based ios/ detected. xcodebuild crashes (exit 133) on this Mac with Capacitor SPM."
+            echo "Run on MacinCloud: bash scripts/migrate-ios-to-cocoapods.sh"
+            echo "Then commit ios/ and re-run this workflow."
+            exit 1
+          fi
           security find-identity -v -p codesigning
           ARCHIVE_PATH="$RUNNER_TEMP/App.xcarchive"
-          # Login shell matches interactive Terminal; svc.sh alone can still SIGTRAP on Capacitor SPM.
-          /bin/bash -l -c "xcodebuild \
-            -project App.xcodeproj \
+          xcodebuild \
+            -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
             -destination 'generic/platform=iOS' \
-            -archivePath '$ARCHIVE_PATH' \
+            -archivePath "$ARCHIVE_PATH" \
             archive \
             CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM='$IOS_TEAM_ID' \
-            CODE_SIGN_IDENTITY='Apple Distribution' \
-            PROVISIONING_PROFILE_SPECIFIER='$IOS_PROVISIONING_PROFILE_NAME' \
+            DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$IOS_PROVISIONING_PROFILE_NAME" \
             PRODUCT_BUNDLE_IDENTIFIER=com.aimediatank.apple \
-            CURRENT_PROJECT_VERSION='${{ github.run_number }}' \
-            MARKETING_VERSION='1.0'"
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            MARKETING_VERSION="1.0"
 
       - name: Export IPA
         env:
