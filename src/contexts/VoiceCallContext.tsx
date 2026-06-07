@@ -5,7 +5,7 @@ import { registerVoiceCallPush } from '@/lib/pushSubscriptionClient'
 import {
   installVoiceCallAudioUnlock,
   primeVoiceCallAfterNotificationOpen,
-  retryVoiceCallAnnouncement,
+  retryVoiceCallRingtone,
   startIncomingRingtone,
   startOutgoingRingback,
   stopVoiceCallRingtone,
@@ -50,11 +50,6 @@ function useVoiceCallLabels() {
     unmute: tr[TC.voiceUnmute],
     inAppHint: tr[TC.voiceCallInAppHint],
   }
-}
-
-function formatCallAnnouncement(template: string, user: VoiceCallUser | null) {
-  const name = (user?.name || user?.username || '').trim() || '?'
-  return template.replace('{name}', name)
 }
 
 /** Renders active-call UI. Use embedded inside TalkChat; floating when chat is closed. */
@@ -124,13 +119,9 @@ export function VoiceCallProvider({
       return
     }
 
-    const announcement = formatCallAnnouncement(
-      state === 'incoming' ? labels.incomingCall : labels.calling,
-      voiceCall.remoteUser,
-    )
     const start =
       state === 'incoming' ? startIncomingRingtone : startOutgoingRingback
-    start(announcement, labels.localeTag)
+    start()
     primeVoiceCallAfterNotificationOpen()
   }, [
     session?.user?.id,
@@ -138,9 +129,6 @@ export function VoiceCallProvider({
     voiceCall.remoteUser?.id,
     voiceCall.remoteUser?.name,
     voiceCall.remoteUser?.username,
-    labels.incomingCall,
-    labels.calling,
-    labels.localeTag,
   ])
 
   // iOS may block speech until the user touches the screen — retry when the tab is visible.
@@ -152,7 +140,7 @@ export function VoiceCallProvider({
       primeVoiceCallAfterNotificationOpen()
       const state = callStateRef.current
       if (state === 'incoming' || state === 'outgoing') {
-        retryVoiceCallAnnouncement()
+        retryVoiceCallRingtone()
       }
     }
 

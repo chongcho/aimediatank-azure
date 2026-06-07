@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import { getIceServers } from '@/lib/voiceCallConfig'
 import {
   markOpenedFromCallNotification,
-  retryVoiceCallAnnouncement,
+  retryVoiceCallRingtone,
   stopVoiceCallRingtone,
   VOICE_CALL_RING_TIMEOUT_MS,
 } from '@/lib/voiceCallRingtone'
@@ -238,7 +238,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       await pc.setLocalDescription(offer)
       await sendSignal('offer', { sdp: offer })
       if (callStateRef.current === 'outgoing') {
-        retryVoiceCallAnnouncement()
+        retryVoiceCallRingtone()
       }
     } finally {
       makingOfferRef.current = false
