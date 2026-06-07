@@ -43,6 +43,9 @@ jobs:
         with:
           xcode-version: "26.5"
 
+      - name: Prepare signing keychain
+        run: security delete-keychain signing_temp.keychain 2>/dev/null || true
+
       - name: Import distribution certificate
         uses: apple-actions/import-codesign-certs@v3
         with:
