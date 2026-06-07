@@ -53,5 +53,7 @@
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>AiMediaTank needs microphone access for voice calls in TalkChat.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
