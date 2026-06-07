@@ -116,6 +116,16 @@ cd ~/actions-runner
 
 Leave that Terminal window open while builds run.
 
+**Quick test on the Mac** (outside the runner) to confirm Xcode can load the project:
+
+```bash
+cd ~/actions-runner/_work/aimediatank-azure/aimediatank-azure/ios/App
+xcodebuild -list -project App.xcodeproj
+```
+
+- If that **also** exits 133 in Terminal → archive in **Xcode GUI** (Product → Archive), then use a manual IPA upload.
+- If it **works** in Terminal but fails in CI → use `./run.sh` (not `./svc.sh`).
+
 #### Verify the runner appears
 
 GitHub → **Settings** → **Actions** → **Runners** → should show **macincloud-ios** with labels `self-hosted`, `macOS`, and status **Idle**.
