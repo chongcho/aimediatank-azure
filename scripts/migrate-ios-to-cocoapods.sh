@@ -13,6 +13,9 @@ fi
 echo "Removing SPM-based ios/ directory..."
 rm -rf ios
 
+echo "Ensuring VoIP plugin has a CocoaPods podspec..."
+node scripts/ensure-voip-plugin-podspec.js
+
 echo "Adding ios/ with CocoaPods..."
 npx cap add ios --packagemanager CocoaPods
 

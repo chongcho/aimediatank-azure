@@ -183,6 +183,7 @@ GitHub → **Settings** → **Actions** → **Runners** → should show **macinc
 | `no member reject` / Capacitor Swift errors | Xcode must be **26+**; run `xcodebuild -version` on the Mac |
 | `exit code 133` / `trace trap` on `xcodebuild` | Capacitor **SPM** project — run `bash scripts/migrate-ios-to-cocoapods.sh` on MacinCloud |
 | Workflow says "Run migrate-ios-to-cocoapods.sh" | `ios/` is still SPM — complete CocoaPods migration and push |
+| `No podspec found for KapsulaChatCapacitorPushCalls` | Run `node scripts/ensure-voip-plugin-podspec.js`, then `npx cap sync ios` and `cd ios/App && pod install` |
 | Provisioning profile mismatch | `IOS_PROVISIONING_PROFILE_NAME` must match portal exactly; profile must be for `com.aimediatank.apple` |
 | Upload rejected | App record in App Store Connect must use same bundle ID |
 | API key upload error | `APPSTORE_PRIVATE_KEY` must include `BEGIN/END` lines; key needs App Manager+ role |
