@@ -372,7 +372,7 @@ if (!callManager.includes(CANCEL_ALL_MARKER)) {
 
     func cancelAllIncomingCalls() {
         // ${CANCEL_ALL_MARKER}
-        let incomingIds = activeCalls.filter { !$0.value.isOutgoing }.map(\.key)
+        let incomingIds = activeCalls.filter { !$0.value.isOutgoing }.map { $0.key }
         for uuid in incomingIds {
             cancelIncomingCall(uuid: uuid)
         }
@@ -380,6 +380,16 @@ if (!callManager.includes(CANCEL_ALL_MARKER)) {
   )
   fs.writeFileSync(callManagerPath, callManager)
   console.log('[patch-voip-callkit] added cancelAllIncomingCalls')
+}
+
+const CANCEL_ALL_FIX_MARKER = 'map { $0.key }'
+if (callManager.includes(CANCEL_ALL_MARKER) && !callManager.includes(CANCEL_ALL_FIX_MARKER)) {
+  callManager = callManager.replace(
+    'let incomingIds = activeCalls.filter { !$0.value.isOutgoing }.map(.key)',
+    'let incomingIds = activeCalls.filter { !$0.value.isOutgoing }.map { $0.key }',
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] fixed cancelAllIncomingCalls Swift map syntax')
 }
 
 const POLL_V2_MARKER = 'beginBackgroundTask call status watch'
