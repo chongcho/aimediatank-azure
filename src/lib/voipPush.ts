@@ -154,11 +154,12 @@ async function sendVoipDataPushToUser(
 export async function sendVoipCallCancelPushToUser(userId: string, callId: string): Promise<void> {
   const normalizedCallId = normalizeVoiceCallId(callId)
   if (!normalizedCallId) return
+  // VoIP pushes must stay on PushType.voip — content-available makes iOS treat them as
+  // silent background pushes and they may not wake CallKit to dismiss the lock-screen ring.
   await sendVoipDataPushToUser(
     userId,
     { action: 'cancel', callId: normalizedCallId },
     `cancel push for call ${normalizedCallId}`,
-    { contentAvailable: true },
   )
 }
 
@@ -167,11 +168,16 @@ export async function sendVoipCallPushToUser(
   userId: string,
   payload: VoipCallPushPayload,
 ): Promise<void> {
-  const declineToken = createVoiceCallDeclineToken(payload.callId)
+  const callId = normalizeVoiceCallId(payload.callId)
+  if (!callId) return
+  const declineToken = createVoiceCallDeclineToken(callId)
+  if (!declineToken) {
+    console.warn(`[VoIP] incoming push for ${callId}: no decline token (set NEXTAUTH_SECRET on server)`)
+  }
   await sendVoipDataPushToUser(
     userId,
     {
-      callId: payload.callId,
+      callId,
       handle: payload.handle,
       displayName: payload.displayName,
       handleType: 'generic',
@@ -184,6 +190,6 @@ export async function sendVoipCallPushToUser(
         ...(declineToken ? { declineToken } : {}),
       },
     },
-    `incoming push for call ${payload.callId}`,
+    `incoming push for call ${callId}`,
   )
 }

@@ -552,4 +552,152 @@ if (pluginSwift && pluginSwift.includes('AiMediaTank voipCancelPush') && !plugin
   console.log('[patch-voip-callkit] upgraded VoIP cancel push to sync dismiss')
 }
 
+// Re-read patched files for incremental upgrades below.
+callManager = fs.readFileSync(callManagerPath, 'utf8')
+if (fs.existsSync(pluginSwiftPath)) {
+  pluginSwift = fs.readFileSync(pluginSwiftPath, 'utf8')
+}
+
+const EARLY_PUSHKIT_MARKER = 'AiMediaTank earlyPushKitRegistry'
+if (pluginSwift && !pluginSwift.includes(EARLY_PUSHKIT_MARKER)) {
+  pluginSwift = pluginSwift.replace(
+    `    override public func load() {
+        callManager = CallManager(plugin: self)
+
+        NotificationCenter.default.addObserver(`,
+    `    override public func load() {
+        callManager = CallManager(plugin: self)
+
+        // ${EARLY_PUSHKIT_MARKER}
+        DispatchQueue.main.async {
+            if self.voipRegistry == nil {
+                self.voipRegistry = PKPushRegistry(queue: DispatchQueue.main)
+                self.voipRegistry?.delegate = self
+                self.voipRegistry?.desiredPushTypes = [.voIP]
+            }
+        }
+
+        NotificationCenter.default.addObserver(`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] register PushKit on plugin load (cold-start VoIP)')
+}
+
+const CALL_OBSERVER_MARKER = 'CXCallObserver dismiss ringing'
+if (!callManager.includes(CALL_OBSERVER_MARKER)) {
+  if (callManager.includes('func cancelAllIncomingCalls()')) {
+    callManager = callManager.replace(
+      `    func cancelAllIncomingCalls() {
+        // cancelAllIncomingCalls
+        let incomingIds = activeCalls.filter { !$0.value.isOutgoing }.map { $0.key }
+        for uuid in incomingIds {
+            cancelIncomingCall(uuid: uuid)
+        }
+    }`,
+      `    func cancelAllIncomingCalls() {
+        // cancelAllIncomingCalls
+        let incomingIds = activeCalls.filter { !$0.value.isOutgoing }.map { $0.key }
+        for uuid in incomingIds {
+            cancelIncomingCall(uuid: uuid)
+        }
+    }
+
+    func dismissAllRingingIncomingCalls() {
+        // ${CALL_OBSERVER_MARKER}
+        let observer = CXCallObserver()
+        for call in observer.calls where !call.hasEnded && !call.isOutgoing && !call.hasConnected {
+            cancelIncomingCall(uuid: call.uuid)
+        }
+        cancelAllIncomingCalls()
+    }`,
+    )
+  } else {
+    callManager = callManager.replace(
+      `    // MARK: - End Call
+    func endCall(uuid: UUID) {`,
+      `    func dismissAllRingingIncomingCalls() {
+        // ${CALL_OBSERVER_MARKER}
+        let observer = CXCallObserver()
+        for call in observer.calls where !call.hasEnded && !call.isOutgoing && !call.hasConnected {
+            cancelIncomingCall(uuid: call.uuid)
+        }
+        cancelAllIncomingCalls()
+    }
+
+    // MARK: - End Call
+    func endCall(uuid: UUID) {`,
+    )
+  }
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] added CXCallObserver dismiss for lock-screen cancel')
+}
+
+const CANCEL_UNANSWERED_MARKER = 'remoteEnded reason unanswered incoming'
+if (callManager.includes(CANCEL_MARKER) && !callManager.includes(CANCEL_UNANSWERED_MARKER)) {
+  callManager = callManager.replace(
+    `    func cancelIncomingCall(uuid: UUID) {
+        // CXEndCallAction cancel remote ring
+        activeCalls.removeValue(forKey: uuid)
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+        let endCallAction = CXEndCallAction(call: uuid)
+        callController.request(CXTransaction(action: endCallAction)) { _ in }
+    }`,
+    `    func cancelIncomingCall(uuid: UUID) {
+        // CXEndCallAction cancel remote ring / ${CANCEL_UNANSWERED_MARKER}
+        activeCalls.removeValue(forKey: uuid)
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)
+        let endCallAction = CXEndCallAction(call: uuid)
+        callController.request(CXTransaction(action: endCallAction)) { _ in }
+    }`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] use unanswered reason when dismissing incoming ring')
+}
+
+const DISMISS_V4_MARKER = 'dismissAllRingingIncomingCalls'
+if (pluginSwift.includes('dismissRemoteVoipCancel') && !pluginSwift.includes(DISMISS_V4_MARKER)) {
+  pluginSwift = pluginSwift.replace(
+    /    internal func dismissRemoteVoipCancel\(callIdString: String\) \{[\s\S]*?\n    \}\n\n    private func pollCallStatus/,
+    `    internal func dismissRemoteVoipCancel(callIdString: String) {
+        // ${DISMISS_V4_MARKER}
+        let normalized = callIdString.lowercased()
+        stopCallStatusPolling(callId: normalized)
+        if let uuid = UUID(uuidString: normalized) {
+            callManager?.cancelIncomingCall(uuid: uuid)
+        }
+        callManager?.dismissAllRingingIncomingCalls()
+    }
+
+    private func pollCallStatus`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] dismiss all ringing CallKit calls on remote cancel')
+}
+
+if (pluginSwift.includes('private func pollCallStatus') && pluginSwift.includes(DISMISS_V4_MARKER)) {
+  pluginSwift = pluginSwift.replace(
+    `            DispatchQueue.main.async {
+                if status != "active" {
+                    if let uuid = UUID(uuidString: callId) {
+                        self.callManager?.cancelIncomingCall(uuid: uuid)
+                    } else {
+                        self.callManager?.cancelAllIncomingCalls()
+                    }
+                }
+                completion(false)
+            }`,
+    `            DispatchQueue.main.async {
+                if status != "active" {
+                    if let uuid = UUID(uuidString: callId) {
+                        self.callManager?.cancelIncomingCall(uuid: uuid)
+                    }
+                    self.callManager?.dismissAllRingingIncomingCalls()
+                }
+                completion(false)
+            }`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] poll fallback dismisses all ringing CallKit calls')
+}
+
 console.log('[patch-voip-callkit] done')
