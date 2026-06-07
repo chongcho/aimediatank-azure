@@ -86,6 +86,7 @@ async function sendVoipDataPushToUser(
   userId: string,
   data: Record<string, unknown>,
   logLabel: string,
+  extraOptions: { contentAvailable?: boolean } = {},
 ): Promise<void> {
   const client = getApnsClient()
   if (!client) {
@@ -108,6 +109,7 @@ async function sendVoipDataPushToUser(
         type: PushType.voip,
         topic,
         priority: Priority.immediate,
+        ...(extraOptions.contentAvailable ? { contentAvailable: true } : {}),
         data,
       }),
   )
@@ -156,6 +158,7 @@ export async function sendVoipCallCancelPushToUser(userId: string, callId: strin
     userId,
     { action: 'cancel', callId: normalizedCallId },
     `cancel push for call ${normalizedCallId}`,
+    { contentAvailable: true },
   )
 }
 

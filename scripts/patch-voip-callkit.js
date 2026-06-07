@@ -77,19 +77,38 @@ if (!callManager.includes(DECLINE_MARKER)) {
 }
 
 const CANCEL_MARKER = 'AiMediaTank cancelIncomingCall'
+const CANCEL_V2_MARKER = 'CXEndCallAction cancel remote ring'
 if (!callManager.includes(CANCEL_MARKER)) {
   callManager = callManager.replace(
     '    // MARK: - End Call\n    func endCall(uuid: UUID) {',
     `    // MARK: - Cancel Incoming Call (${CANCEL_MARKER})
     func cancelIncomingCall(uuid: UUID) {
-        provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+        // ${CANCEL_V2_MARKER}
         activeCalls.removeValue(forKey: uuid)
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+        let endCallAction = CXEndCallAction(call: uuid)
+        callController.request(CXTransaction(action: endCallAction)) { _ in }
     }
 
     // MARK: - End Call
     func endCall(uuid: UUID) {`,
   )
   console.log('[patch-voip-callkit] patched CallManager for remote cancel sync')
+} else if (!callManager.includes(CANCEL_V2_MARKER)) {
+  callManager = callManager.replace(
+    `    func cancelIncomingCall(uuid: UUID) {
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+        activeCalls.removeValue(forKey: uuid)
+    }`,
+    `    func cancelIncomingCall(uuid: UUID) {
+        // ${CANCEL_V2_MARKER}
+        activeCalls.removeValue(forKey: uuid)
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+        let endCallAction = CXEndCallAction(call: uuid)
+        callController.request(CXTransaction(action: endCallAction)) { _ in }
+    }`,
+  )
+  console.log('[patch-voip-callkit] upgraded CallManager cancelIncomingCall')
 }
 
 fs.writeFileSync(callManagerPath, callManager)
@@ -169,6 +188,168 @@ if (pluginSwift && !pluginSwift.includes(CANCEL_PUSH_MARKER)) {
 
   fs.writeFileSync(pluginSwiftPath, pluginSwift)
   console.log('[patch-voip-callkit] patched CapacitorVoipCallsPlugin for VoIP cancel push')
+}
+
+const POLL_MARKER = 'AiMediaTank nativeCallStatusPolling'
+if (pluginSwift && !pluginSwift.includes(POLL_MARKER)) {
+  if (!pluginSwift.includes('callStatusPollTimers')) {
+    pluginSwift = pluginSwift.replace(
+      '    private var voipRegistry: PKPushRegistry?',
+      '    private var voipRegistry: PKPushRegistry?\n    private var callStatusPollTimers: [String: Timer] = [:]',
+    )
+  }
+
+  const pollHelper = `
+    // ${POLL_MARKER}
+    private func voipPayloadString(_ dict: [AnyHashable: Any], key: String) -> String? {
+        if let value = dict[key] as? String { return value }
+        if let value = dict[key] as? NSString { return value as String }
+        return nil
+    }
+
+    internal func startCallStatusPolling(callId: String, token: String) {
+        stopCallStatusPolling(callId: callId)
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.pollCallStatus(callId: callId, token: token)
+        }
+        callStatusPollTimers[callId] = timer
+    }
+
+    internal func stopCallStatusPolling(callId: String) {
+        callStatusPollTimers[callId]?.invalidate()
+        callStatusPollTimers.removeValue(forKey: callId)
+    }
+
+    private func pollCallStatus(callId: String, token: String) {
+        var components = URLComponents(string: "https://aimediatank.com/api/chat/voice/native-status")!
+        components.queryItems = [
+            URLQueryItem(name: "callId", value: callId),
+            URLQueryItem(name: "token", value: token),
+        ]
+        guard let url = components.url else { return }
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            guard let self = self,
+                  let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let status = json["status"] as? String else { return }
+            if status == "ringing" || status == "active" { return }
+            DispatchQueue.main.async {
+                if let uuid = UUID(uuidString: callId) {
+                    self.callManager?.cancelIncomingCall(uuid: uuid)
+                }
+                self.stopCallStatusPolling(callId: callId)
+            }
+        }.resume()
+    }
+
+`
+  const insertBefore = pluginSwift.includes('func syncCallDeclineToServer')
+    ? '    // AiMediaTank syncCallDeclineToServer'
+    : 'internal func emitEvent(_ event: String, data: [String: Any]) {'
+  if (pluginSwift.includes(insertBefore)) {
+    pluginSwift = pluginSwift.replace(insertBefore, pollHelper + insertBefore)
+  }
+
+  const incomingVoipBlock = `        callManager?.reportIncomingCall(
+            uuid: callId,
+            handle: handle,
+            displayName: displayName,
+            handleType: handleType,
+            video: video
+        ) { error in
+            if let error {
+                print("Error reporting incoming call: \\(error.localizedDescription)")
+            }
+            completion()
+        }`
+
+  const incomingVoipPatched = `        let declineToken = (payloadDict["metadata"] as? [String: Any])?["declineToken"] as? String
+        let pollCallId = callIdString.lowercased()
+
+        callManager?.reportIncomingCall(
+            uuid: callId,
+            handle: handle,
+            displayName: displayName,
+            handleType: handleType,
+            video: video,
+            declineToken: declineToken
+        ) { [weak self] error in
+            if error == nil, let token = declineToken {
+                self?.startCallStatusPolling(callId: pollCallId, token: token)
+            }
+            if let error {
+                print("Error reporting incoming call: \\(error.localizedDescription)")
+            }
+            completion()
+        }`
+
+  if (pluginSwift.includes(incomingVoipBlock)) {
+    pluginSwift = pluginSwift.replace(incomingVoipBlock, incomingVoipPatched)
+    console.log('[patch-voip-callkit] patched VoIP incoming handler for status polling')
+  }
+
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] added native call status polling')
+}
+
+const CANCEL_PUSH_V2 = 'AiMediaTank voipCancelPushV2'
+if (pluginSwift && pluginSwift.includes('AiMediaTank voipCancelPush') && !pluginSwift.includes(CANCEL_PUSH_V2)) {
+  pluginSwift = pluginSwift.replace(
+    `        // AiMediaTank voipCancelPush
+        if let action = payloadDict["action"] as? String, action == "cancel",
+           let cancelCallIdString = payloadDict["callId"] as? String,
+           let cancelCallId = UUID(uuidString: cancelCallIdString) {
+            callManager?.cancelIncomingCall(uuid: cancelCallId)
+            completion()
+            return
+        }`,
+    `        // AiMediaTank voipCancelPush / ${CANCEL_PUSH_V2}
+        if voipPayloadString(payloadDict, key: "action") == "cancel",
+           let cancelCallIdString = voipPayloadString(payloadDict, key: "callId"),
+           let cancelCallId = UUID(uuidString: cancelCallIdString) {
+            DispatchQueue.main.async { [weak self] in
+                self?.stopCallStatusPolling(callId: cancelCallIdString.lowercased())
+                self?.callManager?.cancelIncomingCall(uuid: cancelCallId)
+                completion()
+            }
+            return
+        }`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] upgraded VoIP cancel push handler')
+}
+
+const STOP_POLL_MARKER = 'stopCallStatusPolling on CallKit action'
+if (pluginSwift.includes(POLL_MARKER) && !callManager.includes(STOP_POLL_MARKER)) {
+  callManager = callManager.replace(
+    `    func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+        configureAudioSession()
+        
+        plugin?.notifyListeners(event: "callAnswered", data: ["callId": action.callUUID.uuidString])`,
+    `    func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+        configureAudioSession()
+        // ${STOP_POLL_MARKER}
+        plugin?.stopCallStatusPolling(callId: action.callUUID.uuidString.lowercased())
+
+        plugin?.notifyListeners(event: "callAnswered", data: ["callId": action.callUUID.uuidString])`,
+  )
+  callManager = callManager.replace(
+    `        if let endedCall, !endedCall.isOutgoing, let token = endedCall.declineToken {
+            plugin?.syncCallDeclineToServer(callId: action.callUUID.uuidString.lowercased(), token: token)
+        }
+
+        plugin?.notifyListeners(event: "callEnded", data: ["callId": action.callUUID.uuidString])`,
+    `        // ${STOP_POLL_MARKER}
+        plugin?.stopCallStatusPolling(callId: action.callUUID.uuidString.lowercased())
+
+        if let endedCall, !endedCall.isOutgoing, let token = endedCall.declineToken {
+            plugin?.syncCallDeclineToServer(callId: action.callUUID.uuidString.lowercased(), token: token)
+        }
+
+        plugin?.notifyListeners(event: "callEnded", data: ["callId": action.callUUID.uuidString])`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] stop polling on CallKit answer/end')
 }
 
 console.log('[patch-voip-callkit] done')
