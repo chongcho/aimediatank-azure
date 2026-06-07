@@ -199,10 +199,49 @@ jobs:
             -exportOptionsPlist "$EXPORT_PLIST"
           echo "IPA_PATH=$EXPORT_PATH/App.ipa" >> "$GITHUB_ENV"
 
+      - name: Prepare App Store Connect API key
+        env:
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          APPSTORE_PRIVATE_KEY_BASE64: ${{ secrets.APPSTORE_PRIVATE_KEY_BASE64 }}
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+        run: |
+          set -euo pipefail
+          KEY_FILE="$RUNNER_TEMP/AuthKey.p8"
+          if [ -n "${APPSTORE_PRIVATE_KEY_BASE64:-}" ]; then
+            cleaned="$(printf '%s' "$APPSTORE_PRIVATE_KEY_BASE64" | tr -d '[:space:]')"
+            if ! printf '%s' "$cleaned" | base64 --decode -o "$KEY_FILE" 2>/dev/null; then
+              echo "APPSTORE_PRIVATE_KEY_BASE64 is not valid base64."
+              exit 1
+            fi
+          elif printf '%s' "$APPSTORE_PRIVATE_KEY" | grep -q 'BEGIN PRIVATE KEY'; then
+            printf '%b' "$APPSTORE_PRIVATE_KEY" | tr -d '\r' > "$KEY_FILE"
+          else
+            echo "APPSTORE_PRIVATE_KEY is missing PEM headers."
+            echo "Re-save the secret from AuthKey_${APPSTORE_KEY_ID}.p8, or set APPSTORE_PRIVATE_KEY_BASE64."
+            exit 1
+          fi
+          if [ ! -s "$KEY_FILE" ]; then
+            echo "App Store Connect API key decoded to an empty file."
+            exit 1
+          fi
+          if ! grep -q 'BEGIN PRIVATE KEY' "$KEY_FILE"; then
+            echo "App Store Connect API key is not a PKCS8 private key."
+            exit 1
+          fi
+          if ! openssl pkey -in "$KEY_FILE" -noout >/dev/null 2>&1; then
+            echo "App Store Connect API key failed openssl validation."
+            exit 1
+          fi
+          {
+            echo 'APPSTORE_PRIVATE_KEY<<EOF'
+            cat "$KEY_FILE"
+            echo 'EOF'
+          } >> "$GITHUB_ENV"
+
       - name: Upload to TestFlight
         uses: apple-actions/upload-testflight-build@v3
         with:
           app-path: ${{ env.IPA_PATH }}
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          api-private-key: ${{ env.APPSTORE_PRIVATE_KEY }}

@@ -62,8 +62,26 @@ Repo → **Settings** → **Secrets and variables** → **Actions** → **New re
 | `IOS_DEVELOPER_TEAM_ID` | `Q96PN3KKZW` (James Cho team) |
 | `IOS_PROVISIONING_PROFILE_NAME` | `AiMediaTank AppStore` (exact name in Apple portal) |
 | `APPSTORE_ISSUER_ID` | From App Store Connect API page |
-| `APPSTORE_KEY_ID` | From the API key you created |
-| `APPSTORE_PRIVATE_KEY` | Full contents of the API `.p8` file |
+| `APPSTORE_KEY_ID` | From the API key you created (e.g. `8WRJL4CD45`) |
+| `APPSTORE_PRIVATE_KEY` | Full contents of the API `.p8` file (see below) |
+| `APPSTORE_PRIVATE_KEY_BASE64` | *(optional)* Base64 of the `.p8` file — more reliable than pasting PEM |
+
+#### App Store Connect API key (`.p8`)
+
+GitHub secrets often strip or flatten PEM newlines, which makes `altool` fail with **“does not contain a valid authentication key”**.
+
+**Recommended:** base64-encode the key file and store as `APPSTORE_PRIVATE_KEY_BASE64`:
+
+```powershell
+$key = "C:\path\to\AuthKey_8WRJL4CD45.p8"
+[Convert]::ToBase64String([IO.File]::ReadAllBytes($key)) | Set-Content -NoNewline appstore-key.b64.txt
+```
+
+Paste the one-line contents of `appstore-key.b64.txt` into the secret.
+
+**Alternative:** paste the raw `.p8` into `APPSTORE_PRIVATE_KEY` — it must include the `BEGIN PRIVATE KEY` / `END PRIVATE KEY` lines with real line breaks (not literal `\n` text). The workflow normalizes `\n` escapes and validates with `openssl` before upload.
+
+Ensure `APPSTORE_KEY_ID` matches the filename (`AuthKey_<KEY_ID>.p8`) and the key has **App Manager** or **Admin** role in App Store Connect.
 
 #### Encode cert/profile on Windows (PowerShell)
 
@@ -186,5 +204,5 @@ GitHub → **Settings** → **Actions** → **Runners** → should show **macinc
 | `No podspec found for KapsulaChatCapacitorPushCalls` | Run `node scripts/ensure-voip-plugin-podspec.js`, then `npx cap sync ios` and `cd ios/App && pod install` |
 | Provisioning profile mismatch | `IOS_PROVISIONING_PROFILE_NAME` must match portal exactly; profile must be for `com.aimediatank.apple` |
 | Upload rejected | App record in App Store Connect must use same bundle ID |
-| API key upload error | `APPSTORE_PRIVATE_KEY` must include `BEGIN/END` lines; key needs App Manager+ role |
+| API key upload error | Re-save `APPSTORE_PRIVATE_KEY` with PEM headers/newlines, or use `APPSTORE_PRIVATE_KEY_BASE64`; `APPSTORE_KEY_ID` must match `AuthKey_<ID>.p8`; key needs App Manager+ role |
 | Runner service stops after logout | Re-log into MacinCloud and run `./svc.sh start`; keep session active |
