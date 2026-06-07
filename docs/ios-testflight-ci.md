@@ -97,7 +97,7 @@ cd ~/actions-runner
 
 Keep the Terminal window open. When a workflow runs, you will see job output here.
 
-Persistent background service (recommended after testing):
+Persistent background service:
 
 ```bash
 cd ~/actions-runner
@@ -106,7 +106,15 @@ cd ~/actions-runner
 ./svc.sh status   # should show running
 ```
 
-Install `svc.sh` **while logged in** as the Mac user — it registers a LaunchAgent in your session, not a headless daemon.
+If `xcodebuild` still crashes with **exit 133**, stop the service and run the runner **interactively** in Terminal instead (keeps a full user session):
+
+```bash
+cd ~/actions-runner
+./svc.sh stop
+./run.sh
+```
+
+Leave that Terminal window open while builds run.
 
 #### Verify the runner appears
 
@@ -133,6 +141,7 @@ GitHub → **Settings** → **Actions** → **Runners** → should show **macinc
 | Job queued, never starts | Self-hosted runner offline — open MacinCloud, log in, run `./svc.sh start` or `./run.sh` |
 | `no member reject` / Capacitor Swift errors | Xcode must be **26+**; run `xcodebuild -version` on the Mac |
 | `exit code 133` on **github-hosted** | Expected on headless GHA — switch to **self-hosted** runner |
+| `exit code 133` on **self-hosted** | Stop `./svc.sh`, run `./run.sh` in an open Terminal; stay logged into MacinCloud |
 | Provisioning profile mismatch | `IOS_PROVISIONING_PROFILE_NAME` must match portal exactly; profile must be for `com.aimediatank.apple` |
 | Upload rejected | App record in App Store Connect must use same bundle ID |
 | API key upload error | `APPSTORE_PRIVATE_KEY` must include `BEGIN/END` lines; key needs App Manager+ role |

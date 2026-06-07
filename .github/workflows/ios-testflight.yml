@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       runner:
-        description: Build runner (self-hosted MacinCloud avoids headless xcodebuild crash)
+        description: Build runner (self-hosted MacinCloud recommended)
         type: choice
         options:
           - self-hosted
@@ -19,9 +19,6 @@ jobs:
   build-and-upload:
     runs-on: ${{ inputs.runner == 'self-hosted' && fromJson('["self-hosted", "macOS"]') || 'macos-26' }}
     timeout-minutes: 60
-
-    env:
-      TOOLCHAINS: com.apple.dt.toolchain.XcodeDefault
 
     steps:
       - name: Checkout
@@ -45,27 +42,6 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: "26.5"
-
-      - name: Install iOS platform
-        run: xcodebuild -downloadPlatform iOS
-
-      - name: Resolve Swift packages (swift CLI)
-        working-directory: ios/App/CapApp-SPM
-        run: |
-          swift package resolve
-          mkdir -p "$RUNNER_TEMP/SourcePackages"
-          if [ -d .build/checkouts ]; then
-            cp -R .build/checkouts "$RUNNER_TEMP/SourcePackages/"
-          fi
-          if [ -d .build/repositories ]; then
-            cp -R .build/repositories "$RUNNER_TEMP/SourcePackages/"
-          fi
-          if [ -d .build/artifacts ]; then
-            cp -R .build/artifacts "$RUNNER_TEMP/SourcePackages/"
-          fi
-          if [ -f .build/workspace-state.json ]; then
-            cp .build/workspace-state.json "$RUNNER_TEMP/SourcePackages/"
-          fi
 
       - name: Import distribution certificate
         uses: apple-actions/import-codesign-certs@v3
@@ -96,7 +72,17 @@ jobs:
           UUID="$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$(security cms -D -i "$PROFILE_PATH")")"
           cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
 
+      - name: Resolve Swift packages
+        working-directory: ios/App
+        run: |
+          set -euo pipefail
+          xcodebuild -resolvePackageDependencies \
+            -project App.xcodeproj \
+            -scheme App \
+            -configuration Release
+
       - name: Archive iOS app
+        working-directory: ios/App
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_DEVELOPER_TEAM_ID }}
           IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
@@ -105,15 +91,11 @@ jobs:
           security find-identity -v -p codesigning
           ARCHIVE_PATH="$RUNNER_TEMP/App.xcarchive"
           xcodebuild \
-            -toolchain com.apple.dt.toolchain.XcodeDefault \
-            -project ios/App/App.xcodeproj \
+            -project App.xcodeproj \
             -scheme App \
             -configuration Release \
-            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
             -archivePath "$ARCHIVE_PATH" \
-            -clonedSourcePackagesDirPath "$RUNNER_TEMP/SourcePackages" \
-            -disableAutomaticPackageResolution \
-            -skipPackageUpdates \
             archive \
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
@@ -138,7 +120,6 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" "$EXPORT_PLIST"
           /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.aimediatank.apple string $IOS_PROVISIONING_PROFILE_NAME" "$EXPORT_PLIST"
           xcodebuild \
-            -toolchain com.apple.dt.toolchain.XcodeDefault \
             -exportArchive \
             -archivePath "$ARCHIVE_PATH" \
             -exportPath "$EXPORT_PATH" \
