@@ -1,16 +1,16 @@
 /**
- * KakaoTalk-style ring audio for TalkChat voice calls while unanswered.
+ * Voice-call ring while unanswered.
  *
- * Incoming: double-ring cadence (/sounds/incoming-ring.wav)
- * Outgoing: ringback beep (/sounds/outgoing-ring.wav)
+ * Speaks "Call from {name}" (incoming) or "Calling {name}" (outgoing) via
+ * Azure TTS when configured, else browser speechSynthesis, else WAV fallback.
  *
- * Caller name is shown in the call overlay only (no TTS).
- * iOS requires an in-page tap to unlock Web Audio; notification taps do not count.
- * On the native iOS app, in-app ringtone plays until the user taps Decline or Accept.
+ * iOS native incoming on lock screen: CallKit ring + caller name (system UI).
+ * In-app / web / outgoing uses spoken announcements when possible.
  */
 
 export const VOICE_CALL_RING_TIMEOUT_MS = 60000
 const IOS_GESTURE_WINDOW_MS = 2500
+const ANNOUNCEMENT_LOOP_GAP_MS = 900
 
 const RING_URLS = {
   incoming: '/sounds/incoming-ring.wav',
@@ -27,6 +27,8 @@ let activeRingKind: RingKind | null = null
 let pendingRingStart: (() => void) | null = null
 let openedFromCallNotification = false
 let ringActiveSource: AudioBufferSourceNode | null = null
+let speechLoopTimer: ReturnType<typeof setTimeout> | null = null
+let usingSpeechSynthesis = false
 const ringBufferCache = new Map<string, AudioBuffer>()
 
 type AudioContextCtor = typeof AudioContext
@@ -63,6 +65,23 @@ function hasRecentUserGesture(): boolean {
   return Date.now() - lastUserGestureAt < IOS_GESTURE_WINDOW_MS
 }
 
+function normalizeSpeechLang(lang?: string): string | undefined {
+  if (!lang) return undefined
+  if (lang.includes('-')) return lang
+  const map: Record<string, string> = {
+    en: 'en-US',
+    ko: 'ko-KR',
+    ja: 'ja-JP',
+    zh: 'zh-CN',
+    es: 'es-ES',
+    fr: 'fr-FR',
+    de: 'de-DE',
+    pt: 'pt-BR',
+    it: 'it-IT',
+  }
+  return map[lang.toLowerCase()] || lang
+}
+
 function stopRingPlayback() {
   if (!ringActiveSource) return
   try {
@@ -79,6 +98,17 @@ function stopRingPlayback() {
   ringActiveSource = null
 }
 
+function stopSpeechSynthesis() {
+  if (speechLoopTimer) {
+    clearTimeout(speechLoopTimer)
+    speechLoopTimer = null
+  }
+  usingSpeechSynthesis = false
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.cancel()
+  }
+}
+
 function clearMediaSession() {
   if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
   try {
@@ -92,6 +122,7 @@ function clearMediaSession() {
 function stopPlayback() {
   loopGeneration += 1
   stopRingPlayback()
+  stopSpeechSynthesis()
   clearMediaSession()
 }
 
@@ -115,6 +146,28 @@ async function getRingBuffer(url: string): Promise<AudioBuffer | null> {
   }
 }
 
+async function fetchTtsBuffer(text: string, lang?: string): Promise<AudioBuffer | null> {
+  if (typeof fetch === 'undefined') return null
+  const ctx = getAudioContext()
+  if (!ctx) return null
+
+  const cacheKey = `tts:${lang || 'en'}:${text}`
+  const cached = ringBufferCache.get(cacheKey)
+  if (cached) return cached
+
+  try {
+    const params = new URLSearchParams({ text, lang: lang || 'en' })
+    const res = await fetch(`/api/chat/voice/tts?${params}`, { credentials: 'include' })
+    if (!res.ok) return null
+    const arrayBuffer = await res.arrayBuffer()
+    const buffer = await ctx.decodeAudioData(arrayBuffer.slice(0))
+    ringBufferCache.set(cacheKey, buffer)
+    return buffer
+  } catch {
+    return null
+  }
+}
+
 function playRingLoop(buffer: AudioBuffer, generation: number) {
   const ctx = getAudioContext()
   if (!ctx || generation !== loopGeneration || !activeRingKind) return
@@ -130,6 +183,26 @@ function playRingLoop(buffer: AudioBuffer, generation: number) {
   } catch {
     // ignore transient playback errors
   }
+}
+
+function playSpeechLoop(text: string, lang: string | undefined, generation: number): boolean {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return false
+
+  usingSpeechSynthesis = true
+  const speakOnce = () => {
+    if (generation !== loopGeneration || !usingSpeechSynthesis || !activeRingKind) return
+    const utterance = new SpeechSynthesisUtterance(text)
+    const speechLang = normalizeSpeechLang(lang)
+    if (speechLang) utterance.lang = speechLang
+    utterance.onend = () => {
+      if (generation !== loopGeneration || !usingSpeechSynthesis) return
+      speechLoopTimer = window.setTimeout(speakOnce, ANNOUNCEMENT_LOOP_GAP_MS)
+    }
+    window.speechSynthesis.speak(utterance)
+  }
+
+  speakOnce()
+  return true
 }
 
 function flushPendingRing() {
@@ -173,6 +246,7 @@ async function onUserGesture() {
     activeRingKind &&
     isIosDevice() &&
     !ringActiveSource &&
+    !usingSpeechSynthesis &&
     pendingRingStart === null
   ) {
     retryVoiceCallRingtone()
@@ -214,7 +288,7 @@ export function primeVoiceCallAfterNotificationOpen() {
   void unlockVoiceCallAudio()
   maybeFlushPendingRing()
   if (activeRingKind && (!isIosDevice() || hasRecentUserGesture())) {
-    void startRing(activeRingKind)
+    void startRing(activeRingKind, lastAnnouncement, lastLang)
     clearOpenedFromCallNotification()
   }
 }
@@ -223,29 +297,23 @@ export function stopVoiceCallRingtone() {
   stopPlayback()
   pendingRingStart = null
   activeRingKind = null
+  lastAnnouncement = undefined
+  lastLang = undefined
 }
+
+let lastAnnouncement: string | undefined
+let lastLang: string | undefined
 
 function isSameRingRunning(kind: RingKind) {
-  return activeRingKind === kind && (ringActiveSource !== null || pendingRingStart !== null)
+  return activeRingKind === kind && (ringActiveSource !== null || usingSpeechSynthesis || pendingRingStart !== null)
 }
 
-async function startRing(kind: RingKind) {
-  if (isSameRingRunning(kind)) return
-
-  stopVoiceCallRingtone()
-  activeRingKind = kind
-  const generation = loopGeneration
-
-  const buffer = await getRingBuffer(RING_URLS[kind])
-  if (generation !== loopGeneration) return
-
-  if (!buffer) {
-    console.warn(`Voice call ring failed to load: ${RING_URLS[kind]}`)
-    activeRingKind = null
-    return
-  }
-
-  pendingRingStart = () => playRingLoop(buffer, generation)
+async function beginAudioPlayback(
+  kind: RingKind,
+  generation: number,
+  play: () => void,
+) {
+  pendingRingStart = play
 
   const ctx = getAudioContext()
   if (ctx && !isAudioContextRunning(ctx)) {
@@ -274,12 +342,47 @@ async function startRing(kind: RingKind) {
   flushPendingRing()
 }
 
-export function startIncomingRingtone(_announcement?: string, _lang?: string) {
-  void startRing('incoming')
+async function startRing(kind: RingKind, announcement?: string, lang?: string) {
+  if (isSameRingRunning(kind) && announcement === lastAnnouncement && lang === lastLang) return
+
+  stopVoiceCallRingtone()
+  activeRingKind = kind
+  lastAnnouncement = announcement?.trim() || undefined
+  lastLang = lang
+  const generation = loopGeneration
+
+  const spoken = lastAnnouncement
+  if (spoken) {
+    const ttsBuffer = await fetchTtsBuffer(spoken, lang)
+    if (generation !== loopGeneration) return
+    if (ttsBuffer) {
+      await beginAudioPlayback(kind, generation, () => playRingLoop(ttsBuffer, generation))
+      return
+    }
+    if (playSpeechLoop(spoken, lang, generation)) {
+      await unlockVoiceCallAudio()
+      return
+    }
+  }
+
+  const buffer = await getRingBuffer(RING_URLS[kind])
+  if (generation !== loopGeneration) return
+
+  if (!buffer) {
+    console.warn(`Voice call ring failed to load: ${RING_URLS[kind]}`)
+    activeRingKind = null
+    return
+  }
+
+  await beginAudioPlayback(kind, generation, () => playRingLoop(buffer, generation))
 }
 
-export function startOutgoingRingback(_announcement?: string, _lang?: string) {
-  void startRing('outgoing')
+export function startIncomingRingtone(announcement?: string, lang?: string) {
+  void startRing('incoming', announcement, lang)
+}
+
+export function startOutgoingRingback(announcement?: string, lang?: string) {
+  void startRing('outgoing', announcement, lang)
 }
 
 export function retryVoiceCallRingtone() {
@@ -288,8 +391,10 @@ export function retryVoiceCallRingtone() {
   if (isIosDevice() && ringActiveSource && !hasRecentUserGesture()) return
 
   const kind = activeRingKind
+  const announcement = lastAnnouncement
+  const lang = lastLang
   stopVoiceCallRingtone()
-  void startRing(kind)
+  void startRing(kind, announcement, lang)
 }
 
 /** @deprecated Use retryVoiceCallRingtone */

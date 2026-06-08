@@ -54,6 +54,15 @@ interface VoiceCallContextValue {
 
 const VoiceCallContext = createContext<VoiceCallContextValue | null>(null)
 
+function voiceCallDisplayName(user: VoiceCallUser | null) {
+  if (!user) return '?'
+  return (user.name || user.username || '').trim() || '?'
+}
+
+function formatVoiceCallAnnouncement(template: string, user: VoiceCallUser | null) {
+  return template.replace('{name}', voiceCallDisplayName(user))
+}
+
 function useVoiceCallLabels() {
   const { localeTag } = useUiLocale()
   const tr = talkChatTr(localeTag)
@@ -102,7 +111,7 @@ export function VoiceCallOverlayPanel({
     placement === 'floating' && isActiveCall && !isDesktop && !ctx.callUiHidden
   const minimizedCallUi = placement === 'floating' && isActiveCall && ctx.callUiHidden
   const showCallControls = popupCallUi || fullscreenCallUi
-  const canHideCall = isActiveCall && ctx.callState !== 'incoming'
+  const canHideCall = isActiveCall
   const nativeIosCall = isNativeIosCallApp()
 
   return (
@@ -192,9 +201,21 @@ export function VoiceCallProvider({
       return
     }
 
-    const start =
-      state === 'incoming' ? startIncomingRingtone : startOutgoingRingback
-    start()
+    // Incoming on native iOS: CallKit owns lock-screen ring; skip in-app duplicate.
+    if (isNativeIosCallApp() && state === 'incoming') {
+      return
+    }
+
+    const announcement =
+      state === 'incoming'
+        ? formatVoiceCallAnnouncement(labels.incomingCall, voiceCall.remoteUser)
+        : formatVoiceCallAnnouncement(labels.calling, voiceCall.remoteUser)
+
+    if (state === 'incoming') {
+      startIncomingRingtone(announcement, labels.localeTag)
+    } else {
+      startOutgoingRingback(announcement, labels.localeTag)
+    }
     primeVoiceCallAfterNotificationOpen()
   }, [
     session?.user?.id,
@@ -202,6 +223,9 @@ export function VoiceCallProvider({
     voiceCall.remoteUser?.id,
     voiceCall.remoteUser?.name,
     voiceCall.remoteUser?.username,
+    labels.incomingCall,
+    labels.calling,
+    labels.localeTag,
   ])
 
   // iOS may block speech until the user touches the screen — retry when the tab is visible.
@@ -263,10 +287,7 @@ export function VoiceCallProvider({
       {session?.user &&
         voiceCall.callState !== 'idle' &&
         voiceCall.callState !== 'ended' &&
-        ((isDesktop ||
-          showFloatingOverlay ||
-          (!isDesktop && voiceCall.callState === 'incoming')) ||
-          callUiHidden) && (
+        (isDesktop ? showFloatingOverlay || callUiHidden : true) && (
           <VoiceCallOverlayPanel placement="floating" />
         )}
     </VoiceCallContext.Provider>
