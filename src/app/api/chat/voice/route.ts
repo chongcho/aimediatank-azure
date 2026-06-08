@@ -380,6 +380,10 @@ export async function POST(request: Request) {
       if (call.status === 'ringing' && call.callerId === userId) {
         try {
           await sendVoipCallCancelPushToUser(peerId, call.id)
+          // Second cancel push helps if the device wakes slowly from sleep.
+          setTimeout(() => {
+            void sendVoipCallCancelPushToUser(peerId, call.id)
+          }, 1500)
         } catch (err) {
           console.error('VoIP cancel push failed:', err)
         }

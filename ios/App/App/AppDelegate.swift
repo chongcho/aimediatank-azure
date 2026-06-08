@@ -7,7 +7,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // VoIP PushKit must register at launch so cancel pushes dismiss CallKit on lock screen.
+        AiMediaTankVoipPushBridge.shared.ensureStarted()
         return true
     }
 

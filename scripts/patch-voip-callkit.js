@@ -700,4 +700,160 @@ if (pluginSwift.includes('private func pollCallStatus') && pluginSwift.includes(
   console.log('[patch-voip-callkit] poll fallback dismisses all ringing CallKit calls')
 }
 
+const BRIDGE_V1 = 'AiMediaTank VoipPushBridge'
+if (pluginSwift && !pluginSwift.includes(BRIDGE_V1)) {
+  pluginSwift = pluginSwift.replace(
+    /\n        \/\/ AiMediaTank earlyPushKitRegistry[\s\S]*?\n        \}\n\n        NotificationCenter/,
+    '\n        NotificationCenter',
+  )
+
+  pluginSwift = pluginSwift.replace(
+    `@objc func registerVoipNotifications(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.voipRegistry = PKPushRegistry(queue: DispatchQueue.main)
+            self.voipRegistry?.delegate = self
+            self.voipRegistry?.desiredPushTypes = [.voIP]
+
+            call.resolve()
+        }
+    }`,
+    `@objc func registerVoipNotifications(_ call: CAPPluginCall) {
+        // ${BRIDGE_V1}: PushKit is registered at app launch in AppDelegate.
+        call.resolve()
+    }`,
+  )
+
+  pluginSwift = pluginSwift.replace(
+    `        callManager = CallManager(plugin: self)
+
+        NotificationCenter.default.addObserver(`,
+    `        callManager = CallManager(plugin: self)
+
+        // ${BRIDGE_V1}
+        NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedVoipPushToken(_:)), name: NSNotification.Name("AiMediaTankVoipPushToken"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedVoipIncomingPush(_:)), name: NSNotification.Name("AiMediaTankVoipIncomingPush"), object: nil)
+
+        NotificationCenter.default.addObserver(`,
+  )
+
+  pluginSwift = pluginSwift.replace(
+    `    // Backward-compatible helper used by CallManager.
+    internal func notifyListeners(event: String, data: [String: Any]) {
+        emitEvent(event, data: data)
+    }
+}`,
+    `    // Backward-compatible helper used by CallManager.
+    internal func notifyListeners(event: String, data: [String: Any]) {
+        emitEvent(event, data: data)
+    }
+
+    // ${BRIDGE_V1} — incoming VoIP forwarded from AiMediaTankVoipPushBridge
+    @objc private func handleBridgedVoipPushToken(_ notification: Notification) {
+        guard let tokenData = notification.object as? Data else { return }
+        let token = tokenData.map { String(format: "%02x", $0) }.joined()
+        emitEvent("voipPushToken", data: ["token": token])
+    }
+
+    @objc private func handleBridgedVoipIncomingPush(_ notification: Notification) {
+        guard let payloadDict = notification.userInfo else {
+            NotificationCenter.default.post(name: NSNotification.Name("AiMediaTankVoipIncomingPushDone"), object: nil)
+            return
+        }
+        processIncomingVoipPushPayload(payloadDict)
+    }
+
+    private func processIncomingVoipPushPayload(_ payloadDict: [String: Any]) {
+        defer {
+            NotificationCenter.default.post(name: NSNotification.Name("AiMediaTankVoipIncomingPushDone"), object: nil)
+        }
+
+        guard let callIdString = voipPayloadString(payloadDict, key: "callId"),
+              let callId = UUID(uuidString: callIdString),
+              let handle = voipPayloadString(payloadDict, key: "handle"),
+              let displayName = voipPayloadString(payloadDict, key: "displayName") else {
+            return
+        }
+
+        let handleTypeString = voipPayloadString(payloadDict, key: "handleType") ?? "generic"
+        let video = payloadDict["video"] as? Bool ?? false
+
+        let handleType: CXHandle.HandleType = {
+            switch handleTypeString {
+            case "phone": return .phoneNumber
+            case "email": return .emailAddress
+            default: return .generic
+            }
+        }()
+
+        let declineToken = (payloadDict["metadata"] as? [String: Any])?["declineToken"] as? String
+        let pollCallId = callIdString.lowercased()
+
+        callManager?.reportIncomingCall(
+            uuid: callId,
+            handle: handle,
+            displayName: displayName,
+            handleType: handleType,
+            video: video,
+            declineToken: declineToken
+        ) { [weak self] error in
+            if error == nil {
+                NotificationCenter.default.post(name: NSNotification.Name("AiMediaTankNoteIncomingCall"), object: nil, userInfo: ["callId": pollCallId])
+                if let token = declineToken {
+                    self?.startCallStatusPolling(callId: pollCallId, token: token)
+                }
+            }
+            if let error {
+                print("Error reporting incoming call: \\(error.localizedDescription)")
+            }
+        }
+
+        var notificationData: [String: Any] = [
+            "callId": callIdString,
+            "handle": handle,
+            "displayName": displayName,
+            "handleType": handleTypeString,
+            "video": video,
+        ]
+
+        if let metadata = payloadDict["metadata"] as? [String: Any] {
+            notificationData["metadata"] = metadata
+        }
+
+        emitEvent("incomingCall", data: notificationData)
+    }
+}`,
+  )
+
+  pluginSwift = pluginSwift.replace(
+    /\/\/ MARK: - PKPushRegistryDelegate\nextension CapacitorVoipCallsPlugin: PKPushRegistryDelegate \{[\s\S]*?\n\}\n\n/,
+    '',
+  )
+
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] route VoIP pushes through AppDelegate bridge')
+}
+
+const CANCEL_V5_MARKER = 'deactivate audio on remote cancel'
+if (callManager.includes(CANCEL_MARKER) && !callManager.includes(CANCEL_V5_MARKER)) {
+  callManager = callManager.replace(
+    `    func cancelIncomingCall(uuid: UUID) {
+        // CXEndCallAction cancel remote ring / remoteEnded reason unanswered incoming
+        activeCalls.removeValue(forKey: uuid)
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)
+        let endCallAction = CXEndCallAction(call: uuid)
+        callController.request(CXTransaction(action: endCallAction)) { _ in }
+    }`,
+    `    func cancelIncomingCall(uuid: UUID) {
+        // CXEndCallAction cancel remote ring / ${CANCEL_V5_MARKER}
+        activeCalls.removeValue(forKey: uuid)
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+        let endCallAction = CXEndCallAction(call: uuid)
+        callController.request(CXTransaction(action: endCallAction)) { _ in }
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] deactivate audio session when dismissing ring')
+}
+
 console.log('[patch-voip-callkit] done')
