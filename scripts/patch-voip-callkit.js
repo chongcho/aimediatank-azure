@@ -762,7 +762,7 @@ if (pluginSwift && !pluginSwift.includes(BRIDGE_V1)) {
         processIncomingVoipPushPayload(payloadDict)
     }
 
-    private func processIncomingVoipPushPayload(_ payloadDict: [String: Any]) {
+    private func processIncomingVoipPushPayload(_ payloadDict: [AnyHashable: Any]) {
         defer {
             NotificationCenter.default.post(name: NSNotification.Name("AiMediaTankVoipIncomingPushDone"), object: nil)
         }
@@ -854,6 +854,16 @@ if (callManager.includes(CANCEL_MARKER) && !callManager.includes(CANCEL_V5_MARKE
   )
   fs.writeFileSync(callManagerPath, callManager)
   console.log('[patch-voip-callkit] deactivate audio session when dismissing ring')
+}
+
+const BRIDGE_V2_MARKER = 'AnyHashable voip push payload'
+if (pluginSwift && pluginSwift.includes('processIncomingVoipPushPayload') && !pluginSwift.includes(BRIDGE_V2_MARKER)) {
+  pluginSwift = pluginSwift.replace(
+    'private func processIncomingVoipPushPayload(_ payloadDict: [String: Any]) {',
+    `private func processIncomingVoipPushPayload(_ payloadDict: [AnyHashable: Any]) { // ${BRIDGE_V2_MARKER}`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] fix VoIP push payload type for Notification.userInfo')
 }
 
 console.log('[patch-voip-callkit] done')
