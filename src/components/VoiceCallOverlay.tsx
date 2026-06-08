@@ -6,6 +6,7 @@ import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
 
 const CALL_POPUP_WIDTH = 360
 const CALL_POPUP_Z_INDEX = 100000
+const MINIMIZED_CALL_Z_INDEX = 99998
 
 interface VoiceCallOverlayProps {
   callState: VoiceCallState
@@ -27,11 +28,15 @@ interface VoiceCallOverlayProps {
     keypad: string
     more: string
     remindMe: string
+    hideCall: string
+    tapToShowCall: string
   }
   onAccept: () => void
   onReject: () => void
   onEnd: () => void
   onToggleMute: () => void
+  onHide?: () => void
+  onRestoreCallUi?: () => void
   /** floating = fixed on viewport; embedded = inside TalkChat panel */
   placement?: 'floating' | 'embedded'
   inAppHint?: string
@@ -39,6 +44,8 @@ interface VoiceCallOverlayProps {
   fullscreenCallUi?: boolean
   /** Draggable call popup on desktop (TalkChat-style) */
   popupCallUi?: boolean
+  /** Compact top bar when call controls are hidden */
+  minimizedCallUi?: boolean
 }
 
 type CallUiMode = 'fullscreen' | 'popup'
@@ -260,6 +267,47 @@ function IconPhoneEnd() {
   )
 }
 
+function IconChevronDown() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6 9l6 6 6-6"
+        stroke="white"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function HideCallButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        border: 'none',
+        background: 'rgba(255,255,255,0.12)',
+        color: 'white',
+        cursor: 'pointer',
+        padding: '8px 12px',
+        borderRadius: '20px',
+        fontSize: '13px',
+        fontWeight: 600,
+      }}
+    >
+      <IconChevronDown />
+      <span>{label}</span>
+    </button>
+  )
+}
+
 function IconKeypad() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -292,10 +340,14 @@ function CallPopupShell({
   remoteUser,
   title,
   children,
+  onHide,
+  hideLabel,
 }: {
   remoteUser: VoiceCallUser | null
   title: string
   children: ReactNode
+  onHide?: () => void
+  hideLabel?: string
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState(defaultPopupPosition)
@@ -419,7 +471,33 @@ function CallPopupShell({
             }}
           >
             <span style={{ fontSize: '13px', fontWeight: 600, opacity: 0.9 }}>{title}</span>
-            <span style={{ fontSize: '11px', opacity: 0.55 }}>⋮⋮</span>
+            {onHide && hideLabel ? (
+              <button
+                type="button"
+                onClick={onHide}
+                aria-label={hideLabel}
+                title={hideLabel}
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{
+                  border: 'none',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: 'white',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                }}
+              >
+                <IconChevronDown />
+                {hideLabel}
+              </button>
+            ) : (
+              <span style={{ fontSize: '11px', opacity: 0.55 }}>⋮⋮</span>
+            )}
           </div>
           <div style={{ padding: '16px 18px 20px' }}>{children}</div>
         </div>
@@ -472,20 +550,33 @@ function CallScreenShell({
   remoteUser,
   title,
   children,
+  onHide,
+  hideLabel,
 }: {
   mode: CallUiMode
   remoteUser: VoiceCallUser | null
   title: string
   children: ReactNode
+  onHide?: () => void
+  hideLabel?: string
 }) {
   if (mode === 'popup') {
     return (
-      <CallPopupShell remoteUser={remoteUser} title={title}>
+      <CallPopupShell remoteUser={remoteUser} title={title} onHide={onHide} hideLabel={hideLabel}>
         {children}
       </CallPopupShell>
     )
   }
-  return <FullscreenShell remoteUser={remoteUser}>{children}</FullscreenShell>
+  return (
+    <FullscreenShell remoteUser={remoteUser}>
+      {onHide && hideLabel ? (
+        <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '8px' }}>
+          <HideCallButton label={hideLabel} onClick={onHide} />
+        </div>
+      ) : null}
+      {children}
+    </FullscreenShell>
+  )
 }
 
 function IncomingCallScreen({
@@ -615,6 +706,7 @@ function ActiveCallScreen({
   labels,
   onEnd,
   onToggleMute,
+  onHide,
   mode = 'fullscreen',
 }: {
   callState: VoiceCallState
@@ -623,6 +715,7 @@ function ActiveCallScreen({
   labels: VoiceCallOverlayProps['labels']
   onEnd: () => void
   onToggleMute: () => void
+  onHide?: () => void
   mode?: CallUiMode
 }) {
   const name = displayName(remoteUser) || 'AiMediaTank'
@@ -637,7 +730,13 @@ function ActiveCallScreen({
         : `${labels.appAudio} - ${formatDuration(duration)}`
 
   return (
-    <CallScreenShell mode={mode} remoteUser={remoteUser} title={statusLine}>
+    <CallScreenShell
+      mode={mode}
+      remoteUser={remoteUser}
+      title={statusLine}
+      onHide={onHide}
+      hideLabel={onHide ? labels.hideCall : undefined}
+    >
       {mode === 'fullscreen' ? (
         <div style={{ textAlign: 'center', opacity: 0.9, fontSize: '15px', marginTop: '8px' }}>
           {statusLine}
@@ -746,6 +845,115 @@ function ActiveCallScreen({
   )
 }
 
+function FloatingMinimizedCallBar({
+  callState,
+  remoteUser,
+  labels,
+  onRestore,
+}: {
+  callState: VoiceCallState
+  remoteUser: VoiceCallUser | null
+  labels: VoiceCallOverlayProps['labels']
+  onRestore: () => void
+}) {
+  const [mounted, setMounted] = useState(false)
+  const connected = callState === 'connected'
+  const duration = useCallDuration(connected)
+  const statusLabel =
+    callState === 'outgoing'
+      ? formatCallStatus(labels.calling, remoteUser)
+      : callState === 'connecting'
+        ? labels.connecting
+        : connected
+          ? `${labels.appAudio} · ${formatDuration(duration)}`
+          : labels.connected
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return null
+
+  return createPortal(
+    <button
+      type="button"
+      onClick={onRestore}
+      aria-label={labels.tapToShowCall}
+      title={labels.tapToShowCall}
+      style={{
+        position: 'fixed',
+        top: 'max(8px, env(safe-area-inset-top))',
+        left: '12px',
+        right: '12px',
+        zIndex: MINIMIZED_CALL_Z_INDEX,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '10px 14px',
+        border: 'none',
+        borderRadius: '14px',
+        background: 'linear-gradient(135deg, #166534, #15803d)',
+        color: 'white',
+        cursor: 'pointer',
+        boxShadow: '0 6px 24px rgba(0, 0, 0, 0.28)',
+        boxSizing: 'border-box',
+        textAlign: 'left',
+      }}
+    >
+      <span
+        style={{
+          width: '36px',
+          height: '36px',
+          borderRadius: '50%',
+          overflow: 'hidden',
+          background: 'rgba(255,255,255,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {remoteUser?.avatar ? (
+          <img
+            src={remoteUser.avatar}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"
+              stroke="white"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span
+          style={{
+            display: 'block',
+            fontWeight: 700,
+            fontSize: '14px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {displayName(remoteUser) || labels.appAudio}
+        </span>
+        <span style={{ display: 'block', fontSize: '12px', opacity: 0.9 }}>{statusLabel}</span>
+      </span>
+      <span style={{ fontSize: '12px', fontWeight: 600, opacity: 0.95, flexShrink: 0 }}>
+        {labels.tapToShowCall}
+      </span>
+    </button>,
+    document.body,
+  )
+}
+
 function EmbeddedStatusBanner({
   callState,
   remoteUser,
@@ -840,12 +1048,26 @@ export function VoiceCallOverlay({
   onReject,
   onEnd,
   onToggleMute,
+  onHide,
+  onRestoreCallUi,
   placement = 'floating',
   inAppHint,
   fullscreenCallUi = false,
   popupCallUi = false,
+  minimizedCallUi = false,
 }: VoiceCallOverlayProps) {
   if (callState === 'idle' || callState === 'ended') return null
+
+  if (minimizedCallUi && onRestoreCallUi) {
+    return (
+      <FloatingMinimizedCallBar
+        callState={callState}
+        remoteUser={remoteUser}
+        labels={labels}
+        onRestore={onRestoreCallUi}
+      />
+    )
+  }
 
   if (placement === 'embedded') {
     return (
@@ -881,6 +1103,7 @@ export function VoiceCallOverlay({
         labels={labels}
         onEnd={onEnd}
         onToggleMute={onToggleMute}
+        onHide={onHide}
         mode={callMode}
       />
     )

@@ -1,6 +1,15 @@
 'use client'
 
-import { createContext, useContext, useEffect, useRef, type MutableRefObject, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from 'react'
 import { registerVoiceCallPush } from '@/lib/pushSubscriptionClient'
 import {
   answerNativeCall,
@@ -38,6 +47,9 @@ interface VoiceCallContextValue {
   lastError: string | null
   clearLastError: () => void
   remoteAudioRef: MutableRefObject<HTMLAudioElement | null>
+  callUiHidden: boolean
+  hideCallUi: () => void
+  showCallUi: () => void
 }
 
 const VoiceCallContext = createContext<VoiceCallContextValue | null>(null)
@@ -63,6 +75,8 @@ function useVoiceCallLabels() {
     more: tr[TC.voiceMore],
     remindMe: tr[TC.voiceRemindMe],
     inAppHint: tr[TC.voiceCallInAppHint],
+    hideCall: tr[TC.voiceHideCall],
+    tapToShowCall: tr[TC.voiceTapToShowCall],
   }
 }
 
@@ -82,9 +96,13 @@ export function VoiceCallOverlayPanel({
   const isActiveCall = ctx.callState !== 'idle' && ctx.callState !== 'ended'
   if (placement === 'embedded' && isDesktop) return null
 
-  const popupCallUi = placement === 'floating' && isActiveCall && isDesktop
-  const fullscreenCallUi = placement === 'floating' && isActiveCall && !isDesktop
+  const popupCallUi =
+    placement === 'floating' && isActiveCall && isDesktop && !ctx.callUiHidden
+  const fullscreenCallUi =
+    placement === 'floating' && isActiveCall && !isDesktop && !ctx.callUiHidden
+  const minimizedCallUi = placement === 'floating' && isActiveCall && ctx.callUiHidden
   const showCallControls = popupCallUi || fullscreenCallUi
+  const canHideCall = isActiveCall && ctx.callState !== 'incoming'
   const nativeIosCall = isNativeIosCallApp()
 
   return (
@@ -92,11 +110,14 @@ export function VoiceCallOverlayPanel({
       placement={placement}
       fullscreenCallUi={fullscreenCallUi}
       popupCallUi={popupCallUi}
+      minimizedCallUi={minimizedCallUi}
       callState={ctx.callState}
       remoteUser={ctx.remoteUser}
       isMuted={ctx.isMuted}
       labels={labels}
       inAppHint={showCallControls ? undefined : labels.inAppHint}
+      onHide={canHideCall ? ctx.hideCallUi : undefined}
+      onRestoreCallUi={ctx.showCallUi}
       onAccept={() => {
         void (async () => {
           if (nativeIosCall && ctx.callId) {
@@ -122,6 +143,9 @@ export function VoiceCallProvider({
 }) {
   const { data: session } = useSession()
   const isDesktop = useIsDesktop()
+  const [callUiHidden, setCallUiHidden] = useState(false)
+  const hideCallUi = useCallback(() => setCallUiHidden(true), [])
+  const showCallUi = useCallback(() => setCallUiHidden(false), [])
 
   const voiceCall = useVoiceCall({
     currentUserId: session?.user?.id,
@@ -130,6 +154,16 @@ export function VoiceCallProvider({
   const labels = useVoiceCallLabels()
   const callStateRef = useRef(voiceCall.callState)
   callStateRef.current = voiceCall.callState
+
+  useEffect(() => {
+    if (
+      voiceCall.callState === 'idle' ||
+      voiceCall.callState === 'ended' ||
+      voiceCall.callState === 'incoming'
+    ) {
+      setCallUiHidden(false)
+    }
+  }, [voiceCall.callState, voiceCall.callId])
 
   useEffect(() => {
     installVoiceCallAudioUnlock()
@@ -207,6 +241,9 @@ export function VoiceCallProvider({
         lastError: voiceCall.lastError,
         clearLastError: voiceCall.clearLastError,
         remoteAudioRef: voiceCall.remoteAudioRef,
+        callUiHidden,
+        hideCallUi,
+        showCallUi,
       }}
     >
       {children}
@@ -225,7 +262,9 @@ export function VoiceCallProvider({
       {session?.user &&
         voiceCall.callState !== 'idle' &&
         voiceCall.callState !== 'ended' &&
-        (isDesktop || showFloatingOverlay) && <VoiceCallOverlayPanel placement="floating" />}
+        ((isDesktop || showFloatingOverlay) || callUiHidden) && (
+          <VoiceCallOverlayPanel placement="floating" />
+        )}
     </VoiceCallContext.Provider>
   )
 }
