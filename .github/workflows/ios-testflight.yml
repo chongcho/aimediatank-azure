@@ -14,10 +14,13 @@ on:
         description: Remote URL loaded by the native shell
         required: false
         default: https://aimediatank.com
+  # One-shot retry after Apple daily upload limit (90382) resets (~midnight Pacific).
+  schedule:
+    - cron: '0 15 9 6 *'
 
 jobs:
   build-and-upload:
-    runs-on: ${{ inputs.runner == 'self-hosted' && fromJson('["self-hosted", "macOS"]') || 'macos-26' }}
+    runs-on: ${{ (github.event_name == 'schedule' || inputs.runner == 'self-hosted') && fromJson('["self-hosted", "macOS"]') || 'macos-26' }}
     timeout-minutes: 60
 
     steps:
@@ -40,7 +43,7 @@ jobs:
 
       - name: Capacitor sync (iOS)
         env:
-          CAPACITOR_SERVER_URL: ${{ inputs.capacitor_server_url }}
+          CAPACITOR_SERVER_URL: ${{ inputs.capacitor_server_url != '' && inputs.capacitor_server_url || 'https://aimediatank.com' }}
         run: npx cap sync ios
 
       - name: Select Xcode (GitHub-hosted)
@@ -267,6 +270,14 @@ jobs:
           fi
           echo "APPSTORE_KEY_FILE=$KEY_FILE" >> "$GITHUB_ENV"
 
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-${{ github.sha }}
+          path: ${{ env.IPA_PATH }}
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Upload to TestFlight
         env:
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
@@ -277,9 +288,23 @@ jobs:
           mkdir -p "$PRIVATE_KEYS_DIR"
           cp "$APPSTORE_KEY_FILE" "$PRIVATE_KEYS_DIR/AuthKey_${APPSTORE_KEY_ID}.p8"
           trap 'rm -rf "$PRIVATE_KEYS_DIR"' EXIT
+          UPLOAD_LOG="$(mktemp)"
+          set +e
           xcrun altool --output-format xml \
             --upload-app \
             --file "$IPA_PATH" \
             --type ios \
             --apiKey "$APPSTORE_KEY_ID" \
-            --apiIssuer "$APPSTORE_ISSUER_ID"
+            --apiIssuer "$APPSTORE_ISSUER_ID" >"$UPLOAD_LOG" 2>&1
+          UPLOAD_EXIT=$?
+          set -e
+          cat "$UPLOAD_LOG"
+          if [ "$UPLOAD_EXIT" -eq 0 ]; then
+            echo "TestFlight upload succeeded."
+            exit 0
+          fi
+          if grep -qE '90382|Upload limit reached' "$UPLOAD_LOG"; then
+            echo "::warning::Apple daily upload limit (90382). IPA is in workflow artifacts — re-run tomorrow or upload manually via Transporter."
+            exit 0
+          fi
+          exit "$UPLOAD_EXIT"
