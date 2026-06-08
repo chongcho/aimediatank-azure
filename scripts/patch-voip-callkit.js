@@ -904,8 +904,9 @@ if (pluginSwift && pluginSwift.includes('processIncomingVoipPushPayload') && !pl
   console.log('[patch-voip-callkit] fix VoIP push payload type for Notification.userInfo')
 }
 
+callManager = fs.readFileSync(callManagerPath, 'utf8')
 const END_CALL_REPORT_MARKER = 'reportCall ended on CXEndCallAction'
-if (callManager.includes(DECLINE_MARKER) && !callManager.includes(END_CALL_REPORT_MARKER)) {
+if (callManager.includes('func provider(_ provider: CXProvider, perform action: CXEndCallAction)') && !callManager.includes(END_CALL_REPORT_MARKER)) {
   callManager = callManager.replace(
     `        plugin?.notifyListeners(event: "callEnded", data: ["callId": action.callUUID.uuidString])
 
