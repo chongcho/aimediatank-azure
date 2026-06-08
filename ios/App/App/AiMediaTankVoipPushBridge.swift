@@ -66,6 +66,16 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                   let token = notification.userInfo?["token"] as? String else { return }
             self.startCallStatusWatch(callId: callId, token: token)
         }
+
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("AiMediaTankRequestBridgeDismiss"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let callId = notification.userInfo?["callId"] as? String else { return }
+            self.performCancelDismiss(callId: callId)
+        }
     }
 
     static func noteIncomingCallReported(_ callId: String) {
@@ -200,6 +210,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         Self.markCallCancelled(normalized)
         stopCallStatusWatch(callId: normalized)
         dismissAllRingingCalls(preferredCallId: normalized)
+        scheduleDismissRetries(for: normalized)
     }
 
     private func voiceApiBaseURL() -> String {
@@ -283,6 +294,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 completion(true)
                 return
             }
+            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                print("[AiMediaTankVoipPushBridge] status poll HTTP \(http.statusCode) for call \(callId)")
+                completion(true)
+                return
+            }
             guard let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let status = json["status"] as? String else {
@@ -321,7 +337,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             let normalizedCallId = cancelCallId.lowercased()
             print("[AiMediaTankVoipPushBridge] cancel push for call \(normalizedCallId) payload=\(payloadDict.keys.map { String(describing: $0) }.joined(separator: ","))")
             performCancelDismiss(callId: normalizedCallId)
-            scheduleDismissRetries(for: normalizedCallId)
             completion()
             return
         }

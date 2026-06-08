@@ -19,6 +19,9 @@ if (!fs.existsSync(callManagerPath)) {
 let callManager = fs.readFileSync(callManagerPath, 'utf8')
 let pluginSwift = fs.existsSync(pluginSwiftPath) ? fs.readFileSync(pluginSwiftPath, 'utf8') : ''
 
+const REQUEST_BRIDGE_DISMISS = 'AiMediaTankRequestBridgeDismiss'
+const DISMISS_FINAL = 'skip bridge dismiss when already cancelled'
+
 const RINGTONE_MARKER = 'configuration.ringtoneSound = "incoming-ring.wav"'
 if (!callManager.includes(RINGTONE_MARKER)) {
   const anchor = 'configuration.includesCallsInRecents = true'
@@ -655,7 +658,7 @@ if (callManager.includes(CANCEL_MARKER) && !callManager.includes(CANCEL_UNANSWER
 }
 
 const DISMISS_V4_MARKER = 'dismissAllRingingIncomingCalls'
-if (pluginSwift.includes('dismissRemoteVoipCancel') && !pluginSwift.includes(DISMISS_V4_MARKER)) {
+if (pluginSwift.includes('dismissRemoteVoipCancel') && !pluginSwift.includes(DISMISS_V4_MARKER) && !pluginSwift.includes(REQUEST_BRIDGE_DISMISS) && !pluginSwift.includes(DISMISS_FINAL)) {
   pluginSwift = pluginSwift.replace(
     /    internal func dismissRemoteVoipCancel\(callIdString: String\) \{[\s\S]*?\n    \}\n\n    private func pollCallStatus/,
     `    internal func dismissRemoteVoipCancel(callIdString: String) {
@@ -1183,7 +1186,7 @@ if (pluginSwift && pluginSwift.includes(BRIDGE_V1) && !pluginSwift.includes(BRID
 }
 
 const DISMISS_V5_MARKER = 'bridge owns PushKit call dismiss'
-if (pluginSwift && pluginSwift.includes('dismissRemoteVoipCancel') && !pluginSwift.includes(DISMISS_V5_MARKER)) {
+if (pluginSwift && pluginSwift.includes('dismissRemoteVoipCancel') && !pluginSwift.includes(DISMISS_V5_MARKER) && !pluginSwift.includes(REQUEST_BRIDGE_DISMISS)) {
   pluginSwift = pluginSwift.replace(
     /    internal func dismissRemoteVoipCancel\(callIdString: String\) \{[\s\S]*?\n    \}\n\n    private func pollCallStatus/,
     `    internal func dismissRemoteVoipCancel(callIdString: String) {
@@ -1215,6 +1218,21 @@ if (callManager.includes(CANCEL_V5_MARKER) && !callManager.includes(UNANSWERED_D
   console.log('[patch-voip-callkit] use unanswered reason to stop incoming ring')
 }
 
+const BRIDGE_OWNS_CANCEL = 'bridge owns cancel dismiss'
+if (callManager.includes('CallManager observes VoIP cancel push') && !callManager.includes(BRIDGE_OWNS_CANCEL)) {
+  callManager = callManager.replace(
+    `            // CallManager observes VoIP cancel push
+            if let uuid = UUID(uuidString: normalized) {
+                self.cancelIncomingCall(uuid: uuid)
+            }
+            self.dismissAllRingingIncomingCalls()`,
+    `            // ${BRIDGE_OWNS_CANCEL} — App bridge CXProvider dismisses; sync plugin state only
+            self.finalizeBridgedCallEnd(callId: normalized)`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] stop CallManager from dismissing bridge-owned CallKit calls')
+}
+
 const BRIDGE_STATUS_WATCH = 'AiMediaTankStartCallStatusWatch'
 if (pluginSwift && pluginSwift.includes('startCallStatusPolling') && !pluginSwift.includes(BRIDGE_STATUS_WATCH)) {
   pluginSwift = pluginSwift.replace(
@@ -1235,19 +1253,133 @@ if (pluginSwift && pluginSwift.includes('startCallStatusPolling') && !pluginSwif
   console.log('[patch-voip-callkit] mirror status polling to App bridge')
 }
 
-const BRIDGE_OWNS_CANCEL = 'bridge owns cancel dismiss'
-if (callManager.includes('CallManager observes VoIP cancel push') && !callManager.includes(BRIDGE_OWNS_CANCEL)) {
-  callManager = callManager.replace(
-    `            // CallManager observes VoIP cancel push
-            if let uuid = UUID(uuidString: normalized) {
-                self.cancelIncomingCall(uuid: uuid)
-            }
-            self.dismissAllRingingIncomingCalls()`,
-    `            // ${BRIDGE_OWNS_CANCEL} — App bridge CXProvider dismisses; sync plugin state only
-            self.finalizeBridgedCallEnd(callId: normalized)`,
+if (pluginSwift && pluginSwift.includes(BRIDGE_V1) && !pluginSwift.includes(REQUEST_BRIDGE_DISMISS)) {
+  pluginSwift = pluginSwift.replace(
+    '    // AiMediaTank syncCallDeclineToServer',
+    `    internal func requestBridgeDismiss(callId: String) {
+        // ${REQUEST_BRIDGE_DISMISS}
+        NotificationCenter.default.post(
+            name: NSNotification.Name("AiMediaTankRequestBridgeDismiss"),
+            object: nil,
+            userInfo: ["callId": callId.lowercased()]
+        )
+    }
+
+    // AiMediaTank syncCallDeclineToServer`,
   )
-  fs.writeFileSync(callManagerPath, callManager)
-  console.log('[patch-voip-callkit] stop CallManager from dismissing bridge-owned CallKit calls')
+
+  pluginSwift = pluginSwift.replace(
+    /    internal func dismissRemoteVoipCancel\(callIdString: String\) \{[\s\S]*?\n    \}\n\n    private func pollCallStatus/,
+    `    internal func dismissRemoteVoipCancel(callIdString: String) {
+        let normalized = callIdString.lowercased()
+        stopCallStatusPolling(callId: normalized)
+        let alreadyCancelled = UserDefaults.standard.stringArray(forKey: "AiMediaTank.cancelledCallIds")?
+            .contains(normalized) ?? false
+        if !alreadyCancelled {
+            requestBridgeDismiss(callId: normalized)
+        }
+        callManager?.finalizeBridgedCallEnd(callId: normalized)
+    }
+
+    private func pollCallStatus`,
+  )
+
+  pluginSwift = pluginSwift.replace(
+    `            DispatchQueue.main.async {
+                if status != "active" {
+                    if let uuid = UUID(uuidString: callId) {
+                        self.callManager?.cancelIncomingCall(uuid: uuid)
+                    }
+                    self.callManager?.dismissAllRingingIncomingCalls()
+                }
+                completion(false)
+            }`,
+    `            DispatchQueue.main.async {
+                if status != "active" {
+                    self.requestBridgeDismiss(callId: callId)
+                }
+                completion(false)
+            }`,
+  )
+
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] route all CallKit dismiss through App bridge provider')
+}
+
+const BRIDGE_TRACK_ONLY = 'bridged VoIP track-only handler'
+if (pluginSwift && pluginSwift.includes('handleBridgedVoipIncomingPush') && !pluginSwift.includes(BRIDGE_TRACK_ONLY)) {
+  pluginSwift = pluginSwift.replace(
+    /@objc private func handleBridgedVoipIncomingPush\(_ notification: Notification\) \{[\s\S]*?\n    \}\n\n    private func processIncomingVoipPushPayload/,
+    `@objc private func handleBridgedVoipIncomingPush(_ notification: Notification) {
+        // ${BRIDGE_TRACK_ONLY}: App bridge already reported this call to CallKit.
+        defer {
+            NotificationCenter.default.post(name: NSNotification.Name("AiMediaTankVoipIncomingPushDone"), object: nil)
+        }
+        guard let userInfo = notification.userInfo else { return }
+
+        var payloadDict: [String: Any] = [:]
+        for (key, value) in userInfo {
+            payloadDict[String(describing: key)] = value
+        }
+
+        guard let callIdString = voipPayloadString(payloadDict as [AnyHashable: Any], key: "callId"),
+              let callId = UUID(uuidString: callIdString),
+              let handle = voipPayloadString(payloadDict as [AnyHashable: Any], key: "handle"),
+              let displayName = voipPayloadString(payloadDict as [AnyHashable: Any], key: "displayName") else {
+            return
+        }
+
+        let cancelledIds = UserDefaults.standard.stringArray(forKey: "AiMediaTank.cancelledCallIds") ?? []
+        if cancelledIds.contains(callIdString.lowercased()) { return }
+
+        let declineToken = voipPayloadString(payloadDict as [AnyHashable: Any], key: "declineToken")
+            ?? (payloadDict["metadata"] as? [String: Any])?["declineToken"] as? String
+        let pollCallId = callIdString.lowercased()
+
+        callManager?.trackIncomingCall(uuid: callId, handle: handle, displayName: displayName, declineToken: declineToken)
+
+        if let token = declineToken {
+            startCallStatusPolling(callId: pollCallId, token: token)
+        }
+
+        var notificationData: [String: Any] = [
+            "callId": callIdString,
+            "handle": handle,
+            "displayName": displayName,
+            "handleType": voipPayloadString(payloadDict as [AnyHashable: Any], key: "handleType") ?? "generic",
+            "video": payloadDict["video"] as? Bool ?? false,
+        ]
+        if let metadata = payloadDict["metadata"] as? [String: Any] {
+            notificationData["metadata"] = metadata
+        }
+        emitEvent("incomingCall", data: notificationData)
+    }
+
+    private func processIncomingVoipPushPayload`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] never double-report CallKit for bridged VoIP pushes')
+}
+
+if (pluginSwift && pluginSwift.includes(REQUEST_BRIDGE_DISMISS) && pluginSwift.includes('dismissRemoteVoipCancel') && !pluginSwift.includes(DISMISS_FINAL)) {
+  pluginSwift = pluginSwift.replace(
+    /    internal func dismissRemoteVoipCancel\(callIdString: String\) \{[\s\S]*?\n    \}\n\n    private func pollCallStatus/,
+    `    internal func dismissRemoteVoipCancel(callIdString: String) {
+        let normalized = callIdString.lowercased()
+        stopCallStatusPolling(callId: normalized)
+        // ${DISMISS_FINAL}
+        let alreadyCancelled = UserDefaults.standard.stringArray(forKey: "AiMediaTank.cancelledCallIds")?
+            .contains(normalized) ?? false
+        if !alreadyCancelled {
+            requestBridgeDismiss(callId: normalized)
+        }
+        callManager?.finalizeBridgedCallEnd(callId: normalized)
+    }
+
+    private func pollCallStatus`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] route cancel dismiss through bridge provider')
 }
 
 console.log('[patch-voip-callkit] done')
