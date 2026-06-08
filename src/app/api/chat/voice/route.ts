@@ -3,7 +3,12 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendVoiceCallPushToUser } from '@/lib/webPush'
-import { sendVoipCallCancelPushBurstToUser, sendVoipCallPushToUser } from '@/lib/voipPush'
+import {
+  plannedVoipCancelPushAttempts,
+  sendVoipCallCancelPushBurstToUser,
+  sendVoipCallPushToUser,
+} from '@/lib/voipPush'
+import { recordVoipCancelBurst } from '@/lib/voipCallTrace'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 
 export const dynamic = 'force-dynamic'
@@ -380,6 +385,12 @@ export async function POST(request: Request) {
       if (call.status === 'ringing' && call.callerId === userId) {
         try {
           await sendVoipCallCancelPushBurstToUser(peerId, call.id)
+          await recordVoipCancelBurst({
+            callId: call.id,
+            fromUserId: userId,
+            toUserId: peerId,
+            plannedAttempts: plannedVoipCancelPushAttempts(),
+          })
         } catch (err) {
           console.error('VoIP cancel push failed:', err)
         }

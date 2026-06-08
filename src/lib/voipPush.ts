@@ -160,6 +160,11 @@ const CANCEL_PUSH_RETRY_GAPS_MS = [400, 600, 1000, 1500, 2500, 3500, 5000, 8000]
 /** Retries awaited before the HTTP handler returns (covers ~3.5s without blocking the caller too long). */
 const CANCEL_PUSH_AWAITED_RETRIES = 4
 
+/** Total cancel VoIP pushes per caller hangup (1 immediate + all retry gaps). */
+export function plannedVoipCancelPushAttempts(): number {
+  return 1 + CANCEL_PUSH_RETRY_GAPS_MS.length
+}
+
 /** Dismiss CallKit on callee device when caller cancels while ringing (sleep mode). */
 export async function sendVoipCallCancelPushToUser(userId: string, callId: string): Promise<void> {
   const normalizedCallId = normalizeVoiceCallId(callId)

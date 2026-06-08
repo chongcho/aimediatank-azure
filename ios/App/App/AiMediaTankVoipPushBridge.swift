@@ -221,20 +221,19 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// POST to server so Azure logs prove the iPhone received/processed cancel on lock screen.
     private func reportCancelAck(callId: String, source: String) {
         let normalized = callId.lowercased()
-        guard let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: normalized)),
-              !token.isEmpty else {
-            print("[AiMediaTankVoipPushBridge] cancel ack skipped (no declineToken) call=\(normalized) source=\(source)")
-            return
-        }
+        let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: normalized)) ?? ""
         guard let url = URL(string: "\(voiceApiBaseURL())/api/chat/voice/native-cancel-ack") else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+        var body: [String: String] = [
             "callId": normalized,
-            "token": token,
             "source": source,
-        ])
+        ]
+        if !token.isEmpty {
+            body["token"] = token
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         URLSession.shared.dataTask(with: request) { _, response, error in
             if let error {
                 print("[AiMediaTankVoipPushBridge] cancel ack failed source=\(source) call=\(normalized): \(error.localizedDescription)")

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { recordNativeCancelAck } from '@/lib/voipCallTrace'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 import { verifyVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
 
@@ -23,16 +24,20 @@ export async function POST(request: Request) {
   const token = (body.token || '').trim()
   const source = (body.source || '').trim()
 
-  if (!callId || !token) {
-    return NextResponse.json({ error: 'callId and token required' }, { status: 400 })
+  if (!callId) {
+    return NextResponse.json({ error: 'callId required' }, { status: 400 })
   }
   if (!ALLOWED_SOURCES.has(source)) {
     return NextResponse.json({ error: 'Invalid source' }, { status: 400 })
   }
-  if (!verifyVoiceCallDeclineToken(callId, token)) {
+
+  const hasDeclineToken = Boolean(token)
+  if (hasDeclineToken && !verifyVoiceCallDeclineToken(callId, token)) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
   }
 
-  console.info('[VoIP] iPhone cancel ack', { callId, source })
+  console.info('[VoIP] iPhone cancel ack', { callId, source, hasDeclineToken })
+  await recordNativeCancelAck({ callId, source, hasDeclineToken })
+
   return NextResponse.json({ ok: true })
 }
