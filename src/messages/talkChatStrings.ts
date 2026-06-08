@@ -102,7 +102,7 @@ export const TALK_CHAT_MAP = {
   voiceUserBusy: 'User is busy',
   voiceCallFailed: 'Voice call failed',
   voiceCallInAppHint:
-    'Voice call in progress — use the full-screen call controls to accept, decline, mute, or end.',
+    'Voice call in progress — use the call controls to accept, decline, mute, or end.',
 } as const
 
 export type TalkChatKey = keyof typeof TALK_CHAT_MAP
@@ -322,7 +322,7 @@ const KO: Pack = {
   voiceUserBusy: '상대방이 통화 중입니다',
   voiceCallFailed: '음성 통화에 실패했습니다',
   voiceCallInAppHint:
-    '통화 중입니다 — 전체 화면 통화 UI에서 수락, 거절, 음소거, 종료를 사용하세요.',
+    '통화 중입니다 — 통화 컨트롤에서 수락, 거절, 음소거, 종료를 사용하세요.',
 }
 
 const JA: Pack = {
@@ -428,7 +428,7 @@ const JA: Pack = {
   voiceUserBusy: '相手は通話中です',
   voiceCallFailed: '音声通話に失敗しました',
   voiceCallInAppHint:
-    '通話中です — 全画面の通話コントロールで応答、拒否、ミュート、終了を行ってください。',
+    '通話中です — 通話コントロールで応答、拒否、ミュート、終了を行ってください。',
 }
 
 const ZH: Pack = {
@@ -534,7 +534,7 @@ const ZH: Pack = {
   voiceUserBusy: '对方正在通话中',
   voiceCallFailed: '语音通话失败',
   voiceCallInAppHint:
-    '通话进行中 — 请使用全屏通话界面进行接听、拒绝、静音或挂断。',
+    '通话进行中 — 请使用通话控件进行接听、拒绝、静音或挂断。',
 }
 
 const MESSAGES: Record<string, Pack> = {

@@ -4267,12 +4267,11 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
         </div>
         )}
 
-        {/* Active voice call — inside TalkChat panel above composer */}
+        {/* Active voice call — mobile banner only; desktop uses draggable call popup */}
         {voiceCall &&
           voiceCall.callState !== 'idle' &&
-          voiceCall.callState !== 'ended' && (
-            <VoiceCallOverlayPanel placement="embedded" />
-          )}
+          voiceCall.callState !== 'ended' &&
+          !isDesktop && <VoiceCallOverlayPanel placement="embedded" />}
 
         {/* Composer — hidden when minimized or when New Chat picker is open */}
         {!chatOverlayOpen && chatSize !== 'min' && (

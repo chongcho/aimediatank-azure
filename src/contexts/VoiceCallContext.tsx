@@ -19,6 +19,7 @@ import {
 import { useSession } from 'next-auth/react'
 import { useVoiceCall, type VoiceCallState, type VoiceCallUser } from '@/hooks/useVoiceCall'
 import { VoiceCallOverlay } from '@/components/VoiceCallOverlay'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
 
@@ -74,22 +75,28 @@ export function VoiceCallOverlayPanel({
   const ctx = useVoiceCallContext()
   const { data: session } = useSession()
   const labels = useVoiceCallLabels()
+  const isDesktop = useIsDesktop()
 
   if (!session?.user || !ctx) return null
 
-  const fullscreenCallUi =
-    placement === 'floating' && ctx.callState !== 'idle' && ctx.callState !== 'ended'
+  const isActiveCall = ctx.callState !== 'idle' && ctx.callState !== 'ended'
+  if (placement === 'embedded' && isDesktop) return null
+
+  const popupCallUi = placement === 'floating' && isActiveCall && isDesktop
+  const fullscreenCallUi = placement === 'floating' && isActiveCall && !isDesktop
+  const showCallControls = popupCallUi || fullscreenCallUi
   const nativeIosCall = isNativeIosCallApp()
 
   return (
     <VoiceCallOverlay
       placement={placement}
       fullscreenCallUi={fullscreenCallUi}
+      popupCallUi={popupCallUi}
       callState={ctx.callState}
       remoteUser={ctx.remoteUser}
       isMuted={ctx.isMuted}
       labels={labels}
-      inAppHint={fullscreenCallUi ? undefined : labels.inAppHint}
+      inAppHint={showCallControls ? undefined : labels.inAppHint}
       onAccept={() => {
         void (async () => {
           if (nativeIosCall && ctx.callId) {
@@ -107,12 +114,14 @@ export function VoiceCallOverlayPanel({
 
 export function VoiceCallProvider({
   children,
+  showFloatingOverlay = true,
 }: {
   children: ReactNode
-  /** @deprecated Full-screen call UI always shows during active calls */
+  /** When false (TalkChat open on mobile), only the embedded banner shows. Desktop always uses the call popup. */
   showFloatingOverlay?: boolean
 }) {
   const { data: session } = useSession()
+  const isDesktop = useIsDesktop()
 
   const voiceCall = useVoiceCall({
     currentUserId: session?.user?.id,
@@ -215,7 +224,8 @@ export function VoiceCallProvider({
       )}
       {session?.user &&
         voiceCall.callState !== 'idle' &&
-        voiceCall.callState !== 'ended' && <VoiceCallOverlayPanel placement="floating" />}
+        voiceCall.callState !== 'ended' &&
+        (isDesktop || showFloatingOverlay) && <VoiceCallOverlayPanel placement="floating" />}
     </VoiceCallContext.Provider>
   )
 }

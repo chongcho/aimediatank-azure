@@ -1,7 +1,11 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
+
+const CALL_POPUP_WIDTH = 360
+const CALL_POPUP_Z_INDEX = 100000
 
 interface VoiceCallOverlayProps {
   callState: VoiceCallState
@@ -31,9 +35,13 @@ interface VoiceCallOverlayProps {
   /** floating = fixed on viewport; embedded = inside TalkChat panel */
   placement?: 'floating' | 'embedded'
   inAppHint?: string
-  /** Full-screen call UI (incoming + active) when chat panel is closed */
+  /** Full-screen call UI on mobile when chat panel is closed */
   fullscreenCallUi?: boolean
+  /** Draggable call popup on desktop (TalkChat-style) */
+  popupCallUi?: boolean
 }
+
+type CallUiMode = 'fullscreen' | 'popup'
 
 function displayName(user: VoiceCallUser | null) {
   if (!user) return ''
@@ -105,13 +113,16 @@ function RoundCallButton({
   background,
   children,
   disabled = false,
+  compact = false,
 }: {
   label: string
   onClick?: () => void
   background: string
   children: ReactNode
   disabled?: boolean
+  compact?: boolean
 }) {
+  const btnSize = compact ? 56 : 72
   return (
     <button
       type="button"
@@ -122,20 +133,20 @@ function RoundCallButton({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '10px',
+        gap: compact ? '6px' : '10px',
         border: 'none',
         background: 'transparent',
         color: 'white',
         cursor: disabled ? 'default' : 'pointer',
         padding: 0,
-        minWidth: '88px',
+        minWidth: compact ? '72px' : '88px',
         opacity: disabled ? 0.45 : 1,
       }}
     >
       <span
         style={{
-          width: '72px',
-          height: '72px',
+          width: `${btnSize}px`,
+          height: `${btnSize}px`,
           borderRadius: '50%',
           background,
           display: 'flex',
@@ -145,7 +156,7 @@ function RoundCallButton({
       >
         {children}
       </span>
-      <span style={{ fontSize: '14px', fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: compact ? '12px' : '14px', fontWeight: 500 }}>{label}</span>
     </button>
   )
 }
@@ -269,6 +280,155 @@ function IconKeypad() {
   )
 }
 
+function defaultPopupPosition() {
+  if (typeof window === 'undefined') return { x: 24, y: 72 }
+  return {
+    x: Math.max(24, window.innerWidth - CALL_POPUP_WIDTH - 24),
+    y: 72,
+  }
+}
+
+function CallPopupShell({
+  remoteUser,
+  title,
+  children,
+}: {
+  remoteUser: VoiceCallUser | null
+  title: string
+  children: ReactNode
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState(defaultPopupPosition)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [hasCustomPosition, setHasCustomPosition] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    const saved = localStorage.getItem('voiceCallPopupPosition')
+    if (!saved) return
+    try {
+      const pos = JSON.parse(saved) as { x: number; y: number }
+      const maxX = Math.max(0, window.innerWidth - CALL_POPUP_WIDTH)
+      const maxY = Math.max(0, window.innerHeight - 200)
+      setPosition({
+        x: Math.max(0, Math.min(pos.x, maxX)),
+        y: Math.max(0, Math.min(pos.y, maxY)),
+      })
+      setHasCustomPosition(true)
+    } catch {
+      // ignore invalid saved position
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!hasCustomPosition) return
+    localStorage.setItem('voiceCallPopupPosition', JSON.stringify(position))
+  }, [position, hasCustomPosition])
+
+  useEffect(() => {
+    if (!hasCustomPosition) return
+    const handleResize = () => {
+      setPosition((prev) => {
+        const maxX = Math.max(0, window.innerWidth - CALL_POPUP_WIDTH)
+        const maxY = Math.max(0, window.innerHeight - 200)
+        return {
+          x: Math.max(0, Math.min(prev.x, maxX)),
+          y: Math.max(0, Math.min(prev.y, maxY)),
+        }
+      })
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [hasCustomPosition])
+
+  const handleDragStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+    setHasCustomPosition(true)
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (rect) {
+      setDragOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+    }
+  }
+
+  const handleResetPosition = () => {
+    setPosition(defaultPopupPosition())
+    setHasCustomPosition(false)
+    localStorage.removeItem('voiceCallPopupPosition')
+  }
+
+  useEffect(() => {
+    if (!isDragging) return
+    const handleMove = (e: MouseEvent) => {
+      const height = containerRef.current?.offsetHeight ?? 400
+      const maxX = Math.max(0, window.innerWidth - CALL_POPUP_WIDTH)
+      const maxY = Math.max(0, window.innerHeight - height)
+      setPosition({
+        x: Math.max(0, Math.min(e.clientX - dragOffset.x, maxX)),
+        y: Math.max(0, Math.min(e.clientY - dragOffset.y, maxY)),
+      })
+    }
+    const handleUp = () => setIsDragging(false)
+    document.addEventListener('mousemove', handleMove)
+    document.addEventListener('mouseup', handleUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMove)
+      document.removeEventListener('mouseup', handleUp)
+    }
+  }, [isDragging, dragOffset])
+
+  if (!mounted) return null
+
+  return createPortal(
+    <div
+      ref={containerRef}
+      style={{
+        position: 'fixed',
+        top: position.y,
+        left: position.x,
+        width: CALL_POPUP_WIDTH,
+        zIndex: CALL_POPUP_Z_INDEX,
+        color: 'white',
+        borderRadius: '14px',
+        overflow: 'hidden',
+        boxShadow: '0 12px 40px rgba(0, 0, 0, 0.45)',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div style={{ position: 'relative', minHeight: '280px' }}>
+        <CallBackdrop remoteUser={remoteUser} />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div
+            onMouseDown={handleDragStart}
+            onDoubleClick={handleResetPosition}
+            title="Drag to move · double-click to reset"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 14px',
+              cursor: isDragging ? 'grabbing' : 'grab',
+              userSelect: 'none',
+              borderBottom: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(0,0,0,0.2)',
+            }}
+          >
+            <span style={{ fontSize: '13px', fontWeight: 600, opacity: 0.9 }}>{title}</span>
+            <span style={{ fontSize: '11px', opacity: 0.55 }}>⋮⋮</span>
+          </div>
+          <div style={{ padding: '16px 18px 20px' }}>{children}</div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 function FullscreenShell({
   remoteUser,
   children,
@@ -307,57 +467,87 @@ function FullscreenShell({
   )
 }
 
+function CallScreenShell({
+  mode,
+  remoteUser,
+  title,
+  children,
+}: {
+  mode: CallUiMode
+  remoteUser: VoiceCallUser | null
+  title: string
+  children: ReactNode
+}) {
+  if (mode === 'popup') {
+    return (
+      <CallPopupShell remoteUser={remoteUser} title={title}>
+        {children}
+      </CallPopupShell>
+    )
+  }
+  return <FullscreenShell remoteUser={remoteUser}>{children}</FullscreenShell>
+}
+
 function IncomingCallScreen({
   remoteUser,
   labels,
   onAccept,
   onReject,
+  mode = 'fullscreen',
 }: {
   remoteUser: VoiceCallUser | null
   labels: VoiceCallOverlayProps['labels']
   onAccept: () => void
   onReject: () => void
+  mode?: CallUiMode
 }) {
   const name = displayName(remoteUser) || 'AiMediaTank'
+  const compact = mode === 'popup'
+  const popupTitle = formatCallStatus(labels.incomingCall, remoteUser)
 
   return (
-    <FullscreenShell remoteUser={remoteUser}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button
-          type="button"
-          aria-label={labels.remindMe}
-          title={labels.remindMe}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '4px',
-            border: 'none',
-            background: 'transparent',
-            color: 'white',
-            cursor: 'pointer',
-            padding: '4px',
-            opacity: 0.85,
-          }}
-        >
-          <IconBell />
-          <span style={{ fontSize: '11px' }}>{labels.remindMe}</span>
-        </button>
-      </div>
+    <CallScreenShell mode={mode} remoteUser={remoteUser} title={compact ? popupTitle : labels.appAudio}>
+      {mode === 'fullscreen' ? (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            aria-label={labels.remindMe}
+            title={labels.remindMe}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px',
+              border: 'none',
+              background: 'transparent',
+              color: 'white',
+              cursor: 'pointer',
+              padding: '4px',
+              opacity: 0.85,
+            }}
+          >
+            <IconBell />
+            <span style={{ fontSize: '11px' }}>{labels.remindMe}</span>
+          </button>
+        </div>
+      ) : null}
 
-      <div style={{ textAlign: 'center', opacity: 0.85, fontSize: '15px', marginTop: '4px' }}>
-        {labels.appAudio}
-      </div>
+      {mode === 'fullscreen' ? (
+        <div style={{ textAlign: 'center', opacity: 0.85, fontSize: '15px', marginTop: '4px' }}>
+          {labels.appAudio}
+        </div>
+      ) : null}
 
       <div
         style={{
-          flex: 1,
+          flex: mode === 'fullscreen' ? 1 : undefined,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '12px',
-          padding: '0 16px',
+          gap: compact ? '8px' : '12px',
+          padding: mode === 'fullscreen' ? '0 16px' : '8px 0 16px',
+          textAlign: 'center',
         }}
       >
         {remoteUser?.avatar ? (
@@ -365,26 +555,25 @@ function IncomingCallScreen({
             src={remoteUser.avatar}
             alt=""
             style={{
-              width: '96px',
-              height: '96px',
+              width: compact ? '72px' : '96px',
+              height: compact ? '72px' : '96px',
               borderRadius: '50%',
               objectFit: 'cover',
-              marginBottom: '8px',
+              marginBottom: compact ? '4px' : '8px',
               boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
             }}
           />
         ) : null}
         <div
           style={{
-            fontSize: '36px',
+            fontSize: compact ? '26px' : '36px',
             fontWeight: 700,
             letterSpacing: '-0.02em',
-            textAlign: 'center',
           }}
         >
           {name}
         </div>
-        <div style={{ fontSize: '16px', opacity: 0.75 }}>
+        <div style={{ fontSize: compact ? '14px' : '16px', opacity: 0.75 }}>
           {formatCallStatus(labels.incomingCall, remoteUser)}
         </div>
       </div>
@@ -394,18 +583,28 @@ function IncomingCallScreen({
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'flex-end',
-          gap: '56px',
-          paddingBottom: '8px',
+          gap: compact ? '40px' : '56px',
+          paddingBottom: mode === 'fullscreen' ? '8px' : 0,
         }}
       >
-        <RoundCallButton label={labels.decline} onClick={onReject} background="#ef4444">
+        <RoundCallButton
+          label={labels.decline}
+          onClick={onReject}
+          background="#ef4444"
+          compact={compact}
+        >
           <IconX />
         </RoundCallButton>
-        <RoundCallButton label={labels.accept} onClick={onAccept} background="#2563eb">
+        <RoundCallButton
+          label={labels.accept}
+          onClick={onAccept}
+          background="#2563eb"
+          compact={compact}
+        >
           <IconCheck />
         </RoundCallButton>
       </div>
-    </FullscreenShell>
+    </CallScreenShell>
   )
 }
 
@@ -416,6 +615,7 @@ function ActiveCallScreen({
   labels,
   onEnd,
   onToggleMute,
+  mode = 'fullscreen',
 }: {
   callState: VoiceCallState
   remoteUser: VoiceCallUser | null
@@ -423,10 +623,12 @@ function ActiveCallScreen({
   labels: VoiceCallOverlayProps['labels']
   onEnd: () => void
   onToggleMute: () => void
+  mode?: CallUiMode
 }) {
   const name = displayName(remoteUser) || 'AiMediaTank'
   const connected = callState === 'connected'
   const duration = useCallDuration(connected)
+  const compact = mode === 'popup'
   const statusLine =
     callState === 'outgoing'
       ? formatCallStatus(labels.calling, remoteUser)
@@ -435,20 +637,23 @@ function ActiveCallScreen({
         : `${labels.appAudio} - ${formatDuration(duration)}`
 
   return (
-    <FullscreenShell remoteUser={remoteUser}>
-      <div style={{ textAlign: 'center', opacity: 0.9, fontSize: '15px', marginTop: '8px' }}>
-        {statusLine}
-      </div>
+    <CallScreenShell mode={mode} remoteUser={remoteUser} title={statusLine}>
+      {mode === 'fullscreen' ? (
+        <div style={{ textAlign: 'center', opacity: 0.9, fontSize: '15px', marginTop: '8px' }}>
+          {statusLine}
+        </div>
+      ) : null}
 
       <div
         style={{
-          flex: 1,
+          flex: mode === 'fullscreen' ? 1 : undefined,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '12px',
-          padding: '0 16px',
+          gap: compact ? '8px' : '12px',
+          padding: mode === 'fullscreen' ? '0 16px' : '8px 0 12px',
+          textAlign: 'center',
         }}
       >
         {remoteUser?.avatar ? (
@@ -456,26 +661,25 @@ function ActiveCallScreen({
             src={remoteUser.avatar}
             alt=""
             style={{
-              width: '88px',
-              height: '88px',
+              width: compact ? '64px' : '88px',
+              height: compact ? '64px' : '88px',
               borderRadius: '50%',
               objectFit: 'cover',
-              marginBottom: '8px',
+              marginBottom: compact ? '4px' : '8px',
             }}
           />
         ) : null}
         <div
           style={{
-            fontSize: '34px',
+            fontSize: compact ? '24px' : '34px',
             fontWeight: 700,
             letterSpacing: '-0.02em',
-            textAlign: 'center',
           }}
         >
           {name}
         </div>
         {callState === 'connected' ? (
-          <div style={{ fontSize: '15px', opacity: 0.75 }}>{labels.connected}</div>
+          <div style={{ fontSize: compact ? '13px' : '15px', opacity: 0.75 }}>{labels.connected}</div>
         ) : null}
       </div>
 
@@ -484,35 +688,61 @@ function ActiveCallScreen({
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
           justifyItems: 'center',
-          rowGap: '28px',
-          columnGap: '8px',
-          paddingBottom: '8px',
+          rowGap: compact ? '16px' : '28px',
+          columnGap: '4px',
+          paddingBottom: mode === 'fullscreen' ? '8px' : 0,
         }}
       >
-        <RoundCallButton label={labels.speaker} background="rgba(255,255,255,0.18)" disabled>
+        <RoundCallButton
+          label={labels.speaker}
+          background="rgba(255,255,255,0.18)"
+          disabled
+          compact={compact}
+        >
           <IconSpeaker />
         </RoundCallButton>
-        <RoundCallButton label={labels.video} background="rgba(255,255,255,0.18)" disabled>
+        <RoundCallButton
+          label={labels.video}
+          background="rgba(255,255,255,0.18)"
+          disabled
+          compact={compact}
+        >
           <IconVideo />
         </RoundCallButton>
         <RoundCallButton
           label={isMuted ? labels.unmute : labels.mute}
           onClick={onToggleMute}
           background={isMuted ? '#f59e0b' : 'rgba(255,255,255,0.18)'}
+          compact={compact}
         >
           <IconMic muted={isMuted} />
         </RoundCallButton>
-        <RoundCallButton label={labels.more} background="rgba(255,255,255,0.18)" disabled>
+        <RoundCallButton
+          label={labels.more}
+          background="rgba(255,255,255,0.18)"
+          disabled
+          compact={compact}
+        >
           <IconMore />
         </RoundCallButton>
-        <RoundCallButton label={labels.endCall} onClick={onEnd} background="#ef4444">
+        <RoundCallButton
+          label={labels.endCall}
+          onClick={onEnd}
+          background="#ef4444"
+          compact={compact}
+        >
           <IconPhoneEnd />
         </RoundCallButton>
-        <RoundCallButton label={labels.keypad} background="rgba(255,255,255,0.18)" disabled>
+        <RoundCallButton
+          label={labels.keypad}
+          background="rgba(255,255,255,0.18)"
+          disabled
+          compact={compact}
+        >
           <IconKeypad />
         </RoundCallButton>
       </div>
-    </FullscreenShell>
+    </CallScreenShell>
   )
 }
 
@@ -613,6 +843,7 @@ export function VoiceCallOverlay({
   placement = 'floating',
   inAppHint,
   fullscreenCallUi = false,
+  popupCallUi = false,
 }: VoiceCallOverlayProps) {
   if (callState === 'idle' || callState === 'ended') return null
 
@@ -627,7 +858,9 @@ export function VoiceCallOverlay({
     )
   }
 
-  if (fullscreenCallUi) {
+  const callMode: CallUiMode = popupCallUi ? 'popup' : 'fullscreen'
+
+  if (fullscreenCallUi || popupCallUi) {
     if (callState === 'incoming') {
       return (
         <IncomingCallScreen
@@ -635,6 +868,7 @@ export function VoiceCallOverlay({
           labels={labels}
           onAccept={onAccept}
           onReject={onReject}
+          mode={callMode}
         />
       )
     }
@@ -647,6 +881,7 @@ export function VoiceCallOverlay({
         labels={labels}
         onEnd={onEnd}
         onToggleMute={onToggleMute}
+        mode={callMode}
       />
     )
   }
