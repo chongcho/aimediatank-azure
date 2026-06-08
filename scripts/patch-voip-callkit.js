@@ -1050,4 +1050,184 @@ if (callManager.includes('syncCallDeclineToServer') && !callManager.includes(REM
   console.log('[patch-voip-callkit] skip native-decline when caller cancelled remotely')
 }
 
+const TRACK_INCOMING_MARKER = 'trackBridgedIncomingCall'
+if (!callManager.includes(TRACK_INCOMING_MARKER)) {
+  callManager = callManager.replace(
+    `    // MARK: - Report Incoming Call
+    func reportIncomingCall(uuid: UUID, handle: String, displayName: String, handleType: CXHandle.HandleType, video: Bool, declineToken: String? = nil, completion: @escaping (Error?) -> Void) {`,
+    `    // MARK: - Track Incoming Call (${TRACK_INCOMING_MARKER})
+    func trackIncomingCall(uuid: UUID, handle: String, displayName: String, declineToken: String? = nil) {
+        var call = Call(uuid: uuid, handle: handle, displayName: displayName, isOutgoing: false)
+        call.declineToken = declineToken
+        activeCalls[uuid] = call
+    }
+
+    // MARK: - Report Incoming Call
+    func reportIncomingCall(uuid: UUID, handle: String, displayName: String, handleType: CXHandle.HandleType, video: Bool, declineToken: String? = nil, completion: @escaping (Error?) -> Void) {`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] add trackIncomingCall for AppDelegate CallKit bridge')
+}
+
+const FINALIZE_BRIDGE_END_MARKER = 'finalizeBridgedCallEnd'
+if (!callManager.includes(FINALIZE_BRIDGE_END_MARKER)) {
+  callManager = callManager.replace(
+    `    func dismissAllRingingIncomingCalls() {`,
+    `    func finalizeBridgedCallEnd(callId: String) {
+        // ${FINALIZE_BRIDGE_END_MARKER}
+        guard let uuid = UUID(uuidString: callId.lowercased()) else { return }
+        let normalized = callId.lowercased()
+        let remoteCancelled = UserDefaults.standard.stringArray(forKey: "AiMediaTank.cancelledCallIds")?
+            .contains(normalized) ?? false
+        if let call = activeCalls[uuid], !call.isOutgoing, let token = call.declineToken, !remoteCancelled {
+            plugin?.syncCallDeclineToServer(callId: normalized, token: token)
+        }
+        activeCalls.removeValue(forKey: uuid)
+    }
+
+    func dismissAllRingingIncomingCalls() {`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] sync decline on bridge CallKit end')
+}
+
+if (pluginSwift && pluginSwift.includes('processIncomingVoipPushPayload') && !pluginSwift.includes('reportedToCallKit')) {
+  pluginSwift = pluginSwift.replace(
+    `        let declineToken = (payloadDict["metadata"] as? [String: Any])?["declineToken"] as? String
+        let pollCallId = callIdString.lowercased()
+
+        callManager?.reportIncomingCall(
+            uuid: callId,
+            handle: handle,
+            displayName: displayName,
+            handleType: handleType,
+            video: video,
+            declineToken: declineToken
+        ) { [weak self] error in
+            if error == nil {
+                NotificationCenter.default.post(name: NSNotification.Name("AiMediaTankNoteIncomingCall"), object: nil, userInfo: ["callId": pollCallId])
+                if let token = declineToken {
+                    self?.startCallStatusPolling(callId: pollCallId, token: token)
+                }
+            }
+            if let error {
+                print("Error reporting incoming call: \\(error.localizedDescription)")
+            }
+        }`,
+    `        let declineToken = (payloadDict["metadata"] as? [String: Any])?["declineToken"] as? String
+        let pollCallId = callIdString.lowercased()
+        let alreadyReported = (payloadDict["reportedToCallKit"] as? Bool) ?? false
+
+        if alreadyReported {
+            callManager?.trackIncomingCall(uuid: callId, handle: handle, displayName: displayName, declineToken: declineToken)
+            NotificationCenter.default.post(name: NSNotification.Name("AiMediaTankNoteIncomingCall"), object: nil, userInfo: ["callId": pollCallId])
+            if let token = declineToken {
+                startCallStatusPolling(callId: pollCallId, token: token)
+            }
+        } else {
+            callManager?.reportIncomingCall(
+                uuid: callId,
+                handle: handle,
+                displayName: displayName,
+                handleType: handleType,
+                video: video,
+                declineToken: declineToken
+            ) { [weak self] error in
+                if error == nil {
+                    NotificationCenter.default.post(name: NSNotification.Name("AiMediaTankNoteIncomingCall"), object: nil, userInfo: ["callId": pollCallId])
+                    if let token = declineToken {
+                        self?.startCallStatusPolling(callId: pollCallId, token: token)
+                    }
+                }
+                if let error {
+                    print("Error reporting incoming call: \\(error.localizedDescription)")
+                }
+            }
+        }`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] skip duplicate CallKit report when App bridge already reported')
+}
+
+const BRIDGE_CALLKIT_EVENTS = 'AiMediaTankCallKitAnswer'
+if (pluginSwift && pluginSwift.includes(BRIDGE_V1) && !pluginSwift.includes(BRIDGE_CALLKIT_EVENTS)) {
+  pluginSwift = pluginSwift.replace(
+    `        NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedVoipCancelPush(_:)), name: NSNotification.Name("AiMediaTankVoipCancelPush"), object: nil)
+
+        NotificationCenter.default.addObserver(`,
+    `        NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedVoipCancelPush(_:)), name: NSNotification.Name("AiMediaTankVoipCancelPush"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedCallKitAnswer(_:)), name: NSNotification.Name("AiMediaTankCallKitAnswer"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedCallKitEnd(_:)), name: NSNotification.Name("AiMediaTankCallKitEnd"), object: nil)
+
+        NotificationCenter.default.addObserver(`,
+  )
+  pluginSwift = pluginSwift.replace(
+    `    @objc private func handleBridgedVoipCancelPush(_ notification: Notification) {`,
+    `    @objc private func handleBridgedCallKitAnswer(_ notification: Notification) {
+        guard let callId = notification.userInfo?["callId"] as? String else { return }
+        stopCallStatusPolling(callId: callId)
+        emitEvent("callAnswered", data: ["callId": callId])
+    }
+
+    @objc private func handleBridgedCallKitEnd(_ notification: Notification) {
+        guard let callId = notification.userInfo?["callId"] as? String else { return }
+        stopCallStatusPolling(callId: callId)
+        callManager?.finalizeBridgedCallEnd(callId: callId)
+        emitEvent("callEnded", data: ["callId": callId])
+    }
+
+    @objc private func handleBridgedVoipCancelPush(_ notification: Notification) {`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] forward App bridge CallKit answer/end to JS')
+}
+
+const DISMISS_V5_MARKER = 'bridge owns PushKit call dismiss'
+if (pluginSwift && pluginSwift.includes('dismissRemoteVoipCancel') && !pluginSwift.includes(DISMISS_V5_MARKER)) {
+  pluginSwift = pluginSwift.replace(
+    /    internal func dismissRemoteVoipCancel\(callIdString: String\) \{[\s\S]*?\n    \}\n\n    private func pollCallStatus/,
+    `    internal func dismissRemoteVoipCancel(callIdString: String) {
+        // ${DISMISS_V5_MARKER}
+        let normalized = callIdString.lowercased()
+        stopCallStatusPolling(callId: normalized)
+        callManager?.finalizeBridgedCallEnd(callId: normalized)
+    }
+
+    private func pollCallStatus`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] let App bridge dismiss CallKit for cancel push')
+}
+
+const UNANSWERED_DISMISS_MARKER = 'unanswered dismiss remote ring'
+if (callManager.includes(CANCEL_V5_MARKER) && !callManager.includes(UNANSWERED_DISMISS_MARKER)) {
+  callManager = callManager.replace(
+    `    func cancelIncomingCall(uuid: UUID) {
+        // CXEndCallAction cancel remote ring / deactivate audio on remote cancel
+        activeCalls.removeValue(forKey: uuid)
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)`,
+    `    func cancelIncomingCall(uuid: UUID) {
+        // CXEndCallAction cancel remote ring / ${UNANSWERED_DISMISS_MARKER}
+        activeCalls.removeValue(forKey: uuid)
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] use unanswered reason to stop incoming ring')
+}
+
+const BRIDGE_OWNS_CANCEL = 'bridge owns cancel dismiss'
+if (callManager.includes('CallManager observes VoIP cancel push') && !callManager.includes(BRIDGE_OWNS_CANCEL)) {
+  callManager = callManager.replace(
+    `            // CallManager observes VoIP cancel push
+            if let uuid = UUID(uuidString: normalized) {
+                self.cancelIncomingCall(uuid: uuid)
+            }
+            self.dismissAllRingingIncomingCalls()`,
+    `            // ${BRIDGE_OWNS_CANCEL} — App bridge CXProvider dismisses; sync plugin state only
+            self.finalizeBridgedCallEnd(callId: normalized)`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] stop CallManager from dismissing bridge-owned CallKit calls')
+}
+
 console.log('[patch-voip-callkit] done')

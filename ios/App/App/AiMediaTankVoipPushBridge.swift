@@ -3,23 +3,36 @@ import CallKit
 import Foundation
 import PushKit
 
-/// App-target VoIP handler so cancel pushes dismiss CallKit before Capacitor plugins load.
-final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate {
+/// App-target VoIP + CallKit handler. Owns the CXProvider used for PushKit incoming/cancel pushes
+/// so reportNewIncomingCall and reportCall ended use the same provider instance on lock screen.
+final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProviderDelegate {
     static let shared = AiMediaTankVoipPushBridge()
 
     static let incomingPushNotification = Notification.Name("AiMediaTankVoipIncomingPush")
     static let incomingPushDoneNotification = Notification.Name("AiMediaTankVoipIncomingPushDone")
     static let cancelPushNotification = Notification.Name("AiMediaTankVoipCancelPush")
     static let voipTokenNotification = Notification.Name("AiMediaTankVoipPushToken")
+    static let callKitAnswerNotification = Notification.Name("AiMediaTankCallKitAnswer")
+    static let callKitEndNotification = Notification.Name("AiMediaTankCallKitEnd")
 
     private static let ringingCallIdsKey = "AiMediaTank.ringingCallIds"
     private static let cancelledCallIdsKey = "AiMediaTank.cancelledCallIds"
 
     private var pushRegistry: PKPushRegistry?
+    private let provider: CXProvider
     private let callController = CXCallController()
 
     private override init() {
+        let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
+        configuration.supportsVideo = true
+        configuration.maximumCallGroups = 1
+        configuration.maximumCallsPerCallGroup = 1
+        configuration.supportedHandleTypes = [.generic, .phoneNumber, .emailAddress]
+        configuration.includesCallsInRecents = true
+        configuration.ringtoneSound = "incoming-ring.wav"
+        provider = CXProvider(configuration: configuration)
         super.init()
+        provider.setDelegate(self, queue: nil)
     }
 
     func ensureStarted() {
@@ -72,19 +85,18 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate {
 
     func dismissRingingCall(uuid: UUID) {
         let callId = uuid.uuidString.lowercased()
-        // Route through CallManager's CXProvider (the one that reported the incoming call).
-        NotificationCenter.default.post(
-            name: Self.cancelPushNotification,
-            object: nil,
-            userInfo: ["callId": callId]
-        )
-        // Fallback if the Capacitor plugin has not loaded yet.
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)
         let endCallAction = CXEndCallAction(call: uuid)
         callController.request(CXTransaction(action: endCallAction)) { error in
             if let error {
                 print("[AiMediaTankVoipPushBridge] CXEndCallAction failed for \(uuid): \(error.localizedDescription)")
             }
         }
+        NotificationCenter.default.post(
+            name: Self.cancelPushNotification,
+            object: nil,
+            userInfo: ["callId": callId]
+        )
         Self.noteCallDismissed(callId)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
@@ -108,8 +120,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate {
     }
 
     func scheduleDismissRetries(for callId: String) {
-        dismissAllRingingCalls(preferredCallId: callId)
-        for delay in [0.25, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0] {
+        for delay in [0.25, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 15.0, 20.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 self?.dismissAllRingingCalls(preferredCallId: callId)
             }
@@ -132,6 +143,47 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate {
             result[String(describing: key)] = value
         }
         return result
+    }
+
+    private func handleType(from string: String) -> CXHandle.HandleType {
+        switch string {
+        case "phone": return .phoneNumber
+        case "email": return .emailAddress
+        default: return .generic
+        }
+    }
+
+    private func reportIncomingToCallKit(
+        callId: UUID,
+        handle: String,
+        displayName: String,
+        handleType: CXHandle.HandleType,
+        video: Bool,
+        completion: @escaping (Bool) -> Void
+    ) {
+        let update = CXCallUpdate()
+        update.remoteHandle = CXHandle(type: handleType, value: handle)
+        update.localizedCallerName = displayName
+        update.supportsHolding = true
+        update.supportsGrouping = false
+        update.supportsUngrouping = false
+        update.supportsDTMF = true
+        update.hasVideo = video
+
+        provider.reportNewIncomingCall(with: callId, update: update) { error in
+            if let error {
+                print("[AiMediaTankVoipPushBridge] reportNewIncomingCall failed: \(error.localizedDescription)")
+                completion(false)
+                return
+            }
+            completion(true)
+        }
+    }
+
+    private func performCancelDismiss(callId: String) {
+        let normalized = callId.lowercased()
+        Self.markCallCancelled(normalized)
+        dismissAllRingingCalls(preferredCallId: normalized)
     }
 
     // MARK: - PKPushRegistryDelegate
@@ -161,13 +213,21 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate {
            let cancelCallId = payloadString(payloadDict, key: "callId") {
             let normalizedCallId = cancelCallId.lowercased()
             print("[AiMediaTankVoipPushBridge] cancel push for call \(normalizedCallId)")
-            Self.markCallCancelled(normalizedCallId)
-            NotificationCenter.default.post(
-                name: Self.cancelPushNotification,
-                object: nil,
-                userInfo: ["callId": normalizedCallId]
-            )
+            performCancelDismiss(callId: normalizedCallId)
             scheduleDismissRetries(for: normalizedCallId)
+            completion()
+            return
+        }
+
+        guard let callIdString = payloadString(payloadDict, key: "callId"),
+              let callId = UUID(uuidString: callIdString),
+              let handle = payloadString(payloadDict, key: "handle"),
+              let displayName = payloadString(payloadDict, key: "displayName") else {
+            completion()
+            return
+        }
+
+        if Self.isCallCancelled(callIdString) {
             completion()
             return
         }
@@ -192,14 +252,79 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate {
             completeOnce()
         }
 
-        NotificationCenter.default.post(
-            name: Self.incomingPushNotification,
-            object: nil,
-            userInfo: userInfo(from: payloadDict)
-        )
+        let handleTypeString = payloadString(payloadDict, key: "handleType") ?? "generic"
+        let video = payloadDict["video"] as? Bool ?? false
+
+        reportIncomingToCallKit(
+            callId: callId,
+            handle: handle,
+            displayName: displayName,
+            handleType: handleType(from: handleTypeString),
+            video: video
+        ) { [weak self] reported in
+            guard let self = self else {
+                completeOnce()
+                return
+            }
+            var info = self.userInfo(from: payloadDict)
+            info["reportedToCallKit"] = reported
+            if reported {
+                Self.noteIncomingCallReported(callIdString)
+            }
+            NotificationCenter.default.post(
+                name: Self.incomingPushNotification,
+                object: nil,
+                userInfo: info
+            )
+        }
     }
 
     func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
         print("[AiMediaTankVoipPushBridge] Push token invalidated for type: \(type)")
     }
+
+    // MARK: - CXProviderDelegate
+
+    func providerDidReset(_ provider: CXProvider) {}
+
+    func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+        NotificationCenter.default.post(
+            name: Self.callKitAnswerNotification,
+            object: nil,
+            userInfo: ["callId": action.callUUID.uuidString.lowercased()]
+        )
+        action.fulfill()
+    }
+
+    func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+        let callId = action.callUUID.uuidString.lowercased()
+        NotificationCenter.default.post(
+            name: Self.callKitEndNotification,
+            object: nil,
+            userInfo: ["callId": callId]
+        )
+        provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .remoteEnded)
+        Self.noteCallDismissed(callId)
+        action.fulfill()
+    }
+
+    func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
+        action.fulfill()
+    }
+
+    func provider(_ provider: CXProvider, perform action: CXSetHeldCallAction) {
+        action.fulfill()
+    }
+
+    func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
+        action.fulfill()
+    }
+
+    func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
+        print("[AiMediaTankVoipPushBridge] CallKit action timed out: \(action)")
+    }
+
+    func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {}
+
+    func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {}
 }
