@@ -1486,4 +1486,108 @@ if (callManager.includes('configureAudioSession') && !callManager.includes(AUDIO
   console.log('[patch-voip-callkit] release audio session on call end and CallKit reset')
 }
 
+const JS_INCOMING_TRACK_ONLY = 'skip duplicate CallKit report from JS handleIncomingCall'
+if (pluginSwift && pluginSwift.includes('handleIncomingCall') && !pluginSwift.includes(JS_INCOMING_TRACK_ONLY)) {
+  pluginSwift = pluginSwift.replace(
+    `        callManager?.reportIncomingCall(
+            uuid: callId,
+            handle: handle,
+            displayName: displayName,
+            handleType: handleType,
+            video: video
+        ) { error in
+            if let error {
+                call.reject("Failed to report incoming call: \\(error.localizedDescription)")
+                return
+            }
+
+            var notificationData: [String: Any] = [
+                "callId": callIdString,
+                "handle": handle,
+                "displayName": displayName,
+                "handleType": handleTypeString,
+                "video": video,
+            ]
+            if let metadata {
+                notificationData["metadata"] = metadata
+            }
+            self.emitEvent("incomingCall", data: notificationData)
+            call.resolve(["callId": callIdString])
+        }`,
+    `        // ${JS_INCOMING_TRACK_ONLY}
+        let normalizedCallId = callIdString.lowercased()
+        let alreadyOnCallKit = UserDefaults.standard.stringArray(forKey: "AiMediaTank.ringingCallIds")?
+            .contains(normalizedCallId) ?? false
+        let pendingAnswer = UserDefaults.standard.string(forKey: "AiMediaTank.pendingCallKitAnswerCallId")?
+            .lowercased() == normalizedCallId
+        let callKitObserver = CXCallObserver()
+        let hasBridgeCall = callKitObserver.calls.contains {
+            !$0.hasEnded && $0.uuid.uuidString.lowercased() == normalizedCallId
+        }
+        let declineToken = metadata?["declineToken"] as? String
+
+        func finishIncomingCall() {
+            var notificationData: [String: Any] = [
+                "callId": callIdString,
+                "handle": handle,
+                "displayName": displayName,
+                "handleType": handleTypeString,
+                "video": video,
+            ]
+            if let metadata {
+                notificationData["metadata"] = metadata
+            }
+            self.emitEvent("incomingCall", data: notificationData)
+            call.resolve(["callId": callIdString])
+        }
+
+        if alreadyOnCallKit || pendingAnswer || hasBridgeCall {
+            callManager?.trackIncomingCall(
+                uuid: callId,
+                handle: handle,
+                displayName: displayName,
+                declineToken: declineToken
+            )
+            finishIncomingCall()
+            return
+        }
+
+        callManager?.reportIncomingCall(
+            uuid: callId,
+            handle: handle,
+            displayName: displayName,
+            handleType: handleType,
+            video: video,
+            declineToken: declineToken
+        ) { error in
+            if let error {
+                call.reject("Failed to report incoming call: \\(error.localizedDescription)")
+                return
+            }
+            finishIncomingCall()
+        }`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] avoid second CallKit ring from JS handleIncomingCall')
+}
+
+const BRIDGE_CONNECTED_MARKER = 'AiMediaTankReportCallConnected'
+if (pluginSwift && pluginSwift.includes('updateCallStatus') && !pluginSwift.includes(BRIDGE_CONNECTED_MARKER)) {
+  pluginSwift = pluginSwift.replace(
+    `        callManager?.updateCallStatus(uuid: callId, status: status)
+        call.resolve()`,
+    `        callManager?.updateCallStatus(uuid: callId, status: status)
+        if status == "connected" {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("${BRIDGE_CONNECTED_MARKER}"),
+                object: nil,
+                userInfo: ["callId": callIdString.lowercased()]
+            )
+        }
+        call.resolve()`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] forward connected status to App bridge CallKit provider')
+}
+
 console.log('[patch-voip-callkit] done')

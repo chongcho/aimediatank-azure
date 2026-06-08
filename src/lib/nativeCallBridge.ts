@@ -118,7 +118,10 @@ export async function subscribeNativeVoipIfNeeded(): Promise<void> {
   }
 }
 
-/** Show CallKit incoming UI with native ringtone (lock screen / sleep). */
+/**
+ * Show CallKit incoming UI with native ringtone (lock screen / sleep).
+ * On iOS, VoIP PushKit already reported the call to CallKit — skip to avoid a second ring.
+ */
 export async function reportIncomingCallToCallKit(params: {
   callId: string
   handle: string
@@ -194,6 +197,17 @@ export async function answerNativeCall(callId: string | null | undefined): Promi
   } catch (error) {
     console.error('[VoIP] native CallKit answer failed:', error)
     return false
+  }
+}
+
+/** Tell the App bridge CallKit provider the WebRTC media path is connected. */
+export async function markNativeCallConnected(callId: string | null | undefined): Promise<void> {
+  if (!isNativeIosCallApp() || !callId) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    await CapacitorPushCalls.updateCallStatus({ callId, status: 'connected' })
+  } catch {
+    // ignore when CallKit already shows connected
   }
 }
 

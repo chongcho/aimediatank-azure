@@ -46,15 +46,21 @@ function useVoiceCallLabels() {
   const tr = talkChatTr(localeTag)
   return {
     localeTag,
+    appAudio: tr[TC.voiceAppAudio],
     incomingCall: tr[TC.voiceIncomingCall],
     calling: tr[TC.voiceCalling],
     connecting: tr[TC.voiceConnecting],
     connected: tr[TC.voiceConnected],
     accept: tr[TC.accept],
-    reject: tr[TC.cancel],
+    decline: tr[TC.voiceDecline],
     endCall: tr[TC.voiceEndCall],
     mute: tr[TC.voiceMute],
     unmute: tr[TC.voiceUnmute],
+    speaker: tr[TC.voiceSpeaker],
+    video: tr[TC.voiceVideo],
+    keypad: tr[TC.voiceKeypad],
+    more: tr[TC.voiceMore],
+    remindMe: tr[TC.voiceRemindMe],
     inAppHint: tr[TC.voiceCallInAppHint],
   }
 }
@@ -71,21 +77,22 @@ export function VoiceCallOverlayPanel({
 
   if (!session?.user || !ctx) return null
 
-  const nativeIncoming =
-    isNativeIosCallApp() && placement === 'floating' && ctx.callState === 'incoming'
+  const fullscreenCallUi =
+    placement === 'floating' && ctx.callState !== 'idle' && ctx.callState !== 'ended'
+  const nativeIosCall = isNativeIosCallApp()
 
   return (
     <VoiceCallOverlay
       placement={placement}
-      nativeIncomingFullscreen={nativeIncoming}
+      fullscreenCallUi={fullscreenCallUi}
       callState={ctx.callState}
       remoteUser={ctx.remoteUser}
       isMuted={ctx.isMuted}
       labels={labels}
-      inAppHint={nativeIncoming ? undefined : labels.inAppHint}
+      inAppHint={fullscreenCallUi ? undefined : labels.inAppHint}
       onAccept={() => {
         void (async () => {
-          if (nativeIncoming && ctx.callId) {
+          if (nativeIosCall && ctx.callId) {
             await answerNativeCall(ctx.callId).catch(() => false)
           }
           await ctx.answerCall()
@@ -100,10 +107,9 @@ export function VoiceCallOverlayPanel({
 
 export function VoiceCallProvider({
   children,
-  showFloatingOverlay = true,
 }: {
   children: ReactNode
-  /** When TalkChat is open, set false so only the in-panel overlay is shown */
+  /** @deprecated Full-screen call UI always shows during active calls */
   showFloatingOverlay?: boolean
 }) {
   const { data: session } = useSession()
@@ -144,10 +150,6 @@ export function VoiceCallProvider({
 
     const start =
       state === 'incoming' ? startIncomingRingtone : startOutgoingRingback
-    if (state === 'incoming' && isNativeIosCallApp()) {
-      primeVoiceCallAfterNotificationOpen()
-      return
-    }
     start()
     primeVoiceCallAfterNotificationOpen()
   }, [
@@ -166,6 +168,7 @@ export function VoiceCallProvider({
       if (document.hidden) return
       primeVoiceCallAfterNotificationOpen()
       const state = callStateRef.current
+      if (isNativeIosCallApp()) return
       if (state === 'incoming' || state === 'outgoing') {
         retryVoiceCallRingtone()
       }
@@ -210,7 +213,9 @@ export function VoiceCallProvider({
           style={{ display: 'none' }}
         />
       )}
-      {session?.user && showFloatingOverlay && <VoiceCallOverlayPanel placement="floating" />}
+      {session?.user &&
+        voiceCall.callState !== 'idle' &&
+        voiceCall.callState !== 'ended' && <VoiceCallOverlayPanel placement="floating" />}
     </VoiceCallContext.Provider>
   )
 }

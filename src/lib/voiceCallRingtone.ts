@@ -6,7 +6,7 @@
  *
  * Caller name is shown in the call overlay only (no TTS).
  * iOS requires an in-page tap to unlock Web Audio; notification taps do not count.
- * Native CallKit handles lock-screen incoming ring on the TestFlight app.
+ * On the native iOS app, in-app ringtone plays until the user taps Decline or Accept.
  */
 
 export const VOICE_CALL_RING_TIMEOUT_MS = 60000

@@ -13,6 +13,7 @@ import {
   endNativeCall,
   initNativeCallBridge,
   isNativeIosCallApp,
+  markNativeCallConnected,
   reportIncomingCallToCallKit,
   type NativeIncomingCallPayload,
 } from '@/lib/nativeCallBridge'
@@ -219,6 +220,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (pc.connectionState === 'connected') {
         setCallState('connected')
         reattachRemoteAudio()
+        if (callIdRef.current) {
+          void markNativeCallConnected(callIdRef.current)
+        }
       } else if (pc.connectionState === 'failed') {
         reportError('Call connection failed')
         void endCall()
@@ -521,6 +525,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   const applyIncomingCall = useCallback((callId: string, caller: VoiceCallUser) => {
     const normalizedId = normalizeVoiceCallId(callId)
+    if (callStateRef.current === 'connecting' || callStateRef.current === 'connected') {
+      callIdRef.current = normalizedId
+      setCallId(normalizedId)
+      setRemoteUser(caller)
+      isCallerRef.current = false
+      return
+    }
     if (callStateRef.current !== 'idle' && callStateRef.current !== 'incoming') return
     if (handledIncomingRef.current.has(`call-${normalizedId}`)) {
       runPendingVoiceAction()
@@ -608,6 +619,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       onCallAnswered: (callId) => {
         stopVoiceCallRingtone()
         void (async () => {
+          const normalizedId = normalizeVoiceCallId(callId)
+          callIdRef.current = normalizedId
+          setCallId(normalizedId)
+          isCallerRef.current = false
+          setCallState('connecting')
           await ensureIncomingCall(callId)
           await answerCallRef.current()
         })()

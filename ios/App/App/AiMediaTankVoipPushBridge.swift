@@ -34,6 +34,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var dismissRetryGeneration: [String: UUID] = [:]
     /// Avoid replaying the same pending CallKit answer repeatedly.
     private var lastReplayedPendingAnswerCallId: String?
+    private var inAppCallUIObserversInstalled = false
 
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
@@ -73,13 +74,19 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
     }
 
-    /// Release audio when no connected CallKit call is active (safe during cellular-call interruptions).
+    private func hasPendingCallKitAnswer() -> Bool {
+        guard let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey) else { return false }
+        return !callId.isEmpty
+    }
+
+    private func hasActiveCallKitCall() -> Bool {
+        CXCallObserver().calls.contains { !$0.hasEnded }
+    }
+
+    /// Release audio when no CallKit call is in progress (safe during cellular-call interruptions).
     func releaseAudioIfNoConnectedCall() {
-        let observer = CXCallObserver()
-        let hasConnectedCall = observer.calls.contains { !$0.hasEnded && $0.hasConnected }
-        if !hasConnectedCall {
-            releaseAudioSession()
-        }
+        if hasActiveCallKitCall() || hasPendingCallKitAnswer() { return }
+        releaseAudioSession()
     }
 
     /// After a crash or stale CallKit state, tear down audio and orphaned rings so Phone calls work again.
@@ -96,16 +103,46 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             }
         }
 
-        let hasConnectedCall = systemCalls.contains { $0.hasConnected }
-        if !hasConnectedCall {
-            releaseAudioSession()
-            clearPendingCallKitAnswer()
-            statusWatchGeneration.keys.forEach { stopCallStatusWatch(callId: $0) }
-            dismissRetryGeneration.removeAll()
-            if systemCalls.isEmpty || storedRinging.isEmpty {
-                UserDefaults.standard.removeObject(forKey: Self.ringingCallIdsKey)
-            }
+        // Never release audio while CallKit is answering/connecting — that breaks lock-screen accept.
+        if hasActiveCallKitCall() || hasPendingCallKitAnswer() { return }
+
+        releaseAudioSession()
+        clearPendingCallKitAnswer()
+        statusWatchGeneration.keys.forEach { stopCallStatusWatch(callId: $0) }
+        dismissRetryGeneration.removeAll()
+        if systemCalls.isEmpty || storedRinging.isEmpty {
+            UserDefaults.standard.removeObject(forKey: Self.ringingCallIdsKey)
         }
+    }
+
+    /// Dismiss CallKit lock-screen / slide-to-answer UI so the in-app call screen handles the ring.
+    /// Does not notify JS of a user decline — use only when the WebView shows Decline/Accept.
+    func dismissCallKitUIForInAppOnly(callId: String) {
+        if hasPendingCallKitAnswer() { return }
+        let normalized = callId.lowercased()
+        guard let uuid = UUID(uuidString: normalized) else { return }
+        provider.reportCall(with: uuid, endedAt: Date(), reason: .answeredElsewhere)
+        Self.noteCallDismissed(normalized)
+        print("[AiMediaTankVoipPushBridge] dismissed CallKit UI for in-app call \(normalized)")
+    }
+
+    private func dismissTrackedRingingCallsForInAppUI() {
+        if hasPendingCallKitAnswer() { return }
+        let ringingIds = UserDefaults.standard.stringArray(forKey: Self.ringingCallIdsKey) ?? []
+        for callId in ringingIds {
+            dismissCallKitUIForInAppOnly(callId: callId)
+        }
+    }
+
+    /// Tell CallKit the media path is live so the system stops the incoming ring and shows connected UI.
+    func reportCallConnected(callId: String) {
+        let normalized = callId.lowercased()
+        guard let uuid = UUID(uuidString: normalized) else { return }
+        provider.reportCall(with: uuid, connectedAt: Date())
+        Self.noteCallDismissed(normalized)
+        clearPendingCallKitAnswer()
+        cancelDismissRetries(callId: normalized)
+        stopCallStatusWatch(callId: normalized)
     }
 
     private func markPendingCallKitAnswer(callId: String) {
@@ -171,7 +208,28 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             self.performCancelDismiss(callId: callId, source: "bridge_dismiss_request")
         }
 
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("AiMediaTankReportCallConnected"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let callId = notification.userInfo?["callId"] as? String else { return }
+            self.reportCallConnected(callId: callId)
+        }
+
         replayPendingCallKitAnswerIfNeeded()
+
+        if !inAppCallUIObserversInstalled {
+            inAppCallUIObserversInstalled = true
+            NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.dismissTrackedRingingCallsForInAppUI()
+            }
+        }
     }
 
     static func noteIncomingCallReported(_ callId: String) {
@@ -601,6 +659,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             info["reportedToCallKit"] = reported
             if reported {
                 Self.noteIncomingCallReported(callIdString)
+                if UIApplication.shared.applicationState == .active {
+                    self.dismissCallKitUIForInAppOnly(callId: callIdString)
+                }
             }
             if reported, let token = self.declineToken(from: payloadDict) {
                 UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: callIdString.lowercased()))
@@ -635,6 +696,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         stopCallStatusWatch(callId: callId)
+        cancelDismissRetries(callId: callId)
+        Self.noteCallDismissed(callId)
         markPendingCallKitAnswer(callId: callId)
         NotificationCenter.default.post(
             name: Self.callKitAnswerNotification,
