@@ -1,5 +1,5 @@
 // Bump this when changing caching behavior to force refresh.
-const CACHE_NAME = 'aimediatank-v18';
+const CACHE_NAME = 'aimediatank-v19';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install
@@ -109,6 +109,37 @@ function notifyOpenClients(payload) {
   });
 }
 
+function originAsset(path) {
+  return new URL(path, self.location.origin).href;
+}
+
+/** Remote avatar URLs often break showNotification on Android lock screen. */
+function resolveNotificationIcon(avatarUrl) {
+  const fallback = originAsset('/logo.png');
+  if (!avatarUrl || typeof avatarUrl !== 'string') return fallback;
+  try {
+    const url = new URL(avatarUrl, self.location.origin);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return fallback;
+    if (url.origin !== self.location.origin) return fallback;
+    return url.href;
+  } catch {
+    return fallback;
+  }
+}
+
+async function showCallNotification(title, options) {
+  try {
+    await self.registration.showNotification(title, options);
+  } catch (error) {
+    console.error('PWA: showNotification failed, retrying with fallback icon:', error);
+    await self.registration.showNotification(title, {
+      ...options,
+      icon: originAsset('/logo.png'),
+      badge: originAsset('/logo.png'),
+    });
+  }
+}
+
 function voiceCallDeepLink(data, voiceAction) {
   const params = new URLSearchParams({
     openChat: '1',
@@ -153,6 +184,13 @@ function focusOrOpenVoiceCall(data, voiceAction) {
   }).then((clients) => {
     for (const client of clients) {
       if ('focus' in client) {
+        if (typeof client.navigate === 'function') {
+          return client.navigate(targetUrl).then(
+            () => client.focus(),
+            () => client.focus(),
+          );
+        }
+        client.postMessage({ type: 'NOTIFICATION_NAVIGATE', url: targetUrl });
         return client.focus();
       }
     }
@@ -175,8 +213,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: data.caller?.avatar || '/logo.png',
-    badge: '/logo.png',
+    icon: resolveNotificationIcon(isVoiceCall ? data.caller?.avatar : null),
+    badge: originAsset('/logo.png'),
     tag: isVoiceCall ? 'voice-call-' + (data.callId || 'incoming') : 'aimediatank-notification',
     renotify: true,
     requireInteraction: isVoiceCall,
@@ -184,9 +222,10 @@ self.addEventListener('push', (event) => {
       ? [400, 200, 400, 200, 400, 800, 400, 200, 400, 2000]
       : [100, 50, 100],
     silent: false,
+    timestamp: Date.now(),
     data: {
       url: isVoiceCall ? (data.url || voiceCallDeepLink(data, '')) : (data.url || '/'),
-      type: data.type || 'generic',
+      type: isVoiceCall ? 'voice_call' : (data.type || 'generic'),
       callId: data.callId || null,
       caller: data.caller || null,
     },
@@ -199,18 +238,23 @@ self.addEventListener('push', (event) => {
     ];
   }
 
+  const title = data.title || 'AiMediaTank';
+
   event.waitUntil(
-    Promise.all([
-      self.registration.showNotification(data.title || 'AiMediaTank', options),
-      isVoiceCall
-        ? notifyOpenClients({
-            type: 'VOICE_CALL_INCOMING',
-            callId: data.callId,
-            caller: data.caller,
-          })
-        : Promise.resolve(),
-    ])
+    showCallNotification(title, options).then(() => {
+      if (!isVoiceCall) return;
+      return notifyOpenClients({
+        type: 'VOICE_CALL_INCOMING',
+        callId: data.callId,
+        caller: data.caller,
+      });
+    }),
   );
+});
+
+// Android/Chrome may rotate push subscriptions; ask an open client to re-register.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(notifyOpenClients({ type: 'PUSH_SUBSCRIPTION_EXPIRED' }));
 });
 
 // Notification tap or lock-screen action (Accept / Decline)

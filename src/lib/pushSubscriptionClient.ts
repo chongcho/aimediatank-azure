@@ -43,3 +43,28 @@ export async function registerVoiceCallPush(): Promise<boolean> {
 
   return res.ok
 }
+
+/** Re-register when Chrome rotates the push subscription or the app returns to foreground. */
+export function installPushSubscriptionRefresh(): () => void {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return () => {}
+
+  const refresh = () => {
+    void registerVoiceCallPush()
+  }
+
+  const onMessage = (event: MessageEvent) => {
+    const data = event.data as { type?: string } | null
+    if (data?.type === 'PUSH_SUBSCRIPTION_EXPIRED') refresh()
+  }
+
+  const onVisible = () => {
+    if (!document.hidden) refresh()
+  }
+
+  navigator.serviceWorker.addEventListener('message', onMessage)
+  document.addEventListener('visibilitychange', onVisible)
+  return () => {
+    navigator.serviceWorker.removeEventListener('message', onMessage)
+    document.removeEventListener('visibilitychange', onVisible)
+  }
+}

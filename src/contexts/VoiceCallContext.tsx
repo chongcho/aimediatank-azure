@@ -10,7 +10,7 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from 'react'
-import { registerVoiceCallPush } from '@/lib/pushSubscriptionClient'
+import { registerVoiceCallPush, installPushSubscriptionRefresh } from '@/lib/pushSubscriptionClient'
 import {
   answerNativeCall,
   bootstrapNativeVoip,
@@ -177,6 +177,7 @@ export function VoiceCallProvider({
     if (!session?.user?.id) return
     void registerVoiceCallPush()
     void subscribeNativeVoipIfNeeded()
+    return installPushSubscriptionRefresh()
   }, [session?.user?.id])
 
   useEffect(() => {
@@ -262,7 +263,10 @@ export function VoiceCallProvider({
       {session?.user &&
         voiceCall.callState !== 'idle' &&
         voiceCall.callState !== 'ended' &&
-        ((isDesktop || showFloatingOverlay) || callUiHidden) && (
+        ((isDesktop ||
+          showFloatingOverlay ||
+          (!isDesktop && voiceCall.callState === 'incoming')) ||
+          callUiHidden) && (
           <VoiceCallOverlayPanel placement="floating" />
         )}
     </VoiceCallContext.Provider>
