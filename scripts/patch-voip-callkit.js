@@ -732,6 +732,7 @@ if (pluginSwift && !pluginSwift.includes(BRIDGE_V1)) {
         // ${BRIDGE_V1}
         NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedVoipPushToken(_:)), name: NSNotification.Name("AiMediaTankVoipPushToken"), object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedVoipIncomingPush(_:)), name: NSNotification.Name("AiMediaTankVoipIncomingPush"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedVoipCancelPush(_:)), name: NSNotification.Name("AiMediaTankVoipCancelPush"), object: nil)
 
         NotificationCenter.default.addObserver(`,
   )
@@ -752,6 +753,12 @@ if (pluginSwift && !pluginSwift.includes(BRIDGE_V1)) {
         guard let tokenData = notification.object as? Data else { return }
         let token = tokenData.map { String(format: "%02x", $0) }.joined()
         emitEvent("voipPushToken", data: ["token": token])
+    }
+
+    @objc private func handleBridgedVoipCancelPush(_ notification: Notification) {
+        // AiMediaTankVoipCancelPush
+        guard let callId = notification.userInfo?["callId"] as? String else { return }
+        dismissRemoteVoipCancel(callIdString: callId)
     }
 
     @objc private func handleBridgedVoipIncomingPush(_ notification: Notification) {
@@ -895,6 +902,49 @@ if (pluginSwift && pluginSwift.includes('processIncomingVoipPushPayload') && !pl
   )
   fs.writeFileSync(pluginSwiftPath, pluginSwift)
   console.log('[patch-voip-callkit] fix VoIP push payload type for Notification.userInfo')
+}
+
+const END_CALL_REPORT_MARKER = 'reportCall ended on CXEndCallAction'
+if (callManager.includes(DECLINE_MARKER) && !callManager.includes(END_CALL_REPORT_MARKER)) {
+  callManager = callManager.replace(
+    `        plugin?.notifyListeners(event: "callEnded", data: ["callId": action.callUUID.uuidString])
+
+        action.fulfill()
+    }`,
+    `        plugin?.notifyListeners(event: "callEnded", data: ["callId": action.callUUID.uuidString])
+
+        // ${END_CALL_REPORT_MARKER}
+        provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .remoteEnded)
+        action.fulfill()
+    }`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] report call ended when fulfilling CXEndCallAction')
+}
+
+const BRIDGE_V3 = 'AiMediaTankVoipCancelPush'
+if (pluginSwift && pluginSwift.includes(BRIDGE_V1) && !pluginSwift.includes(BRIDGE_V3)) {
+  pluginSwift = pluginSwift.replace(
+    `NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedVoipIncomingPush(_:)), name: NSNotification.Name("AiMediaTankVoipIncomingPush"), object: nil)
+
+        NotificationCenter.default.addObserver(`,
+    `NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedVoipIncomingPush(_:)), name: NSNotification.Name("AiMediaTankVoipIncomingPush"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedVoipCancelPush(_:)), name: NSNotification.Name("AiMediaTankVoipCancelPush"), object: nil)
+
+        NotificationCenter.default.addObserver(`,
+  )
+  pluginSwift = pluginSwift.replace(
+    `    @objc private func handleBridgedVoipIncomingPush(_ notification: Notification) {`,
+    `    @objc private func handleBridgedVoipCancelPush(_ notification: Notification) {
+        // ${BRIDGE_V3}
+        guard let callId = notification.userInfo?["callId"] as? String else { return }
+        dismissRemoteVoipCancel(callIdString: callId)
+    }
+
+    @objc private func handleBridgedVoipIncomingPush(_ notification: Notification) {`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] forward cancel VoIP push to CallManager provider')
 }
 
 console.log('[patch-voip-callkit] done')
