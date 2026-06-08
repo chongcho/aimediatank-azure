@@ -144,14 +144,10 @@ export function VoiceCallOverlayPanel({
 
 export function VoiceCallProvider({
   children,
-  showFloatingOverlay = true,
 }: {
   children: ReactNode
-  /** When false (TalkChat open on mobile), only the embedded banner shows. Desktop always uses the call popup. */
-  showFloatingOverlay?: boolean
 }) {
   const { data: session } = useSession()
-  const isDesktop = useIsDesktop()
   const [callUiHidden, setCallUiHidden] = useState(false)
   const hideCallUi = useCallback(() => setCallUiHidden(true), [])
   const showCallUi = useCallback(() => setCallUiHidden(false), [])
@@ -286,8 +282,7 @@ export function VoiceCallProvider({
       )}
       {session?.user &&
         voiceCall.callState !== 'idle' &&
-        voiceCall.callState !== 'ended' &&
-        (isDesktop ? showFloatingOverlay || callUiHidden : true) && (
+        voiceCall.callState !== 'ended' && (
           <VoiceCallOverlayPanel placement="floating" />
         )}
     </VoiceCallContext.Provider>

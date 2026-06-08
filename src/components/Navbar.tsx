@@ -563,7 +563,7 @@ function NavbarContent() {
   ) : null
 
   return (
-    <VoiceCallProvider showFloatingOverlay={!isTalkChatOpen}>
+    <VoiceCallProvider>
     <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 bg-tank-dark/90 backdrop-blur-md border-b border-tank-light pwa-navbar">
       <div className="max-w-7xl mx-auto pl-2 pr-4 sm:pl-3 sm:pr-6">
         <div className="flex items-center justify-between h-16">

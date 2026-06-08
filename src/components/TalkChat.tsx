@@ -524,13 +524,17 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     return `${direction} · ${formatVoiceCallStatus(record.status)} · ${formatTime(record.at)}`
   }
 
-  const pubNavActive = chatMode === 'open' && !showVoiceCallPicker
-  const myNavActive = chatMode === 'private' && !showVoiceCallPicker
-  const phoneNavActive = showVoiceCallPicker
+  const isActiveVoiceCall =
+    voiceCall != null &&
+    voiceCall.callState !== 'idle' &&
+    voiceCall.callState !== 'ended'
+
+  const pubNavActive = chatMode === 'open' && !showVoiceCallPicker && !isActiveVoiceCall
+  const myNavActive = chatMode === 'private' && !showVoiceCallPicker && !isActiveVoiceCall
+  const phoneNavActive = showVoiceCallPicker || isActiveVoiceCall
 
   const handleConfirmVoiceCall = () => {
-    if (!voiceCallPickTarget || !voiceCall) return
-    setShowVoiceCallPicker(false)
+    if (!voiceCallPickTarget || !voiceCall || isActiveVoiceCall) return
     void voiceCall.startCall(voiceCallPickTarget, activeConversation?.id ?? null)
     setVoiceCallPickTarget(null)
   }
@@ -1198,12 +1202,20 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     }
   }, [session?.user?.id])
 
+  useEffect(() => {
+    if (!isActiveVoiceCall) return
+    setShowVoiceCallPicker(true)
+  }, [isActiveVoiceCall])
+
   const toggleVoiceCallPicker = () => {
     if (!isSignedIn) {
       setInlineNotice(TALK_CHAT_MAP.noticeSignInMyKong)
       return
     }
-    if (voiceCall?.callState !== 'idle') return
+    if (isActiveVoiceCall) {
+      setShowVoiceCallPicker(true)
+      return
+    }
 
     const next = !showVoiceCallPicker
     if (next) {
@@ -2704,16 +2716,14 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <button
                 type="button"
                 onClick={toggleVoiceCallPicker}
-                disabled={voiceCall.callState !== 'idle'}
                 className="chat-btn-responsive"
                 style={{
                   padding: '4px 6px',
                   borderRadius: '4px',
                   border: phoneNavActive ? '2px solid #065f46' : '1px solid #d1d5db',
-                  background:
-                    voiceCall.callState === 'idle' && phoneNavActive ? '#059669' : '#9ca3af',
+                  background: phoneNavActive ? '#059669' : '#9ca3af',
                   color: 'white',
-                  cursor: voiceCall.callState === 'idle' ? 'pointer' : 'not-allowed',
+                  cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -3253,11 +3263,13 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <button
                 type="button"
                 onClick={() => {
+                  if (isActiveVoiceCall) return
                   setShowVoiceCallPicker(false)
                   setVoiceCallPickTarget(null)
                   setVoiceCallSearchQuery('')
                   setVoiceCallSearchedUsers([])
                 }}
+                disabled={isActiveVoiceCall}
                 style={{
                   padding: '8px 14px',
                   borderRadius: '6px',
@@ -3265,8 +3277,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                   background: '#9ca3af',
                   color: 'white',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: isActiveVoiceCall ? 'not-allowed' : 'pointer',
                   fontSize: '14px',
+                  opacity: isActiveVoiceCall ? 0.6 : 1,
                 }}
               >
                 {tr[TC.cancel]}
@@ -3274,7 +3287,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               <button
                 type="button"
                 onClick={handleConfirmVoiceCall}
-                disabled={!voiceCallPickTarget}
+                disabled={!voiceCallPickTarget || isActiveVoiceCall}
                 style={{
                   padding: '8px 16px',
                   borderRadius: '6px',
