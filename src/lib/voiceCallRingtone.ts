@@ -27,7 +27,7 @@ let activeRingKind: RingKind | null = null
 let pendingRingStart: (() => void) | null = null
 let openedFromCallNotification = false
 let ringActiveSource: AudioBufferSourceNode | null = null
-let speechLoopTimer: number | null = null
+let speechLoopTimer: ReturnType<typeof globalThis.setTimeout> | null = null
 let usingSpeechSynthesis = false
 const ringBufferCache = new Map<string, AudioBuffer>()
 
@@ -196,7 +196,7 @@ function playSpeechLoop(text: string, lang: string | undefined, generation: numb
     if (speechLang) utterance.lang = speechLang
     utterance.onend = () => {
       if (generation !== loopGeneration || !usingSpeechSynthesis) return
-      speechLoopTimer = window.setTimeout(speakOnce, ANNOUNCEMENT_LOOP_GAP_MS)
+      speechLoopTimer = globalThis.setTimeout(speakOnce, ANNOUNCEMENT_LOOP_GAP_MS)
     }
     window.speechSynthesis.speak(utterance)
   }
