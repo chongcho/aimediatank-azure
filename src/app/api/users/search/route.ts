@@ -41,13 +41,20 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
+      const subscribersOnly = searchParams.get('subscribersOnly') === '1'
       const max = Math.min(Math.max(limit, 1), 500)
       const users = await prisma.user.findMany({
         where: {
           accountDeactivatedAt: null,
           id: { not: session.user.id },
+          ...(subscribersOnly ? { role: { in: ['SUBSCRIBER', 'ADMIN'] } } : {}),
           ...(query
-            ? { username: { contains: query, mode: 'insensitive' } }
+            ? {
+                OR: [
+                  { username: { contains: query, mode: 'insensitive' } },
+                  { name: { contains: query, mode: 'insensitive' } },
+                ],
+              }
             : {}),
         },
         select: USER_SELECT,
