@@ -1,5 +1,5 @@
 // Bump this when changing caching behavior to force refresh.
-const CACHE_NAME = 'aimediatank-v19';
+const CACHE_NAME = 'aimediatank-v20';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install
@@ -140,6 +140,33 @@ async function showCallNotification(title, options) {
   }
 }
 
+/** Long pattern to re-alert on lock screen (Android may ignore notification.vibrate alone). */
+const VOICE_CALL_VIBRATE = [800, 300, 800, 300, 800, 1200, 800, 300, 800, 300, 800, 2000];
+
+function pulseVoiceCallVibration() {
+  if (!('vibrate' in navigator)) return;
+  try {
+    navigator.vibrate(VOICE_CALL_VIBRATE);
+  } catch {
+    // ignore — some browsers deny vibration in SW
+  }
+}
+
+async function dismissVoiceCallNotifications(callId) {
+  const notifications = await self.registration.getNotifications();
+  for (const notification of notifications) {
+    const data = notification.data || {};
+    if (data.type === 'voice_call' && data.callId === callId) {
+      notification.close();
+    }
+  }
+}
+
+async function alertIncomingVoiceCall(title, options) {
+  await showCallNotification(title, options);
+  pulseVoiceCallVibration();
+}
+
 function voiceCallDeepLink(data, voiceAction) {
   const params = new URLSearchParams({
     openChat: '1',
@@ -209,6 +236,11 @@ self.addEventListener('push', (event) => {
     return;
   }
 
+  if (data.type === 'voice_call_dismiss') {
+    event.waitUntil(dismissVoiceCallNotifications(data.callId));
+    return;
+  }
+
   const isVoiceCall = data.type === 'voice_call';
 
   const options = {
@@ -218,9 +250,7 @@ self.addEventListener('push', (event) => {
     tag: isVoiceCall ? 'voice-call-' + (data.callId || 'incoming') : 'aimediatank-notification',
     renotify: true,
     requireInteraction: isVoiceCall,
-    vibrate: isVoiceCall
-      ? [400, 200, 400, 200, 400, 800, 400, 200, 400, 2000]
-      : [100, 50, 100],
+    vibrate: isVoiceCall ? VOICE_CALL_VIBRATE : [100, 50, 100],
     silent: false,
     timestamp: Date.now(),
     data: {
@@ -241,14 +271,16 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'AiMediaTank';
 
   event.waitUntil(
-    showCallNotification(title, options).then(() => {
-      if (!isVoiceCall) return;
-      return notifyOpenClients({
-        type: 'VOICE_CALL_INCOMING',
-        callId: data.callId,
-        caller: data.caller,
-      });
-    }),
+    (isVoiceCall ? alertIncomingVoiceCall(title, options) : showCallNotification(title, options)).then(
+      () => {
+        if (!isVoiceCall) return;
+        return notifyOpenClients({
+          type: 'VOICE_CALL_INCOMING',
+          callId: data.callId,
+          caller: data.caller,
+        });
+      },
+    ),
   );
 });
 

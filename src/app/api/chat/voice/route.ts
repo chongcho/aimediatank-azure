@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { sendVoiceCallPushToUser } from '@/lib/webPush'
+import {
+  sendVoiceCallDismissPushToUser,
+  sendVoiceCallRingPushBurstToUser,
+} from '@/lib/webPush'
 import {
   plannedVoipCancelPushAttempts,
   sendVoipCallCancelPushBurstToUser,
@@ -80,6 +83,7 @@ async function clearCallerRinging(userId: string) {
   for (const call of staleRinging) {
     try {
       await sendVoipCallCancelPushBurstToUser(call.calleeId, call.id)
+      await sendVoiceCallDismissPushToUser(call.calleeId, call.id)
     } catch (err) {
       console.error(`VoIP cancel push failed while clearing stale ring ${call.id}:`, err)
     }
@@ -258,7 +262,7 @@ export async function POST(request: Request) {
       })
 
       const callerLabel = call.caller.name || call.caller.username
-      void sendVoiceCallPushToUser(calleeId, {
+      void sendVoiceCallRingPushBurstToUser(calleeId, {
         type: 'voice_call',
         callId: call.id,
         caller: call.caller,
@@ -336,6 +340,10 @@ export async function POST(request: Request) {
         data: { consumedAt: new Date() },
       })
 
+      void sendVoiceCallDismissPushToUser(userId, call.id).catch((err) =>
+        console.error('Voice call dismiss push failed:', err),
+      )
+
       return NextResponse.json({ ok: true })
     }
 
@@ -363,6 +371,10 @@ export async function POST(request: Request) {
           payload: '{}',
         },
       })
+
+      void sendVoiceCallDismissPushToUser(userId, call.id).catch((err) =>
+        console.error('Voice call dismiss push failed:', err),
+      )
 
       return NextResponse.json({ ok: true })
     }
@@ -400,6 +412,7 @@ export async function POST(request: Request) {
       if (call.status === 'ringing' && call.callerId === userId) {
         try {
           await sendVoipCallCancelPushBurstToUser(peerId, call.id)
+          await sendVoiceCallDismissPushToUser(peerId, call.id)
           await recordVoipCancelBurst({
             callId: call.id,
             fromUserId: userId,
