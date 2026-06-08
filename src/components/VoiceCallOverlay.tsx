@@ -6,7 +6,9 @@ import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
 
 const CALL_POPUP_WIDTH = 360
 const CALL_POPUP_Z_INDEX = 100000
-const MINIMIZED_CALL_Z_INDEX = 99998
+/** Above TalkChat overlays (100001) so the call UI covers the whole screen on mobile. */
+const FULLSCREEN_CALL_Z_INDEX = 100002
+const MINIMIZED_CALL_Z_INDEX = 100002
 
 interface VoiceCallOverlayProps {
   callState: VoiceCallState
@@ -180,20 +182,6 @@ function IconCheck() {
   return (
     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function IconBell() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"
-        stroke="white"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </svg>
   )
 }
@@ -514,12 +502,20 @@ function FullscreenShell({
   remoteUser: VoiceCallUser | null
   children: ReactNode
 }) {
-  return (
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return null
+
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 99999,
+        zIndex: FULLSCREEN_CALL_Z_INDEX,
         color: 'white',
         display: 'flex',
         flexDirection: 'column',
@@ -541,7 +537,8 @@ function FullscreenShell({
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -584,12 +581,14 @@ function IncomingCallScreen({
   labels,
   onAccept,
   onReject,
+  onHide,
   mode = 'fullscreen',
 }: {
   remoteUser: VoiceCallUser | null
   labels: VoiceCallOverlayProps['labels']
   onAccept: () => void
   onReject: () => void
+  onHide?: () => void
   mode?: CallUiMode
 }) {
   const name = displayName(remoteUser) || 'AiMediaTank'
@@ -597,31 +596,13 @@ function IncomingCallScreen({
   const popupTitle = formatCallStatus(labels.incomingCall, remoteUser)
 
   return (
-    <CallScreenShell mode={mode} remoteUser={remoteUser} title={compact ? popupTitle : labels.appAudio}>
-      {mode === 'fullscreen' ? (
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            aria-label={labels.remindMe}
-            title={labels.remindMe}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '4px',
-              border: 'none',
-              background: 'transparent',
-              color: 'white',
-              cursor: 'pointer',
-              padding: '4px',
-              opacity: 0.85,
-            }}
-          >
-            <IconBell />
-            <span style={{ fontSize: '11px' }}>{labels.remindMe}</span>
-          </button>
-        </div>
-      ) : null}
+    <CallScreenShell
+      mode={mode}
+      remoteUser={remoteUser}
+      title={compact ? popupTitle : labels.appAudio}
+      onHide={onHide}
+      hideLabel={onHide ? labels.hideCall : undefined}
+    >
 
       {mode === 'fullscreen' ? (
         <div style={{ textAlign: 'center', opacity: 0.85, fontSize: '15px', marginTop: '4px' }}>
@@ -860,13 +841,15 @@ function FloatingMinimizedCallBar({
   const connected = callState === 'connected'
   const duration = useCallDuration(connected)
   const statusLabel =
-    callState === 'outgoing'
-      ? formatCallStatus(labels.calling, remoteUser)
-      : callState === 'connecting'
-        ? labels.connecting
-        : connected
-          ? `${labels.appAudio} · ${formatDuration(duration)}`
-          : labels.connected
+    callState === 'incoming'
+      ? formatCallStatus(labels.incomingCall, remoteUser)
+      : callState === 'outgoing'
+        ? formatCallStatus(labels.calling, remoteUser)
+        : callState === 'connecting'
+          ? labels.connecting
+          : connected
+            ? `${labels.appAudio} · ${formatDuration(duration)}`
+            : labels.connected
 
   useEffect(() => {
     setMounted(true)
@@ -1090,6 +1073,7 @@ export function VoiceCallOverlay({
           labels={labels}
           onAccept={onAccept}
           onReject={onReject}
+          onHide={onHide}
           mode={callMode}
         />
       )
