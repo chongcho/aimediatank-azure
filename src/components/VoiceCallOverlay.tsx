@@ -115,7 +115,7 @@ function NativeIncomingCallScreen({
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 2147483000,
+        zIndex: 99999,
         background: 'linear-gradient(180deg, #3d2914 0%, #1a1208 45%, #0d0906 100%)',
         color: 'white',
         display: 'flex',

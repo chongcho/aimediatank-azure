@@ -32,25 +32,16 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Stops stale dismiss retries from ending a newer incoming call.
     private var dismissRetryGeneration: [String: UUID] = [:]
 
-    private static func loadCallKitProviderIcon() -> Data? {
-        if let image = UIImage(named: "AppIcon") {
-            return image.pngData()
-        }
-        return nil
-    }
-
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
-        // Audio-only: avoids Video/More in-call grid; lock screen shows Accept/Decline for incoming.
+        // Audio-only: lock screen shows Accept/Decline instead of in-call Video/More grid.
         configuration.supportsVideo = false
         configuration.maximumCallGroups = 1
         configuration.maximumCallsPerCallGroup = 1
         configuration.supportedHandleTypes = [.generic, .phoneNumber, .emailAddress]
         configuration.includesCallsInRecents = true
         configuration.ringtoneSound = "incoming-ring.wav"
-        if let iconData = Self.loadCallKitProviderIcon() {
-            configuration.iconTemplateImageData = iconData
-        }
+        // Do not set iconTemplateImageData here — a full-size AppIcon PNG can crash CallKit.
         provider = CXProvider(configuration: configuration)
         super.init()
         provider.setDelegate(self, queue: nil)
@@ -168,25 +159,33 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         Self.clearCallCancelled(normalized)
         cancelDismissRetries(except: normalized)
         stopStatusWatches(except: normalized)
-        dismissOtherRingingCalls(exceptCallId: normalized)
+        // Do not dismiss CallKit calls synchronously during PushKit — iOS can crash/reject.
     }
 
     func dismissRingingCall(uuid: UUID) {
-        let callId = uuid.uuidString.lowercased()
-        provider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)
-        let endCallAction = CXEndCallAction(call: uuid)
-        callController.request(CXTransaction(action: endCallAction)) { error in
-            if let error {
-                print("[AiMediaTankVoipPushBridge] CXEndCallAction failed for \(uuid): \(error.localizedDescription)")
+        let dismiss = { [weak self] in
+            guard let self = self else { return }
+            let callId = uuid.uuidString.lowercased()
+            self.provider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)
+            let endCallAction = CXEndCallAction(call: uuid)
+            self.callController.request(CXTransaction(action: endCallAction)) { error in
+                if let error {
+                    print("[AiMediaTankVoipPushBridge] CXEndCallAction failed for \(uuid): \(error.localizedDescription)")
+                }
             }
+            NotificationCenter.default.post(
+                name: Self.cancelPushNotification,
+                object: nil,
+                userInfo: ["callId": callId]
+            )
+            Self.noteCallDismissed(callId)
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
-        NotificationCenter.default.post(
-            name: Self.cancelPushNotification,
-            object: nil,
-            userInfo: ["callId": callId]
-        )
-        Self.noteCallDismissed(callId)
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        if Thread.isMainThread {
+            dismiss()
+        } else {
+            DispatchQueue.main.async(execute: dismiss)
+        }
     }
 
     func dismissAllRingingCalls(preferredCallId: String? = nil) {
@@ -274,8 +273,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                         completion(false)
                         return
                     }
-                    self.dismissOtherRingingCalls(exceptCallId: callId.uuidString)
-                    attemptReport(retryAfterCleanup: true)
+                    DispatchQueue.main.async {
+                        self.dismissOtherRingingCalls(exceptCallId: callId.uuidString)
+                        attemptReport(retryAfterCleanup: true)
+                    }
                     return
                 }
                 completion(true)
