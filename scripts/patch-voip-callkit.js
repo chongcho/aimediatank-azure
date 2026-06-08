@@ -1393,4 +1393,97 @@ if (pluginSwift && pluginSwift.includes(REQUEST_BRIDGE_DISMISS) && pluginSwift.i
   console.log('[patch-voip-callkit] route cancel dismiss through bridge provider')
 }
 
+const AUDIO_RELEASE_MARKER = 'releaseAudioSession notifyOthersOnDeactivation'
+if (callManager.includes('configureAudioSession') && !callManager.includes(AUDIO_RELEASE_MARKER)) {
+  callManager = callManager.replace(
+    `    // MARK: - Configure Audio Session
+    private func configureAudioSession() {
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .allowBluetoothA2DP])
+            try audioSession.setActive(true)
+        } catch {
+            print("Failed to configure audio session: \\(error.localizedDescription)")
+        }
+    }`,
+    `    // MARK: - Configure Audio Session
+    private func configureAudioSession() {
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .allowBluetoothA2DP])
+        } catch {
+            print("Failed to configure audio session: \\(error.localizedDescription)")
+        }
+    }
+
+    private func releaseAudioSession() {
+        // ${AUDIO_RELEASE_MARKER}
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }`,
+  )
+
+  callManager = callManager.replace(
+    `        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    func cancelAllIncomingCalls()`,
+    `        releaseAudioSession()
+    }
+
+    func cancelAllIncomingCalls()`,
+  )
+
+  callManager = callManager.replace(
+    `    func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+        configureAudioSession()
+        // stopCallStatusPolling on CallKit action`,
+    `    func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+        // stopCallStatusPolling on CallKit action`,
+  )
+
+  callManager = callManager.replace(
+    `    func providerDidReset(_ provider: CXProvider) {
+        activeCalls.removeAll()
+    }`,
+    `    func providerDidReset(_ provider: CXProvider) {
+        activeCalls.removeAll()
+        releaseAudioSession()
+    }`,
+  )
+
+  callManager = callManager.replace(
+    `        // reportCall ended on CXEndCallAction
+        provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .remoteEnded)
+        action.fulfill()
+    }`,
+    `        // reportCall ended on CXEndCallAction
+        provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .remoteEnded)
+        action.fulfill()
+        releaseAudioSession()
+    }`,
+  )
+
+  callManager = callManager.replace(
+    `    func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        print("Audio session activated")
+        // Start your audio processing here
+    }
+    
+    func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        print("Audio session deactivated")
+        // Stop your audio processing here
+    }`,
+    `    func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        configureAudioSession()
+    }
+
+    func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        releaseAudioSession()
+    }`,
+  )
+
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] release audio session on call end and CallKit reset')
+}
+
 console.log('[patch-voip-callkit] done')

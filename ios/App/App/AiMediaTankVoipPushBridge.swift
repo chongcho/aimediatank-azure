@@ -50,6 +50,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         provider.setDelegate(self, queue: nil)
     }
 
+    /// Configure category/mode only. CallKit owns activation via didActivate — never call setActive(true) here.
     private func configureAudioSession() {
         let audioSession = AVAudioSession.sharedInstance()
         do {
@@ -58,9 +59,52 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 mode: .voiceChat,
                 options: [.allowBluetoothHFP, .allowBluetoothA2DP, .defaultToSpeaker]
             )
-            try audioSession.setActive(true)
         } catch {
             print("[AiMediaTankVoipPushBridge] audio session configure failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Release the shared audio session so cellular Phone calls can use the mic/speaker again.
+    private func releaseAudioSession() {
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("[AiMediaTankVoipPushBridge] audio session release failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Release audio when no connected CallKit call is active (safe during cellular-call interruptions).
+    func releaseAudioIfNoConnectedCall() {
+        let observer = CXCallObserver()
+        let hasConnectedCall = observer.calls.contains { !$0.hasEnded && $0.hasConnected }
+        if !hasConnectedCall {
+            releaseAudioSession()
+        }
+    }
+
+    /// After a crash or stale CallKit state, tear down audio and orphaned rings so Phone calls work again.
+    func recoverFromStaleCallState() {
+        let observer = CXCallObserver()
+        let systemCalls = observer.calls.filter { !$0.hasEnded }
+        let storedRinging = Set(UserDefaults.standard.stringArray(forKey: Self.ringingCallIdsKey) ?? [])
+
+        // Dismiss only rings we previously tracked (orphaned after crash), not fresh incoming calls.
+        for call in systemCalls where !call.isOutgoing && !call.hasConnected {
+            let callId = call.uuid.uuidString.lowercased()
+            if storedRinging.contains(callId) {
+                dismissRingingCall(uuid: call.uuid)
+            }
+        }
+
+        let hasConnectedCall = systemCalls.contains { $0.hasConnected }
+        if !hasConnectedCall {
+            releaseAudioSession()
+            clearPendingCallKitAnswer()
+            statusWatchGeneration.keys.forEach { stopCallStatusWatch(callId: $0) }
+            dismissRetryGeneration.removeAll()
+            if systemCalls.isEmpty || storedRinging.isEmpty {
+                UserDefaults.standard.removeObject(forKey: Self.ringingCallIdsKey)
+            }
         }
     }
 
@@ -88,6 +132,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     }
 
     func ensureStarted() {
+        recoverFromStaleCallState()
+
         guard pushRegistry == nil else { return }
         let registry = PKPushRegistry(queue: DispatchQueue.main)
         registry.delegate = self
@@ -221,7 +267,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 userInfo: ["callId": callId]
             )
             Self.noteCallDismissed(callId)
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            self.releaseAudioSession()
         }
         if Thread.isMainThread {
             dismiss()
@@ -580,12 +626,15 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         print("[AiMediaTankVoipPushBridge] providerDidReset — clearing stale VoIP call state")
         statusWatchGeneration.keys.forEach { stopCallStatusWatch(callId: $0) }
         dismissRetryGeneration.removeAll()
+        clearPendingCallKitAnswer()
+        releaseAudioSession()
+        dismissAllRingingCalls()
+        UserDefaults.standard.removeObject(forKey: Self.ringingCallIdsKey)
     }
 
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         stopCallStatusWatch(callId: callId)
-        configureAudioSession()
         markPendingCallKitAnswer(callId: callId)
         NotificationCenter.default.post(
             name: Self.callKitAnswerNotification,
@@ -607,6 +656,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .remoteEnded)
         Self.noteCallDismissed(callId)
         action.fulfill()
+        releaseAudioSession()
     }
 
     func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
@@ -629,5 +679,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         configureAudioSession()
     }
 
-    func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {}
+    func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        releaseAudioSession()
+    }
 }
