@@ -102,7 +102,7 @@ export const TALK_CHAT_MAP = {
   voiceUserBusy: 'User is busy',
   voiceCallFailed: 'Voice call failed',
   voiceCallInAppHint:
-    'Voice call in progress — tap the bar above to open call controls.',
+    'Voice call in progress — tap the bar below to open call controls.',
   voiceHideCall: 'Hide',
   voiceTapToShowCall: 'Tap to show call',
 } as const
@@ -326,7 +326,7 @@ const KO: Pack = {
   voiceUserBusy: '상대방이 통화 중입니다',
   voiceCallFailed: '음성 통화에 실패했습니다',
   voiceCallInAppHint:
-    '통화 중입니다 — 위의 바를 눌러 통화 컨트롤을 여세요.',
+    '통화 중입니다 — 아래 바를 눌러 통화 컨트롤을 여세요.',
   voiceHideCall: '숨기기',
   voiceTapToShowCall: '탭하여 통화 표시',
 }
@@ -434,7 +434,7 @@ const JA: Pack = {
   voiceUserBusy: '相手は通話中です',
   voiceCallFailed: '音声通話に失敗しました',
   voiceCallInAppHint:
-    '通話中です — 上のバーをタップして通話コントロールを開いてください。',
+    '通話中です — 下のバーをタップして通話コントロールを開いてください。',
   voiceHideCall: '非表示',
   voiceTapToShowCall: 'タップして通話を表示',
 }
@@ -542,7 +542,7 @@ const ZH: Pack = {
   voiceUserBusy: '对方正在通话中',
   voiceCallFailed: '语音通话失败',
   voiceCallInAppHint:
-    '通话进行中 — 点击上方栏打开通话控件。',
+    '通话进行中 — 点击下方栏打开通话控件。',
   voiceHideCall: '隐藏',
   voiceTapToShowCall: '点击显示通话',
 }

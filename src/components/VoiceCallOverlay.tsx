@@ -882,7 +882,7 @@ function FloatingMinimizedCallBar({
       title={labels.tapToShowCall}
       style={{
         position: 'fixed',
-        top: 'max(8px, env(safe-area-inset-top))',
+        bottom: 'max(12px, env(safe-area-inset-bottom))',
         left: '12px',
         right: '12px',
         zIndex: MINIMIZED_CALL_Z_INDEX,
