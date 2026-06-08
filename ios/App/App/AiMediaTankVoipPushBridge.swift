@@ -19,6 +19,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private static let ringingCallIdsKey = "AiMediaTank.ringingCallIds"
     private static let cancelledCallIdsKey = "AiMediaTank.cancelledCallIds"
     private static let pendingAnswerCallIdKey = "AiMediaTank.pendingCallKitAnswerCallId"
+    private static let incomingReportedAtKeyPrefix = "AiMediaTank.incomingReportedAt."
+    private static let statusPollGraceSeconds: TimeInterval = 8
+    private static let statusPollStartDelaySeconds: TimeInterval = 3
 
     private static func declineTokenKey(for callId: String) -> String {
         "AiMediaTank.declineToken.\(callId.lowercased())"
@@ -34,7 +37,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var dismissRetryGeneration: [String: UUID] = [:]
     /// Avoid replaying the same pending CallKit answer repeatedly.
     private var lastReplayedPendingAnswerCallId: String?
-    private var inAppCallUIObserversInstalled = false
 
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
@@ -219,17 +221,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
 
         replayPendingCallKitAnswerIfNeeded()
-
-        if !inAppCallUIObserversInstalled {
-            inAppCallUIObserversInstalled = true
-            NotificationCenter.default.addObserver(
-                forName: UIApplication.didBecomeActiveNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                self?.dismissTrackedRingingCallsForInAppUI()
-            }
-        }
     }
 
     static func noteIncomingCallReported(_ callId: String) {
@@ -239,6 +230,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             ids.append(normalized)
             UserDefaults.standard.set(ids, forKey: ringingCallIdsKey)
         }
+        UserDefaults.standard.set(
+            Date().timeIntervalSince1970,
+            forKey: incomingReportedAtKeyPrefix + normalized
+        )
+    }
+
+    private static func isWithinIncomingGracePeriod(callId: String) -> Bool {
+        let normalized = callId.lowercased()
+        let reportedAt = UserDefaults.standard.double(forKey: incomingReportedAtKeyPrefix + normalized)
+        guard reportedAt > 0 else { return false }
+        return Date().timeIntervalSince1970 - reportedAt < statusPollGraceSeconds
     }
 
     static func noteCallDismissed(_ callId: String) {
@@ -434,6 +436,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private func performCancelDismiss(callId: String, source: String) {
         let normalized = callId.lowercased()
+        if source == "status_poll", Self.isWithinIncomingGracePeriod(callId: normalized) {
+            print("[AiMediaTankVoipPushBridge] defer status_poll dismiss — within incoming grace for \(normalized)")
+            return
+        }
         if Self.isCallCancelled(normalized) {
             cancelDismissRetries(callId: normalized)
             stopCallStatusWatch(callId: normalized)
@@ -527,7 +533,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             }
         }
 
-        poll(attempt: 0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.statusPollStartDelaySeconds) {
+            guard self.statusWatchGeneration[normalized] == generation else { return }
+            poll(attempt: 0)
+        }
     }
 
     func stopCallStatusWatch(callId: String) {
@@ -613,13 +622,13 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             return
         }
 
+        prepareForNewIncomingCall(callId: callIdString)
+
         if Self.isCallCancelled(callIdString) {
             print("[AiMediaTankVoipPushBridge] ignored incoming push — call already cancelled \(callIdString.lowercased())")
             completion()
             return
         }
-
-        prepareForNewIncomingCall(callId: callIdString)
 
         var completed = false
         let completeOnce = {
@@ -655,6 +664,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 completeOnce()
                 return
             }
+            // PushKit expects completion soon after CallKit is notified.
+            if reported {
+                completeOnce()
+            }
             var info = self.userInfo(from: payloadDict)
             info["reportedToCallKit"] = reported
             if reported {
@@ -662,6 +675,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 if UIApplication.shared.applicationState == .active {
                     self.dismissCallKitUIForInAppOnly(callId: callIdString)
                 }
+            } else {
+                completeOnce()
             }
             if reported, let token = self.declineToken(from: payloadDict) {
                 UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: callIdString.lowercased()))

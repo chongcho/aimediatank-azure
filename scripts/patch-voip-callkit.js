@@ -1590,4 +1590,50 @@ if (pluginSwift && pluginSwift.includes('updateCallStatus') && !pluginSwift.incl
   console.log('[patch-voip-callkit] forward connected status to App bridge CallKit provider')
 }
 
+const BRIDGE_ONLY_POLL = 'bridge-only status watch forwarding'
+if (pluginSwift && pluginSwift.includes('startCallStatusPolling') && !pluginSwift.includes(BRIDGE_ONLY_POLL)) {
+  pluginSwift = pluginSwift.replace(
+    /    internal func startCallStatusPolling\(callId: String, token: String\) \{[\s\S]*?\n    \}\n\n    internal func stopCallStatusPolling/,
+    `    internal func startCallStatusPolling(callId: String, token: String) {
+        // ${BRIDGE_ONLY_POLL}
+        NotificationCenter.default.post(
+            name: NSNotification.Name("AiMediaTankStartCallStatusWatch"),
+            object: nil,
+            userInfo: ["callId": callId, "token": token]
+        )
+    }
+
+    internal func stopCallStatusPolling`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] forward status watch to App bridge only (no duplicate poll)')
+}
+
+const PLUGIN_POLL_GRACE = 'status poll grace for ringing and active'
+if (pluginSwift && pluginSwift.includes('private func pollCallStatus') && !pluginSwift.includes(PLUGIN_POLL_GRACE)) {
+  pluginSwift = pluginSwift.replace(
+    `            if status == "ringing" {
+                completion(true)
+                return
+            }
+            DispatchQueue.main.async {
+                if status != "active" {
+                    self.requestBridgeDismiss(callId: callId)
+                }
+                completion(false)
+            }`,
+    `            if status == "ringing" || status == "active" {
+                completion(true)
+                return
+            }
+            DispatchQueue.main.async {
+                // ${PLUGIN_POLL_GRACE}
+                self.requestBridgeDismiss(callId: callId)
+                completion(false)
+            }`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] treat active status as in-progress during poll')
+}
+
 console.log('[patch-voip-callkit] done')

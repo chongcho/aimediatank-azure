@@ -33,6 +33,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate CallKit ring sounds
+        run: |
+          npm run rings:generate
+          cp public/sounds/incoming-ring.wav ios/App/App/incoming-ring.wav
+
       - name: Capacitor sync (iOS)
         env:
           CAPACITOR_SERVER_URL: ${{ inputs.capacitor_server_url }}

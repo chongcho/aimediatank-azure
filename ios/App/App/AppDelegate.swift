@@ -27,7 +27,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        AiMediaTankVoipPushBridge.shared.recoverFromStaleCallState()
+        // Do not recover/dismiss ringing CallKit here — that killed lock-screen incoming UI on unlock.
         AiMediaTankVoipPushBridge.shared.replayPendingCallKitAnswerIfNeeded()
     }
 

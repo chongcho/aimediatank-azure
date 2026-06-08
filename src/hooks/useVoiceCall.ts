@@ -267,7 +267,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const handleRemoteOffer = useCallback(
     async (signal: PollSignal, caller: VoiceCallUser) => {
       storePendingOffer(signal.payload)
-      if (isNativeIosCallApp()) {
+      // Native iOS: PushKit bridge already reports CallKit on lock screen — avoid a second ring.
+      if (!isNativeIosCallApp()) {
         const label = caller.name || caller.username || 'AiMediaTank'
         void reportIncomingCallToCallKit({
           callId: signal.callId,
@@ -495,7 +496,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         const incoming = data.incomingCalls[0]
         if (!handledIncomingRef.current.has(`call-${incoming.id}`)) {
           handledIncomingRef.current.add(`call-${incoming.id}`)
-          if (isNativeIosCallApp()) {
+          if (!isNativeIosCallApp()) {
             const label = incoming.caller.name || incoming.caller.username || 'AiMediaTank'
             void reportIncomingCallToCallKit({
               callId: incoming.id,
@@ -613,7 +614,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
     void initNativeCallBridge({
       onIncomingCall: (call) => {
-        stopVoiceCallRingtone()
+        if (!isNativeIosCallApp()) {
+          stopVoiceCallRingtone()
+        }
         void ensureIncomingCall(call.callId, call)
       },
       onCallAnswered: (callId) => {
