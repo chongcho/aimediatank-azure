@@ -755,9 +755,13 @@ if (pluginSwift && !pluginSwift.includes(BRIDGE_V1)) {
     }
 
     @objc private func handleBridgedVoipIncomingPush(_ notification: Notification) {
-        guard let payloadDict = notification.userInfo else {
+        guard let userInfo = notification.userInfo else {
             NotificationCenter.default.post(name: NSNotification.Name("AiMediaTankVoipIncomingPushDone"), object: nil)
             return
+        }
+        var payloadDict: [String: Any] = [:]
+        for (key, value) in userInfo {
+            payloadDict[String(describing: key)] = value
         }
         processIncomingVoipPushPayload(payloadDict)
     }
@@ -831,6 +835,33 @@ if (pluginSwift && !pluginSwift.includes(BRIDGE_V1)) {
 
   fs.writeFileSync(pluginSwiftPath, pluginSwift)
   console.log('[patch-voip-callkit] route VoIP pushes through AppDelegate bridge')
+}
+
+const BRIDGE_V2 = 'payloadDict String Any conversion'
+if (pluginSwift.includes(BRIDGE_V1) && !pluginSwift.includes(BRIDGE_V2)) {
+  pluginSwift = pluginSwift.replace(
+    `@objc private func handleBridgedVoipIncomingPush(_ notification: Notification) {
+        guard let payloadDict = notification.userInfo else {
+            NotificationCenter.default.post(name: NSNotification.Name("AiMediaTankVoipIncomingPushDone"), object: nil)
+            return
+        }
+        processIncomingVoipPushPayload(payloadDict)
+    }`,
+    `@objc private func handleBridgedVoipIncomingPush(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else {
+            NotificationCenter.default.post(name: NSNotification.Name("AiMediaTankVoipIncomingPushDone"), object: nil)
+            return
+        }
+        // ${BRIDGE_V2}
+        var payloadDict: [String: Any] = [:]
+        for (key, value) in userInfo {
+            payloadDict[String(describing: key)] = value
+        }
+        processIncomingVoipPushPayload(payloadDict)
+    }`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] fix bridged VoIP payload dictionary types')
 }
 
 const CANCEL_V5_MARKER = 'deactivate audio on remote cancel'
