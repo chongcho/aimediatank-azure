@@ -1208,6 +1208,9 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     const next = !showVoiceCallPicker
     if (next) {
       setShowUserPicker(false)
+      setSelectedRecipients([])
+      setActiveConversation(null)
+      setMessages([])
       setVoiceCallPickTarget(null)
       setVoiceCallSearchQuery('')
       setVoiceCallSearchedUsers([])
@@ -2706,16 +2709,16 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 style={{
                   padding: '4px 6px',
                   borderRadius: '4px',
-                  border: phoneNavActive ? '2px solid #065f46' : 'none',
-                  background: voiceCall.callState === 'idle'
-                    ? (phoneNavActive ? '#047857' : '#059669')
-                    : '#9ca3af',
+                  border: phoneNavActive ? '2px solid #065f46' : '1px solid #d1d5db',
+                  background:
+                    voiceCall.callState === 'idle' && phoneNavActive ? '#059669' : '#9ca3af',
                   color: 'white',
                   cursor: voiceCall.callState === 'idle' ? 'pointer' : 'not-allowed',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   boxShadow: phoneNavActive ? '0 0 0 1px rgba(6,95,70,0.35)' : 'none',
+                  transition: 'background 0.2s, border-color 0.2s',
                 }}
                 title={tr[TC.voiceCall]}
               >
