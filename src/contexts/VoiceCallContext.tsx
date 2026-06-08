@@ -84,14 +84,12 @@ export function VoiceCallOverlayPanel({
       labels={labels}
       inAppHint={nativeIncoming ? undefined : labels.inAppHint}
       onAccept={() => {
-        if (nativeIncoming && ctx.callId) {
-          void (async () => {
-            const answered = await answerNativeCall(ctx.callId)
-            if (!answered) await ctx.answerCall()
-          })()
-          return
-        }
-        void ctx.answerCall()
+        void (async () => {
+          if (nativeIncoming && ctx.callId) {
+            await answerNativeCall(ctx.callId).catch(() => false)
+          }
+          await ctx.answerCall()
+        })()
       }}
       onReject={() => void ctx.rejectCall()}
       onEnd={() => void ctx.endCall()}

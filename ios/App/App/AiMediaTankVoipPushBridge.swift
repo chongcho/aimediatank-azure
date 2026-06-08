@@ -18,6 +18,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private static let ringingCallIdsKey = "AiMediaTank.ringingCallIds"
     private static let cancelledCallIdsKey = "AiMediaTank.cancelledCallIds"
+    private static let pendingAnswerCallIdKey = "AiMediaTank.pendingCallKitAnswerCallId"
 
     private static func declineTokenKey(for callId: String) -> String {
         "AiMediaTank.declineToken.\(callId.lowercased())"
@@ -31,6 +32,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var statusBackgroundTasks: [String: UIBackgroundTaskIdentifier] = [:]
     /// Stops stale dismiss retries from ending a newer incoming call.
     private var dismissRetryGeneration: [String: UUID] = [:]
+    /// Avoid replaying the same pending CallKit answer repeatedly.
+    private var lastReplayedPendingAnswerCallId: String?
 
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
@@ -45,6 +48,43 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         provider = CXProvider(configuration: configuration)
         super.init()
         provider.setDelegate(self, queue: nil)
+    }
+
+    private func configureAudioSession() {
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            try audioSession.setCategory(
+                .playAndRecord,
+                mode: .voiceChat,
+                options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker]
+            )
+            try audioSession.setActive(true)
+        } catch {
+            print("[AiMediaTankVoipPushBridge] audio session configure failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func markPendingCallKitAnswer(callId: String) {
+        UserDefaults.standard.set(callId.lowercased(), forKey: Self.pendingAnswerCallIdKey)
+    }
+
+    private func clearPendingCallKitAnswer() {
+        UserDefaults.standard.removeObject(forKey: Self.pendingAnswerCallIdKey)
+        lastReplayedPendingAnswerCallId = nil
+    }
+
+    /// Re-deliver CallKit answer to JS when the WebView was not ready (lock-screen accept).
+    func replayPendingCallKitAnswerIfNeeded() {
+        guard let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey),
+              !callId.isEmpty else { return }
+        if lastReplayedPendingAnswerCallId == callId { return }
+        lastReplayedPendingAnswerCallId = callId
+        print("[AiMediaTankVoipPushBridge] replay pending CallKit answer for \(callId)")
+        NotificationCenter.default.post(
+            name: Self.callKitAnswerNotification,
+            object: nil,
+            userInfo: ["callId": callId]
+        )
     }
 
     func ensureStarted() {
@@ -84,6 +124,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                   let callId = notification.userInfo?["callId"] as? String else { return }
             self.performCancelDismiss(callId: callId, source: "bridge_dismiss_request")
         }
+
+        replayPendingCallKitAnswerIfNeeded()
     }
 
     static func noteIncomingCallReported(_ callId: String) {
@@ -543,6 +585,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         stopCallStatusWatch(callId: callId)
+        configureAudioSession()
+        markPendingCallKitAnswer(callId: callId)
         NotificationCenter.default.post(
             name: Self.callKitAnswerNotification,
             object: nil,
@@ -554,6 +598,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         stopCallStatusWatch(callId: callId)
+        clearPendingCallKitAnswer()
         NotificationCenter.default.post(
             name: Self.callKitEndNotification,
             object: nil,
@@ -580,7 +625,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         print("[AiMediaTankVoipPushBridge] CallKit action timed out: \(action)")
     }
 
-    func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {}
+    func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        configureAudioSession()
+    }
 
     func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {}
 }

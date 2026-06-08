@@ -83,6 +83,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const callStateRef = useRef<VoiceCallState>('idle')
   callStateRef.current = callState
   const pendingVoiceActionRef = useRef<'accept' | 'reject' | null>(null)
+  const answeringRef = useRef(false)
 
   const reportError = useCallback(
     (message: string) => {
@@ -335,11 +336,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const resolvePendingOffer = useCallback(async (callId: string) => {
     if (pendingOfferRef.current) return pendingOfferRef.current
 
-    const res = await fetch(`/api/chat/voice?since=${encodeURIComponent(new Date(0).toISOString())}`)
+    const res = await fetch(`/api/chat/voice?since=${encodeURIComponent(new Date(0).toISOString())}`, {
+      cache: 'no-store',
+      credentials: 'include',
+    })
     if (!res.ok) return null
     const data = await res.json()
     const offerSignal = (data.signals as PollSignal[] | undefined)?.find(
-      (s) => s.callId === callId && s.type === 'offer',
+      (s) => voiceCallIdsMatch(s.callId, callId) && s.type === 'offer',
     )
     const sdp = offerSignal?.payload?.sdp as RTCSessionDescriptionInit | undefined
     if (sdp) {
@@ -350,8 +354,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [])
 
   const answerCall = useCallback(async () => {
+    if (answeringRef.current) return
+    if (callStateRef.current === 'connecting' || callStateRef.current === 'connected') return
     const id = callIdRef.current
     if (!id) return
+    answeringRef.current = true
     try {
       const offerSdp = await resolvePendingOffer(id)
       if (!offerSdp) {
@@ -376,6 +383,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     } catch (err) {
       reportError(err instanceof Error ? err.message : 'Failed to answer call')
       await endCall()
+    } finally {
+      answeringRef.current = false
     }
   }, [attachLocalTracks, createPeerConnection, endCall, flushPendingIceCandidates, reportError, reattachRemoteAudio, resolvePendingOffer, sendSignal])
 
@@ -556,7 +565,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
     const ensureIncomingCall = async (callId: string, call?: NativeIncomingCallPayload) => {
       const normalizedId = normalizeVoiceCallId(callId)
-      if (voiceCallIdsMatch(callIdRef.current, normalizedId) && callStateRef.current === 'incoming') return
+      callIdRef.current = normalizedId
+      setCallId(normalizedId)
+      isCallerRef.current = false
+
+      if (voiceCallIdsMatch(callIdRef.current, normalizedId) && callStateRef.current === 'incoming') {
+        return
+      }
 
       const fromMeta = call ? callerFromNative(call) : null
       if (fromMeta) {
@@ -582,9 +597,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         // poll fallback below on answer
       }
 
-      callIdRef.current = normalizedId
-      setCallId(normalizedId)
-      isCallerRef.current = false
       setCallState('incoming')
     }
 
