@@ -138,7 +138,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func reportCallConnected(callId: String) {
         let normalized = callId.lowercased()
         guard let uuid = UUID(uuidString: normalized) else { return }
-        provider.reportCall(with: uuid, connectedAt: Date())
+        provider.reportOutgoingCall(with: uuid, connectedAt: Date())
         Self.noteCallDismissed(normalized)
         clearPendingCallKitAnswer()
         cancelDismissRetries(callId: normalized)
