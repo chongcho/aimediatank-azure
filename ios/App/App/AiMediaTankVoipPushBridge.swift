@@ -13,6 +13,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate {
     static let voipTokenNotification = Notification.Name("AiMediaTankVoipPushToken")
 
     private static let ringingCallIdsKey = "AiMediaTank.ringingCallIds"
+    private static let cancelledCallIdsKey = "AiMediaTank.cancelledCallIds"
 
     private var pushRegistry: PKPushRegistry?
     private let callController = CXCallController()
@@ -55,15 +56,36 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate {
         UserDefaults.standard.set(ids, forKey: ringingCallIdsKey)
     }
 
+    static func markCallCancelled(_ callId: String) {
+        let normalized = callId.lowercased()
+        var ids = UserDefaults.standard.stringArray(forKey: cancelledCallIdsKey) ?? []
+        if !ids.contains(normalized) {
+            ids.append(normalized)
+            UserDefaults.standard.set(ids, forKey: cancelledCallIdsKey)
+        }
+    }
+
+    static func isCallCancelled(_ callId: String) -> Bool {
+        UserDefaults.standard.stringArray(forKey: cancelledCallIdsKey)?
+            .contains(callId.lowercased()) ?? false
+    }
+
     func dismissRingingCall(uuid: UUID) {
-        // End via CXCallController so CallManager's CXProvider (which reported the call) handles dismiss.
+        let callId = uuid.uuidString.lowercased()
+        // Route through CallManager's CXProvider (the one that reported the incoming call).
+        NotificationCenter.default.post(
+            name: Self.cancelPushNotification,
+            object: nil,
+            userInfo: ["callId": callId]
+        )
+        // Fallback if the Capacitor plugin has not loaded yet.
         let endCallAction = CXEndCallAction(call: uuid)
         callController.request(CXTransaction(action: endCallAction)) { error in
             if let error {
                 print("[AiMediaTankVoipPushBridge] CXEndCallAction failed for \(uuid): \(error.localizedDescription)")
             }
         }
-        Self.noteCallDismissed(uuid.uuidString.lowercased())
+        Self.noteCallDismissed(callId)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
@@ -87,7 +109,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate {
 
     func scheduleDismissRetries(for callId: String) {
         dismissAllRingingCalls(preferredCallId: callId)
-        for delay in [0.25, 0.5, 1.0, 2.0, 4.0] {
+        for delay in [0.25, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 self?.dismissAllRingingCalls(preferredCallId: callId)
             }
@@ -139,6 +161,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate {
            let cancelCallId = payloadString(payloadDict, key: "callId") {
             let normalizedCallId = cancelCallId.lowercased()
             print("[AiMediaTankVoipPushBridge] cancel push for call \(normalizedCallId)")
+            Self.markCallCancelled(normalizedCallId)
             NotificationCenter.default.post(
                 name: Self.cancelPushNotification,
                 object: nil,

@@ -948,4 +948,106 @@ if (pluginSwift && pluginSwift.includes(BRIDGE_V1) && !pluginSwift.includes(BRID
   console.log('[patch-voip-callkit] forward cancel VoIP push to CallManager provider')
 }
 
+const CANCEL_OBSERVER_MARKER = 'CallManager observes VoIP cancel push'
+if (callManager.includes('provider.setDelegate(self, queue: nil)') && !callManager.includes(CANCEL_OBSERVER_MARKER)) {
+  callManager = callManager.replace(
+    '        provider.setDelegate(self, queue: nil)\n    }',
+    `        provider.setDelegate(self, queue: DispatchQueue.main)
+
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("AiMediaTankVoipCancelPush"),
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self = self,
+                  let callId = note.userInfo?["callId"] as? String else { return }
+            let normalized = callId.lowercased()
+            // ${CANCEL_OBSERVER_MARKER}
+            if let uuid = UUID(uuidString: normalized) {
+                self.cancelIncomingCall(uuid: uuid)
+            }
+            self.dismissAllRingingIncomingCalls()
+        }
+    }`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] CallManager listens for VoIP cancel push')
+}
+
+const SKIP_CANCELLED_MARKER = 'skip incoming VoIP when caller already cancelled'
+if (pluginSwift && pluginSwift.includes('processIncomingVoipPushPayload') && !pluginSwift.includes(SKIP_CANCELLED_MARKER)) {
+  pluginSwift = pluginSwift.replace(
+    `        guard let callIdString = voipPayloadString(payloadDict, key: "callId"),
+              let callId = UUID(uuidString: callIdString),
+              let handle = voipPayloadString(payloadDict, key: "handle"),
+              let displayName = voipPayloadString(payloadDict, key: "displayName") else {
+            return
+        }`,
+    `        guard let callIdString = voipPayloadString(payloadDict, key: "callId"),
+              let callId = UUID(uuidString: callIdString),
+              let handle = voipPayloadString(payloadDict, key: "handle"),
+              let displayName = voipPayloadString(payloadDict, key: "displayName") else {
+            return
+        }
+
+        // ${SKIP_CANCELLED_MARKER}
+        let cancelledIds = UserDefaults.standard.stringArray(forKey: "AiMediaTank.cancelledCallIds") ?? []
+        if cancelledIds.contains(callIdString.lowercased()) {
+            return
+        }`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] skip CallKit report for already-cancelled calls')
+}
+
+const VOICE_API_BASE_MARKER = 'voice API base from capacitor.config.json'
+if (pluginSwift && pluginSwift.includes('syncCallDeclineToServer') && !pluginSwift.includes(VOICE_API_BASE_MARKER)) {
+  pluginSwift = pluginSwift.replace(
+    '    // AiMediaTank syncCallDeclineToServer',
+    `    // ${VOICE_API_BASE_MARKER}
+    private func voiceApiBaseURL() -> String {
+        if let path = Bundle.main.path(forResource: "capacitor.config", ofType: "json"),
+           let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let server = json["server"] as? [String: Any],
+           let url = server["url"] as? String,
+           !url.isEmpty {
+            return url.hasSuffix("/") ? String(url.dropLast()) : url
+        }
+        return "https://aimediatank.com"
+    }
+
+    // AiMediaTank syncCallDeclineToServer`,
+  )
+  pluginSwift = pluginSwift.replace(
+    'guard let url = URL(string: "https://aimediatank.com/api/chat/voice/native-decline")',
+    'guard let url = URL(string: "\\(voiceApiBaseURL())/api/chat/voice/native-decline")',
+  )
+  pluginSwift = pluginSwift.replace(
+    'URLComponents(string: "https://aimediatank.com/api/chat/voice/native-status")!',
+    'URLComponents(string: "\\(voiceApiBaseURL())/api/chat/voice/native-status")!',
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] use Capacitor server URL for native voice API')
+}
+
+callManager = fs.readFileSync(callManagerPath, 'utf8')
+const REMOTE_CANCEL_DECLINE_MARKER = 'skip decline sync on remote cancel'
+if (callManager.includes('syncCallDeclineToServer') && !callManager.includes(REMOTE_CANCEL_DECLINE_MARKER)) {
+  callManager = callManager.replace(
+    `        if let endedCall, !endedCall.isOutgoing, let token = endedCall.declineToken {
+            plugin?.syncCallDeclineToServer(callId: action.callUUID.uuidString.lowercased(), token: token)
+        }`,
+    `        // ${REMOTE_CANCEL_DECLINE_MARKER}
+        let normalizedCallId = action.callUUID.uuidString.lowercased()
+        let remoteCancelled = UserDefaults.standard.stringArray(forKey: "AiMediaTank.cancelledCallIds")?
+            .contains(normalizedCallId) ?? false
+        if let endedCall, !endedCall.isOutgoing, let token = endedCall.declineToken, !remoteCancelled {
+            plugin?.syncCallDeclineToServer(callId: normalizedCallId, token: token)
+        }`,
+  )
+  fs.writeFileSync(callManagerPath, callManager)
+  console.log('[patch-voip-callkit] skip native-decline when caller cancelled remotely')
+}
+
 console.log('[patch-voip-callkit] done')

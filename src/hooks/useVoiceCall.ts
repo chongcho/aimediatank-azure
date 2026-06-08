@@ -606,8 +606,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       },
       onCallEnded: (callId) => {
         if (callIdRef.current && !voiceCallIdsMatch(callIdRef.current, callId)) return
+        stopVoiceCallRingtone()
         if (callStateRef.current === 'incoming' && !isCallerRef.current) {
-          void rejectCallRef.current(callId)
+          resetCall()
           return
         }
         void endCallRef.current(callId)
