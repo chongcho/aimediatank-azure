@@ -29,6 +29,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Stops in-flight native-status polls when the watch generation changes.
     private var statusWatchGeneration: [String: UUID] = [:]
     private var statusBackgroundTasks: [String: UIBackgroundTaskIdentifier] = [:]
+    /// Stops stale dismiss retries from ending a newer incoming call.
+    private var dismissRetryGeneration: [String: UUID] = [:]
 
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
@@ -112,6 +114,37 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             .contains(callId.lowercased()) ?? false
     }
 
+    static func clearCallCancelled(_ callId: String) {
+        let normalized = callId.lowercased()
+        var ids = UserDefaults.standard.stringArray(forKey: cancelledCallIdsKey) ?? []
+        ids.removeAll { $0 == normalized }
+        UserDefaults.standard.set(ids, forKey: cancelledCallIdsKey)
+    }
+
+    private func cancelDismissRetries(callId: String) {
+        dismissRetryGeneration.removeValue(forKey: callId.lowercased())
+    }
+
+    private func cancelDismissRetries(except callId: String) {
+        let normalized = callId.lowercased()
+        dismissRetryGeneration = dismissRetryGeneration.filter { $0.key == normalized }
+    }
+
+    private func stopStatusWatches(except callId: String) {
+        let normalized = callId.lowercased()
+        for key in statusWatchGeneration.keys where key != normalized {
+            stopCallStatusWatch(callId: key)
+        }
+    }
+
+    /// Tear down timers from a prior call so they cannot dismiss the next incoming call.
+    private func prepareForNewIncomingCall(callId: String) {
+        let normalized = callId.lowercased()
+        Self.clearCallCancelled(normalized)
+        cancelDismissRetries(except: normalized)
+        stopStatusWatches(except: normalized)
+    }
+
     func dismissRingingCall(uuid: UUID) {
         let callId = uuid.uuidString.lowercased()
         provider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)
@@ -134,6 +167,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         if let preferredCallId,
            let uuid = UUID(uuidString: preferredCallId.lowercased()) {
             dismissRingingCall(uuid: uuid)
+            return
         }
 
         let observer = CXCallObserver()
@@ -149,9 +183,16 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     }
 
     func scheduleDismissRetries(for callId: String) {
+        let normalized = callId.lowercased()
+        let generation = UUID()
+        dismissRetryGeneration[normalized] = generation
+
         for delay in [0.25, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 15.0, 20.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                self?.dismissAllRingingCalls(preferredCallId: callId)
+                guard let self = self,
+                      self.dismissRetryGeneration[normalized] == generation,
+                      let uuid = UUID(uuidString: normalized) else { return }
+                self.dismissRingingCall(uuid: uuid)
             }
         }
     }
@@ -211,6 +252,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private func performCancelDismiss(callId: String, source: String) {
         let normalized = callId.lowercased()
+        if Self.isCallCancelled(normalized) {
+            cancelDismissRetries(callId: normalized)
+            stopCallStatusWatch(callId: normalized)
+            return
+        }
         reportCancelAck(callId: normalized, source: source)
         Self.markCallCancelled(normalized)
         stopCallStatusWatch(callId: normalized)
@@ -389,6 +435,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             return
         }
 
+        prepareForNewIncomingCall(callId: callIdString)
+
         var completed = false
         let completeOnce = {
             if completed { return }
@@ -448,7 +496,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     // MARK: - CXProviderDelegate
 
-    func providerDidReset(_ provider: CXProvider) {}
+    func providerDidReset(_ provider: CXProvider) {
+        print("[AiMediaTankVoipPushBridge] providerDidReset — clearing stale VoIP call state")
+        statusWatchGeneration.keys.forEach { stopCallStatusWatch(callId: $0) }
+        dismissRetryGeneration.removeAll()
+    }
 
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
