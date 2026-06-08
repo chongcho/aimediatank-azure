@@ -19,6 +19,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private static let ringingCallIdsKey = "AiMediaTank.ringingCallIds"
     private static let cancelledCallIdsKey = "AiMediaTank.cancelledCallIds"
 
+    private static func declineTokenKey(for callId: String) -> String {
+        "AiMediaTank.declineToken.\(callId.lowercased())"
+    }
+
     private var pushRegistry: PKPushRegistry?
     private let provider: CXProvider
     private let callController = CXCallController()
@@ -74,7 +78,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         ) { [weak self] notification in
             guard let self = self,
                   let callId = notification.userInfo?["callId"] as? String else { return }
-            self.performCancelDismiss(callId: callId)
+            self.performCancelDismiss(callId: callId, source: "bridge_dismiss_request")
         }
     }
 
@@ -205,12 +209,40 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
     }
 
-    private func performCancelDismiss(callId: String) {
+    private func performCancelDismiss(callId: String, source: String) {
         let normalized = callId.lowercased()
+        reportCancelAck(callId: normalized, source: source)
         Self.markCallCancelled(normalized)
         stopCallStatusWatch(callId: normalized)
         dismissAllRingingCalls(preferredCallId: normalized)
         scheduleDismissRetries(for: normalized)
+    }
+
+    /// POST to server so Azure logs prove the iPhone received/processed cancel on lock screen.
+    private func reportCancelAck(callId: String, source: String) {
+        let normalized = callId.lowercased()
+        guard let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: normalized)),
+              !token.isEmpty else {
+            print("[AiMediaTankVoipPushBridge] cancel ack skipped (no declineToken) call=\(normalized) source=\(source)")
+            return
+        }
+        guard let url = URL(string: "\(voiceApiBaseURL())/api/chat/voice/native-cancel-ack") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "callId": normalized,
+            "token": token,
+            "source": source,
+        ])
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            if let error {
+                print("[AiMediaTankVoipPushBridge] cancel ack failed source=\(source) call=\(normalized): \(error.localizedDescription)")
+                return
+            }
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            print("[AiMediaTankVoipPushBridge] cancel ack HTTP \(code) source=\(source) call=\(normalized)")
+        }.resume()
     }
 
     private func voiceApiBaseURL() -> String {
@@ -262,7 +294,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                     }
                 } else {
                     print("[AiMediaTankVoipPushBridge] status watch dismiss call \(normalized)")
-                    self.performCancelDismiss(callId: normalized)
+                    self.performCancelDismiss(callId: normalized, source: "status_poll")
                 }
             }
         }
@@ -332,11 +364,14 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
         let payloadDict = payload.dictionaryPayload
 
-        if payloadString(payloadDict, key: "action") == "cancel",
-           let cancelCallId = payloadString(payloadDict, key: "callId") {
-            let normalizedCallId = cancelCallId.lowercased()
-            print("[AiMediaTankVoipPushBridge] cancel push for call \(normalizedCallId) payload=\(payloadDict.keys.map { String(describing: $0) }.joined(separator: ","))")
-            performCancelDismiss(callId: normalizedCallId)
+        if payloadString(payloadDict, key: "action") == "cancel" {
+            if let cancelCallId = payloadString(payloadDict, key: "callId") {
+                let normalizedCallId = cancelCallId.lowercased()
+                print("[AiMediaTankVoipPushBridge] cancel push RECEIVED for call \(normalizedCallId) payloadKeys=\(payloadDict.keys.map { String(describing: $0) }.joined(separator: ","))")
+                performCancelDismiss(callId: normalizedCallId, source: "voip_cancel_push")
+            } else {
+                print("[AiMediaTankVoipPushBridge] cancel push MISSING callId payloadKeys=\(payloadDict.keys.map { String(describing: $0) }.joined(separator: ","))")
+            }
             completion()
             return
         }
@@ -345,6 +380,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
               let callId = UUID(uuidString: callIdString),
               let handle = payloadString(payloadDict, key: "handle"),
               let displayName = payloadString(payloadDict, key: "displayName") else {
+            print("[AiMediaTankVoipPushBridge] ignored VoIP push (not cancel/incoming) keys=\(payloadDict.keys.map { String(describing: $0) }.joined(separator: ","))")
             completion()
             return
         }
@@ -394,6 +430,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 Self.noteIncomingCallReported(callIdString)
             }
             if reported, let token = self.declineToken(from: payloadDict) {
+                UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: callIdString.lowercased()))
                 self.startCallStatusWatch(callId: callIdString.lowercased(), token: token)
             } else if reported {
                 print("[AiMediaTankVoipPushBridge] no declineToken — status watch disabled for \(callIdString)")
