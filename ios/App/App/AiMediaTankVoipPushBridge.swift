@@ -2,6 +2,7 @@ import AVFoundation
 import CallKit
 import Foundation
 import PushKit
+import UIKit
 
 /// App-target VoIP + CallKit handler. Owns the CXProvider used for PushKit incoming/cancel pushes
 /// so reportNewIncomingCall and reportCall ended use the same provider instance on lock screen.
@@ -21,6 +22,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var pushRegistry: PKPushRegistry?
     private let provider: CXProvider
     private let callController = CXCallController()
+    /// Stops in-flight native-status polls when the watch generation changes.
+    private var statusWatchGeneration: [String: UUID] = [:]
+    private var statusBackgroundTasks: [String: UIBackgroundTaskIdentifier] = [:]
 
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
@@ -50,6 +54,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             if let callId = notification.userInfo?["callId"] as? String {
                 Self.noteIncomingCallReported(callId)
             }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("AiMediaTankStartCallStatusWatch"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let callId = notification.userInfo?["callId"] as? String,
+                  let token = notification.userInfo?["token"] as? String else { return }
+            self.startCallStatusWatch(callId: callId, token: token)
         }
     }
 
@@ -183,7 +198,99 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private func performCancelDismiss(callId: String) {
         let normalized = callId.lowercased()
         Self.markCallCancelled(normalized)
+        stopCallStatusWatch(callId: normalized)
         dismissAllRingingCalls(preferredCallId: normalized)
+    }
+
+    private func voiceApiBaseURL() -> String {
+        if let path = Bundle.main.path(forResource: "capacitor.config", ofType: "json"),
+           let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let server = json["server"] as? [String: Any],
+           let url = server["url"] as? String,
+           !url.isEmpty {
+            return url.hasSuffix("/") ? String(url.dropLast()) : url
+        }
+        return "https://aimediatank.com"
+    }
+
+    private func declineToken(from dict: [AnyHashable: Any]) -> String? {
+        if let token = payloadString(dict, key: "declineToken") { return token }
+        if let metadata = dict["metadata"] as? [AnyHashable: Any] {
+            return payloadString(metadata, key: "declineToken")
+        }
+        return nil
+    }
+
+    /// Poll server call status from the App target (works on lock screen without Capacitor/JS).
+    func startCallStatusWatch(callId: String, token: String) {
+        let normalized = callId.lowercased()
+        stopCallStatusWatch(callId: normalized)
+        let generation = UUID()
+        statusWatchGeneration[normalized] = generation
+
+        var bgTask = UIBackgroundTaskIdentifier.invalid
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "AiMediaTank call status watch") { [weak self] in
+            self?.stopCallStatusWatch(callId: normalized)
+        }
+        if bgTask != .invalid {
+            statusBackgroundTasks[normalized] = bgTask
+        }
+
+        print("[AiMediaTankVoipPushBridge] status watch started for call \(normalized)")
+
+        func poll(attempt: Int) {
+            guard self.statusWatchGeneration[normalized] == generation, attempt < 180 else {
+                self.stopCallStatusWatch(callId: normalized)
+                return
+            }
+            self.fetchCallStatus(callId: normalized, token: token) { stillRinging in
+                if stillRinging {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        poll(attempt: attempt + 1)
+                    }
+                } else {
+                    print("[AiMediaTankVoipPushBridge] status watch dismiss call \(normalized)")
+                    self.performCancelDismiss(callId: normalized)
+                }
+            }
+        }
+
+        poll(attempt: 0)
+    }
+
+    func stopCallStatusWatch(callId: String) {
+        let normalized = callId.lowercased()
+        statusWatchGeneration.removeValue(forKey: normalized)
+        if let bgTask = statusBackgroundTasks.removeValue(forKey: normalized), bgTask != .invalid {
+            UIApplication.shared.endBackgroundTask(bgTask)
+        }
+    }
+
+    private func fetchCallStatus(callId: String, token: String, completion: @escaping (Bool) -> Void) {
+        var components = URLComponents(string: "\(voiceApiBaseURL())/api/chat/voice/native-status")!
+        components.queryItems = [
+            URLQueryItem(name: "callId", value: callId),
+            URLQueryItem(name: "token", value: token),
+        ]
+        guard let url = components.url else {
+            completion(true)
+            return
+        }
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error {
+                print("[AiMediaTankVoipPushBridge] status poll error: \(error.localizedDescription)")
+                completion(true)
+                return
+            }
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let status = json["status"] as? String else {
+                completion(true)
+                return
+            }
+            completion(status == "ringing" || status == "active")
+        }.resume()
     }
 
     // MARK: - PKPushRegistryDelegate
@@ -212,7 +319,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         if payloadString(payloadDict, key: "action") == "cancel",
            let cancelCallId = payloadString(payloadDict, key: "callId") {
             let normalizedCallId = cancelCallId.lowercased()
-            print("[AiMediaTankVoipPushBridge] cancel push for call \(normalizedCallId)")
+            print("[AiMediaTankVoipPushBridge] cancel push for call \(normalizedCallId) payload=\(payloadDict.keys.map { String(describing: $0) }.joined(separator: ","))")
             performCancelDismiss(callId: normalizedCallId)
             scheduleDismissRetries(for: normalizedCallId)
             completion()
@@ -271,6 +378,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             if reported {
                 Self.noteIncomingCallReported(callIdString)
             }
+            if reported, let token = self.declineToken(from: payloadDict) {
+                self.startCallStatusWatch(callId: callIdString.lowercased(), token: token)
+            } else if reported {
+                print("[AiMediaTankVoipPushBridge] no declineToken — status watch disabled for \(callIdString)")
+            }
             NotificationCenter.default.post(
                 name: Self.incomingPushNotification,
                 object: nil,
@@ -288,16 +400,19 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func providerDidReset(_ provider: CXProvider) {}
 
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+        let callId = action.callUUID.uuidString.lowercased()
+        stopCallStatusWatch(callId: callId)
         NotificationCenter.default.post(
             name: Self.callKitAnswerNotification,
             object: nil,
-            userInfo: ["callId": action.callUUID.uuidString.lowercased()]
+            userInfo: ["callId": callId]
         )
         action.fulfill()
     }
 
     func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
+        stopCallStatusWatch(callId: callId)
         NotificationCenter.default.post(
             name: Self.callKitEndNotification,
             object: nil,

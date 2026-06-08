@@ -1215,6 +1215,26 @@ if (callManager.includes(CANCEL_V5_MARKER) && !callManager.includes(UNANSWERED_D
   console.log('[patch-voip-callkit] use unanswered reason to stop incoming ring')
 }
 
+const BRIDGE_STATUS_WATCH = 'AiMediaTankStartCallStatusWatch'
+if (pluginSwift && pluginSwift.includes('startCallStatusPolling') && !pluginSwift.includes(BRIDGE_STATUS_WATCH)) {
+  pluginSwift = pluginSwift.replace(
+    `    internal func startCallStatusPolling(callId: String, token: String) {
+        // beginBackgroundTask call status watch
+        stopCallStatusPolling(callId: callId)`,
+    `    internal func startCallStatusPolling(callId: String, token: String) {
+        // ${BRIDGE_STATUS_WATCH}
+        NotificationCenter.default.post(
+            name: NSNotification.Name("AiMediaTankStartCallStatusWatch"),
+            object: nil,
+            userInfo: ["callId": callId, "token": token]
+        )
+        // beginBackgroundTask call status watch
+        stopCallStatusPolling(callId: callId)`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] mirror status polling to App bridge')
+}
+
 const BRIDGE_OWNS_CANCEL = 'bridge owns cancel dismiss'
 if (callManager.includes('CallManager observes VoIP cancel push') && !callManager.includes(BRIDGE_OWNS_CANCEL)) {
   callManager = callManager.replace(
