@@ -150,6 +150,16 @@ async function sendVoipDataPushToUser(
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Gaps between cancel VoIP pushes (ms). Lock-screen delivery can lag; repeat improves odds. */
+const CANCEL_PUSH_RETRY_GAPS_MS = [400, 600, 1000, 1500, 2500, 3500, 5000, 8000] as const
+
+/** Retries awaited before the HTTP handler returns (covers ~3.5s without blocking the caller too long). */
+const CANCEL_PUSH_AWAITED_RETRIES = 4
+
 /** Dismiss CallKit on callee device when caller cancels while ringing (sleep mode). */
 export async function sendVoipCallCancelPushToUser(userId: string, callId: string): Promise<void> {
   const normalizedCallId = normalizeVoiceCallId(callId)
@@ -161,6 +171,58 @@ export async function sendVoipCallCancelPushToUser(userId: string, callId: strin
     { action: 'cancel', callId: normalizedCallId },
     `cancel push for call ${normalizedCallId}`,
   )
+}
+
+/**
+ * Send cancel VoIP pushes repeatedly. Quick retries are awaited so they are not lost when the
+ * serverless/runtime freezes after the response; longer retries continue in the background.
+ */
+export async function sendVoipCallCancelPushBurstToUser(userId: string, callId: string): Promise<void> {
+  const normalizedCallId = normalizeVoiceCallId(callId)
+  if (!normalizedCallId) return
+
+  const data = { action: 'cancel', callId: normalizedCallId }
+  let attempt = 0
+
+  const sendOnce = async () => {
+    attempt += 1
+    await sendVoipDataPushToUser(
+      userId,
+      data,
+      `cancel push for call ${normalizedCallId} (#${attempt})`,
+    )
+  }
+
+  const runRetriesFrom = async (startIndex: number) => {
+    for (let i = startIndex; i < CANCEL_PUSH_RETRY_GAPS_MS.length; i++) {
+      await sleep(CANCEL_PUSH_RETRY_GAPS_MS[i]!)
+      try {
+        await sendOnce()
+      } catch (err) {
+        console.error(`[VoIP] cancel push retry #${attempt} failed for ${normalizedCallId}:`, err)
+      }
+    }
+  }
+
+  try {
+    await sendOnce()
+  } catch (err) {
+    console.error(`[VoIP] cancel push #1 failed for ${normalizedCallId}:`, err)
+  }
+
+  const awaitedEnd = Math.min(CANCEL_PUSH_AWAITED_RETRIES, CANCEL_PUSH_RETRY_GAPS_MS.length)
+  for (let i = 0; i < awaitedEnd; i++) {
+    await sleep(CANCEL_PUSH_RETRY_GAPS_MS[i]!)
+    try {
+      await sendOnce()
+    } catch (err) {
+      console.error(`[VoIP] cancel push retry #${attempt} failed for ${normalizedCallId}:`, err)
+    }
+  }
+
+  if (awaitedEnd < CANCEL_PUSH_RETRY_GAPS_MS.length) {
+    void runRetriesFrom(awaitedEnd)
+  }
 }
 
 /** Send PushKit VoIP push so iOS native app shows CallKit on lock screen. */

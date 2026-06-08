@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendVoiceCallPushToUser } from '@/lib/webPush'
-import { sendVoipCallCancelPushToUser, sendVoipCallPushToUser } from '@/lib/voipPush'
+import { sendVoipCallCancelPushBurstToUser, sendVoipCallPushToUser } from '@/lib/voipPush'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 
 export const dynamic = 'force-dynamic'
@@ -379,13 +379,7 @@ export async function POST(request: Request) {
 
       if (call.status === 'ringing' && call.callerId === userId) {
         try {
-          await sendVoipCallCancelPushToUser(peerId, call.id)
-          // Retries help when the callee device wakes slowly from sleep.
-          for (const delayMs of [1500, 3000, 5000]) {
-            setTimeout(() => {
-              void sendVoipCallCancelPushToUser(peerId, call.id)
-            }, delayMs)
-          }
+          await sendVoipCallCancelPushBurstToUser(peerId, call.id)
         } catch (err) {
           console.error('VoIP cancel push failed:', err)
         }
