@@ -27,7 +27,7 @@ let activeRingKind: RingKind | null = null
 let pendingRingStart: (() => void) | null = null
 let openedFromCallNotification = false
 let ringActiveSource: AudioBufferSourceNode | null = null
-let speechLoopTimer: ReturnType<typeof setTimeout> | null = null
+let speechLoopTimer: number | null = null
 let usingSpeechSynthesis = false
 const ringBufferCache = new Map<string, AudioBuffer>()
 
