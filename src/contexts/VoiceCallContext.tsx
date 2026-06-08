@@ -2,7 +2,12 @@
 
 import { createContext, useContext, useEffect, useRef, type MutableRefObject, type ReactNode } from 'react'
 import { registerVoiceCallPush } from '@/lib/pushSubscriptionClient'
-import { bootstrapNativeVoip, isNativeIosCallApp, subscribeNativeVoipIfNeeded } from '@/lib/nativeCallBridge'
+import {
+  answerNativeCall,
+  bootstrapNativeVoip,
+  isNativeIosCallApp,
+  subscribeNativeVoipIfNeeded,
+} from '@/lib/nativeCallBridge'
 import {
   installVoiceCallAudioUnlock,
   primeVoiceCallAfterNotificationOpen,
@@ -21,6 +26,7 @@ const TC = talkChatIdx
 
 interface VoiceCallContextValue {
   callState: VoiceCallState
+  callId: string | null
   remoteUser: VoiceCallUser | null
   startCall: (peer: VoiceCallUser, conversationId?: string | null) => Promise<void>
   answerCall: () => Promise<void>
@@ -65,15 +71,25 @@ export function VoiceCallOverlayPanel({
 
   if (!session?.user || !ctx) return null
 
+  const nativeIncoming =
+    isNativeIosCallApp() && placement === 'floating' && ctx.callState === 'incoming'
+
   return (
     <VoiceCallOverlay
       placement={placement}
+      nativeIncomingFullscreen={nativeIncoming}
       callState={ctx.callState}
       remoteUser={ctx.remoteUser}
       isMuted={ctx.isMuted}
       labels={labels}
-      inAppHint={labels.inAppHint}
-      onAccept={() => void ctx.answerCall()}
+      inAppHint={nativeIncoming ? undefined : labels.inAppHint}
+      onAccept={() => {
+        if (nativeIncoming && ctx.callId) {
+          void answerNativeCall(ctx.callId)
+          return
+        }
+        void ctx.answerCall()
+      }}
       onReject={() => void ctx.rejectCall()}
       onEnd={() => void ctx.endCall()}
       onToggleMute={ctx.toggleMute}
@@ -167,6 +183,7 @@ export function VoiceCallProvider({
     <VoiceCallContext.Provider
       value={{
         callState: voiceCall.callState,
+        callId: voiceCall.callId,
         remoteUser: voiceCall.remoteUser,
         startCall: voiceCall.startCall,
         answerCall: voiceCall.answerCall,

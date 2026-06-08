@@ -32,14 +32,25 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Stops stale dismiss retries from ending a newer incoming call.
     private var dismissRetryGeneration: [String: UUID] = [:]
 
+    private static func loadCallKitProviderIcon() -> Data? {
+        if let image = UIImage(named: "AppIcon") {
+            return image.pngData()
+        }
+        return nil
+    }
+
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
-        configuration.supportsVideo = true
+        // Audio-only: avoids Video/More in-call grid; lock screen shows Accept/Decline for incoming.
+        configuration.supportsVideo = false
         configuration.maximumCallGroups = 1
         configuration.maximumCallsPerCallGroup = 1
         configuration.supportedHandleTypes = [.generic, .phoneNumber, .emailAddress]
         configuration.includesCallsInRecents = true
         configuration.ringtoneSound = "incoming-ring.wav"
+        if let iconData = Self.loadCallKitProviderIcon() {
+            configuration.iconTemplateImageData = iconData
+        }
         provider = CXProvider(configuration: configuration)
         super.init()
         provider.setDelegate(self, queue: nil)
@@ -253,7 +264,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         update.supportsGrouping = false
         update.supportsUngrouping = false
         update.supportsDTMF = true
-        update.hasVideo = video
+        update.hasVideo = false
 
         func attemptReport(retryAfterCleanup: Bool) {
             provider.reportNewIncomingCall(with: callId, update: update) { [weak self] error in

@@ -184,6 +184,13 @@ export async function initNativeCallBridge(handlers: NativeCallBridgeHandlers): 
   return true
 }
 
+/** Answer via CallKit (triggers callAnswered → WebRTC in useVoiceCall). */
+export async function answerNativeCall(callId: string | null | undefined): Promise<void> {
+  if (!isNativeIosCallApp() || !callId) return
+  const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+  await CapacitorPushCalls.answerCall({ callId })
+}
+
 /** Tell CallKit the native call UI can end (after WebRTC hangup). */
 export async function endNativeCall(callId: string | null | undefined): Promise<void> {
   if (!isNativeIosCallApp() || !callId) return

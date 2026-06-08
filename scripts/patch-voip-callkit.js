@@ -23,6 +23,17 @@ const REQUEST_BRIDGE_DISMISS = 'AiMediaTankRequestBridgeDismiss'
 const DISMISS_FINAL = 'skip bridge dismiss when already cancelled'
 
 const RINGTONE_MARKER = 'configuration.ringtoneSound = "incoming-ring.wav"'
+const AUDIO_ONLY_MARKER = 'AiMediaTank audio-only CallKit'
+if (!callManager.includes(AUDIO_ONLY_MARKER)) {
+  if (callManager.includes('configuration.supportsVideo = true')) {
+    callManager = callManager.replace(
+      'configuration.supportsVideo = true',
+      `// ${AUDIO_ONLY_MARKER}\n        configuration.supportsVideo = false`,
+    )
+    console.log('[patch-voip-callkit] set CallManager supportsVideo false (audio-only)')
+  }
+}
+
 if (!callManager.includes(RINGTONE_MARKER)) {
   const anchor = 'configuration.includesCallsInRecents = true'
   if (callManager.includes(anchor)) {

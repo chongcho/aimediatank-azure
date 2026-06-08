@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
 
 interface VoiceCallOverlayProps {
@@ -24,6 +25,8 @@ interface VoiceCallOverlayProps {
   /** floating = fixed on viewport; embedded = inside TalkChat panel */
   placement?: 'floating' | 'embedded'
   inAppHint?: string
+  /** Native iOS: full-screen CallKit-style incoming UI with green Accept phone button */
+  nativeIncomingFullscreen?: boolean
 }
 
 function displayName(user: VoiceCallUser | null) {
@@ -34,6 +37,147 @@ function displayName(user: VoiceCallUser | null) {
 function formatCallStatus(template: string, user: VoiceCallUser | null) {
   const name = displayName(user) || '?'
   return template.replace('{name}', name)
+}
+
+function PhoneHandsetIcon({ color = 'white' }: { color?: string }) {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.07 21 3 13.93 3 5a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.25 1.01l-2.2 2.2z"
+        fill={color}
+      />
+    </svg>
+  )
+}
+
+function CallControlButton({
+  label,
+  onClick,
+  background,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  background: string
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '8px',
+        border: 'none',
+        background: 'transparent',
+        color: 'white',
+        cursor: 'pointer',
+        padding: 0,
+        minWidth: '72px',
+      }}
+    >
+      <span
+        style={{
+          width: '64px',
+          height: '64px',
+          borderRadius: '50%',
+          background,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {children}
+      </span>
+      <span style={{ fontSize: '13px', fontWeight: 500 }}>{label}</span>
+    </button>
+  )
+}
+
+function NativeIncomingCallScreen({
+  remoteUser,
+  labels,
+  onAccept,
+  onReject,
+}: {
+  remoteUser: VoiceCallUser | null
+  labels: VoiceCallOverlayProps['labels']
+  onAccept: () => void
+  onReject: () => void
+}) {
+  const name = displayName(remoteUser) || 'AiMediaTank'
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2147483000,
+        background: 'linear-gradient(180deg, #3d2914 0%, #1a1208 45%, #0d0906 100%)',
+        color: 'white',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: 'max(48px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom))',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div style={{ textAlign: 'center', opacity: 0.85, fontSize: '15px', marginTop: '8px' }}>
+        AiMediaTank Audio
+      </div>
+
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          padding: '0 16px',
+        }}
+      >
+        {remoteUser?.avatar ? (
+          <img
+            src={remoteUser.avatar}
+            alt=""
+            style={{
+              width: '96px',
+              height: '96px',
+              borderRadius: '50%',
+              objectFit: 'cover',
+              marginBottom: '8px',
+            }}
+          />
+        ) : null}
+        <div style={{ fontSize: '36px', fontWeight: 700, letterSpacing: '-0.02em', textAlign: 'center' }}>
+          {name}
+        </div>
+        <div style={{ fontSize: '16px', opacity: 0.75 }}>{labels.incomingCall.replace('{name}', name)}</div>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr 1fr',
+          alignItems: 'end',
+          justifyItems: 'center',
+          gap: '8px',
+          paddingBottom: '8px',
+        }}
+      >
+        <CallControlButton label={labels.accept} onClick={onAccept} background="#22c55e">
+          <PhoneHandsetIcon />
+        </CallControlButton>
+        <CallControlButton label={labels.reject} onClick={onReject} background="#ef4444">
+          <PhoneHandsetIcon />
+        </CallControlButton>
+        <div style={{ width: '72px' }} aria-hidden />
+      </div>
+    </div>
+  )
 }
 
 export function VoiceCallOverlay({
@@ -47,8 +191,20 @@ export function VoiceCallOverlay({
   onToggleMute,
   placement = 'floating',
   inAppHint,
+  nativeIncomingFullscreen = false,
 }: VoiceCallOverlayProps) {
   if (callState === 'idle' || callState === 'ended') return null
+
+  if (nativeIncomingFullscreen && callState === 'incoming') {
+    return (
+      <NativeIncomingCallScreen
+        remoteUser={remoteUser}
+        labels={labels}
+        onAccept={onAccept}
+        onReject={onReject}
+      />
+    )
+  }
 
   const statusLabel =
     callState === 'incoming'
