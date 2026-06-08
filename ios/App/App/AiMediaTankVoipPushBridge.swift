@@ -137,12 +137,27 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
     }
 
+    /// End stale CallKit rings from a prior attempt so a new incoming call can be reported.
+    private func dismissOtherRingingCalls(exceptCallId: String) {
+        let normalized = exceptCallId.lowercased()
+        let observer = CXCallObserver()
+        for call in observer.calls where !call.hasEnded && !call.isOutgoing && !call.hasConnected {
+            if call.uuid.uuidString.lowercased() != normalized {
+                dismissRingingCall(uuid: call.uuid)
+            }
+        }
+        var storedIds = UserDefaults.standard.stringArray(forKey: Self.ringingCallIdsKey) ?? []
+        storedIds.removeAll { $0 != normalized }
+        UserDefaults.standard.set(storedIds, forKey: Self.ringingCallIdsKey)
+    }
+
     /// Tear down timers from a prior call so they cannot dismiss the next incoming call.
     private func prepareForNewIncomingCall(callId: String) {
         let normalized = callId.lowercased()
         Self.clearCallCancelled(normalized)
         cancelDismissRetries(except: normalized)
         stopStatusWatches(except: normalized)
+        dismissOtherRingingCalls(exceptCallId: normalized)
     }
 
     func dismissRingingCall(uuid: UUID) {
@@ -240,14 +255,23 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         update.supportsDTMF = true
         update.hasVideo = video
 
-        provider.reportNewIncomingCall(with: callId, update: update) { error in
-            if let error {
-                print("[AiMediaTankVoipPushBridge] reportNewIncomingCall failed: \(error.localizedDescription)")
-                completion(false)
-                return
+        func attemptReport(retryAfterCleanup: Bool) {
+            provider.reportNewIncomingCall(with: callId, update: update) { [weak self] error in
+                if let error {
+                    print("[AiMediaTankVoipPushBridge] reportNewIncomingCall failed (retry=\(retryAfterCleanup)): \(error.localizedDescription)")
+                    guard let self, !retryAfterCleanup else {
+                        completion(false)
+                        return
+                    }
+                    self.dismissOtherRingingCalls(exceptCallId: callId.uuidString)
+                    attemptReport(retryAfterCleanup: true)
+                    return
+                }
+                completion(true)
             }
-            completion(true)
         }
+
+        attemptReport(retryAfterCleanup: false)
     }
 
     private func performCancelDismiss(callId: String, source: String) {
@@ -333,6 +357,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 return
             }
             self.fetchCallStatus(callId: normalized, token: token) { stillRinging in
+                guard self.statusWatchGeneration[normalized] == generation else { return }
                 if stillRinging {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                         poll(attempt: attempt + 1)
@@ -431,6 +456,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
 
         if Self.isCallCancelled(callIdString) {
+            print("[AiMediaTankVoipPushBridge] ignored incoming push — call already cancelled \(callIdString.lowercased())")
             completion()
             return
         }

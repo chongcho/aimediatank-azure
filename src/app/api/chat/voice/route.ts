@@ -65,10 +65,25 @@ async function expireStaleVoiceCalls() {
 
 /** Caller abandoned an outbound ring — allow placing a new call. */
 async function clearCallerRinging(userId: string) {
+  const staleRinging = await prisma.voiceCall.findMany({
+    where: { callerId: userId, status: 'ringing' },
+    select: { id: true, calleeId: true },
+  })
+  if (staleRinging.length === 0) return
+
+  const endedAt = new Date()
   await prisma.voiceCall.updateMany({
     where: { callerId: userId, status: 'ringing' },
-    data: { status: 'missed', endedAt: new Date() },
+    data: { status: 'missed', endedAt },
   })
+
+  for (const call of staleRinging) {
+    try {
+      await sendVoipCallCancelPushBurstToUser(call.calleeId, call.id)
+    } catch (err) {
+      console.error(`VoIP cancel push failed while clearing stale ring ${call.id}:`, err)
+    }
+  }
 }
 
 // GET - Poll for incoming calls and unconsumed WebRTC signals
