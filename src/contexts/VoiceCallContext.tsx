@@ -15,7 +15,6 @@ import {
   answerNativeCall,
   bootstrapNativePush,
   isNativeCallApp,
-  isNativeCallApp,
   isNativeVoiceCallApp,
   subscribeNativePushIfNeeded,
 } from '@/lib/nativeCallBridge'
