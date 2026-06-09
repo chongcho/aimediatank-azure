@@ -52,15 +52,30 @@ if (gradle.includes('applicationId "com.aimediatank.apple"')) {
 
 const mainActivitySource = `package com.aimediatank.app;
 
+import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import com.capacitor.voipcalls.VoipConnectionService;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private static final String TAG = "AiMediaTank";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        VoipConnectionService.Companion.registerPhoneAccount(this);
+        registerVoipPhoneAccountSafely();
+    }
+
+    private void registerVoipPhoneAccountSafely() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return;
+        }
+        try {
+            VoipConnectionService.Companion.registerPhoneAccount(this);
+        } catch (Exception e) {
+            Log.w(TAG, "Phone account registration skipped", e);
+        }
     }
 }
 `
@@ -73,7 +88,7 @@ if (fs.existsSync(mainActivityApple)) {
 }
 
 const current = fs.existsSync(mainActivityApp) ? fs.readFileSync(mainActivityApp, 'utf8') : ''
-if (!current.includes('VoipConnectionService.Companion.registerPhoneAccount')) {
+if (!current.includes('registerVoipPhoneAccountSafely')) {
   fs.writeFileSync(mainActivityApp, mainActivitySource)
   console.log('[setup-android-native] patched MainActivity at com.aimediatank.app')
 } else if (current.includes('package com.aimediatank.apple')) {
