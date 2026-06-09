@@ -17,7 +17,7 @@ export function getNativePlatform(): 'ios' | 'android' | 'web' {
   return 'web'
 }
 
-/** True when running inside the Capacitor TestFlight/App Store shell (not Safari or installed PWA). */
+/** True when running inside the Capacitor native app (TestFlight / Play), not Safari PWA. */
 export function detectNativeShell(): boolean {
   if (typeof window === 'undefined') return false
 
@@ -28,6 +28,8 @@ export function detectNativeShell(): boolean {
   if ((window.navigator as Navigator & { standalone?: boolean }).standalone) return false
 
   const ua = navigator.userAgent
+  if (/Android/.test(ua) && /; wv\)/.test(ua)) return true
+
   if (!/iPhone|iPod|iPad/.test(ua)) return false
 
   // Capacitor WKWebView: Mobile/… without Safari/604.1 (Safari browser tabs include Safari/).
@@ -65,7 +67,11 @@ export function applyNativeShellLayout(): boolean {
 
   const platform =
     cap?.getPlatform?.() ||
-    (/iPad|iPhone|iPod/.test(navigator.userAgent) ? 'ios' : 'unknown')
+    (/Android/.test(navigator.userAgent)
+      ? 'android'
+      : /iPad|iPhone|iPod/.test(navigator.userAgent)
+        ? 'ios'
+        : 'unknown')
   if (platform !== 'unknown') root.classList.add(platform)
 
   syncNativeSafeAreaInsets(root, platform === 'ios')

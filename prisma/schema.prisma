@@ -483,7 +483,7 @@ model PushSubscription {
   @@index([userId])
 }
 
-// PushKit VoIP tokens for native iOS app (CallKit lock-screen incoming calls)
+// PushKit (iOS) and FCM (Android) tokens for native app lock-screen incoming calls
 model VoipPushToken {
   id        String   @id @default(uuid())
   userId    String

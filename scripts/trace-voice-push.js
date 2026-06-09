@@ -106,6 +106,14 @@ async function main() {
   })
   console.log(`\n=== CALLEE VOIP TOKENS (${voip.length}) ===`)
   for (const v of voip) console.log(`  platform=${v.platform} updatedAt=${v.updatedAt}`)
+  const androidVoip = voip.filter((v) => v.platform === 'android')
+  const iosVoip = voip.filter((v) => v.platform === 'ios')
+  if (androidVoip.length === 0) {
+    console.log('  Android native: NONE — install Play internal app and sign in for lock-screen calls.')
+  }
+  if (iosVoip.length === 0) {
+    console.log('  iOS native: NONE — install TestFlight app for lock-screen calls.')
+  }
 
   const calls = await prisma.voiceCall.findMany({
     where: { callerId: caller.id, calleeId: callee.id },

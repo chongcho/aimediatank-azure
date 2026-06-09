@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1088256844071",
+    "project_id": "aimediatank-20800",
+    "storage_bucket": "aimediatank-20800.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1088256844071:android:3f7322d178a16c002bc902",
+        "android_client_info": {
+          "package_name": "com.aimediatank.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCCUIGfohYza6KKg7SrwHcuCj38raQ12mk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

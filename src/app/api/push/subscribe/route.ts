@@ -34,22 +34,32 @@ export async function POST(request: Request) {
 
     const userAgent = request.headers.get('user-agent')
 
-    await prisma.pushSubscription.upsert({
-      where: { endpoint },
-      create: {
-        userId: session.user.id,
-        endpoint,
-        p256dh,
-        auth,
-        userAgent,
-      },
-      update: {
-        userId: session.user.id,
-        p256dh,
-        auth,
-        userAgent,
-      },
-    })
+    await prisma.$transaction([
+      prisma.pushSubscription.upsert({
+        where: { endpoint },
+        create: {
+          userId: session.user.id,
+          endpoint,
+          p256dh,
+          auth,
+          userAgent,
+        },
+        update: {
+          userId: session.user.id,
+          p256dh,
+          auth,
+          userAgent,
+        },
+      }),
+      // Keep one registration per user — stale FCM endpoints can still return 201
+      // without waking the phone's service worker (see voice call push traces).
+      prisma.pushSubscription.deleteMany({
+        where: {
+          userId: session.user.id,
+          endpoint: { not: endpoint },
+        },
+      }),
+    ])
 
     return NextResponse.json({ ok: true })
   } catch (error) {

@@ -21,6 +21,9 @@ const config: CapacitorConfig = {
     contentInset: 'automatic',
     allowsLinkPreview: false,
   },
+  android: {
+    allowMixedContent: false,
+  },
   plugins: {},
 }
 

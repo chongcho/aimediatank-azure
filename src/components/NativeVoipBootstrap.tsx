@@ -2,20 +2,24 @@
 
 import { useSession } from 'next-auth/react'
 import { useEffect, useRef } from 'react'
-import { bootstrapNativeVoip, isNativeIosCallApp, subscribeNativeVoipIfNeeded } from '@/lib/nativeCallBridge'
+import {
+  bootstrapNativePush,
+  isNativeVoiceCallApp,
+  subscribeNativePushIfNeeded,
+} from '@/lib/nativeCallBridge'
 
-/** Early VoIP bootstrap + retries after TestFlight sign-in. */
+/** Early native push bootstrap + retries after sign-in (iOS PushKit / Android FCM). */
 export default function NativeVoipBootstrap() {
   const { data: session } = useSession()
   const retryRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    if (!isNativeIosCallApp()) return
-    void bootstrapNativeVoip()
+    if (!isNativeVoiceCallApp()) return
+    void bootstrapNativePush()
   }, [])
 
   useEffect(() => {
-    if (!isNativeIosCallApp()) return
+    if (!isNativeVoiceCallApp()) return
 
     if (!session?.user?.id) {
       if (retryRef.current) {
@@ -25,7 +29,7 @@ export default function NativeVoipBootstrap() {
       return
     }
 
-    const sync = () => void subscribeNativeVoipIfNeeded()
+    const sync = () => void subscribeNativePushIfNeeded()
     sync()
     retryRef.current = setInterval(sync, 20000)
 

@@ -25,10 +25,11 @@ export interface NativeCallBridgeHandlers {
 }
 
 let bridgeInitialized = false
-let voipBootstrapped = false
-let voipListenerAttached = false
+let nativePushBootstrapped = false
+let pushListenerAttached = false
 let bridgeHandlers: NativeCallBridgeHandlers | null = null
-let pendingVoipToken: string | null = null
+let pendingNativeToken: string | null = null
+let pendingNativePlatform: 'ios' | 'android' | null = null
 
 export function isNativeCallApp(): boolean {
   if (typeof window === 'undefined') return false
@@ -39,90 +40,128 @@ export function isNativeIosCallApp(): boolean {
   return isNativeCallApp() && getNativePlatform() === 'ios'
 }
 
-async function subscribeVoipToken(token: string): Promise<boolean> {
+export function isNativeAndroidCallApp(): boolean {
+  return isNativeCallApp() && getNativePlatform() === 'android'
+}
+
+/** Native TestFlight / Play app with lock-screen call UI (iOS CallKit or Android ConnectionService). */
+export function isNativeVoiceCallApp(): boolean {
+  return isNativeIosCallApp() || isNativeAndroidCallApp()
+}
+
+async function subscribeNativePushToken(token: string, platform: 'ios' | 'android'): Promise<boolean> {
   try {
     const res = await fetch('/api/push/voip-subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, platform: 'ios' }),
+      body: JSON.stringify({ token, platform }),
       credentials: 'include',
     })
     if (res.status === 401) {
-      pendingVoipToken = token
-      console.warn('[VoIP] token received but user not signed in yet')
+      pendingNativeToken = token
+      pendingNativePlatform = platform
+      console.warn(`[NativePush] ${platform} token received but user not signed in yet`)
       return false
     }
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      console.error('[VoIP] token registration failed:', res.status, body)
+      console.error(`[NativePush] ${platform} token registration failed:`, res.status, body)
       return false
     }
-    pendingVoipToken = null
-    console.info('[VoIP] device token saved for signed-in user')
+    pendingNativeToken = null
+    pendingNativePlatform = null
+    console.info(`[NativePush] ${platform} device token saved for signed-in user`)
     return true
   } catch (error) {
-    console.error('[VoIP] token registration failed:', error)
+    console.error(`[NativePush] ${platform} token registration failed:`, error)
     return false
   }
 }
 
-function attachVoipTokenListener(
+function attachNativePushListeners(
   CapacitorPushCalls: Awaited<
     typeof import('@kapsula-chat/capacitor-push-calls')
   >['CapacitorPushCalls'],
 ): void {
-  if (voipListenerAttached) return
+  if (pushListenerAttached) return
+
   CapacitorPushCalls.addListener('voipPushToken', ({ token }) => {
     if (!token) return
-    console.info('[VoIP] PushKit token received')
-    void subscribeVoipToken(token)
+    console.info('[NativePush] PushKit token received')
+    void subscribeNativePushToken(token, 'ios')
   })
-  voipListenerAttached = true
+
+  CapacitorPushCalls.addListener('registration', ({ value }) => {
+    if (!value) return
+    if (isNativeAndroidCallApp()) {
+      console.info('[NativePush] FCM registration token received')
+      void subscribeNativePushToken(value, 'android')
+    }
+  })
+
+  pushListenerAttached = true
 }
 
-/** Register PushKit early so VoIP pushes wake the app on lock screen. */
-export async function bootstrapNativeVoip(): Promise<boolean> {
-  if (!isNativeIosCallApp() || voipBootstrapped) return voipBootstrapped
+async function ensurePushPermissions(
+  CapacitorPushCalls: Awaited<
+    typeof import('@kapsula-chat/capacitor-push-calls')
+  >['CapacitorPushCalls'],
+): Promise<void> {
+  try {
+    const permissions = await CapacitorPushCalls.checkPermissions()
+    if (permissions.receive !== 'granted') {
+      await CapacitorPushCalls.requestPermissions()
+    }
+  } catch {
+    // user may grant later
+  }
+}
+
+/** Register PushKit (iOS) or FCM (Android) early so lock-screen pushes wake the app. */
+export async function bootstrapNativePush(): Promise<boolean> {
+  if (!isNativeVoiceCallApp() || nativePushBootstrapped) return nativePushBootstrapped
 
   try {
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    attachNativePushListeners(CapacitorPushCalls)
+    await ensurePushPermissions(CapacitorPushCalls)
 
-    // Listener must be attached before registerVoipNotifications or the token can be missed.
-    attachVoipTokenListener(CapacitorPushCalls)
-
-    try {
-      const permissions = await CapacitorPushCalls.checkPermissions()
-      if (permissions.receive !== 'granted') {
-        await CapacitorPushCalls.requestPermissions()
-      }
-    } catch {
-      // user may grant later
+    if (isNativeIosCallApp()) {
+      await CapacitorPushCalls.registerVoipNotifications()
+      console.info('[NativePush] PushKit registration started')
+    } else if (isNativeAndroidCallApp()) {
+      await CapacitorPushCalls.register()
+      console.info('[NativePush] FCM registration started')
     }
 
-    await CapacitorPushCalls.registerVoipNotifications()
-    voipBootstrapped = true
-    console.info('[VoIP] PushKit registration started')
+    nativePushBootstrapped = true
     return true
   } catch (error) {
-    console.error('[VoIP] bootstrap failed (native plugin unavailable?):', error)
+    console.error('[NativePush] bootstrap failed (native plugin unavailable?):', error)
     return false
   }
 }
 
-/** After sign-in, attach the VoIP device token to the current user. */
-export async function subscribeNativeVoipIfNeeded(): Promise<void> {
-  if (!isNativeIosCallApp()) return
-  await bootstrapNativeVoip()
-  if (pendingVoipToken) {
-    await subscribeVoipToken(pendingVoipToken)
+/** @deprecated Use bootstrapNativePush */
+export const bootstrapNativeVoip = bootstrapNativePush
+
+/** After sign-in, attach the native push token to the current user. */
+export async function subscribeNativePushIfNeeded(): Promise<void> {
+  if (!isNativeVoiceCallApp()) return
+  await bootstrapNativePush()
+  if (pendingNativeToken && pendingNativePlatform) {
+    await subscribeNativePushToken(pendingNativeToken, pendingNativePlatform)
   }
 }
 
+/** @deprecated Use subscribeNativePushIfNeeded */
+export const subscribeNativeVoipIfNeeded = subscribeNativePushIfNeeded
+
 /**
- * Show CallKit incoming UI with native ringtone (lock screen / sleep).
- * On iOS, VoIP PushKit already reported the call to CallKit — skip to avoid a second ring.
+ * Show native incoming call UI from JS (foreground fallback).
+ * Lock screen uses server push → CallKit / ConnectionService; skip duplicate report there.
  */
-export async function reportIncomingCallToCallKit(params: {
+export async function reportIncomingCallToNativeUi(params: {
   callId: string
   handle: string
   displayName: string
@@ -133,7 +172,7 @@ export async function reportIncomingCallToCallKit(params: {
     avatar: string | null
   }
 }): Promise<void> {
-  if (!isNativeIosCallApp()) return
+  if (!isNativeVoiceCallApp()) return
 
   const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
   await CapacitorPushCalls.handleIncomingCall({
@@ -153,14 +192,17 @@ export async function reportIncomingCallToCallKit(params: {
   })
 }
 
-/** Register PushKit + CallKit listeners (native iOS app only). */
+/** @deprecated Use reportIncomingCallToNativeUi */
+export const reportIncomingCallToCallKit = reportIncomingCallToNativeUi
+
+/** Register native push + call event listeners (iOS CallKit / Android ConnectionService). */
 export async function initNativeCallBridge(handlers: NativeCallBridgeHandlers): Promise<boolean> {
-  if (!isNativeIosCallApp()) return false
+  if (!isNativeVoiceCallApp()) return false
   if (bridgeInitialized && bridgeHandlers === handlers) return true
 
   bridgeHandlers = handlers
-  await bootstrapNativeVoip()
-  await subscribeNativeVoipIfNeeded()
+  await bootstrapNativePush()
+  await subscribeNativePushIfNeeded()
 
   const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
 
@@ -187,37 +229,34 @@ export async function initNativeCallBridge(handlers: NativeCallBridgeHandlers): 
   return true
 }
 
-/** Answer via CallKit (triggers callAnswered → WebRTC in useVoiceCall). */
 export async function answerNativeCall(callId: string | null | undefined): Promise<boolean> {
-  if (!isNativeIosCallApp() || !callId) return false
+  if (!isNativeVoiceCallApp() || !callId) return false
   try {
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
     await CapacitorPushCalls.answerCall({ callId })
     return true
   } catch (error) {
-    console.error('[VoIP] native CallKit answer failed:', error)
+    console.error('[NativeCall] native answer failed:', error)
     return false
   }
 }
 
-/** Tell the App bridge CallKit provider the WebRTC media path is connected. */
 export async function markNativeCallConnected(callId: string | null | undefined): Promise<void> {
-  if (!isNativeIosCallApp() || !callId) return
+  if (!isNativeVoiceCallApp() || !callId) return
   try {
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
     await CapacitorPushCalls.updateCallStatus({ callId, status: 'connected' })
   } catch {
-    // ignore when CallKit already shows connected
+    // ignore when native UI already shows connected
   }
 }
 
-/** Tell CallKit the native call UI can end (after WebRTC hangup). */
 export async function endNativeCall(callId: string | null | undefined): Promise<void> {
-  if (!isNativeIosCallApp() || !callId) return
+  if (!isNativeVoiceCallApp() || !callId) return
   try {
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
     await CapacitorPushCalls.endCall({ callId })
   } catch {
-    // ignore when CallKit already dismissed the call
+    // ignore when native UI already dismissed the call
   }
 }

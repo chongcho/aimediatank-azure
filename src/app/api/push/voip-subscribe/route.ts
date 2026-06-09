@@ -5,6 +5,20 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
+function normalizePlatform(raw: string | undefined): string {
+  const platform = (raw || 'ios').trim().toLowerCase()
+  return platform === 'android' ? 'android' : 'ios'
+}
+
+function isValidNativePushToken(token: string, platform: string): boolean {
+  if (!token) return false
+  if (platform === 'ios') {
+    return /^[0-9a-f]{32,}$/i.test(token)
+  }
+  // FCM registration tokens (case-sensitive, include ':' and other chars)
+  return token.length >= 80 && token.length <= 4096
+}
+
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) {
@@ -18,30 +32,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const token = (body.token || '').trim().toLowerCase()
-  if (!token || !/^[0-9a-f]{32,}$/i.test(token)) {
-    return NextResponse.json({ error: 'Invalid VoIP push token' }, { status: 400 })
+  const platform = normalizePlatform(body.platform)
+  const token =
+    platform === 'ios' ? (body.token || '').trim().toLowerCase() : (body.token || '').trim()
+
+  if (!isValidNativePushToken(token, platform)) {
+    return NextResponse.json({ error: 'Invalid push token' }, { status: 400 })
   }
 
-  const platform = (body.platform || 'ios').trim() || 'ios'
   const userAgent = request.headers.get('user-agent')
 
-  await prisma.voipPushToken.upsert({
-    where: { token },
-    create: {
-      userId: session.user.id,
-      token,
-      platform,
-      userAgent,
-    },
-    update: {
-      userId: session.user.id,
-      platform,
-      userAgent,
-    },
-  })
+  await prisma.$transaction([
+    prisma.voipPushToken.upsert({
+      where: { token },
+      create: {
+        userId: session.user.id,
+        token,
+        platform,
+        userAgent,
+      },
+      update: {
+        userId: session.user.id,
+        platform,
+        userAgent,
+      },
+    }),
+    prisma.voipPushToken.deleteMany({
+      where: {
+        userId: session.user.id,
+        platform,
+        token: { not: token },
+      },
+    }),
+  ])
 
-  console.info('[VoIP] token registered for user', session.user.id)
+  console.info(`[NativePush] ${platform} token registered for user`, session.user.id)
 
   return NextResponse.json({ ok: true })
 }

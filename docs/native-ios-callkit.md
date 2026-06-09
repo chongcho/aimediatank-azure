@@ -11,6 +11,8 @@ AiMediaTank can ring on the **iPhone lock screen** when installed as a **native 
    - **VoIP push** (`src/lib/voipPush.ts`) → CallKit full-screen incoming call UI
 4. **Accept/Decline** on lock screen → `@kapsula-chat/capacitor-push-calls` → `useVoiceCall` → existing WebRTC flow.
 
+See also: [Native Android voice calls (FCM + ConnectionService)](./native-android-calls.md) for Google Play / lock-screen calls on Android.
+
 ## Prerequisites
 
 - Mac with **Xcode 26+** (Capacitor 8 + Swift Package Manager; Xcode 16 fails to compile plugins)

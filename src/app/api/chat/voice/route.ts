@@ -6,11 +6,8 @@ import {
   sendVoiceCallDismissPushToUser,
   sendVoiceCallRingPushBurstToUser,
 } from '@/lib/webPush'
-import {
-  plannedVoipCancelPushAttempts,
-  sendVoipCallCancelPushBurstToUser,
-  sendVoipCallPushToUser,
-} from '@/lib/voipPush'
+import { sendNativeCallCancelPushBurstToUser, sendNativeCallPushToUser } from '@/lib/nativeCallPush'
+import { plannedVoipCancelPushAttempts } from '@/lib/voipPush'
 import { recordVoipCancelBurst } from '@/lib/voipCallTrace'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 
@@ -82,7 +79,7 @@ async function clearCallerRinging(userId: string) {
 
   for (const call of staleRinging) {
     try {
-      await sendVoipCallCancelPushBurstToUser(call.calleeId, call.id)
+      await sendNativeCallCancelPushBurstToUser(call.calleeId, call.id)
       await sendVoiceCallDismissPushToUser(call.calleeId, call.id, userId)
     } catch (err) {
       console.error(`VoIP cancel push failed while clearing stale ring ${call.id}:`, err)
@@ -271,12 +268,12 @@ export async function POST(request: Request) {
         url: `/?openChat=1&voiceIncoming=1&callId=${encodeURIComponent(call.id)}`,
       }).catch((err) => console.error('Voice call push failed:', err))
 
-      void sendVoipCallPushToUser(calleeId, {
+      void sendNativeCallPushToUser(calleeId, {
         callId: call.id,
         caller: call.caller,
         displayName: callerLabel,
         handle: call.caller.username || call.caller.id,
-      }).catch((err) => console.error('VoIP push failed:', err))
+      }).catch((err) => console.error('Native call push failed:', err))
 
       return NextResponse.json({
         call: {
@@ -411,7 +408,7 @@ export async function POST(request: Request) {
 
       if (call.status === 'ringing' && call.callerId === userId) {
         try {
-          await sendVoipCallCancelPushBurstToUser(peerId, call.id)
+          await sendNativeCallCancelPushBurstToUser(peerId, call.id)
           await sendVoiceCallDismissPushToUser(peerId, call.id, userId)
           await recordVoipCancelBurst({
             callId: call.id,

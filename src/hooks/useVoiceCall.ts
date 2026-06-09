@@ -12,9 +12,9 @@ import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 import {
   endNativeCall,
   initNativeCallBridge,
-  isNativeIosCallApp,
+  isNativeVoiceCallApp,
   markNativeCallConnected,
-  reportIncomingCallToCallKit,
+  reportIncomingCallToNativeUi,
   type NativeIncomingCallPayload,
 } from '@/lib/nativeCallBridge'
 import { normalizeVoiceCallId, voiceCallIdsMatch } from '@/lib/voiceCallId'
@@ -268,9 +268,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     async (signal: PollSignal, caller: VoiceCallUser) => {
       storePendingOffer(signal.payload)
       // Native iOS: PushKit bridge already reports CallKit on lock screen — avoid a second ring.
-      if (!isNativeIosCallApp()) {
+      if (!isNativeVoiceCallApp()) {
         const label = caller.name || caller.username || 'AiMediaTank'
-        void reportIncomingCallToCallKit({
+        void reportIncomingCallToNativeUi({
           callId: signal.callId,
           handle: caller.username || caller.id,
           displayName: label,
@@ -496,9 +496,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         const incoming = data.incomingCalls[0]
         if (!handledIncomingRef.current.has(`call-${incoming.id}`)) {
           handledIncomingRef.current.add(`call-${incoming.id}`)
-          if (!isNativeIosCallApp()) {
+          if (!isNativeVoiceCallApp()) {
             const label = incoming.caller.name || incoming.caller.username || 'AiMediaTank'
-            void reportIncomingCallToCallKit({
+            void reportIncomingCallToNativeUi({
               callId: incoming.id,
               handle: incoming.caller.username || incoming.caller.id,
               displayName: label,
@@ -614,7 +614,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
     void initNativeCallBridge({
       onIncomingCall: (call) => {
-        if (!isNativeIosCallApp()) {
+        if (!isNativeVoiceCallApp()) {
           stopVoiceCallRingtone()
         }
         void ensureIncomingCall(call.callId, call)

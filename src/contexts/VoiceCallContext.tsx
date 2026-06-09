@@ -13,9 +13,11 @@ import {
 import { registerVoiceCallPush, installPushSubscriptionRefresh } from '@/lib/pushSubscriptionClient'
 import {
   answerNativeCall,
-  bootstrapNativeVoip,
-  isNativeIosCallApp,
-  subscribeNativeVoipIfNeeded,
+  bootstrapNativePush,
+  isNativeCallApp,
+  isNativeCallApp,
+  isNativeVoiceCallApp,
+  subscribeNativePushIfNeeded,
 } from '@/lib/nativeCallBridge'
 import {
   installVoiceCallAudioUnlock,
@@ -112,7 +114,7 @@ export function VoiceCallOverlayPanel({
   const minimizedCallUi = placement === 'floating' && isActiveCall && ctx.callUiHidden
   const showCallControls = popupCallUi || fullscreenCallUi
   const canHideCall = isActiveCall
-  const nativeIosCall = isNativeIosCallApp()
+  const nativeVoiceCall = isNativeVoiceCallApp()
 
   return (
     <VoiceCallOverlay
@@ -129,7 +131,7 @@ export function VoiceCallOverlayPanel({
       onRestoreCallUi={ctx.showCallUi}
       onAccept={() => {
         void (async () => {
-          if (nativeIosCall && ctx.callId) {
+          if (nativeVoiceCall && ctx.callId) {
             await answerNativeCall(ctx.callId).catch(() => false)
           }
           await ctx.answerCall()
@@ -175,13 +177,16 @@ export function VoiceCallProvider({
   }, [])
 
   useEffect(() => {
-    void bootstrapNativeVoip()
+    void bootstrapNativePush()
   }, [])
 
   useEffect(() => {
     if (!session?.user?.id) return
+    if (isNativeCallApp()) {
+      void subscribeNativePushIfNeeded()
+      return
+    }
     void registerVoiceCallPush()
-    void subscribeNativeVoipIfNeeded()
     return installPushSubscriptionRefresh()
   }, [session?.user?.id])
 
@@ -197,8 +202,8 @@ export function VoiceCallProvider({
       return
     }
 
-    // Incoming on native iOS: CallKit owns lock-screen ring; skip in-app duplicate.
-    if (isNativeIosCallApp() && state === 'incoming') {
+    // Native app: CallKit / ConnectionService owns lock-screen ring; skip in-app duplicate.
+    if (isNativeVoiceCallApp() && state === 'incoming') {
       return
     }
 
@@ -232,7 +237,7 @@ export function VoiceCallProvider({
       if (document.hidden) return
       primeVoiceCallAfterNotificationOpen()
       const state = callStateRef.current
-      if (isNativeIosCallApp()) return
+      if (isNativeVoiceCallApp()) return
       if (state === 'incoming' || state === 'outgoing') {
         retryVoiceCallRingtone()
       }
