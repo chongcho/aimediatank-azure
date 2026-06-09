@@ -1,4 +1,4 @@
-package com.aimediatank.apple;
+package com.aimediatank.app;
 
 import android.os.Bundle;
 import com.capacitor.voipcalls.VoipConnectionService;
@@ -8,6 +8,6 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        VoipConnectionService.registerPhoneAccount(this);
+        VoipConnectionService.Companion.registerPhoneAccount(this);
     }
 }

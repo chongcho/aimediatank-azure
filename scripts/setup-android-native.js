@@ -2,6 +2,7 @@
 /**
  * Ensure Android native shell settings after `npx cap sync`.
  * - Play Store applicationId com.aimediatank.app
+ * - MainActivity package matches namespace (required or launcher crashes)
  * - MainActivity registers ConnectionService phone account
  */
 const fs = require('fs')
@@ -9,7 +10,19 @@ const path = require('path')
 
 const root = path.join(__dirname, '..')
 const buildGradle = path.join(root, 'android', 'app', 'build.gradle')
-const mainActivity = path.join(
+const mainActivityApp = path.join(
+  root,
+  'android',
+  'app',
+  'src',
+  'main',
+  'java',
+  'com',
+  'aimediatank',
+  'app',
+  'MainActivity.java',
+)
+const mainActivityApple = path.join(
   root,
   'android',
   'app',
@@ -21,6 +34,7 @@ const mainActivity = path.join(
   'apple',
   'MainActivity.java',
 )
+const stringsXml = path.join(root, 'android', 'app', 'src', 'main', 'res', 'values', 'strings.xml')
 
 if (!fs.existsSync(buildGradle)) {
   console.warn('[setup-android-native] android/app/build.gradle not found; run npx cap add android')
@@ -36,7 +50,7 @@ if (gradle.includes('applicationId "com.aimediatank.apple"')) {
   console.log('[setup-android-native] set applicationId com.aimediatank.app')
 }
 
-const mainActivitySource = `package com.aimediatank.apple;
+const mainActivitySource = `package com.aimediatank.app;
 
 import android.os.Bundle;
 import com.capacitor.voipcalls.VoipConnectionService;
@@ -46,15 +60,63 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        VoipConnectionService.registerPhoneAccount(this);
+        VoipConnectionService.Companion.registerPhoneAccount(this);
     }
 }
 `
 
-if (fs.existsSync(mainActivity)) {
-  const current = fs.readFileSync(mainActivity, 'utf8')
-  if (!current.includes('VoipConnectionService.registerPhoneAccount')) {
-    fs.writeFileSync(mainActivity, mainActivitySource)
-    console.log('[setup-android-native] patched MainActivity phone account registration')
+fs.mkdirSync(path.dirname(mainActivityApp), { recursive: true })
+
+if (fs.existsSync(mainActivityApple)) {
+  fs.unlinkSync(mainActivityApple)
+  console.log('[setup-android-native] removed legacy com.aimediatank.apple.MainActivity')
+}
+
+const current = fs.existsSync(mainActivityApp) ? fs.readFileSync(mainActivityApp, 'utf8') : ''
+if (!current.includes('VoipConnectionService.Companion.registerPhoneAccount')) {
+  fs.writeFileSync(mainActivityApp, mainActivitySource)
+  console.log('[setup-android-native] patched MainActivity at com.aimediatank.app')
+} else if (current.includes('package com.aimediatank.apple')) {
+  fs.writeFileSync(mainActivityApp, mainActivitySource)
+  console.log('[setup-android-native] fixed MainActivity package com.aimediatank.app')
+}
+
+if (fs.existsSync(stringsXml)) {
+  let strings = fs.readFileSync(stringsXml, 'utf8')
+  if (strings.includes('com.aimediatank.apple')) {
+    strings = strings
+      .replace(/com\.aimediatank\.apple/g, 'com.aimediatank.app')
+    fs.writeFileSync(stringsXml, strings)
+    console.log('[setup-android-native] updated strings.xml package_name')
+  }
+}
+
+const rootBuildGradle = path.join(root, 'android', 'build.gradle')
+const variablesGradle = path.join(root, 'android', 'variables.gradle')
+
+if (fs.existsSync(rootBuildGradle)) {
+  let rootGradle = fs.readFileSync(rootBuildGradle, 'utf8')
+  if (!rootGradle.includes('kotlin-gradle-plugin')) {
+    rootGradle = rootGradle.replace(
+      "classpath 'com.google.gms:google-services:4.4.4'",
+      "classpath 'com.google.gms:google-services:4.4.4'\n        classpath \"org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion\"",
+    )
+    if (!rootGradle.includes('ext.kotlinVersion')) {
+      rootGradle = rootGradle.replace(
+        'buildscript {',
+        "buildscript {\n    ext.kotlinVersion = '2.0.21'",
+      )
+    }
+    fs.writeFileSync(rootBuildGradle, rootGradle)
+    console.log('[setup-android-native] added Kotlin Gradle plugin for capacitor-push-calls')
+  }
+}
+
+if (fs.existsSync(variablesGradle)) {
+  let vars = fs.readFileSync(variablesGradle, 'utf8')
+  if (!vars.includes('kotlinVersion')) {
+    vars = vars.replace('ext {', "ext {\n    kotlinVersion = '2.0.21'")
+    fs.writeFileSync(variablesGradle, vars)
+    console.log('[setup-android-native] set kotlinVersion in variables.gradle')
   }
 }

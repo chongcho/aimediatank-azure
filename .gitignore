@@ -42,6 +42,8 @@ docs/session-log-*.md
 
 # Native app builds
 /ios/App/Pods/
+# Firebase Admin SDK keys — use Azure FIREBASE_SERVICE_ACCOUNT_JSON only
+*-firebase-adminsdk-*.json
 ios/App/App/public/
 ios/DerivedData/
 *.xcuserdata

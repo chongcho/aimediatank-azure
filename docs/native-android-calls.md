@@ -85,6 +85,7 @@ node scripts/trace-voice-push.js LionKing YoungCloud
 
 | Symptom | Check |
 |--------|--------|
+| App icon tap, instant close | **MainActivity package** must match `applicationId` namespace (`com.aimediatank.app`). Wrong package → `ClassNotFoundException`. Rebuild with `setup-android-native.js` fix. |
 | No lock-screen ring | `VoipPushToken` with `platform=android`? `FIREBASE_SERVICE_ACCOUNT_JSON` on Azure? App rebuilt with `google-services.json`? |
 | FCM 201 but no UI | Install **native app**, not PWA. Phone account registered in `MainActivity`? |
 | Call UI but no audio | Microphone permission; staging URL reachable from device |
