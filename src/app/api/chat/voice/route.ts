@@ -83,7 +83,7 @@ async function clearCallerRinging(userId: string) {
   for (const call of staleRinging) {
     try {
       await sendVoipCallCancelPushBurstToUser(call.calleeId, call.id)
-      await sendVoiceCallDismissPushToUser(call.calleeId, call.id)
+      await sendVoiceCallDismissPushToUser(call.calleeId, call.id, userId)
     } catch (err) {
       console.error(`VoIP cancel push failed while clearing stale ring ${call.id}:`, err)
     }
@@ -340,7 +340,7 @@ export async function POST(request: Request) {
         data: { consumedAt: new Date() },
       })
 
-      void sendVoiceCallDismissPushToUser(userId, call.id).catch((err) =>
+      void sendVoiceCallDismissPushToUser(userId, call.id, userId).catch((err) =>
         console.error('Voice call dismiss push failed:', err),
       )
 
@@ -372,7 +372,7 @@ export async function POST(request: Request) {
         },
       })
 
-      void sendVoiceCallDismissPushToUser(userId, call.id).catch((err) =>
+      void sendVoiceCallDismissPushToUser(userId, call.id, userId).catch((err) =>
         console.error('Voice call dismiss push failed:', err),
       )
 
@@ -412,7 +412,7 @@ export async function POST(request: Request) {
       if (call.status === 'ringing' && call.callerId === userId) {
         try {
           await sendVoipCallCancelPushBurstToUser(peerId, call.id)
-          await sendVoiceCallDismissPushToUser(peerId, call.id)
+          await sendVoiceCallDismissPushToUser(peerId, call.id, userId)
           await recordVoipCancelBurst({
             callId: call.id,
             fromUserId: userId,

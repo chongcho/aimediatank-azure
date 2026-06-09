@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getVoipCallTrace } from '@/lib/voipCallTrace'
+import { getWebPushTrace } from '@/lib/webPushTrace'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 import { verifyVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
 
 export const dynamic = 'force-dynamic'
 
-/** Debug: did the iPhone receive cancel (VoIP push or status poll)? Secured by per-call decline token. */
+/** Debug: VoIP cancel + Web Push ring delivery trace. Secured by per-call decline token. */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const callId = normalizeVoiceCallId(searchParams.get('callId'))
@@ -18,10 +19,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
   }
 
-  const trace = await getVoipCallTrace(callId)
-  if (!trace) {
+  const [voipTrace, webPushTrace] = await Promise.all([
+    getVoipCallTrace(callId),
+    getWebPushTrace(callId),
+  ])
+
+  if (!voipTrace && !webPushTrace) {
     return NextResponse.json({ error: 'Call not found' }, { status: 404 })
   }
 
-  return NextResponse.json(trace)
+  return NextResponse.json({
+    voip: voipTrace,
+    webPush: webPushTrace,
+  })
 }

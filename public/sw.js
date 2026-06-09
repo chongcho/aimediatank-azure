@@ -1,5 +1,5 @@
 // Bump this when changing caching behavior to force refresh.
-const CACHE_NAME = 'aimediatank-v20';
+const CACHE_NAME = 'aimediatank-v21';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install
@@ -162,8 +162,24 @@ async function dismissVoiceCallNotifications(callId) {
   }
 }
 
-async function alertIncomingVoiceCall(title, options) {
-  await showCallNotification(title, options);
+function reportPushAck(callId, event, detail) {
+  if (!callId) return Promise.resolve();
+  return fetch('/api/chat/voice/push-ack', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callId, event, detail: detail || undefined }),
+  }).catch(() => {});
+}
+
+async function alertIncomingVoiceCall(title, options, callId) {
+  await reportPushAck(callId, 'push_received');
+  try {
+    await showCallNotification(title, options);
+    await reportPushAck(callId, 'notification_shown');
+  } catch (error) {
+    await reportPushAck(callId, 'notification_failed', String(error));
+    throw error;
+  }
   pulseVoiceCallVibration();
 }
 
@@ -271,8 +287,10 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'AiMediaTank';
 
   event.waitUntil(
-    (isVoiceCall ? alertIncomingVoiceCall(title, options) : showCallNotification(title, options)).then(
-      () => {
+    (isVoiceCall
+      ? alertIncomingVoiceCall(title, options, data.callId)
+      : showCallNotification(title, options)
+    ).then(() => {
         if (!isVoiceCall) return;
         return notifyOpenClients({
           type: 'VOICE_CALL_INCOMING',

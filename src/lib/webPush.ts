@@ -1,6 +1,11 @@
 import webpush from 'web-push'
 import { prisma } from '@/lib/prisma'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
+import {
+  endpointKind,
+  recordWebPushNoSubscriptions,
+  recordWebPushSend,
+} from '@/lib/webPushTrace'
 
 export interface VoiceCallPushPayload {
   type: 'voice_call'
@@ -67,33 +72,59 @@ async function isCallStillRinging(callId: string): Promise<boolean> {
   return call?.status === 'ringing'
 }
 
+export interface VoiceCallPushTraceContext {
+  callId: string
+  fromUserId: string
+  ringAttempt?: number
+}
+
 export async function sendVoiceCallPushToUser(
   userId: string,
   payload: VoiceCallPushPayload | VoiceCallDismissPushPayload,
+  trace?: VoiceCallPushTraceContext,
 ): Promise<void> {
-  if (!isWebPushConfigured()) return
+  if (!isWebPushConfigured()) {
+    console.warn('[WebPush] VAPID not configured — push skipped')
+    return
+  }
 
   ensureVapidConfigured()
 
   const subscriptions = await prisma.pushSubscription.findMany({
     where: { userId },
   })
+
+  const callId = normalizeVoiceCallId(payload.callId)
+  const ringAttempt = trace?.ringAttempt ?? ('ringAttempt' in payload ? payload.ringAttempt : undefined)
+
   if (subscriptions.length === 0) {
-    console.warn(`[WebPush] no push subscriptions for user ${userId}`)
+    console.warn(`[WebPush] no push subscriptions for user ${userId} call=${callId ?? '?'}`)
+    if (trace && callId) {
+      await recordWebPushNoSubscriptions({
+        callId,
+        toUserId: userId,
+        fromUserId: trace.fromUserId,
+        ringAttempt,
+      })
+    }
     return
   }
 
   const body = JSON.stringify(payload)
   const staleEndpoints: string[] = []
-  const topic =
-    payload.type === 'voice_call'
-      ? voiceCallPushTopic(payload.callId)
-      : voiceCallPushTopic(payload.callId)
+  const topic = callId ? voiceCallPushTopic(callId) : 'aimediatank'
+  const results: Array<{
+    endpointKind: string
+    ok: boolean
+    statusCode?: number
+    error?: string
+  }> = []
 
   await Promise.all(
     subscriptions.map(async (sub) => {
+      const kind = endpointKind(sub.endpoint)
       try {
-        await webpush.sendNotification(
+        const res = await webpush.sendNotification(
           {
             endpoint: sub.endpoint,
             keys: { p256dh: sub.p256dh, auth: sub.auth },
@@ -105,16 +136,34 @@ export async function sendVoiceCallPushToUser(
             topic,
           },
         )
+        results.push({ endpointKind: kind, ok: true, statusCode: res.statusCode })
+        console.info(
+          `[WebPush] sent ${payload.type} call=${callId} user=${userId} attempt=${ringAttempt ?? 1} ${kind} status=${res.statusCode}`,
+        )
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode
+        const message = (error as { body?: string }).body || String(error)
+        results.push({ endpointKind: kind, ok: false, statusCode: status, error: message.slice(0, 200) })
         if (status === 404 || status === 410) {
           staleEndpoints.push(sub.endpoint)
         } else {
-          console.error(`[WebPush] send failed (${status ?? 'unknown'}):`, error)
+          console.error(`[WebPush] send failed call=${callId} ${kind} (${status ?? 'unknown'}):`, error)
         }
       }
     }),
   )
+
+  if (trace && callId) {
+    await recordWebPushSend({
+      callId,
+      toUserId: userId,
+      fromUserId: trace.fromUserId,
+      payloadType: payload.type,
+      ringAttempt,
+      subscriptionCount: subscriptions.length,
+      results,
+    })
+  }
 
   if (staleEndpoints.length > 0) {
     await prisma.pushSubscription.deleteMany({
@@ -127,13 +176,18 @@ export async function sendVoiceCallPushToUser(
 export async function sendVoiceCallDismissPushToUser(
   userId: string,
   callId: string,
+  fromUserId: string,
 ): Promise<void> {
   const normalizedCallId = normalizeVoiceCallId(callId)
   if (!normalizedCallId) return
-  await sendVoiceCallPushToUser(userId, {
-    type: 'voice_call_dismiss',
-    callId: normalizedCallId,
-  })
+  await sendVoiceCallPushToUser(
+    userId,
+    {
+      type: 'voice_call_dismiss',
+      callId: normalizedCallId,
+    },
+    { callId: normalizedCallId, fromUserId },
+  )
 }
 
 /**
@@ -152,11 +206,15 @@ export async function sendVoiceCallRingPushBurstToUser(
   const sendOnce = async () => {
     attempt += 1
     if (!(await isCallStillRinging(callId))) return
-    await sendVoiceCallPushToUser(userId, {
-      ...payload,
-      callId,
-      ringAttempt: attempt,
-    })
+    await sendVoiceCallPushToUser(
+      userId,
+      {
+        ...payload,
+        callId,
+        ringAttempt: attempt,
+      },
+      { callId, fromUserId: payload.caller.id, ringAttempt: attempt },
+    )
   }
 
   const runRetriesFrom = async (startIndex: number) => {
