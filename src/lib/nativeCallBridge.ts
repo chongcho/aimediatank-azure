@@ -99,6 +99,10 @@ function attachNativePushListeners(
     }
   })
 
+  CapacitorPushCalls.addListener('registrationError', ({ error }) => {
+    console.error('[NativePush] registration error:', error)
+  })
+
   pushListenerAttached = true
 }
 

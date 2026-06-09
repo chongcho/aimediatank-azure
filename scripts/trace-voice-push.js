@@ -105,7 +105,19 @@ async function main() {
     select: { platform: true, updatedAt: true },
   })
   console.log(`\n=== CALLEE VOIP TOKENS (${voip.length}) ===`)
-  for (const v of voip) console.log(`  platform=${v.platform} updatedAt=${v.updatedAt}`)
+  for (const v of voip) {
+    const rows = await prisma.voipPushToken.findMany({
+      where: { userId: callee.id, platform: v.platform },
+      select: { token: true, updatedAt: true, userAgent: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 1,
+    })
+    const row = rows[0]
+    const tokenPreview = row?.token ? `${row.token.slice(0, 16)}…` : 'missing'
+    console.log(
+      `  platform=${v.platform} updatedAt=${v.updatedAt} token=${tokenPreview} ua=${row?.userAgent?.slice(0, 60) || 'n/a'}`,
+    )
+  }
   const androidVoip = voip.filter((v) => v.platform === 'android')
   const iosVoip = voip.filter((v) => v.platform === 'ios')
   if (androidVoip.length === 0) {
@@ -138,16 +150,25 @@ async function main() {
       where: {
         callId: latest.id,
         type: {
-          in: ['web_push_ring', 'web_push_dismiss', 'web_push_device_ack', 'web_push_no_subscriptions'],
+          in: [
+            'web_push_ring',
+            'web_push_dismiss',
+            'web_push_device_ack',
+            'web_push_no_subscriptions',
+            'fcm_call_ring',
+            'fcm_call_cancel',
+            'fcm_not_configured',
+            'fcm_no_tokens',
+          ],
         },
       },
       orderBy: { createdAt: 'asc' },
       select: { type: true, payload: true, createdAt: true },
     })
 
-    console.log(`\n=== WEB PUSH TRACE (latest call ${latest.id}) ===`)
+    console.log(`\n=== PUSH TRACE (latest call ${latest.id}) ===`)
     if (webSignals.length === 0) {
-      console.log('  No web_push_* signals recorded (tracing added recently — place a new test call after deploy).')
+      console.log('  No push trace signals — place a new test call after deploy.')
     }
     for (const s of webSignals) {
       console.log(`  ${s.createdAt.toISOString()}  ${s.type}`)
@@ -175,10 +196,16 @@ async function main() {
     }
   }
 
-  console.log('\n=== VAPID (local env only) ===')
+  console.log('\n=== SERVER PUSH CONFIG (local env only) ===')
   console.log(
-    `  configured: ${Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY)}`,
+    `  VAPID: ${Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY)}`,
   )
+  console.log(
+    `  FIREBASE (Android FCM): ${Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.FIREBASE_SERVICE_ACCOUNT_PATH)}`,
+  )
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON && !process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+    console.log('  ⚠ Production Azure must set FIREBASE_SERVICE_ACCOUNT_JSON or lock-screen Android calls will not ring.')
+  }
 }
 
 main()

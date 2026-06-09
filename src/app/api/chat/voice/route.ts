@@ -273,7 +273,7 @@ export async function POST(request: Request) {
         caller: call.caller,
         displayName: callerLabel,
         handle: call.caller.username || call.caller.id,
-      }).catch((err) => console.error('Native call push failed:', err))
+      }, userId).catch((err) => console.error('Native call push failed:', err))
 
       return NextResponse.json({
         call: {

@@ -1,6 +1,6 @@
 import {
   sendAndroidCallCancelPushBurstToUser,
-  sendAndroidCallPushToUser,
+  sendAndroidCallPushBurstToUser,
 } from '@/lib/fcmPush'
 import {
   sendVoipCallCancelPushBurstToUser,
@@ -12,12 +12,13 @@ import {
 export async function sendNativeCallPushToUser(
   userId: string,
   payload: VoipCallPushPayload,
+  fromUserId?: string,
 ): Promise<void> {
   await Promise.all([
     sendVoipCallPushToUser(userId, payload).catch((err) =>
       console.error('[NativeCall] iOS VoIP push failed:', err),
     ),
-    sendAndroidCallPushToUser(userId, payload).catch((err) =>
+    sendAndroidCallPushBurstToUser(userId, payload, fromUserId || payload.caller.id).catch((err) =>
       console.error('[NativeCall] Android FCM push failed:', err),
     ),
   ])

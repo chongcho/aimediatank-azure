@@ -12,6 +12,7 @@ import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 import {
   endNativeCall,
   initNativeCallBridge,
+  isNativeIosCallApp,
   isNativeVoiceCallApp,
   markNativeCallConnected,
   reportIncomingCallToNativeUi,
@@ -267,8 +268,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const handleRemoteOffer = useCallback(
     async (signal: PollSignal, caller: VoiceCallUser) => {
       storePendingOffer(signal.payload)
-      // Native iOS: PushKit bridge already reports CallKit on lock screen — avoid a second ring.
-      if (!isNativeVoiceCallApp()) {
+      // iOS: PushKit already reports CallKit on lock screen. Android still needs JS fallback when polling.
+      if (!isNativeIosCallApp()) {
         const label = caller.name || caller.username || 'AiMediaTank'
         void reportIncomingCallToNativeUi({
           callId: signal.callId,
@@ -496,7 +497,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         const incoming = data.incomingCalls[0]
         if (!handledIncomingRef.current.has(`call-${incoming.id}`)) {
           handledIncomingRef.current.add(`call-${incoming.id}`)
-          if (!isNativeVoiceCallApp()) {
+          if (!isNativeIosCallApp()) {
             const label = incoming.caller.name || incoming.caller.username || 'AiMediaTank'
             void reportIncomingCallToNativeUi({
               callId: incoming.id,

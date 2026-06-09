@@ -15,6 +15,7 @@ import {
   answerNativeCall,
   bootstrapNativePush,
   isNativeCallApp,
+  isNativeIosCallApp,
   isNativeVoiceCallApp,
   subscribeNativePushIfNeeded,
 } from '@/lib/nativeCallBridge'
@@ -201,8 +202,8 @@ export function VoiceCallProvider({
       return
     }
 
-    // Native app: CallKit / ConnectionService owns lock-screen ring; skip in-app duplicate.
-    if (isNativeVoiceCallApp() && state === 'incoming') {
+    // iOS CallKit owns lock-screen ring. Android ConnectionService ring when FCM/poll reports the call.
+    if (isNativeIosCallApp() && state === 'incoming') {
       return
     }
 
@@ -236,7 +237,7 @@ export function VoiceCallProvider({
       if (document.hidden) return
       primeVoiceCallAfterNotificationOpen()
       const state = callStateRef.current
-      if (isNativeVoiceCallApp()) return
+      if (isNativeIosCallApp()) return
       if (state === 'incoming' || state === 'outgoing') {
         retryVoiceCallRingtone()
       }

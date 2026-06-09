@@ -87,7 +87,10 @@ node scripts/trace-voice-push.js LionKing YoungCloud
 |--------|--------|
 | App icon tap, instant close | **MainActivity package** must match `applicationId` (`com.aimediatank.app`). Rebuild **1.0.5+** after `git pull`. Uninstall old app first. Update **Android System WebView** from Play Store. |
 | Play shows "app has error" | Usually an old broken build still installed, or WebView disabled/outdated. Confirm version **1.0.5 (6)** under Settings → Apps → AiMediaTank. |
-| No lock-screen ring | `VoipPushToken` with `platform=android`? `FIREBASE_SERVICE_ACCOUNT_JSON` on Azure? App rebuilt with `google-services.json`? |
+| No lock-screen ring | `VoipPushToken` with `platform=android`? **`FIREBASE_SERVICE_ACCOUNT_JSON` on production Azure** (`aimediatank-azure`)? App rebuilt with `google-services.json`? Disable battery optimization for AiMediaTank. |
+| FCM trace shows `fcm_not_configured` | Add Firebase Admin JSON to **production** App Service → Configuration (same project as `google-services.json`: `aimediatank-20800`). |
+| FCM trace shows `fcm_no_tokens` | Open native app, sign in as callee, allow notifications — confirm `VoipPushToken` row. |
+| Call works in-app only, not locked | Expected if FCM never reaches device — check Azure logs for `[FCM] skipped` or run `node scripts/trace-voice-push.js` after a test call. |
 | FCM 201 but no UI | Install **native app**, not PWA. Phone account registered in `MainActivity`? |
 | Call UI but no audio | Microphone permission; staging URL reachable from device |
 | Caller cancel, UI stuck | Cancel uses FCM `action=cancel` (patched in `scripts/patch-android-fcm.js` on `npm install`) |
