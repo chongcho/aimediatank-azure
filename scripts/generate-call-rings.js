@@ -1,12 +1,33 @@
 /**
- * Generate incoming/outgoing call ring WAV files for iOS HTML audio playback.
+ * Generate incoming/outgoing call ring WAV files (classic analog PSTN dual-tone).
  * Run: node scripts/generate-call-rings.js
  */
 const fs = require('fs')
 const path = require('path')
 
 const SAMPLE_RATE = 44100
-const VOLUME = 0.45
+const VOLUME = 0.42
+
+/** North American analog ring: 440 Hz + 480 Hz dual-tone. */
+const RING_TONE_A = 440
+const RING_TONE_B = 480
+
+function envelopeAt(sampleIndex, totalSamples) {
+  const attack = Math.floor(SAMPLE_RATE * 0.02)
+  const release = Math.floor(SAMPLE_RATE * 0.025)
+  if (sampleIndex < attack) return sampleIndex / attack
+  if (sampleIndex > totalSamples - release) {
+    return Math.max(0, (totalSamples - sampleIndex) / release)
+  }
+  return 1
+}
+
+function dualToneSample(globalSampleIndex, volume, env) {
+  const t = globalSampleIndex / SAMPLE_RATE
+  const wave =
+    (Math.sin(2 * Math.PI * RING_TONE_A * t) + Math.sin(2 * Math.PI * RING_TONE_B * t)) * 0.5
+  return wave * volume * env
+}
 
 function writeWav(segments, outPath) {
   const numSamples = segments.reduce(
@@ -33,8 +54,8 @@ function writeWav(segments, outPath) {
     const count = Math.floor((SAMPLE_RATE * segment.ms) / 1000)
     for (let i = 0; i < count; i++) {
       let sample = 0
-      if (segment.type === 'tone' && segment.hz) {
-        sample = Math.sin((2 * Math.PI * segment.hz * i) / SAMPLE_RATE) * VOLUME
+      if (segment.type === 'ring') {
+        sample = dualToneSample(offset + i, VOLUME, envelopeAt(i, count))
       }
       const intSample = Math.max(-32767, Math.min(32767, Math.round(sample * 32767)))
       buffer.writeInt16LE(intSample, 44 + (offset + i) * 2)
@@ -49,25 +70,22 @@ function writeWav(segments, outPath) {
 
 const soundsDir = path.join(__dirname, '..', 'public', 'sounds')
 
-// Classic double-ring cadence (~4s loop) — incoming
+// Classic US landline: ~2 s dual-tone warble, ~4 s silence (6 s loop).
 writeWav(
   [
-    { type: 'tone', hz: 440, ms: 400 },
-    { type: 'silence', ms: 200 },
-    { type: 'tone', hz: 440, ms: 400 },
-    { type: 'silence', ms: 3000 },
+    { type: 'ring', ms: 2000 },
+    { type: 'silence', ms: 4000 },
   ],
   path.join(soundsDir, 'incoming-ring.wav'),
 )
 
-// Single ringback beep (~2.8s loop) — outgoing
+// Ringback heard by caller while the other phone rings (same PSTN dual-tone cadence).
 writeWav(
   [
-    { type: 'tone', hz: 480, ms: 450 },
-    { type: 'silence', ms: 2350 },
+    { type: 'ring', ms: 2000 },
+    { type: 'silence', ms: 4000 },
   ],
   path.join(soundsDir, 'outgoing-ring.wav'),
 )
 
-// Tiny silent clip to unlock iOS audio on first user tap
 writeWav([{ type: 'silence', ms: 100 }], path.join(soundsDir, 'silent.wav'))
