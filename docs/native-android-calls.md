@@ -90,7 +90,7 @@ node scripts/trace-voice-push.js LionKing YoungCloud
 | No lock-screen ring | `VoipPushToken` with `platform=android`? **`FIREBASE_SERVICE_ACCOUNT_JSON` on production Azure** (`aimediatank-azure`)? App rebuilt with `google-services.json`? Disable battery optimization for AiMediaTank. |
 | FCM trace shows `fcm_not_configured` | Add Firebase Admin JSON to **production** App Service → Configuration (same project as `google-services.json`: `aimediatank-20800`). |
 | FCM trace shows `fcm_no_tokens` | Open native app, sign in as callee, allow notifications — confirm `VoipPushToken` row. |
-| Beep/vibrate but no full-screen call UI | Old **Web Push** still firing alongside FCM — server now skips Web Push when `VoipPushToken` platform=android exists. Re-open native app once to clear stale PWA subscriptions. Enable calling account **Push Calls** under Phone app settings if offered. |
+| App closed, nothing on lock screen | Server FCM may succeed while **Samsung blocks delivery** — add AiMediaTank to **Never sleeping apps** (Battery → Background usage limits). Upload native **1.0.7+** (wake lock + MainActivity launch fix). After test call, trace should show `web_push_device_ack` with `fcm_received`. |
 | FCM 201 but no UI | Install **native app**, not PWA. Phone account registered in `MainActivity`? |
 | Call UI but no audio | Microphone permission; staging URL reachable from device |
 | Caller cancel, UI stuck | Cancel uses FCM `action=cancel` (patched in `scripts/patch-android-fcm.js` on `npm install`) |
@@ -103,3 +103,12 @@ node scripts/trace-voice-push.js LionKing YoungCloud
 | Play Store / internal test APK | **Yes** (FCM + ConnectionService) |
 
 Users who need lock-screen calls on Android must install the **native app**, same as iPhone requires TestFlight/App Store instead of Safari PWA.
+
+### Samsung: allow background FCM (required on many Galaxy phones)
+
+1. **Settings → Battery and device care → Battery**
+2. **Background usage limits** (or **More battery settings**)
+3. **Never sleeping apps** → add **AiMediaTank**
+4. Also: **Settings → Apps → AiMediaTank → Battery → Unrestricted**
+
+Without this, FCM can show `ok: true` on the server but **never reach the phone** when the app is swiped away.
