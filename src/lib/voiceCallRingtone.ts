@@ -1,7 +1,7 @@
 /**
  * Voice-call ring while unanswered.
  *
- * Plays looping WAV tones from /public/sounds (classic phone ring / ringback).
+ * Plays looping WAV from /public/sounds (synced from /Ringtones via npm run rings:sync).
  * iOS native incoming on lock screen: CallKit ring (system UI).
  */
 

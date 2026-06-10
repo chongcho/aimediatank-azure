@@ -21,6 +21,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "rings:generate": "node scripts/generate-call-rings.js",
+    "rings:sync": "node scripts/sync-call-rings.js",
     "cap:sync": "npx cap sync && node scripts/setup-android-native.js",
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android"
