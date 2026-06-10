@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import { getIceServers } from '@/lib/voiceCallConfig'
 import {
   markOpenedFromCallNotification,
+  markVoiceCallUserGesture,
   retryVoiceCallRingtone,
   stopVoiceCallRingtone,
   VOICE_CALL_RING_TIMEOUT_MS,
@@ -268,8 +269,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const handleRemoteOffer = useCallback(
     async (signal: PollSignal, caller: VoiceCallUser) => {
       storePendingOffer(signal.payload)
-      // iOS: PushKit already reports CallKit on lock screen. Android still needs JS fallback when polling.
-      if (!isNativeIosCallApp()) {
+      // Native lock screen uses server push; JS fallback when polling sees the call first (foreground / missed push).
+      const needsNativeUiFallback =
+        !isNativeVoiceCallApp() ||
+        (isNativeIosCallApp() && typeof document !== 'undefined' && !document.hidden)
+      if (needsNativeUiFallback) {
         const label = caller.name || caller.username || 'AiMediaTank'
         void reportIncomingCallToNativeUi({
           callId: signal.callId,
@@ -364,6 +368,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     if (callStateRef.current === 'connecting' || callStateRef.current === 'connected') return
     const id = callIdRef.current
     if (!id) return
+    markVoiceCallUserGesture()
     answeringRef.current = true
     try {
       const offerSdp = await resolvePendingOffer(id)
@@ -397,6 +402,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const startCall = useCallback(
     async (peer: VoiceCallUser, conversationId?: string | null) => {
       if (!currentUserId || callState !== 'idle') return
+      markVoiceCallUserGesture()
       try {
         setRemoteUser(peer)
         setCallState('outgoing')

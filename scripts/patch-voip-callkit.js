@@ -1636,4 +1636,42 @@ if (pluginSwift && pluginSwift.includes('private func pollCallStatus') && !plugi
   console.log('[patch-voip-callkit] treat active status as in-progress during poll')
 }
 
+const TOKEN_REPLAY_MARKER = 'AiMediaTank replay cached VoIP token'
+if (pluginSwift && !pluginSwift.includes(TOKEN_REPLAY_MARKER)) {
+  pluginSwift = pluginSwift.replace(
+    `@objc func registerVoipNotifications(_ call: CAPPluginCall) {
+        // ${BRIDGE_V1}: PushKit is registered at app launch in AppDelegate.
+        call.resolve()
+    }`,
+    `@objc func registerVoipNotifications(_ call: CAPPluginCall) {
+        // ${BRIDGE_V1}: PushKit is registered at app launch in AppDelegate.
+        // ${TOKEN_REPLAY_MARKER}
+        if let tokenHex = UserDefaults.standard.string(forKey: "AiMediaTank.voipPushTokenHex"),
+           !tokenHex.isEmpty {
+            emitEvent("voipPushToken", data: ["token": tokenHex])
+        }
+        call.resolve()
+    }`,
+  )
+  if (!pluginSwift.includes(TOKEN_REPLAY_MARKER)) {
+    pluginSwift = pluginSwift.replace(
+      `@objc func registerVoipNotifications(_ call: CAPPluginCall) {
+        // AiMediaTank VoipPushBridge: PushKit is registered at app launch in AppDelegate.
+        call.resolve()
+    }`,
+      `@objc func registerVoipNotifications(_ call: CAPPluginCall) {
+        // AiMediaTank VoipPushBridge: PushKit is registered at app launch in AppDelegate.
+        // ${TOKEN_REPLAY_MARKER}
+        if let tokenHex = UserDefaults.standard.string(forKey: "AiMediaTank.voipPushTokenHex"),
+           !tokenHex.isEmpty {
+            emitEvent("voipPushToken", data: ["token": tokenHex])
+        }
+        call.resolve()
+    }`,
+    )
+  }
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] replay cached VoIP token on registerVoipNotifications')
+}
+
 console.log('[patch-voip-callkit] done')

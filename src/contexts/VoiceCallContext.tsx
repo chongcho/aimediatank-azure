@@ -203,8 +203,13 @@ export function VoiceCallProvider({
       return
     }
 
-    // iOS CallKit owns lock-screen ring. Android native uses ConnectionService + full-screen intent.
-    if (isNativeIosCallApp() && state === 'incoming') {
+    // iOS CallKit owns lock-screen ring; in-app WAV when the WebView is visible (CallKit UI is dismissed).
+    if (
+      isNativeIosCallApp() &&
+      state === 'incoming' &&
+      typeof document !== 'undefined' &&
+      document.hidden
+    ) {
       return
     }
     // Avoid beep-only on lock screen: in-app ringtone needs a visible WebView; native layer shows UI.
@@ -242,7 +247,8 @@ export function VoiceCallProvider({
       if (document.hidden) return
       primeVoiceCallAfterNotificationOpen()
       const state = callStateRef.current
-      if (isNativeIosCallApp()) return
+      // iOS incoming on lock screen uses CallKit; retry outgoing (and foreground incoming) ring.
+      if (isNativeIosCallApp() && state === 'incoming' && document.hidden) return
       if (state === 'incoming' || state === 'outgoing') {
         retryVoiceCallRingtone()
       }

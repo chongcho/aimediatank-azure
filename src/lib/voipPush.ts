@@ -230,6 +230,13 @@ export async function sendVoipCallCancelPushBurstToUser(userId: string, callId: 
   }
 }
 
+/** Gaps between incoming VoIP pushes (ms). One push can be dropped on Doze / flaky APNs. */
+const INCOMING_PUSH_RETRY_GAPS_MS = [0, 900, 1800] as const
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
+
 /** Send PushKit VoIP push so iOS native app shows CallKit on lock screen. */
 export async function sendVoipCallPushToUser(
   userId: string,
@@ -260,4 +267,20 @@ export async function sendVoipCallPushToUser(
     },
     `incoming push for call ${callId}`,
   )
+}
+
+/** Repeat incoming VoIP pushes (Android FCM uses a similar burst for lock-screen delivery). */
+export async function sendVoipCallPushBurstToUser(
+  userId: string,
+  payload: VoipCallPushPayload,
+): Promise<void> {
+  for (let i = 0; i < INCOMING_PUSH_RETRY_GAPS_MS.length; i++) {
+    const gap = INCOMING_PUSH_RETRY_GAPS_MS[i]!
+    if (gap > 0) await sleep(gap)
+    try {
+      await sendVoipCallPushToUser(userId, payload)
+    } catch (err) {
+      console.error(`[VoIP] incoming burst #${i + 1} failed for ${payload.callId}:`, err)
+    }
+  }
 }

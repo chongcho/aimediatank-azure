@@ -175,6 +175,12 @@ function maybeFlushPendingRing() {
   flushPendingRing()
 }
 
+/** Call from voice-call buttons so iOS Web Audio can play outgoing ringback. */
+export function markVoiceCallUserGesture() {
+  lastUserGestureAt = Date.now()
+  void unlockVoiceCallAudio()
+}
+
 export async function unlockVoiceCallAudio(): Promise<boolean> {
   const ctx = getAudioContext()
   if (!ctx) return false

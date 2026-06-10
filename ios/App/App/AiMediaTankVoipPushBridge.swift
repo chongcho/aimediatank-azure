@@ -16,6 +16,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     static let callKitAnswerNotification = Notification.Name("AiMediaTankCallKitAnswer")
     static let callKitEndNotification = Notification.Name("AiMediaTankCallKitEnd")
 
+    private static let voipTokenHexKey = "AiMediaTank.voipPushTokenHex"
     private static let ringingCallIdsKey = "AiMediaTank.ringingCallIds"
     private static let cancelledCallIdsKey = "AiMediaTank.cancelledCallIds"
     private static let pendingAnswerCallIdKey = "AiMediaTank.pendingCallKitAnswerCallId"
@@ -221,6 +222,32 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
 
         replayPendingCallKitAnswerIfNeeded()
+        replayCachedVoipTokenIfNeeded()
+    }
+
+    private func replayCachedVoipTokenIfNeeded() {
+        guard let tokenHex = UserDefaults.standard.string(forKey: Self.voipTokenHexKey),
+              !tokenHex.isEmpty,
+              let tokenData = Self.dataFromHex(tokenHex) else { return }
+        print("[AiMediaTankVoipPushBridge] replay cached VoIP token for late JS listeners")
+        NotificationCenter.default.post(
+            name: Self.voipTokenNotification,
+            object: tokenData
+        )
+    }
+
+    private static func dataFromHex(_ hex: String) -> Data? {
+        let cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard cleaned.count % 2 == 0 else { return nil }
+        var data = Data(capacity: cleaned.count / 2)
+        var index = cleaned.startIndex
+        while index < cleaned.endIndex {
+            let next = cleaned.index(index, offsetBy: 2)
+            guard let byte = UInt8(cleaned[index..<next], radix: 16) else { return nil }
+            data.append(byte)
+            index = next
+        }
+        return data
     }
 
     static func noteIncomingCallReported(_ callId: String) {
@@ -582,6 +609,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
         guard type == .voIP else { return }
+        let tokenHex = pushCredentials.token.map { String(format: "%02x", $0) }.joined()
+        UserDefaults.standard.set(tokenHex, forKey: Self.voipTokenHexKey)
         NotificationCenter.default.post(
             name: Self.voipTokenNotification,
             object: pushCredentials.token
