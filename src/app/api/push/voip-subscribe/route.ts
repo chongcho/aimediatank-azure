@@ -64,7 +64,18 @@ export async function POST(request: Request) {
         token: { not: token },
       },
     }),
+    ...(platform === 'android'
+      ? [
+          prisma.pushSubscription.deleteMany({
+            where: { userId: session.user.id },
+          }),
+        ]
+      : []),
   ])
+
+  if (platform === 'android') {
+    console.info('[NativePush] cleared Web Push subscriptions for Android native user', session.user.id)
+  }
 
   console.info(`[NativePush] ${platform} token registered for user`, session.user.id)
 

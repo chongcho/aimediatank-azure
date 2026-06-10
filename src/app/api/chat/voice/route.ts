@@ -7,6 +7,7 @@ import {
   sendVoiceCallRingPushBurstToUser,
 } from '@/lib/webPush'
 import { sendNativeCallCancelPushBurstToUser, sendNativeCallPushToUser } from '@/lib/nativeCallPush'
+import { calleeHasAndroidNativeCallToken } from '@/lib/nativePushRouting'
 import { plannedVoipCancelPushAttempts } from '@/lib/voipPush'
 import { recordVoipCancelBurst } from '@/lib/voipCallTrace'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
@@ -259,14 +260,19 @@ export async function POST(request: Request) {
       })
 
       const callerLabel = call.caller.name || call.caller.username
-      void sendVoiceCallRingPushBurstToUser(calleeId, {
-        type: 'voice_call',
-        callId: call.id,
-        caller: call.caller,
-        title: 'Incoming voice call',
-        body: `${callerLabel} is calling on AiMediaTank`,
-        url: `/?openChat=1&voiceIncoming=1&callId=${encodeURIComponent(call.id)}`,
-      }).catch((err) => console.error('Voice call push failed:', err))
+      const nativeAndroidCallee = await calleeHasAndroidNativeCallToken(calleeId)
+      if (!nativeAndroidCallee) {
+        void sendVoiceCallRingPushBurstToUser(calleeId, {
+          type: 'voice_call',
+          callId: call.id,
+          caller: call.caller,
+          title: 'Incoming voice call',
+          body: `${callerLabel} is calling on AiMediaTank`,
+          url: `/?openChat=1&voiceIncoming=1&callId=${encodeURIComponent(call.id)}`,
+        }).catch((err) => console.error('Voice call push failed:', err))
+      } else {
+        console.info('[WebPush] skipped ring burst: callee uses Android native FCM token')
+      }
 
       void sendNativeCallPushToUser(calleeId, {
         callId: call.id,
