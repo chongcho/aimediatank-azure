@@ -16,6 +16,7 @@ import {
   bootstrapNativePush,
   isNativeCallApp,
   isNativeIosCallApp,
+  isNativeAndroidCallApp,
   isNativeVoiceCallApp,
   subscribeNativePushIfNeeded,
 } from '@/lib/nativeCallBridge'
@@ -202,8 +203,12 @@ export function VoiceCallProvider({
       return
     }
 
-    // iOS CallKit owns lock-screen ring. Android ConnectionService ring when FCM/poll reports the call.
+    // iOS CallKit owns lock-screen ring. Android native uses ConnectionService + full-screen intent.
     if (isNativeIosCallApp() && state === 'incoming') {
+      return
+    }
+    // Avoid beep-only on lock screen: in-app ringtone needs a visible WebView; native layer shows UI.
+    if (isNativeAndroidCallApp() && state === 'incoming' && typeof document !== 'undefined' && document.hidden) {
       return
     }
 

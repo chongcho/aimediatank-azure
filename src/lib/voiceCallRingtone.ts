@@ -5,6 +5,8 @@
  * iOS native incoming on lock screen: CallKit ring (system UI).
  */
 
+import { getNativePlatform } from '@/lib/nativeShellBoot'
+
 export const VOICE_CALL_RING_TIMEOUT_MS = 60000
 const IOS_GESTURE_WINDOW_MS = 2500
 
@@ -15,6 +17,12 @@ const RING_URLS = {
 
 type RingKind = keyof typeof RING_URLS
 
+/** Web Audio gain — mobile WebView output is often quiet without amplification. */
+const RING_GAIN: Record<RingKind, { nativeMobile: number; mobile: number; desktop: number }> = {
+  incoming: { nativeMobile: 4, mobile: 2.75, desktop: 1.75 },
+  outgoing: { nativeMobile: 3, mobile: 2.25, desktop: 1.5 },
+}
+
 let audioContext: AudioContext | null = null
 let unlockListenersInstalled = false
 let loopGeneration = 0
@@ -23,6 +31,7 @@ let activeRingKind: RingKind | null = null
 let pendingRingStart: (() => void) | null = null
 let openedFromCallNotification = false
 let ringActiveSource: AudioBufferSourceNode | null = null
+let ringActiveGainNode: GainNode | null = null
 const ringBufferCache = new Map<string, AudioBuffer>()
 
 type AudioContextCtor = typeof AudioContext
@@ -59,7 +68,28 @@ function hasRecentUserGesture(): boolean {
   return Date.now() - lastUserGestureAt < IOS_GESTURE_WINDOW_MS
 }
 
+function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+}
+
+function ringGainFor(kind: RingKind): number {
+  const table = RING_GAIN[kind]
+  const platform = getNativePlatform()
+  if (platform === 'ios' || platform === 'android') return table.nativeMobile
+  if (isMobileDevice()) return table.mobile
+  return table.desktop
+}
+
 function stopRingPlayback() {
+  if (ringActiveGainNode) {
+    try {
+      ringActiveGainNode.disconnect()
+    } catch {
+      // ignore
+    }
+    ringActiveGainNode = null
+  }
   if (!ringActiveSource) return
   try {
     ringActiveSource.onended = null
@@ -120,9 +150,13 @@ function playRingLoop(buffer: AudioBuffer, generation: number) {
     const source = ctx.createBufferSource()
     source.buffer = buffer
     source.loop = true
-    source.connect(ctx.destination)
+    const gainNode = ctx.createGain()
+    gainNode.gain.value = ringGainFor(activeRingKind)
+    source.connect(gainNode)
+    gainNode.connect(ctx.destination)
     source.start()
     ringActiveSource = source
+    ringActiveGainNode = gainNode
   } catch {
     // ignore transient playback errors
   }
