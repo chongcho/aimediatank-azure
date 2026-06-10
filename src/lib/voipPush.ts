@@ -233,10 +233,6 @@ export async function sendVoipCallCancelPushBurstToUser(userId: string, callId: 
 /** Gaps between incoming VoIP pushes (ms). One push can be dropped on Doze / flaky APNs. */
 const INCOMING_PUSH_RETRY_GAPS_MS = [0, 900, 1800] as const
 
-function sleep(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms))
-}
-
 /** Send PushKit VoIP push so iOS native app shows CallKit on lock screen. */
 export async function sendVoipCallPushToUser(
   userId: string,
