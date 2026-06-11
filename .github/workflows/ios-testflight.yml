@@ -39,6 +39,9 @@ jobs:
       - name: Sync CallKit ring sounds
         run: npm run rings:sync
 
+      - name: Generate app icons
+        run: npm run icons:generate
+
       - name: Capacitor sync (iOS)
         env:
           CAPACITOR_SERVER_URL: ${{ inputs.capacitor_server_url != '' && inputs.capacitor_server_url || 'https://aimediatank.com' }}

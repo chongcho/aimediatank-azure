@@ -24,6 +24,7 @@
     "rings:generate": "node scripts/generate-call-rings.js",
     "rings:sync": "node scripts/sync-call-rings.js",
     "rings:cache-version": "node scripts/update-ring-cache-version.js",
+    "icons:generate": "node scripts/generate-app-icons.js",
     "cap:sync": "npx cap sync && node scripts/setup-android-native.js",
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android"
