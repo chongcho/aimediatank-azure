@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { getNativePlatform } from '@/lib/nativeShellBoot'
 
 const PREVIEW_SOUND_STORAGE_KEY = 'homePreviewSoundOn'
 
@@ -23,6 +24,8 @@ type HomePreplayFocusContextValue = {
   unregisterPreplay: (mediaId: string) => void
   /** True while the feed grid is hidden for scroll restore — mobile focus IO is paused and state is flushed when this clears. */
   layoutSuppressed: boolean
+  /** True when scroll has settled and preplay may mount/play (focus id may still be set while false). */
+  preplayActive: boolean
 }
 
 const HomePreplayFocusContext = createContext<HomePreplayFocusContextValue | null>(null)
@@ -185,6 +188,9 @@ export function HomePreplayFocusProvider({
   }, [deferPreplay])
 
   useEffect(() => {
+    const androidNative = getNativePlatform() === 'android'
+    const settleMs = androidNative ? 400 : 200
+
     const markScrolling = () => {
       setScrollIdle(false)
       if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current)
@@ -192,9 +198,36 @@ export function HomePreplayFocusProvider({
         scrollIdleTimerRef.current = null
         setScrollIdle(true)
         scheduleRecompute()
-      }, 200)
+      }, settleMs)
     }
+
     const opts: AddEventListenerOptions = { passive: true }
+
+    if (androidNative) {
+      // Android WebView: touch-based idle is more reliable than scroll events (momentum + layout churn).
+      const onTouchStart = () => {
+        setScrollIdle(false)
+        if (scrollIdleTimerRef.current) {
+          clearTimeout(scrollIdleTimerRef.current)
+          scrollIdleTimerRef.current = null
+        }
+      }
+      window.addEventListener('touchstart', onTouchStart, opts)
+      window.addEventListener('touchmove', onTouchStart, opts)
+      window.addEventListener('touchend', markScrolling, opts)
+      window.addEventListener('touchcancel', markScrolling, opts)
+      return () => {
+        window.removeEventListener('touchstart', onTouchStart)
+        window.removeEventListener('touchmove', onTouchStart)
+        window.removeEventListener('touchend', markScrolling)
+        window.removeEventListener('touchcancel', markScrolling)
+        if (scrollIdleTimerRef.current) {
+          clearTimeout(scrollIdleTimerRef.current)
+          scrollIdleTimerRef.current = null
+        }
+      }
+    }
+
     window.addEventListener('scroll', markScrolling, opts)
     document.body.addEventListener('scroll', markScrolling, opts)
     document.documentElement.addEventListener('scroll', markScrolling, opts)
@@ -210,10 +243,7 @@ export function HomePreplayFocusProvider({
   }, [scheduleRecompute])
 
   useEffect(() => {
-    if (!scrollIdle) {
-      setFocusedMediaId(null)
-      return
-    }
+    if (!scrollIdle) return
     scheduleRecompute()
   }, [scrollIdle, scheduleRecompute])
 
@@ -233,8 +263,8 @@ export function HomePreplayFocusProvider({
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [])
 
-  const effectiveFocusedMediaId =
-    scrollIdle && !deferPreplay ? focusedMediaId : null
+  const preplayActive = scrollIdle && !deferPreplay && !layoutSuppressed
+  const effectiveFocusedMediaId = !deferPreplay && !layoutSuppressed ? focusedMediaId : null
 
   const value = useMemo(
     () => ({
@@ -244,6 +274,7 @@ export function HomePreplayFocusProvider({
       reportPreplayIntersection,
       unregisterPreplay,
       layoutSuppressed,
+      preplayActive,
     }),
     [
       effectiveFocusedMediaId,
@@ -252,6 +283,7 @@ export function HomePreplayFocusProvider({
       reportPreplayIntersection,
       unregisterPreplay,
       layoutSuppressed,
+      preplayActive,
     ]
   )
 

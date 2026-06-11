@@ -209,6 +209,10 @@ video.home-preplay-video {
   background: transparent;
 }
 
+video.home-preplay-video.invisible {
+  visibility: hidden !important;
+}
+
 video.home-preplay-video::-webkit-media-controls {
   display: none !important;
 }
