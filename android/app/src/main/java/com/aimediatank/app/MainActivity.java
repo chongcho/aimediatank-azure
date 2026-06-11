@@ -10,11 +10,13 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.capacitor.voipcalls.VoipConnectionService;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "AiMediaTank";
+    private static final int CHROME_COLOR = Color.parseColor("#0a0a0b");
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -24,21 +26,33 @@ public class MainActivity extends BridgeActivity {
         registerVoipPhoneAccountSafely();
     }
 
-    /** Keep status bar visible (time, network, battery) and match app chrome colors. */
+    @Override
+    public void onResume() {
+        super.onResume();
+        applySystemBars();
+    }
+
+    /** Black nav bar; light (gray/white) system back/home/recents icons for visibility. */
     private void applySystemBars() {
         Window window = getWindow();
         WindowCompat.setDecorFitsSystemWindows(window, true);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            int background = Color.parseColor("#0a0a0b");
-            window.setStatusBarColor(background);
-            window.setNavigationBarColor(background);
+            window.setStatusBarColor(CHROME_COLOR);
+            window.setNavigationBarColor(CHROME_COLOR);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.setNavigationBarContrastEnforced(false);
+            window.setNavigationBarContrastEnforced(true);
         }
 
         View decor = window.getDecorView();
+        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, decor);
+        if (controller != null) {
+            controller.setAppearanceLightStatusBars(false);
+            controller.setAppearanceLightNavigationBars(false);
+            return;
+        }
+
         int flags = decor.getSystemUiVisibility();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
