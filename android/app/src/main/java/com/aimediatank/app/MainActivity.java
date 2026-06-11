@@ -1,12 +1,16 @@
 package com.aimediatank.app;
 
 import android.content.Intent;
+import android.graphics.Color;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.view.Window;
 import android.view.WindowManager;
+import androidx.core.view.WindowCompat;
 import com.capacitor.voipcalls.VoipConnectionService;
 import com.getcapacitor.BridgeActivity;
 
@@ -16,8 +20,34 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        applySystemBars();
         applyIncomingCallPresentation(getIntent());
         registerVoipPhoneAccountSafely();
+    }
+
+    /** Keep status bar visible (time, network, battery) and match app chrome colors. */
+    private void applySystemBars() {
+        Window window = getWindow();
+        WindowCompat.setDecorFitsSystemWindows(window, true);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            int background = Color.parseColor("#0a0a0b");
+            window.setStatusBarColor(background);
+            window.setNavigationBarColor(background);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.setNavigationBarContrastEnforced(false);
+        }
+
+        View decor = window.getDecorView();
+        int flags = decor.getSystemUiVisibility();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        decor.setSystemUiVisibility(flags);
     }
 
     @Override

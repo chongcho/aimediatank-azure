@@ -94,6 +94,10 @@ if (!current.includes('registerVoipPhoneAccountSafely')) {
 } else if (current.includes('package com.aimediatank.apple')) {
   fs.writeFileSync(mainActivityApp, mainActivitySource)
   console.log('[setup-android-native] fixed MainActivity package com.aimediatank.app')
+} else if (!current.includes('applySystemBars')) {
+  console.warn(
+    '[setup-android-native] MainActivity missing applySystemBars() — status bar may be hidden; update MainActivity.java',
+  )
 }
 
 if (fs.existsSync(stringsXml)) {
