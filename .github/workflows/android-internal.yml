@@ -7,10 +7,6 @@ on:
         description: Remote URL loaded by the native shell
         required: false
         default: https://aimediatank.com
-      version_name:
-        description: User-visible version (e.g. 1.0.10)
-        required: false
-        default: "1.0.10"
 
 jobs:
   build-and-upload:
@@ -61,8 +57,16 @@ jobs:
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$KEYSTORE_PATH"
           echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
-      - name: Set Android version code
-        run: echo "ANDROID_VERSION_CODE=$((GITHUB_RUN_NUMBER + 10))" >> "$GITHUB_ENV"
+      - name: Set Android version from repo
+        run: |
+          VERSION_NAME=$(grep '^VERSION_NAME=' android/version.properties | cut -d= -f2 | tr -d '\r\n ')
+          if [ -z "$VERSION_NAME" ]; then
+            echo "::error::VERSION_NAME missing in android/version.properties"
+            exit 1
+          fi
+          echo "ANDROID_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_CODE=$((GITHUB_RUN_NUMBER + 10))" >> "$GITHUB_ENV"
+          echo "Android release: $VERSION_NAME (versionCode $((GITHUB_RUN_NUMBER + 10)))"
 
       - name: Build signed App Bundle
         working-directory: android
@@ -70,7 +74,6 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_VERSION_NAME: ${{ inputs.version_name }}
         run: |
           set -euo pipefail
           chmod +x gradlew

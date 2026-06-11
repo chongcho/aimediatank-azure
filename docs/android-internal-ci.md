@@ -33,10 +33,13 @@ Paste the one-line contents of `android-keystore.b64.txt` into `ANDROID_KEYSTORE
 
 ## Run a release
 
-1. **Actions** → **Android Internal Testing** → **Run workflow**
-2. Default `capacitor_server_url`: `https://aimediatank.com`
-3. Default `version_name`: `1.0.10` (bump when needed)
-4. `versionCode` is set automatically from the workflow run number (must always increase)
+1. Bump **`android/version.properties`** → `VERSION_NAME` (single source of truth for Play + app Settings).
+2. Commit and push to `main` (or run from that branch).
+3. **Actions** → **Android Internal Testing** → **Run workflow**
+4. Default `capacitor_server_url`: `https://aimediatank.com`
+5. `versionCode` is set automatically from the workflow run number (`run_number + 10`; must always increase on Play)
+
+After the workflow completes, the phone **Settings → Apps → AiMediaTank** version should match `VERSION_NAME` in that file.
 
 ## After upload
 
