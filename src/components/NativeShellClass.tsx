@@ -9,12 +9,8 @@ export default function NativeShellClass() {
     if (!applyNativeShellLayout()) return
 
     const root = document.documentElement
-    const platform = root.classList.contains('ios')
-      ? 'ios'
-      : root.classList.contains('android')
-        ? 'android'
-        : 'unknown'
-    const onResize = () => syncNativeSafeAreaInsets(root, platform)
+    const isIOS = root.classList.contains('ios')
+    const onResize = () => syncNativeSafeAreaInsets(root, isIOS)
     window.addEventListener('resize', onResize)
     window.visualViewport?.addEventListener('resize', onResize)
     return () => {

@@ -10,16 +10,11 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsControllerCompat;
 import com.capacitor.voipcalls.VoipConnectionService;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "AiMediaTank";
-    /** App chrome — status bar background. */
-    private static final int CHROME_COLOR = Color.parseColor("#0a0a0b");
-    /** Gray nav bar so system back/home/recents icons stay visible on dark theme. */
-    private static final int NAV_BAR_COLOR = Color.parseColor("#707070");
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -29,39 +24,27 @@ public class MainActivity extends BridgeActivity {
         registerVoipPhoneAccountSafely();
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        applySystemBars();
-    }
-
-    /** Status bar below app content; gray navigation bar with visible system icons. */
+    /** Keep status bar visible (time, network, battery) and match app chrome colors. */
     private void applySystemBars() {
         Window window = getWindow();
         WindowCompat.setDecorFitsSystemWindows(window, true);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.setStatusBarColor(CHROME_COLOR);
-            window.setNavigationBarColor(NAV_BAR_COLOR);
+            int background = Color.parseColor("#0a0a0b");
+            window.setStatusBarColor(background);
+            window.setNavigationBarColor(background);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.setNavigationBarContrastEnforced(true);
+            window.setNavigationBarContrastEnforced(false);
         }
 
         View decor = window.getDecorView();
-        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, decor);
-        if (controller != null) {
-            controller.setAppearanceLightStatusBars(false);
-            controller.setAppearanceLightNavigationBars(true);
-            return;
-        }
-
         int flags = decor.getSystemUiVisibility();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
         }
         decor.setSystemUiVisibility(flags);
     }
