@@ -1087,7 +1087,10 @@ export default function MediaCard({
   }, [])
 
   const mountMobilePreplayVideo =
-    isPreplayVideo && isInView && mobileHomePreplayFocused
+    isPreplayVideo &&
+    isInView &&
+    mobileHomePreplayFocused &&
+    (!androidNative || preplayActive)
 
   const showAndroidPreplayOverlay =
     androidNative && preplayFrameReady && mountMobilePreplayVideo

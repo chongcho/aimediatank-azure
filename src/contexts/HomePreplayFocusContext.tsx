@@ -39,7 +39,7 @@ export function HomePreplayFocusProvider({
   children: React.ReactNode
   /** When true (e.g. home grid `invisible` during scroll restore), skip focus IO and reset scores when it clears. */
   layoutSuppressed?: boolean
-  /** Android native: back from /media — hold preplay until the user touch-scrolls. */
+  /** Android native: back from /media — hold preplay until scroll restore completes. */
   deferPreplayUntilScroll?: boolean
 }) {
   const androidNative = useMemo(

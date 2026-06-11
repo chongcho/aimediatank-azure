@@ -132,8 +132,15 @@ function HomeContent() {
   const [contentReady, setContentReady] = useState(false)
   // True while restoring scroll from Media Detail back to homepage; hides grid until scroll is applied to avoid "pass through" flash.
   const [restoringScroll, setRestoringScroll] = useState(false)
-  /** Android native: back from /media — keep thumbnails until touch-scroll (avoids stuck preplay overlay). */
-  const [deferPreplayUntilScroll, setDeferPreplayUntilScroll] = useState(false)
+  /** Android native: block preplay until back-navigation scroll restore finishes (avoids stuck play-button chrome). */
+  const [deferPreplayUntilScroll, setDeferPreplayUntilScroll] = useState(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return !!sessionStorage.getItem('homeScrollState')
+    } catch {
+      return false
+    }
+  })
   // Column count for masonry: use grid container width so reorder matches visible layout (same breakpoints as globals.css)
   const [columns, setColumns] = useState(1)
   const gridSectionRef = useRef<HTMLDivElement>(null)
@@ -329,6 +336,14 @@ function HomeContent() {
     }
   }, [])
 
+  const enablePreplayAfterRestore = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setDeferPreplayUntilScroll(false)
+      })
+    })
+  }, [])
+
   // Load sort preference from localStorage on mount (client-side only)
   useEffect(() => {
     const savedSort = localStorage.getItem('mediaSortPreference')
@@ -406,6 +421,7 @@ function HomeContent() {
             activeRestoreRunIdRef.current = null
             setContentReady(true)
             setRestoringScroll(false)
+            enablePreplayAfterRestore()
             return
           }
           if (restoreRunIdRef.current !== runId) {
@@ -413,6 +429,7 @@ function HomeContent() {
             activeRestoreRunIdRef.current = null
             setContentReady(true)
             setRestoringScroll(false)
+            enablePreplayAfterRestore()
             return
           }
           const target = document.querySelector(`[data-media-id="${restoreState.targetId}"]`) as HTMLElement | null
@@ -423,6 +440,7 @@ function HomeContent() {
             activeRestoreRunIdRef.current = null
             setRestoringScroll(false)
             setContentReady(true)
+            enablePreplayAfterRestore()
             let correctionCount = 0
             const maxCorrections = 15
             const correctionInterval = 200
@@ -511,14 +529,25 @@ function HomeContent() {
         }
 
         const attemptScrollToTarget = (attempts: number) => {
-          if (attempts <= 0) { setContentReady(true); setRestoringScroll(false); return }
-          if (restoreRunIdRef.current !== runId) { setContentReady(true); setRestoringScroll(false); return }
+          if (attempts <= 0) {
+            setContentReady(true)
+            setRestoringScroll(false)
+            enablePreplayAfterRestore()
+            return
+          }
+          if (restoreRunIdRef.current !== runId) {
+            setContentReady(true)
+            setRestoringScroll(false)
+            enablePreplayAfterRestore()
+            return
+          }
           const target = document.querySelector(`[data-media-id="${restoreState.targetId}"]`) as HTMLElement | null
           if (target) {
             scrollToTarget(target)
             scrollRestoredRef.current = true
             setRestoringScroll(false)
             setContentReady(true)
+            enablePreplayAfterRestore()
 
             let correctionCount = 0
             const maxCorrections = 15
@@ -557,6 +586,7 @@ function HomeContent() {
           setLoading(false)
           setRestoringScroll(false)
           setContentReady(true)
+          enablePreplayAfterRestore()
           if (activeRestoreRunIdRef.current === runId) {
             isRestoringRef.current = false
             activeRestoreRunIdRef.current = null
