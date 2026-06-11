@@ -36,8 +36,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var statusBackgroundTasks: [String: UIBackgroundTaskIdentifier] = [:]
     /// Stops stale dismiss retries from ending a newer incoming call.
     private var dismissRetryGeneration: [String: UUID] = [:]
-    /// Avoid replaying the same pending CallKit answer repeatedly.
-    private var lastReplayedPendingAnswerCallId: String?
 
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
@@ -154,15 +152,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private func clearPendingCallKitAnswer() {
         UserDefaults.standard.removeObject(forKey: Self.pendingAnswerCallIdKey)
-        lastReplayedPendingAnswerCallId = nil
     }
 
     /// Re-deliver CallKit answer to JS when the WebView was not ready (lock-screen accept).
     func replayPendingCallKitAnswerIfNeeded() {
         guard let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey),
               !callId.isEmpty else { return }
-        if lastReplayedPendingAnswerCallId == callId { return }
-        lastReplayedPendingAnswerCallId = callId
         print("[AiMediaTankVoipPushBridge] replay pending CallKit answer for \(callId)")
         NotificationCenter.default.post(
             name: Self.callKitAnswerNotification,
@@ -337,36 +332,53 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         // Do not dismiss CallKit calls synchronously during PushKit — iOS can crash/reject.
     }
 
-    func dismissRingingCall(uuid: UUID) {
-        let dismiss = { [weak self] in
+    /// End a CallKit call (ringing or already answered) and notify JS to tear down WebRTC.
+    private func endCallKitCall(uuid: UUID, reason: CXCallEndedReason = .remoteEnded, notifyJs: Bool = true) {
+        let end = { [weak self] in
             guard let self = self else { return }
             let callId = uuid.uuidString.lowercased()
-            self.provider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)
+            self.provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
             let endCallAction = CXEndCallAction(call: uuid)
             self.callController.request(CXTransaction(action: endCallAction)) { error in
                 if let error {
                     print("[AiMediaTankVoipPushBridge] CXEndCallAction failed for \(uuid): \(error.localizedDescription)")
                 }
             }
-            NotificationCenter.default.post(
-                name: Self.cancelPushNotification,
-                object: nil,
-                userInfo: ["callId": callId]
-            )
+            if notifyJs {
+                NotificationCenter.default.post(
+                    name: Self.callKitEndNotification,
+                    object: nil,
+                    userInfo: ["callId": callId]
+                )
+            }
             Self.noteCallDismissed(callId)
+            if UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased() == callId {
+                self.clearPendingCallKitAnswer()
+            }
+            self.cancelDismissRetries(callId: callId)
+            self.stopCallStatusWatch(callId: callId)
             self.releaseAudioSession()
         }
         if Thread.isMainThread {
-            dismiss()
+            end()
         } else {
-            DispatchQueue.main.async(execute: dismiss)
+            DispatchQueue.main.async(execute: end)
         }
+    }
+
+    func dismissRingingCall(uuid: UUID) {
+        endCallKitCall(uuid: uuid, reason: .unanswered, notifyJs: false)
+        NotificationCenter.default.post(
+            name: Self.cancelPushNotification,
+            object: nil,
+            userInfo: ["callId": uuid.uuidString.lowercased()]
+        )
     }
 
     func dismissAllRingingCalls(preferredCallId: String? = nil) {
         if let preferredCallId,
            let uuid = UUID(uuidString: preferredCallId.lowercased()) {
-            dismissRingingCall(uuid: uuid)
+            endCallKitCall(uuid: uuid, reason: .remoteEnded)
             return
         }
 
@@ -392,7 +404,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 guard let self = self,
                       self.dismissRetryGeneration[normalized] == generation,
                       let uuid = UUID(uuidString: normalized) else { return }
-                self.dismissRingingCall(uuid: uuid)
+                self.endCallKitCall(uuid: uuid, reason: .remoteEnded)
             }
         }
     }
@@ -474,7 +486,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         reportCancelAck(callId: normalized, source: source)
         Self.markCallCancelled(normalized)
-        stopCallStatusWatch(callId: normalized)
+        clearPendingCallKitAnswer()
         dismissAllRingingCalls(preferredCallId: normalized)
         scheduleDismissRetries(for: normalized)
     }

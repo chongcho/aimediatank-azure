@@ -628,12 +628,12 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       },
       onCallAnswered: (callId) => {
         stopVoiceCallRingtone()
+        markVoiceCallUserGesture()
         void (async () => {
           const normalizedId = normalizeVoiceCallId(callId)
           callIdRef.current = normalizedId
           setCallId(normalizedId)
           isCallerRef.current = false
-          setCallState('connecting')
           await ensureIncomingCall(callId)
           await answerCallRef.current()
         })()
@@ -645,10 +645,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       onCallEnded: (callId) => {
         if (callIdRef.current && !voiceCallIdsMatch(callIdRef.current, callId)) return
         stopVoiceCallRingtone()
-        if (callStateRef.current === 'incoming' && !isCallerRef.current) {
-          resetCall()
-          return
-        }
         void endCallRef.current(callId)
       },
     })
