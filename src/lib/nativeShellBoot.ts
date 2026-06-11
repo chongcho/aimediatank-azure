@@ -2,6 +2,18 @@
 const IOS_SAFE_TOP_FALLBACK_PX = 47
 /** iOS home-indicator fallback when env(safe-area-inset-bottom) is 0 in Capacitor WKWebView. */
 const IOS_SAFE_BOTTOM_FALLBACK_PX = 34
+/** Android status bar fallback when env(safe-area-inset-top) is 0 (viewport-fit: cover). */
+const ANDROID_SAFE_TOP_FALLBACK_PX = 28
+/** Android gesture-nav / 3-button bar fallback when env(safe-area-inset-bottom) is 0. */
+const ANDROID_SAFE_BOTTOM_FALLBACK_PX = 48
+
+function probeVisualViewportInsets(): { top: number; bottom: number } {
+  const vv = window.visualViewport
+  if (!vv) return { top: 0, bottom: 0 }
+  const top = Math.max(0, Math.round(vv.offsetTop))
+  const bottom = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+  return { top, bottom }
+}
 
 export function getNativePlatform(): 'ios' | 'android' | 'web' {
   if (typeof window === 'undefined') return 'web'
@@ -38,7 +50,10 @@ export function detectNativeShell(): boolean {
   return /AppleWebKit/.test(ua) && /Mobile\//.test(ua) && !/Safari\//.test(ua)
 }
 
-export function syncNativeSafeAreaInsets(root: HTMLElement, isIOS: boolean): void {
+export function syncNativeSafeAreaInsets(
+  root: HTMLElement,
+  platform: 'ios' | 'android' | 'unknown' = 'unknown'
+): void {
   if (!document.body) return
 
   const probe = document.createElement('div')
@@ -52,8 +67,16 @@ export function syncNativeSafeAreaInsets(root: HTMLElement, isIOS: boolean): voi
   let bottom = parseFloat(getComputedStyle(probe).paddingBottom) || 0
   probe.remove()
 
-  if (isIOS && top < 1) top = IOS_SAFE_TOP_FALLBACK_PX
-  if (isIOS && bottom < 1) bottom = IOS_SAFE_BOTTOM_FALLBACK_PX
+  if (platform === 'android') {
+    const vv = probeVisualViewportInsets()
+    if (top < 1 && vv.top > 0) top = vv.top
+    if (bottom < 1 && vv.bottom > 0) bottom = vv.bottom
+    if (top < 1) top = ANDROID_SAFE_TOP_FALLBACK_PX
+    if (bottom < 1) bottom = ANDROID_SAFE_BOTTOM_FALLBACK_PX
+  } else if (platform === 'ios') {
+    if (top < 1) top = IOS_SAFE_TOP_FALLBACK_PX
+    if (bottom < 1) bottom = IOS_SAFE_BOTTOM_FALLBACK_PX
+  }
 
   root.style.setProperty('--app-safe-top', `${top}px`)
   root.style.setProperty('--app-safe-bottom', `${bottom}px`)
@@ -77,7 +100,10 @@ export function applyNativeShellLayout(): boolean {
         : 'unknown')
   if (platform !== 'unknown') root.classList.add(platform)
 
-  syncNativeSafeAreaInsets(root, platform === 'ios')
+  syncNativeSafeAreaInsets(
+    root,
+    platform === 'ios' ? 'ios' : platform === 'android' ? 'android' : 'unknown'
+  )
   ;(window as Window & { __AIM_NATIVE_SHELL__?: boolean }).__AIM_NATIVE_SHELL__ = true
   return true
 }

@@ -153,23 +153,6 @@ html.capacitor-native .pwa-navbar .inline-flex.h-9 {
   min-height: 44px;
 }
 
-/* Android: native window fits below status bar — do not overlay/cover system icons */
-html.capacitor-native.android body {
-  padding-top: 0;
-}
-
-html.capacitor-native.android body::before {
-  display: none;
-}
-
-html.capacitor-native.android .pwa-navbar {
-  top: 0 !important;
-}
-
-html.capacitor-native.android main.pt-16 {
-  padding-top: 4rem !important;
-}
-
 /* Android native home screen layout */
 html.capacitor-native.android .pwa-navbar .navbar-actions {
   margin-right: -10px;
@@ -178,6 +161,11 @@ html.capacitor-native.android .pwa-navbar .navbar-actions {
 html.capacitor-native.android .home-hero {
   padding-left: 15px;
   padding-right: 15px;
+}
+
+/* Match native gray navigation bar (#707070 in MainActivity) */
+html.capacitor-native.android body::after {
+  background: #707070;
 }
 
 /* iOS native home screen layout */
