@@ -81,9 +81,6 @@ export function HomePreplayFocusProvider({
 
   const recomputeFocused = useCallback(() => {
     rafRef.current = null
-    if (androidNative && !scrollIdle) {
-      return
-    }
     const scores = scoresRef.current
     // Do not clear focus when the map is briefly empty (scroll / IO churn); that made every tile
     // `focusedMediaId !== id` and stopped mobile preplay until a new winner appeared.
@@ -108,7 +105,7 @@ export function HomePreplayFocusProvider({
       }
     })
     setFocusedMediaId((prev) => (prev === bestId ? prev : bestId))
-  }, [androidNative, scrollIdle])
+  }, [])
 
   const scheduleRecompute = useCallback(() => {
     if (rafRef.current != null) return
@@ -201,7 +198,7 @@ export function HomePreplayFocusProvider({
         scrollIdleTimerRef.current = null
         setScrollIdle(true)
         scheduleRecompute()
-      }, 400)
+      }, 150)
     }
 
     const opts: AddEventListenerOptions = { passive: true }

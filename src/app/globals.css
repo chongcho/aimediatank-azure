@@ -226,10 +226,6 @@ html.capacitor-native.android video.home-preplay-video {
   background: transparent;
 }
 
-html.capacitor-native.android video.home-preplay-video.invisible {
-  visibility: hidden !important;
-}
-
 html.capacitor-native.android video.home-preplay-video::-webkit-media-controls {
   display: none !important;
 }

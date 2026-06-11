@@ -584,11 +584,7 @@ export default function MediaCard({
         if (!e) return
         if (e.isIntersecting) {
           if (deferId) clearTimeout(deferId)
-          if (androidNative && hasHomeScrollContext) {
-            setIsInView(true)
-          } else {
-            deferId = setTimeout(() => setIsInView(true), 120)
-          }
+          deferId = setTimeout(() => setIsInView(true), 120)
         } else {
           if (deferId) {
             clearTimeout(deferId)
@@ -1064,7 +1060,7 @@ export default function MediaCard({
 
   useEffect(() => {
     if (!androidNative) return
-    if (mobileHomePreplayFocused && isInView && preplayActive) return
+    if (mobileHomePreplayFocused && isInView) return
     setPreplayFrameReady(false)
     const overlay = preplayVideoRef.current
     if (overlay) {
@@ -1084,20 +1080,17 @@ export default function MediaCard({
         /* ignore */
       }
     }
-  }, [androidNative, mobileHomePreplayFocused, isInView, preplayActive, videoPreplaySrc])
+  }, [androidNative, mobileHomePreplayFocused, isInView, videoPreplaySrc])
 
   const markPreplayFrameReady = useCallback(() => {
     setPreplayFrameReady(true)
   }, [])
 
-  const mountAndroidPreplayVideo =
-    androidNative &&
-    isPreplayVideo &&
-    isInView &&
-    mobileHomePreplayFocused &&
-    preplayActive
+  const mountMobilePreplayVideo =
+    isPreplayVideo && isInView && mobileHomePreplayFocused
 
-  const showAndroidPreplayOverlay = preplayFrameReady && mountAndroidPreplayVideo
+  const showAndroidPreplayOverlay =
+    androidNative && preplayFrameReady && mountMobilePreplayVideo
 
   /**
    * Only the mobile focus tile or the desktop-hovered tile may be unmuted — otherwise every in-view
@@ -1402,15 +1395,13 @@ export default function MediaCard({
                 onLoad={() => setThumbnailLoaded(true)}
                 onError={() => setThumbnailError(true)}
               />
-              {(androidNative
-                ? mountAndroidPreplayVideo
-                : isPreplayVideo && isInView && mobileHomePreplayFocused) && (
+              {mountMobilePreplayVideo && (
                 <video
                   ref={preplayVideoRef}
                   src={videoPreplaySrc}
                   className={
                     androidNative
-                      ? `home-preplay-video absolute inset-0 w-full h-full object-cover pointer-events-none ${showAndroidPreplayOverlay ? 'opacity-100' : 'opacity-0 invisible'}`
+                      ? `home-preplay-video absolute inset-0 w-full h-full object-cover pointer-events-none ${showAndroidPreplayOverlay ? 'opacity-100' : 'opacity-0'}`
                       : `absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover || (isMobile && isInView) ? 'opacity-100' : 'opacity-0'}`
                   }
                   muted={!preplayAudible}
@@ -1420,6 +1411,7 @@ export default function MediaCard({
                   preload={androidNative ? 'auto' : 'metadata'}
                   loop
                   onPlaying={androidNative ? markPreplayFrameReady : undefined}
+                  onLoadedData={androidNative ? markPreplayFrameReady : undefined}
                   onPlay={startPreplay10sTimer}
                   onPause={clearPreplay10sTimeout}
                   onTimeUpdate={(e) => {
@@ -1441,7 +1433,7 @@ export default function MediaCard({
                 />
               )}
             </>
-          ) : showVideoElement && isInView && (!androidNative || !preplay || mountAndroidPreplayVideo) ? (
+          ) : showVideoElement && isInView && (!androidNative || !preplay || mountMobilePreplayVideo) ? (
             // Thumbnail-less: this <video> is the only preview (metadata + seek). Do not gate on mobile focus — focus only limits preplay play(), not mounting.
             // preload="metadata" required so onLoadedMetadata fires and we can seek to 1s for preview frame.
             <video
@@ -1449,7 +1441,7 @@ export default function MediaCard({
               src={videoPreplaySrc}
               className={
                 androidNative && preplay
-                  ? `home-preplay-video w-full aspect-video object-cover ${showAndroidPreplayOverlay ? 'opacity-100' : 'opacity-0 invisible'}`
+                  ? `home-preplay-video w-full aspect-video object-cover ${showAndroidPreplayOverlay ? 'opacity-100' : 'opacity-0'}`
                   : 'w-full aspect-video object-cover'
               }
               muted={!(preplay && preplayAudible)}
@@ -1459,6 +1451,7 @@ export default function MediaCard({
               preload={androidNative && preplay ? 'auto' : 'metadata'}
               poster=""
               onPlaying={androidNative && preplay ? markPreplayFrameReady : undefined}
+              onLoadedData={androidNative && preplay ? markPreplayFrameReady : undefined}
               onLoadedMetadata={(e) => {
                 const video = e.currentTarget
                 if (video.duration > 1) {
