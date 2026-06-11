@@ -480,8 +480,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             return
         }
         if Self.isCallCancelled(normalized) {
-            cancelDismissRetries(callId: normalized)
-            stopCallStatusWatch(callId: normalized)
+            if let uuid = UUID(uuidString: normalized) {
+                endCallKitCall(uuid: uuid, reason: .remoteEnded)
+            }
             return
         }
         reportCancelAck(callId: normalized, source: source)
@@ -751,14 +752,16 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
-        stopCallStatusWatch(callId: callId)
         cancelDismissRetries(callId: callId)
-        Self.noteCallDismissed(callId)
         markPendingCallKitAnswer(callId: callId)
+        var userInfo: [String: Any] = ["callId": callId]
+        if let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId)) {
+            userInfo["declineToken"] = token
+        }
         NotificationCenter.default.post(
             name: Self.callKitAnswerNotification,
             object: nil,
-            userInfo: ["callId": callId]
+            userInfo: userInfo
         )
         action.fulfill()
     }

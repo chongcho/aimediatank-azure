@@ -64,6 +64,42 @@ async function voiceApi(action: string, body: Record<string, unknown> = {}) {
   return data
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function fetchNativeCallKitBootstrap(callId: string, token: string) {
+  const params = new URLSearchParams({ callId, token })
+  const res = await fetch(`/api/chat/voice/native-callkit?${params.toString()}`, {
+    cache: 'no-store',
+  })
+  if (!res.ok) return null
+  return res.json() as Promise<{
+    status?: string
+    caller?: VoiceCallUser
+    offer?: { sdp?: RTCSessionDescriptionInit }
+    iceCandidates?: Array<{ candidate?: RTCIceCandidateInit }>
+  }>
+}
+
+async function nativeCallKitApi(
+  action: 'accept' | 'signal',
+  callId: string,
+  token: string,
+  extra: { type?: string; payload?: Record<string, unknown> } = {},
+) {
+  const res = await fetch('/api/chat/voice/native-callkit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, callId, token, ...extra }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(typeof data.error === 'string' ? data.error : `Native callkit ${action} failed`)
+  }
+  return data
+}
+
 export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOptions) {
   const [callState, setCallState] = useState<VoiceCallState>('idle')
   const [remoteUser, setRemoteUser] = useState<VoiceCallUser | null>(null)
@@ -343,42 +379,77 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     resetCall()
   }, [resetCall])
 
-  const resolvePendingOffer = useCallback(async (callId: string) => {
+  const resolvePendingOffer = useCallback(async (callId: string, declineToken?: string) => {
     if (pendingOfferRef.current) return pendingOfferRef.current
 
-    const res = await fetch(`/api/chat/voice?since=${encodeURIComponent(new Date(0).toISOString())}`, {
-      cache: 'no-store',
-      credentials: 'include',
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    const offerSignal = (data.signals as PollSignal[] | undefined)?.find(
-      (s) => voiceCallIdsMatch(s.callId, callId) && s.type === 'offer',
-    )
-    const sdp = offerSignal?.payload?.sdp as RTCSessionDescriptionInit | undefined
-    if (sdp) {
-      pendingOfferRef.current = sdp
-      return sdp
+    if (declineToken) {
+      try {
+        const bootstrap = await fetchNativeCallKitBootstrap(callId, declineToken)
+        const sdp = bootstrap?.offer?.sdp as RTCSessionDescriptionInit | undefined
+        if (sdp) {
+          pendingOfferRef.current = sdp
+          for (const row of bootstrap?.iceCandidates || []) {
+            if (row?.candidate) {
+              pendingIceRef.current.push(row.candidate)
+            }
+          }
+          if (bootstrap?.caller) {
+            setRemoteUser(bootstrap.caller)
+          }
+          return sdp
+        }
+      } catch {
+        // fall through to session poll
+      }
+    }
+
+    try {
+      const res = await fetch(`/api/chat/voice?since=${encodeURIComponent(new Date(0).toISOString())}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      })
+      if (!res.ok) return null
+      const data = await res.json()
+      const offerSignal = (data.signals as PollSignal[] | undefined)?.find(
+        (s) => voiceCallIdsMatch(s.callId, callId) && s.type === 'offer',
+      )
+      const sdp = offerSignal?.payload?.sdp as RTCSessionDescriptionInit | undefined
+      if (sdp) {
+        pendingOfferRef.current = sdp
+        return sdp
+      }
+    } catch {
+      // retry path may call again
     }
     return null
   }, [])
 
-  const answerCall = useCallback(async () => {
+  const answerCall = useCallback(async (opts?: { fromCallKit?: boolean; declineToken?: string }) => {
     if (answeringRef.current) return
-    if (callStateRef.current === 'connecting' || callStateRef.current === 'connected') return
+    if (
+      !opts?.fromCallKit &&
+      (callStateRef.current === 'connecting' || callStateRef.current === 'connected')
+    ) {
+      return
+    }
     const id = callIdRef.current
     if (!id) return
     markVoiceCallUserGesture()
     answeringRef.current = true
     try {
-      const offerSdp = await resolvePendingOffer(id)
+      const offerSdp = await resolvePendingOffer(id, opts?.declineToken)
       if (!offerSdp) {
+        if (opts?.fromCallKit) return
         reportError('Could not connect — offer missing')
         await endCall()
         return
       }
 
-      await voiceApi('accept', { callId: id })
+      if (opts?.fromCallKit && opts.declineToken) {
+        await nativeCallKitApi('accept', id, opts.declineToken)
+      } else {
+        await voiceApi('accept', { callId: id })
+      }
       const pc = createPeerConnection()
       await attachLocalTracks(pc)
 
@@ -387,11 +458,19 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       await flushPendingIceCandidates(pc)
       const answer = await pc.createAnswer()
       await pc.setLocalDescription(answer)
-      await sendSignal('answer', { sdp: answer })
+      if (opts?.fromCallKit && opts.declineToken) {
+        await nativeCallKitApi('signal', id, opts.declineToken, {
+          type: 'answer',
+          payload: { sdp: answer },
+        })
+      } else {
+        await sendSignal('answer', { sdp: answer })
+      }
       pendingOfferRef.current = null
       setCallState('connecting')
       reattachRemoteAudio()
     } catch (err) {
+      if (opts?.fromCallKit) return
       reportError(err instanceof Error ? err.message : 'Failed to answer call')
       await endCall()
     } finally {
@@ -626,7 +705,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         }
         void ensureIncomingCall(call.callId, call)
       },
-      onCallAnswered: (callId) => {
+      onCallAnswered: (callId, declineToken) => {
         stopVoiceCallRingtone()
         markVoiceCallUserGesture()
         void (async () => {
@@ -634,8 +713,24 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           callIdRef.current = normalizedId
           setCallId(normalizedId)
           isCallerRef.current = false
+          setCallState('connecting')
+
           await ensureIncomingCall(callId)
-          await answerCallRef.current()
+
+          for (let attempt = 0; attempt < 45; attempt++) {
+            if (callStateRef.current === 'connected') return
+            if (callStateRef.current === 'idle') return
+
+            await answerCallRef.current({ fromCallKit: true, declineToken })
+
+            if (callStateRef.current === 'connecting' || callStateRef.current === 'connected') {
+              return
+            }
+            await sleep(800)
+          }
+
+          reportError('Could not connect — offer missing')
+          await endCallRef.current(normalizedId)
         })()
       },
       onCallRejected: (callId) => {

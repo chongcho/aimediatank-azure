@@ -1674,4 +1674,28 @@ if (pluginSwift && !pluginSwift.includes(TOKEN_REPLAY_MARKER)) {
   console.log('[patch-voip-callkit] replay cached VoIP token on registerVoipNotifications')
 }
 
+const CALLKIT_ANSWER_DECLINE_TOKEN = 'forward declineToken on CallKit answer'
+if (
+  pluginSwift &&
+  pluginSwift.includes('handleBridgedCallKitAnswer') &&
+  !pluginSwift.includes(CALLKIT_ANSWER_DECLINE_TOKEN)
+) {
+  pluginSwift = pluginSwift.replace(
+    /    @objc private func handleBridgedCallKitAnswer\(_ notification: Notification\) \{[\s\S]*?\n    \}\n\n    @objc private func handleBridgedCallKitEnd/,
+    `    @objc private func handleBridgedCallKitAnswer(_ notification: Notification) {
+        guard let callId = notification.userInfo?["callId"] as? String else { return }
+        // ${CALLKIT_ANSWER_DECLINE_TOKEN}
+        var data: [String: Any] = ["callId": callId]
+        if let token = notification.userInfo?["declineToken"] as? String {
+            data["declineToken"] = token
+        }
+        emitEvent("callAnswered", data: data)
+    }
+
+    @objc private func handleBridgedCallKitEnd`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] forward declineToken with CallKit answer to JS')
+}
+
 console.log('[patch-voip-callkit] done')

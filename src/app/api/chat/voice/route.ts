@@ -317,6 +317,13 @@ export async function POST(request: Request) {
         },
       })
 
+      if (type === 'answer') {
+        await prisma.voiceCallSignal.updateMany({
+          where: { callId: call.id, type: 'offer', consumedAt: null },
+          data: { consumedAt: new Date() },
+        })
+      }
+
       return NextResponse.json({ ok: true })
     }
 
@@ -336,11 +343,6 @@ export async function POST(request: Request) {
       await prisma.voiceCall.update({
         where: { id: call.id },
         data: { status: 'active' },
-      })
-
-      await prisma.voiceCallSignal.updateMany({
-        where: { callId: call.id, type: 'offer', consumedAt: null },
-        data: { consumedAt: new Date() },
       })
 
       void sendVoiceCallDismissPushToUser(userId, call.id, userId).catch((err) =>

@@ -19,17 +19,92 @@ export interface NativeIncomingCallPayload {
 
 export interface NativeCallBridgeHandlers {
   onIncomingCall: (call: NativeIncomingCallPayload) => void
-  onCallAnswered: (callId: string) => void
+  onCallAnswered: (callId: string, declineToken?: string) => void
   onCallRejected: (callId: string) => void
   onCallEnded: (callId: string) => void
 }
 
 let bridgeInitialized = false
+let callListenersAttached = false
 let nativePushBootstrapped = false
 let pushListenerAttached = false
 let bridgeHandlers: NativeCallBridgeHandlers | null = null
 let pendingNativeToken: string | null = null
 let pendingNativePlatform: 'ios' | 'android' | null = null
+let pendingIncomingCall: NativeIncomingCallPayload | null = null
+let pendingCallAnswered: { callId: string; declineToken?: string } | null = null
+let pendingCallRejected: string | null = null
+let pendingCallEnded: string | null = null
+
+function flushPendingNativeCallEvents(): void {
+  if (!bridgeHandlers) return
+  if (pendingIncomingCall) {
+    const call = pendingIncomingCall
+    pendingIncomingCall = null
+    bridgeHandlers.onIncomingCall(call)
+  }
+  if (pendingCallAnswered) {
+    const event = pendingCallAnswered
+    pendingCallAnswered = null
+    bridgeHandlers.onCallAnswered(event.callId, event.declineToken)
+  }
+  if (pendingCallRejected) {
+    const callId = pendingCallRejected
+    pendingCallRejected = null
+    bridgeHandlers.onCallRejected(callId)
+  }
+  if (pendingCallEnded) {
+    const callId = pendingCallEnded
+    pendingCallEnded = null
+    bridgeHandlers.onCallEnded(callId)
+  }
+}
+
+function attachNativeCallEventListeners(
+  CapacitorPushCalls: Awaited<
+    typeof import('@kapsula-chat/capacitor-push-calls')
+  >['CapacitorPushCalls'],
+): void {
+  if (callListenersAttached) return
+
+  CapacitorPushCalls.addListener('incomingCall', (call) => {
+    if (bridgeHandlers) {
+      bridgeHandlers.onIncomingCall(call as NativeIncomingCallPayload)
+    } else {
+      pendingIncomingCall = call as NativeIncomingCallPayload
+    }
+  })
+
+  CapacitorPushCalls.addListener('callAnswered', ({ callId, declineToken }) => {
+    if (!callId) return
+    const token = typeof declineToken === 'string' ? declineToken : undefined
+    if (bridgeHandlers) {
+      bridgeHandlers.onCallAnswered(callId, token)
+    } else {
+      pendingCallAnswered = { callId, declineToken: token }
+    }
+  })
+
+  CapacitorPushCalls.addListener('callRejected', ({ callId }) => {
+    if (!callId) return
+    if (bridgeHandlers) {
+      bridgeHandlers.onCallRejected(callId)
+    } else {
+      pendingCallRejected = callId
+    }
+  })
+
+  CapacitorPushCalls.addListener('callEnded', ({ callId }) => {
+    if (!callId) return
+    if (bridgeHandlers) {
+      bridgeHandlers.onCallEnded(callId)
+    } else {
+      pendingCallEnded = callId
+    }
+  })
+
+  callListenersAttached = true
+}
 
 export function isNativeCallApp(): boolean {
   if (typeof window === 'undefined') return false
@@ -128,6 +203,7 @@ export async function bootstrapNativePush(): Promise<boolean> {
   try {
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
     attachNativePushListeners(CapacitorPushCalls)
+    attachNativeCallEventListeners(CapacitorPushCalls)
     await ensurePushPermissions(CapacitorPushCalls)
 
     if (isNativeIosCallApp()) {
@@ -209,26 +285,13 @@ export async function initNativeCallBridge(handlers: NativeCallBridgeHandlers): 
   await subscribeNativePushIfNeeded()
 
   const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+  attachNativeCallEventListeners(CapacitorPushCalls)
 
   if (!bridgeInitialized) {
-    CapacitorPushCalls.addListener('incomingCall', (call) => {
-      bridgeHandlers?.onIncomingCall(call as NativeIncomingCallPayload)
-    })
-
-    CapacitorPushCalls.addListener('callAnswered', ({ callId }) => {
-      if (callId) bridgeHandlers?.onCallAnswered(callId)
-    })
-
-    CapacitorPushCalls.addListener('callRejected', ({ callId }) => {
-      if (callId) bridgeHandlers?.onCallRejected(callId)
-    })
-
-    CapacitorPushCalls.addListener('callEnded', ({ callId }) => {
-      if (callId) bridgeHandlers?.onCallEnded(callId)
-    })
-
     bridgeInitialized = true
   }
+
+  flushPendingNativeCallEvents()
 
   return true
 }
