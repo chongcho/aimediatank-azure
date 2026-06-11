@@ -6,13 +6,18 @@
  */
 
 import { getNativePlatform } from '@/lib/nativeShellBoot'
+import { RING_ASSET_VERSION } from '@/lib/ringAssetVersion'
 
 export const VOICE_CALL_RING_TIMEOUT_MS = 60000
 const IOS_GESTURE_WINDOW_MS = 2500
 
+function ringUrl(path: string): string {
+  return `${path}?v=${RING_ASSET_VERSION}`
+}
+
 const RING_URLS = {
-  incoming: '/sounds/incoming-ring.wav',
-  outgoing: '/sounds/outgoing-ring.wav',
+  incoming: ringUrl('/sounds/incoming-ring.wav'),
+  outgoing: ringUrl('/sounds/outgoing-ring.wav'),
 } as const
 
 type RingKind = keyof typeof RING_URLS
@@ -130,7 +135,7 @@ async function getRingBuffer(url: string): Promise<AudioBuffer | null> {
   if (cached) return cached
 
   try {
-    const res = await fetch(url, { cache: 'force-cache' })
+    const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) return null
     const arrayBuffer = await res.arrayBuffer()
     const buffer = await ctx.decodeAudioData(arrayBuffer.slice(0))

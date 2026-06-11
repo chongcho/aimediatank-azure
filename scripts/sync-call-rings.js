@@ -79,6 +79,8 @@ function main() {
   fs.copyFileSync(OUTPUTS.incoming, iosRingPath)
   const iosKb = (fs.statSync(iosRingPath).size / 1024).toFixed(1)
   console.log(`[sync-call-rings] copied incoming ring to ${iosRingPath} (${iosKb} KB)`)
+
+  require('./update-ring-cache-version').main()
 }
 
 main()

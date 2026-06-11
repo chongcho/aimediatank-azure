@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "prebuild": "node scripts/update-ring-cache-version.js",
     "build:azure": "prisma generate && next build",
     "postinstall": "prisma generate && node scripts/copy-watermark-font.js && node scripts/ensure-voip-plugin-podspec.js && node scripts/patch-voip-callkit.js && node scripts/patch-android-fcm.js && node scripts/setup-android-native.js",
     "start": "node server.js",
@@ -22,6 +23,7 @@
     "db:migrate": "prisma migrate deploy",
     "rings:generate": "node scripts/generate-call-rings.js",
     "rings:sync": "node scripts/sync-call-rings.js",
+    "rings:cache-version": "node scripts/update-ring-cache-version.js",
     "cap:sync": "npx cap sync && node scripts/setup-android-native.js",
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android"

@@ -89,3 +89,5 @@ writeWav(
 )
 
 writeWav([{ type: 'silence', ms: 100 }], path.join(soundsDir, 'silent.wav'))
+
+require('./update-ring-cache-version').main()

@@ -1,5 +1,7 @@
 // Bump this when changing caching behavior to force refresh.
-const CACHE_NAME = 'aimediatank-v21';
+// RING_CACHE_VERSION (auto-updated by scripts/update-ring-cache-version.js)
+const RING_CACHE_VERSION = 'ea60b54c9fa1';
+const CACHE_NAME = 'aimediatank-' + RING_CACHE_VERSION;
 const OFFLINE_URL = '/offline';
 
 // Assets to cache on install
@@ -9,8 +11,8 @@ const PRECACHE_ASSETS = [
   '/manifest.json',
   '/logo.png',
   '/logo-192.png',
-  '/sounds/incoming-ring.wav',
-  '/sounds/outgoing-ring.wav',
+  '/sounds/incoming-ring.wav?v=' + RING_CACHE_VERSION,
+  '/sounds/outgoing-ring.wav?v=' + RING_CACHE_VERSION,
   '/sounds/silent.wav',
 ];
 
