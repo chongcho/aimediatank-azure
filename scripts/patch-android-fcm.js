@@ -35,7 +35,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -47,7 +46,6 @@ object IncomingCallUiHelper {
     private const val NOTIFICATION_ID = 91001
 
     fun present(context: Context, callId: String, displayName: String) {
-        boostRingVolume(context)
         ensureNotificationChannel(context)
         launchMainActivity(context, callId)
         showFullScreenNotification(context, callId, displayName)
@@ -56,25 +54,6 @@ object IncomingCallUiHelper {
     fun dismiss(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(NOTIFICATION_ID)
-    }
-
-    // AiMediaTank boost ring volume
-    private fun boostRingVolume(context: Context) {
-        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
-        try {
-            am.mode = AudioManager.MODE_RINGTONE
-            val maxRing = am.getStreamMaxVolume(AudioManager.STREAM_RING)
-            if (maxRing > 0) {
-                am.setStreamVolume(AudioManager.STREAM_RING, maxRing, 0)
-            }
-            val maxMedia = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val targetMedia = kotlin.math.ceil(maxMedia * 0.9f).toInt()
-            if (maxMedia > 0 && am.getStreamVolume(AudioManager.STREAM_MUSIC) < targetMedia) {
-                am.setStreamVolume(AudioManager.STREAM_MUSIC, targetMedia, 0)
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "boostRingVolume failed", e)
-        }
     }
 
     private fun incomingCallUri(callId: String): Uri =
@@ -610,44 +589,19 @@ if (fs.existsSync(voipConnectionPath)) {
 const ringVolumeMarker = 'AiMediaTank boost ring volume'
 if (fs.existsSync(incomingCallUiPath)) {
   let helper = fs.readFileSync(incomingCallUiPath, 'utf8')
-  if (helper.includes('IncomingCallUiHelper') && !helper.includes(ringVolumeMarker)) {
-    if (!helper.includes('import android.media.AudioManager')) {
-      helper = helper.replace(
-        'import android.content.Intent',
-        'import android.content.Intent\nimport android.media.AudioManager',
-      )
-    }
+  if (helper.includes(ringVolumeMarker) || helper.includes('boostRingVolume(')) {
+    helper = helper.replace(/\nimport android\.media\.AudioManager\r?\n/, '\n')
     helper = helper.replace(
-      '    fun present(context: Context, callId: String, displayName: String) {\n        ensureNotificationChannel(context)',
-      '    fun present(context: Context, callId: String, displayName: String) {\n        boostRingVolume(context)\n        ensureNotificationChannel(context)',
+      /\n    \/\/ AiMediaTank boost ring volume\n    private fun boostRingVolume\(context: Context\) \{[\s\S]*?\n    \}\n/,
+      '\n',
     )
-    const boostFn = `
-    // ${ringVolumeMarker}
-    private fun boostRingVolume(context: Context) {
-        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
-        try {
-            am.mode = AudioManager.MODE_RINGTONE
-            val maxRing = am.getStreamMaxVolume(AudioManager.STREAM_RING)
-            if (maxRing > 0) {
-                am.setStreamVolume(AudioManager.STREAM_RING, maxRing, 0)
-            }
-            val maxMedia = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val targetMedia = kotlin.math.ceil(maxMedia * 0.9f).toInt()
-            if (maxMedia > 0 && am.getStreamVolume(AudioManager.STREAM_MUSIC) < targetMedia) {
-                am.setStreamVolume(AudioManager.STREAM_MUSIC, targetMedia, 0)
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "boostRingVolume failed", e)
-        }
-    }
-`
     helper = helper.replace(
-      '    private fun incomingCallUri(callId: String): Uri =',
-      `${boostFn}\n    private fun incomingCallUri(callId: String): Uri =`,
+      '    fun present(context: Context, callId: String, displayName: String) {\n        boostRingVolume(context)\n        ensureNotificationChannel(context)',
+      '    fun present(context: Context, callId: String, displayName: String) {\n        ensureNotificationChannel(context)',
     )
     fs.writeFileSync(incomingCallUiPath, helper)
     changed = true
-    console.log('[patch-android-fcm] IncomingCallUiHelper boosts ring volume')
+    console.log('[patch-android-fcm] IncomingCallUiHelper no longer changes system volume')
   }
 }
 
