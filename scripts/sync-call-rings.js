@@ -2,8 +2,8 @@
  * Sync voice-call ringtones from /Ringtones into app assets.
  *
  * Source (user-provided):
- *   Ringtones/Incoming ringtone 1.mp3
- *   Ringtones/Outgoing ringtone 1.mp3
+ *   Ringtones/Incoming ringtone 2.mp3
+ *   Ringtones/Outgoing ringtone 2.mp3
  *
  * Outputs:
  *   public/sounds/incoming-ring.wav  — web + service worker cache
@@ -22,8 +22,8 @@ const soundsDir = path.join(root, 'public', 'sounds')
 const iosRingPath = path.join(root, 'ios', 'App', 'App', 'incoming-ring.wav')
 
 const SOURCES = {
-  incoming: path.join(ringtonesDir, 'Incoming ringtone 1.mp3'),
-  outgoing: path.join(ringtonesDir, 'Outgoing ringtone 1.mp3'),
+  incoming: path.join(ringtonesDir, 'Incoming ringtone 2.mp3'),
+  outgoing: path.join(ringtonesDir, 'Outgoing ringtone 2.mp3'),
 }
 
 const OUTPUTS = {

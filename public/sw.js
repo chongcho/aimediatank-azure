@@ -1,6 +1,6 @@
 // Bump this when changing caching behavior to force refresh.
 // RING_CACHE_VERSION (auto-updated by scripts/update-ring-cache-version.js)
-const RING_CACHE_VERSION = 'ea60b54c9fa1';
+const RING_CACHE_VERSION = 'f3887c37b23a';
 const CACHE_NAME = 'aimediatank-' + RING_CACHE_VERSION;
 const OFFLINE_URL = '/offline';
 
