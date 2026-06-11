@@ -95,6 +95,7 @@ html.capacitor-native {
   background: #000000;
   --app-safe-top-fallback: env(safe-area-inset-top, 0px);
   --app-safe-bottom-fallback: env(safe-area-inset-bottom, 0px);
+  --android-navbar-top-pad: 0px;
 }
 
 html.capacitor-native body {
@@ -164,10 +165,15 @@ html.capacitor-native.android body::before {
 
 html.capacitor-native.android .pwa-navbar {
   top: 0 !important;
+  padding-top: var(--android-navbar-top-pad, 30px);
 }
 
 html.capacitor-native.android main.pt-16 {
-  padding-top: 4rem !important;
+  padding-top: calc(4rem + var(--android-navbar-top-pad, 30px)) !important;
+}
+
+html.capacitor-native.android {
+  --android-navbar-top-pad: 30px;
 }
 
 /* Android native home screen layout */

@@ -32,7 +32,7 @@ public class MainActivity extends BridgeActivity {
         applySystemBars();
     }
 
-    /** Black nav bar; light (gray/white) system back/home/recents icons for visibility. */
+    /** Black system bars; light (gray/white) status + nav icons on dark backgrounds. */
     private void applySystemBars() {
         Window window = getWindow();
         WindowCompat.setDecorFitsSystemWindows(window, true);
@@ -43,6 +43,7 @@ public class MainActivity extends BridgeActivity {
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.setNavigationBarContrastEnforced(true);
+            window.setStatusBarContrastEnforced(true);
         }
 
         View decor = window.getDecorView();
