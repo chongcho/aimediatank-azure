@@ -75,8 +75,10 @@ function attachNativeCallEventListeners(
     }
   })
 
-  CapacitorPushCalls.addListener('callAnswered', ({ callId, declineToken }) => {
+  CapacitorPushCalls.addListener('callAnswered', (event) => {
+    const callId = event.callId
     if (!callId) return
+    const declineToken = (event as { callId?: string; declineToken?: string }).declineToken
     const token = typeof declineToken === 'string' ? declineToken : undefined
     if (bridgeHandlers) {
       bridgeHandlers.onCallAnswered(callId, token)
