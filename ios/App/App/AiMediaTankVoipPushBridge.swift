@@ -159,10 +159,14 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         guard let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey),
               !callId.isEmpty else { return }
         print("[AiMediaTankVoipPushBridge] replay pending CallKit answer for \(callId)")
+        var userInfo: [String: Any] = ["callId": callId]
+        if let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId)) {
+            userInfo["declineToken"] = token
+        }
         NotificationCenter.default.post(
             name: Self.callKitAnswerNotification,
             object: nil,
-            userInfo: ["callId": callId]
+            userInfo: userInfo
         )
     }
 
@@ -753,6 +757,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         cancelDismissRetries(callId: callId)
+        configureAudioSession()
         markPendingCallKitAnswer(callId: callId)
         var userInfo: [String: Any] = ["callId": callId]
         if let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId)) {

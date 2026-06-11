@@ -1698,4 +1698,38 @@ if (
   console.log('[patch-voip-callkit] forward declineToken with CallKit answer to JS')
 }
 
+const DECLINE_TOKEN_USERDEFAULTS = 'declineToken from UserDefaults on CallKit answer'
+if (
+  pluginSwift &&
+  pluginSwift.includes('handleBridgedCallKitAnswer') &&
+  !pluginSwift.includes(DECLINE_TOKEN_USERDEFAULTS)
+) {
+  pluginSwift = pluginSwift.replace(
+    /        if let token = notification\.userInfo\?\["declineToken"\] as\? String \{\n            data\["declineToken"\] = token\n        \}/,
+    `        if let token = notification.userInfo?["declineToken"] as? String {
+            data["declineToken"] = token
+        } else if let token = UserDefaults.standard.string(forKey: "AiMediaTank.declineToken.\\(callId.lowercased())") {
+            // ${DECLINE_TOKEN_USERDEFAULTS}
+            data["declineToken"] = token
+        }`,
+  )
+  if (pluginSwift.includes('notificationData["metadata"] = metadata') && !pluginSwift.includes('notificationData["declineToken"]')) {
+    pluginSwift = pluginSwift.replace(
+      `        if let metadata = payloadDict["metadata"] as? [String: Any] {
+            notificationData["metadata"] = metadata
+        }
+        emitEvent("incomingCall", data: notificationData)`,
+      `        if let metadata = payloadDict["metadata"] as? [String: Any] {
+            notificationData["metadata"] = metadata
+        }
+        if let token = declineToken {
+            notificationData["declineToken"] = token
+        }
+        emitEvent("incomingCall", data: notificationData)`,
+    )
+  }
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] UserDefaults declineToken fallback for CallKit answer')
+}
+
 console.log('[patch-voip-callkit] done')

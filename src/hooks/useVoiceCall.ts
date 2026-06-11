@@ -12,10 +12,12 @@ import {
 import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 import {
   endNativeCall,
+  getCachedNativeDeclineToken,
   initNativeCallBridge,
   isNativeIosCallApp,
   isNativeVoiceCallApp,
   markNativeCallConnected,
+  cacheNativeDeclineToken,
   reportIncomingCallToNativeUi,
   type NativeIncomingCallPayload,
 } from '@/lib/nativeCallBridge'
@@ -434,10 +436,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
     const id = callIdRef.current
     if (!id) return
+    const declineToken = opts?.declineToken || getCachedNativeDeclineToken(id)
     markVoiceCallUserGesture()
     answeringRef.current = true
     try {
-      const offerSdp = await resolvePendingOffer(id, opts?.declineToken)
+      const offerSdp = await resolvePendingOffer(id, declineToken)
       if (!offerSdp) {
         if (opts?.fromCallKit) return
         reportError('Could not connect — offer missing')
@@ -445,8 +448,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         return
       }
 
-      if (opts?.fromCallKit && opts.declineToken) {
-        await nativeCallKitApi('accept', id, opts.declineToken)
+      if (opts?.fromCallKit && declineToken) {
+        await nativeCallKitApi('accept', id, declineToken)
       } else {
         await voiceApi('accept', { callId: id })
       }
@@ -458,8 +461,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       await flushPendingIceCandidates(pc)
       const answer = await pc.createAnswer()
       await pc.setLocalDescription(answer)
-      if (opts?.fromCallKit && opts.declineToken) {
-        await nativeCallKitApi('signal', id, opts.declineToken, {
+      if (opts?.fromCallKit && declineToken) {
+        await nativeCallKitApi('signal', id, declineToken, {
           type: 'answer',
           payload: { sdp: answer },
         })
@@ -708,6 +711,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       onCallAnswered: (callId, declineToken) => {
         stopVoiceCallRingtone()
         markVoiceCallUserGesture()
+        const token = declineToken || getCachedNativeDeclineToken(callId)
+        if (token) cacheNativeDeclineToken(callId, token)
         void (async () => {
           const normalizedId = normalizeVoiceCallId(callId)
           callIdRef.current = normalizedId
@@ -721,7 +726,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             if (callStateRef.current === 'connected') return
             if (callStateRef.current === 'idle') return
 
-            await answerCallRef.current({ fromCallKit: true, declineToken })
+            await answerCallRef.current({ fromCallKit: true, declineToken: token })
 
             if (['connecting', 'connected'].includes(callStateRef.current)) {
               return
@@ -729,7 +734,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             await sleep(800)
           }
 
-          reportError('Could not connect — offer missing')
+          reportError('Could not connect call')
           await endCallRef.current(normalizedId)
         })()
       },

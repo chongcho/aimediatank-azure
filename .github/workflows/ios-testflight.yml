@@ -66,6 +66,11 @@ jobs:
       - name: Patch CallKit incoming ringtone
         run: node scripts/patch-voip-callkit.js
 
+      - name: Verify CallKit patch applied
+        run: |
+          grep -q "forward declineToken on CallKit answer" node_modules/@kapsula-chat/capacitor-push-calls/ios/Plugin/CapacitorVoipCallsPlugin.swift
+          grep -q "declineToken from UserDefaults on CallKit answer" node_modules/@kapsula-chat/capacitor-push-calls/ios/Plugin/CapacitorVoipCallsPlugin.swift
+
       - name: Configure App manual signing
         working-directory: ios/App
         env:

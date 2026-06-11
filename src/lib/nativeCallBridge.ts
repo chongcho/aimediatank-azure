@@ -2,6 +2,7 @@
 
 import { Capacitor } from '@capacitor/core'
 import { detectNativeShell, getNativePlatform } from '@/lib/nativeShellBoot'
+import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 
 export interface NativeIncomingCallPayload {
   callId: string
@@ -9,12 +10,35 @@ export interface NativeIncomingCallPayload {
   handle: string
   handleType?: string
   video?: boolean
+  declineToken?: string
   metadata?: {
     callerId?: string
     callerUsername?: string
     callerName?: string | null
     callerAvatar?: string | null
+    declineToken?: string
   }
+}
+
+const declineTokenByCallId = new Map<string, string>()
+
+export function cacheNativeDeclineToken(callId: string, token?: string | null): void {
+  const normalized = normalizeVoiceCallId(callId)
+  const trimmed = (token || '').trim()
+  if (normalized && trimmed) {
+    declineTokenByCallId.set(normalized, trimmed)
+  }
+}
+
+export function getCachedNativeDeclineToken(callId: string): string | undefined {
+  return declineTokenByCallId.get(normalizeVoiceCallId(callId))
+}
+
+function declineTokenFromIncoming(call: NativeIncomingCallPayload): string | undefined {
+  const direct = (call.declineToken || '').trim()
+  if (direct) return direct
+  const meta = (call.metadata?.declineToken || '').trim()
+  return meta || undefined
 }
 
 export interface NativeCallBridgeHandlers {
@@ -68,18 +92,22 @@ function attachNativeCallEventListeners(
   if (callListenersAttached) return
 
   CapacitorPushCalls.addListener('incomingCall', (call) => {
+    const payload = call as NativeIncomingCallPayload
+    cacheNativeDeclineToken(payload.callId, declineTokenFromIncoming(payload))
     if (bridgeHandlers) {
-      bridgeHandlers.onIncomingCall(call as NativeIncomingCallPayload)
+      bridgeHandlers.onIncomingCall(payload)
     } else {
-      pendingIncomingCall = call as NativeIncomingCallPayload
+      pendingIncomingCall = payload
     }
   })
 
   CapacitorPushCalls.addListener('callAnswered', (event) => {
     const callId = event.callId
     if (!callId) return
-    const declineToken = (event as { callId?: string; declineToken?: string }).declineToken
-    const token = typeof declineToken === 'string' ? declineToken : undefined
+    const fromEvent = (event as { callId?: string; declineToken?: string }).declineToken
+    const token =
+      (typeof fromEvent === 'string' ? fromEvent : undefined) || getCachedNativeDeclineToken(callId)
+    if (token) cacheNativeDeclineToken(callId, token)
     if (bridgeHandlers) {
       bridgeHandlers.onCallAnswered(callId, token)
     } else {
