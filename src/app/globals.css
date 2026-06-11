@@ -155,39 +155,6 @@ html.capacitor-native .pwa-navbar .inline-flex.h-9 {
   min-height: 44px;
 }
 
-/* Android native UI tweaks (see home screen layout review) */
-html.capacitor-native.android .navbar-icon-group {
-  margin-left: 10px;
-}
-
-html.capacitor-native.android .home-hero {
-  padding-left: 15px;
-  padding-right: 15px;
-}
-
-html.capacitor-native.android .media-grid {
-  width: 100%;
-  column-gap: 0;
-}
-
-html.capacitor-native.android .media-card-inner {
-  width: 100%;
-}
-
-html.capacitor-native.android .media-card-inner img:not(.invisible) {
-  width: 100%;
-  min-width: 100%;
-  display: block;
-}
-
-html.capacitor-native.android .media-card-inner video {
-  width: 100%;
-  max-width: 100%;
-  display: block;
-  object-fit: cover;
-  object-position: center;
-}
-
 /* Landscape padding elements - hidden by default */
 .landscape-padding-left,
 .landscape-padding-right {
