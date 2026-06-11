@@ -9,7 +9,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import { getNativePlatform } from '@/lib/nativeShellBoot'
 
 const PREVIEW_SOUND_STORAGE_KEY = 'homePreviewSoundOn'
 
@@ -24,8 +23,6 @@ type HomePreplayFocusContextValue = {
   unregisterPreplay: (mediaId: string) => void
   /** True while the feed grid is hidden for scroll restore — mobile focus IO is paused and state is flushed when this clears. */
   layoutSuppressed: boolean
-  /** True when scroll has settled and preplay may mount/play (focus id may still be set while false). */
-  preplayActive: boolean
 }
 
 const HomePreplayFocusContext = createContext<HomePreplayFocusContextValue | null>(null)
@@ -34,19 +31,13 @@ const HomePreplayFocusContext = createContext<HomePreplayFocusContextValue | nul
 export function HomePreplayFocusProvider({
   children,
   layoutSuppressed = false,
-  deferPreplayUntilScroll = false,
 }: {
   children: React.ReactNode
   /** When true (e.g. home grid `invisible` during scroll restore), skip focus IO and reset scores when it clears. */
   layoutSuppressed?: boolean
-  /** When true (e.g. back from /media), hold preplay until the user touch-scrolls. */
-  deferPreplayUntilScroll?: boolean
 }) {
   const scoresRef = useRef<Map<string, Score>>(new Map())
   const [focusedMediaId, setFocusedMediaId] = useState<string | null>(null)
-  /** False while the user is scrolling — mobile preplay pauses to avoid video placeholder flashes. */
-  const [scrollIdle, setScrollIdle] = useState(true)
-  const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewSoundOn, setPreviewSoundOn] = useState(() => {
     if (typeof window === 'undefined') return false
     try {
@@ -57,11 +48,6 @@ export function HomePreplayFocusProvider({
   })
   const rafRef = useRef<number | null>(null)
   const prevLayoutSuppressedRef = useRef<boolean | null>(null)
-  const [deferPreplay, setDeferPreplay] = useState(deferPreplayUntilScroll)
-
-  useEffect(() => {
-    setDeferPreplay(deferPreplayUntilScroll)
-  }, [deferPreplayUntilScroll])
 
   const togglePreviewSound = useCallback(() => {
     setPreviewSoundOn((prev) => {
@@ -77,9 +63,6 @@ export function HomePreplayFocusProvider({
 
   const recomputeFocused = useCallback(() => {
     rafRef.current = null
-    if (!scrollIdle) {
-      return
-    }
     const scores = scoresRef.current
     // Do not clear focus when the map is briefly empty (scroll / IO churn); that made every tile
     // `focusedMediaId !== id` and stopped mobile preplay until a new winner appeared.
@@ -104,7 +87,7 @@ export function HomePreplayFocusProvider({
       }
     })
     setFocusedMediaId((prev) => (prev === bestId ? prev : bestId))
-  }, [scrollIdle])
+  }, [])
 
   const scheduleRecompute = useCallback(() => {
     if (rafRef.current != null) return
@@ -176,84 +159,10 @@ export function HomePreplayFocusProvider({
   }, [layoutSuppressed])
 
   useEffect(() => {
-    if (!deferPreplay) return
-    const clearDefer = () => setDeferPreplay(false)
-    const opts: AddEventListenerOptions = { passive: true }
-    window.addEventListener('touchstart', clearDefer, opts)
-    window.addEventListener('wheel', clearDefer, opts)
-    return () => {
-      window.removeEventListener('touchstart', clearDefer)
-      window.removeEventListener('wheel', clearDefer)
-    }
-  }, [deferPreplay])
-
-  useEffect(() => {
-    const androidNative = getNativePlatform() === 'android'
-    const settleMs = androidNative ? 400 : 200
-
-    const markScrolling = () => {
-      setScrollIdle(false)
-      if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current)
-      scrollIdleTimerRef.current = setTimeout(() => {
-        scrollIdleTimerRef.current = null
-        setScrollIdle(true)
-        scheduleRecompute()
-      }, settleMs)
-    }
-
-    const opts: AddEventListenerOptions = { passive: true }
-
-    if (androidNative) {
-      // Android WebView: touch-based idle is more reliable than scroll events (momentum + layout churn).
-      const onTouchStart = () => {
-        setScrollIdle(false)
-        if (scrollIdleTimerRef.current) {
-          clearTimeout(scrollIdleTimerRef.current)
-          scrollIdleTimerRef.current = null
-        }
-      }
-      window.addEventListener('touchstart', onTouchStart, opts)
-      window.addEventListener('touchmove', onTouchStart, opts)
-      window.addEventListener('touchend', markScrolling, opts)
-      window.addEventListener('touchcancel', markScrolling, opts)
-      return () => {
-        window.removeEventListener('touchstart', onTouchStart)
-        window.removeEventListener('touchmove', onTouchStart)
-        window.removeEventListener('touchend', markScrolling)
-        window.removeEventListener('touchcancel', markScrolling)
-        if (scrollIdleTimerRef.current) {
-          clearTimeout(scrollIdleTimerRef.current)
-          scrollIdleTimerRef.current = null
-        }
-      }
-    }
-
-    window.addEventListener('scroll', markScrolling, opts)
-    document.body.addEventListener('scroll', markScrolling, opts)
-    document.documentElement.addEventListener('scroll', markScrolling, opts)
-    return () => {
-      window.removeEventListener('scroll', markScrolling)
-      document.body.removeEventListener('scroll', markScrolling)
-      document.documentElement.removeEventListener('scroll', markScrolling)
-      if (scrollIdleTimerRef.current) {
-        clearTimeout(scrollIdleTimerRef.current)
-        scrollIdleTimerRef.current = null
-      }
-    }
-  }, [scheduleRecompute])
-
-  useEffect(() => {
-    if (!scrollIdle) return
-    scheduleRecompute()
-  }, [scrollIdle, scheduleRecompute])
-
-  useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return
       scoresRef.current.clear()
       setFocusedMediaId(null)
-      if (e.persisted) {
-        setDeferPreplay(true)
-      }
       if (rafRef.current != null) {
         cancelAnimationFrame(rafRef.current)
         rafRef.current = null
@@ -263,27 +172,22 @@ export function HomePreplayFocusProvider({
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [])
 
-  const preplayActive = scrollIdle && !deferPreplay && !layoutSuppressed
-  const effectiveFocusedMediaId = !deferPreplay && !layoutSuppressed ? focusedMediaId : null
-
   const value = useMemo(
     () => ({
-      focusedMediaId: effectiveFocusedMediaId,
+      focusedMediaId,
       previewSoundOn,
       togglePreviewSound,
       reportPreplayIntersection,
       unregisterPreplay,
       layoutSuppressed,
-      preplayActive,
     }),
     [
-      effectiveFocusedMediaId,
+      focusedMediaId,
       previewSoundOn,
       togglePreviewSound,
       reportPreplayIntersection,
       unregisterPreplay,
       layoutSuppressed,
-      preplayActive,
     ]
   )
 
