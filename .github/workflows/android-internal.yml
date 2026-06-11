@@ -61,13 +61,15 @@ jobs:
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$KEYSTORE_PATH"
           echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
+      - name: Set Android version code
+        run: echo "ANDROID_VERSION_CODE=$((GITHUB_RUN_NUMBER + 10))" >> "$GITHUB_ENV"
+
       - name: Build signed App Bundle
         working-directory: android
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_VERSION_CODE: ${{ github.run_number + 10 }}
           ANDROID_VERSION_NAME: ${{ inputs.version_name }}
         run: |
           set -euo pipefail
