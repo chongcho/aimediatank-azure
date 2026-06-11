@@ -16,7 +16,7 @@ export interface VoipCallPushPayload {
   handle: string
 }
 
-let apnsClient: ApnsClient | null = null
+const apnsClients = new Map<'production' | 'sandbox', ApnsClient>()
 
 export function isVoipPushConfigured(): boolean {
   return Boolean(
@@ -64,44 +64,54 @@ function readSigningKey(): Buffer | null {
   }
 }
 
-function getApnsClient(): ApnsClient | null {
+/** TestFlight / App Store VoIP tokens require production APNs unless APNS_PRODUCTION=false. */
+export function apnsProductionEnabled(): boolean {
+  const raw = process.env.APNS_PRODUCTION?.trim().toLowerCase()
+  if (raw === 'true' || raw === '1' || raw === 'yes') return true
+  if (raw === 'false' || raw === '0' || raw === 'no') return false
+  return process.env.NODE_ENV === 'production'
+}
+
+function getApnsClient(production = apnsProductionEnabled()): ApnsClient | null {
   if (!isVoipPushConfigured()) return null
-  if (apnsClient) return apnsClient
+
+  const cacheKey = production ? 'production' : 'sandbox'
+  const cached = apnsClients.get(cacheKey)
+  if (cached) return cached
 
   const signingKey = readSigningKey()
   if (!signingKey) return null
 
-  apnsClient = new ApnsClient({
+  const client = new ApnsClient({
     team: process.env.APNS_TEAM_ID!,
     keyId: process.env.APNS_KEY_ID!,
     signingKey,
     defaultTopic: `${process.env.APNS_BUNDLE_ID}.voip`,
-    host: process.env.APNS_PRODUCTION === 'true' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com',
+    host: production ? 'api.push.apple.com' : 'api.sandbox.push.apple.com',
   })
-
-  return apnsClient
+  apnsClients.set(cacheKey, client)
+  if (apnsClients.size === 1) {
+    console.info(
+      `[VoIP] APNs client host=${production ? 'production' : 'sandbox'} (APNS_PRODUCTION=${process.env.APNS_PRODUCTION ?? 'auto'})`,
+    )
+  }
+  return client
 }
 
-async function sendVoipDataPushToUser(
-  userId: string,
+type VoipPushSendResult = {
+  sent: number
+  staleTokens: string[]
+  badDeviceTokens: string[]
+  otherErrors: string[]
+}
+
+async function sendVoipNotifications(
+  client: ApnsClient,
+  tokens: { token: string }[],
   data: Record<string, unknown>,
   logLabel: string,
   extraOptions: { contentAvailable?: boolean } = {},
-): Promise<void> {
-  const client = getApnsClient()
-  if (!client) {
-    console.warn(`VoIP push skipped (${logLabel}): APNS env vars not configured`)
-    return
-  }
-
-  const tokens = await prisma.voipPushToken.findMany({
-    where: { userId, platform: 'ios' },
-  })
-  if (tokens.length === 0) {
-    console.warn(`VoIP push skipped (${logLabel}): no iOS VoIP token for user ${userId}`)
-    return
-  }
-
+): Promise<VoipPushSendResult> {
   const topic = `${process.env.APNS_BUNDLE_ID}.voip`
   const notifications = tokens.map(
     (row) =>
@@ -115,6 +125,8 @@ async function sendVoipDataPushToUser(
   )
 
   const staleTokens: string[] = []
+  const badDeviceTokens: string[] = []
+  const otherErrors: string[] = []
   let sent = 0
 
   try {
@@ -127,22 +139,68 @@ async function sendVoipDataPushToUser(
       if (!(result && typeof result === 'object' && 'error' in result)) return
       const error = result.error
       const reason = error instanceof ApnsError ? error.reason : String(error)
-      if (reason === 'BadDeviceToken' || reason === 'Unregistered' || reason === 'ExpiredToken') {
+      const tokenPrefix = tokens[index]?.token.slice(0, 8) ?? '?'
+      if (reason === 'BadDeviceToken') {
+        badDeviceTokens.push(tokens[index]!.token)
+      } else if (reason === 'Unregistered' || reason === 'ExpiredToken') {
         staleTokens.push(tokens[index]!.token)
       } else {
-        console.error(`VoIP push failed (${logLabel}):`, reason, tokens[index]?.token.slice(0, 8))
+        otherErrors.push(`${reason} (${tokenPrefix})`)
+        console.error(`VoIP push failed (${logLabel}):`, reason, tokenPrefix)
       }
     })
   } catch (error) {
     console.error(`VoIP push batch failed (${logLabel}):`, error)
   }
 
-  if (sent > 0) {
-    console.info(`[VoIP] ${logLabel}: sent to ${sent}/${tokens.length} device(s)`)
+  return { sent, staleTokens, badDeviceTokens, otherErrors }
+}
+
+async function sendVoipDataPushToUser(
+  userId: string,
+  data: Record<string, unknown>,
+  logLabel: string,
+  extraOptions: { contentAvailable?: boolean } = {},
+): Promise<void> {
+  const primaryProduction = apnsProductionEnabled()
+  const client = getApnsClient(primaryProduction)
+  if (!client) {
+    console.warn(`VoIP push skipped (${logLabel}): APNS env vars not configured`)
+    return
+  }
+
+  const tokens = await prisma.voipPushToken.findMany({
+    where: { userId, platform: 'ios' },
+  })
+  if (tokens.length === 0) {
+    console.warn(`VoIP push skipped (${logLabel}): no iOS VoIP token for user ${userId}`)
+    return
+  }
+
+  let result = await sendVoipNotifications(client, tokens, data, logLabel, extraOptions)
+
+  // Wrong APNs environment returns BadDeviceToken — retry the alternate host before dropping tokens.
+  if (
+    result.sent === 0 &&
+    result.badDeviceTokens.length === tokens.length &&
+    result.otherErrors.length === 0
+  ) {
+    const alternateClient = getApnsClient(!primaryProduction)
+    if (alternateClient) {
+      console.warn(
+        `[VoIP] ${logLabel}: all tokens rejected on ${primaryProduction ? 'production' : 'sandbox'} APNs; retrying ${!primaryProduction ? 'production' : 'sandbox'}`,
+      )
+      result = await sendVoipNotifications(alternateClient, tokens, data, `${logLabel} (alt host)`, extraOptions)
+    }
+  }
+
+  if (result.sent > 0) {
+    console.info(`[VoIP] ${logLabel}: sent to ${result.sent}/${tokens.length} device(s)`)
   } else if (tokens.length > 0) {
     console.warn(`[VoIP] ${logLabel}: failed for all ${tokens.length} device(s)`)
   }
 
+  const staleTokens = [...new Set([...result.staleTokens, ...result.badDeviceTokens])]
   if (staleTokens.length > 0) {
     await prisma.voipPushToken.deleteMany({
       where: { token: { in: staleTokens } },

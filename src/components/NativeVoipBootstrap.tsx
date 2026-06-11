@@ -33,11 +33,21 @@ export default function NativeVoipBootstrap() {
     sync()
     retryRef.current = setInterval(sync, 20000)
 
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        sync()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', sync)
+
     return () => {
       if (retryRef.current) {
         clearInterval(retryRef.current)
         retryRef.current = null
       }
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', sync)
     }
   }, [session?.user?.id])
 

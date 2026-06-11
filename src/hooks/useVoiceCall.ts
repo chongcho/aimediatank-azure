@@ -307,10 +307,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const handleRemoteOffer = useCallback(
     async (signal: PollSignal, caller: VoiceCallUser) => {
       storePendingOffer(signal.payload)
-      // Native lock screen uses server push; JS fallback when polling sees the call first (foreground / missed push).
-      const needsNativeUiFallback =
-        !isNativeVoiceCallApp() ||
-        (isNativeIosCallApp() && typeof document !== 'undefined' && !document.hidden)
+      // Native lock screen prefers server VoIP push; JS/native plugin fallback dedupes if CallKit already reported.
+      const needsNativeUiFallback = !isNativeVoiceCallApp() || isNativeIosCallApp()
       if (needsNativeUiFallback) {
         const label = caller.name || caller.username || 'AiMediaTank'
         void reportIncomingCallToNativeUi({
@@ -585,15 +583,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         const incoming = data.incomingCalls[0]
         if (!handledIncomingRef.current.has(`call-${incoming.id}`)) {
           handledIncomingRef.current.add(`call-${incoming.id}`)
-          if (!isNativeIosCallApp()) {
-            const label = incoming.caller.name || incoming.caller.username || 'AiMediaTank'
-            void reportIncomingCallToNativeUi({
-              callId: incoming.id,
-              handle: incoming.caller.username || incoming.caller.id,
-              displayName: label,
-              caller: incoming.caller,
-            })
-          }
+          const label = incoming.caller.name || incoming.caller.username || 'AiMediaTank'
+          void reportIncomingCallToNativeUi({
+            callId: incoming.id,
+            handle: incoming.caller.username || incoming.caller.id,
+            displayName: label,
+            caller: incoming.caller,
+          })
           callIdRef.current = normalizeVoiceCallId(incoming.id)
           setCallId(normalizeVoiceCallId(incoming.id))
           setRemoteUser(incoming.caller)

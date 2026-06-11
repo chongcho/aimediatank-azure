@@ -7,7 +7,7 @@ import {
   sendVoiceCallRingPushBurstToUser,
 } from '@/lib/webPush'
 import { sendNativeCallCancelPushBurstToUser, sendNativeCallPushToUser } from '@/lib/nativeCallPush'
-import { calleeHasAndroidNativeCallToken } from '@/lib/nativePushRouting'
+import { calleeHasAndroidNativeCallToken, calleeHasIosNativeCallToken } from '@/lib/nativePushRouting'
 import { plannedVoipCancelPushAttempts } from '@/lib/voipPush'
 import { recordVoipCancelBurst } from '@/lib/voipCallTrace'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
@@ -274,12 +274,24 @@ export async function POST(request: Request) {
         console.info('[WebPush] skipped ring burst: callee uses Android native FCM token')
       }
 
-      void sendNativeCallPushToUser(calleeId, {
-        callId: call.id,
-        caller: call.caller,
-        displayName: callerLabel,
-        handle: call.caller.username || call.caller.id,
-      }, userId).catch((err) => console.error('Native call push failed:', err))
+      void (async () => {
+        const hasIosToken = await calleeHasIosNativeCallToken(calleeId)
+        if (!hasIosToken) {
+          console.warn(
+            `[VoIP] callee ${calleeId} has no iOS PushKit token — lock-screen CallKit requires TestFlight app sign-in`,
+          )
+        }
+        await sendNativeCallPushToUser(
+          calleeId,
+          {
+            callId: call.id,
+            caller: call.caller,
+            displayName: callerLabel,
+            handle: call.caller.username || call.caller.id,
+          },
+          userId,
+        )
+      })().catch((err) => console.error('Native call push failed:', err))
 
       return NextResponse.json({
         call: {

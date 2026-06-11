@@ -173,7 +173,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func ensureStarted() {
         recoverFromStaleCallState()
 
-        guard pushRegistry == nil else { return }
+        guard pushRegistry == nil else {
+            replayCachedVoipTokenIfNeeded()
+            return
+        }
         let registry = PKPushRegistry(queue: DispatchQueue.main)
         registry.delegate = self
         registry.desiredPushTypes = [.voIP]
@@ -645,6 +648,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             return
         }
 
+        ensureStarted()
+
         let payloadDict = payload.dictionaryPayload
 
         if payloadString(payloadDict, key: "action") == "cancel" {
@@ -718,7 +723,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             info["reportedToCallKit"] = reported
             if reported {
                 Self.noteIncomingCallReported(callIdString)
-                if UIApplication.shared.applicationState == .active {
+                // Dismiss bridge CallKit only when the WebView is visible; keep lock-screen UI otherwise.
+                if UIApplication.shared.applicationState == .active,
+                   UIApplication.shared.connectedScenes
+                    .compactMap({ $0 as? UIWindowScene })
+                    .contains(where: { $0.activationState == .foregroundActive }) {
                     self.dismissCallKitUIForInAppOnly(callId: callIdString)
                 }
             } else {

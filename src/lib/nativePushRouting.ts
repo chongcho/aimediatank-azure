@@ -7,3 +7,11 @@ export async function calleeHasAndroidNativeCallToken(userId: string): Promise<b
   })
   return count > 0
 }
+
+/** Callee installed the TestFlight / App Store app and registered PushKit VoIP token. */
+export async function calleeHasIosNativeCallToken(userId: string): Promise<boolean> {
+  const count = await prisma.voipPushToken.count({
+    where: { userId, platform: 'ios' },
+  })
+  return count > 0
+}
