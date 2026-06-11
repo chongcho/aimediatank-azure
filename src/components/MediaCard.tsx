@@ -137,6 +137,8 @@ export default function MediaCard({
   const videoRef = useRef<HTMLVideoElement>(null)
   const preplayVideoRef = useRef<HTMLVideoElement>(null)
   const [preplayHover, setPreplayHover] = useState(false)
+  /** True once preplay <video> has a decoded frame (avoids Android gray play-button flash). */
+  const [preplayFrameReady, setPreplayFrameReady] = useState(false)
   const [badgeItems, setBadgeItems] = useState<FeedBadgeItem[] | null>(
     () => getFeedBadgePayloadSync()?.items ?? null
   )
@@ -1051,6 +1053,18 @@ export default function MediaCard({
   }
 
   const isPreplayVideo = preplay && media.type === 'VIDEO' && isPlayable
+
+  useEffect(() => {
+    setPreplayFrameReady(false)
+  }, [mobileHomePreplayFocused, videoPreplaySrc, preplayHover])
+
+  const markPreplayFrameReady = useCallback(() => {
+    setPreplayFrameReady(true)
+  }, [])
+
+  const showPreplayVideoOverlay =
+    preplayFrameReady &&
+    (preplayHover || (isMobile ? mobileHomePreplayFocused : isInView))
   /**
    * Only the mobile focus tile or the desktop-hovered tile may be unmuted — otherwise every in-view
    * `<video>` had muted={false} while only one could play, so icons and browser audio looked “synced” but wrong.
@@ -1354,15 +1368,19 @@ export default function MediaCard({
                 onLoad={() => setThumbnailLoaded(true)}
                 onError={() => setThumbnailError(true)}
               />
-              {isPreplayVideo && isInView && mobileHomePreplayFocused && (
+              {isPreplayVideo && isInView && (!isMobile || mobileHomePreplayFocused) && (
                 <video
                   ref={preplayVideoRef}
                   src={videoPreplaySrc}
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover || (isMobile && isInView) ? 'opacity-100' : 'opacity-0'}`}
+                  className={`home-preplay-video absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${showPreplayVideoOverlay ? 'opacity-100' : 'opacity-0'}`}
                   muted={!preplayAudible}
                   playsInline
+                  controls={false}
+                  disablePictureInPicture
                   preload="metadata"
                   loop
+                  onLoadedData={markPreplayFrameReady}
+                  onPlaying={markPreplayFrameReady}
                   onPlay={startPreplay10sTimer}
                   onPause={clearPreplay10sTimeout}
                   onTimeUpdate={(e) => {
@@ -1384,17 +1402,21 @@ export default function MediaCard({
                 />
               )}
             </>
-          ) : showVideoElement && isInView ? (
+          ) : showVideoElement && isInView && (!isMobile || !preplay || mobileHomePreplayFocused) ? (
             // Thumbnail-less: this <video> is the only preview (metadata + seek). Do not gate on mobile focus — focus only limits preplay play(), not mounting.
             // preload="metadata" required so onLoadedMetadata fires and we can seek to 1s for preview frame.
             <video
               ref={videoRef}
               src={videoPreplaySrc}
-              className="w-full aspect-video object-cover"
+              className={`home-preplay-video w-full aspect-video object-cover transition-opacity duration-200 ${preplayFrameReady ? 'opacity-100' : 'opacity-0'}`}
               muted={!(preplay && preplayAudible)}
               playsInline
+              controls={false}
+              disablePictureInPicture
               preload="metadata"
               poster=""
+              onLoadedData={markPreplayFrameReady}
+              onPlaying={markPreplayFrameReady}
               onLoadedMetadata={(e) => {
                 const video = e.currentTarget
                 if (video.duration > 1) {

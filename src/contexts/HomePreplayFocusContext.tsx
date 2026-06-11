@@ -38,6 +38,9 @@ export function HomePreplayFocusProvider({
 }) {
   const scoresRef = useRef<Map<string, Score>>(new Map())
   const [focusedMediaId, setFocusedMediaId] = useState<string | null>(null)
+  /** False while the user is scrolling — mobile preplay pauses to avoid video placeholder flashes. */
+  const [scrollIdle, setScrollIdle] = useState(true)
+  const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewSoundOn, setPreviewSoundOn] = useState(() => {
     if (typeof window === 'undefined') return false
     try {
@@ -63,6 +66,9 @@ export function HomePreplayFocusProvider({
 
   const recomputeFocused = useCallback(() => {
     rafRef.current = null
+    if (!scrollIdle) {
+      return
+    }
     const scores = scoresRef.current
     // Do not clear focus when the map is briefly empty (scroll / IO churn); that made every tile
     // `focusedMediaId !== id` and stopped mobile preplay until a new winner appeared.
@@ -87,7 +93,7 @@ export function HomePreplayFocusProvider({
       }
     })
     setFocusedMediaId((prev) => (prev === bestId ? prev : bestId))
-  }, [])
+  }, [scrollIdle])
 
   const scheduleRecompute = useCallback(() => {
     if (rafRef.current != null) return
@@ -159,6 +165,39 @@ export function HomePreplayFocusProvider({
   }, [layoutSuppressed])
 
   useEffect(() => {
+    const markScrolling = () => {
+      setScrollIdle(false)
+      if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current)
+      scrollIdleTimerRef.current = setTimeout(() => {
+        scrollIdleTimerRef.current = null
+        setScrollIdle(true)
+        scheduleRecompute()
+      }, 200)
+    }
+    const opts: AddEventListenerOptions = { passive: true }
+    window.addEventListener('scroll', markScrolling, opts)
+    document.body.addEventListener('scroll', markScrolling, opts)
+    document.documentElement.addEventListener('scroll', markScrolling, opts)
+    return () => {
+      window.removeEventListener('scroll', markScrolling)
+      document.body.removeEventListener('scroll', markScrolling)
+      document.documentElement.removeEventListener('scroll', markScrolling)
+      if (scrollIdleTimerRef.current) {
+        clearTimeout(scrollIdleTimerRef.current)
+        scrollIdleTimerRef.current = null
+      }
+    }
+  }, [scheduleRecompute])
+
+  useEffect(() => {
+    if (!scrollIdle) {
+      setFocusedMediaId(null)
+      return
+    }
+    scheduleRecompute()
+  }, [scrollIdle, scheduleRecompute])
+
+  useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {
       if (!e.persisted) return
       scoresRef.current.clear()
@@ -172,9 +211,11 @@ export function HomePreplayFocusProvider({
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [])
 
+  const effectiveFocusedMediaId = scrollIdle ? focusedMediaId : null
+
   const value = useMemo(
     () => ({
-      focusedMediaId,
+      focusedMediaId: effectiveFocusedMediaId,
       previewSoundOn,
       togglePreviewSound,
       reportPreplayIntersection,
@@ -182,7 +223,7 @@ export function HomePreplayFocusProvider({
       layoutSuppressed,
     }),
     [
-      focusedMediaId,
+      effectiveFocusedMediaId,
       previewSoundOn,
       togglePreviewSound,
       reportPreplayIntersection,

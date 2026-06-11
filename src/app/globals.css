@@ -190,6 +190,23 @@ html.capacitor-native body::-webkit-scrollbar {
   background: transparent;
 }
 
+/* Homepage preplay videos: hide native play-button overlay (Android WebView flash) */
+video.home-preplay-video {
+  background: transparent;
+}
+
+video.home-preplay-video::-webkit-media-controls {
+  display: none !important;
+}
+
+video.home-preplay-video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+}
+
+video.home-preplay-video::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+
 /* Landscape padding elements - hidden by default */
 .landscape-padding-left,
 .landscape-padding-right {
