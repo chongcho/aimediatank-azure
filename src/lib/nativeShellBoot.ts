@@ -1,5 +1,7 @@
 /** iOS notch fallback when env(safe-area-inset-top) is 0 in Capacitor WKWebView. */
 const IOS_SAFE_TOP_FALLBACK_PX = 47
+/** iOS home-indicator fallback when env(safe-area-inset-bottom) is 0 in Capacitor WKWebView. */
+const IOS_SAFE_BOTTOM_FALLBACK_PX = 34
 
 export function getNativePlatform(): 'ios' | 'android' | 'web' {
   if (typeof window === 'undefined') return 'web'
@@ -47,10 +49,11 @@ export function syncNativeSafeAreaInsets(root: HTMLElement, isIOS: boolean): voi
 
   probe.style.cssText =
     'position:fixed;bottom:0;left:0;padding-bottom:env(safe-area-inset-bottom);padding-bottom:constant(safe-area-inset-bottom);visibility:hidden;pointer-events:none;'
-  const bottom = parseFloat(getComputedStyle(probe).paddingBottom) || 0
+  let bottom = parseFloat(getComputedStyle(probe).paddingBottom) || 0
   probe.remove()
 
   if (isIOS && top < 1) top = IOS_SAFE_TOP_FALLBACK_PX
+  if (isIOS && bottom < 1) bottom = IOS_SAFE_BOTTOM_FALLBACK_PX
 
   root.style.setProperty('--app-safe-top', `${top}px`)
   root.style.setProperty('--app-safe-bottom', `${bottom}px`)

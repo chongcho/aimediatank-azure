@@ -18,7 +18,8 @@ const config: CapacitorConfig = {
     cleartext: serverUrl.startsWith('http://'),
   },
   ios: {
-    contentInset: 'automatic',
+    backgroundColor: '#000000',
+    contentInset: 'never',
     allowsLinkPreview: false,
   },
   android: {

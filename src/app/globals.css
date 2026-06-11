@@ -163,6 +163,20 @@ html.capacitor-native.android .home-hero {
   padding-right: 15px;
 }
 
+/* iOS native home screen layout */
+html.capacitor-native.ios .home-hero {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+html.capacitor-native.ios body {
+  padding-bottom: 0;
+}
+
+html.capacitor-native.ios body::after {
+  display: none;
+}
+
 /* Mobile + native app: hide body scrollbar (touch scroll still works) */
 @media (max-width: 768px) {
   body {
