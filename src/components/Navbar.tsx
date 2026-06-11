@@ -620,7 +620,7 @@ function NavbarContent() {
           </div>
 
           {/* Right Side */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="navbar-icon-group flex items-center gap-2 flex-shrink-0">
             {/* Card (/ecard) — visibility via mediaMessage */}
             {isNavbarItemEnabled('mediaMessage') && (
               <Link

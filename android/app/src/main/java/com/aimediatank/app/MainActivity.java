@@ -1,11 +1,14 @@
 package com.aimediatank.app;
 
 import android.content.Intent;
+import android.graphics.Color;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.view.Window;
 import android.view.WindowManager;
 import com.capacitor.voipcalls.VoipConnectionService;
 import com.getcapacitor.BridgeActivity;
@@ -16,8 +19,29 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        applyAppSystemBarColors();
         applyIncomingCallPresentation(getIntent());
         registerVoipPhoneAccountSafely();
+    }
+
+    /** Match system navigation/status bars to app background (#0a0a0b). */
+    private void applyAppSystemBarColors() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            return;
+        }
+        Window window = getWindow();
+        int background = Color.parseColor("#0a0a0b");
+        window.setNavigationBarColor(background);
+        window.setStatusBarColor(background);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.setNavigationBarContrastEnforced(false);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            int flags = window.getDecorView().getSystemUiVisibility();
+            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            window.getDecorView().setSystemUiVisibility(flags);
+        }
     }
 
     @Override
