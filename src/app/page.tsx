@@ -132,6 +132,8 @@ function HomeContent() {
   const [contentReady, setContentReady] = useState(false)
   // True while restoring scroll from Media Detail back to homepage; hides grid until scroll is applied to avoid "pass through" flash.
   const [restoringScroll, setRestoringScroll] = useState(false)
+  /** Android native: back from /media — keep thumbnails until touch-scroll (avoids stuck preplay overlay). */
+  const [deferPreplayUntilScroll, setDeferPreplayUntilScroll] = useState(false)
   // Column count for masonry: use grid container width so reorder matches visible layout (same breakpoints as globals.css)
   const [columns, setColumns] = useState(1)
   const gridSectionRef = useRef<HTMLDivElement>(null)
@@ -313,6 +315,7 @@ function HomeContent() {
   useEffect(() => {
     const rawState = sessionStorage.getItem('homeScrollState')
     if (rawState) {
+      setDeferPreplayUntilScroll(true)
       try {
         const parsed = JSON.parse(rawState) as HomeScrollState
         restoreStateRef.current = parsed
@@ -1042,7 +1045,10 @@ function HomeContent() {
         </div>
       ) : (
         <>
-          <HomePreplayFocusProvider layoutSuppressed={restoringScroll}>
+          <HomePreplayFocusProvider
+            layoutSuppressed={restoringScroll}
+            deferPreplayUntilScroll={deferPreplayUntilScroll}
+          >
             <div className="relative">
               {/* When restoringScroll, grid is invisible (DOM targets exist for scroll) but show skeleton overlay so user sees loading state */}
               {restoringScroll && (

@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { getNativePlatform } from '@/lib/nativeShellBoot'
 
 const PREVIEW_SOUND_STORAGE_KEY = 'homePreviewSoundOn'
 
@@ -23,6 +24,8 @@ type HomePreplayFocusContextValue = {
   unregisterPreplay: (mediaId: string) => void
   /** True while the feed grid is hidden for scroll restore — mobile focus IO is paused and state is flushed when this clears. */
   layoutSuppressed: boolean
+  /** Android native: false while scrolling or deferring preplay — gates mount/play only. */
+  preplayActive: boolean
 }
 
 const HomePreplayFocusContext = createContext<HomePreplayFocusContextValue | null>(null)
@@ -31,13 +34,22 @@ const HomePreplayFocusContext = createContext<HomePreplayFocusContextValue | nul
 export function HomePreplayFocusProvider({
   children,
   layoutSuppressed = false,
+  deferPreplayUntilScroll = false,
 }: {
   children: React.ReactNode
   /** When true (e.g. home grid `invisible` during scroll restore), skip focus IO and reset scores when it clears. */
   layoutSuppressed?: boolean
+  /** Android native: back from /media — hold preplay until the user touch-scrolls. */
+  deferPreplayUntilScroll?: boolean
 }) {
+  const androidNative = useMemo(
+    () => typeof window !== 'undefined' && getNativePlatform() === 'android',
+    []
+  )
   const scoresRef = useRef<Map<string, Score>>(new Map())
   const [focusedMediaId, setFocusedMediaId] = useState<string | null>(null)
+  const [scrollIdle, setScrollIdle] = useState(true)
+  const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewSoundOn, setPreviewSoundOn] = useState(() => {
     if (typeof window === 'undefined') return false
     try {
@@ -48,6 +60,12 @@ export function HomePreplayFocusProvider({
   })
   const rafRef = useRef<number | null>(null)
   const prevLayoutSuppressedRef = useRef<boolean | null>(null)
+  const [deferPreplay, setDeferPreplay] = useState(androidNative && deferPreplayUntilScroll)
+
+  useEffect(() => {
+    if (!androidNative) return
+    setDeferPreplay(deferPreplayUntilScroll)
+  }, [androidNative, deferPreplayUntilScroll])
 
   const togglePreviewSound = useCallback(() => {
     setPreviewSoundOn((prev) => {
@@ -63,6 +81,9 @@ export function HomePreplayFocusProvider({
 
   const recomputeFocused = useCallback(() => {
     rafRef.current = null
+    if (androidNative && !scrollIdle) {
+      return
+    }
     const scores = scoresRef.current
     // Do not clear focus when the map is briefly empty (scroll / IO churn); that made every tile
     // `focusedMediaId !== id` and stopped mobile preplay until a new winner appeared.
@@ -87,7 +108,7 @@ export function HomePreplayFocusProvider({
       }
     })
     setFocusedMediaId((prev) => (prev === bestId ? prev : bestId))
-  }, [])
+  }, [androidNative, scrollIdle])
 
   const scheduleRecompute = useCallback(() => {
     if (rafRef.current != null) return
@@ -159,10 +180,68 @@ export function HomePreplayFocusProvider({
   }, [layoutSuppressed])
 
   useEffect(() => {
+    if (!androidNative || !deferPreplay) return
+    const clearDefer = () => setDeferPreplay(false)
+    const opts: AddEventListenerOptions = { passive: true }
+    window.addEventListener('touchstart', clearDefer, opts)
+    window.addEventListener('wheel', clearDefer, opts)
+    return () => {
+      window.removeEventListener('touchstart', clearDefer)
+      window.removeEventListener('wheel', clearDefer)
+    }
+  }, [androidNative, deferPreplay])
+
+  useEffect(() => {
+    if (!androidNative) return
+
+    const markScrolling = () => {
+      setScrollIdle(false)
+      if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current)
+      scrollIdleTimerRef.current = setTimeout(() => {
+        scrollIdleTimerRef.current = null
+        setScrollIdle(true)
+        scheduleRecompute()
+      }, 400)
+    }
+
+    const opts: AddEventListenerOptions = { passive: true }
+    const onTouchStart = () => {
+      setScrollIdle(false)
+      if (scrollIdleTimerRef.current) {
+        clearTimeout(scrollIdleTimerRef.current)
+        scrollIdleTimerRef.current = null
+      }
+    }
+
+    window.addEventListener('touchstart', onTouchStart, opts)
+    window.addEventListener('touchmove', onTouchStart, opts)
+    window.addEventListener('touchend', markScrolling, opts)
+    window.addEventListener('touchcancel', markScrolling, opts)
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchmove', onTouchStart)
+      window.removeEventListener('touchend', markScrolling)
+      window.removeEventListener('touchcancel', markScrolling)
+      if (scrollIdleTimerRef.current) {
+        clearTimeout(scrollIdleTimerRef.current)
+        scrollIdleTimerRef.current = null
+      }
+    }
+  }, [androidNative, scheduleRecompute])
+
+  useEffect(() => {
+    if (!androidNative || scrollIdle) return
+    scheduleRecompute()
+  }, [androidNative, scrollIdle, scheduleRecompute])
+
+  useEffect(() => {
+    if (!androidNative) return
     const onPageShow = (e: PageTransitionEvent) => {
-      if (!e.persisted) return
       scoresRef.current.clear()
       setFocusedMediaId(null)
+      if (e.persisted) {
+        setDeferPreplay(true)
+      }
       if (rafRef.current != null) {
         cancelAnimationFrame(rafRef.current)
         rafRef.current = null
@@ -170,24 +249,32 @@ export function HomePreplayFocusProvider({
     }
     window.addEventListener('pageshow', onPageShow)
     return () => window.removeEventListener('pageshow', onPageShow)
-  }, [])
+  }, [androidNative])
+
+  const preplayActive = androidNative
+    ? scrollIdle && !deferPreplay && !layoutSuppressed
+    : !layoutSuppressed
+  const effectiveFocusedMediaId =
+    layoutSuppressed || (androidNative && deferPreplay) ? null : focusedMediaId
 
   const value = useMemo(
     () => ({
-      focusedMediaId,
+      focusedMediaId: effectiveFocusedMediaId,
       previewSoundOn,
       togglePreviewSound,
       reportPreplayIntersection,
       unregisterPreplay,
       layoutSuppressed,
+      preplayActive,
     }),
     [
-      focusedMediaId,
+      effectiveFocusedMediaId,
       previewSoundOn,
       togglePreviewSound,
       reportPreplayIntersection,
       unregisterPreplay,
       layoutSuppressed,
+      preplayActive,
     ]
   )
 

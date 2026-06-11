@@ -221,6 +221,27 @@ html.capacitor-native body::-webkit-scrollbar {
   background: transparent;
 }
 
+/* Android native homepage preplay: hide WebView play-button flash during scroll */
+html.capacitor-native.android video.home-preplay-video {
+  background: transparent;
+}
+
+html.capacitor-native.android video.home-preplay-video.invisible {
+  visibility: hidden !important;
+}
+
+html.capacitor-native.android video.home-preplay-video::-webkit-media-controls {
+  display: none !important;
+}
+
+html.capacitor-native.android video.home-preplay-video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+}
+
+html.capacitor-native.android video.home-preplay-video::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+
 /* Landscape padding elements - hidden by default */
 .landscape-padding-left,
 .landscape-padding-right {
