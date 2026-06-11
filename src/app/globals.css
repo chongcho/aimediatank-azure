@@ -36,8 +36,6 @@ body {
   background: #000000;
   color: #ffffff;
   -webkit-text-size-adjust: 100%;
-  scrollbar-width: thin;
-  scrollbar-color: #6b6b75 #e0e0e0;
   text-size-adjust: 100%;
 }
 
@@ -165,7 +163,21 @@ html.capacitor-native.android .home-hero {
   padding-right: 15px;
 }
 
-/* Native mobile: hide scrollbar track (touch scroll still works) */
+/* Mobile + native app: hide body scrollbar (touch scroll still works) */
+@media (max-width: 768px) {
+  body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+}
+
 html.capacitor-native body {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -175,6 +187,7 @@ html.capacitor-native body::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;
+  background: transparent;
 }
 
 /* Landscape padding elements - hidden by default */
@@ -243,41 +256,47 @@ html.capacitor-native body::-webkit-scrollbar {
   color: #0a0a0b;
 }
 
-/* Custom scrollbar - thumb turns green (active) when mouse is in right-edge area */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
+/* Desktop only: custom scrollbar (green thumb when mouse is in right-edge area) */
+@media (min-width: 769px) {
+  body {
+    scrollbar-width: thin;
+    scrollbar-color: #6b6b75 #e0e0e0;
+  }
 
-::-webkit-scrollbar-track {
-  background: #e0e0e0;
-}
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: #6b6b75;
-  border-radius: 5px;
-  min-height: 40px;
-}
+  ::-webkit-scrollbar-track {
+    background: #e0e0e0;
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #00ff88;
-}
+  ::-webkit-scrollbar-thumb {
+    background: #6b6b75;
+    border-radius: 5px;
+    min-height: 40px;
+  }
 
-/* Active state: green thumb when pointer is in the right-edge area (any vertical position) */
-html.scrollbar-active::-webkit-scrollbar-thumb,
-body.scrollbar-active::-webkit-scrollbar-thumb {
-  background: #00ff88;
-}
+  ::-webkit-scrollbar-thumb:hover {
+    background: #00ff88;
+  }
 
-html.scrollbar-active::-webkit-scrollbar-thumb:hover,
-body.scrollbar-active::-webkit-scrollbar-thumb:hover {
-  background: #00ff88;
-}
+  html.scrollbar-active::-webkit-scrollbar-thumb,
+  body.scrollbar-active::-webkit-scrollbar-thumb {
+    background: #00ff88;
+  }
 
-html.scrollbar-active,
-body.scrollbar-active {
-  scrollbar-width: thin;
-  scrollbar-color: #00ff88 #e0e0e0;
+  html.scrollbar-active::-webkit-scrollbar-thumb:hover,
+  body.scrollbar-active::-webkit-scrollbar-thumb:hover {
+    background: #00ff88;
+  }
+
+  html.scrollbar-active,
+  body.scrollbar-active {
+    scrollbar-width: thin;
+    scrollbar-color: #00ff88 #e0e0e0;
+  }
 }
 
 /* Grid pattern */
