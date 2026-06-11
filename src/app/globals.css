@@ -226,6 +226,12 @@ html.capacitor-native.android video.home-preplay-video {
   background: transparent;
 }
 
+html.capacitor-native.android video.home-preplay-video:not([data-preplay-ready='1']) {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 html.capacitor-native.android video.home-preplay-video::-webkit-media-controls {
   display: none !important;
 }

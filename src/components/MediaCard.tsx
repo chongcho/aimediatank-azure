@@ -814,6 +814,19 @@ export default function MediaCard({
 
   const thumbnailSrc = getThumbnailSrc()
 
+  /** Back from /media: cached thumbs often skip onLoad — treat complete images as loaded before paint. */
+  useLayoutEffect(() => {
+    if (!thumbnailSrc) {
+      setThumbnailLoaded(false)
+      return
+    }
+    const probe = new Image()
+    probe.src = thumbnailSrc
+    if (probe.complete && probe.naturalWidth > 0) {
+      setThumbnailLoaded(true)
+    }
+  }, [thumbnailSrc])
+
   // For videos without thumbnail, we'll show the video element directly
   const showVideoElement = media.type === 'VIDEO' && !thumbnailSrc && !thumbnailError
 
@@ -1090,10 +1103,21 @@ export default function MediaCard({
     isPreplayVideo &&
     isInView &&
     mobileHomePreplayFocused &&
-    (!androidNative || preplayActive)
+    (!androidNative || (preplayActive && thumbnailLoaded))
+
+  /** Stale true after back-nav remounts video while same card stays focused — caused full-opacity gray play chrome. */
+  useEffect(() => {
+    if (!androidNative) return
+    if (mountMobilePreplayVideo) return
+    setPreplayFrameReady(false)
+  }, [androidNative, mountMobilePreplayVideo])
 
   const showAndroidPreplayOverlay =
     androidNative && preplayFrameReady && mountMobilePreplayVideo
+
+  /** Android: thumbnail must paint above preplay video until first frame (WebView native play chrome). */
+  const androidThumbCoversPreplay =
+    androidNative && mountMobilePreplayVideo && !showAndroidPreplayOverlay
 
   /**
    * Only the mobile focus tile or the desktop-hovered tile may be unmuted — otherwise every in-view
@@ -1391,21 +1415,20 @@ export default function MediaCard({
 
           {thumbnailSrc && !thumbnailError ? (
             <>
-              <img
-                src={thumbnailSrc}
-                alt={displayTitle || titlePlain}
-                className={`w-full h-auto block group-hover:scale-105 transition-transform duration-500${thumbnailLoaded ? '' : ' invisible absolute'}`}
-                onLoad={() => setThumbnailLoaded(true)}
-                onError={() => setThumbnailError(true)}
-              />
               {mountMobilePreplayVideo && (
                 <video
                   ref={preplayVideoRef}
                   src={videoPreplaySrc}
+                  poster={androidNative ? thumbnailSrc : undefined}
+                  data-preplay-ready={showAndroidPreplayOverlay ? '1' : undefined}
                   className={
                     androidNative
-                      ? `home-preplay-video absolute inset-0 w-full h-full object-cover pointer-events-none ${showAndroidPreplayOverlay ? 'opacity-100' : 'opacity-0'}`
-                      : `absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${preplayHover || (isMobile && isInView) ? 'opacity-100' : 'opacity-0'}`
+                      ? `home-preplay-video absolute inset-0 w-full h-full object-cover pointer-events-none ${
+                          showAndroidPreplayOverlay ? 'opacity-100 z-[2]' : 'opacity-0 z-0'
+                        }`
+                      : `absolute inset-0 w-full h-full object-cover transition-opacity duration-200 pointer-events-none ${
+                          preplayHover || (isMobile && isInView) ? 'opacity-100 z-[2]' : 'opacity-0 z-0'
+                        }`
                   }
                   muted={!preplayAudible}
                   playsInline
@@ -1424,6 +1447,17 @@ export default function MediaCard({
                   }}
                 />
               )}
+              <img
+                src={thumbnailSrc}
+                alt={displayTitle || titlePlain}
+                className={`w-full h-auto block group-hover:scale-105 transition-transform duration-500${
+                  thumbnailLoaded || androidNative ? '' : ' invisible absolute'
+                }${androidThumbCoversPreplay ? ' relative z-[1]' : ''}${
+                  androidNative && showAndroidPreplayOverlay ? ' invisible' : ''
+                }`}
+                onLoad={() => setThumbnailLoaded(true)}
+                onError={() => setThumbnailError(true)}
+              />
               {/* When Preplay is OFF, still preload metadata so media detail page loads faster when user clicks */}
               {!preplay && media.type === 'VIDEO' && isInView && isPlayable && (
                 <video
@@ -1432,6 +1466,7 @@ export default function MediaCard({
                   className="absolute inset-0 w-full h-full pointer-events-none opacity-0"
                   muted
                   playsInline
+                  controls={false}
                   aria-hidden
                 />
               )}
@@ -1442,6 +1477,7 @@ export default function MediaCard({
             <video
               ref={videoRef}
               src={videoPreplaySrc}
+              data-preplay-ready={showAndroidPreplayOverlay ? '1' : undefined}
               className={
                 androidNative && preplay
                   ? `home-preplay-video w-full aspect-video object-cover ${showAndroidPreplayOverlay ? 'opacity-100' : 'opacity-0'}`
@@ -1452,7 +1488,6 @@ export default function MediaCard({
               controls={false}
               disablePictureInPicture={androidNative}
               preload={androidNative && preplay ? 'auto' : 'metadata'}
-              poster=""
               onPlaying={androidNative && preplay ? markPreplayFrameReady : undefined}
               onLoadedData={androidNative && preplay ? markPreplayFrameReady : undefined}
               onLoadedMetadata={(e) => {

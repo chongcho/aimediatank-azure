@@ -61,6 +61,8 @@ export function HomePreplayFocusProvider({
   const rafRef = useRef<number | null>(null)
   const prevLayoutSuppressedRef = useRef<boolean | null>(null)
   const [deferPreplay, setDeferPreplay] = useState(androidNative && deferPreplayUntilScroll)
+  /** Android: brief hold after scroll stops before mounting preplay video (avoids focus churn flash). */
+  const [postScrollPreplayHold, setPostScrollPreplayHold] = useState(false)
 
   useEffect(() => {
     if (!androidNative) return
@@ -248,8 +250,20 @@ export function HomePreplayFocusProvider({
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [androidNative])
 
+  useEffect(() => {
+    if (!androidNative) return
+
+    if (!scrollIdle) {
+      setPostScrollPreplayHold(true)
+      return
+    }
+
+    const t = setTimeout(() => setPostScrollPreplayHold(false), 220)
+    return () => clearTimeout(t)
+  }, [androidNative, scrollIdle])
+
   const preplayActive = androidNative
-    ? scrollIdle && !deferPreplay && !layoutSuppressed
+    ? scrollIdle && !deferPreplay && !layoutSuppressed && !postScrollPreplayHold
     : !layoutSuppressed
   const effectiveFocusedMediaId =
     layoutSuppressed || (androidNative && deferPreplay) ? null : focusedMediaId

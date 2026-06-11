@@ -8,6 +8,7 @@ import { HomePreplayFocusProvider } from '@/contexts/HomePreplayFocusContext'
 import LiveChat from '@/components/LiveChat'
 import MarketingPopup from '@/components/MarketingPopup'
 import { getHomeFeed, saveHomeFeed } from '@/lib/homePrefetchCache'
+import { getNativePlatform } from '@/lib/nativeShellBoot'
 
 interface Media {
   id: string
@@ -337,10 +338,16 @@ function HomeContent() {
   }, [])
 
   const enablePreplayAfterRestore = useCallback(() => {
+    const androidNative =
+      typeof window !== 'undefined' && getNativePlatform() === 'android'
+    const clear = () => setDeferPreplayUntilScroll(false)
+    if (androidNative) {
+      // After scroll corrections (up to ~3s) so thumbnail paints before preplay mounts.
+      setTimeout(clear, 500)
+      return
+    }
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setDeferPreplayUntilScroll(false)
-      })
+      requestAnimationFrame(clear)
     })
   }, [])
 
