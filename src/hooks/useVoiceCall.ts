@@ -723,7 +723,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
             await answerCallRef.current({ fromCallKit: true, declineToken })
 
-            if (callStateRef.current === 'connecting' || callStateRef.current === 'connected') {
+            if (['connecting', 'connected'].includes(callStateRef.current)) {
               return
             }
             await sleep(800)
