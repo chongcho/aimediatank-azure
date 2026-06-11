@@ -1055,8 +1055,27 @@ export default function MediaCard({
   const isPreplayVideo = preplay && media.type === 'VIDEO' && isPlayable
 
   useEffect(() => {
+    if (mobileHomePreplayFocused && isInView) return
     setPreplayFrameReady(false)
-  }, [mobileHomePreplayFocused, videoPreplaySrc, preplayHover])
+    const overlay = preplayVideoRef.current
+    if (overlay) {
+      overlay.pause()
+      try {
+        overlay.currentTime = 0
+      } catch {
+        /* ignore */
+      }
+    }
+    const fallback = videoRef.current
+    if (fallback) {
+      fallback.pause()
+      try {
+        fallback.currentTime = 0
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [mobileHomePreplayFocused, isInView, videoPreplaySrc, preplayHover])
 
   const markPreplayFrameReady = useCallback(() => {
     setPreplayFrameReady(true)

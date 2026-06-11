@@ -31,10 +31,13 @@ const HomePreplayFocusContext = createContext<HomePreplayFocusContextValue | nul
 export function HomePreplayFocusProvider({
   children,
   layoutSuppressed = false,
+  deferPreplayUntilScroll = false,
 }: {
   children: React.ReactNode
   /** When true (e.g. home grid `invisible` during scroll restore), skip focus IO and reset scores when it clears. */
   layoutSuppressed?: boolean
+  /** When true (e.g. back from /media), hold preplay until the user touch-scrolls. */
+  deferPreplayUntilScroll?: boolean
 }) {
   const scoresRef = useRef<Map<string, Score>>(new Map())
   const [focusedMediaId, setFocusedMediaId] = useState<string | null>(null)
@@ -51,6 +54,11 @@ export function HomePreplayFocusProvider({
   })
   const rafRef = useRef<number | null>(null)
   const prevLayoutSuppressedRef = useRef<boolean | null>(null)
+  const [deferPreplay, setDeferPreplay] = useState(deferPreplayUntilScroll)
+
+  useEffect(() => {
+    setDeferPreplay(deferPreplayUntilScroll)
+  }, [deferPreplayUntilScroll])
 
   const togglePreviewSound = useCallback(() => {
     setPreviewSoundOn((prev) => {
@@ -165,6 +173,18 @@ export function HomePreplayFocusProvider({
   }, [layoutSuppressed])
 
   useEffect(() => {
+    if (!deferPreplay) return
+    const clearDefer = () => setDeferPreplay(false)
+    const opts: AddEventListenerOptions = { passive: true }
+    window.addEventListener('touchstart', clearDefer, opts)
+    window.addEventListener('wheel', clearDefer, opts)
+    return () => {
+      window.removeEventListener('touchstart', clearDefer)
+      window.removeEventListener('wheel', clearDefer)
+    }
+  }, [deferPreplay])
+
+  useEffect(() => {
     const markScrolling = () => {
       setScrollIdle(false)
       if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current)
@@ -199,9 +219,11 @@ export function HomePreplayFocusProvider({
 
   useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {
-      if (!e.persisted) return
       scoresRef.current.clear()
       setFocusedMediaId(null)
+      if (e.persisted) {
+        setDeferPreplay(true)
+      }
       if (rafRef.current != null) {
         cancelAnimationFrame(rafRef.current)
         rafRef.current = null
@@ -211,7 +233,8 @@ export function HomePreplayFocusProvider({
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [])
 
-  const effectiveFocusedMediaId = scrollIdle ? focusedMediaId : null
+  const effectiveFocusedMediaId =
+    scrollIdle && !deferPreplay ? focusedMediaId : null
 
   const value = useMemo(
     () => ({
