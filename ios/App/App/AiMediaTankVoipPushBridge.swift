@@ -92,16 +92,21 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     /// After a crash or stale CallKit state, tear down audio and orphaned rings so Phone calls work again.
     func recoverFromStaleCallState() {
+        if hasPendingCallKitAnswer() { return }
+
         let observer = CXCallObserver()
         let systemCalls = observer.calls.filter { !$0.hasEnded }
         let storedRinging = Set(UserDefaults.standard.stringArray(forKey: Self.ringingCallIdsKey) ?? [])
 
-        // Dismiss only rings we previously tracked (orphaned after crash), not fresh incoming calls.
+        // Dismiss only orphaned rings from a prior session — never fresh lock-screen incoming calls.
         for call in systemCalls where !call.isOutgoing && !call.hasConnected {
             let callId = call.uuid.uuidString.lowercased()
-            if storedRinging.contains(callId) {
-                dismissRingingCall(uuid: call.uuid)
+            guard storedRinging.contains(callId) else { continue }
+            if Self.isWithinIncomingGracePeriod(callId: callId) {
+                print("[AiMediaTankVoipPushBridge] skip stale recovery for active incoming \(callId)")
+                continue
             }
+            dismissRingingCall(uuid: call.uuid)
         }
 
         // Never release audio while CallKit is answering/connecting — that breaks lock-screen accept.
@@ -171,7 +176,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     }
 
     func ensureStarted() {
-        recoverFromStaleCallState()
+        let firstPushKitStart = pushRegistry == nil
+        if firstPushKitStart {
+            recoverFromStaleCallState()
+        }
 
         guard pushRegistry == nil else {
             replayCachedVoipTokenIfNeeded()
@@ -482,8 +490,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private func performCancelDismiss(callId: String, source: String) {
         let normalized = callId.lowercased()
-        if source == "status_poll", Self.isWithinIncomingGracePeriod(callId: normalized) {
-            print("[AiMediaTankVoipPushBridge] defer status_poll dismiss — within incoming grace for \(normalized)")
+        if (source == "status_poll" || source == "bridge_dismiss_request"),
+           Self.isWithinIncomingGracePeriod(callId: normalized) {
+            print("[AiMediaTankVoipPushBridge] defer \(source) dismiss — within incoming grace for \(normalized)")
             return
         }
         if Self.isCallCancelled(normalized) {
@@ -677,6 +686,24 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
         if Self.isCallCancelled(callIdString) {
             print("[AiMediaTankVoipPushBridge] ignored incoming push — call already cancelled \(callIdString.lowercased())")
+            completion()
+            return
+        }
+
+        let normalizedCallId = callIdString.lowercased()
+        if Self.isWithinIncomingGracePeriod(callId: normalizedCallId) {
+            print("[AiMediaTankVoipPushBridge] duplicate incoming VoIP push for active ring \(normalizedCallId)")
+            if let token = declineToken(from: payloadDict) {
+                UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: normalizedCallId))
+            }
+            var info = userInfo(from: payloadDict)
+            info["reportedToCallKit"] = true
+            NotificationCenter.default.post(
+                name: Self.incomingPushNotification,
+                object: nil,
+                userInfo: info
+            )
+            NotificationCenter.default.post(name: Self.incomingPushDoneNotification, object: nil)
             completion()
             return
         }
