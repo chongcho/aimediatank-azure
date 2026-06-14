@@ -1,16 +1,20 @@
 package com.aimediatank.app;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import com.capacitor.voipcalls.CallVolumeState;
 import com.capacitor.voipcalls.VoipConnectionService;
 import com.getcapacitor.BridgeActivity;
 
@@ -30,6 +34,30 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         applySystemBars();
+    }
+
+    /**
+     * WebView WebRTC/Web Audio uses STREAM_MUSIC; MODE_IN_COMMUNICATION routes keys to call volume.
+     * AiMediaTank webview media volume keys
+     */
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN && CallVolumeState.shouldAdjustMediaVolume()) {
+            int code = event.getKeyCode();
+            if (code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                int direction = code == KeyEvent.KEYCODE_VOLUME_UP
+                    ? AudioManager.ADJUST_RAISE
+                    : AudioManager.ADJUST_LOWER;
+                am.adjustStreamVolume(
+                    AudioManager.STREAM_MUSIC,
+                    direction,
+                    AudioManager.FLAG_SHOW_UI
+                );
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     /** Black system bars; light (gray/white) status + nav icons on dark backgrounds. */

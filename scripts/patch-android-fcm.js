@@ -607,6 +607,67 @@ if (fs.existsSync(incomingCallUiPath)) {
 
 const voiceVolumeMarker = 'AiMediaTank voice call volume'
 const webViewVolumeMarker = 'AiMediaTank webview music volume stream'
+const mediaVolumeKeysMarker = 'AiMediaTank webview media volume keys'
+
+function buildSetVoiceCallAudioActiveBlock() {
+  return `    private fun resolveVolumeActivity(): android.app.Activity? {
+        return (context as? android.app.Activity)
+            ?: CapacitorVoipCallsPlugin.getInstance()?.activity
+    }
+
+    fun reapplyVolumeControlStream() {
+        if (!voiceCallAudioActive) return
+        resolveVolumeActivity()?.volumeControlStream = AudioManager.STREAM_MUSIC
+    }
+
+    fun setVoiceCallAudioActive(active: Boolean) {
+        // ${voiceVolumeMarker}
+        // ${mediaVolumeKeysMarker}
+        if (voiceCallAudioActive == active) {
+            if (active) reapplyVolumeControlStream()
+            return
+        }
+        voiceCallAudioActive = active
+        CallVolumeState.voiceCallActive = active
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (active) {
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            reapplyVolumeControlStream()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val attrs = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(attrs)
+                    .build()
+                voiceCallFocusRequest = focusRequest
+                audioManager.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
+            return
+        }
+
+        CallVolumeState.voiceCallActive = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            voiceCallFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+            voiceCallFocusRequest = null
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(null)
+        }
+        audioManager.isSpeakerphoneOn = false
+        audioManager.isMicrophoneMute = false
+        audioManager.mode = AudioManager.MODE_NORMAL
+        resolveVolumeActivity()?.volumeControlStream = AudioManager.STREAM_MUSIC
+    }`
+}
 if (fs.existsSync(callManagerPath)) {
   let callManager = fs.readFileSync(callManagerPath, 'utf8')
   if (!callManager.includes(voiceVolumeMarker)) {
@@ -741,49 +802,7 @@ if (fs.existsSync(callManagerPath)) {
         android.util.Log.e("CallManager", message)
     }
 }`,
-      `    fun setVoiceCallAudioActive(active: Boolean) {
-        // ${voiceVolumeMarker}
-        // ${webViewVolumeMarker}
-        if (voiceCallAudioActive == active) return
-        voiceCallAudioActive = active
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val activity = context as? android.app.Activity
-        if (active) {
-            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-            activity?.volumeControlStream = AudioManager.STREAM_MUSIC
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val attrs = android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build()
-                val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                    .setAudioAttributes(attrs)
-                    .build()
-                voiceCallFocusRequest = focusRequest
-                audioManager.requestAudioFocus(focusRequest)
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager.requestAudioFocus(
-                    null,
-                    AudioManager.STREAM_MUSIC,
-                    AudioManager.AUDIOFOCUS_GAIN
-                )
-            }
-            return
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            voiceCallFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
-            voiceCallFocusRequest = null
-        } else {
-            @Suppress("DEPRECATION")
-            audioManager.abandonAudioFocus(null)
-        }
-        audioManager.isSpeakerphoneOn = false
-        audioManager.isMicrophoneMute = false
-        audioManager.mode = AudioManager.MODE_NORMAL
-        activity?.volumeControlStream = AudioManager.STREAM_MUSIC
-    }
+      `${buildSetVoiceCallAudioActiveBlock()}
 
     private fun notifyError(message: String) {
         android.util.Log.e("CallManager", message)
@@ -794,22 +813,14 @@ if (fs.existsSync(callManagerPath)) {
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
     console.log('[patch-android-fcm] CallManager voice call volume keys')
-  } else if (!callManager.includes(webViewVolumeMarker)) {
+  } else if (!callManager.includes(mediaVolumeKeysMarker)) {
     callManager = callManager.replace(
-      /activity\?\.volumeControlStream = AudioManager\.STREAM_VOICE_CALL/,
-      'activity?.volumeControlStream = AudioManager.STREAM_MUSIC',
-    )
-    callManager = callManager.replace(
-      'AudioManager.STREAM_VOICE_CALL,\n                    AudioManager.AUDIOFOCUS_GAIN',
-      'AudioManager.STREAM_MUSIC,\n                    AudioManager.AUDIOFOCUS_GAIN',
-    )
-    callManager = callManager.replace(
-      `        // ${voiceVolumeMarker}`,
-      `        // ${voiceVolumeMarker}\n        // ${webViewVolumeMarker}`,
+      /\n    fun setVoiceCallAudioActive\(active: Boolean\) \{[\s\S]*?\n    \}\n\n    private fun notifyError/,
+      `\n${buildSetVoiceCallAudioActiveBlock()}\n\n    private fun notifyError`,
     )
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
-    console.log('[patch-android-fcm] CallManager webview media volume stream')
+    console.log('[patch-android-fcm] CallManager webview media volume keys')
   }
 }
 
@@ -899,8 +910,12 @@ if (fs.existsSync(pluginPath)) {
 }
 
 const incomingRingVolumeMarker = 'AiMediaTank webview music volume stream (ring)'
+const incomingRingVolumeMarkerV2 = 'AiMediaTank ring media volume keys v2'
 const incomingRingAudioPath = path.join(pluginDir, 'IncomingRingAudioHelper.kt')
-if (!fs.existsSync(incomingRingAudioPath) || !fs.readFileSync(incomingRingAudioPath, 'utf8').includes(incomingRingVolumeMarker)) {
+if (
+  !fs.existsSync(incomingRingAudioPath) ||
+  !fs.readFileSync(incomingRingAudioPath, 'utf8').includes(incomingRingVolumeMarkerV2)
+) {
   const incomingRingAudioSource = `package com.capacitor.voipcalls
 
 import android.app.Activity
@@ -911,22 +926,85 @@ import android.media.AudioManager
 object IncomingRingAudioHelper {
     private var ringVolumeKeysActive = false
 
+    private fun resolveActivity(context: Context): Activity? {
+        return (context as? Activity) ?: CapacitorVoipCallsPlugin.getInstance()?.activity
+    }
+
+    fun isActive(): Boolean = ringVolumeKeysActive
+
+    fun reapply(context: Context) {
+        if (!ringVolumeKeysActive) return
+        resolveActivity(context)?.volumeControlStream = AudioManager.STREAM_MUSIC
+    }
+
     fun start(context: Context) {
         // ${incomingRingVolumeMarker}
+        // ${incomingRingVolumeMarkerV2}
         ringVolumeKeysActive = true
-        val activity = context as? Activity ?: return
-        activity.volumeControlStream = AudioManager.STREAM_MUSIC
+        CallVolumeState.ringActive = true
+        resolveActivity(context)?.volumeControlStream = AudioManager.STREAM_MUSIC
     }
 
     fun stop(context: Context) {
         if (!ringVolumeKeysActive) return
         ringVolumeKeysActive = false
+        CallVolumeState.ringActive = false
     }
 }
 `
   fs.writeFileSync(incomingRingAudioPath, incomingRingAudioSource)
   changed = true
   console.log('[patch-android-fcm] IncomingRingAudioHelper.kt')
+}
+
+const callVolumeStatePath = path.join(pluginDir, 'CallVolumeState.kt')
+if (!fs.existsSync(callVolumeStatePath)) {
+  fs.writeFileSync(
+    callVolumeStatePath,
+    `package com.capacitor.voipcalls
+
+object CallVolumeState {
+    @Volatile var voiceCallActive: Boolean = false
+    @Volatile var ringActive: Boolean = false
+
+    @JvmStatic
+    fun shouldAdjustMediaVolume(): Boolean = voiceCallActive || ringActive
+}
+`,
+  )
+  changed = true
+  console.log('[patch-android-fcm] CallVolumeState.kt')
+}
+
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  const resumeMarker = 'AiMediaTank reapply voice volume on resume'
+  if (!pluginSource.includes(resumeMarker)) {
+    pluginSource = pluginSource.replace(
+      `    override fun handleOnDestroy() {
+        if (pluginInstance === this) {
+            pluginInstance = null
+        }
+        super.handleOnDestroy()
+    }`,
+      `    override fun handleOnResume() {
+        super.handleOnResume()
+        // ${resumeMarker}
+        callManager?.reapplyVolumeControlStream()
+        IncomingRingAudioHelper.reapply(context)
+    }
+
+    override fun handleOnDestroy() {
+        if (pluginInstance === this) {
+            pluginInstance = null
+        }
+        super.handleOnDestroy()
+    }`,
+    )
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] CapacitorVoipCallsPlugin handleOnResume volume')
+  }
 }
 
 if (!changed) {

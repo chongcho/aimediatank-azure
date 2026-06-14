@@ -190,6 +190,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     if (audio.srcObject !== stream) {
       audio.srcObject = stream
     }
+    audio.volume = 1
     void audio.play().catch(() => {})
   }, [])
 
@@ -536,8 +537,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   useEffect(() => {
     if (!isNativeAndroidCallApp()) return
-    const active =
-      callState === 'outgoing' || callState === 'connecting' || callState === 'connected'
+    // Only while media is live — not during outgoing ring (MODE_IN_COMMUNICATION steals volume keys).
+    const active = callState === 'connecting' || callState === 'connected'
     void setNativeVoiceCallAudioActive(active)
   }, [callState])
 

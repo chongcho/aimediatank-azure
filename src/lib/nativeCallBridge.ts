@@ -379,7 +379,7 @@ type NativeVoiceCallAudioPlugin = {
   stopCallRing?: () => Promise<void>
 }
 
-/** Android: MODE_IN_COMMUNICATION + media volume stream for WebView WebRTC playback. */
+/** Android: MODE_IN_COMMUNICATION; hardware keys adjust STREAM_MUSIC (see MainActivity). */
 export async function setNativeVoiceCallAudioActive(active: boolean): Promise<void> {
   if (!isNativeAndroidCallApp()) return
   try {
