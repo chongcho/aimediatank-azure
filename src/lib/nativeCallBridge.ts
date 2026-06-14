@@ -375,6 +375,8 @@ export async function setNativeAudioRoute(route: NativeAudioRoute): Promise<bool
 
 type NativeVoiceCallAudioPlugin = {
   setVoiceCallAudioActive?: (options: { active: boolean }) => Promise<void>
+  startCallRing?: (options: { url: string }) => Promise<void>
+  stopCallRing?: () => Promise<void>
 }
 
 /** Android: MODE_IN_COMMUNICATION + voice-call volume stream so hardware keys adjust call volume. */
@@ -387,5 +389,30 @@ export async function setNativeVoiceCallAudioActive(active: boolean): Promise<vo
     await plugin.setVoiceCallAudioActive({ active })
   } catch (error) {
     console.error('[NativeCall] setVoiceCallAudioActive failed:', error)
+  }
+}
+
+/** Android: play unanswered-call ring on STREAM_VOICE_CALL so volume keys change ring loudness. */
+export async function startNativeCallRing(url: string): Promise<void> {
+  if (!isNativeAndroidCallApp()) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
+    if (typeof plugin.startCallRing !== 'function') return
+    await plugin.startCallRing({ url })
+  } catch (error) {
+    console.error('[NativeCall] startCallRing failed:', error)
+  }
+}
+
+export async function stopNativeCallRing(): Promise<void> {
+  if (!isNativeAndroidCallApp()) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
+    if (typeof plugin.stopCallRing !== 'function') return
+    await plugin.stopCallRing()
+  } catch (error) {
+    console.error('[NativeCall] stopCallRing failed:', error)
   }
 }

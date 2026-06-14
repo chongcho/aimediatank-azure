@@ -6,6 +6,7 @@
  */
 
 import { getNativePlatform } from '@/lib/nativeShellBoot'
+import { isNativeAndroidCallApp, startNativeCallRing, stopNativeCallRing } from '@/lib/nativeCallBridge'
 import { RING_ASSET_VERSION } from '@/lib/ringAssetVersion'
 
 export const VOICE_CALL_RING_TIMEOUT_MS = 60000
@@ -21,6 +22,21 @@ const RING_URLS = {
 } as const
 
 type RingKind = keyof typeof RING_URLS
+
+let nativeRingActive = false
+
+function absoluteRingUrl(path: string): string {
+  if (typeof window === 'undefined') return path
+  try {
+    return new URL(path, window.location.origin).href
+  } catch {
+    return path
+  }
+}
+
+function useNativeAndroidRing(): boolean {
+  return isNativeAndroidCallApp()
+}
 
 /** Web Audio gain — mobile WebView output is often quiet without amplification. */
 const RING_GAIN: Record<RingKind, { nativeMobile: number; mobile: number; desktop: number }> = {
@@ -256,12 +272,19 @@ export function primeVoiceCallAfterNotificationOpen() {
 }
 
 export function stopVoiceCallRingtone() {
+  if (nativeRingActive) {
+    nativeRingActive = false
+    void stopNativeCallRing()
+  }
   stopPlayback()
   pendingRingStart = null
   activeRingKind = null
 }
 
 function isSameRingRunning(kind: RingKind) {
+  if (useNativeAndroidRing()) {
+    return activeRingKind === kind && nativeRingActive
+  }
   return activeRingKind === kind && (ringActiveSource !== null || pendingRingStart !== null)
 }
 
@@ -304,6 +327,13 @@ async function startRing(kind: RingKind) {
 
   stopVoiceCallRingtone()
   activeRingKind = kind
+
+  if (useNativeAndroidRing()) {
+    nativeRingActive = true
+    await startNativeCallRing(absoluteRingUrl(RING_URLS[kind]))
+    return
+  }
+
   const generation = loopGeneration
 
   const buffer = await getRingBuffer(RING_URLS[kind])

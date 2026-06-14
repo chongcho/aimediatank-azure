@@ -797,16 +797,47 @@ if (fs.existsSync(callManagerPath)) {
 
 if (fs.existsSync(pluginPath)) {
   let pluginSource = fs.readFileSync(pluginPath, 'utf8')
-  if (!pluginSource.includes('setVoiceCallAudioActive')) {
+  if (!pluginSource.includes('startCallRing')) {
     pluginSource = pluginSource.replace(
       `    @PluginMethod
+    fun setVoiceCallAudioActive(call: PluginCall) {
+        val active = call.getBoolean("active", false) ?: false
+        callManager?.setVoiceCallAudioActive(active)
+        call.resolve()
+    }`,
+      `    @PluginMethod
+    fun setVoiceCallAudioActive(call: PluginCall) {
+        val active = call.getBoolean("active", false) ?: false
+        callManager?.setVoiceCallAudioActive(active)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun startCallRing(call: PluginCall) {
+        val url = call.getString("url") ?: run {
+            call.reject("Missing url parameter")
+            return
+        }
+        IncomingRingAudioHelper.start(context, url)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun stopCallRing(call: PluginCall) {
+        IncomingRingAudioHelper.stop(context)
+        call.resolve()
+    }`,
+    )
+    if (!pluginSource.includes('startCallRing')) {
+      pluginSource = pluginSource.replace(
+        `    @PluginMethod
     fun setMuted(call: PluginCall) {
         val muted = call.getBoolean("muted", false) ?: false
 
         callManager?.setMuted(muted)
         call.resolve()
     }`,
-      `    @PluginMethod
+        `    @PluginMethod
     fun setMuted(call: PluginCall) {
         val muted = call.getBoolean("muted", false) ?: false
 
@@ -815,16 +846,99 @@ if (fs.existsSync(pluginPath)) {
     }
 
     @PluginMethod
-    fun setVoiceCallAudioActive(call: PluginCall) {
-        val active = call.getBoolean("active", false) ?: false
-        callManager?.setVoiceCallAudioActive(active)
+    fun startCallRing(call: PluginCall) {
+        val url = call.getString("url") ?: run {
+            call.reject("Missing url parameter")
+            return
+        }
+        IncomingRingAudioHelper.start(context, url)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun stopCallRing(call: PluginCall) {
+        IncomingRingAudioHelper.stop(context)
         call.resolve()
     }`,
-    )
+      )
+    }
     fs.writeFileSync(pluginPath, pluginSource)
     changed = true
-    console.log('[patch-android-fcm] CapacitorVoipCallsPlugin voice volume control')
+    console.log('[patch-android-fcm] CapacitorVoipCallsPlugin native call ring')
   }
+}
+
+const ringAudioMarker = 'AiMediaTank incoming ring audio stream'
+const incomingRingAudioPath = path.join(pluginDir, 'IncomingRingAudioHelper.kt')
+if (!fs.existsSync(incomingRingAudioPath) || !fs.readFileSync(incomingRingAudioPath, 'utf8').includes(ringAudioMarker)) {
+  const incomingRingAudioSource = `package com.capacitor.voipcalls
+
+import android.app.Activity
+import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.MediaPlayer
+import android.util.Log
+
+/** Native ringback for unanswered calls — voice-call ring stream so volume keys adjust loudness. */
+object IncomingRingAudioHelper {
+    private const val TAG = "IncomingRingAudio"
+    private var player: MediaPlayer? = null
+
+    fun start(context: Context, url: String) {
+        // ${ringAudioMarker}
+        stop(context)
+        val activity = context as? Activity
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        activity?.volumeControlStream = AudioManager.STREAM_VOICE_CALL
+        try {
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            player = MediaPlayer().apply {
+                setAudioAttributes(attributes)
+                setDataSource(url)
+                isLooping = true
+                setOnPreparedListener { mp ->
+                    try {
+                        mp.start()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "start failed", e)
+                    }
+                }
+                setOnErrorListener { _, what, extra ->
+                    Log.e(TAG, "MediaPlayer error what=\$what extra=\$extra")
+                    true
+                }
+                prepareAsync()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "prepare ring failed for \$url", e)
+            stop(context)
+        }
+    }
+
+    fun stop(context: Context) {
+        player?.let { mp ->
+            try {
+                if (mp.isPlaying) mp.stop()
+            } catch (_: Exception) {
+            }
+            try {
+                mp.release()
+            } catch (_: Exception) {
+            }
+        }
+        player = null
+        val activity = context as? Activity
+        activity?.volumeControlStream = AudioManager.STREAM_MUSIC
+    }
+}
+`
+  fs.writeFileSync(incomingRingAudioPath, incomingRingAudioSource)
+  changed = true
+  console.log('[patch-android-fcm] IncomingRingAudioHelper.kt')
 }
 
 if (!changed) {

@@ -146,5 +146,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Triggering Android Internal Testing for ${{ github.sha }}"
-          gh workflow run "Android Internal Testing" --ref "${{ github.sha }}"
+          echo "Triggering Android Internal Testing on main @ ${GITHUB_SHA:0:7}"
+          gh workflow run "Android Internal Testing" --ref main
