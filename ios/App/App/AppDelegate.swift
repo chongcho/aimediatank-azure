@@ -23,11 +23,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationWillEnterForeground(_ application: UIApplication) {
+        AiMediaTankVoipPushBridge.shared.refreshPushKitRegistration()
         AiMediaTankVoipPushBridge.shared.replayPendingCallKitAnswerIfNeeded()
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Do not recover/dismiss ringing CallKit here — that killed lock-screen incoming UI on unlock.
+        AiMediaTankVoipPushBridge.shared.refreshPushKitRegistration()
         AiMediaTankVoipPushBridge.shared.replayPendingCallKitAnswerIfNeeded()
     }
 

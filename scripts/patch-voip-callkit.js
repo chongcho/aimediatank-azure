@@ -573,7 +573,12 @@ if (fs.existsSync(pluginSwiftPath)) {
 }
 
 const EARLY_PUSHKIT_MARKER = 'AiMediaTank earlyPushKitRegistry'
-if (pluginSwift && !pluginSwift.includes(EARLY_PUSHKIT_MARKER)) {
+const BRIDGE_V1_MARKER = 'AiMediaTank VoipPushBridge'
+if (
+  pluginSwift &&
+  !pluginSwift.includes(EARLY_PUSHKIT_MARKER) &&
+  !pluginSwift.includes(BRIDGE_V1_MARKER)
+) {
   pluginSwift = pluginSwift.replace(
     `    override public func load() {
         callManager = CallManager(plugin: self)
@@ -1730,6 +1735,35 @@ if (
   }
   fs.writeFileSync(pluginSwiftPath, pluginSwift)
   console.log('[patch-voip-callkit] UserDefaults declineToken fallback for CallKit answer')
+}
+
+const NO_DUPLICATE_PUSHKIT = 'bridge-only PushKit registry'
+if (pluginSwift && pluginSwift.includes(EARLY_PUSHKIT_MARKER)) {
+  const stripped = pluginSwift.replace(
+    /\n        \/\/ AiMediaTank earlyPushKitRegistry[\s\S]*?\n        \}\n\n        NotificationCenter/,
+    `\n        // ${NO_DUPLICATE_PUSHKIT} — AppDelegate AiMediaTankVoipPushBridge owns PushKit\n\n        NotificationCenter`,
+  )
+  if (stripped !== pluginSwift) {
+    pluginSwift = stripped
+    fs.writeFileSync(pluginSwiftPath, pluginSwift)
+    console.log('[patch-voip-callkit] remove duplicate plugin PushKit registry')
+  }
+}
+
+const TOP_LEVEL_DECLINE_TOKEN = 'declineToken from top-level VoIP payload'
+if (
+  pluginSwift &&
+  pluginSwift.includes('processIncomingVoipPushPayload') &&
+  !pluginSwift.includes(TOP_LEVEL_DECLINE_TOKEN)
+) {
+  pluginSwift = pluginSwift.replace(
+    `        let declineToken = (payloadDict["metadata"] as? [String: Any])?["declineToken"] as? String`,
+    `        let declineToken = voipPayloadString(payloadDict as [AnyHashable: Any], key: "declineToken")
+            ?? (payloadDict["metadata"] as? [String: Any])?["declineToken"] as? String
+            // ${TOP_LEVEL_DECLINE_TOKEN}`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] read declineToken from top-level VoIP payload')
 }
 
 console.log('[patch-voip-callkit] done')

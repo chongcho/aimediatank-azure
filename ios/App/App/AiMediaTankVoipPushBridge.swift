@@ -235,6 +235,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         replayCachedVoipTokenIfNeeded()
     }
 
+    /// Re-register VoIP after foreground or token invalidation.
+    func refreshPushKitRegistration() {
+        guard let registry = pushRegistry else {
+            ensureStarted()
+            return
+        }
+        registry.desiredPushTypes = []
+        registry.desiredPushTypes = [.voIP]
+        replayCachedVoipTokenIfNeeded()
+    }
+
     private func replayCachedVoipTokenIfNeeded() {
         guard let tokenHex = UserDefaults.standard.string(forKey: Self.voipTokenHexKey),
               !tokenHex.isEmpty,
@@ -776,6 +787,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
         print("[AiMediaTankVoipPushBridge] Push token invalidated for type: \(type)")
+        guard type == .voIP else { return }
+        UserDefaults.standard.removeObject(forKey: Self.voipTokenHexKey)
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshPushKitRegistration()
+        }
     }
 
     // MARK: - CXProviderDelegate
@@ -793,17 +809,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         cancelDismissRetries(callId: callId)
-        configureAudioSession()
+        stopCallStatusWatch(callId: callId)
         markPendingCallKitAnswer(callId: callId)
-        var userInfo: [String: Any] = ["callId": callId]
-        if let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId)) {
-            userInfo["declineToken"] = token
-        }
-        NotificationCenter.default.post(
-            name: Self.callKitAnswerNotification,
-            object: nil,
-            userInfo: userInfo
-        )
         action.fulfill()
     }
 
@@ -840,6 +847,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
         configureAudioSession()
+        replayPendingCallKitAnswerIfNeeded()
     }
 
     func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
