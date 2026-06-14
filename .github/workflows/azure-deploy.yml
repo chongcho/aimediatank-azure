@@ -11,7 +11,6 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write
 
 env:
   AZURE_WEBAPP_NAME: aimediatank-azure
@@ -140,11 +139,3 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./deploy
-
-      - name: Trigger Android Internal Testing
-        if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "Triggering Android Internal Testing on main @ ${GITHUB_SHA:0:7}"
-          gh workflow run "Android Internal Testing" --ref main
