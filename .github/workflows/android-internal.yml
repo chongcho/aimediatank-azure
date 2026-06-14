@@ -7,15 +7,22 @@ on:
         description: Remote URL loaded by the native shell
         required: false
         default: https://aimediatank.com
+  workflow_run:
+    workflows: [Deploy to Azure Production]
+    types: [completed]
+    branches: [main]
 
 jobs:
   build-and-upload:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

@@ -1,5 +1,11 @@
 name: Sync main from staging
 
+# Release pipeline (push to staging):
+#   1. azure-deploy-staging.yml — deploy staging Azure app
+#   2. This workflow — merge staging → main, then trigger production
+#   3. azure-deploy.yml — deploy production (aimediatank.com)
+#   4. android-internal.yml — Play Internal testing (after production succeeds)
+
 on:
   push:
     branches:

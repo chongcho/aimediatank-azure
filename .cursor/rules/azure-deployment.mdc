@@ -5,8 +5,24 @@ alwaysApply: true
 
 # Azure deployment policy
 
-- **Staging**: Pushing to `staging` deploys the staging app (`azure-deploy-staging.yml`). Use this for testing. This does **not** update `main`.
-- **Main vs staging**: `main` and `staging` may differ until a production deploy. Do not auto-sync them on every staging push.
-- **Production**: The workflow **Deploy to Azure Production** is **manual-only**. When run, it **merges `staging` into `main`, pushes `main`, then builds and deploys**—so production matches the tested staging tip at deploy time.
-- Do not assume the user wants production updated; run or mention the manual workflow only when they ask to deploy to production.
-- Optional: **Sync main from staging (manual only)** workflow updates `main` from `staging` without deploying (rare; production deploy already syncs first).
+## Standard release (one push to `staging`)
+
+1. **Commit** on `staging` and `git push origin staging`.
+2. **Sync branches** — `sync-branches.yml` merges `staging` → `main` and pushes `main`.
+3. **Deploy everywhere** (automatic):
+   - **Staging** — `azure-deploy-staging.yml` on `staging` push → `aimediatank-staging`
+   - **Production** — `sync-branches.yml` triggers `azure-deploy.yml` on `main` after sync → `aimediatank.com`
+   - **Android Internal Testing** — `android-internal.yml` runs after production succeeds → Play Console internal track
+
+Do **not** manually trigger production or Android immediately after pushing `staging`; wait for the chain above. Manual `workflow_dispatch` before sync finishes can deploy a stale SHA (GITHUB_TOKEN pushes do not fire `on: push` workflows).
+
+## Branches
+
+- **`staging`**: integration / test tip; push here to run the full release pipeline.
+- **`main`**: production tip; updated by sync before each production deploy.
+
+## Manual-only (optional)
+
+- **iOS TestFlight** — `ios-testflight.yml` (not part of the default staging push chain).
+- **Sync main from staging** alone — `workflow_dispatch` on `sync-branches.yml` (rare; normal releases already sync).
+- **Android / Production** — `workflow_dispatch` still available for retries; use `--ref main` after sync when retrying.
