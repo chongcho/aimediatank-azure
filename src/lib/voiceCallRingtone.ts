@@ -25,15 +25,6 @@ type RingKind = keyof typeof RING_URLS
 
 let nativeRingActive = false
 
-function absoluteRingUrl(path: string): string {
-  if (typeof window === 'undefined') return path
-  try {
-    return new URL(path, window.location.origin).href
-  } catch {
-    return path
-  }
-}
-
 function useNativeAndroidRing(): boolean {
   return isNativeAndroidCallApp()
 }
@@ -282,10 +273,10 @@ export function stopVoiceCallRingtone() {
 }
 
 function isSameRingRunning(kind: RingKind) {
-  if (useNativeAndroidRing()) {
-    return activeRingKind === kind && nativeRingActive
-  }
-  return activeRingKind === kind && (ringActiveSource !== null || pendingRingStart !== null)
+  return (
+    activeRingKind === kind &&
+    (nativeRingActive || ringActiveSource !== null || pendingRingStart !== null)
+  )
 }
 
 async function beginAudioPlayback(
@@ -330,8 +321,7 @@ async function startRing(kind: RingKind) {
 
   if (useNativeAndroidRing()) {
     nativeRingActive = true
-    await startNativeCallRing(absoluteRingUrl(RING_URLS[kind]))
-    return
+    void startNativeCallRing()
   }
 
   const generation = loopGeneration
