@@ -372,3 +372,20 @@ export async function setNativeAudioRoute(route: NativeAudioRoute): Promise<bool
     return false
   }
 }
+
+type NativeVoiceCallAudioPlugin = {
+  setVoiceCallAudioActive?: (options: { active: boolean }) => Promise<void>
+}
+
+/** Android: MODE_IN_COMMUNICATION + voice-call volume stream so hardware keys adjust call volume. */
+export async function setNativeVoiceCallAudioActive(active: boolean): Promise<void> {
+  if (!isNativeAndroidCallApp()) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
+    if (typeof plugin.setVoiceCallAudioActive !== 'function') return
+    await plugin.setVoiceCallAudioActive({ active })
+  } catch (error) {
+    console.error('[NativeCall] setVoiceCallAudioActive failed:', error)
+  }
+}

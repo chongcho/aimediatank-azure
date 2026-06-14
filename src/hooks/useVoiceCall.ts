@@ -15,11 +15,13 @@ import {
   getCachedNativeDeclineToken,
   initNativeCallBridge,
   isNativeIosCallApp,
+  isNativeAndroidCallApp,
   isNativeVoiceCallApp,
   markNativeCallConnected,
   cacheNativeDeclineToken,
   reportIncomingCallToNativeUi,
   setNativeAudioRoute,
+  setNativeVoiceCallAudioActive,
   type NativeIncomingCallPayload,
 } from '@/lib/nativeCallBridge'
 import { normalizeVoiceCallId, voiceCallIdsMatch } from '@/lib/voiceCallId'
@@ -154,6 +156,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     const id = callIdRef.current ? normalizeVoiceCallId(callIdRef.current) : null
     stopVoiceCallRingtone()
     if (id) void endNativeCall(id)
+    void setNativeVoiceCallAudioActive(false)
     stopLocalStream()
     closePeerConnection()
     if (remoteAudioRef.current) {
@@ -529,6 +532,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   useEffect(() => {
     if (callState !== 'connected' || !isNativeIosCallApp()) return
     setIsSpeakerOn(true)
+  }, [callState])
+
+  useEffect(() => {
+    if (!isNativeAndroidCallApp()) return
+    const active =
+      callState === 'outgoing' || callState === 'connecting' || callState === 'connected'
+    void setNativeVoiceCallAudioActive(active)
   }, [callState])
 
   const processPoll = useCallback(

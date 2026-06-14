@@ -605,6 +605,228 @@ if (fs.existsSync(incomingCallUiPath)) {
   }
 }
 
+const voiceVolumeMarker = 'AiMediaTank voice call volume'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (!callManager.includes(voiceVolumeMarker)) {
+    callManager = callManager.replace(
+      '    private val activeCalls = mutableMapOf<String, VoipConnection>()',
+      `    private val activeCalls = mutableMapOf<String, VoipConnection>()
+    private var voiceCallAudioActive = false
+    private var voiceCallFocusRequest: android.media.AudioFocusRequest? = null`,
+    )
+
+    callManager = callManager.replace(
+      `    fun setAudioRoute(route: String) {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        
+        when (route) {`,
+      `    fun setAudioRoute(route: String) {
+        setVoiceCallAudioActive(true)
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        
+        when (route) {`,
+    )
+
+    callManager = callManager.replace(
+      `    fun endCall(callId: String) {
+        activeCalls[callId]?.onDisconnect()
+        activeCalls.remove(callId)
+    }`,
+      `    fun endCall(callId: String) {
+        activeCalls[callId]?.onDisconnect()
+        activeCalls.remove(callId)
+        if (activeCalls.isEmpty()) {
+            setVoiceCallAudioActive(false)
+        }
+    }`,
+    )
+
+    callManager = callManager.replace(
+      `    fun answerCall(callId: String) {
+        activeCalls[callId]?.onAnswer()
+    }`,
+      `    fun answerCall(callId: String) {
+        setVoiceCallAudioActive(true)
+        activeCalls[callId]?.onAnswer()
+    }`,
+    )
+
+    callManager = callManager.replace(
+      `    fun rejectCall(callId: String) {
+        activeCalls[callId]?.onReject()
+        activeCalls.remove(callId)
+    }`,
+      `    fun rejectCall(callId: String) {
+        activeCalls[callId]?.onReject()
+        activeCalls.remove(callId)
+        if (activeCalls.isEmpty()) {
+            setVoiceCallAudioActive(false)
+        }
+    }`,
+    )
+
+    callManager = callManager.replace(
+      `        when (status) {
+            "connecting" -> connection.setDialing()
+            "connected" -> connection.setActive()
+            "disconnected" -> {
+                connection.setDisconnected(DisconnectCause(DisconnectCause.LOCAL))
+                connection.destroy()
+                activeCalls.remove(callId)
+            }
+            "failed" -> {
+                connection.setDisconnected(DisconnectCause(DisconnectCause.ERROR))
+                connection.destroy()
+                activeCalls.remove(callId)
+            }
+        }`,
+      `        when (status) {
+            "connecting" -> {
+                setVoiceCallAudioActive(true)
+                connection.setDialing()
+            }
+            "connected" -> {
+                setVoiceCallAudioActive(true)
+                connection.setActive()
+            }
+            "disconnected" -> {
+                connection.setDisconnected(DisconnectCause(DisconnectCause.LOCAL))
+                connection.destroy()
+                activeCalls.remove(callId)
+                if (activeCalls.isEmpty()) {
+                    setVoiceCallAudioActive(false)
+                }
+            }
+            "failed" -> {
+                connection.setDisconnected(DisconnectCause(DisconnectCause.ERROR))
+                connection.destroy()
+                activeCalls.remove(callId)
+                if (activeCalls.isEmpty()) {
+                    setVoiceCallAudioActive(false)
+                }
+            }
+        }`,
+    )
+
+    callManager = callManager.replace(
+      `    fun notifyCallEnded(callId: String, reason: String? = null) {
+        val data = JSObject().apply {
+            put("callId", callId)
+            if (reason != null) {
+                put("reason", reason)
+            }
+        }
+        eventEmitter?.invoke("callEnded", data)
+        activeCalls.remove(callId)
+    }`,
+      `    fun notifyCallEnded(callId: String, reason: String? = null) {
+        val data = JSObject().apply {
+            put("callId", callId)
+            if (reason != null) {
+                put("reason", reason)
+            }
+        }
+        eventEmitter?.invoke("callEnded", data)
+        activeCalls.remove(callId)
+        if (activeCalls.isEmpty()) {
+            setVoiceCallAudioActive(false)
+        }
+    }`,
+    )
+
+    callManager = callManager.replace(
+      `    private fun notifyError(message: String) {
+        android.util.Log.e("CallManager", message)
+    }
+}`,
+      `    fun setVoiceCallAudioActive(active: Boolean) {
+        // ${voiceVolumeMarker}
+        if (voiceCallAudioActive == active) return
+        voiceCallAudioActive = active
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val activity = context as? android.app.Activity
+        if (active) {
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            activity?.volumeControlStream = AudioManager.STREAM_VOICE_CALL
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val attrs = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(attrs)
+                    .build()
+                voiceCallFocusRequest = focusRequest
+                audioManager.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_VOICE_CALL,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
+            return
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            voiceCallFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+            voiceCallFocusRequest = null
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(null)
+        }
+        audioManager.isSpeakerphoneOn = false
+        audioManager.isMicrophoneMute = false
+        audioManager.mode = AudioManager.MODE_NORMAL
+        activity?.volumeControlStream = AudioManager.STREAM_MUSIC
+    }
+
+    private fun notifyError(message: String) {
+        android.util.Log.e("CallManager", message)
+    }
+}`,
+    )
+
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager voice call volume keys')
+  }
+}
+
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (!pluginSource.includes('setVoiceCallAudioActive')) {
+    pluginSource = pluginSource.replace(
+      `    @PluginMethod
+    fun setMuted(call: PluginCall) {
+        val muted = call.getBoolean("muted", false) ?: false
+
+        callManager?.setMuted(muted)
+        call.resolve()
+    }`,
+      `    @PluginMethod
+    fun setMuted(call: PluginCall) {
+        val muted = call.getBoolean("muted", false) ?: false
+
+        callManager?.setMuted(muted)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun setVoiceCallAudioActive(call: PluginCall) {
+        val active = call.getBoolean("active", false) ?: false
+        callManager?.setVoiceCallAudioActive(active)
+        call.resolve()
+    }`,
+    )
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] CapacitorVoipCallsPlugin voice volume control')
+  }
+}
+
 if (!changed) {
   console.log('[patch-android-fcm] already patched')
 }
