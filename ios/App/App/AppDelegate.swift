@@ -24,12 +24,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationWillEnterForeground(_ application: UIApplication) {
         AiMediaTankVoipPushBridge.shared.refreshPushKitRegistration()
-        AiMediaTankVoipPushBridge.shared.replayPendingCallKitAnswerIfNeeded()
+        // Unlock → prepare incoming (step 1→2) then connect after Accept (step 3).
+        AiMediaTankVoipPushBridge.shared.reconcileForegroundIncomingUi()
+        AiMediaTankVoipPushBridge.shared.prepareUnlockedRingingCallsIfNeeded()
+        AiMediaTankVoipPushBridge.shared.retryWebRtcConnectIfNeeded()
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         AiMediaTankVoipPushBridge.shared.refreshPushKitRegistration()
-        AiMediaTankVoipPushBridge.shared.replayPendingCallKitAnswerIfNeeded()
+        AiMediaTankVoipPushBridge.shared.reconcileForegroundIncomingUi()
+        AiMediaTankVoipPushBridge.shared.prepareUnlockedRingingCallsIfNeeded()
+        AiMediaTankVoipPushBridge.shared.retryWebRtcConnectIfNeeded()
+        NativeVoiceCallEngine.shared.syncUiIfConnected()
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

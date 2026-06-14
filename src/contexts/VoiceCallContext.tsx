@@ -275,7 +275,9 @@ export function VoiceCallProvider({
         callId: voiceCall.callId,
         remoteUser: voiceCall.remoteUser,
         startCall: voiceCall.startCall,
-        answerCall: voiceCall.answerCall,
+        answerCall: async () => {
+          await voiceCall.answerCall()
+        },
         rejectCall: voiceCall.rejectCall,
         endCall: voiceCall.endCall,
         toggleMute: voiceCall.toggleMute,

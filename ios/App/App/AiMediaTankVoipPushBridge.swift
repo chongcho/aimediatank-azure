@@ -1,11 +1,13 @@
 import AVFoundation
 import CallKit
+import Capacitor
 import Foundation
 import PushKit
 import UIKit
+import WebRTC
 
-/// App-target VoIP + CallKit handler. Owns the CXProvider used for PushKit incoming/cancel pushes
-/// so reportNewIncomingCall and reportCall ended use the same provider instance on lock screen.
+/// App-target VoIP + CallKit handler. Single CXProvider for all incoming rings (PushKit + JS fallback).
+/// PushKit, reportNewIncomingCall, answer/decline/cancel, and audio session live here only.
 final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProviderDelegate {
     static let shared = AiMediaTankVoipPushBridge()
 
@@ -15,14 +17,20 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     static let voipTokenNotification = Notification.Name("AiMediaTankVoipPushToken")
     static let callKitAnswerNotification = Notification.Name("AiMediaTankCallKitAnswer")
     static let callKitEndNotification = Notification.Name("AiMediaTankCallKitEnd")
+    static let jsIncomingCallNotification = Notification.Name("AiMediaTankJsIncomingCallReport")
+    static let prepareUnlockedIncomingNotification = Notification.Name("AiMediaTankPrepareUnlockedIncoming")
 
     private static let voipTokenHexKey = "AiMediaTank.voipPushTokenHex"
     private static let ringingCallIdsKey = "AiMediaTank.ringingCallIds"
     private static let cancelledCallIdsKey = "AiMediaTank.cancelledCallIds"
     private static let pendingAnswerCallIdKey = "AiMediaTank.pendingCallKitAnswerCallId"
     private static let incomingReportedAtKeyPrefix = "AiMediaTank.incomingReportedAt."
-    private static let statusPollGraceSeconds: TimeInterval = 8
+    /// Ignore native-status dismiss while CallKit incoming UI is still settling.
+    private static let statusPollGraceSeconds: TimeInterval = 15
     private static let statusPollStartDelaySeconds: TimeInterval = 3
+    /// End ghost CallKit sessions if WebRTC never connects after Accept (in-app retests).
+    private static let webrtcConnectWatchdogSeconds: TimeInterval = 45
+    static let bridgeEndCallNotification = Notification.Name("AiMediaTankRequestBridgeEndCall")
 
     private static func declineTokenKey(for callId: String) -> String {
         "AiMediaTank.declineToken.\(callId.lowercased())"
@@ -36,6 +44,54 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var statusBackgroundTasks: [String: UIBackgroundTaskIdentifier] = [:]
     /// Stops stale dismiss retries from ending a newer incoming call.
     private var dismissRetryGeneration: [String: UUID] = [:]
+    /// Lock-screen answer: deliver callAnswered to JS only after CallKit activates the audio session.
+    private var pendingJsAnswerCallId: String?
+    private var pendingJsAnswerDeclineToken: String?
+    /// Retries JS delivery when the WebView is still loading after lock-screen answer.
+    private var jsAnswerRetryGeneration: UUID?
+    /// Keeps the app alive while WebRTC connects after lock-screen answer.
+    private var answerBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private var connectionWatchdogGeneration: UUID?
+
+    private static func isForegroundActive() -> Bool {
+        guard UIApplication.shared.applicationState == .active else { return false }
+        return UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .contains(where: { $0.activationState == .foregroundActive })
+    }
+
+    private static func isWebViewRunnable() -> Bool {
+        switch UIApplication.shared.applicationState {
+        case .active, .inactive:
+            return true
+        case .background:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
+    /// WKWebView + Capacitor JS must not run until protected data is available (avoids lock-screen crash).
+    private static func canDeliverToWebView() -> Bool {
+        guard UIApplication.shared.isProtectedDataAvailable else { return false }
+        return isWebViewRunnable()
+    }
+
+    /// Slide-to-answer on lock keeps the app "active" but protected data is unavailable until the user unlocks.
+    private static func isDeviceUnlockedForVoice() -> Bool {
+        canDeliverToWebView()
+    }
+
+    private func activateAppWindow() {
+        guard let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }) else {
+            return
+        }
+        if let window = scene.windows.first(where: { $0.isKeyWindow }) {
+            window.makeKeyAndVisible()
+        }
+    }
 
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
@@ -50,6 +106,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         provider = CXProvider(configuration: configuration)
         super.init()
         provider.setDelegate(self, queue: nil)
+        NativeVoiceCallEngine.shared.delegate = self
+        RTCAudioSession.sharedInstance().useManualAudio = true
     }
 
     /// Configure category/mode only. CallKit owns activation via didActivate — never call setActive(true) here.
@@ -109,6 +167,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             dismissRingingCall(uuid: call.uuid)
         }
 
+        // Connected ghosts from failed in-app tests cause "End & Accept" on the next ring.
+        let pendingAnswer = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased()
+        for call in systemCalls where call.hasConnected {
+            let callId = call.uuid.uuidString.lowercased()
+            if pendingAnswer == callId {
+                continue
+            }
+            print("[AiMediaTankVoipPushBridge] stale recovery — ending connected ghost \(callId)")
+            endCallKitCall(uuid: call.uuid, reason: .failed, notifyJs: true)
+        }
+
         // Never release audio while CallKit is answering/connecting — that breaks lock-screen accept.
         if hasActiveCallKitCall() || hasPendingCallKitAnswer() { return }
 
@@ -127,8 +196,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         if hasPendingCallKitAnswer() { return }
         let normalized = callId.lowercased()
         guard let uuid = UUID(uuidString: normalized) else { return }
-        provider.reportCall(with: uuid, endedAt: Date(), reason: .answeredElsewhere)
-        Self.noteCallDismissed(normalized)
+        endCallKitCall(uuid: uuid, reason: .unanswered, notifyJs: false)
         print("[AiMediaTankVoipPushBridge] dismissed CallKit UI for in-app call \(normalized)")
     }
 
@@ -140,12 +208,37 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
     }
 
-    /// Tell CallKit the media path is live so the system stops the incoming ring and shows connected UI.
+    /// Tear down stale CallKit calls so the next ring shows Accept/Decline (not End & Accept).
+    private func endOrphanedBridgeCallsBeforeIncoming(exceptCallId: String?) {
+        let except = exceptCallId?.lowercased()
+        let pendingAnswer = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased()
+        let observer = CXCallObserver()
+        for call in observer.calls where !call.hasEnded {
+            let callId = call.uuid.uuidString.lowercased()
+            if let except, callId == except { continue }
+            if let pendingAnswer, callId == pendingAnswer { continue }
+            print("[AiMediaTankVoipPushBridge] ending orphan before incoming \(callId) connected=\(call.hasConnected)")
+            endCallKitCall(uuid: call.uuid, reason: .remoteEnded, notifyJs: call.hasConnected)
+        }
+    }
+
+    func endCallFromPluginRequest(callId: String) {
+        let normalized = callId.lowercased()
+        if NativeVoiceCallEngine.shared.activeCallId == normalized {
+            NativeVoiceCallEngine.shared.endCall(reason: "plugin_end", syncServer: false)
+        }
+        guard let uuid = UUID(uuidString: normalized) else { return }
+        endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: true)
+    }
+
+    /// CallKit owns incoming Accept/Decline on iOS (foreground + lock) — do not dismiss for in-app overlay.
+    func reconcileForegroundIncomingUi() {}
+
+    /// WebRTC connected — clear pending answer state. Do not call reportOutgoingCall on incoming UUIDs (CallKit crash).
     func reportCallConnected(callId: String) {
         let normalized = callId.lowercased()
-        guard let uuid = UUID(uuidString: normalized) else { return }
-        provider.reportOutgoingCall(with: uuid, connectedAt: Date())
         Self.noteCallDismissed(normalized)
+        endAnswerBackgroundSupport()
         clearPendingCallKitAnswer()
         cancelDismissRetries(callId: normalized)
         stopCallStatusWatch(callId: normalized)
@@ -156,7 +249,51 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     }
 
     private func clearPendingCallKitAnswer() {
+        jsAnswerRetryGeneration = nil
         UserDefaults.standard.removeObject(forKey: Self.pendingAnswerCallIdKey)
+        endAnswerBackgroundSupport()
+    }
+
+    private func startAnswerBackgroundSupport(callId: String) {
+        endAnswerBackgroundSupport()
+        let normalized = callId.lowercased()
+        let generation = UUID()
+        connectionWatchdogGeneration = generation
+
+        answerBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "AiMediaTank WebRTC connect") {
+            [weak self] in
+            self?.endAnswerBackgroundSupport()
+        }
+
+        // CallKit shows in-call UI on answer before WebRTC is ready — end ghost calls if media never connects.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.webrtcConnectWatchdogSeconds) { [weak self] in
+            guard let self, self.connectionWatchdogGeneration == generation else { return }
+            guard UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased() == normalized else {
+                self.endAnswerBackgroundSupport()
+                return
+            }
+            if NativeVoiceCallEngine.shared.isMediaConnected {
+                self.endAnswerBackgroundSupport()
+                return
+            }
+            if !Self.canDeliverToWebView() {
+                print("[AiMediaTankVoipPushBridge] WebRTC watchdog deferred — device locked \(normalized)")
+                return
+            }
+            print("[AiMediaTankVoipPushBridge] WebRTC watchdog — ending unanswered CallKit call \(normalized)")
+            if let uuid = UUID(uuidString: normalized) {
+                self.endCallKitCall(uuid: uuid, reason: .failed, notifyJs: true)
+            }
+            self.clearPendingCallKitAnswer()
+        }
+    }
+
+    private func endAnswerBackgroundSupport() {
+        connectionWatchdogGeneration = nil
+        if answerBackgroundTask != .invalid {
+            UIApplication.shared.endBackgroundTask(answerBackgroundTask)
+            answerBackgroundTask = .invalid
+        }
     }
 
     /// Re-deliver CallKit answer to JS when the WebView was not ready (lock-screen accept).
@@ -164,15 +301,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         guard let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey),
               !callId.isEmpty else { return }
         print("[AiMediaTankVoipPushBridge] replay pending CallKit answer for \(callId)")
-        var userInfo: [String: Any] = ["callId": callId]
-        if let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId)) {
-            userInfo["declineToken"] = token
-        }
-        NotificationCenter.default.post(
-            name: Self.callKitAnswerNotification,
-            object: nil,
-            userInfo: userInfo
-        )
+        pendingJsAnswerCallId = callId.lowercased()
+        pendingJsAnswerDeclineToken = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId))
+        deliverPendingCallKitAnswerToJs()
     }
 
     func ensureStarted() {
@@ -229,6 +360,34 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             guard let self = self,
                   let callId = notification.userInfo?["callId"] as? String else { return }
             self.reportCallConnected(callId: callId)
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: Self.bridgeEndCallNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let callId = notification.userInfo?["callId"] as? String else { return }
+            self.endCallFromPluginRequest(callId: callId)
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: Self.jsIncomingCallNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleJsIncomingCallReport(notification)
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            print("[AiMediaTankVoipPushBridge] device unlocked — connect voice if pending")
+            self?.prepareUnlockedRingingCallsIfNeeded()
+            self?.retryWebRtcConnectIfNeeded()
         }
 
         replayPendingCallKitAnswerIfNeeded()
@@ -360,9 +519,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     /// End a CallKit call (ringing or already answered) and notify JS to tear down WebRTC.
     private func endCallKitCall(uuid: UUID, reason: CXCallEndedReason = .remoteEnded, notifyJs: Bool = true) {
+        let callId = uuid.uuidString.lowercased()
+        if NativeVoiceCallEngine.shared.activeCallId == callId {
+            NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
+        }
         let end = { [weak self] in
             guard let self = self else { return }
-            let callId = uuid.uuidString.lowercased()
             self.provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
             let endCallAction = CXEndCallAction(call: uuid)
             self.callController.request(CXTransaction(action: endCallAction)) { error in
@@ -404,7 +566,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func dismissAllRingingCalls(preferredCallId: String? = nil) {
         if let preferredCallId,
            let uuid = UUID(uuidString: preferredCallId.lowercased()) {
-            endCallKitCall(uuid: uuid, reason: .remoteEnded)
+            endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: true)
             return
         }
 
@@ -478,6 +640,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         update.supportsDTMF = true
         update.hasVideo = false
 
+        endOrphanedBridgeCallsBeforeIncoming(exceptCallId: callId.uuidString)
+
         func attemptReport(retryAfterCleanup: Bool) {
             provider.reportNewIncomingCall(with: callId, update: update) { [weak self] error in
                 if let error {
@@ -501,22 +665,41 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private func performCancelDismiss(callId: String, source: String) {
         let normalized = callId.lowercased()
+        if source == "status_poll", hasPendingCallKitAnswer() {
+            print("[AiMediaTankVoipPushBridge] defer status_poll dismiss — pending CallKit answer \(normalized)")
+            return
+        }
         if (source == "status_poll" || source == "bridge_dismiss_request"),
            Self.isWithinIncomingGracePeriod(callId: normalized) {
-            print("[AiMediaTankVoipPushBridge] defer \(source) dismiss — within incoming grace for \(normalized)")
+            print("[AiMediaTankVoipPushBridge] defer \(source) dismiss — incoming grace \(normalized)")
             return
         }
         if Self.isCallCancelled(normalized) {
             if let uuid = UUID(uuidString: normalized) {
-                endCallKitCall(uuid: uuid, reason: .remoteEnded)
+                endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: true)
             }
             return
         }
         reportCancelAck(callId: normalized, source: source)
+        postVoiceTrace(callId: normalized, event: "callkit_dismiss", detail: ["source": source])
         Self.markCallCancelled(normalized)
         clearPendingCallKitAnswer()
-        dismissAllRingingCalls(preferredCallId: normalized)
+        if let uuid = UUID(uuidString: normalized) {
+            endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: true)
+        }
+        NotificationCenter.default.post(
+            name: Self.cancelPushNotification,
+            object: nil,
+            userInfo: ["callId": normalized]
+        )
         scheduleDismissRetries(for: normalized)
+        // In-app overlay + WebRTC: JS must tear down even when CallKit was already dismissed.
+        NotificationCenter.default.post(
+            name: Self.callKitEndNotification,
+            object: nil,
+            userInfo: ["callId": normalized]
+        )
+        injectCallCancelToWebView(callId: normalized)
     }
 
     /// POST to server so Azure logs prove the iPhone received/processed cancel on lock screen.
@@ -545,6 +728,24 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }.resume()
     }
 
+    private func postVoiceTrace(callId: String, event: String, detail: [String: Any] = [:]) {
+        let normalized = callId.lowercased()
+        let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: normalized)) ?? ""
+        guard !token.isEmpty, let url = URL(string: "\(voiceApiBaseURL())/api/chat/voice/native-trace") else { return }
+        var body: [String: Any] = [
+            "callId": normalized,
+            "token": token,
+            "source": "ios_bridge",
+            "event": event,
+        ]
+        if !detail.isEmpty { body["detail"] = detail }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        URLSession.shared.dataTask(with: request).resume()
+    }
+
     private func voiceApiBaseURL() -> String {
         if let path = Bundle.main.path(forResource: "capacitor.config", ofType: "json"),
            let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
@@ -563,6 +764,101 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             return payloadString(metadata, key: "declineToken")
         }
         return nil
+    }
+
+    /// Foreground JS fallback when VoIP push did not report CallKit yet.
+    private func handleJsIncomingCallReport(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let callIdString = userInfo["callId"] as? String,
+              let callId = UUID(uuidString: callIdString),
+              let handle = userInfo["handle"] as? String,
+              let displayName = userInfo["displayName"] as? String else { return }
+
+        let normalizedCallId = callIdString.lowercased()
+        if Self.isCallCancelled(normalizedCallId) { return }
+
+        let handleTypeString = userInfo["handleType"] as? String ?? "generic"
+        if let token = userInfo["declineToken"] as? String, !token.isEmpty {
+            UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: normalizedCallId))
+        }
+
+        // VoIP push already reported CallKit; JS fallback only when push did not arrive (usually background).
+        if Self.isForegroundActive() {
+            print("[AiMediaTankVoipPushBridge] JS incoming skipped on foreground — CallKit from VoIP \(normalizedCallId)")
+            Self.noteIncomingCallReported(callIdString)
+            return
+        }
+
+        reportIncomingToCallKit(
+            callId: callId,
+            handle: handle,
+            displayName: displayName,
+            handleType: handleType(from: handleTypeString),
+            video: false
+        ) { [weak self] reported in
+            if reported {
+                Self.noteIncomingCallReported(callIdString)
+                NotificationCenter.default.post(
+                    name: Notification.Name("AiMediaTankNoteIncomingCall"),
+                    object: nil,
+                    userInfo: ["callId": normalizedCallId]
+                )
+            }
+        }
+    }
+
+    /// Accept on the server immediately from native code (no browser session required).
+    private func postNativeCallKitAccept(callId: String) {
+        let normalized = callId.lowercased()
+        let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: normalized)) ?? ""
+        guard !token.isEmpty else {
+            print("[AiMediaTankVoipPushBridge] accept skip — no decline token for \(normalized)")
+            return
+        }
+        guard let url = URL(string: "\(voiceApiBaseURL())/api/chat/voice/native-callkit") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "action": "accept",
+            "callId": normalized,
+            "token": token,
+        ])
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            if let error {
+                print("[AiMediaTankVoipPushBridge] native accept failed call=\(normalized): \(error.localizedDescription)")
+                return
+            }
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            print("[AiMediaTankVoipPushBridge] native accept HTTP \(code) call=\(normalized)")
+        }.resume()
+    }
+
+    /// Re-post callAnswered to JS while the pending answer key is still set (WebView may load late).
+    private func scheduleJsAnswerDeliveryRetries(callId: String) {
+        let generation = UUID()
+        jsAnswerRetryGeneration = generation
+        let normalized = callId.lowercased()
+        // WKWebView may stay frozen on lock screen for minutes — keep nudging JS until pending clears.
+        let delays: [TimeInterval] = [
+            1.0, 2.0, 4.0, 6.0, 10.0, 15.0, 25.0, 40.0, 55.0, 70.0,
+            90.0, 120.0, 150.0, 180.0, 240.0, 300.0,
+        ]
+        for delay in delays {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self, self.jsAnswerRetryGeneration == generation else { return }
+                guard UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased() == normalized else {
+                    return
+                }
+                guard Self.canDeliverToWebView() else { return }
+                self.pendingJsAnswerCallId = normalized
+                self.pendingJsAnswerDeclineToken = UserDefaults.standard.string(
+                    forKey: Self.declineTokenKey(for: normalized)
+                )
+                print("[AiMediaTankVoipPushBridge] retry CallKit answer delivery to JS \(normalized)")
+                self.deliverPendingCallKitAnswerToJs()
+            }
+        }
     }
 
     /// Poll server call status from the App target (works on lock screen without Capacitor/JS).
@@ -641,7 +937,15 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 completion(true)
                 return
             }
-            completion(status == "ringing" || status == "active")
+            // Only dismiss on explicit terminal statuses — `gone`/unknown must not end CallKit after one ring.
+            let terminalStatuses: Set<String> = ["ended", "rejected", "missed"]
+            if terminalStatuses.contains(status) {
+                print("[AiMediaTankVoipPushBridge] status poll terminal \(status) for call \(callId)")
+                self.postVoiceTrace(callId: callId, event: "status_poll_terminal", detail: ["status": status])
+                completion(false)
+                return
+            }
+            completion(true)
         }.resume()
     }
 
@@ -694,6 +998,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
 
         prepareForNewIncomingCall(callId: callIdString)
+        postVoiceTrace(callId: callIdString, event: "voip_push_received")
 
         if Self.isCallCancelled(callIdString) {
             print("[AiMediaTankVoipPushBridge] ignored incoming push — call already cancelled \(callIdString.lowercased())")
@@ -742,6 +1047,25 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let handleTypeString = payloadString(payloadDict, key: "handleType") ?? "generic"
         let video = payloadDict["video"] as? Bool ?? false
 
+        func forwardToPlugin(reportedToCallKit: Bool) {
+            var info = self.userInfo(from: payloadDict)
+            info["reportedToCallKit"] = reportedToCallKit
+            if reportedToCallKit {
+                Self.noteIncomingCallReported(callIdString)
+            }
+            if let token = self.declineToken(from: payloadDict) {
+                UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: normalizedCallId))
+                self.startCallStatusWatch(callId: normalizedCallId, token: token)
+            }
+            NotificationCenter.default.post(
+                name: Self.incomingPushNotification,
+                object: nil,
+                userInfo: info
+            )
+        }
+
+        // Apple requires reportNewIncomingCall for every VoIP push — CallKit is the only incoming UI on iOS.
+        print("[AiMediaTankVoipPushBridge] VoIP push — bridge reporting incoming \(normalizedCallId)")
         reportIncomingToCallKit(
             callId: callId,
             handle: handle,
@@ -753,35 +1077,13 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 completeOnce()
                 return
             }
-            // PushKit expects completion soon after CallKit is notified.
             if reported {
                 completeOnce()
             }
-            var info = self.userInfo(from: payloadDict)
-            info["reportedToCallKit"] = reported
-            if reported {
-                Self.noteIncomingCallReported(callIdString)
-                // Dismiss bridge CallKit only when the WebView is visible; keep lock-screen UI otherwise.
-                if UIApplication.shared.applicationState == .active,
-                   UIApplication.shared.connectedScenes
-                    .compactMap({ $0 as? UIWindowScene })
-                    .contains(where: { $0.activationState == .foregroundActive }) {
-                    self.dismissCallKitUIForInAppOnly(callId: callIdString)
-                }
-            } else {
+            forwardToPlugin(reportedToCallKit: reported)
+            if !reported {
                 completeOnce()
             }
-            if reported, let token = self.declineToken(from: payloadDict) {
-                UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: callIdString.lowercased()))
-                self.startCallStatusWatch(callId: callIdString.lowercased(), token: token)
-            } else if reported {
-                print("[AiMediaTankVoipPushBridge] no declineToken — status watch disabled for \(callIdString)")
-            }
-            NotificationCenter.default.post(
-                name: Self.incomingPushNotification,
-                object: nil,
-                userInfo: info
-            )
         }
     }
 
@@ -806,16 +1108,229 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         UserDefaults.standard.removeObject(forKey: Self.ringingCallIdsKey)
     }
 
+    private func deliverPendingCallKitAnswerToJs() {
+        let callId = pendingJsAnswerCallId
+            ?? UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased()
+        guard let callId, !callId.isEmpty else { return }
+
+        // Native accept already posted on answer; WKWebView evaluateJavaScript crashes if protected data is locked.
+        guard Self.canDeliverToWebView() else {
+            pendingJsAnswerCallId = callId
+            pendingJsAnswerDeclineToken = pendingJsAnswerDeclineToken
+                ?? UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId))
+            print("[AiMediaTankVoipPushBridge] defer CallKit answer JS — WebView not ready \(callId)")
+            return
+        }
+
+        pendingJsAnswerCallId = nil
+        let token = pendingJsAnswerDeclineToken
+            ?? UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId))
+        pendingJsAnswerDeclineToken = nil
+        let useJsWebRtc = Self.canDeliverToWebView()
+        activateAppWindow()
+        var userInfo: [String: Any] = ["callId": callId, "useSessionWebRtc": useJsWebRtc]
+        if let token {
+            userInfo["declineToken"] = token
+        }
+        print("[AiMediaTankVoipPushBridge] deliver CallKit answer to JS \(callId) jsWebRtc=\(useJsWebRtc)")
+        NotificationCenter.default.post(
+            name: Self.callKitAnswerNotification,
+            object: nil,
+            userInfo: userInfo
+        )
+        injectCallKitAnswerToWebView(callId: callId, declineToken: token, useSessionWebRtc: useJsWebRtc)
+    }
+
+    /// Step 1→2: user unlocked — refresh incoming in JS before CallKit Accept/Decline.
+    func prepareUnlockedRingingCallsIfNeeded() {
+        guard Self.isDeviceUnlockedForVoice() else { return }
+        guard !hasPendingCallKitAnswer() else { return }
+        activateAppWindow()
+
+        let observer = CXCallObserver()
+        let ringing = observer.calls.filter { !$0.hasEnded && !$0.isOutgoing && !$0.hasConnected }
+        guard !ringing.isEmpty else { return }
+
+        for call in ringing {
+            let callId = call.uuid.uuidString.lowercased()
+            var userInfo: [String: Any] = ["callId": callId]
+            if let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId)) {
+                userInfo["declineToken"] = token
+            }
+            print("[AiMediaTankVoipPushBridge] prepare unlocked incoming \(callId)")
+            NotificationCenter.default.post(
+                name: Self.prepareUnlockedIncomingNotification,
+                object: nil,
+                userInfo: userInfo
+            )
+        }
+    }
+
+    /// Direct WKWebView inject — Capacitor events may not run while the phone is locked.
+    private func injectCallKitAnswerToWebView(callId: String, declineToken: String?, useSessionWebRtc: Bool = false) {
+        guard Self.canDeliverToWebView() else { return }
+        guard let bridge = Self.findBridgeViewController(), let webView = bridge.webView else {
+            print("[AiMediaTankVoipPushBridge] WebView inject skipped — no bridge for \(callId)")
+            return
+        }
+        let tokenJs: String
+        if let declineToken, !declineToken.isEmpty {
+            let escaped = declineToken
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+            tokenJs = ", declineToken: '\(escaped)'"
+        } else {
+            tokenJs = ""
+        }
+        let sessionJs = useSessionWebRtc ? ", useSessionWebRtc: true" : ""
+        let js = """
+        (function(){
+          try {
+            window.dispatchEvent(new CustomEvent('aimediatank-callkit-answer', {
+              detail: { callId: '\(callId)'\(tokenJs)\(sessionJs) }
+            }));
+          } catch (e) {}
+        })();
+        """
+        webView.evaluateJavaScript(js) { _, error in
+            if let error {
+                print("[AiMediaTankVoipPushBridge] WebView inject failed \(callId): \(error.localizedDescription)")
+            } else {
+                print("[AiMediaTankVoipPushBridge] WebView inject ok \(callId)")
+            }
+        }
+    }
+
+    private func injectCallCancelToWebView(callId: String) {
+        guard Self.canDeliverToWebView() else { return }
+        guard let bridge = Self.findBridgeViewController(), let webView = bridge.webView else { return }
+        let normalized = callId.lowercased()
+        let js = """
+        (function(){
+          try {
+            window.dispatchEvent(new CustomEvent('aimediatank-callkit-end', {
+              detail: { callId: '\(normalized)' }
+            }));
+          } catch (e) {}
+        })();
+        """
+        webView.evaluateJavaScript(js) { _, error in
+            if let error {
+                print("[AiMediaTankVoipPushBridge] cancel inject failed \(normalized): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Notify server when user ends via CallKit so the remote peer clears UI immediately.
+    private func syncCallEndToServer(callId: String) {
+        let normalized = callId.lowercased()
+        guard let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: normalized)),
+              !token.isEmpty else {
+            print("[AiMediaTankVoipPushBridge] skip end sync — no token \(normalized)")
+            return
+        }
+        guard let url = URL(string: "\(voiceApiBaseURL())/api/chat/voice/native-callkit") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = ["action": "end", "callId": normalized, "token": token]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        URLSession.shared.dataTask(with: request) { _, _, error in
+            if let error {
+                print("[AiMediaTankVoipPushBridge] end sync failed \(normalized): \(error.localizedDescription)")
+            } else {
+                print("[AiMediaTankVoipPushBridge] end synced \(normalized)")
+            }
+        }.resume()
+    }
+
+    private static func findBridgeViewController() -> CAPBridgeViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            for window in scene.windows where window.isKeyWindow {
+                if let bridge = findBridge(in: window.rootViewController) {
+                    return bridge
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func findBridge(in viewController: UIViewController?) -> CAPBridgeViewController? {
+        guard let viewController else { return nil }
+        if let bridge = viewController as? CAPBridgeViewController {
+            return bridge
+        }
+        for child in viewController.children {
+            if let bridge = findBridge(in: child) {
+                return bridge
+            }
+        }
+        if let presented = viewController.presentedViewController,
+           let bridge = findBridge(in: presented) {
+            return bridge
+        }
+        return nil
+    }
+
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
-        cancelDismissRetries(callId: callId)
-        stopCallStatusWatch(callId: callId)
-        markPendingCallKitAnswer(callId: callId)
         action.fulfill()
+        cancelDismissRetries(callId: callId)
+        markPendingCallKitAnswer(callId: callId)
+        stopCallStatusWatch(callId: callId)
+        startAnswerBackgroundSupport(callId: callId)
+        postNativeCallKitAccept(callId: callId)
+        postVoiceTrace(callId: callId, event: "callkit_answer")
+        let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId)) ?? ""
+        let useJsWebRtc = Self.canDeliverToWebView()
+        if !token.isEmpty && !useJsWebRtc {
+            NativeVoiceCallEngine.shared.prepareAnswer(
+                callId: callId,
+                token: token,
+                baseURL: voiceApiBaseURL()
+            )
+        } else if token.isEmpty {
+            print("[AiMediaTankVoipPushBridge] native WebRTC skipped — no decline token \(callId)")
+        } else {
+            print("[AiMediaTankVoipPushBridge] foreground answer — JS WebRTC path \(callId)")
+            NativeVoiceCallEngine.shared.endCall(reason: "js_takeover", syncServer: false)
+        }
+        pendingJsAnswerCallId = callId
+        pendingJsAnswerDeclineToken = token.isEmpty ? nil : token
+        scheduleJsAnswerDeliveryRetries(callId: callId)
+        deliverPendingCallKitAnswerToJs()
+    }
+
+    /// Unlock → retry JS WebRTC if CallKit answer is still pending; otherwise native on lock screen.
+    func retryWebRtcConnectIfNeeded() {
+        prepareUnlockedRingingCallsIfNeeded()
+        guard hasPendingCallKitAnswer() else { return }
+        guard let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey) else { return }
+        let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId)) ?? ""
+        guard !token.isEmpty else { return }
+        if Self.canDeliverToWebView() {
+            print("[AiMediaTankVoipPushBridge] retry foreground JS WebRTC after unlock \(callId)")
+            NativeVoiceCallEngine.shared.endCall(reason: "js_takeover", syncServer: false)
+            deliverPendingCallKitAnswerToJs()
+            return
+        }
+        print("[AiMediaTankVoipPushBridge] retry native WebRTC connect after unlock")
+        NativeVoiceCallEngine.shared.prepareAnswer(
+            callId: callId,
+            token: token,
+            baseURL: voiceApiBaseURL()
+        )
+        deliverPendingCallKitAnswerToJs()
     }
 
     func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
+        if NativeVoiceCallEngine.shared.activeCallId == callId {
+            NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
+        }
+        syncCallEndToServer(callId: callId)
+        injectCallCancelToWebView(callId: callId)
         stopCallStatusWatch(callId: callId)
         clearPendingCallKitAnswer()
         NotificationCenter.default.post(
@@ -847,10 +1362,41 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
         configureAudioSession()
-        replayPendingCallKitAnswerIfNeeded()
+        NativeVoiceCallEngine.shared.audioSessionActivated()
+        deliverPendingCallKitAnswerToJs()
     }
 
     func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        NativeVoiceCallEngine.shared.audioSessionDeactivated()
         releaseAudioSession()
+    }
+}
+
+// MARK: - NativeVoiceCallEngineDelegate
+
+extension AiMediaTankVoipPushBridge: NativeVoiceCallEngineDelegate {
+    func nativeVoiceCallEngineDidConnect(callId: String, caller: [String: Any]?) {
+        print("[AiMediaTankVoipPushBridge] native WebRTC connected \(callId)")
+        reportCallConnected(callId: callId)
+    }
+
+    func nativeVoiceCallEngineDidFail(callId: String, error: String) {
+        print("[AiMediaTankVoipPushBridge] native WebRTC failed \(callId): \(error)")
+        postVoiceTrace(callId: callId, event: "native_webrtc_failed", detail: ["error": error])
+        if Self.canDeliverToWebView(), hasPendingCallKitAnswer() {
+            print("[AiMediaTankVoipPushBridge] native failed — falling back to JS WebRTC \(callId)")
+            NativeVoiceCallEngine.shared.endCall(reason: "native_failed_js_fallback", syncServer: false)
+            deliverPendingCallKitAnswerToJs()
+            return
+        }
+        if let uuid = UUID(uuidString: callId) {
+            endCallKitCall(uuid: uuid, reason: .failed, notifyJs: true)
+        } else {
+            clearPendingCallKitAnswer()
+        }
+    }
+
+    func nativeVoiceCallEngineDidEnd(callId: String) {
+        print("[AiMediaTankVoipPushBridge] native WebRTC ended \(callId)")
     }
 }

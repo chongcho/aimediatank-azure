@@ -43,9 +43,18 @@ function declineTokenFromIncoming(call: NativeIncomingCallPayload): string | und
 
 export interface NativeCallBridgeHandlers {
   onIncomingCall: (call: NativeIncomingCallPayload) => void
-  onCallAnswered: (callId: string, declineToken?: string) => void
+  onCallAnswered: (callId: string, declineToken?: string, useSessionWebRtc?: boolean) => void
   onCallRejected: (callId: string) => void
   onCallEnded: (callId: string) => void
+  onNativeCallConnected?: (payload: {
+    callId: string
+    caller?: {
+      id: string
+      username: string
+      name: string | null
+      avatar: string | null
+    }
+  }) => void
 }
 
 let bridgeInitialized = false
@@ -56,9 +65,94 @@ let bridgeHandlers: NativeCallBridgeHandlers | null = null
 let pendingNativeToken: string | null = null
 let pendingNativePlatform: 'ios' | 'android' | null = null
 let pendingIncomingCall: NativeIncomingCallPayload | null = null
-let pendingCallAnswered: { callId: string; declineToken?: string } | null = null
+let pendingCallAnswered: { callId: string; declineToken?: string; useSessionWebRtc?: boolean } | null = null
 let pendingCallRejected: string | null = null
 let pendingCallEnded: string | null = null
+let pendingNativeConnected: {
+  callId: string
+  caller?: {
+    id: string
+    username: string
+    name: string | null
+    avatar: string | null
+  }
+} | null = null
+let webViewInjectListenerAttached = false
+
+function attachWebViewCallKitInjectListener(): void {
+  if (!isNativeIosCallApp() || typeof window === 'undefined' || webViewInjectListenerAttached) return
+  webViewInjectListenerAttached = true
+
+  window.addEventListener('aimediatank-callkit-end', (event) => {
+    const callId = (event as CustomEvent<{ callId?: string }>).detail?.callId
+    if (!callId) return
+    if (bridgeHandlers) {
+      bridgeHandlers.onCallEnded(callId)
+    } else {
+      pendingCallEnded = callId
+    }
+  })
+
+  window.addEventListener('aimediatank-callkit-answer', (event) => {
+    const detail = (event as CustomEvent<{
+      callId?: string
+      declineToken?: string
+      useSessionWebRtc?: boolean
+      nativeWebRtc?: boolean
+    }>).detail
+    const callId = detail?.callId
+    if (!callId) return
+    const token = detail.declineToken || getCachedNativeDeclineToken(callId)
+    if (token) cacheNativeDeclineToken(callId, token)
+    const useSessionWebRtc = Boolean(detail?.useSessionWebRtc)
+    const nativeWebRtc = Boolean(detail?.nativeWebRtc)
+    const handler = () => {
+      if (!bridgeHandlers) return
+      if (nativeWebRtc && !useSessionWebRtc) {
+        bridgeHandlers.onCallAnswered(callId, token, false)
+        return
+      }
+      bridgeHandlers.onCallAnswered(callId, token, useSessionWebRtc)
+    }
+    if (bridgeHandlers) {
+      handler()
+    } else {
+      pendingCallAnswered = { callId, declineToken: token, useSessionWebRtc: useSessionWebRtc || undefined }
+    }
+  })
+
+  window.addEventListener('aimediatank-native-call-connected', (event) => {
+    const detail = (event as CustomEvent<{
+      callId?: string
+      caller?: {
+        id?: string
+        username?: string
+        name?: string | null
+        avatar?: string | null
+      }
+    }>).detail
+    const callId = detail?.callId
+    if (!callId) return
+    const caller = detail.caller
+    const payload = {
+      callId,
+      caller:
+        caller?.id && caller?.username
+          ? {
+              id: caller.id,
+              username: caller.username,
+              name: caller.name ?? null,
+              avatar: caller.avatar ?? null,
+            }
+          : undefined,
+    }
+    if (bridgeHandlers?.onNativeCallConnected) {
+      bridgeHandlers.onNativeCallConnected(payload)
+    } else {
+      pendingNativeConnected = payload
+    }
+  })
+}
 
 function flushPendingNativeCallEvents(): void {
   if (!bridgeHandlers) return
@@ -70,7 +164,7 @@ function flushPendingNativeCallEvents(): void {
   if (pendingCallAnswered) {
     const event = pendingCallAnswered
     pendingCallAnswered = null
-    bridgeHandlers.onCallAnswered(event.callId, event.declineToken)
+    bridgeHandlers.onCallAnswered(event.callId, event.declineToken, event.useSessionWebRtc)
   }
   if (pendingCallRejected) {
     const callId = pendingCallRejected
@@ -81,6 +175,11 @@ function flushPendingNativeCallEvents(): void {
     const callId = pendingCallEnded
     pendingCallEnded = null
     bridgeHandlers.onCallEnded(callId)
+  }
+  if (pendingNativeConnected && bridgeHandlers.onNativeCallConnected) {
+    const payload = pendingNativeConnected
+    pendingNativeConnected = null
+    bridgeHandlers.onNativeCallConnected(payload)
   }
 }
 
@@ -104,14 +203,16 @@ function attachNativeCallEventListeners(
   CapacitorPushCalls.addListener('callAnswered', (event) => {
     const callId = event.callId
     if (!callId) return
-    const fromEvent = (event as { callId?: string; declineToken?: string }).declineToken
+    const extended = event as { callId?: string; declineToken?: string; useSessionWebRtc?: boolean }
+    const fromEvent = extended.declineToken
     const token =
       (typeof fromEvent === 'string' ? fromEvent : undefined) || getCachedNativeDeclineToken(callId)
     if (token) cacheNativeDeclineToken(callId, token)
+    const useSessionWebRtc = Boolean(extended.useSessionWebRtc)
     if (bridgeHandlers) {
-      bridgeHandlers.onCallAnswered(callId, token)
+      bridgeHandlers.onCallAnswered(callId, token, useSessionWebRtc)
     } else {
-      pendingCallAnswered = { callId, declineToken: token }
+      pendingCallAnswered = { callId, declineToken: token, useSessionWebRtc }
     }
   })
 
@@ -311,6 +412,7 @@ export async function initNativeCallBridge(handlers: NativeCallBridgeHandlers): 
   if (bridgeInitialized && bridgeHandlers === handlers) return true
 
   bridgeHandlers = handlers
+  attachWebViewCallKitInjectListener()
   await bootstrapNativePush()
   await subscribeNativePushIfNeeded()
 
@@ -348,16 +450,6 @@ export async function markNativeCallConnected(callId: string | null | undefined)
   }
 }
 
-export async function endNativeCall(callId: string | null | undefined): Promise<void> {
-  if (!isNativeVoiceCallApp() || !callId) return
-  try {
-    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
-    await CapacitorPushCalls.endCall({ callId })
-  } catch {
-    // ignore when native UI already dismissed the call
-  }
-}
-
 export type NativeAudioRoute = 'speaker' | 'earpiece'
 
 /** Route call audio to the loudspeaker or earpiece (iOS CallKit / Android ConnectionService). */
@@ -389,6 +481,16 @@ export async function setNativeVoiceCallAudioActive(active: boolean): Promise<vo
     await plugin.setVoiceCallAudioActive({ active })
   } catch (error) {
     console.error('[NativeCall] setVoiceCallAudioActive failed:', error)
+  }
+}
+
+export async function endNativeCall(callId: string | null | undefined): Promise<void> {
+  if (!isNativeVoiceCallApp() || !callId) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    await CapacitorPushCalls.endCall({ callId })
+  } catch {
+    // ignore when native UI already dismissed the call
   }
 }
 

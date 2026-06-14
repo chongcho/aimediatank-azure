@@ -1766,4 +1766,53 @@ if (
   console.log('[patch-voip-callkit] read declineToken from top-level VoIP payload')
 }
 
+const SESSION_WEBRTC_MARKER = 'useSessionWebRtc on CallKit answer'
+if (
+  pluginSwift &&
+  pluginSwift.includes('handleBridgedCallKitAnswer') &&
+  !pluginSwift.includes(SESSION_WEBRTC_MARKER)
+) {
+  pluginSwift = pluginSwift.replace(
+    /(var data: \[String: Any\] = \["callId": callId\][\s\S]*?)(\n        emitEvent\("callAnswered", data: data\))/,
+    `$1
+        if let session = notification.userInfo?["useSessionWebRtc"] as? Bool {
+            // ${SESSION_WEBRTC_MARKER}
+            data["useSessionWebRtc"] = session
+        }$2`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] forward useSessionWebRtc on CallKit answer to JS')
+}
+
+const PREPARE_UNLOCKED_MARKER = 'AiMediaTankPrepareUnlockedIncoming'
+if (
+  pluginSwift &&
+  pluginSwift.includes('handleBridgedCallKitAnswer') &&
+  !pluginSwift.includes(PREPARE_UNLOCKED_MARKER)
+) {
+  pluginSwift = pluginSwift.replace(
+    `        NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedCallKitEnd(_:)), name: NSNotification.Name("AiMediaTankCallKitEnd"), object: nil)`,
+    `        NotificationCenter.default.addObserver(self, selector: #selector(handleBridgedCallKitEnd(_:)), name: NSNotification.Name("AiMediaTankCallKitEnd"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handlePrepareUnlockedIncoming(_:)), name: NSNotification.Name("AiMediaTankPrepareUnlockedIncoming"), object: nil)`,
+  )
+  pluginSwift = pluginSwift.replace(
+    `@objc private func handleBridgedCallKitEnd(_ notification: Notification) {`,
+    `@objc private func handlePrepareUnlockedIncoming(_ notification: Notification) {
+        guard let callId = notification.userInfo?["callId"] as? String else { return }
+        var data: [String: Any] = ["callId": callId]
+        if let token = notification.userInfo?["declineToken"] as? String {
+            data["declineToken"] = token
+        } else if let token = UserDefaults.standard.string(forKey: "AiMediaTank.declineToken.\\(callId.lowercased())") {
+            // ${PREPARE_UNLOCKED_MARKER}
+            data["declineToken"] = token
+        }
+        emitEvent("incomingCall", data: data)
+    }
+
+    @objc private func handleBridgedCallKitEnd(_ notification: Notification) {`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] refresh incoming on unlock before Accept/Decline')
+}
+
 console.log('[patch-voip-callkit] done')

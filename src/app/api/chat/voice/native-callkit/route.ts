@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getIceServers } from '@/lib/voiceCallConfig'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 import { verifyVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
 
@@ -49,6 +50,7 @@ export async function GET(request: Request) {
     caller: call.caller,
     offer: offerSignal ? JSON.parse(offerSignal.payload) : null,
     iceCandidates: iceSignals.map((row) => JSON.parse(row.payload)),
+    iceServers: getIceServers(),
   })
 }
 
