@@ -16,7 +16,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     weak var delegate: NativeVoiceCallEngineDelegate?
 
-    private let factory: RTCPeerConnectionFactory
+    private var factory: RTCPeerConnectionFactory?
     private var peerConnection: RTCPeerConnection?
     private var callId: String?
     private var token: String?
@@ -31,14 +31,16 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private(set) var isMediaConnected = false
 
     private override init() {
-        RTCInitializeSSL()
-        let encoderFactory = RTCDefaultVideoEncoderFactory()
-        let decoderFactory = RTCDefaultVideoDecoderFactory()
-        factory = RTCPeerConnectionFactory(
-            encoderFactory: encoderFactory,
-            decoderFactory: decoderFactory
-        )
         super.init()
+    }
+
+    /// Defer WebRTC init until answer ? avoids crashes during PushKit cold wake.
+    private func peerConnectionFactory() -> RTCPeerConnectionFactory {
+        if let factory { return factory }
+        RTCInitializeSSL()
+        let created = RTCPeerConnectionFactory()
+        factory = created
+        return created
     }
 
     var isActive: Bool {
@@ -176,14 +178,14 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             optionalConstraints: ["DtlsSrtpKeyAgreement": "true"]
         )
 
-        guard let pc = factory.peerConnection(with: config, constraints: constraints, delegate: self) else {
+        guard let pc = peerConnectionFactory().peerConnection(with: config, constraints: constraints, delegate: self) else {
             failCall(callId: callId, error: "peer connection create failed")
             return
         }
         peerConnection = pc
 
-        let audioSource = factory.audioSource(with: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil))
-        let audioTrack = factory.audioTrack(with: audioSource, trackId: "audio0")
+        let audioSource = peerConnectionFactory().audioSource(with: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil))
+        let audioTrack = peerConnectionFactory().audioTrack(with: audioSource, trackId: "audio0")
         pc.add(audioTrack, streamIds: ["stream0"])
 
         let offer = RTCSessionDescription(type: .offer, sdp: offerSdp)

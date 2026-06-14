@@ -1071,6 +1071,25 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
   }, [enabled])
 
+  // iOS: after unlock, open TalkChat when a lock-screen native call is connecting/connected.
+  useEffect(() => {
+    if (!enabled || !isNativeIosCallApp() || typeof document === 'undefined') return
+
+    const onUnlock = () => {
+      if (document.hidden) return
+      const state = callStateRef.current
+      if (state !== 'connecting' && state !== 'connected') return
+      requestOpenTalkChat()
+    }
+
+    document.addEventListener('visibilitychange', onUnlock)
+    window.addEventListener('pageshow', onUnlock)
+    return () => {
+      document.removeEventListener('visibilitychange', onUnlock)
+      window.removeEventListener('pageshow', onUnlock)
+    }
+  }, [enabled])
+
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)

@@ -27,6 +27,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Unlock → prepare incoming (step 1→2) then connect after Accept (step 3).
         AiMediaTankVoipPushBridge.shared.reconcileForegroundIncomingUi()
         AiMediaTankVoipPushBridge.shared.prepareUnlockedRingingCallsIfNeeded()
+        AiMediaTankVoipPushBridge.shared.syncLockScreenCallUiIfNeeded()
         AiMediaTankVoipPushBridge.shared.retryWebRtcConnectIfNeeded()
     }
 
@@ -34,6 +35,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         AiMediaTankVoipPushBridge.shared.refreshPushKitRegistration()
         AiMediaTankVoipPushBridge.shared.reconcileForegroundIncomingUi()
         AiMediaTankVoipPushBridge.shared.prepareUnlockedRingingCallsIfNeeded()
+        AiMediaTankVoipPushBridge.shared.syncLockScreenCallUiIfNeeded()
         AiMediaTankVoipPushBridge.shared.retryWebRtcConnectIfNeeded()
         NativeVoiceCallEngine.shared.syncUiIfConnected()
     }
