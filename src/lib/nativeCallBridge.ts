@@ -11,6 +11,8 @@ export interface NativeIncomingCallPayload {
   handleType?: string
   video?: boolean
   declineToken?: string
+  /** CallKit already showing Accept/Decline — do not show in-app incoming overlay. */
+  callKitOnly?: boolean
   metadata?: {
     callerId?: string
     callerUsername?: string

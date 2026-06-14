@@ -849,6 +849,10 @@ if (pluginSwift && !pluginSwift.includes(BRIDGE_V1)) {
             notificationData["metadata"] = metadata
         }
 
+        if alreadyReported || (payloadDict["callKitOnly"] as? Bool) == true {
+            notificationData["callKitOnly"] = true
+        }
+
         emitEvent("incomingCall", data: notificationData)
     }
 }`,
@@ -1806,6 +1810,7 @@ if (
             // ${PREPARE_UNLOCKED_MARKER}
             data["declineToken"] = token
         }
+        data["callKitOnly"] = true
         emitEvent("incomingCall", data: data)
     }
 
@@ -1813,6 +1818,55 @@ if (
   )
   fs.writeFileSync(pluginSwiftPath, pluginSwift)
   console.log('[patch-voip-callkit] refresh incoming on unlock before Accept/Decline')
+}
+
+const CALLKIT_ONLY_MARKER = 'callKitOnly on bridge-reported incoming'
+if (
+  pluginSwift &&
+  pluginSwift.includes('let alreadyReported =') &&
+  !pluginSwift.includes(CALLKIT_ONLY_MARKER)
+) {
+  pluginSwift = pluginSwift.replace(
+    `        if let metadata = payloadDict["metadata"] as? [String: Any] {
+            notificationData["metadata"] = metadata
+        }
+
+        emitEvent("incomingCall", data: notificationData)`,
+    `        if let metadata = payloadDict["metadata"] as? [String: Any] {
+            notificationData["metadata"] = metadata
+        }
+
+        if alreadyReported || (payloadDict["callKitOnly"] as? Bool) == true {
+            // ${CALLKIT_ONLY_MARKER}
+            notificationData["callKitOnly"] = true
+        }
+
+        emitEvent("incomingCall", data: notificationData)`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] tag bridge-reported incoming as CallKit-only for JS')
+}
+
+const PREPARE_UNLOCKED_CALLKIT_ONLY = 'callKitOnly on prepare unlocked incoming'
+if (
+  pluginSwift &&
+  pluginSwift.includes(PREPARE_UNLOCKED_MARKER) &&
+  !pluginSwift.includes(PREPARE_UNLOCKED_CALLKIT_ONLY)
+) {
+  pluginSwift = pluginSwift.replace(
+    `        emitEvent("incomingCall", data: data)
+    }
+
+    @objc private func handleBridgedCallKitEnd(_ notification: Notification) {`,
+    `        data["callKitOnly"] = true
+        // ${PREPARE_UNLOCKED_CALLKIT_ONLY}
+        emitEvent("incomingCall", data: data)
+    }
+
+    @objc private func handleBridgedCallKitEnd(_ notification: Notification) {`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] prepare-unlocked incoming is CallKit-only for JS')
 }
 
 console.log('[patch-voip-callkit] done')

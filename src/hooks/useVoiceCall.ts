@@ -35,6 +35,13 @@ export interface VoiceCallUser {
 
 export type VoiceCallState = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'connected' | 'ended'
 
+/** CallKit owns the ring on iOS — in-app incoming overlay (#1) must not appear. */
+function shouldSuppressIosIncomingUi(call?: NativeIncomingCallPayload): boolean {
+  if (!isNativeIosCallApp()) return false
+  if (call?.callKitOnly) return true
+  return typeof document !== 'undefined' && document.hidden
+}
+
 interface UseVoiceCallOptions {
   currentUserId: string | undefined
   enabled: boolean
@@ -770,6 +777,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           setCallId(normalizeVoiceCallId(incoming.id))
           setRemoteUser(incoming.caller)
           isCallerRef.current = false
+          if (isNativeIosCallApp() && typeof document !== 'undefined' && document.hidden) {
+            return
+          }
           setCallState('incoming')
           if (!isNativeIosCallApp()) {
             const label = incoming.caller.name || incoming.caller.username || 'AiMediaTank'
@@ -799,9 +809,17 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     else void rejectCall()
   }, [answerCall, rejectCall])
 
-  const applyIncomingCall = useCallback((callId: string, caller: VoiceCallUser) => {
+  const applyIncomingCall = useCallback((callId: string, caller: VoiceCallUser, opts?: { callKitOnly?: boolean }) => {
     const normalizedId = normalizeVoiceCallId(callId)
     if (callStateRef.current === 'connecting' || callStateRef.current === 'connected') {
+      callIdRef.current = normalizedId
+      setCallId(normalizedId)
+      setRemoteUser(caller)
+      isCallerRef.current = false
+      return
+    }
+    if (shouldSuppressIosIncomingUi({ callKitOnly: opts?.callKitOnly } as NativeIncomingCallPayload)) {
+      handledIncomingRef.current.add(`call-${normalizedId}`)
       callIdRef.current = normalizedId
       setCallId(normalizedId)
       setRemoteUser(caller)
@@ -863,13 +881,15 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       setCallId(normalizedId)
       isCallerRef.current = false
 
+      const callKitOnly = shouldSuppressIosIncomingUi(call)
+
       if (voiceCallIdsMatch(callIdRef.current, normalizedId) && callStateRef.current === 'incoming') {
         return
       }
 
       const fromMeta = call ? callerFromNative(call) : null
       if (fromMeta) {
-        applyIncomingCallRef.current(normalizedId, fromMeta)
+        applyIncomingCallRef.current(normalizedId, fromMeta, { callKitOnly })
         return
       }
 
@@ -881,13 +901,15 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         try {
           const bootstrap = await fetchNativeCallKitBootstrap(normalizedId, lockScreenToken)
           if (bootstrap?.caller) {
-            applyIncomingCallRef.current(normalizedId, bootstrap.caller)
+            applyIncomingCallRef.current(normalizedId, bootstrap.caller, { callKitOnly })
             return
           }
         } catch {
           // fall through to session poll
         }
       }
+
+      if (callKitOnly) return
 
       try {
         const res = await fetch(
@@ -922,6 +944,16 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         if (token) {
           cacheNativeDeclineToken(call.callId, token)
           nativeSignalingTokenRef.current = token
+        }
+        if (shouldSuppressIosIncomingUi(call)) {
+          const normalizedId = normalizeVoiceCallId(call.callId)
+          handledIncomingRef.current.add(`call-${normalizedId}`)
+          callIdRef.current = normalizedId
+          setCallId(normalizedId)
+          isCallerRef.current = false
+          const caller = callerFromNative(call)
+          if (caller) setRemoteUser(caller)
+          return
         }
         void ensureIncomingCall(call.callId, call)
       },

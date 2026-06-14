@@ -110,10 +110,14 @@ export function VoiceCallOverlayPanel({
   const isActiveCall = ctx.callState !== 'idle' && ctx.callState !== 'ended'
   if (placement === 'embedded' && isDesktop) return null
 
+  // iOS: CallKit owns incoming Accept/Decline (#2) — never show in-app incoming screen (#1).
+  const iosCallKitIncoming =
+    isNativeIosCallApp() && ctx.callState === 'incoming'
+
   const popupCallUi =
-    placement === 'floating' && isActiveCall && isDesktop && !ctx.callUiHidden
+    placement === 'floating' && isActiveCall && isDesktop && !ctx.callUiHidden && !iosCallKitIncoming
   const fullscreenCallUi =
-    placement === 'floating' && isActiveCall && !isDesktop && !ctx.callUiHidden
+    placement === 'floating' && isActiveCall && !isDesktop && !ctx.callUiHidden && !iosCallKitIncoming
   const minimizedCallUi = placement === 'floating' && isActiveCall && ctx.callUiHidden
   const showCallControls = popupCallUi || fullscreenCallUi
   const canHideCall = isActiveCall

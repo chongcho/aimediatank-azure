@@ -1074,6 +1074,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             var info = self.userInfo(from: payloadDict)
             info["reportedToCallKit"] = reportedToCallKit
             if reportedToCallKit {
+                info["callKitOnly"] = true
                 Self.noteIncomingCallReported(callIdString)
             }
             if let token = self.declineToken(from: payloadDict) {
@@ -1221,11 +1222,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         injectCallKitAnswerToWebView(callId: callId, declineToken: token, useSessionWebRtc: useJsWebRtc)
     }
 
-    /// Step 1→2: user unlocked — refresh incoming in JS before CallKit Accept/Decline.
+    /// Step 1→2: user unlocked — cache caller for CallKit ring; do not show in-app incoming UI (#1).
     func prepareUnlockedRingingCallsIfNeeded() {
         guard Self.isDeviceUnlockedForVoice() else { return }
         guard !hasPendingCallKitAnswer() else { return }
-        activateAppWindow()
 
         let observer = CXCallObserver()
         let ringing = observer.calls.filter { !$0.hasEnded && !$0.isOutgoing && !$0.hasConnected }
@@ -1233,11 +1233,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
         for call in ringing {
             let callId = call.uuid.uuidString.lowercased()
-            var userInfo: [String: Any] = ["callId": callId]
+            var userInfo: [String: Any] = ["callId": callId, "callKitOnly": true]
             if let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId)) {
                 userInfo["declineToken"] = token
             }
-            print("[AiMediaTankVoipPushBridge] prepare unlocked incoming \(callId)")
+            print("[AiMediaTankVoipPushBridge] prepare unlocked incoming (CallKit only) \(callId)")
             NotificationCenter.default.post(
                 name: Self.prepareUnlockedIncomingNotification,
                 object: nil,
