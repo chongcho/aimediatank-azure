@@ -200,7 +200,7 @@ async function sendVoipDataPushToUser(
     console.warn(`[VoIP] ${logLabel}: failed for all ${tokens.length} device(s)`)
   }
 
-  const staleTokens = [...new Set([...result.staleTokens, ...result.badDeviceTokens])]
+  const staleTokens = Array.from(new Set([...result.staleTokens, ...result.badDeviceTokens]))
   if (staleTokens.length > 0) {
     await prisma.voipPushToken.deleteMany({
       where: { token: { in: staleTokens } },
