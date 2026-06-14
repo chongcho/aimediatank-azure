@@ -9,6 +9,10 @@ concurrency:
   group: deploy-production
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  actions: write
+
 env:
   AZURE_WEBAPP_NAME: aimediatank-azure
   NODE_VERSION: '24.x'
@@ -136,3 +140,11 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./deploy
+
+      - name: Trigger Android Internal Testing
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Triggering Android Internal Testing for ${{ github.sha }}"
+          gh workflow run "Android Internal Testing" --ref "${{ github.sha }}"
