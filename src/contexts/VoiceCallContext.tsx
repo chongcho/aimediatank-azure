@@ -46,7 +46,9 @@ interface VoiceCallContextValue {
   rejectCall: () => Promise<void>
   endCall: () => Promise<void>
   toggleMute: () => void
+  toggleSpeaker: () => void
   isMuted: boolean
+  isSpeakerOn: boolean
   lastError: string | null
   clearLastError: () => void
   remoteAudioRef: MutableRefObject<HTMLAudioElement | null>
@@ -126,6 +128,7 @@ export function VoiceCallOverlayPanel({
       callState={ctx.callState}
       remoteUser={ctx.remoteUser}
       isMuted={ctx.isMuted}
+      isSpeakerOn={ctx.isSpeakerOn}
       labels={labels}
       inAppHint={showCallControls ? undefined : labels.inAppHint}
       onHide={canHideCall ? ctx.hideCallUi : undefined}
@@ -141,6 +144,8 @@ export function VoiceCallOverlayPanel({
       onReject={() => void ctx.rejectCall()}
       onEnd={() => void ctx.endCall()}
       onToggleMute={ctx.toggleMute}
+      onToggleSpeaker={ctx.toggleSpeaker}
+      speakerEnabled={nativeVoiceCall}
     />
   )
 }
@@ -274,7 +279,9 @@ export function VoiceCallProvider({
         rejectCall: voiceCall.rejectCall,
         endCall: voiceCall.endCall,
         toggleMute: voiceCall.toggleMute,
+        toggleSpeaker: voiceCall.toggleSpeaker,
         isMuted: voiceCall.isMuted,
+        isSpeakerOn: voiceCall.isSpeakerOn,
         lastError: voiceCall.lastError,
         clearLastError: voiceCall.clearLastError,
         remoteAudioRef: voiceCall.remoteAudioRef,

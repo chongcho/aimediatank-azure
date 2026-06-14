@@ -19,6 +19,7 @@ import {
   markNativeCallConnected,
   cacheNativeDeclineToken,
   reportIncomingCallToNativeUi,
+  setNativeAudioRoute,
   type NativeIncomingCallPayload,
 } from '@/lib/nativeCallBridge'
 import { normalizeVoiceCallId, voiceCallIdsMatch } from '@/lib/voiceCallId'
@@ -107,6 +108,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const [remoteUser, setRemoteUser] = useState<VoiceCallUser | null>(null)
   const [callId, setCallId] = useState<string | null>(null)
   const [isMuted, setIsMuted] = useState(false)
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
 
   const pcRef = useRef<RTCPeerConnection | null>(null)
@@ -168,6 +170,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     setCallId(null)
     setRemoteUser(null)
     setIsMuted(false)
+    setIsSpeakerOn(false)
     setCallState('idle')
   }, [closePeerConnection, stopLocalStream])
 
@@ -514,6 +517,19 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     })
     setIsMuted(next)
   }, [isMuted])
+
+  const toggleSpeaker = useCallback(() => {
+    if (!isNativeVoiceCallApp()) return
+    const next = !isSpeakerOn
+    void setNativeAudioRoute(next ? 'speaker' : 'earpiece').then((ok) => {
+      if (ok) setIsSpeakerOn(next)
+    })
+  }, [isSpeakerOn])
+
+  useEffect(() => {
+    if (callState !== 'connected' || !isNativeIosCallApp()) return
+    setIsSpeakerOn(true)
+  }, [callState])
 
   const processPoll = useCallback(
     async (data: {
@@ -920,6 +936,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     remoteUser,
     callId,
     isMuted,
+    isSpeakerOn,
     remoteAudioRef,
     reattachRemoteAudio,
     startCall,
@@ -927,6 +944,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     rejectCall,
     endCall,
     toggleMute,
+    toggleSpeaker,
     lastError,
     clearLastError,
   }

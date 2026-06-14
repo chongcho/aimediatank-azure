@@ -14,6 +14,7 @@ interface VoiceCallOverlayProps {
   callState: VoiceCallState
   remoteUser: VoiceCallUser | null
   isMuted: boolean
+  isSpeakerOn: boolean
   labels: {
     appAudio: string
     incomingCall: string
@@ -37,6 +38,8 @@ interface VoiceCallOverlayProps {
   onReject: () => void
   onEnd: () => void
   onToggleMute: () => void
+  onToggleSpeaker: () => void
+  speakerEnabled?: boolean
   onHide?: () => void
   onRestoreCallUi?: () => void
   /** floating = fixed on viewport; embedded = inside TalkChat panel */
@@ -684,18 +687,24 @@ function ActiveCallScreen({
   callState,
   remoteUser,
   isMuted,
+  isSpeakerOn,
   labels,
   onEnd,
   onToggleMute,
+  onToggleSpeaker,
+  speakerEnabled = false,
   onHide,
   mode = 'fullscreen',
 }: {
   callState: VoiceCallState
   remoteUser: VoiceCallUser | null
   isMuted: boolean
+  isSpeakerOn: boolean
   labels: VoiceCallOverlayProps['labels']
   onEnd: () => void
   onToggleMute: () => void
+  onToggleSpeaker: () => void
+  speakerEnabled?: boolean
   onHide?: () => void
   mode?: CallUiMode
 }) {
@@ -775,11 +784,12 @@ function ActiveCallScreen({
       >
         <RoundCallButton
           label={labels.speaker}
-          background="rgba(255,255,255,0.18)"
-          disabled
+          onClick={onToggleSpeaker}
+          background={isSpeakerOn ? '#2563eb' : 'rgba(255,255,255,0.18)'}
+          disabled={!speakerEnabled}
           compact={compact}
         >
-          <IconSpeaker />
+          <IconSpeaker muted={!isSpeakerOn} />
         </RoundCallButton>
         <RoundCallButton
           label={labels.video}
@@ -1026,11 +1036,14 @@ export function VoiceCallOverlay({
   callState,
   remoteUser,
   isMuted,
+  isSpeakerOn,
   labels,
   onAccept,
   onReject,
   onEnd,
   onToggleMute,
+  onToggleSpeaker,
+  speakerEnabled = false,
   onHide,
   onRestoreCallUi,
   placement = 'floating',
@@ -1084,9 +1097,12 @@ export function VoiceCallOverlay({
         callState={callState}
         remoteUser={remoteUser}
         isMuted={isMuted}
+        isSpeakerOn={isSpeakerOn}
         labels={labels}
         onEnd={onEnd}
         onToggleMute={onToggleMute}
+        onToggleSpeaker={onToggleSpeaker}
+        speakerEnabled={speakerEnabled}
         onHide={onHide}
         mode={callMode}
       />

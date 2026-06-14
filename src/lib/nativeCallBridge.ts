@@ -357,3 +357,18 @@ export async function endNativeCall(callId: string | null | undefined): Promise<
     // ignore when native UI already dismissed the call
   }
 }
+
+export type NativeAudioRoute = 'speaker' | 'earpiece'
+
+/** Route call audio to the loudspeaker or earpiece (iOS CallKit / Android ConnectionService). */
+export async function setNativeAudioRoute(route: NativeAudioRoute): Promise<boolean> {
+  if (!isNativeVoiceCallApp()) return false
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    await CapacitorPushCalls.setAudioRoute({ route })
+    return true
+  } catch (error) {
+    console.error('[NativeCall] setAudioRoute failed:', error)
+    return false
+  }
+}
