@@ -40,4 +40,17 @@ jobs:
           git checkout main
           git merge --no-edit origin/staging
           git push origin main
+          echo "SYNCED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "Synced main to $(git rev-parse --short HEAD)"
+
+      # GITHUB_TOKEN pushes do not fire `on: push` workflows (GitHub loop guard).
+      # Trigger production only after main contains the staging tip — avoids deploying
+      # an older manual workflow_dispatch SHA while sync is still in flight.
+      - name: Trigger production deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "Triggering Deploy to Azure Production for main @ ${SYNCED_SHA:0:7}"
+          gh workflow run "Deploy to Azure Production" --ref main
 
