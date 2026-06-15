@@ -25,7 +25,7 @@ export async function registerVoipPushTokenForUser(params: {
   token: string
   platform: VoipPushPlatform
   userAgent?: string | null
-}): Promise<{ changed: boolean; token: string }> {
+}): Promise<{ changed: boolean; token: string; seen?: boolean }> {
   const token = normalizeVoipPushToken(params.token, params.platform)
   const { userId, platform } = params
 
@@ -34,7 +34,14 @@ export async function registerVoipPushTokenForUser(params: {
     select: { id: true },
   })
   if (unchanged) {
-    return { changed: false, token }
+    const isNativeHeartbeat = Boolean(params.userAgent?.includes('native'))
+    if (isNativeHeartbeat) {
+      await prisma.voipPushToken.updateMany({
+        where: { userId, platform, token },
+        data: { updatedAt: new Date(), userAgent: params.userAgent ?? null },
+      })
+    }
+    return { changed: false, token, seen: isNativeHeartbeat }
   }
 
   await prisma.$transaction([

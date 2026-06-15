@@ -137,5 +137,52 @@ export async function getVoipCallTrace(callId: string) {
     cancelReceivedViaStatusPoll: deviceAcks.some((a) => a.source === 'status_poll'),
     voipPushReceivedOnDevice: nativeIos.some((e) => e.event === 'voip_push_received'),
     callkitReportedOnDevice: nativeIos.some((e) => e.event === 'callkit_report_ok'),
+    callkitAnsweredOnDevice: nativeIos.some((e) => e.event === 'callkit_answer'),
   }
+}
+
+export async function formatCalleeIosTokenSummary(userId: string): Promise<string> {
+  const tokens = await prisma.voipPushToken.findMany({
+    where: { userId, platform: 'ios' },
+    orderBy: { updatedAt: 'desc' },
+    select: { token: true, updatedAt: true },
+  })
+  if (tokens.length === 0) return 'none'
+  return tokens
+    .map((row) => {
+      const ageHours = Math.round((Date.now() - row.updatedAt.getTime()) / 3_600_000)
+      return `${row.token.slice(0, 8)}:${ageHours}h`
+    })
+    .join(',')
+}
+
+/** Grep-friendly single-line P3-P6 summary for Azure log diagnosis. */
+export async function logVoipPipelineSummary(callId: string, reason: string): Promise<void> {
+  const normalized = normalizeVoiceCallId(callId)
+  if (!normalized) return
+
+  const call = await prisma.voiceCall.findUnique({
+    where: { id: normalized },
+    select: { calleeId: true, status: true },
+  })
+  if (!call) return
+
+  const trace = await getVoipCallTrace(normalized)
+  const tokenSummary = await formatCalleeIosTokenSummary(call.calleeId)
+  const events =
+    trace?.nativeIos.map((e) => (typeof e.event === 'string' ? e.event : 'unknown')).join(',') || 'none'
+
+  const p3 = 'sent'
+  const p4 = trace?.voipPushReceivedOnDevice ? 'ok' : 'fail'
+  const p5 = trace?.callkitReportedOnDevice
+    ? 'ok'
+    : trace?.voipPushReceivedOnDevice
+      ? 'fail'
+      : 'skip'
+  const p6 = trace?.callkitAnsweredOnDevice ? 'ok' : 'skip'
+  const cancelAck = trace?.cancelReceivedOnDevice ? 'yes' : 'no'
+
+  console.info(
+    `[VoIP] pipeline call=${normalized} reason=${reason} status=${call.status} P3=${p3} P4=${p4} P5=${p5} P6=${p6} token=${tokenSummary} cancelAck=${cancelAck} events=${events}`,
+  )
 }

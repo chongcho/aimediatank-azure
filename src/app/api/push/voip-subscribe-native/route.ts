@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
 
-  const { changed } = await registerVoipPushTokenForUser({
+  const { changed, seen } = await registerVoipPushTokenForUser({
     userId,
     token,
     platform,
@@ -51,7 +51,11 @@ export async function POST(request: Request) {
 
   if (changed) {
     console.info(
-      `[NativePush] native ${platform} token registered for user ${userId} prefix=${token.slice(0, 8)}…`,
+      `[NativePush] native ${platform} token registered for user ${userId} prefix=${token.slice(0, 8)}`,
+    )
+  } else if (seen) {
+    console.info(
+      `[NativePush] native ${platform} token unchanged for user ${userId} prefix=${token.slice(0, 8)} (device seen)`,
     )
   }
 

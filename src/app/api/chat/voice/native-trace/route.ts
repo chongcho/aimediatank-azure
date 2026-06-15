@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { recordNativeIosTrace } from '@/lib/voipCallTrace'
+import { recordNativeIosTrace, logVoipPipelineSummary } from '@/lib/voipCallTrace'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 import { verifyVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
 
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
 
     await recordNativeIosTrace({ callId, event, source, detail })
     console.info(`[VoIP] native trace ${event} call=${callId} source=${source}`)
+    void logVoipPipelineSummary(callId, `native_trace_${event}`)
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('native-trace error:', error)

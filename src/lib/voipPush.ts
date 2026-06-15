@@ -181,7 +181,7 @@ async function sendVoipDataPushToUser(
   const tokenSummary = tokens
     .map((row) => {
       const ageHours = Math.round((Date.now() - row.updatedAt.getTime()) / 3_600_000)
-      return `${row.token.slice(0, 8)}…${ageHours}h`
+      return `${row.token.slice(0, 8)}:${ageHours}h`
     })
     .join(', ')
   const oldestAgeMs = Date.now() - tokens[tokens.length - 1]!.updatedAt.getTime()

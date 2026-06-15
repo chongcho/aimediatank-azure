@@ -9,7 +9,7 @@ import {
 import { sendNativeCallCancelPushBurstToUser, sendNativeCallPushToUser } from '@/lib/nativeCallPush'
 import { calleeHasAndroidNativeCallToken, calleeHasIosNativeCallToken } from '@/lib/nativePushRouting'
 import { plannedVoipCancelPushAttempts } from '@/lib/voipPush'
-import { recordVoipCancelBurst } from '@/lib/voipCallTrace'
+import { recordVoipCancelBurst, formatCalleeIosTokenSummary, logVoipPipelineSummary } from '@/lib/voipCallTrace'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 
 export const dynamic = 'force-dynamic'
@@ -58,10 +58,19 @@ async function expireStaleVoiceCalls() {
   const ringingCutoff = new Date(now.getTime() - 60_000)
   const activeCutoff = new Date(now.getTime() - 4 * 60 * 60 * 1000)
 
+  const expiredRinging = await prisma.voiceCall.findMany({
+    where: { status: 'ringing', createdAt: { lt: ringingCutoff } },
+    select: { id: true },
+  })
+
   await prisma.voiceCall.updateMany({
     where: { status: 'ringing', createdAt: { lt: ringingCutoff } },
     data: { status: 'missed', endedAt: now },
   })
+  for (const call of expiredRinging) {
+    void logVoipPipelineSummary(call.id, 'auto_expire_60s')
+  }
+
   await prisma.voiceCall.updateMany({
     where: { status: 'active', createdAt: { lt: activeCutoff } },
     data: { status: 'ended', endedAt: now },
@@ -287,12 +296,17 @@ export async function POST(request: Request) {
 
       const nativePushTask = (async () => {
         const hasIosToken = await calleeHasIosNativeCallToken(calleeId)
+        const tokenSummary = await formatCalleeIosTokenSummary(calleeId)
         if (!hasIosToken) {
           console.warn(
             `[VoIP] callee ${calleeId} has no iOS PushKit token — lock-screen CallKit requires TestFlight app sign-in`,
           )
+        } else {
+          console.info(`[VoIP] call=${call.id} initiate callee=${calleeId} token=${tokenSummary}`)
         }
         await sendNativeCallPushToUser(calleeId, nativePushPayload, userId)
+        await sleep(4000)
+        await logVoipPipelineSummary(call.id, 'after_incoming_burst')
       })()
 
       try {
@@ -446,6 +460,7 @@ export async function POST(request: Request) {
             toUserId: peerId,
             plannedAttempts: plannedVoipCancelPushAttempts(),
           })
+          await logVoipPipelineSummary(call.id, 'caller_end_ring')
         } catch (err) {
           console.error('VoIP cancel push failed:', err)
         }

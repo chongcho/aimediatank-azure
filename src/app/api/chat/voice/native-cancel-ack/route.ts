@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { recordNativeCancelAck } from '@/lib/voipCallTrace'
+import { recordNativeCancelAck, logVoipPipelineSummary } from '@/lib/voipCallTrace'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 import { verifyVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
 
@@ -38,6 +38,7 @@ export async function POST(request: Request) {
 
   console.info('[VoIP] iPhone cancel ack', { callId, source, hasDeclineToken })
   await recordNativeCancelAck({ callId, source, hasDeclineToken })
+  void logVoipPipelineSummary(callId, `cancel_ack_${source}`)
 
   return NextResponse.json({ ok: true })
 }
