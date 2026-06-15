@@ -139,7 +139,11 @@ export async function GET(request: Request) {
       take: 50,
     })
 
-    const consumableIds = signals.filter((s) => s.type !== 'offer').map((s) => s.id)
+    // Offer + ICE stay unconsumed on poll so iOS native CallKit bootstrap can read caller ICE
+    // (WKWebView poll must not delete rows before NativeVoiceCallEngine fetches them).
+    const consumableIds = signals
+      .filter((s) => s.type !== 'offer' && s.type !== 'ice')
+      .map((s) => s.id)
     if (consumableIds.length > 0) {
       await prisma.voiceCallSignal.updateMany({
         where: { id: { in: consumableIds } },

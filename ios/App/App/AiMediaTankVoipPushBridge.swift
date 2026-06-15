@@ -58,17 +58,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         UserDefaults.standard.bool(forKey: lockScreenNativeAnswerKey(for: callId))
     }
 
-    /// Drop burst incoming VoIP pushes after the user already answered (prevents grace_stale_retry + report_fail during connect).
+    /// Drop burst incoming VoIP pushes after the user already answered (not while CallKit is merely ringing).
     private func isIncomingCallAlreadyHandled(callId: String) -> Bool {
         let normalized = callId.lowercased()
-        if UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased() == normalized {
+        if NativeVoiceCallEngine.shared.activeCallId?.lowercased() == normalized,
+           NativeVoiceCallEngine.shared.isActive {
             return true
         }
-        if NativeVoiceCallEngine.shared.activeCallId?.lowercased() == normalized {
-            return true
+        guard UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased() == normalized else {
+            return false
         }
-        guard let uuid = UUID(uuidString: normalized) else { return false }
-        return CXCallObserver().calls.contains { $0.uuid == uuid && ($0.hasConnected || !$0.hasEnded) }
+        return true
     }
 
     private var pushRegistry: PKPushRegistry?

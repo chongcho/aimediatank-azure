@@ -191,8 +191,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   /** One in-flight lock-screen answer handler per call (native retries must not spawn duplicates). */
   const callKitAnswerInFlightRef = useRef<string | null>(null)
   const appliedNativeIceRef = useRef<Set<string>>(new Set())
+  const appliedRemoteIceRef = useRef<Set<string>>(new Set())
   /** True while answering via lock-screen CallKit — routes ICE/answer through native-callkit API. */
   const callKitSignalingRef = useRef(false)
+  /** iOS callee accepted via Swift NativeVoiceCallEngine — JS poll must not consume caller ICE. */
+  const nativeWebRtcCalleeRef = useRef(false)
 
   const reportError = useCallback(
     (message: string) => {
@@ -250,7 +253,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     pendingVoiceActionRef.current = null
     nativeSignalingTokenRef.current = null
     appliedNativeIceRef.current.clear()
+    appliedRemoteIceRef.current.clear()
     callKitSignalingRef.current = false
+    nativeWebRtcCalleeRef.current = false
     setCallId(null)
     setRemoteUser(null)
     setIsMuted(false)
@@ -463,6 +468,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     const pc = pcRef.current
     const candidate = normalizeIceCandidate(payload.candidate ?? payload)
     if (!candidate) return
+    const candidateKey = JSON.stringify(candidate)
+    if (appliedRemoteIceRef.current.has(candidateKey)) return
+    appliedRemoteIceRef.current.add(candidateKey)
     if (!pc || !remoteDescriptionSetRef.current) {
       queueRemoteIceCandidate(candidate)
       return
@@ -744,6 +752,15 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
         if (!voiceCallIdsMatch(signal.callId, callIdRef.current)) continue
 
+        if (
+          isNativeIosCallApp() &&
+          nativeWebRtcCalleeRef.current &&
+          !isCallerRef.current &&
+          (signal.type === 'ice' || signal.type === 'answer')
+        ) {
+          continue
+        }
+
         if (signal.type === 'answer') {
           await handleRemoteAnswer(signal.payload)
         } else if (signal.type === 'ice') {
@@ -993,6 +1010,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
         // Lock-screen Accept: Swift NativeVoiceCallEngine owns WebRTC — JS must not start WKWebView RTCPeerConnection.
         if (isNativeIosCallApp() && nativeWebRtc && !useSessionWebRtc) {
+          nativeWebRtcCalleeRef.current = true
           callIdRef.current = normalizedId
           setCallId(normalizedId)
           isCallerRef.current = false
@@ -1052,6 +1070,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         const normalizedId = normalizeVoiceCallId(payload.callId)
         callKitAnswerInFlightRef.current = null
         callKitSignalingRef.current = false
+        nativeWebRtcCalleeRef.current = false
         answeringRef.current = false
         callIdRef.current = normalizedId
         setCallId(normalizedId)
@@ -1074,6 +1093,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         stopVoiceCallRingtone()
         callKitAnswerInFlightRef.current = null
         callKitSignalingRef.current = false
+        nativeWebRtcCalleeRef.current = false
         const normalizedId = normalizeVoiceCallId(callId)
         void (async () => {
           const state = callStateRef.current

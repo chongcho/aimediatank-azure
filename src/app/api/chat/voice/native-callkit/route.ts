@@ -45,12 +45,20 @@ export async function GET(request: Request) {
     take: 50,
   })
 
+  const iceCandidates = iceSignals.map((row) => JSON.parse(row.payload))
+  const iceServers = getIceServers()
+  if (iceCandidates.length > 0) {
+    console.info(
+      `[VoIP] native-callkit bootstrap call=${callId} ice=${iceCandidates.length} turn=${iceServers.some((s) => String(s.urls ?? '').includes('turn:'))}`,
+    )
+  }
+
   return NextResponse.json({
     status: call.status,
     caller: call.caller,
     offer: offerSignal ? JSON.parse(offerSignal.payload) : null,
-    iceCandidates: iceSignals.map((row) => JSON.parse(row.payload)),
-    iceServers: getIceServers(),
+    iceCandidates,
+    iceServers,
   })
 }
 
