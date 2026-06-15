@@ -123,6 +123,10 @@ export async function POST(request: Request) {
       },
     })
 
+    if (type === 'answer' || type === 'ice') {
+      console.info(`[VoIP] native-callkit signal call=${callId} type=${type} to=caller`)
+    }
+
     if (type === 'answer') {
       await prisma.voiceCallSignal.updateMany({
         where: { callId, type: 'offer', consumedAt: null },

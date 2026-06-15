@@ -82,6 +82,9 @@ jobs:
           # NEXT_PUBLIC_* must be set at build time (inlined into client bundle).
           NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY: ${{ secrets.KAKAO_JAVASCRIPT_KEY }}
           NEXT_PUBLIC_BUILD_ID: ${{ github.sha }}
+          NEXT_PUBLIC_WEBRTC_TURN_URL: ${{ secrets.WEBRTC_TURN_URL }}
+          NEXT_PUBLIC_WEBRTC_TURN_USERNAME: ${{ secrets.WEBRTC_TURN_USERNAME }}
+          NEXT_PUBLIC_WEBRTC_TURN_CREDENTIAL: ${{ secrets.WEBRTC_TURN_CREDENTIAL }}
 
       - name: Copy standalone files
         run: |

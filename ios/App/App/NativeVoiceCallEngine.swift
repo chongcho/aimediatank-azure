@@ -216,7 +216,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                         callId: callId,
                         token: token,
                         type: "answer",
-                        payload: ["sdp": ["type": answer.type.rawValue, "sdp": answer.sdp]]
+                        payload: ["sdp": ["type": Self.sdpTypeString(answer.type), "sdp": answer.sdp]]
                     )
                     self.postTrace(callId: callId, token: token, event: "native_webrtc_answer_sent")
                 }
@@ -461,6 +461,16 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         URLSession.shared.dataTask(with: request).resume()
+    }
+
+    private static func sdpTypeString(_ type: RTCSdpType) -> String {
+        switch type {
+        case .offer: return "offer"
+        case .prAnswer: return "pranswer"
+        case .answer: return "answer"
+        case .rollback: return "rollback"
+        @unknown default: return "answer"
+        }
     }
 
     private static func extractSdp(from value: Any?) -> String? {

@@ -9,9 +9,12 @@ export function getIceServers(): RTCIceServer[] {
     servers.push({ urls: url })
   }
 
-  const turnUrl = process.env.NEXT_PUBLIC_WEBRTC_TURN_URL
-  const turnUser = process.env.NEXT_PUBLIC_WEBRTC_TURN_USERNAME
-  const turnPass = process.env.NEXT_PUBLIC_WEBRTC_TURN_CREDENTIAL
+  const turnUrl =
+    process.env.NEXT_PUBLIC_WEBRTC_TURN_URL || process.env.WEBRTC_TURN_URL
+  const turnUser =
+    process.env.NEXT_PUBLIC_WEBRTC_TURN_USERNAME || process.env.WEBRTC_TURN_USERNAME
+  const turnPass =
+    process.env.NEXT_PUBLIC_WEBRTC_TURN_CREDENTIAL || process.env.WEBRTC_TURN_CREDENTIAL
   if (turnUrl && turnUser && turnPass) {
     servers.push({
       urls: turnUrl,

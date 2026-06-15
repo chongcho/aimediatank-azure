@@ -106,11 +106,23 @@ function normalizeIceCandidate(input: unknown): RTCIceCandidateInit | null {
   return null
 }
 
+function sdpTypeFromUnknown(value: unknown): RTCSdpType | null {
+  if (value === 'offer' || value === 'answer' || value === 'pranswer' || value === 'rollback') {
+    return value
+  }
+  if (value === 0 || value === '0') return 'offer'
+  if (value === 1 || value === '1') return 'pranswer'
+  if (value === 2 || value === '2') return 'answer'
+  if (value === 3 || value === '3') return 'rollback'
+  return null
+}
+
 function normalizeRemoteSdp(input: unknown): RTCSessionDescriptionInit | null {
   if (!input || typeof input !== 'object') return null
   const obj = input as Record<string, unknown>
-  if (typeof obj.sdp === 'string' && typeof obj.type === 'string') {
-    return { type: obj.type as RTCSdpType, sdp: obj.sdp }
+  if (typeof obj.sdp === 'string') {
+    const type = sdpTypeFromUnknown(obj.type)
+    if (type) return { type, sdp: obj.sdp }
   }
   if (obj.sdp && typeof obj.sdp === 'object') {
     return normalizeRemoteSdp(obj.sdp)
