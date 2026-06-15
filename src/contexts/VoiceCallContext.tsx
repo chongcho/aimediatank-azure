@@ -193,7 +193,7 @@ export function VoiceCallProvider({
   useEffect(() => {
     if (!session?.user?.id) return
     if (isNativeCallApp()) {
-      void subscribeNativePushIfNeeded()
+      void subscribeNativePushIfNeeded(session?.user?.id)
       return
     }
     void registerVoiceCallPush()
@@ -205,7 +205,7 @@ export function VoiceCallProvider({
     if (!session?.user?.id || !isNativeIosCallApp()) return
     const onForeground = () => {
       if (typeof document !== 'undefined' && document.hidden) return
-      void subscribeNativePushIfNeeded()
+      void subscribeNativePushIfNeeded(session?.user?.id)
     }
     document.addEventListener('visibilitychange', onForeground)
     window.addEventListener('focus', onForeground)

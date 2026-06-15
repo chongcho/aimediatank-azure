@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { createNativePushRegisterKey } from '@/lib/voipPushNativeRegisterKey'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,7 +80,13 @@ export async function POST(request: Request) {
 
   console.info(`[NativePush] ${platform} token registered for user`, session.user.id)
 
-  return NextResponse.json({ ok: true })
+  const nativeRegisterKey =
+    platform === 'ios' ? createNativePushRegisterKey(session.user.id) : null
+
+  return NextResponse.json({
+    ok: true,
+    ...(nativeRegisterKey ? { nativeRegisterKey } : {}),
+  })
 }
 
 export async function DELETE() {

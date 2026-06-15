@@ -38,6 +38,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         AiMediaTankVoipPushBridge.shared.syncLockScreenCallUiIfNeeded()
         AiMediaTankVoipPushBridge.shared.retryWebRtcConnectIfNeeded()
         NativeVoiceCallEngine.shared.syncUiIfConnected()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+            AiMediaTankVoipPushBridge.shared.recoverStaleCallStateWhenIdle()
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

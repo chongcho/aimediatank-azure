@@ -29,7 +29,11 @@ export default function NativeVoipBootstrap() {
       return
     }
 
-    const sync = () => void subscribeNativePushIfNeeded()
+    const sync = () => {
+      if (session?.user?.id) {
+        void subscribeNativePushIfNeeded(session.user.id)
+      }
+    }
     sync()
     retryRef.current = setInterval(sync, 20000)
 

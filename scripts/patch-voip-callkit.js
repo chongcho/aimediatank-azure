@@ -1888,3 +1888,52 @@ if (
 }
 
 console.log('[patch-voip-callkit] done')
+
+const STORE_NATIVE_PUSH_CREDS = 'storeNativePushCredentials for native PushKit sync'
+if (pluginSwift && !pluginSwift.includes(STORE_NATIVE_PUSH_CREDS)) {
+  if (!pluginSwift.includes('CAPPluginMethod(name: "storeNativePushCredentials"')) {
+    pluginSwift = pluginSwift.replace(
+      'CAPPluginMethod(name: "updateCallStatus", returnType: CAPPluginReturnPromise),',
+      `CAPPluginMethod(name: "storeNativePushCredentials", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "updateCallStatus", returnType: CAPPluginReturnPromise),`,
+    )
+  }
+
+  if (!pluginSwift.includes('@objc func storeNativePushCredentials')) {
+    pluginSwift = pluginSwift.replace(
+      '    @objc func updateCallStatus(_ call: CAPPluginCall) {',
+      `    @objc func storeNativePushCredentials(_ call: CAPPluginCall) {
+        guard let userId = call.getString("userId"),
+              let registerKey = call.getString("registerKey"),
+              !userId.isEmpty, !registerKey.isEmpty else {
+            call.reject("Missing userId or registerKey")
+            return
+        }
+        // ${STORE_NATIVE_PUSH_CREDS}
+        NotificationCenter.default.post(
+            name: NSNotification.Name("AiMediaTankStoreNativePushCredentials"),
+            object: nil,
+            userInfo: ["userId": userId, "registerKey": registerKey]
+        )
+        call.resolve()
+    }
+
+    @objc func updateCallStatus(_ call: CAPPluginCall) {`,
+    )
+  }
+
+  const pluginM = path.join(pluginDir, 'Plugin.m')
+  if (fs.existsSync(pluginM) && !fs.readFileSync(pluginM, 'utf8').includes('storeNativePushCredentials')) {
+    let pluginMContent = fs.readFileSync(pluginM, 'utf8')
+    pluginMContent = pluginMContent.replace(
+      'CAP_PLUGIN_METHOD(updateCallStatus, CAPPluginReturnPromise);',
+      `CAP_PLUGIN_METHOD(storeNativePushCredentials, CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(updateCallStatus, CAPPluginReturnPromise);`,
+    )
+    fs.writeFileSync(pluginM, pluginMContent)
+    console.log('[patch-voip-callkit] register storeNativePushCredentials in Plugin.m')
+  }
+
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] add storeNativePushCredentials for native PushKit token sync')
+}

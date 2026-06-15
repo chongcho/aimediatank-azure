@@ -21,6 +21,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     static let prepareUnlockedIncomingNotification = Notification.Name("AiMediaTankPrepareUnlockedIncoming")
 
     private static let voipTokenHexKey = "AiMediaTank.voipPushTokenHex"
+    private static let nativePushUserIdKey = "AiMediaTank.nativePushUserId"
+    private static let nativePushRegisterKeyKey = "AiMediaTank.nativePushRegisterKey"
+    static let storeNativePushCredentialsNotification = Notification.Name("AiMediaTankStoreNativePushCredentials")
     private static let ringingCallIdsKey = "AiMediaTank.ringingCallIds"
     private static let cancelledCallIdsKey = "AiMediaTank.cancelledCallIds"
     private static let pendingAnswerCallIdKey = "AiMediaTank.pendingCallKitAnswerCallId"
@@ -330,13 +333,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     }
 
     func ensureStarted() {
-        let firstPushKitStart = pushRegistry == nil
-        if firstPushKitStart {
-            recoverFromStaleCallState()
-        }
-
         guard pushRegistry == nil else {
             replayCachedVoipTokenIfNeeded()
+            syncCachedVoipTokenToServerIfNeeded()
             return
         }
         let registry = PKPushRegistry(queue: DispatchQueue.main)
@@ -414,8 +413,82 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             self?.retryWebRtcConnectIfNeeded()
         }
 
+        NotificationCenter.default.addObserver(
+            forName: Self.storeNativePushCredentialsNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let userId = notification.userInfo?["userId"] as? String,
+                  let registerKey = notification.userInfo?["registerKey"] as? String,
+                  !userId.isEmpty, !registerKey.isEmpty else { return }
+            UserDefaults.standard.set(userId, forKey: Self.nativePushUserIdKey)
+            UserDefaults.standard.set(registerKey, forKey: Self.nativePushRegisterKeyKey)
+            print("[AiMediaTankVoipPushBridge] stored native push credentials for \(userId)")
+            self.syncCachedVoipTokenToServerIfNeeded()
+        }
+
         replayPendingCallKitAnswerIfNeeded()
         replayCachedVoipTokenIfNeeded()
+        syncCachedVoipTokenToServerIfNeeded()
+    }
+
+    /// Defer stale CallKit cleanup until foreground — never during VoIP cold wake before reportNewIncomingCall.
+    func recoverStaleCallStateWhenIdle() {
+        recoverFromStaleCallState()
+    }
+
+    private func syncCachedVoipTokenToServerIfNeeded() {
+        guard let tokenHex = UserDefaults.standard.string(forKey: Self.voipTokenHexKey),
+              !tokenHex.isEmpty else { return }
+        syncVoipTokenToServer(tokenHex: tokenHex)
+    }
+
+    /// Register PushKit token with server without WKWebView (uses native register key from last sign-in).
+    private func syncVoipTokenToServer(tokenHex: String) {
+        let normalized = tokenHex.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return }
+
+        if let userId = UserDefaults.standard.string(forKey: Self.nativePushUserIdKey),
+           let registerKey = UserDefaults.standard.string(forKey: Self.nativePushRegisterKeyKey),
+           !userId.isEmpty, !registerKey.isEmpty,
+           let url = URL(string: "\(voiceApiBaseURL())/api/push/voip-subscribe-native") {
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: [
+                "userId": userId,
+                "registerKey": registerKey,
+                "token": normalized,
+                "platform": "ios",
+            ])
+            URLSession.shared.dataTask(with: request) { _, response, error in
+                let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+                if code == 200 {
+                    print("[AiMediaTankVoipPushBridge] native voip token synced for \(userId)")
+                } else {
+                    print("[AiMediaTankVoipPushBridge] native voip token sync HTTP \(code) err=\(error?.localizedDescription ?? "none")")
+                }
+            }.resume()
+            return
+        }
+
+        guard let url = URL(string: "\(voiceApiBaseURL())/api/push/voip-subscribe") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "token": normalized,
+            "platform": "ios",
+        ])
+        if let cookies = HTTPCookieStorage.shared.cookies(for: url) {
+            for (key, value) in HTTPCookie.requestHeaderFields(with: cookies) {
+                request.setValue(value, forHTTPHeaderField: key)
+            }
+        }
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            print("[AiMediaTankVoipPushBridge] cookie voip token sync HTTP \(code) err=\(error?.localizedDescription ?? "none")")
+        }.resume()
     }
 
     /// Re-register VoIP after foreground or token invalidation.
@@ -990,6 +1063,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         guard type == .voIP else { return }
         let tokenHex = pushCredentials.token.map { String(format: "%02x", $0) }.joined()
         UserDefaults.standard.set(tokenHex, forKey: Self.voipTokenHexKey)
+        syncVoipTokenToServer(tokenHex: tokenHex)
         NotificationCenter.default.post(
             name: Self.voipTokenNotification,
             object: pushCredentials.token
@@ -1024,10 +1098,14 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
 
         guard let callIdString = payloadString(payloadDict, key: "callId"),
-              let callId = UUID(uuidString: callIdString),
               let handle = payloadString(payloadDict, key: "handle"),
               let displayName = payloadString(payloadDict, key: "displayName") else {
             print("[AiMediaTankVoipPushBridge] ignored VoIP push (not cancel/incoming) keys=\(payloadDict.keys.map { String(describing: $0) }.joined(separator: ","))")
+            completion()
+            return
+        }
+        guard let callId = UUID(uuidString: callIdString.lowercased()) else {
+            print("[AiMediaTankVoipPushBridge] ignored VoIP push — invalid callId UUID \(callIdString)")
             completion()
             return
         }
