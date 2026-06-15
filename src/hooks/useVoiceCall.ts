@@ -191,6 +191,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const makingOfferRef = useRef(false)
   const handledIncomingRef = useRef<Set<string>>(new Set())
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null)
+  const pendingAnswerRef = useRef<RTCSessionDescriptionInit | null>(null)
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([])
   const remoteDescriptionSetRef = useRef(false)
   const remoteStreamRef = useRef<MediaStream | null>(null)
@@ -259,6 +260,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     isCallerRef.current = false
     makingOfferRef.current = false
     pendingOfferRef.current = null
+    pendingAnswerRef.current = null
     pendingIceRef.current = []
     remoteDescriptionSetRef.current = false
     remoteStreamRef.current = null
@@ -412,6 +414,30 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
   }, [ensureLocalAudio])
 
+  const applyRemoteAnswer = useCallback(
+    async (sdp: RTCSessionDescriptionInit) => {
+      const pc = pcRef.current
+      if (!pc) {
+        pendingAnswerRef.current = sdp
+        return false
+      }
+      if (remoteDescriptionSetRef.current) return true
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp))
+        remoteDescriptionSetRef.current = true
+        pendingAnswerRef.current = null
+        await flushPendingIceCandidates(pc)
+        setCallState('connecting')
+        reattachRemoteAudio()
+        return true
+      } catch (err) {
+        console.warn('[VoiceCall] failed to apply remote answer:', err)
+        return false
+      }
+    },
+    [flushPendingIceCandidates, reattachRemoteAudio],
+  )
+
   const createAndSendOffer = useCallback(async () => {
     if (makingOfferRef.current || !callIdRef.current) return
     makingOfferRef.current = true
@@ -421,13 +447,16 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
       await sendSignal('offer', { sdp: offer })
+      if (pendingAnswerRef.current) {
+        await applyRemoteAnswer(pendingAnswerRef.current)
+      }
       if (callStateRef.current === 'outgoing' && !isNativeIosCallApp()) {
         retryVoiceCallRingtone()
       }
     } finally {
       makingOfferRef.current = false
     }
-  }, [attachLocalTracks, createPeerConnection, sendSignal])
+  }, [applyRemoteAnswer, attachLocalTracks, createPeerConnection, sendSignal])
 
   const storePendingOffer = useCallback((payload: Record<string, unknown>) => {
     const sdp = payload?.sdp as RTCSessionDescriptionInit | undefined
@@ -464,16 +493,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   const handleRemoteAnswer = useCallback(
     async (payload: Record<string, unknown>) => {
-      const pc = pcRef.current
       const sdp = normalizeRemoteSdp(payload.sdp ?? payload)
-      if (!pc || !sdp) return
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp))
-      remoteDescriptionSetRef.current = true
-      await flushPendingIceCandidates(pc)
-      setCallState('connecting')
-      reattachRemoteAudio()
+      if (!sdp) {
+        console.warn('[VoiceCall] ignored remote answer — unparsable SDP payload')
+        return
+      }
+      await applyRemoteAnswer(sdp)
     },
-    [flushPendingIceCandidates, reattachRemoteAudio],
+    [applyRemoteAnswer],
   )
 
   const handleRemoteIce = useCallback(async (payload: Record<string, unknown>) => {
@@ -533,6 +560,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     closePeerConnection()
     stopLocalStream()
     pendingOfferRef.current = null
+    pendingAnswerRef.current = null
     pendingIceRef.current = []
     remoteDescriptionSetRef.current = false
     remoteStreamRef.current = null
@@ -778,7 +806,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         } else if (signal.type === 'ice') {
           await handleRemoteIce(signal.payload)
         } else if (signal.type === 'hangup' || signal.type === 'reject') {
-          resetCall()
+          resetCall({ endNativeUi: isNativeIosCallApp() })
         }
       }
 
@@ -792,6 +820,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           localState === 'connected')
       ) {
         const ended = data.endedCalls?.some((c) => voiceCallIdsMatch(c.id, localCallId))
+        if (isNativeIosCallApp() && ended) {
+          resetCall({ endNativeUi: true })
+          return
+        }
         const stillActive =
           data.activeCall?.id &&
           voiceCallIdsMatch(data.activeCall.id, localCallId) &&

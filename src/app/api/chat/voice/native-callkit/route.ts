@@ -137,5 +137,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true })
   }
 
+  if (body.action === 'end') {
+    const finalStatus = call.status === 'ringing' ? 'rejected' : 'ended'
+    await prisma.voiceCall.update({
+      where: { id: callId },
+      data: { status: finalStatus, endedAt: new Date() },
+    })
+    await prisma.voiceCallSignal.create({
+      data: {
+        callId,
+        fromUserId: call.calleeId,
+        toUserId: call.callerId,
+        type: 'hangup',
+        payload: '{}',
+      },
+    })
+    console.info(`[VoIP] native-callkit end call=${callId} status=${finalStatus}`)
+    return NextResponse.json({ ok: true, status: finalStatus })
+  }
+
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }
