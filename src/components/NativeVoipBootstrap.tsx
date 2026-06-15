@@ -12,6 +12,7 @@ import {
 export default function NativeVoipBootstrap() {
   const { data: session } = useSession()
   const retryRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const lastSyncAtRef = useRef(0)
 
   useEffect(() => {
     if (!isNativeVoiceCallApp()) return
@@ -29,13 +30,17 @@ export default function NativeVoipBootstrap() {
       return
     }
 
+    const SYNC_MIN_GAP_MS = 60_000
+
     const sync = () => {
-      if (session?.user?.id) {
-        void subscribeNativePushIfNeeded(session.user.id)
-      }
+      const now = Date.now()
+      if (now - lastSyncAtRef.current < SYNC_MIN_GAP_MS) return
+      lastSyncAtRef.current = now
+      void subscribeNativePushIfNeeded(session.user!.id)
     }
+
     sync()
-    retryRef.current = setInterval(sync, 20000)
+    retryRef.current = setInterval(sync, 5 * 60 * 1000)
 
     const onVisible = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
@@ -43,7 +48,7 @@ export default function NativeVoipBootstrap() {
       }
     }
     document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('focus', sync)
+    window.addEventListener('focus', onVisible)
 
     return () => {
       if (retryRef.current) {
@@ -51,7 +56,7 @@ export default function NativeVoipBootstrap() {
         retryRef.current = null
       }
       document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('focus', sync)
+      window.removeEventListener('focus', onVisible)
     }
   }, [session?.user?.id])
 

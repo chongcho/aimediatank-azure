@@ -3,22 +3,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { createNativePushRegisterKey } from '@/lib/voipPushNativeRegisterKey'
+import {
+  isValidVoipPushToken,
+  normalizeVoipPushPlatform,
+  normalizeVoipPushToken,
+  registerVoipPushTokenForUser,
+} from '@/lib/voipPushTokenRegister'
 
 export const dynamic = 'force-dynamic'
-
-function normalizePlatform(raw: string | undefined): string {
-  const platform = (raw || 'ios').trim().toLowerCase()
-  return platform === 'android' ? 'android' : 'ios'
-}
-
-function isValidNativePushToken(token: string, platform: string): boolean {
-  if (!token) return false
-  if (platform === 'ios') {
-    return /^[0-9a-f]{32,}$/i.test(token)
-  }
-  // FCM registration tokens (case-sensitive, include ':' and other chars)
-  return token.length >= 80 && token.length <= 4096
-}
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
@@ -33,58 +25,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const platform = normalizePlatform(body.platform)
-  const token =
-    platform === 'ios' ? (body.token || '').trim().toLowerCase() : (body.token || '').trim()
+  const platform = normalizeVoipPushPlatform(body.platform)
+  const token = normalizeVoipPushToken(body.token || '', platform)
 
-  if (!isValidNativePushToken(token, platform)) {
+  if (!isValidVoipPushToken(token, platform)) {
     return NextResponse.json({ error: 'Invalid push token' }, { status: 400 })
   }
 
   const userAgent = request.headers.get('user-agent')
 
-  await prisma.$transaction([
-    prisma.voipPushToken.upsert({
-      where: { token },
-      create: {
-        userId: session.user.id,
-        token,
-        platform,
-        userAgent,
-      },
-      update: {
-        userId: session.user.id,
-        platform,
-        userAgent,
-      },
-    }),
-    prisma.voipPushToken.deleteMany({
-      where: {
-        userId: session.user.id,
-        platform,
-        token: { not: token },
-      },
-    }),
-    ...(platform === 'android'
-      ? [
-          prisma.pushSubscription.deleteMany({
-            where: { userId: session.user.id },
-          }),
-        ]
-      : []),
-  ])
+  const { changed } = await registerVoipPushTokenForUser({
+    userId: session.user.id,
+    token,
+    platform,
+    userAgent,
+  })
 
-  if (platform === 'android') {
+  if (platform === 'android' && changed) {
+    await prisma.pushSubscription.deleteMany({
+      where: { userId: session.user.id },
+    })
     console.info('[NativePush] cleared Web Push subscriptions for Android native user', session.user.id)
   }
 
-  console.info(`[NativePush] ${platform} token registered for user`, session.user.id)
+  if (changed) {
+    console.info(`[NativePush] ${platform} token registered for user`, session.user.id)
+  }
 
   const nativeRegisterKey =
     platform === 'ios' ? createNativePushRegisterKey(session.user.id) : null
 
   return NextResponse.json({
     ok: true,
+    unchanged: !changed,
     ...(nativeRegisterKey ? { nativeRegisterKey } : {}),
   })
 }

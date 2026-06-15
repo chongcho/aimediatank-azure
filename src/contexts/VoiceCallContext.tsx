@@ -18,7 +18,6 @@ import {
   isNativeIosCallApp,
   isNativeAndroidCallApp,
   isNativeVoiceCallApp,
-  subscribeNativePushIfNeeded,
 } from '@/lib/nativeCallBridge'
 import {
   installVoiceCallAudioUnlock,
@@ -193,26 +192,11 @@ export function VoiceCallProvider({
   useEffect(() => {
     if (!session?.user?.id) return
     if (isNativeCallApp()) {
-      void subscribeNativePushIfNeeded(session?.user?.id)
+      // NativeVoipBootstrap owns PushKit / FCM token subscribe after sign-in.
       return
     }
     void registerVoiceCallPush()
     return installPushSubscriptionRefresh()
-  }, [session?.user?.id])
-
-  // Re-register VoIP token when app returns to foreground (lock-screen push delivery).
-  useEffect(() => {
-    if (!session?.user?.id || !isNativeIosCallApp()) return
-    const onForeground = () => {
-      if (typeof document !== 'undefined' && document.hidden) return
-      void subscribeNativePushIfNeeded(session?.user?.id)
-    }
-    document.addEventListener('visibilitychange', onForeground)
-    window.addEventListener('focus', onForeground)
-    return () => {
-      document.removeEventListener('visibilitychange', onForeground)
-      window.removeEventListener('focus', onForeground)
-    }
   }, [session?.user?.id])
 
   useEffect(() => {

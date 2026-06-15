@@ -75,6 +75,12 @@ let bridgeHandlers: NativeCallBridgeHandlers | null = null
 let pendingNativeToken: string | null = null
 let pendingNativePlatform: 'ios' | 'android' | null = null
 let pendingNativeUserId: string | null = null
+let iosNativeCredentialsStored = false
+let lastUploadedPushToken: { token: string; platform: 'ios' | 'android'; userId: string } | null = null
+let subscribeNativePushInFlight: Promise<void> | null = null
+let lastSubscribeNativePushAt = 0
+
+const IOS_JS_SUBSCRIBE_MIN_GAP_MS = 5 * 60 * 1000
 let pendingIncomingCall: NativeIncomingCallPayload | null = null
 let pendingCallAnswered: {
   callId: string
@@ -288,6 +294,7 @@ async function storeIosNativePushCredentials(userId: string, registerKey: string
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativePushCredentialsPlugin
     if (typeof plugin.storeNativePushCredentials === 'function') {
       await plugin.storeNativePushCredentials({ userId, registerKey })
+      iosNativeCredentialsStored = true
       console.info('[NativePush] stored iOS native push credentials for offline PushKit sync')
     }
   } catch (error) {
@@ -300,15 +307,32 @@ async function subscribeNativePushToken(
   platform: 'ios' | 'android',
   userId?: string,
 ): Promise<boolean> {
+  const normalizedToken = platform === 'ios' ? token.trim().toLowerCase() : token.trim()
+  const resolvedUserId = userId ?? pendingNativeUserId ?? undefined
+
+  // iOS: Swift PushKit bridge uploads via voip-subscribe-native once credentials exist.
+  if (platform === 'ios' && iosNativeCredentialsStored) {
+    return true
+  }
+
+  if (
+    resolvedUserId &&
+    lastUploadedPushToken?.token === normalizedToken &&
+    lastUploadedPushToken.platform === platform &&
+    lastUploadedPushToken.userId === resolvedUserId
+  ) {
+    return true
+  }
+
   try {
     const res = await fetch('/api/push/voip-subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, platform }),
+      body: JSON.stringify({ token: normalizedToken, platform }),
       credentials: 'include',
     })
     if (res.status === 401) {
-      pendingNativeToken = token
+      pendingNativeToken = normalizedToken
       pendingNativePlatform = platform
       if (userId) pendingNativeUserId = userId
       console.warn(`[NativePush] ${platform} token received but user not signed in yet`)
@@ -321,14 +345,25 @@ async function subscribeNativePushToken(
     }
     const body = (await res.json().catch(() => ({}))) as {
       nativeRegisterKey?: string
+      unchanged?: boolean
     }
     pendingNativeToken = null
     pendingNativePlatform = null
-    if (platform === 'ios' && userId && body.nativeRegisterKey) {
-      pendingNativeUserId = userId
-      await storeIosNativePushCredentials(userId, body.nativeRegisterKey)
+    if (platform === 'ios' && resolvedUserId && body.nativeRegisterKey) {
+      pendingNativeUserId = resolvedUserId
+      await storeIosNativePushCredentials(resolvedUserId, body.nativeRegisterKey)
+      iosNativeCredentialsStored = true
     }
-    console.info(`[NativePush] ${platform} device token saved for signed-in user`)
+    if (resolvedUserId) {
+      lastUploadedPushToken = {
+        token: normalizedToken,
+        platform,
+        userId: resolvedUserId,
+      }
+    }
+    if (!body.unchanged) {
+      console.info(`[NativePush] ${platform} device token saved for signed-in user`)
+    }
     return true
   } catch (error) {
     console.error(`[NativePush] ${platform} token registration failed:`, error)
@@ -346,6 +381,9 @@ function attachNativePushListeners(
   CapacitorPushCalls.addListener('voipPushToken', ({ token }) => {
     if (!token) return
     console.info('[NativePush] PushKit token received')
+    if (isNativeIosCallApp() && iosNativeCredentialsStored) {
+      return
+    }
     void subscribeNativePushToken(token, 'ios', pendingNativeUserId ?? undefined)
   })
 
@@ -412,23 +450,49 @@ export const bootstrapNativeVoip = bootstrapNativePush
 export async function subscribeNativePushIfNeeded(userId?: string): Promise<void> {
   if (!isNativeVoiceCallApp()) return
   if (userId) pendingNativeUserId = userId
-  await bootstrapNativePush()
 
-  if (pendingNativeToken && pendingNativePlatform) {
-    await subscribeNativePushToken(
-      pendingNativeToken,
-      pendingNativePlatform,
-      userId ?? pendingNativeUserId ?? undefined,
-    )
+  const now = Date.now()
+  if (
+    isNativeIosCallApp() &&
+    iosNativeCredentialsStored &&
+    now - lastSubscribeNativePushAt < IOS_JS_SUBSCRIBE_MIN_GAP_MS
+  ) {
+    return
   }
 
-  if (isNativeIosCallApp()) {
-    try {
-      const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
-      await CapacitorPushCalls.registerVoipNotifications()
-    } catch {
-      // bridge may still hold PushKit registration
+  if (subscribeNativePushInFlight) {
+    await subscribeNativePushInFlight
+    return
+  }
+
+  subscribeNativePushInFlight = (async () => {
+    lastSubscribeNativePushAt = Date.now()
+    await bootstrapNativePush()
+
+    if (pendingNativeToken && pendingNativePlatform) {
+      await subscribeNativePushToken(
+        pendingNativeToken,
+        pendingNativePlatform,
+        userId ?? pendingNativeUserId ?? undefined,
+      )
+    } else if (
+      isNativeIosCallApp() &&
+      userId &&
+      !iosNativeCredentialsStored
+    ) {
+      try {
+        const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+        await CapacitorPushCalls.registerVoipNotifications()
+      } catch {
+        // bridge may still hold PushKit registration
+      }
     }
+  })()
+
+  try {
+    await subscribeNativePushInFlight
+  } finally {
+    subscribeNativePushInFlight = null
   }
 }
 

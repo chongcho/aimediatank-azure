@@ -21,6 +21,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     static let prepareUnlockedIncomingNotification = Notification.Name("AiMediaTankPrepareUnlockedIncoming")
 
     private static let voipTokenHexKey = "AiMediaTank.voipPushTokenHex"
+    private static let voipTokenServerSyncedHexKey = "AiMediaTank.voipPushTokenServerSyncedHex"
     private static let nativePushUserIdKey = "AiMediaTank.nativePushUserId"
     private static let nativePushRegisterKeyKey = "AiMediaTank.nativePushRegisterKey"
     static let storeNativePushCredentialsNotification = Notification.Name("AiMediaTankStoreNativePushCredentials")
@@ -453,6 +454,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private func syncVoipTokenToServer(tokenHex: String) {
         let normalized = tokenHex.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty else { return }
+        if normalized == UserDefaults.standard.string(forKey: Self.voipTokenServerSyncedHexKey) {
+            return
+        }
 
         if let userId = UserDefaults.standard.string(forKey: Self.nativePushUserIdKey),
            let registerKey = UserDefaults.standard.string(forKey: Self.nativePushRegisterKeyKey),
@@ -470,6 +474,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             URLSession.shared.dataTask(with: request) { _, response, error in
                 let code = (response as? HTTPURLResponse)?.statusCode ?? 0
                 if code == 200 {
+                    UserDefaults.standard.set(normalized, forKey: Self.voipTokenServerSyncedHexKey)
                     print("[AiMediaTankVoipPushBridge] native voip token synced for \(userId)")
                 } else {
                     print("[AiMediaTankVoipPushBridge] native voip token sync HTTP \(code) err=\(error?.localizedDescription ?? "none")")
@@ -1078,8 +1083,13 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
         guard type == .voIP else { return }
         let tokenHex = pushCredentials.token.map { String(format: "%02x", $0) }.joined()
-        UserDefaults.standard.set(tokenHex, forKey: Self.voipTokenHexKey)
-        syncVoipTokenToServer(tokenHex: tokenHex)
+        let normalized = tokenHex.lowercased()
+        let previous = UserDefaults.standard.string(forKey: Self.voipTokenHexKey)?.lowercased()
+        UserDefaults.standard.set(normalized, forKey: Self.voipTokenHexKey)
+        if previous != normalized {
+            UserDefaults.standard.removeObject(forKey: Self.voipTokenServerSyncedHexKey)
+        }
+        syncVoipTokenToServer(tokenHex: normalized)
         NotificationCenter.default.post(
             name: Self.voipTokenNotification,
             object: pushCredentials.token
@@ -1233,6 +1243,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         print("[AiMediaTankVoipPushBridge] Push token invalidated for type: \(type)")
         guard type == .voIP else { return }
         UserDefaults.standard.removeObject(forKey: Self.voipTokenHexKey)
+        UserDefaults.standard.removeObject(forKey: Self.voipTokenServerSyncedHexKey)
         DispatchQueue.main.async { [weak self] in
             self?.refreshPushKitRegistration()
         }

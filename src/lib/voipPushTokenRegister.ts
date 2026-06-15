@@ -1,0 +1,65 @@
+import { prisma } from '@/lib/prisma'
+
+export type VoipPushPlatform = 'ios' | 'android'
+
+export function normalizeVoipPushPlatform(raw: string | undefined): VoipPushPlatform {
+  const platform = (raw || 'ios').trim().toLowerCase()
+  return platform === 'android' ? 'android' : 'ios'
+}
+
+export function isValidVoipPushToken(token: string, platform: VoipPushPlatform): boolean {
+  if (!token) return false
+  if (platform === 'ios') {
+    return /^[0-9a-f]{32,}$/i.test(token)
+  }
+  return token.length >= 80 && token.length <= 4096
+}
+
+export function normalizeVoipPushToken(token: string, platform: VoipPushPlatform): string {
+  return platform === 'ios' ? token.trim().toLowerCase() : token.trim()
+}
+
+/** Upsert canonical token for user+platform; drop stale rows. Returns whether DB changed. */
+export async function registerVoipPushTokenForUser(params: {
+  userId: string
+  token: string
+  platform: VoipPushPlatform
+  userAgent?: string | null
+}): Promise<{ changed: boolean; token: string }> {
+  const token = normalizeVoipPushToken(params.token, params.platform)
+  const { userId, platform } = params
+
+  const unchanged = await prisma.voipPushToken.findFirst({
+    where: { userId, platform, token },
+    select: { id: true },
+  })
+  if (unchanged) {
+    return { changed: false, token }
+  }
+
+  await prisma.$transaction([
+    prisma.voipPushToken.upsert({
+      where: { token },
+      create: {
+        userId,
+        token,
+        platform,
+        userAgent: params.userAgent ?? null,
+      },
+      update: {
+        userId,
+        platform,
+        userAgent: params.userAgent ?? null,
+      },
+    }),
+    prisma.voipPushToken.deleteMany({
+      where: {
+        userId,
+        platform,
+        token: { not: token },
+      },
+    }),
+  ])
+
+  return { changed: true, token }
+}
