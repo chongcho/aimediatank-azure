@@ -71,7 +71,6 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
         print("[NativeVoiceCallEngine] prepare answer \(normalized)")
         postTrace(callId: normalized, token: token, event: "native_webrtc_prepare")
-        injectUiEvent(name: "aimediatank-callkit-answer", callId: normalized, extra: ["nativeWebRtc": true])
 
         if audioSessionReady {
             beginAnswerIfNeeded()

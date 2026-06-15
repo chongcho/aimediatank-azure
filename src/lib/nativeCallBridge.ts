@@ -362,8 +362,18 @@ export const bootstrapNativeVoip = bootstrapNativePush
 export async function subscribeNativePushIfNeeded(): Promise<void> {
   if (!isNativeVoiceCallApp()) return
   await bootstrapNativePush()
+
   if (pendingNativeToken && pendingNativePlatform) {
     await subscribeNativePushToken(pendingNativeToken, pendingNativePlatform)
+  }
+
+  if (isNativeIosCallApp()) {
+    try {
+      const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+      await CapacitorPushCalls.registerVoipNotifications()
+    } catch {
+      // bridge may still hold PushKit registration
+    }
   }
 }
 

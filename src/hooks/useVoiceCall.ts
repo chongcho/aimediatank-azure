@@ -614,6 +614,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       setCallState('connecting')
       reattachRemoteAudio()
       if (isNativeIosCallApp()) {
+        // CallKit owns in-call UI — do not open TalkChat / home WebView.
+      } else if (isNativeVoiceCallApp()) {
         requestOpenTalkChat()
       }
       return true
@@ -777,7 +779,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           setCallId(normalizeVoiceCallId(incoming.id))
           setRemoteUser(incoming.caller)
           isCallerRef.current = false
-          if (isNativeIosCallApp() && typeof document !== 'undefined' && document.hidden) {
+          // iOS: lock-screen + foreground rings use CallKit only — poll must not drive in-app incoming UI.
+          if (isNativeIosCallApp()) {
             return
           }
           setCallState('incoming')
@@ -1038,7 +1041,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           setRemoteUser(payload.caller)
         }
         setCallState('connected')
-        requestOpenTalkChat()
+        if (!isNativeIosCallApp()) {
+          requestOpenTalkChat()
+        }
         void markNativeCallConnected(normalizedId)
       },
       onCallRejected: (callId) => {
@@ -1100,25 +1105,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       document.removeEventListener('visibilitychange', retryLockScreenWebRtc)
       window.removeEventListener('pageshow', retryLockScreenWebRtc)
       window.removeEventListener('focus', retryLockScreenWebRtc)
-    }
-  }, [enabled])
-
-  // iOS: after unlock, open TalkChat when a lock-screen native call is connecting/connected.
-  useEffect(() => {
-    if (!enabled || !isNativeIosCallApp() || typeof document === 'undefined') return
-
-    const onUnlock = () => {
-      if (document.hidden) return
-      const state = callStateRef.current
-      if (state !== 'connecting' && state !== 'connected') return
-      requestOpenTalkChat()
-    }
-
-    document.addEventListener('visibilitychange', onUnlock)
-    window.addEventListener('pageshow', onUnlock)
-    return () => {
-      document.removeEventListener('visibilitychange', onUnlock)
-      window.removeEventListener('pageshow', onUnlock)
     }
   }, [enabled])
 
@@ -1218,7 +1204,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         return
       }
       if (data.type === 'VOICE_CALL_INCOMING' && data.caller) {
-        requestOpenTalkChat()
+        if (!isNativeIosCallApp()) {
+          requestOpenTalkChat()
+        }
         applyIncomingCall(data.callId, data.caller)
       }
     }

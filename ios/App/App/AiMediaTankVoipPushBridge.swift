@@ -100,6 +100,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     }
 
     private func activateAppWindow() {
+        guard Self.canDeliverToWebView() else { return }
         guard let scene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }) else {
@@ -1132,10 +1133,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         UserDefaults.standard.removeObject(forKey: Self.ringingCallIdsKey)
     }
 
-    /// Push in-app call UI (#2) after unlock — native WebRTC only, never session WebRTC on lock screen.
+    /// Push in-app call state after unlock — never foreground WebView during CallKit (#1→#3).
     func syncLockScreenCallUiIfNeeded() {
         guard Self.canDeliverToWebView() else { return }
-        activateAppWindow()
         NativeVoiceCallEngine.shared.syncUiIfConnected()
 
         let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased()
@@ -1152,7 +1152,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private func deliverLockScreenCallUiToJs(callId: String, declineToken: String?) {
         guard Self.canDeliverToWebView() else { return }
-        activateAppWindow()
         var userInfo: [String: Any] = [
             "callId": callId,
             "useSessionWebRtc": false,
@@ -1208,7 +1207,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             ?? UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId))
         pendingJsAnswerDeclineToken = nil
         let useJsWebRtc = Self.canDeliverToWebView()
-        activateAppWindow()
+        if useJsWebRtc {
+            activateAppWindow()
+        }
         var userInfo: [String: Any] = ["callId": callId, "useSessionWebRtc": useJsWebRtc]
         if let token {
             userInfo["declineToken"] = token
@@ -1373,7 +1374,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         if !token.isEmpty && !useJsWebRtc {
             Self.markLockScreenNativeAnswer(callId: callId)
             print("[AiMediaTankVoipPushBridge] lock-screen Accept — native WebRTC \(callId)")
-            activateAppWindow()
             NativeVoiceCallEngine.shared.prepareAnswer(
                 callId: callId,
                 token: token,

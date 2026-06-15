@@ -200,6 +200,21 @@ export function VoiceCallProvider({
     return installPushSubscriptionRefresh()
   }, [session?.user?.id])
 
+  // Re-register VoIP token when app returns to foreground (lock-screen push delivery).
+  useEffect(() => {
+    if (!session?.user?.id || !isNativeIosCallApp()) return
+    const onForeground = () => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      void subscribeNativePushIfNeeded()
+    }
+    document.addEventListener('visibilitychange', onForeground)
+    window.addEventListener('focus', onForeground)
+    return () => {
+      document.removeEventListener('visibilitychange', onForeground)
+      window.removeEventListener('focus', onForeground)
+    }
+  }, [session?.user?.id])
+
   useEffect(() => {
     if (!session?.user) {
       stopVoiceCallRingtone()
