@@ -9,6 +9,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // VoIP PushKit must register at launch so cancel pushes dismiss CallKit on lock screen.
         AiMediaTankVoipPushBridge.shared.ensureStarted()
+        AiMediaTankVoipPushBridge.shared.migratePushKitAfterAppUpdateIfNeeded()
         return true
     }
 

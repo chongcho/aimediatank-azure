@@ -22,6 +22,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private static let voipTokenHexKey = "AiMediaTank.voipPushTokenHex"
     private static let voipTokenServerSyncedHexKey = "AiMediaTank.voipPushTokenServerSyncedHex"
+    private static let lastMigratedAppBuildKey = "AiMediaTank.lastMigratedAppBuild"
     private static let nativePushUserIdKey = "AiMediaTank.nativePushUserId"
     private static let nativePushRegisterKeyKey = "AiMediaTank.nativePushRegisterKey"
     static let storeNativePushCredentialsNotification = Notification.Name("AiMediaTankStoreNativePushCredentials")
@@ -532,6 +533,30 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func syncPushTokenOnForeground() {
         UserDefaults.standard.removeObject(forKey: Self.voipTokenServerSyncedHexKey)
         syncCachedVoipTokenToServerIfNeeded()
+    }
+
+    /// TestFlight / App Store updates keep UserDefaults — refresh PushKit + re-upload token when build changes.
+    func migratePushKitAfterAppUpdateIfNeeded() {
+        let buildLabel = Self.currentAppBuildLabel()
+        let previous = UserDefaults.standard.string(forKey: Self.lastMigratedAppBuildKey)
+        guard previous != buildLabel else { return }
+
+        UserDefaults.standard.set(buildLabel, forKey: Self.lastMigratedAppBuildKey)
+        UserDefaults.standard.removeObject(forKey: Self.voipTokenServerSyncedHexKey)
+        print(
+            "[AiMediaTankVoipPushBridge] app update \(previous ?? "fresh") → \(buildLabel) — force PushKit token refresh"
+        )
+
+        if pushRegistry != nil {
+            refreshPushKitRegistration()
+        }
+        syncCachedVoipTokenToServerIfNeeded()
+    }
+
+    private static func currentAppBuildLabel() -> String {
+        let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
+        return "\(short)(\(build))"
     }
 
     private func replayCachedVoipTokenIfNeeded() {
