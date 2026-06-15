@@ -74,10 +74,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Keeps the app alive while WebRTC connects after lock-screen answer.
     private var answerBackgroundTask: UIBackgroundTaskIdentifier = .invalid
     private var connectionWatchdogGeneration: UUID?
-    /// Fulfilled in didActivate — early fulfill prevents CallKit from activating audio on lock screen.
-    private var pendingAnswerCallAction: CXAnswerCallAction?
     /// Blocks PushKit registry refresh while an incoming VoIP push is being handled.
     private var incomingVoipPushInFlight = 0
+    private var audioActivationFallbackGeneration: UUID?
 
     private static func isForegroundActive() -> Bool {
         guard UIApplication.shared.applicationState == .active else { return false }
@@ -278,15 +277,26 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private func clearPendingCallKitAnswer() {
         jsAnswerRetryGeneration = nil
-        pendingAnswerCallAction = nil
+        audioActivationFallbackGeneration = nil
         UserDefaults.standard.removeObject(forKey: Self.pendingAnswerCallIdKey)
         endAnswerBackgroundSupport()
     }
 
-    private func fulfillPendingAnswerCallActionIfNeeded() {
-        guard let action = pendingAnswerCallAction else { return }
-        pendingAnswerCallAction = nil
-        action.fulfill()
+    /// CallKit activates audio after fulfill — if didActivate is delayed on lock screen, unstick WebRTC.
+    private func scheduleCallKitAudioActivationFallback(callId: String) {
+        let normalized = callId.lowercased()
+        let generation = UUID()
+        audioActivationFallbackGeneration = generation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self, self.audioActivationFallbackGeneration == generation else { return }
+            guard UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased() == normalized else {
+                return
+            }
+            guard NativeVoiceCallEngine.shared.awaitsCallKitAudioActivation else { return }
+            print("[AiMediaTankVoipPushBridge] didActivate fallback — activating audio for \(normalized)")
+            self.postVoiceTrace(callId: normalized, event: "callkit_audio_fallback")
+            NativeVoiceCallEngine.shared.audioSessionActivated()
+        }
     }
 
     private func startAnswerBackgroundSupport(callId: String) {
@@ -1538,7 +1548,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
-        pendingAnswerCallAction = action
         configureAudioSession()
         cancelDismissRetries(callId: callId)
         markPendingCallKitAnswer(callId: callId)
@@ -1556,6 +1565,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 token: token,
                 baseURL: voiceApiBaseURL()
             )
+            scheduleCallKitAudioActivationFallback(callId: callId)
         } else if token.isEmpty {
             print("[AiMediaTankVoipPushBridge] native WebRTC skipped — no decline token \(callId)")
         } else {
@@ -1573,6 +1583,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             // Keep nudging UI sync after lock-screen accept until the WebView can run JS.
             scheduleJsAnswerDeliveryRetries(callId: callId)
         }
+        // Fulfill after audio session is configured — CallKit then calls didActivate for WebRTC.
+        action.fulfill()
     }
 
     /// Unlock → retry JS WebRTC if CallKit answer is still pending; otherwise native on lock screen.
@@ -1612,9 +1624,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
-        if pendingAnswerCallAction?.callUUID == action.callUUID {
-            pendingAnswerCallAction = nil
-        }
+        audioActivationFallbackGeneration = nil
         Self.clearLockScreenNativeAnswer(callId: callId)
         if NativeVoiceCallEngine.shared.activeCallId == callId {
             NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
@@ -1648,16 +1658,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
         print("[AiMediaTankVoipPushBridge] CallKit action timed out: \(action)")
-        if let answer = action as? CXAnswerCallAction,
-           pendingAnswerCallAction?.callUUID == answer.callUUID {
-            pendingAnswerCallAction = nil
-        }
     }
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        audioActivationFallbackGeneration = nil
         configureAudioSession()
         NativeVoiceCallEngine.shared.audioSessionActivated()
-        fulfillPendingAnswerCallActionIfNeeded()
         if let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey) {
             postVoiceTrace(callId: callId, event: "callkit_audio_activated")
         }

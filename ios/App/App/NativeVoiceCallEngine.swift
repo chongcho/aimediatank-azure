@@ -51,6 +51,10 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         callId
     }
 
+    var awaitsCallKitAudioActivation: Bool {
+        pendingStart && isAnswering && !audioSessionReady
+    }
+
     func prepareAnswer(callId: String, token: String, baseURL: String) {
         let normalized = callId.lowercased()
         if isAnswering, self.callId == normalized, pendingStart || peerConnection != nil {
