@@ -23,7 +23,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationWillEnterForeground(_ application: UIApplication) {
-        AiMediaTankVoipPushBridge.shared.refreshPushKitRegistration()
         // Unlock → prepare incoming (step 1→2) then connect after Accept (step 3).
         AiMediaTankVoipPushBridge.shared.reconcileForegroundIncomingUi()
         AiMediaTankVoipPushBridge.shared.prepareUnlockedRingingCallsIfNeeded()
@@ -32,7 +31,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        AiMediaTankVoipPushBridge.shared.refreshPushKitRegistration()
+        AiMediaTankVoipPushBridge.shared.syncPushTokenOnForeground()
         AiMediaTankVoipPushBridge.shared.reconcileForegroundIncomingUi()
         AiMediaTankVoipPushBridge.shared.prepareUnlockedRingingCallsIfNeeded()
         AiMediaTankVoipPushBridge.shared.syncLockScreenCallUiIfNeeded()

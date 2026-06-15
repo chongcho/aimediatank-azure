@@ -171,10 +171,26 @@ async function sendVoipDataPushToUser(
 
   const tokens = await prisma.voipPushToken.findMany({
     where: { userId, platform: 'ios' },
+    orderBy: { updatedAt: 'desc' },
   })
   if (tokens.length === 0) {
     console.warn(`VoIP push skipped (${logLabel}): no iOS VoIP token for user ${userId}`)
     return
+  }
+
+  const tokenSummary = tokens
+    .map((row) => {
+      const ageHours = Math.round((Date.now() - row.updatedAt.getTime()) / 3_600_000)
+      return `${row.token.slice(0, 8)}…${ageHours}h`
+    })
+    .join(', ')
+  const oldestAgeMs = Date.now() - tokens[tokens.length - 1]!.updatedAt.getTime()
+  if (oldestAgeMs > 48 * 3_600_000) {
+    console.warn(
+      `[VoIP] ${logLabel}: callee token older than 48h (${tokenSummary}) — callee should open TestFlight app once after install`,
+    )
+  } else {
+    console.info(`[VoIP] ${logLabel}: tokens [${tokenSummary}]`)
   }
 
   let result = await sendVoipNotifications(client, tokens, data, logLabel, extraOptions)

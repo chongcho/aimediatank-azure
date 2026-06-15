@@ -50,7 +50,9 @@ export async function POST(request: Request) {
   })
 
   if (changed) {
-    console.info(`[NativePush] native ${platform} token registered for user`, userId)
+    console.info(
+      `[NativePush] native ${platform} token registered for user ${userId} prefix=${token.slice(0, 8)}…`,
+    )
   }
 
   return NextResponse.json({ ok: true, unchanged: !changed })
