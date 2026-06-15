@@ -333,6 +333,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     }
 
     func ensureStarted() {
+        let firstPushKitStart = pushRegistry == nil
+        if firstPushKitStart {
+            // Clear ghost CallKit sessions before PushKit delivers the next incoming push.
+            recoverFromStaleCallState()
+        }
+
         guard pushRegistry == nil else {
             replayCachedVoipTokenIfNeeded()
             syncCachedVoipTokenToServerIfNeeded()
@@ -552,6 +558,16 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         var ids = UserDefaults.standard.stringArray(forKey: ringingCallIdsKey) ?? []
         ids.removeAll { $0 == normalized }
         UserDefaults.standard.set(ids, forKey: ringingCallIdsKey)
+        // Allow retry VoIP pushes to re-report CallKit if a ring was dismissed early.
+        UserDefaults.standard.removeObject(forKey: incomingReportedAtKeyPrefix + normalized)
+    }
+
+    private static func hasCallKitIncomingRing(callId: String) -> Bool {
+        let normalized = callId.lowercased()
+        return CXCallObserver().calls.contains {
+            !$0.hasEnded && !$0.isOutgoing && !$0.hasConnected
+                && $0.uuid.uuidString.lowercased() == normalized
+        }
     }
 
     static func markCallCancelled(_ callId: String) {
@@ -867,7 +883,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private func handleJsIncomingCallReport(_ notification: Notification) {
         guard let userInfo = notification.userInfo,
               let callIdString = userInfo["callId"] as? String,
-              let callId = UUID(uuidString: callIdString),
+              let callId = UUID(uuidString: callIdString.lowercased()),
               let handle = userInfo["handle"] as? String,
               let displayName = userInfo["displayName"] as? String else { return }
 
@@ -1111,30 +1127,39 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
 
         prepareForNewIncomingCall(callId: callIdString)
+        let normalizedCallId = callIdString.lowercased()
+        if let token = declineToken(from: payloadDict) {
+            UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: normalizedCallId))
+        }
         postVoiceTrace(callId: callIdString, event: "voip_push_received")
 
         if Self.isCallCancelled(callIdString) {
-            print("[AiMediaTankVoipPushBridge] ignored incoming push — call already cancelled \(callIdString.lowercased())")
+            print("[AiMediaTankVoipPushBridge] ignored incoming push — call already cancelled \(normalizedCallId)")
             completion()
             return
         }
 
-        let normalizedCallId = callIdString.lowercased()
         if Self.isWithinIncomingGracePeriod(callId: normalizedCallId) {
-            print("[AiMediaTankVoipPushBridge] duplicate incoming VoIP push for active ring \(normalizedCallId)")
-            if let token = declineToken(from: payloadDict) {
-                UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: normalizedCallId))
+            if Self.hasCallKitIncomingRing(callId: normalizedCallId) {
+                print("[AiMediaTankVoipPushBridge] duplicate incoming VoIP push for active ring \(normalizedCallId)")
+                postVoiceTrace(callId: normalizedCallId, event: "grace_skip_active_ring")
+                if let token = declineToken(from: payloadDict) {
+                    UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: normalizedCallId))
+                }
+                var info = userInfo(from: payloadDict)
+                info["reportedToCallKit"] = true
+                NotificationCenter.default.post(
+                    name: Self.incomingPushNotification,
+                    object: nil,
+                    userInfo: info
+                )
+                NotificationCenter.default.post(name: Self.incomingPushDoneNotification, object: nil)
+                completion()
+                return
             }
-            var info = userInfo(from: payloadDict)
-            info["reportedToCallKit"] = true
-            NotificationCenter.default.post(
-                name: Self.incomingPushNotification,
-                object: nil,
-                userInfo: info
-            )
-            NotificationCenter.default.post(name: Self.incomingPushDoneNotification, object: nil)
-            completion()
-            return
+            print("[AiMediaTankVoipPushBridge] grace period stale — re-reporting CallKit for \(normalizedCallId)")
+            postVoiceTrace(callId: normalizedCallId, event: "grace_stale_retry")
+            UserDefaults.standard.removeObject(forKey: Self.incomingReportedAtKeyPrefix + normalizedCallId)
         }
 
         var completed = false
@@ -1192,7 +1217,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 return
             }
             if reported {
+                self.postVoiceTrace(callId: normalizedCallId, event: "callkit_report_ok")
                 completeOnce()
+            } else {
+                self.postVoiceTrace(callId: normalizedCallId, event: "callkit_report_fail")
             }
             forwardToPlugin(reportedToCallKit: reported)
             if !reported {

@@ -295,6 +295,7 @@ const INCOMING_PUSH_RETRY_GAPS_MS = [0, 900, 1800] as const
 export async function sendVoipCallPushToUser(
   userId: string,
   payload: VoipCallPushPayload,
+  burstAttempt?: { index: number; total: number },
 ): Promise<void> {
   const callId = normalizeVoiceCallId(payload.callId)
   if (!callId) return
@@ -302,6 +303,9 @@ export async function sendVoipCallPushToUser(
   if (!declineToken) {
     console.warn(`[VoIP] incoming push for ${callId}: no decline token (set NEXTAUTH_SECRET on server)`)
   }
+  const logLabel = burstAttempt
+    ? `incoming push #${burstAttempt.index}/${burstAttempt.total} for call ${callId}`
+    : `incoming push for call ${callId}`
   await sendVoipDataPushToUser(
     userId,
     {
@@ -319,7 +323,7 @@ export async function sendVoipCallPushToUser(
         ...(declineToken ? { declineToken } : {}),
       },
     },
-    `incoming push for call ${callId}`,
+    logLabel,
   )
 }
 
@@ -328,13 +332,14 @@ export async function sendVoipCallPushBurstToUser(
   userId: string,
   payload: VoipCallPushPayload,
 ): Promise<void> {
-  for (let i = 0; i < INCOMING_PUSH_RETRY_GAPS_MS.length; i++) {
+  const total = INCOMING_PUSH_RETRY_GAPS_MS.length
+  for (let i = 0; i < total; i++) {
     const gap = INCOMING_PUSH_RETRY_GAPS_MS[i]!
     if (gap > 0) await sleep(gap)
     try {
-      await sendVoipCallPushToUser(userId, payload)
+      await sendVoipCallPushToUser(userId, payload, { index: i + 1, total })
     } catch (err) {
-      console.error(`[VoIP] incoming burst #${i + 1} failed for ${payload.callId}:`, err)
+      console.error(`[VoIP] incoming burst #${i + 1}/${total} failed for ${payload.callId}:`, err)
     }
   }
 }

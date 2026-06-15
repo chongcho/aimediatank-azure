@@ -3,6 +3,13 @@ import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 
 export const VOIP_CANCEL_BURST_TYPE = 'voip_cancel_burst'
 export const NATIVE_CANCEL_ACK_TYPE = 'native_cancel_ack'
+export const NATIVE_IOS_TRACE_TYPE = 'native_ios_trace'
+
+const NATIVE_TRACE_SIGNAL_TYPES = [
+  VOIP_CANCEL_BURST_TYPE,
+  NATIVE_CANCEL_ACK_TYPE,
+  NATIVE_IOS_TRACE_TYPE,
+] as const
 
 export async function recordVoipCancelBurst(params: {
   callId: string
@@ -55,6 +62,37 @@ export async function recordNativeCancelAck(params: {
   })
 }
 
+export async function recordNativeIosTrace(params: {
+  callId: string
+  event: string
+  source?: string
+  detail?: Record<string, unknown>
+}): Promise<void> {
+  const callId = normalizeVoiceCallId(params.callId)
+  if (!callId) return
+
+  const call = await prisma.voiceCall.findUnique({
+    where: { id: callId },
+    select: { callerId: true, calleeId: true },
+  })
+  if (!call) return
+
+  await prisma.voiceCallSignal.create({
+    data: {
+      callId,
+      fromUserId: call.calleeId,
+      toUserId: call.callerId,
+      type: NATIVE_IOS_TRACE_TYPE,
+      payload: JSON.stringify({
+        event: params.event,
+        source: params.source ?? 'ios_bridge',
+        detail: params.detail ?? null,
+        at: new Date().toISOString(),
+      }),
+    },
+  })
+}
+
 export async function getVoipCallTrace(callId: string) {
   const normalized = normalizeVoiceCallId(callId)
   if (!normalized) return null
@@ -68,7 +106,7 @@ export async function getVoipCallTrace(callId: string) {
   const signals = await prisma.voiceCallSignal.findMany({
     where: {
       callId: normalized,
-      type: { in: [VOIP_CANCEL_BURST_TYPE, NATIVE_CANCEL_ACK_TYPE] },
+      type: { in: [...NATIVE_TRACE_SIGNAL_TYPES] },
     },
     orderBy: { createdAt: 'asc' },
     select: { type: true, payload: true, createdAt: true },
@@ -82,6 +120,10 @@ export async function getVoipCallTrace(callId: string) {
     .filter((s) => s.type === NATIVE_CANCEL_ACK_TYPE)
     .map((s) => ({ ...JSON.parse(s.payload), recordedAt: s.createdAt }))
 
+  const nativeIos = signals
+    .filter((s) => s.type === NATIVE_IOS_TRACE_TYPE)
+    .map((s) => ({ ...JSON.parse(s.payload), recordedAt: s.createdAt }))
+
   return {
     callId: normalized,
     callStatus: call.status,
@@ -89,8 +131,11 @@ export async function getVoipCallTrace(callId: string) {
     callEndedAt: call.endedAt,
     cancelBurst,
     deviceAcks,
+    nativeIos,
     cancelReceivedOnDevice: deviceAcks.length > 0,
     cancelReceivedViaVoipPush: deviceAcks.some((a) => a.source === 'voip_cancel_push'),
     cancelReceivedViaStatusPoll: deviceAcks.some((a) => a.source === 'status_poll'),
+    voipPushReceivedOnDevice: nativeIos.some((e) => e.event === 'voip_push_received'),
+    callkitReportedOnDevice: nativeIos.some((e) => e.event === 'callkit_report_ok'),
   }
 }

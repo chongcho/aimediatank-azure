@@ -16,6 +16,10 @@ export const dynamic = 'force-dynamic'
 
 const ACTIVE_STATUSES = ['ringing', 'active'] as const
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 async function requireSubscriber(sessionUser: { id: string; role?: string } | undefined) {
   if (!sessionUser?.id) {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
@@ -274,24 +278,30 @@ export async function POST(request: Request) {
         console.info('[WebPush] skipped ring burst: callee uses Android native FCM token')
       }
 
-      void (async () => {
+      const nativePushPayload = {
+        callId: call.id,
+        caller: call.caller,
+        displayName: callerLabel,
+        handle: call.caller.username || call.caller.id,
+      }
+
+      const nativePushTask = (async () => {
         const hasIosToken = await calleeHasIosNativeCallToken(calleeId)
         if (!hasIosToken) {
           console.warn(
             `[VoIP] callee ${calleeId} has no iOS PushKit token — lock-screen CallKit requires TestFlight app sign-in`,
           )
         }
-        await sendNativeCallPushToUser(
-          calleeId,
-          {
-            callId: call.id,
-            caller: call.caller,
-            displayName: callerLabel,
-            handle: call.caller.username || call.caller.id,
-          },
-          userId,
-        )
-      })().catch((err) => console.error('Native call push failed:', err))
+        await sendNativeCallPushToUser(calleeId, nativePushPayload, userId)
+      })()
+
+      try {
+        // Await iOS burst (~2.7s) so Azure does not freeze before retry pushes are sent.
+        await Promise.race([nativePushTask, sleep(3200)])
+      } catch (err) {
+        console.error('Native call push failed:', err)
+      }
+      void nativePushTask.catch((err) => console.error('Native call push background error:', err))
 
       return NextResponse.json({
         call: {
