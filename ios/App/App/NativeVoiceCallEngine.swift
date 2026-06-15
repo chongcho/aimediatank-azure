@@ -305,8 +305,13 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         appliedRemoteIceKeys.insert(key)
         guard let sdp = dict["candidate"] as? String, !sdp.isEmpty else { return }
         let mLineIndex = Int32(dict["sdpMLineIndex"] as? Int ?? 0)
-        let sdpMid = dict["sdpMid"] as? String
-        pc.add(RTCIceCandidate(sdp: sdp, sdpMLineIndex: mLineIndex, sdpMid: sdpMid)) { _ in }
+        let rawMid = dict["sdpMid"] as? String
+        let sdpMid = (rawMid?.isEmpty == false) ? rawMid : nil
+        pc.add(RTCIceCandidate(sdp: sdp, sdpMLineIndex: mLineIndex, sdpMid: sdpMid)) { error in
+            if let error {
+                print("[NativeVoiceCallEngine] add ICE failed \(callId): \(error.localizedDescription)")
+            }
+        }
     }
 
     private func candidateKey(_ dict: [String: Any]) -> String {
@@ -330,6 +335,10 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             markConnected(callId: callId)
         case .failed:
             failCall(callId: callId, error: "ICE failed")
+        case .checking:
+            postTrace(callId: callId, token: token ?? "", event: "native_webrtc_ice_checking")
+        case .disconnected:
+            postTrace(callId: callId, token: token ?? "", event: "native_webrtc_ice_disconnected")
         default:
             break
         }
@@ -339,17 +348,18 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
         guard let callId, let token else { return }
+        var candidatePayload: [String: Any] = [
+            "candidate": candidate.sdp,
+            "sdpMLineIndex": candidate.sdpMLineIndex,
+        ]
+        if let sdpMid = candidate.sdpMid, !sdpMid.isEmpty {
+            candidatePayload["sdpMid"] = sdpMid
+        }
         postSignal(
             callId: callId,
             token: token,
             type: "ice",
-            payload: [
-                "candidate": [
-                    "candidate": candidate.sdp,
-                    "sdpMLineIndex": candidate.sdpMLineIndex,
-                    "sdpMid": candidate.sdpMid ?? "",
-                ],
-            ]
+            payload: ["candidate": candidatePayload]
         )
     }
 

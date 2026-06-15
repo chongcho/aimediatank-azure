@@ -89,6 +89,23 @@ async function getUserMediaWithTimeout(timeoutMs: number): Promise<MediaStream> 
   ])
 }
 
+function normalizeIceCandidate(input: unknown): RTCIceCandidateInit | null {
+  if (!input || typeof input !== 'object') return null
+  const obj = input as Record<string, unknown>
+  if (typeof obj.candidate === 'string') {
+    const sdpMid = typeof obj.sdpMid === 'string' && obj.sdpMid.length > 0 ? obj.sdpMid : undefined
+    return {
+      candidate: obj.candidate,
+      sdpMid,
+      sdpMLineIndex: typeof obj.sdpMLineIndex === 'number' ? obj.sdpMLineIndex : undefined,
+    }
+  }
+  if (obj.candidate && typeof obj.candidate === 'object') {
+    return normalizeIceCandidate(obj.candidate)
+  }
+  return null
+}
+
 function normalizeRemoteSdp(input: unknown): RTCSessionDescriptionInit | null {
   if (!input || typeof input !== 'object') return null
   const obj = input as Record<string, unknown>
@@ -431,7 +448,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const handleRemoteAnswer = useCallback(
     async (payload: Record<string, unknown>) => {
       const pc = pcRef.current
-      const sdp = payload.sdp as RTCSessionDescriptionInit | undefined
+      const sdp = normalizeRemoteSdp(payload.sdp ?? payload)
       if (!pc || !sdp) return
       await pc.setRemoteDescription(new RTCSessionDescription(sdp))
       remoteDescriptionSetRef.current = true
@@ -444,7 +461,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   const handleRemoteIce = useCallback(async (payload: Record<string, unknown>) => {
     const pc = pcRef.current
-    const candidate = payload.candidate as RTCIceCandidateInit | undefined
+    const candidate = normalizeIceCandidate(payload.candidate ?? payload)
     if (!candidate) return
     if (!pc || !remoteDescriptionSetRef.current) {
       queueRemoteIceCandidate(candidate)
