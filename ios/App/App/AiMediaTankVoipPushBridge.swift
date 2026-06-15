@@ -297,6 +297,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             }
             if !Self.canDeliverToWebView() {
                 print("[AiMediaTankVoipPushBridge] WebRTC watchdog deferred — device locked \(normalized)")
+                if Self.isLockScreenNativeAnswer(callId: normalized) {
+                    // Native engine may still be connecting — extend watchdog while locked.
+                    self.startAnswerBackgroundSupport(callId: normalized)
+                }
                 return
             }
             print("[AiMediaTankVoipPushBridge] WebRTC watchdog — ending unanswered CallKit call \(normalized)")
@@ -804,9 +808,16 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
         // VoIP push already reported CallKit; JS fallback only when push did not arrive (usually background).
         if Self.isForegroundActive() {
-            print("[AiMediaTankVoipPushBridge] JS incoming skipped on foreground — CallKit from VoIP \(normalizedCallId)")
-            Self.noteIncomingCallReported(callIdString)
-            return
+            let observer = CXCallObserver()
+            let alreadyRinging = observer.calls.contains {
+                !$0.hasEnded && $0.uuid.uuidString.lowercased() == normalizedCallId
+            }
+            if alreadyRinging {
+                print("[AiMediaTankVoipPushBridge] JS incoming skipped on foreground — CallKit from VoIP \(normalizedCallId)")
+                Self.noteIncomingCallReported(callIdString)
+                return
+            }
+            print("[AiMediaTankVoipPushBridge] foreground JS fallback — VoIP not on screen yet \(normalizedCallId)")
         }
 
         reportIncomingToCallKit(
@@ -1334,7 +1345,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private static func findBridgeViewController() -> CAPBridgeViewController? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         for scene in scenes {
-            for window in scene.windows where window.isKeyWindow {
+            for window in scene.windows {
                 if let bridge = findBridge(in: window.rootViewController) {
                     return bridge
                 }
@@ -1393,6 +1404,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         } else {
             pendingJsAnswerCallId = callId
             pendingJsAnswerDeclineToken = token.isEmpty ? nil : token
+            // Keep nudging UI sync after lock-screen accept until the WebView can run JS.
+            scheduleJsAnswerDeliveryRetries(callId: callId)
         }
     }
 

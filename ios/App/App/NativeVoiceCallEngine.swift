@@ -518,7 +518,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     private static func findBridgeViewController() -> CAPBridgeViewController? {
         for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
-            for window in scene.windows where window.isKeyWindow {
+            for window in scene.windows {
                 if let bridge = findBridge(in: window.rootViewController) { return bridge }
             }
         }

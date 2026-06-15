@@ -43,9 +43,17 @@ function declineTokenFromIncoming(call: NativeIncomingCallPayload): string | und
   return meta || undefined
 }
 
+export interface NativeCallAnsweredOptions {
+  declineToken?: string
+  /** Foreground answer: run WebRTC in WKWebView with session cookies. */
+  useSessionWebRtc?: boolean
+  /** Lock-screen answer: Swift NativeVoiceCallEngine owns media — JS syncs UI only. */
+  nativeWebRtc?: boolean
+}
+
 export interface NativeCallBridgeHandlers {
   onIncomingCall: (call: NativeIncomingCallPayload) => void
-  onCallAnswered: (callId: string, declineToken?: string, useSessionWebRtc?: boolean) => void
+  onCallAnswered: (callId: string, options?: NativeCallAnsweredOptions) => void
   onCallRejected: (callId: string) => void
   onCallEnded: (callId: string) => void
   onNativeCallConnected?: (payload: {
@@ -67,7 +75,12 @@ let bridgeHandlers: NativeCallBridgeHandlers | null = null
 let pendingNativeToken: string | null = null
 let pendingNativePlatform: 'ios' | 'android' | null = null
 let pendingIncomingCall: NativeIncomingCallPayload | null = null
-let pendingCallAnswered: { callId: string; declineToken?: string; useSessionWebRtc?: boolean } | null = null
+let pendingCallAnswered: {
+  callId: string
+  declineToken?: string
+  useSessionWebRtc?: boolean
+  nativeWebRtc?: boolean
+} | null = null
 let pendingCallRejected: string | null = null
 let pendingCallEnded: string | null = null
 let pendingNativeConnected: {
@@ -106,20 +119,16 @@ function attachWebViewCallKitInjectListener(): void {
     if (!callId) return
     const token = detail.declineToken || getCachedNativeDeclineToken(callId)
     if (token) cacheNativeDeclineToken(callId, token)
-    const useSessionWebRtc = Boolean(detail?.useSessionWebRtc)
-    const nativeWebRtc = Boolean(detail?.nativeWebRtc)
-    const handler = () => {
-      if (!bridgeHandlers) return
-      if (nativeWebRtc && !useSessionWebRtc) {
-        bridgeHandlers.onCallAnswered(callId, token, false)
-        return
-      }
-      bridgeHandlers.onCallAnswered(callId, token, useSessionWebRtc)
+    const payload = {
+      callId,
+      declineToken: token,
+      useSessionWebRtc: Boolean(detail?.useSessionWebRtc) || undefined,
+      nativeWebRtc: Boolean(detail?.nativeWebRtc) || undefined,
     }
     if (bridgeHandlers) {
-      handler()
+      bridgeHandlers.onCallAnswered(callId, payload)
     } else {
-      pendingCallAnswered = { callId, declineToken: token, useSessionWebRtc: useSessionWebRtc || undefined }
+      pendingCallAnswered = payload
     }
   })
 
@@ -166,7 +175,7 @@ function flushPendingNativeCallEvents(): void {
   if (pendingCallAnswered) {
     const event = pendingCallAnswered
     pendingCallAnswered = null
-    bridgeHandlers.onCallAnswered(event.callId, event.declineToken, event.useSessionWebRtc)
+    bridgeHandlers.onCallAnswered(event.callId, event)
   }
   if (pendingCallRejected) {
     const callId = pendingCallRejected
@@ -205,16 +214,26 @@ function attachNativeCallEventListeners(
   CapacitorPushCalls.addListener('callAnswered', (event) => {
     const callId = event.callId
     if (!callId) return
-    const extended = event as { callId?: string; declineToken?: string; useSessionWebRtc?: boolean }
+    const extended = event as {
+      callId?: string
+      declineToken?: string
+      useSessionWebRtc?: boolean
+      nativeWebRtc?: boolean
+    }
     const fromEvent = extended.declineToken
     const token =
       (typeof fromEvent === 'string' ? fromEvent : undefined) || getCachedNativeDeclineToken(callId)
     if (token) cacheNativeDeclineToken(callId, token)
-    const useSessionWebRtc = Boolean(extended.useSessionWebRtc)
+    const payload = {
+      callId,
+      declineToken: token,
+      useSessionWebRtc: Boolean(extended.useSessionWebRtc) || undefined,
+      nativeWebRtc: Boolean(extended.nativeWebRtc) || undefined,
+    }
     if (bridgeHandlers) {
-      bridgeHandlers.onCallAnswered(callId, token, useSessionWebRtc)
+      bridgeHandlers.onCallAnswered(callId, payload)
     } else {
-      pendingCallAnswered = { callId, declineToken: token, useSessionWebRtc }
+      pendingCallAnswered = payload
     }
   })
 

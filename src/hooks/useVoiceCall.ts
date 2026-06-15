@@ -960,26 +960,28 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         }
         void ensureIncomingCall(call.callId, call)
       },
-      onCallAnswered: (callId, declineToken, useSessionWebRtc) => {
+      onCallAnswered: (callId, options) => {
         stopVoiceCallRingtone()
         markVoiceCallUserGesture()
         const normalizedId = normalizeVoiceCallId(callId)
-        const token = declineToken || getCachedNativeDeclineToken(callId)
+        const token =
+          options?.declineToken || getCachedNativeDeclineToken(callId)
         if (token) {
           cacheNativeDeclineToken(callId, token)
           nativeSignalingTokenRef.current = token
         }
 
-        const documentHidden = typeof document !== 'undefined' && document.hidden
-        // Lock-screen: native Swift WebRTC only — WKWebView cannot run RTCPeerConnection while locked.
-        const nativeMediaOnly =
-          isNativeIosCallApp() && !useSessionWebRtc && documentHidden
+        const useSessionWebRtc = Boolean(options?.useSessionWebRtc)
+        const nativeWebRtc = Boolean(options?.nativeWebRtc)
 
-        if (nativeMediaOnly) {
+        // Lock-screen Accept: Swift NativeVoiceCallEngine owns WebRTC — JS must not start WKWebView RTCPeerConnection.
+        if (isNativeIosCallApp() && nativeWebRtc && !useSessionWebRtc) {
           callIdRef.current = normalizedId
           setCallId(normalizedId)
           isCallerRef.current = false
-          setCallState('connecting')
+          if (callStateRef.current !== 'connected') {
+            setCallState('connecting')
+          }
           void ensureIncomingCall(callId)
           return
         }

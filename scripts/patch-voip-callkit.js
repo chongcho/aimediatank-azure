@@ -1788,6 +1788,24 @@ if (
   console.log('[patch-voip-callkit] forward useSessionWebRtc on CallKit answer to JS')
 }
 
+const NATIVE_WEBRTC_MARKER = 'nativeWebRtc on CallKit answer'
+if (
+  pluginSwift &&
+  pluginSwift.includes('handleBridgedCallKitAnswer') &&
+  !pluginSwift.includes(NATIVE_WEBRTC_MARKER)
+) {
+  pluginSwift = pluginSwift.replace(
+    /(var data: \[String: Any\] = \["callId": callId\][\s\S]*?)(\n        emitEvent\("callAnswered", data: data\))/,
+    `$1
+        if let native = notification.userInfo?["nativeWebRtc"] as? Bool {
+            // ${NATIVE_WEBRTC_MARKER}
+            data["nativeWebRtc"] = native
+        }$2`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] forward nativeWebRtc on CallKit answer to JS')
+}
+
 const PREPARE_UNLOCKED_MARKER = 'AiMediaTankPrepareUnlockedIncoming'
 if (
   pluginSwift &&
