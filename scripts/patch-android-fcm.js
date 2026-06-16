@@ -1541,20 +1541,18 @@ if (fs.existsSync(callVolumeStatePath)) {
 }
 
 const callScreenPresentationMarker = 'AiMediaTank CallScreenPresentation'
-if (!fs.existsSync(callScreenPresentationPath) || !fs.readFileSync(callScreenPresentationPath, 'utf8').includes(callScreenPresentationMarker)) {
-  fs.writeFileSync(
-    callScreenPresentationPath,
-    `package com.capacitor.voipcalls
+const callScreenPresentationV2Marker = 'keep-screen-on flags only'
+const callScreenPresentationSource = `package com.capacitor.voipcalls
 
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.view.WindowManager
 
 /** Clears window flags that block the system screen-timeout after voice calls end. */
 object CallScreenPresentation {
     // ${callScreenPresentationMarker}
+    // ${callScreenPresentationV2Marker}
 
     @JvmStatic
     fun clearIfIdle(activity: Activity?) {
@@ -1564,63 +1562,6 @@ object CallScreenPresentation {
 
     @JvmStatic
     fun clear(activity: Activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            activity.setShowWhenLocked(false)
-            activity.setTurnScreenOn(false)
-        }
-        activity.window.clearFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
-        )
-        clearStaleVoiceIncomingIntent(activity)
-    }
-
-    private fun clearStaleVoiceIncomingIntent(activity: Activity) {
-        val current = activity.intent ?: return
-        val data = current.data ?: return
-        if (data.getQueryParameter("voiceIncoming") != "1") return
-        val builder = data.buildUpon().clearQuery()
-        for (name in data.queryParameterNames) {
-            if (name == "voiceIncoming" || name == "voiceAction" || name == "callId") continue
-            data.getQueryParameter(name)?.let { builder.appendQueryParameter(name, it) }
-        }
-        activity.intent = Intent(current).apply { setData(builder.build()) }
-    }
-}
-`,
-  )
-  changed = true
-  console.log('[patch-android-fcm] CallScreenPresentation.kt')
-}
-
-const callScreenStaleIntentMarker = 'clearStaleVoiceIncomingIntent'
-if (fs.existsSync(callScreenPresentationPath)) {
-  let screenPresentation = fs.readFileSync(callScreenPresentationPath, 'utf8')
-  if (!screenPresentation.includes(callScreenStaleIntentMarker)) {
-    screenPresentation = `package com.capacitor.voipcalls
-
-import android.app.Activity
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.view.WindowManager
-
-/** Clears window flags that block the system screen-timeout after voice calls end. */
-object CallScreenPresentation {
-    // ${callScreenPresentationMarker}
-
-    @JvmStatic
-    fun clearIfIdle(activity: Activity?) {
-        if (activity == null || CallVolumeState.shouldAdjustMediaVolume()) return
-        clear(activity)
-    }
-
-    @JvmStatic
-    fun clear(activity: Activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            activity.setShowWhenLocked(false)
-            activity.setTurnScreenOn(false)
-        }
         activity.window.clearFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
@@ -1641,10 +1582,14 @@ object CallScreenPresentation {
     }
 }
 `
-    fs.writeFileSync(callScreenPresentationPath, screenPresentation)
-    changed = true
-    console.log('[patch-android-fcm] CallScreenPresentation clears stale voiceIncoming intent')
-  }
+
+if (
+  !fs.existsSync(callScreenPresentationPath) ||
+  !fs.readFileSync(callScreenPresentationPath, 'utf8').includes(callScreenPresentationV2Marker)
+) {
+  fs.writeFileSync(callScreenPresentationPath, callScreenPresentationSource)
+  changed = true
+  console.log('[patch-android-fcm] CallScreenPresentation.kt (wake-lock flags only)')
 }
 
 const clearScreenPluginMarker = 'clearCallScreenPresentation'
@@ -1661,7 +1606,6 @@ if (fs.existsSync(pluginPath)) {
         `    @PluginMethod
     fun stopCallRing(call: PluginCall) {
         IncomingRingAudioHelper.stop(context)
-        CallScreenPresentation.clearIfIdle(activity)
         call.resolve()
     }
 
@@ -1678,9 +1622,6 @@ if (fs.existsSync(pluginPath)) {
         call.resolve()
     }`,
         `        callManager?.setVoiceCallAudioActive(active)
-        if (!active) {
-            CallScreenPresentation.clearIfIdle(activity)
-        }
         call.resolve()
     }`,
       )
@@ -1703,7 +1644,6 @@ if (fs.existsSync(callManagerPath)) {
 
     private fun notifyError(message: String) {`,
       `        releaseGlobalAudioSideEffects()
-        CallScreenPresentation.clearIfIdle(resolveVolumeActivity())
     }
 
     private fun notifyError(message: String) {`,
@@ -1728,7 +1668,6 @@ if (fs.existsSync(incomingRingAudioPath)) {
       `        if (!CallVolumeState.voiceCallActive) {
             resolveActivity(context)?.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
         }
-        CallScreenPresentation.clearIfIdle(resolveActivity(context))
     }
 }`,
     )
@@ -1742,4 +1681,63 @@ if (fs.existsSync(incomingRingAudioPath)) {
 
 if (!changed) {
   console.log('[patch-android-fcm] already patched')
+}
+
+// 1.0.18 regression: do not clear lock-screen / intent when ring stops or call audio deactivates.
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  let pluginChanged = false
+  const ringStopWithClear =
+    'IncomingRingAudioHelper.stop(context)\n        CallScreenPresentation.clearIfIdle(activity)\n        call.resolve()'
+  if (pluginSource.includes(ringStopWithClear)) {
+    pluginSource = pluginSource.replace(
+      ringStopWithClear,
+      'IncomingRingAudioHelper.stop(context)\n        call.resolve()',
+    )
+    pluginChanged = true
+  }
+  const audioDeactivateWithClear = `        callManager?.setVoiceCallAudioActive(active)
+        if (!active) {
+            CallScreenPresentation.clearIfIdle(activity)
+        }
+        call.resolve()`
+  if (pluginSource.includes(audioDeactivateWithClear)) {
+    pluginSource = pluginSource.replace(
+      audioDeactivateWithClear,
+      `        callManager?.setVoiceCallAudioActive(active)
+        call.resolve()`,
+    )
+    pluginChanged = true
+  }
+  if (pluginChanged) {
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] plugin: screen clear only via clearCallScreenPresentation')
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (callManager.includes('CallScreenPresentation.clearIfIdle(resolveVolumeActivity())')) {
+    callManager = callManager.replace(
+      '        releaseGlobalAudioSideEffects()\n        CallScreenPresentation.clearIfIdle(resolveVolumeActivity())',
+      '        releaseGlobalAudioSideEffects()',
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager: no screen clear on audio deactivate')
+  }
+}
+
+if (fs.existsSync(incomingRingAudioPath)) {
+  let ringHelper = fs.readFileSync(incomingRingAudioPath, 'utf8')
+  if (ringHelper.includes('CallScreenPresentation.clearIfIdle(resolveActivity(context))')) {
+    ringHelper = ringHelper.replace(
+      '        CallScreenPresentation.clearIfIdle(resolveActivity(context))\n',
+      '',
+    )
+    fs.writeFileSync(incomingRingAudioPath, ringHelper)
+    changed = true
+    console.log('[patch-android-fcm] IncomingRingAudioHelper: no screen clear on ring stop')
+  }
 }

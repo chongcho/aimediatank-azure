@@ -612,9 +612,6 @@ export async function setNativeVoiceCallAudioActive(active: boolean): Promise<vo
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
     if (typeof plugin.setVoiceCallAudioActive !== 'function') return
     await plugin.setVoiceCallAudioActive({ active })
-    if (!active) {
-      await clearNativeCallScreenPresentation()
-    }
   } catch (error) {
     console.error('[NativeCall] setVoiceCallAudioActive failed:', error)
   }
@@ -669,7 +666,6 @@ export async function stopNativeCallRing(): Promise<void> {
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
     if (typeof plugin.stopCallRing !== 'function') return
     await plugin.stopCallRing()
-    await clearNativeCallScreenPresentation()
   } catch (error) {
     console.error('[NativeCall] stopCallRing failed:', error)
   }
