@@ -6,13 +6,8 @@
  */
 
 import { getNativePlatform } from '@/lib/nativeShellBoot'
-import { isNativeAndroidCallApp, startNativeCallRing, stopNativeCallRing, setNativeCallRingVolume } from '@/lib/nativeCallBridge'
+import { isNativeAndroidCallApp, startNativeCallRing, stopNativeCallRing } from '@/lib/nativeCallBridge'
 import { RING_ASSET_VERSION } from '@/lib/ringAssetVersion'
-import {
-  getVoiceCallRingVolume,
-  getVoiceCallRingtoneId,
-  setVoiceCallRingVolume as persistRingVolume,
-} from '@/lib/voiceCallVolume'
 
 export const VOICE_CALL_RING_TIMEOUT_MS = 60000
 const IOS_GESTURE_WINDOW_MS = 2500
@@ -102,31 +97,9 @@ function isMobileDevice(): boolean {
 function ringGainFor(kind: RingKind): number {
   const table = RING_GAIN[kind]
   const platform = getNativePlatform()
-  let base = table.desktop
-  if (platform === 'ios' || platform === 'android') base = table.nativeMobile
-  else if (isMobileDevice()) base = table.mobile
-  return base * getVoiceCallRingVolume()
-}
-
-export function setVoiceCallRingVolume(level: number) {
-  const v = persistRingVolume(level)
-  if (ringActiveGainNode) {
-    try {
-      ringActiveGainNode.gain.value = activeRingKind ? ringGainFor(activeRingKind) : v
-    } catch {
-      // ignore
-    }
-  }
-  if (nativeRingActive) {
-    void setNativeCallRingVolume(v)
-  }
-}
-
-function resolveRingKind(kind: RingKind): RingKind {
-  if (kind === 'incoming') {
-    return getVoiceCallRingtoneId()
-  }
-  return kind
+  if (platform === 'ios' || platform === 'android') return table.nativeMobile
+  if (isMobileDevice()) return table.mobile
+  return table.desktop
 }
 
 function stopRingPlayback() {
@@ -354,13 +327,11 @@ async function startRing(kind: RingKind) {
 
   stopVoiceCallRingtone()
   activeRingKind = kind
-  const playbackKind = resolveRingKind(kind)
 
   if (useNativeAndroidRing()) {
     nativeRingActive = true
     try {
-      await startNativeCallRing(absoluteRingUrl(RING_URLS[playbackKind]))
-      void setNativeCallRingVolume(getVoiceCallRingVolume())
+      await startNativeCallRing(absoluteRingUrl(RING_URLS[kind]))
       return
     } catch {
       nativeRingActive = false
@@ -370,7 +341,7 @@ async function startRing(kind: RingKind) {
 
   const generation = loopGeneration
 
-  const buffer = await getRingBuffer(RING_URLS[playbackKind])
+  const buffer = await getRingBuffer(RING_URLS[kind])
   if (generation !== loopGeneration) return
 
   if (!buffer) {
@@ -400,12 +371,6 @@ export function retryVoiceCallRingtone() {
   const kind = activeRingKind
   stopVoiceCallRingtone()
   void startRing(kind)
-}
-
-/** Apply a new incoming ringtone preference and replay if ringing. */
-export function applyVoiceCallRingtonePreference() {
-  if (!activeRingKind) return
-  retryVoiceCallRingtone()
 }
 
 /** @deprecated Use retryVoiceCallRingtone */

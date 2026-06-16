@@ -23,19 +23,10 @@ import {
   installVoiceCallAudioUnlock,
   primeVoiceCallAfterNotificationOpen,
   retryVoiceCallRingtone,
-  setVoiceCallRingVolume as applyRingVolume,
-  applyVoiceCallRingtonePreference,
   startIncomingRingtone,
   startOutgoingRingback,
   stopVoiceCallRingtone,
 } from '@/lib/voiceCallRingtone'
-import {
-  getVoiceCallRingVolume,
-  getVoiceCallRingtoneId,
-  getVoiceCallVoiceVolume,
-  setVoiceCallRingtoneId,
-  type VoiceCallRingtoneId,
-} from '@/lib/voiceCallVolume'
 import { useSession } from 'next-auth/react'
 import { useVoiceCall, type VoiceCallState, type VoiceCallUser } from '@/hooks/useVoiceCall'
 import { VoiceCallOverlay } from '@/components/VoiceCallOverlay'
@@ -63,7 +54,6 @@ interface VoiceCallContextValue {
   callUiHidden: boolean
   hideCallUi: () => void
   showCallUi: () => void
-  setRemoteCallVolume: (level: number) => void
 }
 
 const VoiceCallContext = createContext<VoiceCallContextValue | null>(null)
@@ -100,13 +90,6 @@ function useVoiceCallLabels() {
     inAppHint: tr[TC.voiceCallInAppHint],
     hideCall: tr[TC.voiceHideCall],
     tapToShowCall: tr[TC.voiceTapToShowCall],
-    volume: tr[TC.voiceVolume],
-    ringVolume: tr[TC.voiceRingVolume],
-    callVolume: tr[TC.voiceCallVolume],
-    ringtone: tr[TC.voiceRingtone],
-    ringtoneIncoming: tr[TC.voiceRingtoneIncoming],
-    ringtoneOutgoing: tr[TC.voiceRingtoneOutgoing],
-    mediaVolumeHint: tr[TC.voiceMediaVolumeHint],
   }
 }
 
@@ -120,28 +103,6 @@ export function VoiceCallOverlayPanel({
   const { data: session } = useSession()
   const labels = useVoiceCallLabels()
   const isDesktop = useIsDesktop()
-  const [ringVolume, setRingVolume] = useState(() => getVoiceCallRingVolume())
-  const [voiceVolume, setVoiceVolume] = useState(() => getVoiceCallVoiceVolume())
-  const [ringtoneId, setRingtoneId] = useState<VoiceCallRingtoneId>(() => getVoiceCallRingtoneId())
-
-  const handleRingVolumeChange = useCallback((level: number) => {
-    applyRingVolume(level)
-    setRingVolume(level)
-  }, [])
-
-  const handleVoiceVolumeChange = useCallback(
-    (level: number) => {
-      ctx?.setRemoteCallVolume(level)
-      setVoiceVolume(level)
-    },
-    [ctx]
-  )
-
-  const handleRingtoneChange = useCallback((id: VoiceCallRingtoneId) => {
-    setVoiceCallRingtoneId(id)
-    setRingtoneId(id)
-    applyVoiceCallRingtonePreference()
-  }, [])
 
   if (!session?.user || !ctx) return null
 
@@ -188,12 +149,6 @@ export function VoiceCallOverlayPanel({
       onToggleMute={ctx.toggleMute}
       onToggleSpeaker={ctx.toggleSpeaker}
       speakerEnabled={nativeVoiceCall}
-      ringVolume={ringVolume}
-      voiceVolume={voiceVolume}
-      ringtoneId={ringtoneId}
-      onRingVolumeChange={handleRingVolumeChange}
-      onVoiceVolumeChange={handleVoiceVolumeChange}
-      onRingtoneChange={handleRingtoneChange}
     />
   )
 }
@@ -228,7 +183,6 @@ export function VoiceCallProvider({
 
   useEffect(() => {
     installVoiceCallAudioUnlock()
-    applyRingVolume(getVoiceCallRingVolume())
   }, [])
 
   useEffect(() => {
@@ -334,7 +288,6 @@ export function VoiceCallProvider({
         callUiHidden,
         hideCallUi,
         showCallUi,
-        setRemoteCallVolume: voiceCall.setRemoteCallVolume,
       }}
     >
       {children}

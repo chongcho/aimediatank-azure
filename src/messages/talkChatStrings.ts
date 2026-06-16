@@ -105,13 +105,6 @@ export const TALK_CHAT_MAP = {
     'Voice call in progress — tap the bar below to open call controls.',
   voiceHideCall: 'Hide',
   voiceTapToShowCall: 'Tap to show call',
-  voiceVolume: 'Volume',
-  voiceRingVolume: 'Ring volume',
-  voiceCallVolume: 'Call volume',
-  voiceRingtone: 'Ringtone',
-  voiceRingtoneIncoming: 'Classic incoming',
-  voiceRingtoneOutgoing: 'Classic outgoing',
-  voiceMediaVolumeHint: 'Uses app media volume, not the phone call channel',
 } as const
 
 export type TalkChatKey = keyof typeof TALK_CHAT_MAP
@@ -221,13 +214,6 @@ const ORDER: readonly TalkChatKey[] = [
   'voiceCallInAppHint',
   'voiceHideCall',
   'voiceTapToShowCall',
-  'voiceVolume',
-  'voiceRingVolume',
-  'voiceCallVolume',
-  'voiceRingtone',
-  'voiceRingtoneIncoming',
-  'voiceRingtoneOutgoing',
-  'voiceMediaVolumeHint',
 ]
 
 type Pack = Record<TalkChatKey, string>
@@ -343,13 +329,6 @@ const KO: Pack = {
     '통화 중입니다 — 아래 바를 눌러 통화 컨트롤을 여세요.',
   voiceHideCall: '숨기기',
   voiceTapToShowCall: '탭하여 통화 표시',
-  voiceVolume: '음량',
-  voiceRingVolume: '벨소리 음량',
-  voiceCallVolume: '통화 음량',
-  voiceRingtone: '벨소리',
-  voiceRingtoneIncoming: '기본 수신 벨',
-  voiceRingtoneOutgoing: '기본 발신 벨',
-  voiceMediaVolumeHint: '휴대폰 통화 채널이 아닌 앱 미디어 음량을 사용합니다',
 }
 
 const JA: Pack = {
@@ -458,13 +437,6 @@ const JA: Pack = {
     '通話中です — 下のバーをタップして通話コントロールを開いてください。',
   voiceHideCall: '非表示',
   voiceTapToShowCall: 'タップして通話を表示',
-  voiceVolume: '音量',
-  voiceRingVolume: '着信音量',
-  voiceCallVolume: '通話音量',
-  voiceRingtone: '着信音',
-  voiceRingtoneIncoming: '標準着信',
-  voiceRingtoneOutgoing: '標準発信',
-  voiceMediaVolumeHint: '電話の通話チャンネルではなくアプリのメディア音量です',
 }
 
 const ZH: Pack = {
@@ -573,13 +545,6 @@ const ZH: Pack = {
     '通话进行中 — 点击下方栏打开通话控件。',
   voiceHideCall: '隐藏',
   voiceTapToShowCall: '点击显示通话',
-  voiceVolume: '音量',
-  voiceRingVolume: '铃声音量',
-  voiceCallVolume: '通话音量',
-  voiceRingtone: '铃声',
-  voiceRingtoneIncoming: '经典来电铃',
-  voiceRingtoneOutgoing: '经典去电铃',
-  voiceMediaVolumeHint: '使用应用媒体音量，不是系统电话通话通道',
 }
 
 const MESSAGES: Record<string, Pack> = {
