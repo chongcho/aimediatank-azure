@@ -843,7 +843,11 @@ if (fs.existsSync(pluginPath)) {
 
     @PluginMethod
     fun startCallRing(call: PluginCall) {
-        IncomingRingAudioHelper.start(context)
+        val url = call.getString("url") ?: run {
+            call.reject("Missing url parameter")
+            return
+        }
+        IncomingRingAudioHelper.start(context, url)
         call.resolve()
     }
 
@@ -872,7 +876,11 @@ if (fs.existsSync(pluginPath)) {
 
     @PluginMethod
     fun startCallRing(call: PluginCall) {
-        IncomingRingAudioHelper.start(context)
+        val url = call.getString("url") ?: run {
+            call.reject("Missing url parameter")
+            return
+        }
+        IncomingRingAudioHelper.start(context, url)
         call.resolve()
     }
 
@@ -886,6 +894,29 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginSource)
     changed = true
     console.log('[patch-android-fcm] CapacitorVoipCallsPlugin native call ring')
+  } else if (
+    pluginSource.includes('IncomingRingAudioHelper.start(context)') &&
+    !pluginSource.includes('getString("url")')
+  ) {
+    pluginSource = pluginSource.replace(
+      `    @PluginMethod
+    fun startCallRing(call: PluginCall) {
+        IncomingRingAudioHelper.start(context)
+        call.resolve()
+    }`,
+      `    @PluginMethod
+    fun startCallRing(call: PluginCall) {
+        val url = call.getString("url") ?: run {
+            call.reject("Missing url parameter")
+            return
+        }
+        IncomingRingAudioHelper.start(context, url)
+        call.resolve()
+    }`,
+    )
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] startCallRing native media player url')
   } else if (pluginSource.includes('IncomingRingAudioHelper.start(context, url)')) {
     pluginSource = pluginSource.replace(
       `    @PluginMethod
@@ -911,23 +942,30 @@ if (fs.existsSync(pluginPath)) {
 
 const incomingRingVolumeMarker = 'AiMediaTank webview music volume stream (ring)'
 const incomingRingVolumeMarkerV2 = 'AiMediaTank ring media volume keys v2'
+const incomingRingVolumeMarkerV3 = 'AiMediaTank native media player ring'
 const incomingRingAudioPath = path.join(pluginDir, 'IncomingRingAudioHelper.kt')
 if (
   !fs.existsSync(incomingRingAudioPath) ||
-  !fs.readFileSync(incomingRingAudioPath, 'utf8').includes(incomingRingVolumeMarkerV2)
+  !fs.readFileSync(incomingRingAudioPath, 'utf8').includes(incomingRingVolumeMarkerV3)
 ) {
   const incomingRingAudioSource = `package com.capacitor.voipcalls
 
 import android.app.Activity
 import android.content.Context
+import android.media.AudioAttributes
 import android.media.AudioManager
+import android.media.MediaPlayer
+import android.util.Log
 
-/** Route hardware volume keys to media stream while WebView Web Audio plays the ring. */
+/** Native ring on STREAM_MUSIC — hardware volume keys control ring loudness. */
 object IncomingRingAudioHelper {
+    private const val TAG = "IncomingRingAudio"
+    private var player: MediaPlayer? = null
     private var ringVolumeKeysActive = false
 
     private fun resolveActivity(context: Context): Activity? {
-        return (context as? Activity) ?: CapacitorVoipCallsPlugin.getInstance()?.activity
+        return CapacitorVoipCallsPlugin.getInstance()?.activity
+            ?: (context as? Activity)
     }
 
     fun isActive(): Boolean = ringVolumeKeysActive
@@ -937,15 +975,58 @@ object IncomingRingAudioHelper {
         resolveActivity(context)?.volumeControlStream = AudioManager.STREAM_MUSIC
     }
 
-    fun start(context: Context) {
+    fun start(context: Context, url: String) {
         // ${incomingRingVolumeMarker}
         // ${incomingRingVolumeMarkerV2}
+        // ${incomingRingVolumeMarkerV3}
+        stop(context)
         ringVolumeKeysActive = true
         CallVolumeState.ringActive = true
-        resolveActivity(context)?.volumeControlStream = AudioManager.STREAM_MUSIC
+        val activity = resolveActivity(context)
+        activity?.volumeControlStream = AudioManager.STREAM_MUSIC
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.mode = AudioManager.MODE_NORMAL
+        try {
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            player = MediaPlayer().apply {
+                setAudioAttributes(attributes)
+                setDataSource(url)
+                isLooping = true
+                setVolume(1.0f, 1.0f)
+                setOnPreparedListener { mp ->
+                    try {
+                        mp.start()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "start failed", e)
+                    }
+                }
+                setOnErrorListener { _, what, extra ->
+                    Log.e(TAG, "MediaPlayer error what=\$what extra=\$extra")
+                    true
+                }
+                prepareAsync()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "prepare ring failed for \$url", e)
+            stop(context)
+        }
     }
 
     fun stop(context: Context) {
+        player?.let { mp ->
+            try {
+                if (mp.isPlaying) mp.stop()
+            } catch (_: Exception) {
+            }
+            try {
+                mp.release()
+            } catch (_: Exception) {
+            }
+        }
+        player = null
         if (!ringVolumeKeysActive) return
         ringVolumeKeysActive = false
         CallVolumeState.ringActive = false

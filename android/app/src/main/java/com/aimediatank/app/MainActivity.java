@@ -34,28 +34,47 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         applySystemBars();
+        if (CallVolumeState.shouldAdjustMediaVolume()) {
+            setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        }
     }
 
     /**
-     * WebView WebRTC/Web Audio uses STREAM_MUSIC; MODE_IN_COMMUNICATION routes keys to call volume.
+     * WebView WebRTC uses STREAM_MUSIC; MODE_IN_COMMUNICATION steers keys to call volume.
      * AiMediaTank webview media volume keys
      */
+    private boolean adjustVoiceMediaVolume(int keyCode) {
+        if (!CallVolumeState.shouldAdjustMediaVolume()) {
+            return false;
+        }
+        if (keyCode != KeyEvent.KEYCODE_VOLUME_UP && keyCode != KeyEvent.KEYCODE_VOLUME_DOWN) {
+            return false;
+        }
+        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        int direction = keyCode == KeyEvent.KEYCODE_VOLUME_UP
+            ? AudioManager.ADJUST_RAISE
+            : AudioManager.ADJUST_LOWER;
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        am.adjustStreamVolume(
+            AudioManager.STREAM_MUSIC,
+            direction,
+            AudioManager.FLAG_SHOW_UI
+        );
+        return true;
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (adjustVoiceMediaVolume(keyCode)) {
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.getAction() == KeyEvent.ACTION_DOWN && CallVolumeState.shouldAdjustMediaVolume()) {
-            int code = event.getKeyCode();
-            if (code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN) {
-                AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-                int direction = code == KeyEvent.KEYCODE_VOLUME_UP
-                    ? AudioManager.ADJUST_RAISE
-                    : AudioManager.ADJUST_LOWER;
-                am.adjustStreamVolume(
-                    AudioManager.STREAM_MUSIC,
-                    direction,
-                    AudioManager.FLAG_SHOW_UI
-                );
-                return true;
-            }
+        if (event.getAction() == KeyEvent.ACTION_DOWN && adjustVoiceMediaVolume(event.getKeyCode())) {
+            return true;
         }
         return super.dispatchKeyEvent(event);
     }

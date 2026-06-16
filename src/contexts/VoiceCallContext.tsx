@@ -220,11 +220,6 @@ export function VoiceCallProvider({
     ) {
       return
     }
-    // Avoid beep-only on lock screen: in-app ringtone needs a visible WebView; native layer shows UI.
-    if (isNativeAndroidCallApp() && state === 'incoming' && typeof document !== 'undefined' && document.hidden) {
-      return
-    }
-
     const announcement =
       state === 'incoming'
         ? formatVoiceCallAnnouncement(labels.incomingCall, voiceCall.remoteUser)

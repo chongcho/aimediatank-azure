@@ -29,10 +29,19 @@ function useNativeAndroidRing(): boolean {
   return isNativeAndroidCallApp()
 }
 
-/** Web Audio gain — mobile WebView output is often quiet without amplification. */
+function absoluteRingUrl(path: string): string {
+  if (typeof window === 'undefined') return path
+  try {
+    return new URL(path, window.location.origin).href
+  } catch {
+    return path
+  }
+}
+
+/** Web Audio gain — fallback when native ring is unavailable. */
 const RING_GAIN: Record<RingKind, { nativeMobile: number; mobile: number; desktop: number }> = {
-  incoming: { nativeMobile: 4, mobile: 2.75, desktop: 1.75 },
-  outgoing: { nativeMobile: 3, mobile: 2.25, desktop: 1.5 },
+  incoming: { nativeMobile: 6, mobile: 2.75, desktop: 1.75 },
+  outgoing: { nativeMobile: 5, mobile: 2.25, desktop: 1.5 },
 }
 
 let audioContext: AudioContext | null = null
@@ -321,7 +330,13 @@ async function startRing(kind: RingKind) {
 
   if (useNativeAndroidRing()) {
     nativeRingActive = true
-    void startNativeCallRing()
+    try {
+      await startNativeCallRing(absoluteRingUrl(RING_URLS[kind]))
+      return
+    } catch {
+      nativeRingActive = false
+      void stopNativeCallRing()
+    }
   }
 
   const generation = loopGeneration

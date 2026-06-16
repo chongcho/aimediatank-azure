@@ -211,6 +211,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const callKitSignalingRef = useRef(false)
   /** iOS callee accepted via Swift NativeVoiceCallEngine — JS poll must not consume caller ICE. */
   const nativeWebRtcCalleeRef = useRef(false)
+  const androidRemoteGainRef = useRef<{
+    ctx: AudioContext | null
+    source: MediaStreamAudioSourceNode | null
+    gain: GainNode | null
+  }>({ ctx: null, source: null, gain: null })
 
   const reportError = useCallback(
     (message: string) => {
@@ -234,11 +239,36 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     pcRef.current = null
   }, [])
 
+  const stopAndroidRemoteGain = useCallback(() => {
+    const bag = androidRemoteGainRef.current
+    if (bag.source) {
+      try {
+        bag.source.disconnect()
+      } catch {
+        // ignore
+      }
+      bag.source = null
+    }
+    if (bag.gain) {
+      try {
+        bag.gain.disconnect()
+      } catch {
+        // ignore
+      }
+      bag.gain = null
+    }
+    if (bag.ctx) {
+      void bag.ctx.close().catch(() => {})
+      bag.ctx = null
+    }
+  }, [])
+
   const resetCall = useCallback((options?: { endNativeUi?: boolean }) => {
     const id = callIdRef.current ? normalizeVoiceCallId(callIdRef.current) : null
     const state = callStateRef.current
     const endNativeUi = options?.endNativeUi ?? true
     stopVoiceCallRingtone()
+    stopAndroidRemoteGain()
     if (id && endNativeUi) {
       // iOS incoming ring is owned by CallKit — session poll must not dismiss native UI.
       const shouldEndNative =
@@ -258,6 +288,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     closePeerConnection()
     if (remoteAudioRef.current) {
       remoteAudioRef.current.srcObject = null
+      remoteAudioRef.current.muted = false
     }
     callIdRef.current = null
     isCallerRef.current = false
@@ -279,7 +310,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     setIsMuted(false)
     setIsSpeakerOn(false)
     setCallState('idle')
-  }, [closePeerConnection, stopLocalStream])
+  }, [closePeerConnection, stopAndroidRemoteGain, stopLocalStream])
 
   const sendSignal = useCallback(async (type: string, payload: Record<string, unknown>) => {
     const id = callIdRef.current
@@ -299,12 +330,63 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [])
 
   const reattachRemoteAudio = useCallback(() => {
-    const audio = remoteAudioRef.current
     const stream = remoteStreamRef.current
-    if (!audio || !stream) return
+    if (!stream) return
+
+    if (isNativeAndroidCallApp()) {
+      const bag = androidRemoteGainRef.current
+      if (!bag.ctx && typeof window !== 'undefined') {
+        const w = window as Window & { webkitAudioContext?: typeof AudioContext }
+        const Ctor = window.AudioContext || w.webkitAudioContext
+        if (Ctor) {
+          try {
+            bag.ctx = new Ctor()
+          } catch {
+            bag.ctx = null
+          }
+        }
+      }
+      const ctx = bag.ctx
+      if (ctx) {
+        void ctx.resume().catch(() => {})
+        if (bag.source) {
+          try {
+            bag.source.disconnect()
+          } catch {
+            // ignore
+          }
+        }
+        if (bag.gain) {
+          try {
+            bag.gain.disconnect()
+          } catch {
+            // ignore
+          }
+        }
+        try {
+          bag.source = ctx.createMediaStreamSource(stream)
+          bag.gain = ctx.createGain()
+          bag.gain.gain.value = 2.5
+          bag.source.connect(bag.gain)
+          bag.gain.connect(ctx.destination)
+        } catch {
+          // fall through to audio element
+        }
+      }
+      const audio = remoteAudioRef.current
+      if (audio && bag.gain) {
+        audio.srcObject = null
+        audio.muted = true
+        return
+      }
+    }
+
+    const audio = remoteAudioRef.current
+    if (!audio) return
     if (audio.srcObject !== stream) {
       audio.srcObject = stream
     }
+    audio.muted = false
     const tryPlay = async (attempt = 0) => {
       try {
         await audio.play()
