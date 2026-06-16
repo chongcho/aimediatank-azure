@@ -11,10 +11,10 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
-import android.view.WindowManager;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.capacitor.voipcalls.AndroidAudioCleanup;
+import com.capacitor.voipcalls.CallScreenPresentation;
 import com.capacitor.voipcalls.CallVolumeState;
 import com.capacitor.voipcalls.VoipConnectionService;
 import com.getcapacitor.BridgeActivity;
@@ -43,6 +43,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onPause() {
         AndroidAudioCleanup.resetIfIdle(this);
+        syncIncomingCallPresentation(getIntent());
         super.onPause();
     }
 
@@ -125,7 +126,6 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void syncIncomingCallPresentation(Intent intent) {
-        // Only keep the screen on during an active ring or call — not from a stale voiceIncoming deep link.
         if (CallVolumeState.shouldAdjustMediaVolume()) {
             applyActiveCallPresentation();
             return;
@@ -133,19 +133,15 @@ public class MainActivity extends BridgeActivity {
         if (isVoiceIncomingIntent(intent)) {
             clearVoiceIncomingFromIntent();
         }
-        clearIncomingCallPresentation();
+        CallScreenPresentation.clearIfIdle(this);
     }
 
-    /** Lock-screen incoming UI + screen-on while ringing or in a call. */
+    /** Lock-screen incoming UI while ringing — screen-on is handled in JS via wakeLock during calls. */
     private void applyActiveCallPresentation() {
         if (CallVolumeState.ringActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
         }
-        getWindow().addFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                | WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
-        );
     }
 
     /** Drop consumed voiceIncoming params so resume does not re-apply keep-screen-on. */
@@ -171,17 +167,6 @@ public class MainActivity extends BridgeActivity {
         Intent cleaned = new Intent(current);
         cleaned.setData(builder.build());
         setIntent(cleaned);
-    }
-
-    private void clearIncomingCallPresentation() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(false);
-            setTurnScreenOn(false);
-        }
-        getWindow().clearFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                | WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
-        );
     }
 
     private static boolean isVoiceIncomingIntent(Intent intent) {

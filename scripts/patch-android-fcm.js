@@ -26,6 +26,7 @@ const voipConnectionPath = path.join(pluginDir, 'VoipConnection.kt')
 const messagingServicePath = path.join(pluginDir, 'PushRouterMessagingService.kt')
 const fcmDeviceAckPath = path.join(pluginDir, 'FcmDeviceAck.kt')
 const incomingCallUiPath = path.join(pluginDir, 'IncomingCallUiHelper.kt')
+const callScreenPresentationPath = path.join(pluginDir, 'CallScreenPresentation.kt')
 
 const incomingCallUiSource = `package com.capacitor.voipcalls
 
@@ -1536,6 +1537,137 @@ if (fs.existsSync(callVolumeStatePath)) {
     fs.writeFileSync(callVolumeStatePath, callVolumeState)
     changed = true
     console.log('[patch-android-fcm] CallVolumeState @JvmField for Java')
+  }
+}
+
+const callScreenPresentationMarker = 'AiMediaTank CallScreenPresentation'
+if (!fs.existsSync(callScreenPresentationPath) || !fs.readFileSync(callScreenPresentationPath, 'utf8').includes(callScreenPresentationMarker)) {
+  fs.writeFileSync(
+    callScreenPresentationPath,
+    `package com.capacitor.voipcalls
+
+import android.app.Activity
+import android.os.Build
+import android.view.WindowManager
+
+/** Clears window flags that block the system screen-timeout after voice calls end. */
+object CallScreenPresentation {
+    // ${callScreenPresentationMarker}
+
+    @JvmStatic
+    fun clearIfIdle(activity: Activity?) {
+        if (activity == null || CallVolumeState.shouldAdjustMediaVolume()) return
+        clear(activity)
+    }
+
+    @JvmStatic
+    fun clear(activity: Activity) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            activity.setShowWhenLocked(false)
+            activity.setTurnScreenOn(false)
+        }
+        activity.window.clearFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+        )
+    }
+}
+`,
+  )
+  changed = true
+  console.log('[patch-android-fcm] CallScreenPresentation.kt')
+}
+
+const clearScreenPluginMarker = 'clearCallScreenPresentation'
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (!pluginSource.includes(clearScreenPluginMarker)) {
+    if (pluginSource.includes('fun stopCallRing(call: PluginCall)')) {
+      pluginSource = pluginSource.replace(
+        `    @PluginMethod
+    fun stopCallRing(call: PluginCall) {
+        IncomingRingAudioHelper.stop(context)
+        call.resolve()
+    }`,
+        `    @PluginMethod
+    fun stopCallRing(call: PluginCall) {
+        IncomingRingAudioHelper.stop(context)
+        CallScreenPresentation.clearIfIdle(activity)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun clearCallScreenPresentation(call: PluginCall) {
+        CallScreenPresentation.clearIfIdle(activity)
+        call.resolve()
+    }`,
+      )
+    }
+    if (!pluginSource.includes(clearScreenPluginMarker) && pluginSource.includes('fun setVoiceCallAudioActive(call: PluginCall)')) {
+      pluginSource = pluginSource.replace(
+        `        callManager?.setVoiceCallAudioActive(active)
+        call.resolve()
+    }`,
+        `        callManager?.setVoiceCallAudioActive(active)
+        if (!active) {
+            CallScreenPresentation.clearIfIdle(activity)
+        }
+        call.resolve()
+    }`,
+      )
+    }
+    if (pluginSource.includes(clearScreenPluginMarker)) {
+      fs.writeFileSync(pluginPath, pluginSource)
+      changed = true
+      console.log('[patch-android-fcm] clearCallScreenPresentation plugin method')
+    }
+  }
+}
+
+const callScreenHookMarker = 'CallScreenPresentation.clearIfIdle'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (!callManager.includes(callScreenHookMarker)) {
+    callManager = callManager.replace(
+      `        releaseGlobalAudioSideEffects()
+    }
+
+    private fun notifyError(message: String) {`,
+      `        releaseGlobalAudioSideEffects()
+        CallScreenPresentation.clearIfIdle(resolveVolumeActivity())
+    }
+
+    private fun notifyError(message: String) {`,
+    )
+    if (callManager.includes(callScreenHookMarker)) {
+      fs.writeFileSync(callManagerPath, callManager)
+      changed = true
+      console.log('[patch-android-fcm] CallManager clears screen flags when call audio ends')
+    }
+  }
+}
+
+if (fs.existsSync(incomingRingAudioPath)) {
+  let ringHelper = fs.readFileSync(incomingRingAudioPath, 'utf8')
+  if (!ringHelper.includes(callScreenHookMarker)) {
+    ringHelper = ringHelper.replace(
+      `        if (!CallVolumeState.voiceCallActive) {
+            resolveActivity(context)?.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
+        }
+    }
+}`,
+      `        if (!CallVolumeState.voiceCallActive) {
+            resolveActivity(context)?.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
+        }
+        CallScreenPresentation.clearIfIdle(resolveActivity(context))
+    }
+}`,
+    )
+    if (ringHelper.includes(callScreenHookMarker)) {
+      fs.writeFileSync(incomingRingAudioPath, ringHelper)
+      changed = true
+      console.log('[patch-android-fcm] IncomingRingAudioHelper clears screen flags after ring')
+    }
   }
 }
 

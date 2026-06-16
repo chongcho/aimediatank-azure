@@ -11,6 +11,7 @@ import {
 } from '@/lib/voiceCallRingtone'
 import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 import {
+  clearNativeCallScreenPresentation,
   endNativeCall,
   getCachedNativeDeclineToken,
   initNativeCallBridge,
@@ -272,6 +273,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     const endNativeUi = options?.endNativeUi ?? true
     stopVoiceCallRingtone()
     stopAndroidRemoteGain()
+    if (isNativeAndroidCallApp()) {
+      void setNativeVoiceCallAudioActive(false)
+      void clearNativeCallScreenPresentation()
+    }
     if (id && endNativeUi) {
       // iOS incoming ring is owned by CallKit — session poll must not dismiss native UI.
       const shouldEndNative =
@@ -1353,12 +1358,18 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       callState === 'connected'
     if (!active || typeof navigator === 'undefined' || !('wakeLock' in navigator)) return
 
+    let cancelled = false
     let lock: WakeLockSentinel | null = null
     void navigator.wakeLock.request('screen').then((l) => {
+      if (cancelled) {
+        void l.release()
+        return
+      }
       lock = l
     }).catch(() => {})
 
     return () => {
+      cancelled = true
       void lock?.release()
     }
   }, [callState])

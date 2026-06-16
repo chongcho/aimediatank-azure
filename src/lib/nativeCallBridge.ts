@@ -598,6 +598,7 @@ export async function setNativeAudioRoute(route: NativeAudioRoute): Promise<bool
 
 type NativeVoiceCallAudioPlugin = {
   setVoiceCallAudioActive?: (options: { active: boolean }) => Promise<void>
+  clearCallScreenPresentation?: () => Promise<void>
   startCallRing?: (options: { url: string; incoming?: boolean }) => Promise<void>
   stopCallRing?: () => Promise<void>
   setCallRingVolume?: (options: { level: number }) => Promise<void>
@@ -611,8 +612,24 @@ export async function setNativeVoiceCallAudioActive(active: boolean): Promise<vo
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
     if (typeof plugin.setVoiceCallAudioActive !== 'function') return
     await plugin.setVoiceCallAudioActive({ active })
+    if (!active) {
+      await clearNativeCallScreenPresentation()
+    }
   } catch (error) {
     console.error('[NativeCall] setVoiceCallAudioActive failed:', error)
+  }
+}
+
+/** Android: drop keep-screen-on / lock-screen flags after a call ends. */
+export async function clearNativeCallScreenPresentation(): Promise<void> {
+  if (!isNativeAndroidCallApp()) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
+    if (typeof plugin.clearCallScreenPresentation !== 'function') return
+    await plugin.clearCallScreenPresentation()
+  } catch (error) {
+    console.error('[NativeCall] clearCallScreenPresentation failed:', error)
   }
 }
 
@@ -652,6 +669,7 @@ export async function stopNativeCallRing(): Promise<void> {
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
     if (typeof plugin.stopCallRing !== 'function') return
     await plugin.stopCallRing()
+    await clearNativeCallScreenPresentation()
   } catch (error) {
     console.error('[NativeCall] stopCallRing failed:', error)
   }
