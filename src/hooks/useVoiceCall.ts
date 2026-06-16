@@ -866,6 +866,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     if (!isNativeAndroidCallApp()) return
     const active = callState === 'connecting' || callState === 'connected'
     void setNativeVoiceCallAudioActive(active)
+    if (!active) return
+    // WebView WebRTC is inaudible on earpiece; default to loudspeaker like iOS.
+    setIsSpeakerOn(true)
+    void setNativeAudioRoute('speaker')
   }, [callState])
 
   const processPoll = useCallback(
