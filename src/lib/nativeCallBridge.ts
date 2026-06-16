@@ -602,6 +602,7 @@ type NativeVoiceCallAudioPlugin = {
   startCallRing?: (options: { url: string; incoming?: boolean }) => Promise<void>
   stopCallRing?: () => Promise<void>
   setCallRingVolume?: (options: { level: number }) => Promise<void>
+  setVoiceCallMediaVolume?: (options: { level: number }) => Promise<void>
 }
 
 /** Android: media-stream WebRTC; hardware keys adjust STREAM_MUSIC (see MainActivity). */
@@ -681,5 +682,18 @@ export async function setNativeCallRingVolume(level: number): Promise<void> {
     await plugin.setCallRingVolume({ level: Math.max(0, Math.min(1, level)) })
   } catch (error) {
     console.error('[NativeCall] setCallRingVolume failed:', error)
+  }
+}
+
+/** Android: set STREAM_MUSIC level for WebView WebRTC voice calls (0–1). */
+export async function setNativeVoiceCallMediaVolume(level: number): Promise<void> {
+  if (!isNativeAndroidCallApp()) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
+    if (typeof plugin.setVoiceCallMediaVolume !== 'function') return
+    await plugin.setVoiceCallMediaVolume({ level: Math.max(0, Math.min(1, level)) })
+  } catch (error) {
+    console.error('[NativeCall] setVoiceCallMediaVolume failed:', error)
   }
 }

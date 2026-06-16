@@ -613,6 +613,7 @@ const avoidInCommunicationMarker = 'AiMediaTank avoid MODE_IN_COMMUNICATION syst
 const noGlobalAudioMarker = 'AiMediaTank no global AudioManager side effects'
 const callActivePlaybackMarker = 'AiMediaTank voice call media playback'
 const voiceCallRestoreAudioFocusMarker = 'AiMediaTank restore voice call audio focus'
+const voiceCallMediaVolumeLevelMarker = 'AiMediaTank voice call media volume level'
 
 function buildSetVoiceCallAudioActiveBlock() {
   return `    private fun resolveVolumeActivity(): android.app.Activity? {
@@ -1101,6 +1102,61 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginRingVol)
     changed = true
     console.log('[patch-android-fcm] CapacitorVoipCallsPlugin setCallRingVolume')
+  }
+}
+
+if (fs.existsSync(pluginPath)) {
+  let pluginVoiceVol = fs.readFileSync(pluginPath, 'utf8')
+  if (!pluginVoiceVol.includes('setVoiceCallMediaVolume')) {
+    pluginVoiceVol = pluginVoiceVol.replace(
+      `    @PluginMethod
+    fun setCallRingVolume(call: PluginCall) {
+        val level = call.getFloat("level", 1f) ?: 1f
+        IncomingRingAudioHelper.setVolume(level)
+        call.resolve()
+    }`,
+      `    @PluginMethod
+    fun setCallRingVolume(call: PluginCall) {
+        val level = call.getFloat("level", 1f) ?: 1f
+        IncomingRingAudioHelper.setVolume(level)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun setVoiceCallMediaVolume(call: PluginCall) {
+        val level = call.getFloat("level", 1f) ?: 1f
+        callManager?.setVoiceCallMediaVolume(level)
+        call.resolve()
+    }`,
+    )
+    fs.writeFileSync(pluginPath, pluginVoiceVol)
+    changed = true
+    console.log('[patch-android-fcm] CapacitorVoipCallsPlugin setVoiceCallMediaVolume')
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (!callManager.includes(voiceCallMediaVolumeLevelMarker)) {
+    callManager = callManager.replace(
+      '    private fun notifyError(message: String) {',
+      `    fun setVoiceCallMediaVolume(level: Float) {
+        // ${voiceCallMediaVolumeLevelMarker}
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val stream = AudioManager.STREAM_MUSIC
+        val max = audioManager.getStreamMaxVolume(stream)
+        if (max <= 0) return
+        val clamped = level.coerceIn(0f, 1f)
+        val target = (max * clamped).toInt().coerceIn(0, max)
+        audioManager.setStreamVolume(stream, target, 0)
+        reapplyVolumeControlStream()
+    }
+
+    private fun notifyError(message: String) {`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager setVoiceCallMediaVolume')
   }
 }
 

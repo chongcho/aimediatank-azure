@@ -23,6 +23,7 @@ import {
   reportIncomingCallToNativeUi,
   setNativeAudioRoute,
   setNativeVoiceCallAudioActive,
+  setNativeVoiceCallMediaVolume,
   type NativeIncomingCallPayload,
 } from '@/lib/nativeCallBridge'
 import { normalizeVoiceCallId, voiceCallIdsMatch } from '@/lib/voiceCallId'
@@ -297,12 +298,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (isNativeAndroidCallApp()) {
         await setNativeVoiceCallAudioActive(true)
         await setNativeAudioRoute('speaker')
+        await setNativeVoiceCallMediaVolume(getVoiceCallVoiceVolume())
       }
       if (audio.srcObject !== stream) {
         audio.srcObject = stream
       }
       audio.muted = false
-      audio.volume = getVoiceCallVoiceVolume()
+      audio.volume = isNativeAndroidCallApp() ? 1 : getVoiceCallVoiceVolume()
       try {
         await audio.play()
       } catch {
@@ -323,6 +325,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   const setRemoteCallVolume = useCallback((level: number) => {
     const v = setVoiceCallVoiceVolume(level)
+    if (isNativeAndroidCallApp()) {
+      void setNativeVoiceCallMediaVolume(v)
+      const audio = remoteAudioRef.current
+      if (audio && !audio.muted) {
+        audio.volume = 1
+      }
+      return
+    }
     const audio = remoteAudioRef.current
     if (audio && !audio.muted) {
       audio.volume = v
@@ -803,6 +813,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       await setNativeVoiceCallAudioActive(true)
       setIsSpeakerOn(true)
       await setNativeAudioRoute('speaker')
+      await setNativeVoiceCallMediaVolume(getVoiceCallVoiceVolume())
       reattachRemoteAudio()
     })()
   }, [callState, reattachRemoteAudio])
