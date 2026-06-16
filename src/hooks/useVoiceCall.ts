@@ -7,6 +7,7 @@ import {
   markVoiceCallUserGesture,
   retryVoiceCallRingtone,
   stopVoiceCallRingtone,
+  unlockVoiceCallAudio,
   VOICE_CALL_RING_TIMEOUT_MS,
 } from '@/lib/voiceCallRingtone'
 import { requestOpenTalkChat } from '@/lib/talkChatOpen'
@@ -295,14 +296,16 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       audio.srcObject = stream
     }
     audio.muted = false
-    // Web Audio gain routing is silent on Android WebView — play the WebRTC stream directly.
-    audio.volume = isNativeAndroidCallApp() ? 1 : getVoiceCallVoiceVolume()
+    audio.volume = Math.max(0.05, getVoiceCallVoiceVolume())
     const tryPlay = async (attempt = 0) => {
+      if (isNativeAndroidCallApp()) {
+        await unlockVoiceCallAudio()
+      }
       try {
         await audio.play()
       } catch {
-        if (attempt < 15 && remoteStreamRef.current === stream) {
-          await sleep(isNativeAndroidCallApp() ? 250 : 150)
+        if (attempt < 20 && remoteStreamRef.current === stream) {
+          await sleep(isNativeAndroidCallApp() ? 300 : 150)
           await tryPlay(attempt + 1)
         }
       }
@@ -320,7 +323,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     const v = setVoiceCallVoiceVolume(level)
     const audio = remoteAudioRef.current
     if (audio && !audio.muted) {
-      audio.volume = isNativeAndroidCallApp() ? 1 : v
+      audio.volume = Math.max(0.05, v)
     }
   }, [])
 
@@ -789,15 +792,24 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   useEffect(() => {
     if (!isNativeAndroidCallApp()) return
-    const active = callState === 'connecting' || callState === 'connected'
-    if (!active) {
-      void setNativeVoiceCallAudioActive(false)
+    if (callState !== 'connected') {
+      if (
+        callState === 'idle' ||
+        callState === 'ended' ||
+        callState === 'outgoing' ||
+        callState === 'incoming'
+      ) {
+        void setNativeVoiceCallAudioActive(false)
+      }
       return
     }
     void (async () => {
       await setNativeVoiceCallAudioActive(true)
       setIsSpeakerOn(true)
       await setNativeAudioRoute('speaker')
+      await sleep(200)
+      reattachRemoteAudio()
+      await sleep(500)
       reattachRemoteAudio()
     })()
   }, [callState, reattachRemoteAudio])
