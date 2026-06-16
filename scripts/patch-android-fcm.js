@@ -612,6 +612,7 @@ const mediaVolumeKeysMarker = 'AiMediaTank webview media volume keys'
 const avoidInCommunicationMarker = 'AiMediaTank avoid MODE_IN_COMMUNICATION system volume block'
 const noGlobalAudioMarker = 'AiMediaTank no global AudioManager side effects'
 const callActivePlaybackMarker = 'AiMediaTank voice call media playback'
+const voiceCallMediaVolumeFloorMarker = 'AiMediaTank voice call media volume floor'
 
 function buildSetVoiceCallAudioActiveBlock() {
   return `    private fun resolveVolumeActivity(): android.app.Activity? {
@@ -1332,6 +1333,60 @@ if (fs.existsSync(callManagerPath)) {
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
     console.log('[patch-android-fcm] CallManager voice call media playback')
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (!callManager.includes(voiceCallMediaVolumeFloorMarker)) {
+    callManager = callManager.replace(
+      '    private var voiceCallFocusRequest: android.media.AudioFocusRequest? = null',
+      `    private var voiceCallFocusRequest: android.media.AudioFocusRequest? = null
+    private var savedVoiceCallMediaVolume: Int? = null`,
+    )
+    callManager = callManager.replace(
+      '    fun reapplyVolumeControlStream() {',
+      `    private fun ensureVoiceCallMediaVolume(audioManager: AudioManager) {
+        // ${voiceCallMediaVolumeFloorMarker}
+        val stream = AudioManager.STREAM_MUSIC
+        val max = audioManager.getStreamMaxVolume(stream)
+        if (max <= 0) return
+        val current = audioManager.getStreamVolume(stream)
+        val floor = (max * 0.7).toInt().coerceIn(1, max)
+        if (current < floor) {
+            savedVoiceCallMediaVolume = current
+            audioManager.setStreamVolume(stream, floor, 0)
+        }
+    }
+
+    private fun restoreVoiceCallMediaVolume(audioManager: AudioManager) {
+        val stream = AudioManager.STREAM_MUSIC
+        savedVoiceCallMediaVolume?.let { prev ->
+            audioManager.setStreamVolume(stream, prev.coerceIn(0, audioManager.getStreamMaxVolume(stream)), 0)
+            savedVoiceCallMediaVolume = null
+        }
+    }
+
+    fun reapplyVolumeControlStream() {`,
+    )
+    callManager = callManager.replace(
+      '            audioManager.isSpeakerphoneOn = true\n            reapplyVolumeControlStream()',
+      '            audioManager.isSpeakerphoneOn = true\n            ensureVoiceCallMediaVolume(audioManager)\n            reapplyVolumeControlStream()',
+    )
+    callManager = callManager.replace(
+      `        if (audioManager.mode != AudioManager.MODE_NORMAL) {
+            audioManager.mode = AudioManager.MODE_NORMAL
+        }
+        resolveVolumeActivity()?.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE`,
+      `        if (audioManager.mode != AudioManager.MODE_NORMAL) {
+            audioManager.mode = AudioManager.MODE_NORMAL
+        }
+        restoreVoiceCallMediaVolume(audioManager)
+        resolveVolumeActivity()?.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager voice call media volume floor')
   }
 }
 
