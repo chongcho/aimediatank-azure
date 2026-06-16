@@ -155,7 +155,7 @@ export async function GET(request: Request) {
     for (const row of [...sdpSignals, ...sinceSignals]) {
       signalById.set(row.id, row)
     }
-    const signals = [...signalById.values()].sort(
+    const signals = Array.from(signalById.values()).sort(
       (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
     )
 

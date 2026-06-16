@@ -54,6 +54,7 @@ interface PollSignal {
   fromUserId: string
   type: string
   payload: Record<string, unknown>
+  createdAt?: string
 }
 
 interface PollIncomingCall {
@@ -780,7 +781,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (returnedSignals.length > 0) {
         let maxCreatedAt = pollSinceRef.current
         for (const signal of returnedSignals) {
-          if (signal.createdAt > maxCreatedAt) maxCreatedAt = signal.createdAt
+          if (signal.createdAt && signal.createdAt > maxCreatedAt) {
+            maxCreatedAt = signal.createdAt
+          }
         }
         pollSinceRef.current = maxCreatedAt
       } else {
