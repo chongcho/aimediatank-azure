@@ -608,6 +608,7 @@ if (fs.existsSync(incomingCallUiPath)) {
 const voiceVolumeMarker = 'AiMediaTank voice call volume'
 const webViewVolumeMarker = 'AiMediaTank webview music volume stream'
 const mediaVolumeKeysMarker = 'AiMediaTank webview media volume keys'
+const avoidInCommunicationMarker = 'AiMediaTank avoid MODE_IN_COMMUNICATION system volume block'
 
 function buildSetVoiceCallAudioActiveBlock() {
   return `    private fun resolveVolumeActivity(): android.app.Activity? {
@@ -631,7 +632,8 @@ function buildSetVoiceCallAudioActiveBlock() {
         CallVolumeState.voiceCallActive = active
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         if (active) {
-            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            // ${avoidInCommunicationMarker}
+            audioManager.mode = AudioManager.MODE_NORMAL
             reapplyVolumeControlStream()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val attrs = android.media.AudioAttributes.Builder()
@@ -665,7 +667,7 @@ function buildSetVoiceCallAudioActiveBlock() {
         audioManager.isSpeakerphoneOn = false
         audioManager.isMicrophoneMute = false
         audioManager.mode = AudioManager.MODE_NORMAL
-        resolveVolumeActivity()?.volumeControlStream = AudioManager.STREAM_MUSIC
+        resolveVolumeActivity()?.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
     }`
 }
 if (fs.existsSync(callManagerPath)) {
@@ -1126,6 +1128,76 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginSource)
     changed = true
     console.log('[patch-android-fcm] CapacitorVoipCallsPlugin handleOnResume volume')
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (!callManager.includes(avoidInCommunicationMarker)) {
+    callManager = callManager.replace(
+      '            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION',
+      `            // ${avoidInCommunicationMarker}\n            audioManager.mode = AudioManager.MODE_NORMAL`,
+    )
+    callManager = callManager.replace(
+      `        audioManager.isSpeakerphoneOn = false
+        audioManager.isMicrophoneMute = false
+        audioManager.mode = AudioManager.MODE_NORMAL
+        resolveVolumeActivity()?.volumeControlStream = AudioManager.STREAM_MUSIC
+    }`,
+      `        audioManager.isSpeakerphoneOn = false
+        audioManager.isMicrophoneMute = false
+        audioManager.mode = AudioManager.MODE_NORMAL
+        resolveVolumeActivity()?.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
+    }`,
+    )
+    if (!callManager.includes('notifyCallRejected(callId: String) {\n        val data = JSObject().apply {\n            put("callId", callId)\n        }\n        eventEmitter?.invoke("callRejected", data)\n        activeCalls.remove(callId)\n        if (activeCalls.isEmpty())')) {
+      callManager = callManager.replace(
+        `    fun notifyCallRejected(callId: String) {
+        val data = JSObject().apply {
+            put("callId", callId)
+        }
+        eventEmitter?.invoke("callRejected", data)
+        activeCalls.remove(callId)
+    }`,
+        `    fun notifyCallRejected(callId: String) {
+        val data = JSObject().apply {
+            put("callId", callId)
+        }
+        eventEmitter?.invoke("callRejected", data)
+        activeCalls.remove(callId)
+        if (activeCalls.isEmpty()) {
+            setVoiceCallAudioActive(false)
+        }
+    }`,
+      )
+    }
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager MODE_NORMAL (fix blocked system volume)')
+  }
+}
+
+const ringVolumeStreamResetMarker = 'AiMediaTank reset volume stream after ring'
+if (fs.existsSync(incomingRingAudioPath)) {
+  let ringHelper = fs.readFileSync(incomingRingAudioPath, 'utf8')
+  if (!ringHelper.includes(ringVolumeStreamResetMarker)) {
+    ringHelper = ringHelper.replace(
+      `        if (!ringVolumeKeysActive) return
+        ringVolumeKeysActive = false
+        CallVolumeState.ringActive = false
+    }`,
+      `        if (!ringVolumeKeysActive) return
+        ringVolumeKeysActive = false
+        CallVolumeState.ringActive = false
+        // ${ringVolumeStreamResetMarker}
+        if (!CallVolumeState.voiceCallActive) {
+            resolveActivity(context)?.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
+        }
+    }`,
+    )
+    fs.writeFileSync(incomingRingAudioPath, ringHelper)
+    changed = true
+    console.log('[patch-android-fcm] IncomingRingAudioHelper reset volume stream after ring')
   }
 }
 

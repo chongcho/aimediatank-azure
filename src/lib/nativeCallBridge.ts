@@ -603,7 +603,7 @@ type NativeVoiceCallAudioPlugin = {
   setCallRingVolume?: (options: { level: number }) => Promise<void>
 }
 
-/** Android: MODE_IN_COMMUNICATION; hardware keys adjust STREAM_MUSIC (see MainActivity). */
+/** Android: media-stream WebRTC; hardware keys adjust STREAM_MUSIC (see MainActivity). */
 export async function setNativeVoiceCallAudioActive(active: boolean): Promise<void> {
   if (!isNativeAndroidCallApp()) return
   try {

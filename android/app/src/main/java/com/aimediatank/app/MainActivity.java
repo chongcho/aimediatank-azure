@@ -36,11 +36,25 @@ public class MainActivity extends BridgeActivity {
         applySystemBars();
         if (CallVolumeState.shouldAdjustMediaVolume()) {
             setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        } else {
+            setVolumeControlStream(AudioManager.USE_DEFAULT_STREAM_TYPE);
+            resetAudioModeIfIdle();
         }
     }
 
+    /** Clear telecom/voice-call audio mode so Samsung does not block system volume. */
+    private void resetAudioModeIfIdle() {
+        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (am.getMode() == AudioManager.MODE_NORMAL) {
+            return;
+        }
+        am.setSpeakerphoneOn(false);
+        am.setMicrophoneMute(false);
+        am.setMode(AudioManager.MODE_NORMAL);
+    }
+
     /**
-     * WebView WebRTC uses STREAM_MUSIC; MODE_IN_COMMUNICATION steers keys to call volume.
+     * WebView WebRTC uses STREAM_MUSIC; hardware keys adjust media volume during calls/ring.
      * AiMediaTank webview media volume keys
      */
     private boolean adjustVoiceMediaVolume(int keyCode) {
