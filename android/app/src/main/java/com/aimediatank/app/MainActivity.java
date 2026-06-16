@@ -47,10 +47,10 @@ public class MainActivity extends BridgeActivity {
     }
 
     private int activeCallVolumeStream() {
-        if (CallVolumeState.voiceCallActive) {
+        if (CallVolumeState.INSTANCE.getVoiceCallActive()) {
             return AudioManager.STREAM_MUSIC;
         }
-        if (CallVolumeState.ringActive) {
+        if (CallVolumeState.INSTANCE.getRingActive()) {
             return AudioManager.STREAM_RING;
         }
         return AudioManager.USE_DEFAULT_STREAM_TYPE;
@@ -138,7 +138,7 @@ public class MainActivity extends BridgeActivity {
 
     /** Lock-screen incoming UI + screen-on while ringing or in a call. */
     private void applyActiveCallPresentation() {
-        if (CallVolumeState.ringActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+        if (CallVolumeState.INSTANCE.getRingActive() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
         }

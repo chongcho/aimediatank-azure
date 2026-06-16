@@ -1109,8 +1109,8 @@ if (!fs.existsSync(callVolumeStatePath)) {
     `package com.capacitor.voipcalls
 
 object CallVolumeState {
-    @Volatile var voiceCallActive: Boolean = false
-    @Volatile var ringActive: Boolean = false
+    @JvmField @Volatile var voiceCallActive: Boolean = false
+    @JvmField @Volatile var ringActive: Boolean = false
 
     @JvmStatic
     fun shouldAdjustMediaVolume(): Boolean = voiceCallActive || ringActive
@@ -1518,6 +1518,24 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginRingIncoming)
     changed = true
     console.log('[patch-android-fcm] startCallRing defaults incoming=true')
+  }
+}
+
+const callVolumeJvmFieldMarker = 'AiMediaTank CallVolumeState JvmField'
+if (fs.existsSync(callVolumeStatePath)) {
+  let callVolumeState = fs.readFileSync(callVolumeStatePath, 'utf8')
+  if (!callVolumeState.includes(callVolumeJvmFieldMarker)) {
+    callVolumeState = callVolumeState.replace(
+      'object CallVolumeState {\n    @Volatile var voiceCallActive',
+      `object CallVolumeState {\n    // ${callVolumeJvmFieldMarker}\n    @JvmField @Volatile var voiceCallActive`,
+    )
+    callVolumeState = callVolumeState.replace(
+      '\n    @Volatile var ringActive',
+      '\n    @JvmField @Volatile var ringActive',
+    )
+    fs.writeFileSync(callVolumeStatePath, callVolumeState)
+    changed = true
+    console.log('[patch-android-fcm] CallVolumeState @JvmField for Java')
   }
 }
 
