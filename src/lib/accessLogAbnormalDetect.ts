@@ -82,6 +82,12 @@ const ENV_RES = [
   /\/etc\/environment(?:\/|$)/i,
   // Exact /credentials only — not /api/auth/callback/credentials.
   /^\/credentials\n/i,
+  /(^|\/)credentials\.ya?ml$/i,
+  /(^|\/)\.credentials(?:\/|$)/i,
+  /(^|\/)api_keys\.json$/i,
+  /(^|\/)gcp\.json$/i,
+  /(^|\/)secrets\/gcp\.json$/i,
+  /(^|\/)serviceaccount\.json$/i,
 ]
 
 const AWS_RES = [
@@ -93,6 +99,10 @@ const AWS_RES = [
   /(^|\/)config\/aws\.ya?ml$/i,
   /(^|\/)aws-secret\.ya?ml$/i,
   /(^|\/)aws[-.]config\.js$/i,
+  /(^|\/)aws(?:[-_]credentials)?\.json$/i,
+  /(^|\/)config\/aws\.json$/i,
+  /(^|\/)secrets\/aws\.json$/i,
+  /(^|\/)backend\/aws\.json$/i,
 ]
 
 const WP_RES = [
@@ -135,7 +145,7 @@ const CONFIG_RES = [
   /(^|\/)serverless\.ya?ml$/i,
   /(^|\/)asset-manifest\.json$/i,
   /(^|\/)build-manifest\.json$/i,
-  /(^|\/)config\/(?:secrets|database)\.ya?ml$/i,
+  /(^|\/)config\/(?:secrets|database)\.(?:ya?ml|json)$/i,
   /(^|\/)\.gitlab-ci(?:\.ya?ml)?(?:\/|$)/i,
   /(^|\/)terraform\.tfstate(?:\.backup)?$/i,
   /(^|\/)appsettings(?:\.[^.\/]+)?\.json$/i,
@@ -190,7 +200,19 @@ const CONFIG_RES = [
   /(^|\/)config\.json$/i,
   /(^|\/)config\.json\.(?:save|bak|old|backup|swp|tmp)$/i,
   /(^|\/)config\.ya?ml$/i,
-  /(^|\/)docker-compose\.ya?ml$/i,
+  /(^|\/)docker-compose[\w.-]*\.(?:ya?ml|json)$/i,
+  /(^|\/)configuration\.ya?ml$/i,
+  /(^|\/)database\.ya?ml$/i,
+  /(^|\/)app\/parameters\.ya?ml$/i,
+  /(^|\/)\.github\/workflows\//i,
+  /(^|\/)helm\/values(?:-[\w-]+)?\.ya?ml$/i,
+  /(^|\/)(?:configprops|heapdump|threaddump|dump|logfile)(?:\/|$)/i,
+  /(^|\/)trace(?:\/|$)/i,
+  /(^|\/)db\.sql\.gz$/i,
+  /(^|\/)backend\/settings\.py$/i,
+  /(^|\/)exports\/sendgrid\.zip$/i,
+  /(^|\/)sendgrid(?:-config)?\.zip$/i,
+  /(^|\/)smtp\.zip$/i,
   /(^|\/)vercel\.json$/i,
   /(^|\/)amplify\.ya?ml$/i,
   /(^|\/)var\/task(?:\/|$)/i,
