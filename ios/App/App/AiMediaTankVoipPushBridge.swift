@@ -854,10 +854,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private func performCancelDismiss(callId: String, source: String) {
         let normalized = callId.lowercased()
-        if source == "status_poll", hasPendingCallKitAnswer() {
-            print("[AiMediaTankVoipPushBridge] defer status_poll dismiss — pending CallKit answer \(normalized)")
-            return
-        }
         if (source == "status_poll" || source == "bridge_dismiss_request"),
            Self.isWithinIncomingGracePeriod(callId: normalized) {
             print("[AiMediaTankVoipPushBridge] defer \(source) dismiss — incoming grace \(normalized)")
@@ -1542,7 +1538,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         configureAudioSession()
         cancelDismissRetries(callId: callId)
         markPendingCallKitAnswer(callId: callId)
-        stopCallStatusWatch(callId: callId)
+        // Keep status watch running after answer so caller hangup/end dismisses CallKit promptly.
         startAnswerBackgroundSupport(callId: callId)
         postNativeCallKitAccept(callId: callId)
         postVoiceTrace(callId: callId, event: "callkit_answer")

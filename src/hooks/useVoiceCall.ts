@@ -194,6 +194,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const pendingAnswerRef = useRef<RTCSessionDescriptionInit | null>(null)
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([])
   const remoteDescriptionSetRef = useRef(false)
+  const localOfferSetRef = useRef(false)
   const remoteStreamRef = useRef<MediaStream | null>(null)
   const callStateRef = useRef<VoiceCallState>('idle')
   callStateRef.current = callState
@@ -241,6 +242,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       // iOS incoming ring is owned by CallKit — session poll must not dismiss native UI.
       const shouldEndNative =
         !isNativeIosCallApp() ||
+        state === 'incoming' ||
         state === 'connecting' ||
         state === 'connected' ||
         state === 'outgoing'
@@ -263,6 +265,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     pendingAnswerRef.current = null
     pendingIceRef.current = []
     remoteDescriptionSetRef.current = false
+    localOfferSetRef.current = false
     remoteStreamRef.current = null
     pendingVoiceActionRef.current = null
     nativeSignalingTokenRef.current = null
@@ -372,6 +375,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const createPeerConnection = useCallback(() => {
     closePeerConnection()
     remoteDescriptionSetRef.current = false
+    localOfferSetRef.current = false
 
     const pc = new RTCPeerConnection({ iceServers: getIceServers() })
 
@@ -421,6 +425,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         pendingAnswerRef.current = sdp
         return false
       }
+      if (isCallerRef.current && !localOfferSetRef.current) {
+        pendingAnswerRef.current = sdp
+        return false
+      }
       if (remoteDescriptionSetRef.current) return true
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(sdp))
@@ -429,9 +437,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         await flushPendingIceCandidates(pc)
         setCallState('connecting')
         reattachRemoteAudio()
+        console.info('[VoiceCall] applied remote answer', callIdRef.current)
         return true
       } catch (err) {
         console.warn('[VoiceCall] failed to apply remote answer:', err)
+        pendingAnswerRef.current = sdp
         return false
       }
     },
@@ -446,6 +456,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       await attachLocalTracks(pc)
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
+      localOfferSetRef.current = true
       await sendSignal('offer', { sdp: offer })
       if (pendingAnswerRef.current) {
         await applyRemoteAnswer(pendingAnswerRef.current)
@@ -563,6 +574,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     pendingAnswerRef.current = null
     pendingIceRef.current = []
     remoteDescriptionSetRef.current = false
+    localOfferSetRef.current = false
     remoteStreamRef.current = null
   }, [closePeerConnection, stopLocalStream])
 

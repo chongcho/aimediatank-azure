@@ -139,6 +139,13 @@ export async function GET(request: Request) {
       take: 50,
     })
 
+    const answerSignals = signals.filter((s) => s.type === 'answer')
+    if (answerSignals.length > 0) {
+      console.info(
+        `[VoIP] voice poll answers=${answerSignals.length} user=${userId} calls=${answerSignals.map((s) => s.callId).join(',')}`,
+      )
+    }
+
     // Offer, answer, and ICE stay unconsumed on poll so peers can read them reliably
     // (native bootstrap + caller answer race before RTCPeerConnection exists).
     const consumableIds = signals
@@ -454,17 +461,19 @@ export async function POST(request: Request) {
         },
       })
 
-      if (call.status === 'ringing' && call.callerId === userId) {
+      if (call.callerId === userId && (call.status === 'ringing' || call.status === 'active')) {
         try {
           await sendNativeCallCancelPushBurstToUser(peerId, call.id)
           await sendVoiceCallDismissPushToUser(peerId, call.id, userId)
-          await recordVoipCancelBurst({
-            callId: call.id,
-            fromUserId: userId,
-            toUserId: peerId,
-            plannedAttempts: plannedVoipCancelPushAttempts(),
-          })
-          await logVoipPipelineSummary(call.id, 'caller_end_ring')
+          if (call.status === 'ringing') {
+            await recordVoipCancelBurst({
+              callId: call.id,
+              fromUserId: userId,
+              toUserId: peerId,
+              plannedAttempts: plannedVoipCancelPushAttempts(),
+            })
+          }
+          await logVoipPipelineSummary(call.id, call.status === 'ringing' ? 'caller_end_ring' : 'caller_end_active')
         } catch (err) {
           console.error('VoIP cancel push failed:', err)
         }
