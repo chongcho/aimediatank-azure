@@ -28,8 +28,6 @@ import {
 import { normalizeVoiceCallId, voiceCallIdsMatch } from '@/lib/voiceCallId'
 import { getVoiceCallVoiceVolume, setVoiceCallVoiceVolume } from '@/lib/voiceCallVolume'
 
-const ANDROID_REMOTE_GAIN = 2.5
-
 export interface VoiceCallUser {
   id: string
   username: string
@@ -215,11 +213,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const callKitSignalingRef = useRef(false)
   /** iOS callee accepted via Swift NativeVoiceCallEngine — JS poll must not consume caller ICE. */
   const nativeWebRtcCalleeRef = useRef(false)
-  const androidRemoteGainRef = useRef<{
-    ctx: AudioContext | null
-    source: MediaStreamAudioSourceNode | null
-    gain: GainNode | null
-  }>({ ctx: null, source: null, gain: null })
 
   const reportError = useCallback(
     (message: string) => {
@@ -243,36 +236,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     pcRef.current = null
   }, [])
 
-  const stopAndroidRemoteGain = useCallback(() => {
-    const bag = androidRemoteGainRef.current
-    if (bag.source) {
-      try {
-        bag.source.disconnect()
-      } catch {
-        // ignore
-      }
-      bag.source = null
-    }
-    if (bag.gain) {
-      try {
-        bag.gain.disconnect()
-      } catch {
-        // ignore
-      }
-      bag.gain = null
-    }
-    if (bag.ctx) {
-      void bag.ctx.close().catch(() => {})
-      bag.ctx = null
-    }
-  }, [])
-
   const resetCall = useCallback((options?: { endNativeUi?: boolean }) => {
     const id = callIdRef.current ? normalizeVoiceCallId(callIdRef.current) : null
     const state = callStateRef.current
     const endNativeUi = options?.endNativeUi ?? true
     stopVoiceCallRingtone()
-    stopAndroidRemoteGain()
     if (isNativeAndroidCallApp()) {
       void setNativeVoiceCallAudioActive(false)
       void clearNativeCallScreenPresentation()
@@ -318,7 +286,42 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     setIsMuted(false)
     setIsSpeakerOn(false)
     setCallState('idle')
-  }, [closePeerConnection, stopAndroidRemoteGain, stopLocalStream])
+  }, [closePeerConnection, stopLocalStream])
+
+  const playRemoteAudioElement = useCallback((stream: MediaStream) => {
+    const audio = remoteAudioRef.current
+    if (!audio) return
+    if (audio.srcObject !== stream) {
+      audio.srcObject = stream
+    }
+    audio.muted = false
+    audio.volume = getVoiceCallVoiceVolume()
+    const tryPlay = async (attempt = 0) => {
+      try {
+        await audio.play()
+      } catch {
+        if (attempt < 15 && remoteStreamRef.current === stream) {
+          await sleep(isNativeAndroidCallApp() ? 250 : 150)
+          await tryPlay(attempt + 1)
+        }
+      }
+    }
+    void tryPlay()
+  }, [])
+
+  const reattachRemoteAudio = useCallback(() => {
+    const stream = remoteStreamRef.current
+    if (!stream) return
+    playRemoteAudioElement(stream)
+  }, [playRemoteAudioElement])
+
+  const setRemoteCallVolume = useCallback((level: number) => {
+    const v = setVoiceCallVoiceVolume(level)
+    const audio = remoteAudioRef.current
+    if (audio && !audio.muted) {
+      audio.volume = v
+    }
+  }, [])
 
   const sendSignal = useCallback(async (type: string, payload: Record<string, unknown>) => {
     const id = callIdRef.current
@@ -335,90 +338,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       }
     }
     await voiceApi('signal', { callId: id, type, payload })
-  }, [])
-
-  const reattachRemoteAudio = useCallback(() => {
-    const stream = remoteStreamRef.current
-    if (!stream) return
-
-    if (isNativeAndroidCallApp()) {
-      const bag = androidRemoteGainRef.current
-      if (!bag.ctx && typeof window !== 'undefined') {
-        const w = window as Window & { webkitAudioContext?: typeof AudioContext }
-        const Ctor = window.AudioContext || w.webkitAudioContext
-        if (Ctor) {
-          try {
-            bag.ctx = new Ctor()
-          } catch {
-            bag.ctx = null
-          }
-        }
-      }
-      const ctx = bag.ctx
-      if (ctx) {
-        void ctx.resume().catch(() => {})
-        if (bag.source) {
-          try {
-            bag.source.disconnect()
-          } catch {
-            // ignore
-          }
-        }
-        if (bag.gain) {
-          try {
-            bag.gain.disconnect()
-          } catch {
-            // ignore
-          }
-        }
-        try {
-          bag.source = ctx.createMediaStreamSource(stream)
-          bag.gain = ctx.createGain()
-          bag.gain.gain.value = ANDROID_REMOTE_GAIN * getVoiceCallVoiceVolume()
-          bag.source.connect(bag.gain)
-          bag.gain.connect(ctx.destination)
-        } catch {
-          // fall through to audio element
-        }
-      }
-      const audio = remoteAudioRef.current
-      if (audio && bag.gain) {
-        audio.srcObject = null
-        audio.muted = true
-        return
-      }
-    }
-
-    const audio = remoteAudioRef.current
-    if (!audio) return
-    if (audio.srcObject !== stream) {
-      audio.srcObject = stream
-    }
-    audio.muted = false
-    audio.volume = getVoiceCallVoiceVolume()
-    const tryPlay = async (attempt = 0) => {
-      try {
-        await audio.play()
-      } catch {
-        if (attempt < 10 && remoteStreamRef.current === stream) {
-          await sleep(isNativeIosCallApp() ? 300 : 150)
-          await tryPlay(attempt + 1)
-        }
-      }
-    }
-    void tryPlay()
-  }, [])
-
-  const setRemoteCallVolume = useCallback((level: number) => {
-    const v = setVoiceCallVoiceVolume(level)
-    const bag = androidRemoteGainRef.current
-    if (bag.gain) {
-      bag.gain.gain.value = ANDROID_REMOTE_GAIN * v
-    }
-    const audio = remoteAudioRef.current
-    if (audio && !audio.muted) {
-      audio.volume = v
-    }
   }, [])
 
   const flushPendingIceCandidates = useCallback(async (pc: RTCPeerConnection) => {
@@ -870,12 +789,17 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   useEffect(() => {
     if (!isNativeAndroidCallApp()) return
     const active = callState === 'connecting' || callState === 'connected'
-    void setNativeVoiceCallAudioActive(active)
-    if (!active) return
-    // WebView WebRTC is inaudible on earpiece; default to loudspeaker like iOS.
-    setIsSpeakerOn(true)
-    void setNativeAudioRoute('speaker')
-  }, [callState])
+    if (!active) {
+      void setNativeVoiceCallAudioActive(false)
+      return
+    }
+    void (async () => {
+      await setNativeVoiceCallAudioActive(true)
+      setIsSpeakerOn(true)
+      await setNativeAudioRoute('speaker')
+      reattachRemoteAudio()
+    })()
+  }, [callState, reattachRemoteAudio])
 
   const processPoll = useCallback(
     async (data: {
