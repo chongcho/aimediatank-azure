@@ -12,6 +12,8 @@ import {
 import { getNativePlatform } from '@/lib/nativeShellBoot'
 
 const PREVIEW_SOUND_STORAGE_KEY = 'homePreviewSoundOn'
+/** Pause homepage preplay after idle so Android can honor the system screen-timeout. */
+const ANDROID_SCREEN_SLEEP_IDLE_MS = 28_000
 
 type Score = { ratio: number; centerY: number }
 
@@ -63,6 +65,9 @@ export function HomePreplayFocusProvider({
   const [deferPreplay, setDeferPreplay] = useState(androidNative && deferPreplayUntilScroll)
   /** Android: brief hold after scroll stops before mounting preplay video (avoids focus churn flash). */
   const [postScrollPreplayHold, setPostScrollPreplayHold] = useState(false)
+  /** Android: true after no touch/scroll — pauses preplay so playing video does not block screen sleep. */
+  const [screenSleepIdle, setScreenSleepIdle] = useState(false)
+  const screenSleepIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!androidNative) return
@@ -262,8 +267,44 @@ export function HomePreplayFocusProvider({
     return () => clearTimeout(t)
   }, [androidNative, scrollIdle])
 
+  useEffect(() => {
+    if (!androidNative) return
+
+    const armScreenSleepIdle = () => {
+      setScreenSleepIdle(false)
+      if (screenSleepIdleTimerRef.current) {
+        clearTimeout(screenSleepIdleTimerRef.current)
+      }
+      screenSleepIdleTimerRef.current = setTimeout(() => {
+        screenSleepIdleTimerRef.current = null
+        setScreenSleepIdle(true)
+      }, ANDROID_SCREEN_SLEEP_IDLE_MS)
+    }
+
+    armScreenSleepIdle()
+    const opts: AddEventListenerOptions = { passive: true, capture: true }
+    window.addEventListener('touchstart', armScreenSleepIdle, opts)
+    window.addEventListener('touchmove', armScreenSleepIdle, opts)
+    window.addEventListener('touchend', armScreenSleepIdle, opts)
+    window.addEventListener('scroll', armScreenSleepIdle, opts)
+    return () => {
+      window.removeEventListener('touchstart', armScreenSleepIdle, opts)
+      window.removeEventListener('touchmove', armScreenSleepIdle, opts)
+      window.removeEventListener('touchend', armScreenSleepIdle, opts)
+      window.removeEventListener('scroll', armScreenSleepIdle, opts)
+      if (screenSleepIdleTimerRef.current) {
+        clearTimeout(screenSleepIdleTimerRef.current)
+        screenSleepIdleTimerRef.current = null
+      }
+    }
+  }, [androidNative])
+
   const preplayActive = androidNative
-    ? scrollIdle && !deferPreplay && !layoutSuppressed && !postScrollPreplayHold
+    ? scrollIdle &&
+      !deferPreplay &&
+      !layoutSuppressed &&
+      !postScrollPreplayHold &&
+      !screenSleepIdle
     : !layoutSuppressed
   const effectiveFocusedMediaId =
     layoutSuppressed || (androidNative && deferPreplay) ? null : focusedMediaId

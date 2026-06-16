@@ -119,16 +119,20 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void syncIncomingCallPresentation(Intent intent) {
-        if (isVoiceIncomingIntent(intent)) {
-            applyIncomingCallPresentation();
-        } else {
-            clearIncomingCallPresentation();
+        // Only keep the screen on during an active ring or call — not from a stale voiceIncoming deep link.
+        if (CallVolumeState.shouldAdjustMediaVolume()) {
+            applyActiveCallPresentation();
+            return;
         }
+        if (isVoiceIncomingIntent(intent)) {
+            clearVoiceIncomingFromIntent();
+        }
+        clearIncomingCallPresentation();
     }
 
-    /** Show incoming-call WebView over lock screen when launched from FCM / ConnectionService. */
-    private void applyIncomingCallPresentation() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+    /** Lock-screen incoming UI + screen-on while ringing or in a call. */
+    private void applyActiveCallPresentation() {
+        if (CallVolumeState.ringActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
         }
@@ -136,6 +140,31 @@ public class MainActivity extends BridgeActivity {
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
         );
+    }
+
+    /** Drop consumed voiceIncoming params so resume does not re-apply keep-screen-on. */
+    private void clearVoiceIncomingFromIntent() {
+        Intent current = getIntent();
+        if (current == null) {
+            return;
+        }
+        Uri data = current.getData();
+        if (data == null || !"1".equals(data.getQueryParameter("voiceIncoming"))) {
+            return;
+        }
+        Uri.Builder builder = data.buildUpon().clearQuery();
+        for (String name : data.getQueryParameterNames()) {
+            if ("voiceIncoming".equals(name) || "voiceAction".equals(name) || "callId".equals(name)) {
+                continue;
+            }
+            String value = data.getQueryParameter(name);
+            if (value != null) {
+                builder.appendQueryParameter(name, value);
+            }
+        }
+        Intent cleaned = new Intent(current);
+        cleaned.setData(builder.build());
+        setIntent(cleaned);
     }
 
     private void clearIncomingCallPresentation() {
