@@ -600,6 +600,7 @@ type NativeVoiceCallAudioPlugin = {
   setVoiceCallAudioActive?: (options: { active: boolean }) => Promise<void>
   startCallRing?: (options: { url: string }) => Promise<void>
   stopCallRing?: () => Promise<void>
+  setCallRingVolume?: (options: { level: number }) => Promise<void>
 }
 
 /** Android: MODE_IN_COMMUNICATION; hardware keys adjust STREAM_MUSIC (see MainActivity). */
@@ -648,5 +649,18 @@ export async function stopNativeCallRing(): Promise<void> {
     await plugin.stopCallRing()
   } catch (error) {
     console.error('[NativeCall] stopCallRing failed:', error)
+  }
+}
+
+/** Android: adjust native MediaPlayer ring loudness (0–1). */
+export async function setNativeCallRingVolume(level: number): Promise<void> {
+  if (!isNativeAndroidCallApp()) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
+    if (typeof plugin.setCallRingVolume !== 'function') return
+    await plugin.setCallRingVolume({ level: Math.max(0, Math.min(1, level)) })
+  } catch (error) {
+    console.error('[NativeCall] setCallRingVolume failed:', error)
   }
 }
