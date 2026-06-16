@@ -36,11 +36,7 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         applySystemBars();
         syncIncomingCallPresentation(getIntent());
-        if (CallVolumeState.shouldAdjustMediaVolume()) {
-            setVolumeControlStream(AudioManager.STREAM_MUSIC);
-        } else {
-            setVolumeControlStream(AudioManager.USE_DEFAULT_STREAM_TYPE);
-        }
+        setVolumeControlStream(activeCallVolumeStream());
         AndroidAudioCleanup.resetIfIdle(this);
     }
 
@@ -50,30 +46,40 @@ public class MainActivity extends BridgeActivity {
         super.onPause();
     }
 
-    /** During call/ring only: hardware keys adjust media volume for WebView WebRTC. */
-    private boolean adjustVoiceMediaVolume(int keyCode) {
+    private int activeCallVolumeStream() {
+        if (CallVolumeState.voiceCallActive) {
+            return AudioManager.STREAM_MUSIC;
+        }
+        if (CallVolumeState.ringActive) {
+            return AudioManager.STREAM_RING;
+        }
+        return AudioManager.USE_DEFAULT_STREAM_TYPE;
+    }
+
+    /** During call/ring: hardware keys adjust the stream used for that audio. */
+    private boolean adjustCallVolume(int keyCode) {
         if (!CallVolumeState.shouldAdjustMediaVolume()) {
             return false;
         }
         if (keyCode != KeyEvent.KEYCODE_VOLUME_UP && keyCode != KeyEvent.KEYCODE_VOLUME_DOWN) {
             return false;
         }
+        int stream = activeCallVolumeStream();
+        if (stream == AudioManager.USE_DEFAULT_STREAM_TYPE) {
+            return false;
+        }
         AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         int direction = keyCode == KeyEvent.KEYCODE_VOLUME_UP
             ? AudioManager.ADJUST_RAISE
             : AudioManager.ADJUST_LOWER;
-        setVolumeControlStream(AudioManager.STREAM_MUSIC);
-        am.adjustStreamVolume(
-            AudioManager.STREAM_MUSIC,
-            direction,
-            AudioManager.FLAG_SHOW_UI
-        );
+        setVolumeControlStream(stream);
+        am.adjustStreamVolume(stream, direction, AudioManager.FLAG_SHOW_UI);
         return true;
     }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.getAction() == KeyEvent.ACTION_DOWN && adjustVoiceMediaVolume(event.getKeyCode())) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN && adjustCallVolume(event.getKeyCode())) {
             return true;
         }
         return super.dispatchKeyEvent(event);

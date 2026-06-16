@@ -359,7 +359,9 @@ async function startRing(kind: RingKind) {
   if (useNativeAndroidRing()) {
     nativeRingActive = true
     try {
-      await startNativeCallRing(absoluteRingUrl(RING_URLS[playbackKind]))
+      await startNativeCallRing(absoluteRingUrl(RING_URLS[playbackKind]), {
+        incoming: kind === 'incoming',
+      })
       void setNativeCallRingVolume(getVoiceCallRingVolume())
       return
     } catch {

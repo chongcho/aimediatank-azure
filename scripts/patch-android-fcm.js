@@ -1334,6 +1334,193 @@ if (fs.existsSync(callManagerPath)) {
   }
 }
 
+const incomingRingNotificationStreamMarker = 'AiMediaTank incoming ring notification stream'
+
+if (fs.existsSync(incomingRingAudioPath)) {
+  let ringHelper = fs.readFileSync(incomingRingAudioPath, 'utf8')
+  if (!ringHelper.includes(incomingRingNotificationStreamMarker)) {
+    const incomingRingAudioSource = `package com.capacitor.voipcalls
+
+import android.app.Activity
+import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.MediaPlayer
+import android.media.audiofx.LoudnessEnhancer
+import android.util.Log
+
+/** Incoming ring: notification/ring stream. Outgoing ringback: media stream. */
+object IncomingRingAudioHelper {
+    private const val TAG = "IncomingRingAudio"
+    private const val INCOMING_RING_BOOST_MB = 800
+    private var player: MediaPlayer? = null
+    private var ringVolumeKeysActive = false
+    private var ringVolumeLevel = 1f
+    private var ringIncoming = false
+    private var ringFocusHeld = false
+    private var loudnessEnhancer: LoudnessEnhancer? = null
+
+    private fun resolveActivity(context: Context): Activity? {
+        return CapacitorVoipCallsPlugin.getInstance()?.activity
+            ?: (context as? Activity)
+    }
+
+    fun isActive(): Boolean = ringVolumeKeysActive
+
+    private fun volumeStream(): Int {
+        return if (ringIncoming) AudioManager.STREAM_RING else AudioManager.STREAM_MUSIC
+    }
+
+    fun reapply(context: Context) {
+        if (!ringVolumeKeysActive) return
+        resolveActivity(context)?.volumeControlStream = volumeStream()
+    }
+
+    private fun releaseIncomingBoost() {
+        loudnessEnhancer?.let { enhancer ->
+            try {
+                enhancer.enabled = false
+                enhancer.release()
+            } catch (_: Exception) {
+            }
+        }
+        loudnessEnhancer = null
+    }
+
+    private fun applyIncomingBoost(player: MediaPlayer) {
+        releaseIncomingBoost()
+        if (!ringIncoming) return
+        try {
+            loudnessEnhancer = LoudnessEnhancer(player.audioSessionId).apply {
+                setTargetGain(INCOMING_RING_BOOST_MB)
+                enabled = true
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "incoming ring app boost unavailable", e)
+        }
+    }
+
+    private fun requestRingFocus(audioManager: AudioManager) {
+        @Suppress("DEPRECATION")
+        val result = audioManager.requestAudioFocus(
+            null,
+            volumeStream(),
+            AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+        )
+        ringFocusHeld = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+    }
+
+    private fun abandonRingFocus(audioManager: AudioManager) {
+        if (!ringFocusHeld) return
+        @Suppress("DEPRECATION")
+        audioManager.abandonAudioFocus(null)
+        ringFocusHeld = false
+    }
+
+    fun setVolume(level: Float) {
+        ringVolumeLevel = level.coerceIn(0f, 1f)
+        player?.setVolume(ringVolumeLevel, ringVolumeLevel)
+    }
+
+    fun start(context: Context, url: String, incoming: Boolean = true) {
+        // ${incomingRingVolumeMarker}
+        // ${incomingRingVolumeMarkerV2}
+        // ${incomingRingVolumeMarkerV3}
+        // ${incomingRingNotificationStreamMarker}
+        stop(context)
+        ringIncoming = incoming
+        ringVolumeKeysActive = true
+        CallVolumeState.ringActive = true
+        val activity = resolveActivity(context)
+        activity?.volumeControlStream = volumeStream()
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.mode = AudioManager.MODE_NORMAL
+        if (incoming) {
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = true
+        }
+        requestRingFocus(audioManager)
+        try {
+            val attributes = if (incoming) {
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            } else {
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            }
+            player = MediaPlayer().apply {
+                setAudioAttributes(attributes)
+                setDataSource(url)
+                isLooping = true
+                setVolume(1.0f, 1.0f)
+                setOnPreparedListener { mp ->
+                    try {
+                        applyIncomingBoost(mp)
+                        mp.setVolume(ringVolumeLevel, ringVolumeLevel)
+                        mp.start()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "start failed", e)
+                    }
+                }
+                setOnErrorListener { _, what, extra ->
+                    Log.e(TAG, "MediaPlayer error what=\$what extra=\$extra")
+                    true
+                }
+                prepareAsync()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "prepare ring failed for \$url", e)
+            stop(context)
+        }
+    }
+
+    fun stop(context: Context) {
+        releaseIncomingBoost()
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        abandonRingFocus(audioManager)
+        player?.let { mp ->
+            try {
+                if (mp.isPlaying) mp.stop()
+            } catch (_: Exception) {
+            }
+            try {
+                mp.release()
+            } catch (_: Exception) {
+            }
+        }
+        player = null
+        if (!ringVolumeKeysActive) return
+        ringVolumeKeysActive = false
+        CallVolumeState.ringActive = false
+        if (!CallVolumeState.voiceCallActive) {
+            resolveActivity(context)?.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
+        }
+    }
+}
+`
+    fs.writeFileSync(incomingRingAudioPath, incomingRingAudioSource)
+    changed = true
+    console.log('[patch-android-fcm] IncomingRingAudioHelper notification ring stream')
+  }
+}
+
+if (fs.existsSync(pluginPath)) {
+  let pluginRingIncoming = fs.readFileSync(pluginPath, 'utf8')
+  if (pluginRingIncoming.includes('startCallRing') && pluginRingIncoming.includes('incoming", false)')) {
+    pluginRingIncoming = pluginRingIncoming.replace(
+      'IncomingRingAudioHelper.start(context, url, call.getBoolean("incoming", false) ?: false)',
+      'IncomingRingAudioHelper.start(context, url, call.getBoolean("incoming", true) ?: true)',
+    )
+    fs.writeFileSync(pluginPath, pluginRingIncoming)
+    changed = true
+    console.log('[patch-android-fcm] startCallRing defaults incoming=true')
+  }
+}
+
 if (!changed) {
   console.log('[patch-android-fcm] already patched')
 }
