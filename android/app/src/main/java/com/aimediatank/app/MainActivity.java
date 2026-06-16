@@ -11,6 +11,7 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.capacitor.voipcalls.AndroidAudioCleanup;
@@ -43,7 +44,6 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onPause() {
         AndroidAudioCleanup.resetIfIdle(this);
-        syncIncomingCallPresentation(getIntent());
         super.onPause();
     }
 
@@ -126,22 +126,30 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void syncIncomingCallPresentation(Intent intent) {
-        if (CallVolumeState.shouldAdjustMediaVolume()) {
-            applyActiveCallPresentation();
+        final boolean activeCallUi = CallVolumeState.shouldAdjustMediaVolume();
+        final boolean incomingLaunch = isVoiceIncomingIntent(intent);
+
+        if (activeCallUi || incomingLaunch) {
+            applyIncomingCallPresentation();
             return;
         }
-        if (isVoiceIncomingIntent(intent)) {
+        // Stale voiceIncoming deep link after JS consumed the call — do not clear on launch.
+        if (isVoiceIncomingIntent(getIntent())) {
             clearVoiceIncomingFromIntent();
         }
         CallScreenPresentation.clearIfIdle(this);
     }
 
-    /** Lock-screen incoming UI while ringing — screen-on is handled in JS via wakeLock during calls. */
-    private void applyActiveCallPresentation() {
-        if (CallVolumeState.ringActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+    /** Lock-screen incoming + screen-on while ringing, in a call, or launching from FCM. */
+    private void applyIncomingCallPresentation() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
         }
+        getWindow().addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+        );
     }
 
     /** Drop consumed voiceIncoming params so resume does not re-apply keep-screen-on. */

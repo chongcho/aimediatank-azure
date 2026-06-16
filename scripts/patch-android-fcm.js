@@ -1547,6 +1547,8 @@ if (!fs.existsSync(callScreenPresentationPath) || !fs.readFileSync(callScreenPre
     `package com.capacitor.voipcalls
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.view.WindowManager
 
@@ -1570,12 +1572,79 @@ object CallScreenPresentation {
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
         )
+        clearStaleVoiceIncomingIntent(activity)
+    }
+
+    private fun clearStaleVoiceIncomingIntent(activity: Activity) {
+        val current = activity.intent ?: return
+        val data = current.data ?: return
+        if (data.getQueryParameter("voiceIncoming") != "1") return
+        val builder = data.buildUpon().clearQuery()
+        for (name in data.queryParameterNames) {
+            if (name == "voiceIncoming" || name == "voiceAction" || name == "callId") continue
+            data.getQueryParameter(name)?.let { builder.appendQueryParameter(name, it) }
+        }
+        activity.intent = Intent(current).apply { setData(builder.build()) }
     }
 }
 `,
   )
   changed = true
   console.log('[patch-android-fcm] CallScreenPresentation.kt')
+}
+
+const callScreenStaleIntentMarker = 'clearStaleVoiceIncomingIntent'
+if (fs.existsSync(callScreenPresentationPath)) {
+  let screenPresentation = fs.readFileSync(callScreenPresentationPath, 'utf8')
+  if (!screenPresentation.includes(callScreenStaleIntentMarker)) {
+    screenPresentation = `package com.capacitor.voipcalls
+
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.view.WindowManager
+
+/** Clears window flags that block the system screen-timeout after voice calls end. */
+object CallScreenPresentation {
+    // ${callScreenPresentationMarker}
+
+    @JvmStatic
+    fun clearIfIdle(activity: Activity?) {
+        if (activity == null || CallVolumeState.shouldAdjustMediaVolume()) return
+        clear(activity)
+    }
+
+    @JvmStatic
+    fun clear(activity: Activity) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            activity.setShowWhenLocked(false)
+            activity.setTurnScreenOn(false)
+        }
+        activity.window.clearFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+        )
+        clearStaleVoiceIncomingIntent(activity)
+    }
+
+    private fun clearStaleVoiceIncomingIntent(activity: Activity) {
+        val current = activity.intent ?: return
+        val data = current.data ?: return
+        if (data.getQueryParameter("voiceIncoming") != "1") return
+        val builder = data.buildUpon().clearQuery()
+        for (name in data.queryParameterNames) {
+            if (name == "voiceIncoming" || name == "voiceAction" || name == "callId") continue
+            data.getQueryParameter(name)?.let { builder.appendQueryParameter(name, it) }
+        }
+        activity.intent = Intent(current).apply { setData(builder.build()) }
+    }
+}
+`
+    fs.writeFileSync(callScreenPresentationPath, screenPresentation)
+    changed = true
+    console.log('[patch-android-fcm] CallScreenPresentation clears stale voiceIncoming intent')
+  }
 }
 
 const clearScreenPluginMarker = 'clearCallScreenPresentation'
