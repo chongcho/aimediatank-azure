@@ -612,7 +612,7 @@ const mediaVolumeKeysMarker = 'AiMediaTank webview media volume keys'
 const avoidInCommunicationMarker = 'AiMediaTank avoid MODE_IN_COMMUNICATION system volume block'
 const noGlobalAudioMarker = 'AiMediaTank no global AudioManager side effects'
 const callActivePlaybackMarker = 'AiMediaTank voice call media playback'
-const voiceCallWebRtcSafeAudioMarker = 'AiMediaTank WebRTC-safe voice call audio'
+const voiceCallRestoreAudioFocusMarker = 'AiMediaTank restore voice call audio focus'
 
 function buildSetVoiceCallAudioActiveBlock() {
   return `    private fun resolveVolumeActivity(): android.app.Activity? {
@@ -634,6 +634,13 @@ function buildSetVoiceCallAudioActiveBlock() {
     fun releaseGlobalAudioSideEffects() {
         // ${noGlobalAudioMarker}
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            voiceCallFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+            voiceCallFocusRequest = null
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(null)
+        }
         @Suppress("DEPRECATION")
         audioManager.isSpeakerphoneOn = false
         audioManager.isMicrophoneMute = false
@@ -660,11 +667,28 @@ function buildSetVoiceCallAudioActiveBlock() {
         CallVolumeState.voiceCallActive = active
         if (active) {
             // ${callActivePlaybackMarker}
-            // ${voiceCallWebRtcSafeAudioMarker}
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = true
             reapplyVolumeControlStream()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val attrs = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(attrs)
+                    .build()
+                voiceCallFocusRequest = focusRequest
+                audioManager.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
             return
         }
         releaseGlobalAudioSideEffects()
@@ -676,7 +700,8 @@ if (fs.existsSync(callManagerPath)) {
     callManager = callManager.replace(
       '    private val activeCalls = mutableMapOf<String, VoipConnection>()',
       `    private val activeCalls = mutableMapOf<String, VoipConnection>()
-    private var voiceCallAudioActive = false`,
+    private var voiceCallAudioActive = false
+    private var voiceCallFocusRequest: android.media.AudioFocusRequest? = null`,
     )
 
     callManager = callManager.replace(
@@ -1280,11 +1305,28 @@ if (fs.existsSync(callManagerPath)) {
         }`,
       `        if (active) {
             // ${callActivePlaybackMarker}
-            // ${voiceCallWebRtcSafeAudioMarker}
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = true
             reapplyVolumeControlStream()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val attrs = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(attrs)
+                    .build()
+                voiceCallFocusRequest = focusRequest
+                audioManager.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
             return
         }`,
     )
@@ -1296,28 +1338,47 @@ if (fs.existsSync(callManagerPath)) {
 
 if (fs.existsSync(callManagerPath)) {
   let callManager = fs.readFileSync(callManagerPath, 'utf8')
-  if (!callManager.includes(voiceCallWebRtcSafeAudioMarker)) {
-    callManager = callManager.replace(/\n    private var savedVoiceCallMediaVolume: Int\? = null/, '')
-    callManager = callManager.replace(
-      /\n    private fun ensureVoiceCallMediaVolume\(audioManager: AudioManager\) \{[\s\S]*?\n    \}\n\n    private fun restoreVoiceCallMediaVolume\(audioManager: AudioManager\) \{[\s\S]*?\n    \}/,
-      '',
-    )
-    callManager = callManager.replace('            ensureVoiceCallMediaVolume(audioManager)\n            ', '')
-    callManager = callManager.replace('        restoreVoiceCallMediaVolume(audioManager)\n        ', '')
-    callManager = callManager.replace(
-      '    private var voiceCallFocusRequest: android.media.AudioFocusRequest? = null\n',
-      '',
-    )
-    callManager = callManager.replace(
-      /\n        if \(Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.O\) \{\n            voiceCallFocusRequest\?\.let \{ audioManager\.abandonAudioFocusRequest\(it\) \}\n            voiceCallFocusRequest = null\n        \} else \{\n            @Suppress\("DEPRECATION"\)\n            audioManager\.abandonAudioFocus\(null\)\n        \}/,
-      '',
-    )
+  if (
+    callManager.includes(voiceVolumeMarker) &&
+    !callManager.includes(voiceCallRestoreAudioFocusMarker) &&
+    (!callManager.includes('voiceCallFocusRequest') ||
+      callManager.includes('WebRTC-safe voice call audio'))
+  ) {
+    if (!callManager.includes('voiceCallFocusRequest')) {
+      callManager = callManager.replace(
+        '    private var voiceCallAudioActive = false',
+        `    private var voiceCallAudioActive = false
+    private var voiceCallFocusRequest: android.media.AudioFocusRequest? = null`,
+      )
+    }
+    if (!callManager.includes('voiceCallFocusRequest?.let')) {
+      callManager = callManager.replace(
+        `    fun releaseGlobalAudioSideEffects() {
+        // ${noGlobalAudioMarker}
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        @Suppress("DEPRECATION")
+        audioManager.isSpeakerphoneOn = false`,
+        `    fun releaseGlobalAudioSideEffects() {
+        // ${noGlobalAudioMarker}
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            voiceCallFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+            voiceCallFocusRequest = null
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(null)
+        }
+        @Suppress("DEPRECATION")
+        audioManager.isSpeakerphoneOn = false`,
+      )
+    }
     callManager = callManager.replace(
       /\n    fun setVoiceCallAudioActive\(active: Boolean\) \{[\s\S]*?\n    \}\n\n    private fun notifyError/,
       `
     fun setVoiceCallAudioActive(active: Boolean) {
         // ${voiceVolumeMarker}
         // ${mediaVolumeKeysMarker}
+        // ${voiceCallRestoreAudioFocusMarker}
         if (voiceCallAudioActive == active) {
             if (active) reapplyVolumeControlStream()
             return
@@ -1326,11 +1387,28 @@ if (fs.existsSync(callManagerPath)) {
         CallVolumeState.voiceCallActive = active
         if (active) {
             // ${callActivePlaybackMarker}
-            // ${voiceCallWebRtcSafeAudioMarker}
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = true
             reapplyVolumeControlStream()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val attrs = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(attrs)
+                    .build()
+                voiceCallFocusRequest = focusRequest
+                audioManager.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
             return
         }
         releaseGlobalAudioSideEffects()
@@ -1340,7 +1418,7 @@ if (fs.existsSync(callManagerPath)) {
     )
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
-    console.log('[patch-android-fcm] CallManager WebRTC-safe voice call audio')
+    console.log('[patch-android-fcm] CallManager restore voice call audio focus')
   }
 }
 
