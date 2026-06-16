@@ -776,9 +776,18 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       activeCall?: { id: string; status: string; caller: VoiceCallUser; callee: VoiceCallUser } | null
       endedCalls?: { id: string; status: string }[]
     }) => {
-      pollSinceRef.current = new Date().toISOString()
+      const returnedSignals = data.signals || []
+      if (returnedSignals.length > 0) {
+        let maxCreatedAt = pollSinceRef.current
+        for (const signal of returnedSignals) {
+          if (signal.createdAt > maxCreatedAt) maxCreatedAt = signal.createdAt
+        }
+        pollSinceRef.current = maxCreatedAt
+      } else {
+        pollSinceRef.current = new Date().toISOString()
+      }
 
-      for (const signal of data.signals || []) {
+      for (const signal of returnedSignals) {
         if (
           (signal.type === 'hangup' || signal.type === 'reject') &&
           callStateRef.current === 'idle' &&

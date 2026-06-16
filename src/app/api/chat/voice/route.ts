@@ -129,7 +129,7 @@ export async function GET(request: Request) {
       take: 5,
     })
 
-    const signals = await prisma.voiceCallSignal.findMany({
+    const sinceSignals = await prisma.voiceCallSignal.findMany({
       where: {
         toUserId: userId,
         consumedAt: null,
@@ -138,6 +138,26 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'asc' },
       take: 50,
     })
+
+    // Offer/answer/ICE must not rely on `since` — a poll can advance the client cursor
+    // past a signal that arrived while the request was in flight, permanently skipping it.
+    const sdpSignals = await prisma.voiceCallSignal.findMany({
+      where: {
+        toUserId: userId,
+        consumedAt: null,
+        type: { in: ['offer', 'answer', 'ice'] },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+    })
+
+    const signalById = new Map<string, (typeof sinceSignals)[number]>()
+    for (const row of [...sdpSignals, ...sinceSignals]) {
+      signalById.set(row.id, row)
+    }
+    const signals = [...signalById.values()].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    )
 
     const answerSignals = signals.filter((s) => s.type === 'answer')
     if (answerSignals.length > 0) {
