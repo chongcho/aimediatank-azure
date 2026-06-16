@@ -111,7 +111,7 @@ export const TALK_CHAT_MAP = {
   voiceRingtone: 'Ringtone',
   voiceRingtoneIncoming: 'Classic incoming',
   voiceRingtoneOutgoing: 'Classic outgoing',
-  voiceMediaVolumeHint: 'Uses app media volume, not the phone call channel',
+  voiceMediaVolumeHint: 'Uses call volume during voice calls (hardware keys adjust call volume)',
 } as const
 
 export type TalkChatKey = keyof typeof TALK_CHAT_MAP

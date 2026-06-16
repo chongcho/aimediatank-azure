@@ -615,6 +615,7 @@ const callActivePlaybackMarker = 'AiMediaTank voice call media playback'
 const voiceCallRestoreAudioFocusMarker = 'AiMediaTank restore voice call audio focus'
 const voiceCallMediaVolumeLevelMarker = 'AiMediaTank voice call media volume level'
 const voiceCallLoudnessBoostMarker = 'AiMediaTank voice call loudness enhancer'
+const voiceCallCommunicationModeMarker = 'AiMediaTank voice call communication mode'
 
 function buildSetVoiceCallAudioActiveBlock() {
   return `    private fun resolveVolumeActivity(): android.app.Activity? {
@@ -624,7 +625,12 @@ function buildSetVoiceCallAudioActiveBlock() {
 
     fun reapplyVolumeControlStream() {
         if (!voiceCallAudioActive && !CallVolumeState.ringActive) return
-        resolveVolumeActivity()?.volumeControlStream = AudioManager.STREAM_MUSIC
+        val stream = if (voiceCallAudioActive) {
+            AudioManager.STREAM_VOICE_CALL
+        } else {
+            AudioManager.STREAM_MUSIC
+        }
+        resolveVolumeActivity()?.volumeControlStream = stream
     }
 
     fun releaseIfStale() {
@@ -669,13 +675,15 @@ function buildSetVoiceCallAudioActiveBlock() {
         CallVolumeState.voiceCallActive = active
         if (active) {
             // ${callActivePlaybackMarker}
+            // ${voiceCallCommunicationModeMarker}
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
             @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = true
             reapplyVolumeControlStream()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val attrs = android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
                 val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -687,7 +695,7 @@ function buildSetVoiceCallAudioActiveBlock() {
                 @Suppress("DEPRECATION")
                 audioManager.requestAudioFocus(
                     null,
-                    AudioManager.STREAM_MUSIC,
+                    AudioManager.STREAM_VOICE_CALL,
                     AudioManager.AUDIOFOCUS_GAIN
                 )
             }
@@ -1143,13 +1151,14 @@ if (fs.existsSync(callManagerPath)) {
       '    private fun notifyError(message: String) {',
       `    fun setVoiceCallMediaVolume(level: Float) {
         // ${voiceCallMediaVolumeLevelMarker}
+        // ${voiceCallCommunicationModeMarker}
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val stream = AudioManager.STREAM_MUSIC
-        val max = audioManager.getStreamMaxVolume(stream)
-        if (max <= 0) return
         val clamped = level.coerceIn(0f, 1f)
+        val streams = intArrayOf(AudioManager.STREAM_VOICE_CALL, AudioManager.STREAM_MUSIC)
         if (clamped <= 0f) {
-            audioManager.setStreamVolume(stream, 0, 0)
+            for (stream in streams) {
+                audioManager.setStreamVolume(stream, 0, 0)
+            }
             reapplyVolumeControlStream()
             return
         }
@@ -1159,10 +1168,13 @@ if (fs.existsSync(callManagerPath)) {
         } else {
             1f
         }
-        // Ring uses a separate (often louder) stream; lift media toward ring level when in-call.
         val targetFraction = kotlin.math.max(clamped, ringFraction * clamped)
-        val target = (max * targetFraction).toInt().coerceIn(1, max)
-        audioManager.setStreamVolume(stream, target, 0)
+        for (stream in streams) {
+            val max = audioManager.getStreamMaxVolume(stream)
+            if (max <= 0) continue
+            val target = (max * targetFraction).toInt().coerceIn(1, max)
+            audioManager.setStreamVolume(stream, target, 0)
+        }
         reapplyVolumeControlStream()
     }
 
@@ -1294,6 +1306,129 @@ if (fs.existsSync(callManagerPath)) {
   }
 }
 
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes(voiceCallLoudnessBoostMarker) &&
+    !callManager.includes(voiceCallCommunicationModeMarker)
+  ) {
+    callManager = callManager.replace(
+      /fun reapplyVolumeControlStream\(\) \{[\s\S]*?\n    \}\n\n    fun releaseIfStale/,
+      `fun reapplyVolumeControlStream() {
+        if (!voiceCallAudioActive && !CallVolumeState.ringActive) return
+        val stream = if (voiceCallAudioActive) {
+            AudioManager.STREAM_VOICE_CALL
+        } else {
+            AudioManager.STREAM_MUSIC
+        }
+        resolveVolumeActivity()?.volumeControlStream = stream
+    }
+
+    fun releaseIfStale`,
+    )
+    callManager = callManager.replace(
+      /\n    fun setVoiceCallAudioActive\(active: Boolean\) \{[\s\S]*?\n    \}\n\n    fun setVoiceCallMediaVolume/,
+      `
+    fun setVoiceCallAudioActive(active: Boolean) {
+        // ${voiceVolumeMarker}
+        // ${mediaVolumeKeysMarker}
+        // ${voiceCallRestoreAudioFocusMarker}
+        // ${voiceCallCommunicationModeMarker}
+        if (voiceCallAudioActive == active) {
+            if (active) reapplyVolumeControlStream()
+            return
+        }
+        voiceCallAudioActive = active
+        CallVolumeState.voiceCallActive = active
+        if (active) {
+            // ${callActivePlaybackMarker}
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = true
+            reapplyVolumeControlStream()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val attrs = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(attrs)
+                    .build()
+                voiceCallFocusRequest = focusRequest
+                audioManager.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_VOICE_CALL,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
+            enableVoiceCallLoudnessBoost()
+            return
+        }
+        releaseGlobalAudioSideEffects()
+    }
+
+    fun setVoiceCallMediaVolume`,
+    )
+    callManager = callManager.replace(
+      /\n    fun setVoiceCallMediaVolume\(level: Float\) \{[\s\S]*?\n    \}\n\n    private fun notifyError/,
+      `
+    fun setVoiceCallMediaVolume(level: Float) {
+        // ${voiceCallMediaVolumeLevelMarker}
+        // ${voiceCallCommunicationModeMarker}
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val clamped = level.coerceIn(0f, 1f)
+        val streams = intArrayOf(AudioManager.STREAM_VOICE_CALL, AudioManager.STREAM_MUSIC)
+        if (clamped <= 0f) {
+            for (stream in streams) {
+                audioManager.setStreamVolume(stream, 0, 0)
+            }
+            reapplyVolumeControlStream()
+            return
+        }
+        val ringMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING)
+        val ringFraction = if (ringMax > 0) {
+            audioManager.getStreamVolume(AudioManager.STREAM_RING).toFloat() / ringMax.toFloat()
+        } else {
+            1f
+        }
+        val targetFraction = kotlin.math.max(clamped, ringFraction * clamped)
+        for (stream in streams) {
+            val max = audioManager.getStreamMaxVolume(stream)
+            if (max <= 0) continue
+            val target = (max * targetFraction).toInt().coerceIn(1, max)
+            audioManager.setStreamVolume(stream, target, 0)
+        }
+        reapplyVolumeControlStream()
+    }
+
+    private fun notifyError`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager voice call communication mode')
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes(voiceCallCommunicationModeMarker) &&
+    callManager.includes(avoidInCommunicationMarker)
+  ) {
+    callManager = callManager.replace(
+      `            // ${avoidInCommunicationMarker}\n            audioManager.mode = AudioManager.MODE_NORMAL`,
+      '            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION',
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager restore MODE_IN_COMMUNICATION for voice calls')
+  }
+}
+
 const callVolumeStatePath = path.join(pluginDir, 'CallVolumeState.kt')
 if (!fs.existsSync(callVolumeStatePath)) {
   fs.writeFileSync(
@@ -1346,7 +1481,7 @@ if (fs.existsSync(pluginPath)) {
 
 if (fs.existsSync(callManagerPath)) {
   let callManager = fs.readFileSync(callManagerPath, 'utf8')
-  if (!callManager.includes(avoidInCommunicationMarker)) {
+  if (!callManager.includes(avoidInCommunicationMarker) && !callManager.includes(voiceCallCommunicationModeMarker)) {
     callManager = callManager.replace(
       '            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION',
       `            // ${avoidInCommunicationMarker}\n            audioManager.mode = AudioManager.MODE_NORMAL`,

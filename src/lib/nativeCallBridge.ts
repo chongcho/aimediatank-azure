@@ -605,7 +605,7 @@ type NativeVoiceCallAudioPlugin = {
   setVoiceCallMediaVolume?: (options: { level: number }) => Promise<void>
 }
 
-/** Android: media-stream WebRTC; hardware keys adjust STREAM_MUSIC (see MainActivity). */
+/** Android: WebRTC voice calls use MODE_IN_COMMUNICATION + STREAM_VOICE_CALL (Kakao-style). */
 export async function setNativeVoiceCallAudioActive(active: boolean): Promise<void> {
   if (!isNativeAndroidCallApp()) return
   try {
