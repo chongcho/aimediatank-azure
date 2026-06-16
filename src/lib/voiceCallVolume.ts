@@ -7,6 +7,9 @@ export type VoiceCallRingtoneId = 'incoming' | 'outgoing'
 const DEFAULT_RING_VOLUME = 1
 const DEFAULT_VOICE_VOLUME = 1
 
+/** App-side incoming ring boost. Does not change OS call or ringer volume. */
+export const INCOMING_RING_APP_GAIN = 1.75
+
 function readStored(key: string, fallback: number): number {
   if (typeof window === 'undefined') return fallback
   try {
