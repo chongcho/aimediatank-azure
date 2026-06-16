@@ -847,7 +847,7 @@ if (fs.existsSync(pluginPath)) {
             call.reject("Missing url parameter")
             return
         }
-        IncomingRingAudioHelper.start(context, url, call.getBoolean("incoming", false) ?: false)
+        IncomingRingAudioHelper.start(context, url)
         call.resolve()
     }
 
@@ -880,7 +880,7 @@ if (fs.existsSync(pluginPath)) {
             call.reject("Missing url parameter")
             return
         }
-        IncomingRingAudioHelper.start(context, url, call.getBoolean("incoming", false) ?: false)
+        IncomingRingAudioHelper.start(context, url)
         call.resolve()
     }
 
@@ -925,7 +925,7 @@ if (fs.existsSync(pluginPath)) {
             call.reject("Missing url parameter")
             return
         }
-        IncomingRingAudioHelper.start(context, url, call.getBoolean("incoming", false) ?: false)
+        IncomingRingAudioHelper.start(context, url)
         call.resolve()
     }`,
       `    @PluginMethod
@@ -943,12 +943,10 @@ if (fs.existsSync(pluginPath)) {
 const incomingRingVolumeMarker = 'AiMediaTank webview music volume stream (ring)'
 const incomingRingVolumeMarkerV2 = 'AiMediaTank ring media volume keys v2'
 const incomingRingVolumeMarkerV3 = 'AiMediaTank native media player ring'
-const incomingRingVolumeMarkerV4 = 'AiMediaTank incoming ring app loudness boost'
 const incomingRingAudioPath = path.join(pluginDir, 'IncomingRingAudioHelper.kt')
 if (
   !fs.existsSync(incomingRingAudioPath) ||
-  !fs.readFileSync(incomingRingAudioPath, 'utf8').includes(incomingRingVolumeMarkerV3) ||
-  !fs.readFileSync(incomingRingAudioPath, 'utf8').includes(incomingRingVolumeMarkerV4)
+  !fs.readFileSync(incomingRingAudioPath, 'utf8').includes(incomingRingVolumeMarkerV3)
 ) {
   const incomingRingAudioSource = `package com.capacitor.voipcalls
 
@@ -957,19 +955,14 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
-import android.media.audiofx.LoudnessEnhancer
 import android.util.Log
 
 /** Native ring on STREAM_MUSIC — hardware volume keys control ring loudness. */
 object IncomingRingAudioHelper {
     private const val TAG = "IncomingRingAudio"
-    /** App-side only — does not change system call/ringer stream levels. */
-    private const val INCOMING_RING_BOOST_MB = 800
     private var player: MediaPlayer? = null
     private var ringVolumeKeysActive = false
     private var ringVolumeLevel = 1f
-    private var incomingRingBoost = false
-    private var loudnessEnhancer: LoudnessEnhancer? = null
 
     private fun resolveActivity(context: Context): Activity? {
         return CapacitorVoipCallsPlugin.getInstance()?.activity
@@ -983,42 +976,16 @@ object IncomingRingAudioHelper {
         resolveActivity(context)?.volumeControlStream = AudioManager.STREAM_MUSIC
     }
 
-    private fun releaseIncomingBoost() {
-        loudnessEnhancer?.let { enhancer ->
-            try {
-                enhancer.enabled = false
-                enhancer.release()
-            } catch (_: Exception) {
-            }
-        }
-        loudnessEnhancer = null
-    }
-
-    private fun applyIncomingBoost(player: MediaPlayer) {
-        releaseIncomingBoost()
-        if (!incomingRingBoost) return
-        try {
-            loudnessEnhancer = LoudnessEnhancer(player.audioSessionId).apply {
-                setTargetGain(INCOMING_RING_BOOST_MB)
-                enabled = true
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "incoming ring app boost unavailable", e)
-        }
-    }
-
     fun setVolume(level: Float) {
         ringVolumeLevel = level.coerceIn(0f, 1f)
         player?.setVolume(ringVolumeLevel, ringVolumeLevel)
     }
 
-    fun start(context: Context, url: String, incomingBoost: Boolean = false) {
+    fun start(context: Context, url: String) {
         // ${incomingRingVolumeMarker}
         // ${incomingRingVolumeMarkerV2}
         // ${incomingRingVolumeMarkerV3}
-        // ${incomingRingVolumeMarkerV4}
         stop(context)
-        incomingRingBoost = incomingBoost
         ringVolumeKeysActive = true
         CallVolumeState.ringActive = true
         val activity = resolveActivity(context)
@@ -1037,7 +1004,6 @@ object IncomingRingAudioHelper {
                 setVolume(1.0f, 1.0f)
                 setOnPreparedListener { mp ->
                     try {
-                        applyIncomingBoost(mp)
                         mp.setVolume(ringVolumeLevel, ringVolumeLevel)
                         mp.start()
                     } catch (e: Exception) {
@@ -1057,7 +1023,6 @@ object IncomingRingAudioHelper {
     }
 
     fun stop(context: Context) {
-        releaseIncomingBoost()
         player?.let { mp ->
             try {
                 if (mp.isPlaying) mp.stop()
@@ -1069,7 +1034,6 @@ object IncomingRingAudioHelper {
             }
         }
         player = null
-        incomingRingBoost = false
         if (!ringVolumeKeysActive) return
         ringVolumeKeysActive = false
         CallVolumeState.ringActive = false
@@ -1132,24 +1096,6 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginRingVol)
     changed = true
     console.log('[patch-android-fcm] CapacitorVoipCallsPlugin setCallRingVolume')
-  }
-}
-
-const incomingRingBoostMarker = 'AiMediaTank startCallRing incoming boost'
-if (fs.existsSync(pluginPath)) {
-  let pluginIncoming = fs.readFileSync(pluginPath, 'utf8')
-  if (
-    pluginIncoming.includes('IncomingRingAudioHelper.start(context, url)') &&
-    !pluginIncoming.includes(incomingRingBoostMarker)
-  ) {
-    pluginIncoming = pluginIncoming.replace(
-      /IncomingRingAudioHelper\.start\(context, url\)/g,
-      `// ${incomingRingBoostMarker}
-        IncomingRingAudioHelper.start(context, url, call.getBoolean("incoming", false) ?: false)`,
-    )
-    fs.writeFileSync(pluginPath, pluginIncoming)
-    changed = true
-    console.log('[patch-android-fcm] startCallRing incoming app boost flag')
   }
 }
 

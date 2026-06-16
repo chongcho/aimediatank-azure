@@ -11,7 +11,6 @@ import { RING_ASSET_VERSION } from '@/lib/ringAssetVersion'
 import {
   getVoiceCallRingVolume,
   getVoiceCallRingtoneId,
-  INCOMING_RING_APP_GAIN,
   setVoiceCallRingVolume as persistRingVolume,
 } from '@/lib/voiceCallVolume'
 
@@ -46,7 +45,7 @@ function absoluteRingUrl(path: string): string {
 
 /** Web Audio gain — fallback when native ring is unavailable. */
 const RING_GAIN: Record<RingKind, { nativeMobile: number; mobile: number; desktop: number }> = {
-  incoming: { nativeMobile: 8, mobile: 3.25, desktop: 2 },
+  incoming: { nativeMobile: 6, mobile: 2.75, desktop: 1.75 },
   outgoing: { nativeMobile: 5, mobile: 2.25, desktop: 1.5 },
 }
 
@@ -106,7 +105,6 @@ function ringGainFor(kind: RingKind): number {
   let base = table.desktop
   if (platform === 'ios' || platform === 'android') base = table.nativeMobile
   else if (isMobileDevice()) base = table.mobile
-  if (kind === 'incoming') base *= INCOMING_RING_APP_GAIN
   return base * getVoiceCallRingVolume()
 }
 
@@ -361,7 +359,7 @@ async function startRing(kind: RingKind) {
   if (useNativeAndroidRing()) {
     nativeRingActive = true
     try {
-      await startNativeCallRing(absoluteRingUrl(RING_URLS[playbackKind]), kind === 'incoming')
+      await startNativeCallRing(absoluteRingUrl(RING_URLS[playbackKind]))
       void setNativeCallRingVolume(getVoiceCallRingVolume())
       return
     } catch {
