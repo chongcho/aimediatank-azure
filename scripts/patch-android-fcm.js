@@ -917,26 +917,6 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginSource)
     changed = true
     console.log('[patch-android-fcm] startCallRing native media player url')
-  } else if (pluginSource.includes('IncomingRingAudioHelper.start(context, url)')) {
-    pluginSource = pluginSource.replace(
-      `    @PluginMethod
-    fun startCallRing(call: PluginCall) {
-        val url = call.getString("url") ?: run {
-            call.reject("Missing url parameter")
-            return
-        }
-        IncomingRingAudioHelper.start(context, url)
-        call.resolve()
-    }`,
-      `    @PluginMethod
-    fun startCallRing(call: PluginCall) {
-        IncomingRingAudioHelper.start(context)
-        call.resolve()
-    }`,
-    )
-    fs.writeFileSync(pluginPath, pluginSource)
-    changed = true
-    console.log('[patch-android-fcm] startCallRing volume-keys only')
   }
 }
 
