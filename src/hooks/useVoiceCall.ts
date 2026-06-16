@@ -25,6 +25,9 @@ import {
   type NativeIncomingCallPayload,
 } from '@/lib/nativeCallBridge'
 import { normalizeVoiceCallId, voiceCallIdsMatch } from '@/lib/voiceCallId'
+import { getVoiceCallVoiceVolume, setVoiceCallVoiceVolume } from '@/lib/voiceCallVolume'
+
+const ANDROID_REMOTE_GAIN = 2.5
 
 export interface VoiceCallUser {
   id: string
@@ -366,7 +369,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         try {
           bag.source = ctx.createMediaStreamSource(stream)
           bag.gain = ctx.createGain()
-          bag.gain.gain.value = 2.5
+          bag.gain.gain.value = ANDROID_REMOTE_GAIN * getVoiceCallVoiceVolume()
           bag.source.connect(bag.gain)
           bag.gain.connect(ctx.destination)
         } catch {
@@ -387,6 +390,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       audio.srcObject = stream
     }
     audio.muted = false
+    audio.volume = getVoiceCallVoiceVolume()
     const tryPlay = async (attempt = 0) => {
       try {
         await audio.play()
@@ -398,6 +402,18 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       }
     }
     void tryPlay()
+  }, [])
+
+  const setRemoteCallVolume = useCallback((level: number) => {
+    const v = setVoiceCallVoiceVolume(level)
+    const bag = androidRemoteGainRef.current
+    if (bag.gain) {
+      bag.gain.gain.value = ANDROID_REMOTE_GAIN * v
+    }
+    const audio = remoteAudioRef.current
+    if (audio && !audio.muted) {
+      audio.volume = v
+    }
   }, [])
 
   const flushPendingIceCandidates = useCallback(async (pc: RTCPeerConnection) => {
@@ -1495,6 +1511,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     endCall,
     toggleMute,
     toggleSpeaker,
+    setRemoteCallVolume,
     lastError,
     clearLastError,
   }

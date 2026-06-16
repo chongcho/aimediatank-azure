@@ -962,6 +962,7 @@ object IncomingRingAudioHelper {
     private const val TAG = "IncomingRingAudio"
     private var player: MediaPlayer? = null
     private var ringVolumeKeysActive = false
+    private var ringVolumeLevel = 1f
 
     private fun resolveActivity(context: Context): Activity? {
         return CapacitorVoipCallsPlugin.getInstance()?.activity
@@ -973,6 +974,11 @@ object IncomingRingAudioHelper {
     fun reapply(context: Context) {
         if (!ringVolumeKeysActive) return
         resolveActivity(context)?.volumeControlStream = AudioManager.STREAM_MUSIC
+    }
+
+    fun setVolume(level: Float) {
+        ringVolumeLevel = level.coerceIn(0f, 1f)
+        player?.setVolume(ringVolumeLevel, ringVolumeLevel)
     }
 
     fun start(context: Context, url: String) {
@@ -998,6 +1004,7 @@ object IncomingRingAudioHelper {
                 setVolume(1.0f, 1.0f)
                 setOnPreparedListener { mp ->
                     try {
+                        mp.setVolume(ringVolumeLevel, ringVolumeLevel)
                         mp.start()
                     } catch (e: Exception) {
                         Log.e(TAG, "start failed", e)
@@ -1036,6 +1043,60 @@ object IncomingRingAudioHelper {
   fs.writeFileSync(incomingRingAudioPath, incomingRingAudioSource)
   changed = true
   console.log('[patch-android-fcm] IncomingRingAudioHelper.kt')
+}
+
+if (fs.existsSync(incomingRingAudioPath)) {
+  let ringHelper = fs.readFileSync(incomingRingAudioPath, 'utf8')
+  if (!ringHelper.includes('fun setVolume(level: Float)')) {
+    ringHelper = ringHelper.replace(
+      '    private var ringVolumeKeysActive = false\n',
+      '    private var ringVolumeKeysActive = false\n    private var ringVolumeLevel = 1f\n',
+    )
+    ringHelper = ringHelper.replace(
+      '    fun start(context: Context, url: String) {',
+      `    fun setVolume(level: Float) {
+        ringVolumeLevel = level.coerceIn(0f, 1f)
+        player?.setVolume(ringVolumeLevel, ringVolumeLevel)
+    }
+
+    fun start(context: Context, url: String) {`,
+    )
+    ringHelper = ringHelper.replace(
+      '                        mp.start()',
+      '                        mp.setVolume(ringVolumeLevel, ringVolumeLevel)\n                        mp.start()',
+    )
+    fs.writeFileSync(incomingRingAudioPath, ringHelper)
+    changed = true
+    console.log('[patch-android-fcm] IncomingRingAudioHelper setVolume')
+  }
+}
+
+if (fs.existsSync(pluginPath)) {
+  let pluginRingVol = fs.readFileSync(pluginPath, 'utf8')
+  if (!pluginRingVol.includes('setCallRingVolume')) {
+    pluginRingVol = pluginRingVol.replace(
+      `    @PluginMethod
+    fun stopCallRing(call: PluginCall) {
+        IncomingRingAudioHelper.stop(context)
+        call.resolve()
+    }`,
+      `    @PluginMethod
+    fun stopCallRing(call: PluginCall) {
+        IncomingRingAudioHelper.stop(context)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun setCallRingVolume(call: PluginCall) {
+        val level = call.getFloat("level", 1f) ?: 1f
+        IncomingRingAudioHelper.setVolume(level)
+        call.resolve()
+    }`,
+    )
+    fs.writeFileSync(pluginPath, pluginRingVol)
+    changed = true
+    console.log('[patch-android-fcm] CapacitorVoipCallsPlugin setCallRingVolume')
+  }
 }
 
 const callVolumeStatePath = path.join(pluginDir, 'CallVolumeState.kt')
