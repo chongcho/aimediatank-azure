@@ -609,6 +609,7 @@ const voiceVolumeMarker = 'AiMediaTank voice call volume'
 const webViewVolumeMarker = 'AiMediaTank webview music volume stream'
 const mediaVolumeKeysMarker = 'AiMediaTank webview media volume keys'
 const avoidInCommunicationMarker = 'AiMediaTank avoid MODE_IN_COMMUNICATION system volume block'
+const noGlobalAudioMarker = 'AiMediaTank no global AudioManager side effects'
 
 function buildSetVoiceCallAudioActiveBlock() {
   return `    private fun resolveVolumeActivity(): android.app.Activity? {
@@ -617,8 +618,39 @@ function buildSetVoiceCallAudioActiveBlock() {
     }
 
     fun reapplyVolumeControlStream() {
-        if (!voiceCallAudioActive) return
+        if (!voiceCallAudioActive && !CallVolumeState.ringActive) return
         resolveVolumeActivity()?.volumeControlStream = AudioManager.STREAM_MUSIC
+    }
+
+    fun releaseIfStale() {
+        if (activeCalls.isEmpty() && !IncomingRingAudioHelper.isActive() && voiceCallAudioActive) {
+            setVoiceCallAudioActive(false)
+        }
+    }
+
+    fun releaseGlobalAudioSideEffects() {
+        // ${noGlobalAudioMarker}
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            voiceCallFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+            voiceCallFocusRequest = null
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(null)
+        }
+        @Suppress("DEPRECATION")
+        audioManager.isSpeakerphoneOn = false
+        audioManager.isMicrophoneMute = false
+        try {
+            @Suppress("DEPRECATION")
+            audioManager.stopBluetoothSco()
+            audioManager.isBluetoothScoOn = false
+        } catch (_: Exception) {
+        }
+        if (audioManager.mode != AudioManager.MODE_NORMAL) {
+            audioManager.mode = AudioManager.MODE_NORMAL
+        }
+        resolveVolumeActivity()?.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
     }
 
     fun setVoiceCallAudioActive(active: Boolean) {
@@ -630,44 +662,11 @@ function buildSetVoiceCallAudioActiveBlock() {
         }
         voiceCallAudioActive = active
         CallVolumeState.voiceCallActive = active
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         if (active) {
-            // ${avoidInCommunicationMarker}
-            audioManager.mode = AudioManager.MODE_NORMAL
             reapplyVolumeControlStream()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val attrs = android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build()
-                val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                    .setAudioAttributes(attrs)
-                    .build()
-                voiceCallFocusRequest = focusRequest
-                audioManager.requestAudioFocus(focusRequest)
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager.requestAudioFocus(
-                    null,
-                    AudioManager.STREAM_MUSIC,
-                    AudioManager.AUDIOFOCUS_GAIN
-                )
-            }
             return
         }
-
-        CallVolumeState.voiceCallActive = false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            voiceCallFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
-            voiceCallFocusRequest = null
-        } else {
-            @Suppress("DEPRECATION")
-            audioManager.abandonAudioFocus(null)
-        }
-        audioManager.isSpeakerphoneOn = false
-        audioManager.isMicrophoneMute = false
-        audioManager.mode = AudioManager.MODE_NORMAL
-        resolveVolumeActivity()?.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
+        releaseGlobalAudioSideEffects()
     }`
 }
 if (fs.existsSync(callManagerPath)) {
@@ -686,7 +685,6 @@ if (fs.existsSync(callManagerPath)) {
         
         when (route) {`,
       `    fun setAudioRoute(route: String) {
-        setVoiceCallAudioActive(true)
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         
         when (route) {`,
@@ -1199,6 +1197,77 @@ if (fs.existsSync(incomingRingAudioPath)) {
     changed = true
     console.log('[patch-android-fcm] IncomingRingAudioHelper reset volume stream after ring')
   }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (!callManager.includes(noGlobalAudioMarker)) {
+    callManager = callManager.replace(
+      /\n    private fun resolveVolumeActivity\(\): android\.app\.Activity\? \{[\s\S]*?\n    fun setVoiceCallAudioActive\(active: Boolean\) \{[\s\S]*?\n    \}\n\n    private fun notifyError/,
+      `\n${buildSetVoiceCallAudioActiveBlock()}\n\n    private fun notifyError`,
+    )
+    callManager = callManager.replace(
+      `    fun setAudioRoute(route: String) {
+        setVoiceCallAudioActive(true)
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager`,
+      `    fun setAudioRoute(route: String) {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager`,
+    )
+    callManager = callManager.replace(
+      `    fun setMuted(muted: Boolean) {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.isMicrophoneMute = muted
+    }`,
+      `    fun setMuted(muted: Boolean) {
+        // ${noGlobalAudioMarker} — WebRTC track mute is handled in JS.
+    }`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager no global AudioManager side effects')
+  }
+}
+
+const androidAudioCleanupPath = path.join(pluginDir, 'AndroidAudioCleanup.kt')
+if (!fs.existsSync(androidAudioCleanupPath)) {
+  fs.writeFileSync(
+    androidAudioCleanupPath,
+    `package com.capacitor.voipcalls
+
+import android.content.Context
+import android.media.AudioManager
+import android.util.Log
+
+/** Reset global audio routing AiMediaTank may have touched. Does not change volume levels. */
+object AndroidAudioCleanup {
+    private const val TAG = "AndroidAudioCleanup"
+
+    @JvmStatic
+    fun resetIfIdle(context: Context) {
+        CapacitorVoipCallsPlugin.getInstance()?.callManager?.releaseIfStale()
+        if (CallVolumeState.shouldAdjustMediaVolume()) return
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        try {
+            @Suppress("DEPRECATION")
+            am.isSpeakerphoneOn = false
+            am.isMicrophoneMute = false
+            @Suppress("DEPRECATION")
+            am.stopBluetoothSco()
+            am.isBluetoothScoOn = false
+        } catch (e: Exception) {
+            Log.w(TAG, "speaker/bluetooth reset skipped", e)
+        }
+        if (am.mode != AudioManager.MODE_NORMAL) {
+            am.mode = AudioManager.MODE_NORMAL
+        }
+        @Suppress("DEPRECATION")
+        am.abandonAudioFocus(null)
+    }
+}
+`,
+  )
+  changed = true
+  console.log('[patch-android-fcm] AndroidAudioCleanup.kt')
 }
 
 if (!changed) {
