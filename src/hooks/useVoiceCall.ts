@@ -83,6 +83,33 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/** Android WebView plays WebRTC via <audio> but caps element.volume at 1. Amplify through Web Audio into a destination stream. */
+const ANDROID_REMOTE_PLAYBACK_GAIN = 2.5
+
+type AndroidRemoteAudioGraph = {
+  ctx: AudioContext | null
+  source: MediaStreamAudioSourceNode | null
+  gain: GainNode | null
+  destination: MediaStreamAudioDestinationNode | null
+  boundStream: MediaStream | null
+}
+
+function androidRemotePlaybackGain(voiceLevel: number): number {
+  return Math.max(0, Math.min(1, voiceLevel)) * ANDROID_REMOTE_PLAYBACK_GAIN
+}
+
+function disposeAndroidRemoteAudioGraph(bag: AndroidRemoteAudioGraph) {
+  bag.source?.disconnect()
+  bag.gain?.disconnect()
+  bag.destination?.disconnect()
+  bag.source = null
+  bag.gain = null
+  bag.destination = null
+  bag.boundStream = null
+  void bag.ctx?.close()
+  bag.ctx = null
+}
+
 async function getUserMediaWithTimeout(timeoutMs: number): Promise<MediaStream> {
   return Promise.race([
     navigator.mediaDevices.getUserMedia({ audio: true, video: false }),
@@ -199,6 +226,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const remoteDescriptionSetRef = useRef(false)
   const localOfferSetRef = useRef(false)
   const remoteStreamRef = useRef<MediaStream | null>(null)
+  const androidRemoteAudioRef = useRef<AndroidRemoteAudioGraph>({
+    ctx: null,
+    source: null,
+    gain: null,
+    destination: null,
+    boundStream: null,
+  })
   const callStateRef = useRef<VoiceCallState>('idle')
   callStateRef.current = callState
   const pendingVoiceActionRef = useRef<'accept' | 'reject' | null>(null)
@@ -266,6 +300,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       remoteAudioRef.current.srcObject = null
       remoteAudioRef.current.muted = false
     }
+    disposeAndroidRemoteAudioGraph(androidRemoteAudioRef.current)
     callIdRef.current = null
     isCallerRef.current = false
     makingOfferRef.current = false
@@ -291,11 +326,44 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const playRemoteAudioElement = useCallback((stream: MediaStream) => {
     const audio = remoteAudioRef.current
     if (!audio) return
-    if (audio.srcObject !== stream) {
-      audio.srcObject = stream
+    const voiceLevel = getVoiceCallVoiceVolume()
+
+    let playbackStream: MediaStream = stream
+    if (isNativeAndroidCallApp()) {
+      try {
+        const bag = androidRemoteAudioRef.current
+        if (bag.boundStream !== stream) {
+          disposeAndroidRemoteAudioGraph(bag)
+          const ctx = new AudioContext()
+          void ctx.resume()
+          const source = ctx.createMediaStreamSource(stream)
+          const gain = ctx.createGain()
+          const destination = ctx.createMediaStreamDestination()
+          source.connect(gain)
+          gain.connect(destination)
+          bag.ctx = ctx
+          bag.source = source
+          bag.gain = gain
+          bag.destination = destination
+          bag.boundStream = stream
+        }
+        if (bag.gain) {
+          bag.gain.gain.value = androidRemotePlaybackGain(voiceLevel)
+        }
+        if (bag.destination?.stream) {
+          playbackStream = bag.destination.stream
+        }
+      } catch (err) {
+        console.warn('[VoiceCall] Android remote audio boost unavailable, using direct stream', err)
+        disposeAndroidRemoteAudioGraph(androidRemoteAudioRef.current)
+      }
+    }
+
+    if (audio.srcObject !== playbackStream) {
+      audio.srcObject = playbackStream
     }
     audio.muted = false
-    audio.volume = getVoiceCallVoiceVolume()
+    audio.volume = isNativeAndroidCallApp() ? 1 : voiceLevel
     const tryPlay = async (attempt = 0) => {
       try {
         await audio.play()
@@ -317,6 +385,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   const setRemoteCallVolume = useCallback((level: number) => {
     const v = setVoiceCallVoiceVolume(level)
+    if (isNativeAndroidCallApp()) {
+      const gain = androidRemoteAudioRef.current.gain
+      if (gain) {
+        gain.gain.value = androidRemotePlaybackGain(v)
+        return
+      }
+    }
     const audio = remoteAudioRef.current
     if (audio && !audio.muted) {
       audio.volume = v
