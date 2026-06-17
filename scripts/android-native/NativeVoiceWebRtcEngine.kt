@@ -404,8 +404,8 @@ class NativeVoiceWebRtcEngine private constructor(
             return
         }
         val generation = UUID.randomUUID()
-        createAnswerGeneration = generation
         tearDownPeerConnection(notify = false)
+        createAnswerGeneration = generation
         val pc = createPeerConnection(iceServers)
         if (pc == null) {
             failCall(callId, "peer connection create failed")
