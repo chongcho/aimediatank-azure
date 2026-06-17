@@ -354,8 +354,9 @@ function HomeContent() {
   // Load sort preference from localStorage on mount (client-side only)
   useEffect(() => {
     const savedSort = localStorage.getItem('mediaSortPreference')
-    if (savedSort && ['popular', 'recent', 'rated'].includes(savedSort)) {
-      setSort(savedSort)
+    const normalizedSort = savedSort === 'rated' ? 'random' : savedSort
+    if (normalizedSort && ['popular', 'recent', 'random'].includes(normalizedSort)) {
+      setSort(normalizedSort)
     }
     setSortInitialized(true)
   }, [])
@@ -1017,7 +1018,7 @@ function HomeContent() {
           >
             <option value="popular">Most Popular</option>
             <option value="recent">Most Recent</option>
-            <option value="rated">Highest Rated</option>
+            <option value="random">Random</option>
           </select>
         </div>
       </div>

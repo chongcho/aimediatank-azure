@@ -14,8 +14,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') // VIDEO, IMAGE, MUSIC
     const sortParam = searchParams.get('sort') || 'popular'
-    // Validate sort param - default to 'popular' if invalid
-    const sort = ['popular', 'recent', 'rated'].includes(sortParam) ? sortParam : 'popular'
+    // Validate sort param - default to 'popular' if invalid ('rated' kept for older clients)
+    const normalizedSort = sortParam === 'rated' ? 'random' : sortParam
+    const sort = ['popular', 'recent', 'random'].includes(normalizedSort) ? normalizedSort : 'popular'
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20') || 20))
     const search = searchParams.get('search')
@@ -245,13 +246,11 @@ export async function GET(request: Request) {
       }
     })
 
-    // Sort by rating if requested (tie-break by id for stable pagination)
-    if (sort === 'rated') {
-      mediaWithRating.sort((a, b) => {
-        const diff = b.avgRating - a.avgRating
-        if (diff !== 0) return diff
-        return (b.id as string).localeCompare(a.id as string)
-      })
+    if (sort === 'random') {
+      for (let i = mediaWithRating.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[mediaWithRating[i], mediaWithRating[j]] = [mediaWithRating[j], mediaWithRating[i]]
+      }
     }
 
     return NextResponse.json({
