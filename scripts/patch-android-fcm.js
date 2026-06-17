@@ -2709,3 +2709,60 @@ if (fs.existsSync(pluginPath)) {
     console.log('[patch-android-fcm] prepareNativeWebRtcAnswer accepts remoteOfferSdp')
   }
 }
+
+const incomingCallDedupMarker = 'AiMediaTank skip duplicate incoming call'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('fun reportIncomingCall(') &&
+    !callManager.includes(incomingCallDedupMarker)
+  ) {
+    callManager = callManager.replace(
+      `    private val activeCalls = mutableMapOf<String, VoipConnection>()
+    private val declineTokensByCallId = mutableMapOf<String, String>()`,
+      `    private val activeCalls = mutableMapOf<String, VoipConnection>()
+    private val declineTokensByCallId = mutableMapOf<String, String>()
+    private val reportedIncomingCallIds = mutableSetOf<String>()`,
+    )
+    callManager = callManager.replace(
+      `    fun reportIncomingCall(
+        callId: String,
+        handle: String,
+        displayName: String,
+        handleType: String,
+        video: Boolean,
+        metadata: JSObject?
+    ) {
+        val phoneAccount = VoipConnectionService.getPhoneAccount(context)`,
+      `    fun reportIncomingCall(
+        callId: String,
+        handle: String,
+        displayName: String,
+        handleType: String,
+        video: Boolean,
+        metadata: JSObject?
+    ) {
+        val normalized = callId.lowercase()
+        if (reportedIncomingCallIds.contains(normalized)) {
+            // ${incomingCallDedupMarker}
+            android.util.Log.i("CallManager", "skip duplicate incoming callId=$callId")
+            metadata?.getString("declineToken")?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                declineTokensByCallId[normalized] = it
+            }
+            return
+        }
+        reportedIncomingCallIds.add(normalized)
+        val phoneAccount = VoipConnectionService.getPhoneAccount(context)`,
+    )
+    callManager = callManager.replace(
+      `        declineTokensByCallId.remove(callId.lowercase())
+        endNativeWebRtc()`,
+      `        declineTokensByCallId.remove(callId.lowercase())
+        reportedIncomingCallIds.remove(callId.lowercase())
+        endNativeWebRtc()`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager dedup incoming call reports')
+  }
+}

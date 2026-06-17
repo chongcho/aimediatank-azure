@@ -130,7 +130,7 @@ class NativeVoiceWebRtcEngine private constructor(
                     postNativeTrace(normalized, newToken!!, "native_webrtc_token_upgrade")
                     postNativeCallKit("accept", normalized, newToken)
                     if (inlineOffer != null) {
-                        beginAnswerWithOffer(normalized, inlineOffer, parsedIceServers)
+                        beginAnswerWithInlineOffer(normalized, inlineOffer)
                     } else {
                         bootstrapUntilOfferReady(normalized, newToken, attempt = 0)
                     }
@@ -140,7 +140,7 @@ class NativeVoiceWebRtcEngine private constructor(
                 stopSessionPoll()
                 Log.i(TAG, "upgrade answer $normalized with inline offer")
                 executor.execute {
-                    beginAnswerWithOffer(normalized, inlineOffer, parsedIceServers)
+                    beginAnswerWithInlineOffer(normalized, inlineOffer)
                 }
             }
             return
@@ -164,7 +164,7 @@ class NativeVoiceWebRtcEngine private constructor(
         executor.execute {
             if (inlineOffer != null) {
                 postAnswerAccepted(normalized)
-                beginAnswerWithOffer(normalized, inlineOffer, parsedIceServers)
+                beginAnswerWithInlineOffer(normalized, inlineOffer)
                 return@execute
             }
             if (!token.isNullOrEmpty()) {
@@ -329,6 +329,45 @@ class NativeVoiceWebRtcEngine private constructor(
         }, constraints)
     }
 
+    private fun beginAnswerWithInlineOffer(callId: String, inlineOfferSdp: String) {
+        val sdp = inlineOfferSdp.trim()
+        if (!sdp.startsWith("v=")) {
+            Log.w(TAG, "invalid inline offer for $callId prefix=${sdp.take(48)}")
+            if (!token.isNullOrEmpty()) {
+                bootstrapUntilOfferReady(callId, token!!, attempt = 0)
+            } else {
+                bootstrapSessionOffer(callId, attempt = 0)
+            }
+            return
+        }
+        val authToken = token
+        if (authToken.isNullOrEmpty()) {
+            beginAnswerWithOffer(callId, sdp, parsedIceServers)
+            return
+        }
+        fetchNativeBootstrap(callId, authToken) { result ->
+            if (!isAnswering || this.callId != callId) return@fetchNativeBootstrap
+            result.onFailure { error ->
+                Log.w(TAG, "inline offer bootstrap failed $callId: ${error.message}")
+                beginAnswerWithOffer(callId, sdp, parsedIceServers)
+            }.onSuccess { bootstrap ->
+                bootstrap.caller?.let { cachedCaller = it }
+                val iceServers = bootstrap.iceServers
+                parsedIceServers = iceServers
+                Log.i(
+                    TAG,
+                    "inline answer $callId iceServers=${iceServers.size} remoteIce=${bootstrap.remoteIce.size}",
+                )
+                runWebRtc("createAnswer") {
+                    createAnswer(callId, sdp, iceServers)
+                    for (candidate in bootstrap.remoteIce) {
+                        addRemoteIceCandidate(candidate, callId)
+                    }
+                }
+            }
+        }
+    }
+
     private fun beginAnswerWithOffer(
         callId: String,
         offerSdp: String,
@@ -336,7 +375,7 @@ class NativeVoiceWebRtcEngine private constructor(
     ) {
         val sdp = offerSdp.trim()
         if (!sdp.startsWith("v=")) {
-            Log.w(TAG, "invalid inline offer for $callId prefix=${sdp.take(48)}")
+            Log.w(TAG, "invalid offer for $callId prefix=${sdp.take(48)}")
             if (!token.isNullOrEmpty()) {
                 bootstrapUntilOfferReady(callId, token!!, attempt = 0)
             } else {
@@ -396,6 +435,7 @@ class NativeVoiceWebRtcEngine private constructor(
                                         put("sdp", desc.description)
                                     })
                                 }
+                                Log.i(TAG, "posted answer sdp $callId")
                                 if (!token.isNullOrEmpty()) {
                                     postNativeSignal(callId, token!!, "answer", payload)
                                 } else {
@@ -670,6 +710,7 @@ class NativeVoiceWebRtcEngine private constructor(
 
     override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
         val id = callId ?: return
+        Log.i(TAG, "ice state $id: $state")
         when (state) {
             PeerConnection.IceConnectionState.CONNECTED,
             PeerConnection.IceConnectionState.COMPLETED,
