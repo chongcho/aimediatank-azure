@@ -1200,6 +1200,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
                 } else {
                   await voiceApi('accept', { callId: normalizedId })
                 }
+                await prepareNativeWebRtcAnswer(normalizedId, token)
               } catch (err) {
                 console.warn('[VoiceCall] Android native accept sync failed:', err)
               }

@@ -2236,7 +2236,6 @@ if (fs.existsSync(callManagerPath)) {
             if (token != null) put("declineToken", token)
         }
         eventEmitter?.invoke("callAnswered", data)
-        startNativeWebRtcAnswer(callId, token)
     }
 
     // AiMediaTank native WebRTC base URL fallback
@@ -2449,6 +2448,27 @@ if (fs.existsSync(callManagerPath)) {
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
     console.log('[patch-android-fcm] native WebRTC base URL fallback + decline token keys')
+  }
+}
+
+const notifyCallAnsweredNoNativeStartMarker = 'AiMediaTank defer native WebRTC to JS main thread'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('startNativeWebRtcAnswer(callId, token)') &&
+    !callManager.includes(notifyCallAnsweredNoNativeStartMarker)
+  ) {
+    callManager = callManager.replace(
+      `        eventEmitter?.invoke("callAnswered", data)
+        startNativeWebRtcAnswer(callId, token)
+    }`,
+      `        eventEmitter?.invoke("callAnswered", data)
+        // ${notifyCallAnsweredNoNativeStartMarker}
+    }`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] notifyCallAnswered defers native WebRTC to JS')
   }
 }
 

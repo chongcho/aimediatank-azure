@@ -11,6 +11,7 @@ import com.getcapacitor.JSObject
 import org.json.JSONArray
 import org.json.JSONObject
 import org.webrtc.*
+import org.webrtc.audio.JavaAudioDeviceModule
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
@@ -60,7 +61,17 @@ class NativeVoiceWebRtcEngine private constructor(
 
         fun endGlobal() {
             instance?.endCall(syncServer = false, reason = "shutdown")
+            instance?.releaseFactory()
             instance = null
+        }
+    }
+
+    private fun releaseFactory() {
+        mainHandler.post {
+            audioDeviceModule?.release()
+            audioDeviceModule = null
+            peerConnectionFactory?.dispose()
+            peerConnectionFactory = null
         }
     }
 
@@ -69,6 +80,7 @@ class NativeVoiceWebRtcEngine private constructor(
     private val running = AtomicBoolean(false)
 
     private var peerConnectionFactory: PeerConnectionFactory? = null
+    private var audioDeviceModule: JavaAudioDeviceModule? = null
     private var peerConnection: PeerConnection? = null
     private var audioSource: AudioSource? = null
     private var localAudioTrack: AudioTrack? = null
@@ -140,7 +152,7 @@ class NativeVoiceWebRtcEngine private constructor(
 
         Log.i(TAG, "start caller $normalized")
         ensureVoiceCallAudioActive()
-        executor.execute { createAndSendOffer(normalized) }
+        runWebRtc("startCaller") { createAndSendOffer(normalized) }
     }
 
     fun setMuted(muted: Boolean) {
@@ -175,20 +187,40 @@ class NativeVoiceWebRtcEngine private constructor(
         Log.i(TAG, "end call ${id ?: "nil"} reason=$reason")
     }
 
-    private fun ensureVoiceCallAudioActive() {
-        mainHandler.post {
-            CapacitorVoipCallsPlugin.getInstance()?.callManager?.setVoiceCallAudioActive(true)
+    private fun runWebRtc(label: String, block: () -> Unit) {
+        val task = Runnable {
+            try {
+                block()
+            } catch (e: Exception) {
+                Log.e(TAG, "$label failed", e)
+                callId?.let { failCall(it, e.message ?: label) }
+            }
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            task.run()
+        } else {
+            mainHandler.post(task)
         }
     }
 
     private fun ensureFactory(): PeerConnectionFactory {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            throw IllegalStateException("WebRTC factory must be created on the main thread")
+        }
         peerConnectionFactory?.let { return it }
         PeerConnectionFactory.initialize(
             PeerConnectionFactory.InitializationOptions.builder(context)
                 .setEnableInternalTracer(false)
                 .createInitializationOptions(),
         )
-        val factory = PeerConnectionFactory.builder().createPeerConnectionFactory()
+        val adm = JavaAudioDeviceModule.builder(context)
+            .setUseHardwareAcousticEchoCanceler(true)
+            .setUseHardwareNoiseSuppressor(true)
+            .createAudioDeviceModule()
+        audioDeviceModule = adm
+        val factory = PeerConnectionFactory.builder()
+            .setAudioDeviceModule(adm)
+            .createPeerConnectionFactory()
         peerConnectionFactory = factory
         return factory
     }
@@ -352,7 +384,7 @@ class NativeVoiceWebRtcEngine private constructor(
                     }
                     return@fetchNativeBootstrap
                 }
-                mainHandler.post {
+                runWebRtc("createAnswer") {
                     createAnswer(callId, offer, bootstrap.iceServers)
                     for (candidate in bootstrap.remoteIce) {
                         addRemoteIceCandidate(candidate, callId)
@@ -387,7 +419,7 @@ class NativeVoiceWebRtcEngine private constructor(
                     }
                     return@fetchSessionPoll
                 }
-                mainHandler.post {
+                runWebRtc("createAnswer") {
                     createAnswer(callId, offerSdp, parsedIceServers)
                     for (signal in poll.signals) {
                         if (!signal.callId.equals(callId, ignoreCase = true)) continue
@@ -489,6 +521,12 @@ class NativeVoiceWebRtcEngine private constructor(
                 emitEnded(id)
                 injectUiEvent("aimediatank-callkit-end", JSONObject().put("callId", id))
             }
+        }
+    }
+
+    private fun ensureVoiceCallAudioActive() {
+        mainHandler.post {
+            CapacitorVoipCallsPlugin.getInstance()?.callManager?.setVoiceCallAudioActive(true)
         }
     }
 
