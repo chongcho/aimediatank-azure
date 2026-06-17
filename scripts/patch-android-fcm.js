@@ -2654,3 +2654,58 @@ if (fs.existsSync(callManagerPath)) {
     console.log('[patch-android-fcm] CallManager answerCall fallback when no Telecom connection')
   }
 }
+
+const notifySkipNativeWebRtcMarker = 'AiMediaTank skip duplicate native WebRTC start'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('fun notifyCallAnswered(callId: String)') &&
+    !callManager.includes(notifySkipNativeWebRtcMarker)
+  ) {
+    callManager = callManager.replace(
+      `        eventEmitter?.invoke("callAnswered", data)
+        // AiMediaTank native WebRTC on main looper
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            startNativeWebRtcAnswer(callId, token)
+        }
+    }`,
+      `        eventEmitter?.invoke("callAnswered", data)
+        // ${notifySkipNativeWebRtcMarker}
+        val emitter = eventEmitter ?: return
+        val engine = NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter)
+        if (!engine.isHandlingCall(callId)) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                startNativeWebRtcAnswer(callId, token)
+            }
+        }
+    }`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] notifyCallAnswered skips duplicate native WebRTC')
+  }
+}
+
+const remoteOfferSdpMarker = 'remoteOfferSdp'
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (
+    pluginSource.includes('fun prepareNativeWebRtcAnswer(call: PluginCall)') &&
+    !pluginSource.includes(remoteOfferSdpMarker)
+  ) {
+    pluginSource = pluginSource.replace(
+      `        val token = call.getString("declineToken") ?: callManager?.declineTokenForCall(callId)
+        val baseUrl = callManager?.resolveWebRtcBaseUrl() ?: "https://aimediatank.com"
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token)
+        call.resolve()`,
+      `        val token = call.getString("declineToken") ?: callManager?.declineTokenForCall(callId)
+        val remoteOfferSdp = call.getString("remoteOfferSdp")
+        val baseUrl = callManager?.resolveWebRtcBaseUrl() ?: "https://aimediatank.com"
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token, remoteOfferSdp)
+        call.resolve()`,
+    )
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] prepareNativeWebRtcAnswer accepts remoteOfferSdp')
+  }
+}

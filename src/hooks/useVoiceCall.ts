@@ -732,7 +732,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           }
         }
         if (!opts?.fromCallKit) {
-          await prepareNativeWebRtcAnswer(id, declineToken)
+          const inlineOffer =
+            pendingOfferRef.current?.sdp ||
+            (await resolvePendingOffer(id, declineToken))?.sdp
+          await prepareNativeWebRtcAnswer(id, declineToken, inlineOffer)
         }
         pendingOfferRef.current = null
         setCallState('connecting')

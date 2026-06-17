@@ -95,6 +95,7 @@ class NativeVoiceWebRtcEngine private constructor(
     private val appliedRemoteIceKeys = mutableSetOf<String>()
     private var icePollGeneration: UUID? = null
     private var bootstrapGeneration: UUID? = null
+    private var createAnswerGeneration: UUID? = null
     private var sessionPollGeneration: UUID? = null
     private var cachedCaller: JSONObject? = null
     private var parsedIceServers: List<PeerConnection.IceServer> = defaultIceServers()
@@ -103,9 +104,15 @@ class NativeVoiceWebRtcEngine private constructor(
 
     fun activeCallId(): String? = callId
 
-    fun prepareAnswer(callIdRaw: String, declineToken: String?) {
+    fun isHandlingCall(callIdRaw: String): Boolean {
+        val normalized = callIdRaw.lowercase()
+        return this.callId == normalized && (isAnswering || running.get() || peerConnection != null)
+    }
+
+    fun prepareAnswer(callIdRaw: String, declineToken: String?, remoteOfferSdp: String? = null) {
         val normalized = callIdRaw.lowercase()
         val newToken = declineToken?.trim()?.ifEmpty { null }
+        val inlineOffer = remoteOfferSdp?.trim()?.takeIf { it.startsWith("v=") }
 
         if (isActive() && this.callId != normalized) {
             endCall(syncServer = false, reason = "superseded")
@@ -122,7 +129,18 @@ class NativeVoiceWebRtcEngine private constructor(
                 executor.execute {
                     postNativeTrace(normalized, newToken!!, "native_webrtc_token_upgrade")
                     postNativeCallKit("accept", normalized, newToken)
-                    bootstrapUntilOfferReady(normalized, newToken, attempt = 0)
+                    if (inlineOffer != null) {
+                        beginAnswerWithOffer(normalized, inlineOffer, parsedIceServers)
+                    } else {
+                        bootstrapUntilOfferReady(normalized, newToken, attempt = 0)
+                    }
+                }
+            } else if (inlineOffer != null) {
+                bootstrapGeneration = null
+                stopSessionPoll()
+                Log.i(TAG, "upgrade answer $normalized with inline offer")
+                executor.execute {
+                    beginAnswerWithOffer(normalized, inlineOffer, parsedIceServers)
                 }
             }
             return
@@ -138,9 +156,17 @@ class NativeVoiceWebRtcEngine private constructor(
         appliedRemoteIceKeys.clear()
         cachedCaller = null
 
-        Log.i(TAG, "prepare answer $normalized token=${!token.isNullOrEmpty()}")
+        Log.i(
+            TAG,
+            "prepare answer $normalized token=${!token.isNullOrEmpty()} inlineOffer=${inlineOffer != null}",
+        )
         ensureVoiceCallAudioActive()
         executor.execute {
+            if (inlineOffer != null) {
+                postAnswerAccepted(normalized)
+                beginAnswerWithOffer(normalized, inlineOffer, parsedIceServers)
+                return@execute
+            }
             if (!token.isNullOrEmpty()) {
                 postNativeTrace(normalized, token!!, "native_webrtc_prepare")
                 postNativeCallKit("accept", normalized, token!!)
@@ -303,7 +329,43 @@ class NativeVoiceWebRtcEngine private constructor(
         }, constraints)
     }
 
+    private fun beginAnswerWithOffer(
+        callId: String,
+        offerSdp: String,
+        iceServers: List<PeerConnection.IceServer>,
+    ) {
+        val sdp = offerSdp.trim()
+        if (!sdp.startsWith("v=")) {
+            Log.w(TAG, "invalid inline offer for $callId prefix=${sdp.take(48)}")
+            if (!token.isNullOrEmpty()) {
+                bootstrapUntilOfferReady(callId, token!!, attempt = 0)
+            } else {
+                bootstrapSessionOffer(callId, attempt = 0)
+            }
+            return
+        }
+        runWebRtc("createAnswer") {
+            createAnswer(callId, sdp, iceServers)
+        }
+    }
+
+    private fun postAnswerAccepted(callId: String) {
+        if (!token.isNullOrEmpty()) {
+            postNativeTrace(callId, token!!, "native_webrtc_prepare")
+            postNativeCallKit("accept", callId, token!!)
+        } else {
+            postSessionAction("accept", callId)
+        }
+    }
+
     private fun createAnswer(callId: String, offerSdp: String, iceServers: List<PeerConnection.IceServer>) {
+        val sdp = offerSdp.trim()
+        if (!sdp.startsWith("v=")) {
+            failCall(callId, "invalid offer sdp")
+            return
+        }
+        val generation = UUID.randomUUID()
+        createAnswerGeneration = generation
         tearDownPeerConnection(notify = false)
         val pc = createPeerConnection(iceServers)
         if (pc == null) {
@@ -313,18 +375,21 @@ class NativeVoiceWebRtcEngine private constructor(
         peerConnection = pc
         attachLocalAudio(pc)
 
-        val offer = SessionDescription(SessionDescription.Type.OFFER, offerSdp)
+        val offer = SessionDescription(SessionDescription.Type.OFFER, sdp)
         pc.setRemoteDescription(object : SdpObserverAdapter() {
             override fun onSetSuccess() {
+                if (createAnswerGeneration != generation) return
                 val constraints = MediaConstraints()
                 pc.createAnswer(object : SdpObserverAdapter() {
                     override fun onCreateSuccess(desc: SessionDescription?) {
+                        if (createAnswerGeneration != generation) return
                         if (desc == null) {
                             failCall(callId, "createAnswer returned nil")
                             return
                         }
                         pc.setLocalDescription(object : SdpObserverAdapter() {
                             override fun onSetSuccess() {
+                                if (createAnswerGeneration != generation) return
                                 val payload = JSONObject().apply {
                                     put("sdp", JSONObject().apply {
                                         put("type", sdpTypeString(desc.type))
@@ -344,18 +409,21 @@ class NativeVoiceWebRtcEngine private constructor(
                             }
 
                             override fun onSetFailure(error: String?) {
+                                if (createAnswerGeneration != generation) return
                                 failCall(callId, "setLocalDescription: $error")
                             }
                         }, desc)
                     }
 
                     override fun onCreateFailure(error: String?) {
+                        if (createAnswerGeneration != generation) return
                         failCall(callId, "createAnswer: $error")
                     }
                 }, constraints)
             }
 
             override fun onSetFailure(error: String?) {
+                if (createAnswerGeneration != generation) return
                 failCall(callId, "setRemoteDescription: $error")
             }
         }, offer)
@@ -403,8 +471,9 @@ class NativeVoiceWebRtcEngine private constructor(
                     }
                     return@fetchNativeBootstrap
                 }
+                val offerSdp = offer
                 runWebRtc("createAnswer") {
-                    createAnswer(callId, offer, bootstrap.iceServers)
+                    createAnswer(callId, offerSdp, bootstrap.iceServers)
                     for (candidate in bootstrap.remoteIce) {
                         addRemoteIceCandidate(candidate, callId)
                     }
@@ -438,8 +507,9 @@ class NativeVoiceWebRtcEngine private constructor(
                     }
                     return@fetchSessionPoll
                 }
+                val resolvedOfferSdp = offerSdp
                 runWebRtc("createAnswer") {
-                    createAnswer(callId, offerSdp, parsedIceServers)
+                    createAnswer(callId, resolvedOfferSdp, parsedIceServers)
                     for (signal in poll.signals) {
                         if (!signal.callId.equals(callId, ignoreCase = true)) continue
                         if (signal.type != "ice") continue
@@ -526,6 +596,7 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun tearDownPeerConnection(notify: Boolean) {
+        createAnswerGeneration = null
         stopIcePoll()
         stopSessionPoll()
         localAudioTrack?.dispose()
@@ -880,11 +951,23 @@ class NativeVoiceWebRtcEngine private constructor(
     private fun extractSdp(value: Any?): String? {
         when (value) {
             null -> return null
-            is String -> if (value.contains("v=0")) return value
+            is String -> {
+                val trimmed = value.trim()
+                if (trimmed.startsWith("v=")) return trimmed
+            }
             is JSONObject -> {
-                val direct = value.optString("sdp", "")
-                if (direct.contains("v=0")) return direct
-                value.optJSONObject("sdp")?.optString("sdp", "")?.let { if (it.contains("v=0")) return it }
+                value.optJSONObject("sdp")?.let { nested ->
+                    val nestedSdp = nested.optString("sdp", "").trim()
+                    if (nestedSdp.startsWith("v=")) return nestedSdp
+                }
+                val direct = value.optString("sdp", "").trim()
+                if (direct.startsWith("v=") && !direct.startsWith("{")) return direct
+                if (
+                    (value.optString("type", "") == "offer" || value.optString("type", "") == "answer") &&
+                    direct.startsWith("v=")
+                ) {
+                    return direct
+                }
             }
         }
         return null

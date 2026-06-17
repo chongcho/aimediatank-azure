@@ -619,7 +619,11 @@ type NativeWebRtcPlugin = {
     callId: string
     iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }>
   }) => Promise<void>
-  prepareNativeWebRtcAnswer?: (options: { callId: string; declineToken?: string }) => Promise<void>
+  prepareNativeWebRtcAnswer?: (options: {
+    callId: string
+    declineToken?: string
+    remoteOfferSdp?: string
+  }) => Promise<void>
   endNativeWebRtc?: () => Promise<void>
   setNativeWebRtcMuted?: (options: { muted: boolean }) => Promise<void>
 }
@@ -645,6 +649,7 @@ export async function prepareNativeWebRtcCaller(
 export async function prepareNativeWebRtcAnswer(
   callId: string,
   declineToken?: string,
+  remoteOfferSdp?: string,
 ): Promise<void> {
   if (!isNativeAndroidCallApp() || !callId) return
   try {
@@ -654,7 +659,7 @@ export async function prepareNativeWebRtcAnswer(
       console.error('[NativeCall] prepareNativeWebRtcAnswer plugin method missing — rebuild native app')
       return
     }
-    await plugin.prepareNativeWebRtcAnswer({ callId, declineToken })
+    await plugin.prepareNativeWebRtcAnswer({ callId, declineToken, remoteOfferSdp })
   } catch (error) {
     console.error('[NativeCall] prepareNativeWebRtcAnswer failed:', error)
     throw error
