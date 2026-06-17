@@ -14,6 +14,8 @@ export function normalizeStoredIp(raw: string): string {
 export function isPlausibleIpAddress(ip: string): boolean {
   const n = normalizeStoredIp(ip)
   if (!n) return false
+  // Spoofed X-Forwarded-For hostnames seen in scanner traffic (manual block only).
+  if (n.toLowerCase() === 'localhost') return true
   if (/^(\d{1,3}\.){3}\d{1,3}$/.test(n)) {
     const octets = n.split('.').map((x) => Number(x))
     return octets.length === 4 && octets.every((o) => !Number.isNaN(o) && o >= 0 && o <= 255)

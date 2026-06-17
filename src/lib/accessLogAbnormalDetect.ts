@@ -26,11 +26,11 @@ function decodePathSegment(path: string): string {
   }
 }
 
-const TRAVERSAL_RE = /\.\.(?:\/|\\)|%2e%2e|%252e|\.%2e|\.\.%2f/i
+const TRAVERSAL_RE = /\.\.(?:\/|\\)|%2e%2e|%252e|\.%2e|\.\.%2f|(?:^|\/)\w+\.\.(?:\/|$)/i
 // Encoded quote/apostrophe prefix (e.g. /%22/_next/static/...) — path normalization probes.
 const ENCODED_DELIMITER_PREFIX_RE = /^\/(?:%22|%2522|%27|%2527)(?:\/|$)/i
 const ENCODED_DOTENV_RE =
-  /(?:^|\/)%2e%65%6e%76(?:\/|$|\n)|\.%2565(?:%256e%2576|nv)|\.%65(?:%6e%76|nv)/i
+  /(?:^|\/)%2e%65%6e%76(?:\/|$|\n)|\.%2565(?:%256e%2576|nv)|\.%65(?:%6e%76|nv)|%E2%80%8Benv/i
 const SUSPICIOUS_PAYLOAD_RE =
   /(?:\bunion(?:\s+all)?\s+select\b|\bdrop\s+table\b|\binformation_schema\b|<script\b|javascript:|onerror=|onload=|cmd=|exec=|\/etc\/passwd|\.\.\/|%00|%3cscript|%3e|%27\s*or\s*%271%27=%271)/i
 
@@ -64,6 +64,7 @@ const ENV_RES = [
   /\.htpasswd/i,
   /\.htaccess/i,
   /\.npmrc$/i,
+  /\.npmrc(?:%23|#)/i,
   /\.dockerenv/i,
   /\.pgpass/i,
   /\.mysql_history/i,
@@ -153,6 +154,7 @@ const WP_RES = [
   /xmlrpc\.php/i,
   /wlwmanifest\.xml/i,
   /wordpress/i,
+  /(^|\/)wp-sitemap\.xml$/i,
 ]
 
 const PHP_RES = [
@@ -172,6 +174,11 @@ const PHP_RES = [
   // Laravel Ignition RCE (CVE-2021-3129) and Debugbar exposure probes.
   /(^|\/)_ignition(?:\/|$)/i,
   /(^|\/)_debugbar(?:\/|$)/i,
+  /(^|\/)livewire\/update/i,
+  /(^|\/)telescope\/api\//i,
+  /(^|\/)phpinfo\.php(?:%23|#)/i,
+  /(^|\/)phptest\.php(?:%23|#)/i,
+  /(^|\/)php\.php(?:%23|#)/i,
 ]
 
 const CONFIG_RES = [
@@ -218,7 +225,24 @@ const CONFIG_RES = [
   /\/\.kube\//i,
   /(^|\/)\.?(?:kube)?config$/i, // kubeconfig / .kubeconfig probes
   /\/\.docker\//i,
-  /\/actuator\//i,
+  /(^|\/)actuator(?:\/|$)/i,
+  /(^|\/)(?:_metrics|stats\/prometheus)(?:\/|$)/i,
+  /(^|\/)metrics$/i,
+  /(^|\/)queue\/status$/i,
+  /(^|\/)_wdt\//i,
+  /(^|\/)_all_dbs$/i,
+  /(^|\/)cacti(?:\/|$)/i,
+  /(^|\/)SetupWizard\.aspx/i,
+  /(^|\/)global-protect\/login\.esp$/i,
+  /(^|\/)mgmt\/shared\/authn\/login$/i,
+  /(^|\/)remote\/login$/i,
+  /(^|\/)etc\/(?:passwd|nginx\/nginx\.conf)$/i,
+  /(^|\/)ssl\.key$/i,
+  /(^|\/)rest\/default\/V1\//i,
+  /(^|\/)modules\/ps_/i,
+  /(^|\/)config\.(?:js|json)(?:%23|#)/i,
+  /(^|\/)(?:database|mysql|db|site)\.sql(?:%23|#)/i,
+  /(^|\/)web\.config(?:%23|#)/i,
   /\/(?:readyz|healthz|health|manage(?:ment)?)$/i, // Spring/ops health probes
   /\/applicationhost\.config$/i,
   /\/nuget\.config$/i,
