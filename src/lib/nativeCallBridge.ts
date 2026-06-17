@@ -507,6 +507,7 @@ export async function reportIncomingCallToNativeUi(params: {
   callId: string
   handle: string
   displayName: string
+  declineToken?: string
   caller?: {
     id: string
     username: string
@@ -516,6 +517,11 @@ export async function reportIncomingCallToNativeUi(params: {
 }): Promise<void> {
   if (!isNativeVoiceCallApp()) return
 
+  const declineToken = params.declineToken?.trim()
+  if (declineToken) {
+    cacheNativeDeclineToken(params.callId, declineToken)
+  }
+
   const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
   await CapacitorPushCalls.handleIncomingCall({
     callId: params.callId,
@@ -523,14 +529,17 @@ export async function reportIncomingCallToNativeUi(params: {
     displayName: params.displayName,
     handleType: 'generic',
     video: false,
-    metadata: params.caller
-      ? {
-          callerId: params.caller.id,
-          callerUsername: params.caller.username,
-          callerName: params.caller.name,
-          callerAvatar: params.caller.avatar,
-        }
-      : undefined,
+    metadata: {
+      ...(params.caller
+        ? {
+            callerId: params.caller.id,
+            callerUsername: params.caller.username,
+            callerName: params.caller.name,
+            callerAvatar: params.caller.avatar,
+          }
+        : {}),
+      ...(declineToken ? { declineToken } : {}),
+    },
   })
 }
 

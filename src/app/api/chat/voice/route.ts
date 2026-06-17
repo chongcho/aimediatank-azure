@@ -11,6 +11,7 @@ import { calleeHasAndroidNativeCallToken, calleeHasIosNativeCallToken } from '@/
 import { plannedVoipCancelPushAttempts } from '@/lib/voipPush'
 import { recordVoipCancelBurst, formatCalleeIosTokenSummary, logVoipPipelineSummary } from '@/lib/voipCallTrace'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
+import { createVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
 
 export const dynamic = 'force-dynamic'
 
@@ -139,17 +140,31 @@ export async function GET(request: Request) {
       take: 50,
     })
 
+    const liveCalls = await prisma.voiceCall.findMany({
+      where: {
+        OR: [{ callerId: userId }, { calleeId: userId }],
+        status: { in: [...ACTIVE_STATUSES] },
+      },
+      select: { id: true },
+    })
+    const liveCallIds = liveCalls.map((c) => c.id)
+
     // Offer/answer/ICE must not rely on `since` — a poll can advance the client cursor
     // past a signal that arrived while the request was in flight, permanently skipping it.
-    const sdpSignals = await prisma.voiceCallSignal.findMany({
-      where: {
-        toUserId: userId,
-        consumedAt: null,
-        type: { in: ['offer', 'answer', 'ice'] },
-      },
-      orderBy: { createdAt: 'asc' },
-      take: 50,
-    })
+    const sdpSignalsRaw =
+      liveCallIds.length > 0
+        ? await prisma.voiceCallSignal.findMany({
+            where: {
+              toUserId: userId,
+              consumedAt: null,
+              type: { in: ['offer', 'answer', 'ice'] },
+              callId: { in: liveCallIds },
+            },
+            orderBy: { createdAt: 'asc' },
+            take: 50,
+          })
+        : []
+    const sdpSignals = sdpSignalsRaw
 
     const signalById = new Map<string, (typeof sinceSignals)[number]>()
     for (const row of [...sdpSignals, ...sinceSignals]) {
@@ -207,6 +222,7 @@ export async function GET(request: Request) {
         caller: c.caller,
         conversationId: c.conversationId,
         createdAt: c.createdAt.toISOString(),
+        declineToken: createVoiceCallDeclineToken(c.id) ?? undefined,
       })),
       signals: signals.map((s) => ({
         id: s.id,

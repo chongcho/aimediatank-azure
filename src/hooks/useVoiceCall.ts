@@ -21,7 +21,6 @@ import {
   isNativeVoiceCallApp,
   markNativeCallConnected,
   cacheNativeDeclineToken,
-  prepareNativeWebRtcAnswer,
   prepareNativeWebRtcCaller,
   reportIncomingCallToNativeUi,
   setNativeAudioRoute,
@@ -539,10 +538,12 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       const needsNativeUiFallback = !isNativeVoiceCallApp() || isNativeAndroidCallApp()
       if (needsNativeUiFallback) {
         const label = caller.name || caller.username || 'AiMediaTank'
+        const declineToken = getCachedNativeDeclineToken(signal.callId)
         void reportIncomingCallToNativeUi({
           callId: signal.callId,
           handle: caller.username || caller.id,
           displayName: label,
+          declineToken,
           caller,
         })
       }
@@ -979,10 +980,16 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           setCallState('incoming')
           if (!isNativeIosCallApp()) {
             const label = incoming.caller.name || incoming.caller.username || 'AiMediaTank'
+            const declineToken =
+              (incoming as { declineToken?: string }).declineToken?.trim() || undefined
+            if (declineToken) {
+              cacheNativeDeclineToken(incoming.id, declineToken)
+            }
             void reportIncomingCallToNativeUi({
               callId: incoming.id,
               handle: incoming.caller.username || incoming.caller.id,
               displayName: label,
+              declineToken,
               caller: incoming.caller,
             })
           }
