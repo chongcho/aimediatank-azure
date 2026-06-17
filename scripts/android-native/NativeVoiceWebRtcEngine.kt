@@ -439,9 +439,7 @@ class NativeVoiceWebRtcEngine private constructor(
             failCall(callId, "SessionDescription description empty")
             return
         }
-        mainHandler.post {
-            if (createAnswerGeneration != generation) return@post
-            pc.setRemoteDescription(object : SdpObserverAdapter() {
+        pc.setRemoteDescription(object : SdpObserverAdapter() {
             override fun onSetSuccess() {
                 if (createAnswerGeneration != generation) return
                 for (candidate in pendingRemoteIce) {
@@ -497,12 +495,12 @@ class NativeVoiceWebRtcEngine private constructor(
                 failCall(callId, "setRemoteDescription: $error")
             }
         }, offer)
-        }
     }
 
     private fun applyRemoteAnswer(callId: String, answerSdp: String) {
         val pc = peerConnection ?: return
-        val answer = SessionDescription(SessionDescription.Type.ANSWER, answerSdp)
+        val sdp = normalizeSdp(answerSdp)
+        val answer = SessionDescription(SessionDescription.Type.ANSWER, sdp)
         pc.setRemoteDescription(object : SdpObserverAdapter() {
             override fun onSetSuccess() {
                 Log.i(TAG, "applied remote answer $callId")
@@ -1018,8 +1016,12 @@ class NativeVoiceWebRtcEngine private constructor(
         return if (servers.isEmpty()) defaultIceServers() else servers
     }
 
-    private fun normalizeSdp(sdp: String): String =
-        sdp.trim().replace("\r\n", "\n")
+    private fun normalizeSdp(sdp: String): String {
+        // Android WebRTC SDP parser requires CRLF line endings and a trailing newline.
+        val trimmed = sdp.trim()
+        val crlf = trimmed.replace("\r\n", "\n").replace("\n", "\r\n")
+        return if (crlf.endsWith("\r\n")) crlf else "$crlf\r\n"
+    }
 
     private fun extractSdp(value: Any?): String? {
         when (value) {
