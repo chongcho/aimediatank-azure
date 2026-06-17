@@ -719,13 +719,12 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     try {
       if (isNativeAndroidCallApp()) {
         nativeWebRtcAndroidRef.current = true
-        // Native engine bootstraps the offer — do not block accept on WebView poll SDP.
+        // Server accept only — native WebRTC starts from CallManager.notifyCallAnswered (decline token).
         if (opts?.fromCallKit && declineToken) {
           await nativeCallKitApi('accept', id, declineToken)
         } else if (!opts?.fromCallKit) {
           await voiceApi('accept', { callId: id })
         }
-        await prepareNativeWebRtcAnswer(id, declineToken)
         pendingOfferRef.current = null
         setCallState('connecting')
         requestOpenTalkChat()
@@ -1184,7 +1183,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           void ensureIncomingCall(callId)
           if (isNativeAndroidCallApp()) {
             requestOpenTalkChat()
-            // Belt-and-suspenders: stop caller ring even if native HTTP accept races the bridge.
             void (async () => {
               try {
                 if (token) {
@@ -1192,7 +1190,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
                 } else {
                   await voiceApi('accept', { callId: normalizedId })
                 }
-                await prepareNativeWebRtcAnswer(normalizedId, token)
               } catch (err) {
                 console.warn('[VoiceCall] Android native accept sync failed:', err)
               }

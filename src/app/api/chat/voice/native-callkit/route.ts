@@ -39,6 +39,10 @@ export async function GET(request: Request) {
     orderBy: { createdAt: 'desc' },
   })
 
+  if (!offerSignal) {
+    console.warn(`[VoIP] native-callkit bootstrap call=${callId} offer=missing status=${call.status}`)
+  }
+
   const iceSignals = await prisma.voiceCallSignal.findMany({
     where: { callId, type: 'ice', consumedAt: null, toUserId: call.calleeId },
     orderBy: { createdAt: 'asc' },

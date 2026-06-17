@@ -177,15 +177,14 @@ export function VoiceCallOverlayPanel({
       onRestoreCallUi={ctx.showCallUi}
       onAccept={() => {
         void (async () => {
-          // iOS: wake CallKit before WebRTC. Android: accept server + native WebRTC first —
-          // answerNativeCall fires onCallAnswered(connecting) and would block answerCall().
           if (isNativeIosCallApp() && ctx.callId) {
             await answerNativeCall(ctx.callId).catch(() => false)
           }
-          await ctx.answerCall()
+          // Android: native answer first so WebRTC gets FCM decline token before JS session path.
           if (isNativeAndroidCallApp() && ctx.callId) {
             await answerNativeCall(ctx.callId).catch(() => false)
           }
+          await ctx.answerCall()
         })()
       }}
       onReject={() => void ctx.rejectCall()}

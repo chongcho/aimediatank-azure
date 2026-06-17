@@ -105,13 +105,32 @@ class NativeVoiceWebRtcEngine private constructor(
 
     fun prepareAnswer(callIdRaw: String, declineToken: String?) {
         val normalized = callIdRaw.lowercase()
+        val newToken = declineToken?.trim()?.ifEmpty { null }
+
         if (isActive() && this.callId != normalized) {
             endCall(syncServer = false, reason = "superseded")
+        }
+
+        // Session bootstrap may have started without a token; upgrade when FCM token arrives.
+        if (isAnswering && this.callId == normalized) {
+            if (!newToken.isNullOrEmpty() && token.isNullOrEmpty()) {
+                token = newToken
+                bootstrapGeneration = null
+                stopSessionPoll()
+                appliedRemoteIceKeys.clear()
+                Log.i(TAG, "upgrade answer $normalized with decline token")
+                executor.execute {
+                    postNativeTrace(normalized, newToken!!, "native_webrtc_token_upgrade")
+                    postNativeCallKit("accept", normalized, newToken)
+                    bootstrapUntilOfferReady(normalized, newToken, attempt = 0)
+                }
+            }
+            return
         }
         if (isAnswering && this.callId == normalized) return
 
         this.callId = normalized
-        this.token = declineToken?.trim()?.ifEmpty { null }
+        this.token = newToken
         isCaller = false
         isAnswering = true
         isMediaConnected = false

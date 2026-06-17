@@ -2522,3 +2522,57 @@ if (fs.existsSync(pluginPath)) {
     console.log('[patch-android-fcm] prepareNativeWebRtcAnswer base URL fallback')
   }
 }
+
+const declineTokenForCallMarker = 'fun declineTokenForCall(callId: String)'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (callManager.includes('private val declineTokensByCallId') && !callManager.includes(declineTokenForCallMarker)) {
+    callManager = callManager.replace(
+      `    // AiMediaTank native WebRTC base URL fallback
+    fun resolveWebRtcBaseUrl(): String {`,
+      `    fun declineTokenForCall(callId: String): String? =
+        declineTokensByCallId[callId.lowercase()]
+
+    // AiMediaTank native WebRTC base URL fallback
+    fun resolveWebRtcBaseUrl(): String {`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager declineTokenForCall')
+  }
+  if (!callManager.includes('data.put("declineToken", token)')) {
+    callManager = callManager.replace(
+      `            metadata?.getString("declineToken")?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                declineTokensByCallId[callId.lowercase()] = it
+            }
+            eventEmitter?.invoke("incomingCall", data)`,
+      `            metadata?.getString("declineToken")?.trim()?.takeIf { it.isNotEmpty() }?.let { token ->
+                declineTokensByCallId[callId.lowercase()] = token
+                data.put("declineToken", token)
+            }
+            eventEmitter?.invoke("incomingCall", data)`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] incomingCall forwards declineToken to JS')
+  }
+}
+
+const webRtcAnswerTokenFallbackMarker = 'declineTokenForCall(callId)'
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (
+    pluginSource.includes('fun prepareNativeWebRtcAnswer(call: PluginCall)') &&
+    !pluginSource.includes(webRtcAnswerTokenFallbackMarker)
+  ) {
+    pluginSource = pluginSource.replace(
+      `        val token = call.getString("declineToken")
+        val baseUrl = callManager?.resolveWebRtcBaseUrl() ?: "https://aimediatank.com"`,
+      `        val token = call.getString("declineToken") ?: callManager?.declineTokenForCall(callId)
+        val baseUrl = callManager?.resolveWebRtcBaseUrl() ?: "https://aimediatank.com"`,
+    )
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] prepareNativeWebRtcAnswer FCM token fallback')
+  }
+}
