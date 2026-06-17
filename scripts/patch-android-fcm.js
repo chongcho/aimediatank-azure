@@ -2215,7 +2215,7 @@ if (fs.existsSync(callManagerPath)) {
       `            eventEmitter?.invoke("incomingCall", data)
             // AiMediaTank present incoming call UI`,
       `            metadata?.getString("declineToken")?.trim()?.takeIf { it.isNotEmpty() }?.let {
-                declineTokensByCallId[callId] = it
+                declineTokensByCallId[callId.lowercase()] = it
             }
             eventEmitter?.invoke("incomingCall", data)
             // AiMediaTank present incoming call UI`,
@@ -2229,7 +2229,7 @@ if (fs.existsSync(callManagerPath)) {
         eventEmitter?.invoke("callAnswered", data)
     }`,
       `    fun notifyCallAnswered(callId: String) {
-        val token = declineTokensByCallId[callId]
+        val token = declineTokensByCallId[callId.lowercase()]
         val data = JSObject().apply {
             put("callId", callId)
             put("nativeWebRtc", true)
@@ -2239,20 +2239,23 @@ if (fs.existsSync(callManagerPath)) {
         startNativeWebRtcAnswer(callId, token)
     }
 
-    private fun nativeWebRtcBaseUrl(): String? {
-        return CapacitorVoipCallsPlugin.getInstance()?.bridge?.serverUrl?.toString()?.trimEnd('/')
+    // AiMediaTank native WebRTC base URL fallback
+    fun resolveWebRtcBaseUrl(): String {
+        val fromBridge = CapacitorVoipCallsPlugin.getInstance()?.bridge?.serverUrl?.toString()?.trimEnd('/')
+        if (!fromBridge.isNullOrEmpty() && !fromBridge.contains("localhost")) {
+            return fromBridge
+        }
+        return "https://aimediatank.com"
     }
 
     private fun startNativeWebRtcAnswer(callId: String, token: String?) {
-        val baseUrl = nativeWebRtcBaseUrl() ?: return
         val emitter = eventEmitter ?: return
-        NativeVoiceWebRtcEngine.shared(context, baseUrl, emitter).prepareAnswer(callId, token)
+        NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).prepareAnswer(callId, token)
     }
 
     fun startNativeWebRtcCaller(callId: String, iceServersJson: org.json.JSONArray?) {
-        val baseUrl = nativeWebRtcBaseUrl() ?: return
         val emitter = eventEmitter ?: return
-        NativeVoiceWebRtcEngine.shared(context, baseUrl, emitter).startCaller(callId, iceServersJson)
+        NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).startCaller(callId, iceServersJson)
     }
 
     fun endNativeWebRtc() {
@@ -2271,7 +2274,7 @@ if (fs.existsSync(callManagerPath)) {
       `    fun endCall(callId: String) {
         activeCalls[callId]?.onDisconnect()
         activeCalls.remove(callId)
-        declineTokensByCallId.remove(callId)
+        declineTokensByCallId.remove(callId.lowercase())
         endNativeWebRtc()
         if (activeCalls.isEmpty()) {
             setVoiceCallAudioActive(false)
@@ -2284,9 +2287,8 @@ if (fs.existsSync(callManagerPath)) {
         // AiMediaTank no global AudioManager side effects — WebRTC track mute is handled in JS.
     }`,
       `    fun setMuted(muted: Boolean) {
-        val baseUrl = nativeWebRtcBaseUrl() ?: return
         val emitter = eventEmitter ?: return
-        NativeVoiceWebRtcEngine.shared(context, baseUrl, emitter).setMuted(muted)
+        NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).setMuted(muted)
     }`,
     )
 
@@ -2371,5 +2373,102 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginSource)
     changed = true
     console.log('[patch-android-fcm] fix setNativeWebRtcMuted nullable Boolean')
+  }
+}
+
+const webRtcBaseUrlFixMarker = 'AiMediaTank native WebRTC base URL fallback'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (!callManager.includes(webRtcBaseUrlFixMarker)) {
+    callManager = callManager.replace(
+      `    private fun nativeWebRtcBaseUrl(): String? {
+        return CapacitorVoipCallsPlugin.getInstance()?.bridge?.serverUrl?.toString()?.trimEnd('/')
+    }
+
+    private fun startNativeWebRtcAnswer(callId: String, token: String?) {
+        val baseUrl = nativeWebRtcBaseUrl() ?: return
+        val emitter = eventEmitter ?: return
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, emitter).prepareAnswer(callId, token)
+    }
+
+    fun startNativeWebRtcCaller(callId: String, iceServersJson: org.json.JSONArray?) {
+        val baseUrl = nativeWebRtcBaseUrl() ?: return
+        val emitter = eventEmitter ?: return
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, emitter).startCaller(callId, iceServersJson)
+    }`,
+      `    // ${webRtcBaseUrlFixMarker}
+    fun resolveWebRtcBaseUrl(): String {
+        val fromBridge = CapacitorVoipCallsPlugin.getInstance()?.bridge?.serverUrl?.toString()?.trimEnd('/')
+        if (!fromBridge.isNullOrEmpty() && !fromBridge.contains("localhost")) {
+            return fromBridge
+        }
+        return "https://aimediatank.com"
+    }
+
+    private fun startNativeWebRtcAnswer(callId: String, token: String?) {
+        val emitter = eventEmitter ?: return
+        NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).prepareAnswer(callId, token)
+    }
+
+    fun startNativeWebRtcCaller(callId: String, iceServersJson: org.json.JSONArray?) {
+        val emitter = eventEmitter ?: return
+        NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).startCaller(callId, iceServersJson)
+    }`,
+    )
+    if (callManager.includes('declineTokensByCallId[callId] = it')) {
+      callManager = callManager.replace(
+        'declineTokensByCallId[callId] = it',
+        'declineTokensByCallId[callId.lowercase()] = it',
+      )
+    }
+    if (callManager.includes('val token = declineTokensByCallId[callId]')) {
+      callManager = callManager.replace(
+        'val token = declineTokensByCallId[callId]',
+        'val token = declineTokensByCallId[callId.lowercase()]',
+      )
+    }
+    if (callManager.includes('declineTokensByCallId.remove(callId)')) {
+      callManager = callManager.replace(
+        'declineTokensByCallId.remove(callId)',
+        'declineTokensByCallId.remove(callId.lowercase())',
+      )
+    }
+    if (callManager.includes('nativeWebRtcBaseUrl()')) {
+      callManager = callManager.replace(
+        `    fun setMuted(muted: Boolean) {
+        val baseUrl = nativeWebRtcBaseUrl() ?: return
+        val emitter = eventEmitter ?: return
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, emitter).setMuted(muted)
+    }`,
+        `    fun setMuted(muted: Boolean) {
+        val emitter = eventEmitter ?: return
+        NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).setMuted(muted)
+    }`,
+      )
+    }
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] native WebRTC base URL fallback + decline token keys')
+  }
+}
+
+const webRtcAnswerBaseUrlFixMarker = 'callManager?.resolveWebRtcBaseUrl()'
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (
+    pluginSource.includes('fun prepareNativeWebRtcAnswer(call: PluginCall)') &&
+    !pluginSource.includes(webRtcAnswerBaseUrlFixMarker)
+  ) {
+    pluginSource = pluginSource.replace(
+      `        val token = call.getString("declineToken")
+        val baseUrl = bridge.serverUrl.toString().trimEnd('/')
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token)`,
+      `        val token = call.getString("declineToken")
+        val baseUrl = callManager?.resolveWebRtcBaseUrl() ?: "https://aimediatank.com"
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token)`,
+    )
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] prepareNativeWebRtcAnswer base URL fallback')
   }
 }

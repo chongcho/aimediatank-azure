@@ -693,7 +693,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     if (answeringRef.current) return false
     if (
       !opts?.fromCallKit &&
-      (callStateRef.current === 'connecting' || callStateRef.current === 'connected')
+      callStateRef.current === 'connected'
+    ) {
+      return false
+    }
+    if (
+      !opts?.fromCallKit &&
+      callStateRef.current === 'connecting' &&
+      !isNativeAndroidCallApp()
     ) {
       return false
     }
@@ -1185,6 +1192,18 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           void ensureIncomingCall(callId)
           if (isNativeAndroidCallApp()) {
             requestOpenTalkChat()
+            // Belt-and-suspenders: stop caller ring even if native HTTP accept races the bridge.
+            void (async () => {
+              try {
+                if (token) {
+                  await nativeCallKitApi('accept', normalizedId, token)
+                } else {
+                  await voiceApi('accept', { callId: normalizedId })
+                }
+              } catch (err) {
+                console.warn('[VoiceCall] Android native accept sync failed:', err)
+              }
+            })()
           }
           return
         }
