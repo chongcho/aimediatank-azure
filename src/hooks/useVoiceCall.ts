@@ -21,6 +21,7 @@ import {
   isNativeVoiceCallApp,
   markNativeCallConnected,
   cacheNativeDeclineToken,
+  prepareNativeWebRtcAnswer,
   prepareNativeWebRtcCaller,
   reportIncomingCallToNativeUi,
   setNativeAudioRoute,
@@ -720,11 +721,18 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     try {
       if (isNativeAndroidCallApp()) {
         nativeWebRtcAndroidRef.current = true
-        // Server accept only — native WebRTC starts from CallManager.notifyCallAnswered (decline token).
-        if (opts?.fromCallKit && declineToken) {
-          await nativeCallKitApi('accept', id, declineToken)
-        } else if (!opts?.fromCallKit) {
-          await voiceApi('accept', { callId: id })
+        stopVoiceCallRingtone()
+        // In-app Accept: start native WebRTC here. answerNativeCall only reaches Telecom
+        // when ConnectionService registered a connection — often missing for poll/FCM UI.
+        if (!declineToken) {
+          if (opts?.fromCallKit) {
+            // Lock-screen onCallAnswered posts accept separately.
+          } else {
+            await voiceApi('accept', { callId: id })
+          }
+        }
+        if (!opts?.fromCallKit) {
+          await prepareNativeWebRtcAnswer(id, declineToken)
         }
         pendingOfferRef.current = null
         setCallState('connecting')

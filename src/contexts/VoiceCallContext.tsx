@@ -180,11 +180,11 @@ export function VoiceCallOverlayPanel({
           if (isNativeIosCallApp() && ctx.callId) {
             await answerNativeCall(ctx.callId).catch(() => false)
           }
-          // Android: native answer first so WebRTC gets FCM decline token before JS session path.
+          // Android in-app: answerCall owns server accept + native WebRTC (decline token).
+          await ctx.answerCall()
           if (isNativeAndroidCallApp() && ctx.callId) {
             await answerNativeCall(ctx.callId).catch(() => false)
           }
-          await ctx.answerCall()
         })()
       }}
       onReject={() => void ctx.rejectCall()}

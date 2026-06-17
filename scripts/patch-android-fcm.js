@@ -745,7 +745,34 @@ if (fs.existsSync(callManagerPath)) {
     }`,
       `    fun answerCall(callId: String) {
         setVoiceCallAudioActive(true)
+        val normalized = callId.lowercase()
+        val connection = activeCalls[callId]
+            ?: activeCalls.entries.firstOrNull { it.key.lowercase() == normalized }?.value
+        if (connection != null) {
+            connection.onAnswer()
+        } else {
+            // AiMediaTank in-app accept fallback when Telecom connection missing
+            notifyCallAnswered(callId)
+        }
+    }`,
+    )
+
+    callManager = callManager.replace(
+      `    fun answerCall(callId: String) {
+        setVoiceCallAudioActive(true)
         activeCalls[callId]?.onAnswer()
+    }`,
+      `    fun answerCall(callId: String) {
+        setVoiceCallAudioActive(true)
+        val normalized = callId.lowercase()
+        val connection = activeCalls[callId]
+            ?: activeCalls.entries.firstOrNull { it.key.lowercase() == normalized }?.value
+        if (connection != null) {
+            connection.onAnswer()
+        } else {
+            // AiMediaTank in-app accept fallback when Telecom connection missing
+            notifyCallAnswered(callId)
+        }
     }`,
     )
 
@@ -2574,5 +2601,56 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginSource)
     changed = true
     console.log('[patch-android-fcm] prepareNativeWebRtcAnswer FCM token fallback')
+  }
+}
+
+const answerCallFallbackMarker = 'AiMediaTank in-app accept fallback when Telecom connection missing'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('fun answerCall(callId: String)') &&
+    !callManager.includes(answerCallFallbackMarker)
+  ) {
+    if (callManager.includes('setVoiceCallAudioActive(true)\n        activeCalls[callId]?.onAnswer()')) {
+      callManager = callManager.replace(
+        `    fun answerCall(callId: String) {
+        setVoiceCallAudioActive(true)
+        activeCalls[callId]?.onAnswer()
+    }`,
+        `    fun answerCall(callId: String) {
+        setVoiceCallAudioActive(true)
+        val normalized = callId.lowercase()
+        val connection = activeCalls[callId]
+            ?: activeCalls.entries.firstOrNull { it.key.lowercase() == normalized }?.value
+        if (connection != null) {
+            connection.onAnswer()
+        } else {
+            // ${answerCallFallbackMarker}
+            notifyCallAnswered(callId)
+        }
+    }`,
+      )
+    } else {
+      callManager = callManager.replace(
+        `    fun answerCall(callId: String) {
+        activeCalls[callId]?.onAnswer()
+    }`,
+        `    fun answerCall(callId: String) {
+        setVoiceCallAudioActive(true)
+        val normalized = callId.lowercase()
+        val connection = activeCalls[callId]
+            ?: activeCalls.entries.firstOrNull { it.key.lowercase() == normalized }?.value
+        if (connection != null) {
+            connection.onAnswer()
+        } else {
+            // ${answerCallFallbackMarker}
+            notifyCallAnswered(callId)
+        }
+    }`,
+      )
+    }
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager answerCall fallback when no Telecom connection')
   }
 }
