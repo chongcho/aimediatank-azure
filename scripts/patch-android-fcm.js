@@ -2177,9 +2177,11 @@ if (fs.existsSync(nativeWebRtcEngineSourcePath)) {
   }
 }
 
+const webrtcVersion = '1.3.10'
+const webrtcDep = `implementation 'io.getstream:stream-webrtc-android:${webrtcVersion}'`
+
 if (fs.existsSync(pluginBuildGradlePath)) {
   let gradle = fs.readFileSync(pluginBuildGradlePath, 'utf8')
-  const webrtcDep = "implementation 'io.getstream:stream-webrtc-android:1.1.9'"
   if (!gradle.includes('stream-webrtc-android')) {
     gradle = gradle.replace(
       'dependencies {',
@@ -2188,6 +2190,14 @@ if (fs.existsSync(pluginBuildGradlePath)) {
     fs.writeFileSync(pluginBuildGradlePath, gradle)
     changed = true
     console.log('[patch-android-fcm] WebRTC dependency')
+  } else if (!gradle.includes(`stream-webrtc-android:${webrtcVersion}`)) {
+    gradle = gradle.replace(
+      /implementation 'io\.getstream:stream-webrtc-android:[^']+'/,
+      webrtcDep,
+    )
+    fs.writeFileSync(pluginBuildGradlePath, gradle)
+    changed = true
+    console.log(`[patch-android-fcm] WebRTC dependency -> ${webrtcVersion}`)
   }
 }
 
