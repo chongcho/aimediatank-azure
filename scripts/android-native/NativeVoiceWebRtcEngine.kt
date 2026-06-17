@@ -50,6 +50,9 @@ class NativeVoiceWebRtcEngine private constructor(
                 val again = instance
                 if (again != null && again.baseUrl == normalizedBase) {
                     again
+                } else if (again != null && again.isActive()) {
+                    Log.w(TAG, "keep active engine baseUrl=${again.baseUrl} requested=$normalizedBase")
+                    again
                 } else {
                     instance?.tearDownPeerConnection(notify = false)
                     NativeVoiceWebRtcEngine(context.applicationContext, normalizedBase, eventEmitter).also {
@@ -63,6 +66,11 @@ class NativeVoiceWebRtcEngine private constructor(
             instance?.endCall(syncServer = false, reason = "shutdown")
             instance?.releaseFactory()
             instance = null
+        }
+
+        fun isHandlingCallId(callIdRaw: String): Boolean {
+            val engine = instance ?: return false
+            return engine.isHandlingCall(callIdRaw)
         }
     }
 
@@ -409,7 +417,7 @@ class NativeVoiceWebRtcEngine private constructor(
         pendingRemoteIce: List<JSONObject> = emptyList(),
     ) {
         val sdp = normalizeSdp(offerSdp)
-        if (!sdp.startsWith("v=")) {
+        if (!sdp.startsWith("v=") || sdp.startsWith("{")) {
             failCall(callId, "invalid offer sdp")
             return
         }
@@ -425,7 +433,15 @@ class NativeVoiceWebRtcEngine private constructor(
         attachLocalAudio(pc)
 
         val offer = SessionDescription(SessionDescription.Type.OFFER, sdp)
-        pc.setRemoteDescription(object : SdpObserverAdapter() {
+        val descLen = offer.description?.length ?: 0
+        Log.i(TAG, "setRemoteDescription $callId descLen=$descLen prefix=${sdp.take(48).replace("\n", "\\n")}")
+        if (descLen == 0) {
+            failCall(callId, "SessionDescription description empty")
+            return
+        }
+        mainHandler.post {
+            if (createAnswerGeneration != generation) return@post
+            pc.setRemoteDescription(object : SdpObserverAdapter() {
             override fun onSetSuccess() {
                 if (createAnswerGeneration != generation) return
                 for (candidate in pendingRemoteIce) {
@@ -481,6 +497,7 @@ class NativeVoiceWebRtcEngine private constructor(
                 failCall(callId, "setRemoteDescription: $error")
             }
         }, offer)
+        }
     }
 
     private fun applyRemoteAnswer(callId: String, answerSdp: String) {

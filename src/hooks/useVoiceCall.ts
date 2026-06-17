@@ -540,13 +540,18 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (needsNativeUiFallback) {
         const label = caller.name || caller.username || 'AiMediaTank'
         const declineToken = getCachedNativeDeclineToken(signal.callId)
-        void reportIncomingCallToNativeUi({
-          callId: signal.callId,
-          handle: caller.username || caller.id,
-          displayName: label,
-          declineToken,
-          caller,
-        })
+        const skipDuplicateNativeUi =
+          isNativeAndroidCallApp() &&
+          (callStateRef.current === 'connecting' || callStateRef.current === 'connected')
+        if (!skipDuplicateNativeUi) {
+          void reportIncomingCallToNativeUi({
+            callId: signal.callId,
+            handle: caller.username || caller.id,
+            displayName: label,
+            declineToken,
+            caller,
+          })
+        }
       }
       callIdRef.current = normalizeVoiceCallId(signal.callId)
       setCallId(normalizeVoiceCallId(signal.callId))
@@ -994,13 +999,18 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             if (declineToken) {
               cacheNativeDeclineToken(incoming.id, declineToken)
             }
-            void reportIncomingCallToNativeUi({
-              callId: incoming.id,
-              handle: incoming.caller.username || incoming.caller.id,
-              displayName: label,
-              declineToken,
-              caller: incoming.caller,
-            })
+            const skipDuplicateNativeUi =
+              isNativeAndroidCallApp() &&
+              (callStateRef.current === 'connecting' || callStateRef.current === 'connected')
+            if (!skipDuplicateNativeUi) {
+              void reportIncomingCallToNativeUi({
+                callId: incoming.id,
+                handle: incoming.caller.username || incoming.caller.id,
+                displayName: label,
+                declineToken,
+                caller: incoming.caller,
+              })
+            }
           }
         }
       }

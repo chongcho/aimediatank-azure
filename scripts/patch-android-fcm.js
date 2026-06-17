@@ -2766,3 +2766,59 @@ if (fs.existsSync(callManagerPath)) {
     console.log('[patch-android-fcm] CallManager dedup incoming call reports')
   }
 }
+
+const callManagerCompanionDedupMarker = 'AiMediaTank process-wide incoming dedup'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('private val reportedIncomingCallIds') &&
+    !callManager.includes(callManagerCompanionDedupMarker)
+  ) {
+    callManager = callManager.replace(
+      `    private val reportedIncomingCallIds = mutableSetOf<String>()
+    // AiMediaTank Android native WebRTC`,
+      `    // ${callManagerCompanionDedupMarker}
+    // AiMediaTank Android native WebRTC`,
+    )
+    callManager = callManager.replace(
+      `) {
+    private val telecomManager: TelecomManager? =`,
+      `) {
+    companion object {
+        private val reportedIncomingCallIds = mutableSetOf<String>()
+    }
+
+    private val telecomManager: TelecomManager? =`,
+    )
+    callManager = callManager.replace(
+      `        val normalized = callId.lowercase()
+        if (reportedIncomingCallIds.contains(normalized)) {`,
+      `        val normalized = callId.lowercase()
+        if (NativeVoiceWebRtcEngine.isHandlingCallId(callId)) {
+            android.util.Log.i("CallManager", "skip incoming during native WebRTC callId=$callId")
+            metadata?.getString("declineToken")?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                declineTokensByCallId[normalized] = it
+            }
+            return
+        }
+        if (reportedIncomingCallIds.contains(normalized)) {`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager process-wide incoming dedup')
+  }
+}
+
+const fcmPluginCallManagerMarker = 'CapacitorVoipCallsPlugin.getInstance()?.callManager'
+if (fs.existsSync(messagingServicePath)) {
+  let pushRouter = fs.readFileSync(messagingServicePath, 'utf8')
+  if (pushRouter.includes('val manager = CallManager(context)') && !pushRouter.includes(fcmPluginCallManagerMarker)) {
+    pushRouter = pushRouter.replaceAll(
+      'val manager = CallManager(context)',
+      'val manager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: CallManager(context)',
+    )
+    fs.writeFileSync(messagingServicePath, pushRouter)
+    changed = true
+    console.log('[patch-android-fcm] FCM incoming uses plugin CallManager singleton')
+  }
+}
