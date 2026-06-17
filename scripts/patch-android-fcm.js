@@ -2153,3 +2153,199 @@ if (fs.existsSync(incomingRingAudioPath)) {
     console.log('[patch-android-fcm] IncomingRingAudioHelper: no screen clear on ring stop')
   }
 }
+
+// --- Android native WebRTC (KakaoTalk-style) ---
+const nativeWebRtcEngineSourcePath = path.join(__dirname, 'android-native', 'NativeVoiceWebRtcEngine.kt')
+const nativeWebRtcEngineDestPath = path.join(pluginDir, 'NativeVoiceWebRtcEngine.kt')
+const nativeWebRtcMarker = 'AiMediaTank Android native WebRTC'
+const pluginBuildGradlePath = path.join(
+  __dirname,
+  '..',
+  'node_modules',
+  '@kapsula-chat',
+  'capacitor-push-calls',
+  'android',
+  'build.gradle',
+)
+
+if (fs.existsSync(nativeWebRtcEngineSourcePath)) {
+  const engineSource = fs.readFileSync(nativeWebRtcEngineSourcePath, 'utf8')
+  if (!fs.existsSync(nativeWebRtcEngineDestPath) || fs.readFileSync(nativeWebRtcEngineDestPath, 'utf8') !== engineSource) {
+    fs.writeFileSync(nativeWebRtcEngineDestPath, engineSource)
+    changed = true
+    console.log('[patch-android-fcm] NativeVoiceWebRtcEngine.kt')
+  }
+}
+
+if (fs.existsSync(pluginBuildGradlePath)) {
+  let gradle = fs.readFileSync(pluginBuildGradlePath, 'utf8')
+  const webrtcDep = "implementation 'io.getstream:stream-webrtc-android:1.1.9'"
+  if (!gradle.includes('stream-webrtc-android')) {
+    gradle = gradle.replace(
+      'dependencies {',
+      `dependencies {\n    ${webrtcDep}`,
+    )
+    fs.writeFileSync(pluginBuildGradlePath, gradle)
+    changed = true
+    console.log('[patch-android-fcm] WebRTC dependency')
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (!callManager.includes(nativeWebRtcMarker)) {
+    callManager = callManager.replace(
+      '    private val activeCalls = mutableMapOf<String, VoipConnection>()',
+      `    private val activeCalls = mutableMapOf<String, VoipConnection>()
+    private val declineTokensByCallId = mutableMapOf<String, String>()
+    // ${nativeWebRtcMarker}`,
+    )
+
+    callManager = callManager.replace(
+      `            eventEmitter?.invoke("incomingCall", data)
+            // AiMediaTank present incoming call UI`,
+      `            metadata?.getString("declineToken")?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                declineTokensByCallId[callId] = it
+            }
+            eventEmitter?.invoke("incomingCall", data)
+            // AiMediaTank present incoming call UI`,
+    )
+
+    callManager = callManager.replace(
+      `    fun notifyCallAnswered(callId: String) {
+        val data = JSObject().apply {
+            put("callId", callId)
+        }
+        eventEmitter?.invoke("callAnswered", data)
+    }`,
+      `    fun notifyCallAnswered(callId: String) {
+        val token = declineTokensByCallId[callId]
+        val data = JSObject().apply {
+            put("callId", callId)
+            put("nativeWebRtc", true)
+            if (token != null) put("declineToken", token)
+        }
+        eventEmitter?.invoke("callAnswered", data)
+        startNativeWebRtcAnswer(callId, token)
+    }
+
+    private fun nativeWebRtcBaseUrl(): String? {
+        return CapacitorVoipCallsPlugin.getInstance()?.bridge?.serverUrl?.toString()?.trimEnd('/')
+    }
+
+    private fun startNativeWebRtcAnswer(callId: String, token: String?) {
+        val baseUrl = nativeWebRtcBaseUrl() ?: return
+        val emitter = eventEmitter ?: return
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, emitter).prepareAnswer(callId, token)
+    }
+
+    fun startNativeWebRtcCaller(callId: String, iceServersJson: org.json.JSONArray?) {
+        val baseUrl = nativeWebRtcBaseUrl() ?: return
+        val emitter = eventEmitter ?: return
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, emitter).startCaller(callId, iceServersJson)
+    }
+
+    fun endNativeWebRtc() {
+        NativeVoiceWebRtcEngine.endGlobal()
+    }`,
+    )
+
+    callManager = callManager.replace(
+      `    fun endCall(callId: String) {
+        activeCalls[callId]?.onDisconnect()
+        activeCalls.remove(callId)
+        if (activeCalls.isEmpty()) {
+            setVoiceCallAudioActive(false)
+        }
+    }`,
+      `    fun endCall(callId: String) {
+        activeCalls[callId]?.onDisconnect()
+        activeCalls.remove(callId)
+        declineTokensByCallId.remove(callId)
+        endNativeWebRtc()
+        if (activeCalls.isEmpty()) {
+            setVoiceCallAudioActive(false)
+        }
+    }`,
+    )
+
+    callManager = callManager.replace(
+      `    fun setMuted(muted: Boolean) {
+        // AiMediaTank no global AudioManager side effects — WebRTC track mute is handled in JS.
+    }`,
+      `    fun setMuted(muted: Boolean) {
+        val baseUrl = nativeWebRtcBaseUrl() ?: return
+        val emitter = eventEmitter ?: return
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, emitter).setMuted(muted)
+    }`,
+    )
+
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager native WebRTC hooks')
+  }
+}
+
+const nativeWebRtcPluginMarker = 'prepareNativeWebRtcCaller'
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (!pluginSource.includes(nativeWebRtcPluginMarker)) {
+    const insertAfter = pluginSource.includes('fun clearCallScreenPresentation(call: PluginCall)')
+      ? `    @PluginMethod
+    fun clearCallScreenPresentation(call: PluginCall) {
+        CallScreenPresentation.clearIfIdle(activity)
+        call.resolve()
+    }`
+      : `    @PluginMethod
+    fun setVoiceCallMediaVolume(call: PluginCall) {
+        val level = call.getFloat("level", 1f)
+        callManager?.setVoiceCallMediaVolume(level)
+        call.resolve()
+    }`
+
+    pluginSource = pluginSource.replace(
+      insertAfter,
+      `${insertAfter}
+
+    @PluginMethod
+    fun prepareNativeWebRtcCaller(call: PluginCall) {
+        val callId = call.getString("callId") ?: run {
+            call.reject("callId is required")
+            return
+        }
+        val iceArray = call.getArray("iceServers")
+        val iceJson = if (iceArray != null) org.json.JSONArray(iceArray.toString()) else null
+        callManager?.startNativeWebRtcCaller(callId, iceJson)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun prepareNativeWebRtcAnswer(call: PluginCall) {
+        val callId = call.getString("callId") ?: run {
+            call.reject("callId is required")
+            return
+        }
+        val token = call.getString("declineToken")
+        val baseUrl = bridge.serverUrl.toString().trimEnd('/')
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun endNativeWebRtc(call: PluginCall) {
+        callManager?.endNativeWebRtc()
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun setNativeWebRtcMuted(call: PluginCall) {
+        val muted = call.getBoolean("muted", false)
+        callManager?.setMuted(muted)
+        call.resolve()
+    }`,
+    )
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] CapacitorVoipCallsPlugin native WebRTC methods')
+  }
+}

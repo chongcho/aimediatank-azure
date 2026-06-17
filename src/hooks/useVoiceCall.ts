@@ -13,6 +13,7 @@ import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 import {
   clearNativeCallScreenPresentation,
   endNativeCall,
+  endNativeWebRtc,
   getCachedNativeDeclineToken,
   initNativeCallBridge,
   isNativeAndroidCallApp,
@@ -20,10 +21,13 @@ import {
   isNativeVoiceCallApp,
   markNativeCallConnected,
   cacheNativeDeclineToken,
+  prepareNativeWebRtcAnswer,
+  prepareNativeWebRtcCaller,
   reportIncomingCallToNativeUi,
   setNativeAudioRoute,
   setNativeVoiceCallAudioActive,
   setNativeVoiceCallMediaVolume,
+  setNativeWebRtcMuted,
   type NativeIncomingCallPayload,
 } from '@/lib/nativeCallBridge'
 import { normalizeVoiceCallId, voiceCallIdsMatch } from '@/lib/voiceCallId'
@@ -214,6 +218,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const callKitSignalingRef = useRef(false)
   /** iOS callee accepted via Swift NativeVoiceCallEngine — JS poll must not consume caller ICE. */
   const nativeWebRtcCalleeRef = useRef(false)
+  /** Android uses Kotlin NativeVoiceWebRtcEngine — JS must not use WebView RTCPeerConnection. */
+  const nativeWebRtcAndroidRef = useRef(false)
 
   const reportError = useCallback(
     (message: string) => {
@@ -245,6 +251,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     if (isNativeAndroidCallApp()) {
       void setNativeVoiceCallAudioActive(false)
       void clearNativeCallScreenPresentation()
+      void endNativeWebRtc()
     }
     if (id && endNativeUi) {
       // iOS incoming ring is owned by CallKit — session poll must not dismiss native UI.
@@ -282,6 +289,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     appliedRemoteIceRef.current.clear()
     callKitSignalingRef.current = false
     nativeWebRtcCalleeRef.current = false
+    nativeWebRtcAndroidRef.current = false
     setCallId(null)
     setRemoteUser(null)
     setIsMuted(false)
@@ -290,6 +298,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [closePeerConnection, stopLocalStream])
 
   const playRemoteAudioElement = useCallback((stream: MediaStream) => {
+    if (isNativeAndroidCallApp() && nativeWebRtcAndroidRef.current) return
     const audio = remoteAudioRef.current
     if (!audio) return
 
@@ -491,6 +500,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     if (makingOfferRef.current || !callIdRef.current) return
     makingOfferRef.current = true
     try {
+      if (isNativeAndroidCallApp()) {
+        nativeWebRtcAndroidRef.current = true
+        await prepareNativeWebRtcCaller(callIdRef.current, getIceServers())
+        if (callStateRef.current === 'outgoing') {
+          retryVoiceCallRingtone()
+        }
+        return
+      }
       const pc = createPeerConnection()
       await attachLocalTracks(pc)
       const offer = await pc.createOffer()
@@ -693,6 +710,29 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     markVoiceCallUserGesture()
     answeringRef.current = true
     try {
+      if (isNativeAndroidCallApp()) {
+        nativeWebRtcAndroidRef.current = true
+        const offerSdp = await resolvePendingOffer(
+          id,
+          opts?.fromCallKit ? declineToken : undefined,
+        )
+        if (!offerSdp && !opts?.fromCallKit) {
+          reportError('Could not connect — offer missing')
+          await endCall()
+          return false
+        }
+        if (!opts?.fromCallKit) {
+          await voiceApi('accept', { callId: id })
+          await prepareNativeWebRtcAnswer(id, declineToken)
+        } else if (!declineToken) {
+          await prepareNativeWebRtcAnswer(id)
+        }
+        pendingOfferRef.current = null
+        setCallState('connecting')
+        requestOpenTalkChat()
+        return true
+      }
+
       const offerSdp = await resolvePendingOffer(
         id,
         opts?.fromCallKit ? declineToken : undefined,
@@ -780,9 +820,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   )
 
   const toggleMute = useCallback(() => {
+    const next = !isMuted
+    if (isNativeAndroidCallApp() && nativeWebRtcAndroidRef.current) {
+      void setNativeWebRtcMuted(next)
+      setIsMuted(next)
+      return
+    }
     const stream = localStreamRef.current
     if (!stream) return
-    const next = !isMuted
     stream.getAudioTracks().forEach((t) => {
       t.enabled = !next
     })
@@ -865,12 +910,12 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         if (!voiceCallIdsMatch(signal.callId, callIdRef.current)) continue
 
         if (
-          isNativeIosCallApp() &&
-          nativeWebRtcCalleeRef.current &&
-          !isCallerRef.current &&
-          (signal.type === 'ice' || signal.type === 'answer')
+          (isNativeIosCallApp() && nativeWebRtcCalleeRef.current) ||
+          (isNativeAndroidCallApp() && nativeWebRtcAndroidRef.current)
         ) {
-          continue
+          if (signal.type === 'ice' || signal.type === 'answer') {
+            continue
+          }
         }
 
         if (signal.type === 'answer') {
@@ -1124,9 +1169,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         const useSessionWebRtc = Boolean(options?.useSessionWebRtc)
         const nativeWebRtc = Boolean(options?.nativeWebRtc)
 
-        // Lock-screen Accept: Swift NativeVoiceCallEngine owns WebRTC — JS must not start WKWebView RTCPeerConnection.
-        if (isNativeIosCallApp() && nativeWebRtc && !useSessionWebRtc) {
-          nativeWebRtcCalleeRef.current = true
+        // Lock-screen Accept: native engine owns WebRTC — JS must not start WebView RTCPeerConnection.
+        if (nativeWebRtc && !useSessionWebRtc && isNativeVoiceCallApp()) {
+          if (isNativeIosCallApp()) {
+            nativeWebRtcCalleeRef.current = true
+          } else {
+            nativeWebRtcAndroidRef.current = true
+          }
           callIdRef.current = normalizedId
           setCallId(normalizedId)
           isCallerRef.current = false
@@ -1134,6 +1183,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             setCallState('connecting')
           }
           void ensureIncomingCall(callId)
+          if (isNativeAndroidCallApp()) {
+            requestOpenTalkChat()
+          }
+          return
+        }
+
+        if (isNativeAndroidCallApp()) {
           return
         }
 
@@ -1190,8 +1246,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         answeringRef.current = false
         callIdRef.current = normalizedId
         setCallId(normalizedId)
-        isCallerRef.current = false
         if (payload.caller) {
+          isCallerRef.current = false
           setRemoteUser(payload.caller)
         }
         setCallState('connected')
@@ -1210,6 +1266,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         callKitAnswerInFlightRef.current = null
         callKitSignalingRef.current = false
         nativeWebRtcCalleeRef.current = false
+        nativeWebRtcAndroidRef.current = false
         const normalizedId = normalizeVoiceCallId(callId)
         void (async () => {
           const state = callStateRef.current
@@ -1233,33 +1290,24 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     })
   }, [currentUserId, enabled, reportError, resetCallKitWebRtcState])
 
-  // Android lock-screen answer: retry JS WebRTC when the WebView wakes.
+  // Android lock-screen answer: native WebRTC owns media — open TalkChat when WebView wakes.
   useEffect(() => {
     if (!enabled || !isNativeAndroidCallApp() || typeof document === 'undefined') return
 
-    const retryLockScreenWebRtc = () => {
+    const syncNativeCallUi = () => {
       if (document.hidden) return
-      if (!callKitAnswerInFlightRef.current) return
-      const state = callStateRef.current
-      if (state !== 'incoming' && state !== 'connecting') return
-      const id = callIdRef.current
-      if (!id) return
-      const token = nativeSignalingTokenRef.current || getCachedNativeDeclineToken(id)
-      if (!token) return
-      resetCallKitWebRtcStateRef.current()
+      if (!nativeWebRtcAndroidRef.current) return
+      if (callStateRef.current === 'connected' || callStateRef.current === 'idle') return
       requestOpenTalkChat()
-      void answerCallRef.current({ fromCallKit: true, declineToken: token }).then((ok) => {
-        if (ok) reattachRemoteAudioRef.current()
-      })
     }
 
-    document.addEventListener('visibilitychange', retryLockScreenWebRtc)
-    window.addEventListener('pageshow', retryLockScreenWebRtc)
-    window.addEventListener('focus', retryLockScreenWebRtc)
+    document.addEventListener('visibilitychange', syncNativeCallUi)
+    window.addEventListener('pageshow', syncNativeCallUi)
+    window.addEventListener('focus', syncNativeCallUi)
     return () => {
-      document.removeEventListener('visibilitychange', retryLockScreenWebRtc)
-      window.removeEventListener('pageshow', retryLockScreenWebRtc)
-      window.removeEventListener('focus', retryLockScreenWebRtc)
+      document.removeEventListener('visibilitychange', syncNativeCallUi)
+      window.removeEventListener('pageshow', syncNativeCallUi)
+      window.removeEventListener('focus', syncNativeCallUi)
     }
   }, [enabled])
 

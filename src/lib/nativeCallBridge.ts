@@ -605,6 +605,74 @@ type NativeVoiceCallAudioPlugin = {
   setVoiceCallMediaVolume?: (options: { level: number }) => Promise<void>
 }
 
+type NativeWebRtcPlugin = {
+  prepareNativeWebRtcCaller?: (options: {
+    callId: string
+    iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }>
+  }) => Promise<void>
+  prepareNativeWebRtcAnswer?: (options: { callId: string; declineToken?: string }) => Promise<void>
+  endNativeWebRtc?: () => Promise<void>
+  setNativeWebRtcMuted?: (options: { muted: boolean }) => Promise<void>
+}
+
+/** Android: native WebRTC engine (KakaoTalk-style) for outbound calls. */
+export async function prepareNativeWebRtcCaller(
+  callId: string,
+  iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }>,
+): Promise<void> {
+  if (!isNativeAndroidCallApp() || !callId) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeWebRtcPlugin
+    if (typeof plugin.prepareNativeWebRtcCaller !== 'function') return
+    await plugin.prepareNativeWebRtcCaller({ callId, iceServers })
+  } catch (error) {
+    console.error('[NativeCall] prepareNativeWebRtcCaller failed:', error)
+    throw error
+  }
+}
+
+/** Android: native WebRTC answer (session or lock-screen decline token). */
+export async function prepareNativeWebRtcAnswer(
+  callId: string,
+  declineToken?: string,
+): Promise<void> {
+  if (!isNativeAndroidCallApp() || !callId) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeWebRtcPlugin
+    if (typeof plugin.prepareNativeWebRtcAnswer !== 'function') return
+    await plugin.prepareNativeWebRtcAnswer({ callId, declineToken })
+  } catch (error) {
+    console.error('[NativeCall] prepareNativeWebRtcAnswer failed:', error)
+    throw error
+  }
+}
+
+export async function endNativeWebRtc(): Promise<void> {
+  if (!isNativeAndroidCallApp()) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeWebRtcPlugin
+    if (typeof plugin.endNativeWebRtc !== 'function') return
+    await plugin.endNativeWebRtc()
+  } catch (error) {
+    console.error('[NativeCall] endNativeWebRtc failed:', error)
+  }
+}
+
+export async function setNativeWebRtcMuted(muted: boolean): Promise<void> {
+  if (!isNativeAndroidCallApp()) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeWebRtcPlugin
+    if (typeof plugin.setNativeWebRtcMuted !== 'function') return
+    await plugin.setNativeWebRtcMuted({ muted })
+  } catch (error) {
+    console.error('[NativeCall] setNativeWebRtcMuted failed:', error)
+  }
+}
+
 /** Android: WebRTC voice calls use MODE_IN_COMMUNICATION + STREAM_VOICE_CALL (Kakao-style). */
 export async function setNativeVoiceCallAudioActive(active: boolean): Promise<void> {
   if (!isNativeAndroidCallApp()) return
