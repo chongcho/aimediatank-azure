@@ -2349,7 +2349,7 @@ if (fs.existsSync(pluginPath)) {
 
     @PluginMethod
     fun setNativeWebRtcMuted(call: PluginCall) {
-        val muted = call.getBoolean("muted", false)
+        val muted = call.getBoolean("muted", false) ?: false
         callManager?.setMuted(muted)
         call.resolve()
     }`,
@@ -2357,5 +2357,19 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginSource)
     changed = true
     console.log('[patch-android-fcm] CapacitorVoipCallsPlugin native WebRTC methods')
+  }
+}
+
+const nativeWebRtcMutedBroken =
+  'fun setNativeWebRtcMuted(call: PluginCall) {\n        val muted = call.getBoolean("muted", false)\n        callManager?.setMuted(muted)'
+const nativeWebRtcMutedFixed =
+  'fun setNativeWebRtcMuted(call: PluginCall) {\n        val muted = call.getBoolean("muted", false) ?: false\n        callManager?.setMuted(muted)'
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (pluginSource.includes(nativeWebRtcMutedBroken)) {
+    pluginSource = pluginSource.replace(nativeWebRtcMutedBroken, nativeWebRtcMutedFixed)
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] fix setNativeWebRtcMuted nullable Boolean')
   }
 }
