@@ -1,7 +1,10 @@
 package com.capacitor.voipcalls
 
 import android.content.Context
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.media.audiofx.LoudnessEnhancer
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -32,6 +35,7 @@ class NativeVoiceWebRtcEngine private constructor(
 ) : PeerConnection.Observer {
     companion object {
         private const val TAG = "NativeVoiceWebRtc"
+        private const val PLAYBACK_LOUDNESS_BOOST_MB = 1000
 
         @Volatile
         private var instance: NativeVoiceWebRtcEngine? = null
@@ -107,6 +111,7 @@ class NativeVoiceWebRtcEngine private constructor(
     private var sessionPollGeneration: UUID? = null
     private var cachedCaller: JSONObject? = null
     private var parsedIceServers: List<PeerConnection.IceServer> = defaultIceServers()
+    private var playbackLoudnessEnhancer: LoudnessEnhancer? = null
 
     fun isActive(): Boolean = running.get() || peerConnection != null || isAnswering
 
@@ -269,6 +274,16 @@ class NativeVoiceWebRtcEngine private constructor(
         val adm = JavaAudioDeviceModule.builder(context)
             .setUseHardwareAcousticEchoCanceler(true)
             .setUseHardwareNoiseSuppressor(true)
+            .setAudioTrackStateCallback(object : JavaAudioDeviceModule.AudioTrackStateCallback {
+                override fun onWebRtcAudioTrackStart() {
+                    Log.i(TAG, "webrtc audio track start")
+                    mainHandler.post { boostNativeVoicePlayback() }
+                }
+
+                override fun onWebRtcAudioTrackStop() {
+                    mainHandler.post { releasePlaybackLoudnessBoost() }
+                }
+            })
             .createAudioDeviceModule()
         audioDeviceModule = adm
         val factory = PeerConnectionFactory.builder()
@@ -666,6 +681,7 @@ class NativeVoiceWebRtcEngine private constructor(
         createAnswerGeneration = null
         stopIcePoll()
         stopSessionPoll()
+        releasePlaybackLoudnessBoost()
         localAudioTrack?.dispose()
         localAudioTrack = null
         audioSource?.dispose()
@@ -684,6 +700,107 @@ class NativeVoiceWebRtcEngine private constructor(
     private fun ensureVoiceCallAudioActive() {
         mainHandler.post {
             CapacitorVoipCallsPlugin.getInstance()?.callManager?.setVoiceCallAudioActive(true)
+            boostNativeVoicePlayback()
+        }
+    }
+
+    private fun boostNativeVoicePlayback() {
+        val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager
+        callManager?.setVoiceCallAudioActive(true)
+        callManager?.setVoiceCallMediaVolume(1.0f)
+
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        @Suppress("DEPRECATION")
+        audioManager.isSpeakerphoneOn = true
+        routeToBuiltinSpeaker(audioManager)
+
+        try {
+            audioDeviceModule?.setSpeakerphoneOn(true)
+        } catch (e: Exception) {
+            Log.w(TAG, "setSpeakerphoneOn skipped", e)
+        }
+
+        val voiceMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
+        if (voiceMax > 0) {
+            audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, voiceMax, 0)
+        }
+
+        val sessionId = resolveWebRtcAudioSessionId()
+        Log.i(TAG, "boost playback sessionId=${sessionId ?: 0} voiceMax=$voiceMax")
+        attachPlaybackLoudnessBoost(sessionId ?: 0)
+    }
+
+    private fun routeToBuiltinSpeaker(audioManager: AudioManager) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        try {
+            val speaker = audioManager.availableCommunicationDevices
+                .firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+            if (speaker != null) {
+                audioManager.setCommunicationDevice(speaker)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "setCommunicationDevice skipped", e)
+        }
+    }
+
+    private fun resolveWebRtcAudioSessionId(): Int? {
+        val adm = audioDeviceModule ?: return null
+        val holderNames = listOf("audioOutput", "output", "webRtcAudioTrack")
+        for (holderName in holderNames) {
+            try {
+                val holderField = adm.javaClass.getDeclaredField(holderName)
+                holderField.isAccessible = true
+                val holder = holderField.get(adm) ?: continue
+                for (sessionField in listOf("audioSession", "audioSessionId", "streamAudioSessionId")) {
+                    try {
+                        val field = holder.javaClass.getDeclaredField(sessionField)
+                        field.isAccessible = true
+                        return field.getInt(holder)
+                    } catch (_: Exception) {
+                    }
+                }
+                try {
+                    val method = holder.javaClass.getMethod("getAudioSessionId")
+                    return method.invoke(holder) as? Int
+                } catch (_: Exception) {
+                }
+            } catch (_: Exception) {
+            }
+        }
+        return null
+    }
+
+    private fun attachPlaybackLoudnessBoost(audioSessionId: Int) {
+        releasePlaybackLoudnessBoost()
+        try {
+            playbackLoudnessEnhancer = LoudnessEnhancer(audioSessionId).apply {
+                setTargetGain(PLAYBACK_LOUDNESS_BOOST_MB)
+                enabled = true
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "playback loudness boost unavailable session=$audioSessionId", e)
+        }
+    }
+
+    private fun releasePlaybackLoudnessBoost() {
+        playbackLoudnessEnhancer?.let { enhancer ->
+            try {
+                enhancer.enabled = false
+                enhancer.release()
+            } catch (_: Exception) {
+            }
+        }
+        playbackLoudnessEnhancer = null
+    }
+
+    private fun schedulePlaybackBoost(callId: String) {
+        val delays = longArrayOf(0, 250, 500, 1000, 2000, 4000)
+        for (delay in delays) {
+            mainHandler.postDelayed({
+                if (!isMediaConnected || this.callId != callId) return@postDelayed
+                boostNativeVoicePlayback()
+            }, delay)
         }
     }
 
@@ -709,6 +826,8 @@ class NativeVoiceWebRtcEngine private constructor(
         running.set(true)
         Log.i(TAG, "connected $callId")
         token?.let { postNativeTrace(callId, it, "native_webrtc_connected") }
+        boostNativeVoicePlayback()
+        schedulePlaybackBoost(callId)
         emitConnected(callId, cachedCaller)
         scheduleConnectedUiSync(callId, cachedCaller)
     }

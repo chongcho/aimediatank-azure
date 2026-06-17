@@ -1286,6 +1286,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           setRemoteUser(payload.caller)
         }
         setCallState('connected')
+        if (isNativeAndroidCallApp()) {
+          void (async () => {
+            await setNativeVoiceCallAudioActive(true)
+            await setNativeAudioRoute('speaker')
+            await setNativeVoiceCallMediaVolume(getVoiceCallVoiceVolume())
+          })()
+        }
         if (!isNativeIosCallApp()) {
           requestOpenTalkChat()
         }

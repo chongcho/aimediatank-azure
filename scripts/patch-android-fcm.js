@@ -2822,3 +2822,18 @@ if (fs.existsSync(messagingServicePath)) {
     console.log('[patch-android-fcm] FCM incoming uses plugin CallManager singleton')
   }
 }
+
+const voiceCallLoudnessMaxMarker = 'AiMediaTank voice call loudness max'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (callManager.includes('voiceCallLoudnessBoostMb = 800') && !callManager.includes(voiceCallLoudnessMaxMarker)) {
+    callManager = callManager.replace(
+      'private val voiceCallLoudnessBoostMb = 800',
+      `// ${voiceCallLoudnessMaxMarker}
+    private val voiceCallLoudnessBoostMb = 1000`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager voice call loudness max 1000mb')
+  }
+}
