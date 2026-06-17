@@ -163,6 +163,8 @@ const PHP_RES = [
   /(^|\/)cgi-bin(?:\/|$)/i,
   /(^|\/)index\.php(?:\/|$)/i,
   /eval-stdin\.php/i,
+  /(^|\/)php-cgi(?:\/|$)/i,
+  /(^|\/)bin\/sh(?:\/|$)/i,
   /thinkphp/i,
   /vendor\/phpunit/i,
   /\.php(?:\d+)?$/i,
