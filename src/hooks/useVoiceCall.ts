@@ -732,10 +732,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           }
         }
         if (!opts?.fromCallKit) {
-          const inlineOffer =
-            pendingOfferRef.current?.sdp ||
-            (await resolvePendingOffer(id, declineToken))?.sdp
-          await prepareNativeWebRtcAnswer(id, declineToken, inlineOffer)
+          // Offer SDP comes from native bootstrap (Capacitor bridge corrupts multiline SDP).
+          await prepareNativeWebRtcAnswer(id, declineToken)
         }
         pendingOfferRef.current = null
         setCallState('connecting')

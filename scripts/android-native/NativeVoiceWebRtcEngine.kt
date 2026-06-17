@@ -358,11 +358,16 @@ class NativeVoiceWebRtcEngine private constructor(
                     TAG,
                     "inline answer $callId iceServers=${iceServers.size} remoteIce=${bootstrap.remoteIce.size}",
                 )
+                val bootstrapOffer = bootstrap.offerSdp?.let { normalizeSdp(it) }?.takeIf { it.startsWith("v=") }
+                val resolvedSdp = bootstrapOffer ?: normalizeSdp(sdp).takeIf { it.startsWith("v=") }
+                if (resolvedSdp == null) {
+                    failCall(callId, "offer missing")
+                    return@onSuccess
+                }
+                val offerSource = if (bootstrapOffer != null) "bootstrap" else "inline"
+                Log.i(TAG, "createAnswer offer $callId source=$offerSource len=${resolvedSdp.length}")
                 runWebRtc("createAnswer") {
-                    createAnswer(callId, sdp, iceServers)
-                    for (candidate in bootstrap.remoteIce) {
-                        addRemoteIceCandidate(candidate, callId)
-                    }
+                    createAnswer(callId, resolvedSdp, iceServers, bootstrap.remoteIce)
                 }
             }
         }
@@ -397,8 +402,13 @@ class NativeVoiceWebRtcEngine private constructor(
         }
     }
 
-    private fun createAnswer(callId: String, offerSdp: String, iceServers: List<PeerConnection.IceServer>) {
-        val sdp = offerSdp.trim()
+    private fun createAnswer(
+        callId: String,
+        offerSdp: String,
+        iceServers: List<PeerConnection.IceServer>,
+        pendingRemoteIce: List<JSONObject> = emptyList(),
+    ) {
+        val sdp = normalizeSdp(offerSdp)
         if (!sdp.startsWith("v=")) {
             failCall(callId, "invalid offer sdp")
             return
@@ -418,6 +428,9 @@ class NativeVoiceWebRtcEngine private constructor(
         pc.setRemoteDescription(object : SdpObserverAdapter() {
             override fun onSetSuccess() {
                 if (createAnswerGeneration != generation) return
+                for (candidate in pendingRemoteIce) {
+                    addRemoteIceCandidate(candidate, callId)
+                }
                 val constraints = MediaConstraints()
                 pc.createAnswer(object : SdpObserverAdapter() {
                     override fun onCreateSuccess(desc: SessionDescription?) {
@@ -464,6 +477,7 @@ class NativeVoiceWebRtcEngine private constructor(
 
             override fun onSetFailure(error: String?) {
                 if (createAnswerGeneration != generation) return
+                Log.e(TAG, "setRemoteDescription $callId len=${sdp.length} err=$error")
                 failCall(callId, "setRemoteDescription: $error")
             }
         }, offer)
@@ -513,10 +527,7 @@ class NativeVoiceWebRtcEngine private constructor(
                 }
                 val offerSdp = offer
                 runWebRtc("createAnswer") {
-                    createAnswer(callId, offerSdp, bootstrap.iceServers)
-                    for (candidate in bootstrap.remoteIce) {
-                        addRemoteIceCandidate(candidate, callId)
-                    }
+                    createAnswer(callId, offerSdp, bootstrap.iceServers, bootstrap.remoteIce)
                 }
             }
         }
@@ -548,13 +559,14 @@ class NativeVoiceWebRtcEngine private constructor(
                     return@fetchSessionPoll
                 }
                 val resolvedOfferSdp = offerSdp
+                val pendingIce = mutableListOf<JSONObject>()
                 runWebRtc("createAnswer") {
-                    createAnswer(callId, resolvedOfferSdp, parsedIceServers)
                     for (signal in poll.signals) {
                         if (!signal.callId.equals(callId, ignoreCase = true)) continue
                         if (signal.type != "ice") continue
-                        extractCandidate(signal.payload)?.let { addRemoteIceCandidate(it, callId) }
+                        extractCandidate(signal.payload)?.let { pendingIce.add(it) }
                     }
+                    createAnswer(callId, resolvedOfferSdp, parsedIceServers, pendingIce)
                 }
             }
         }
@@ -988,6 +1000,9 @@ class NativeVoiceWebRtcEngine private constructor(
         }
         return if (servers.isEmpty()) defaultIceServers() else servers
     }
+
+    private fun normalizeSdp(sdp: String): String =
+        sdp.trim().replace("\r\n", "\n")
 
     private fun extractSdp(value: Any?): String? {
         when (value) {
