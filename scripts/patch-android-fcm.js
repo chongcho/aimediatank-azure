@@ -2452,23 +2452,53 @@ if (fs.existsSync(callManagerPath)) {
 }
 
 const notifyCallAnsweredNoNativeStartMarker = 'AiMediaTank defer native WebRTC to JS main thread'
+const notifyCallAnsweredMainThreadMarker = 'AiMediaTank native WebRTC on main looper'
 if (fs.existsSync(callManagerPath)) {
   let callManager = fs.readFileSync(callManagerPath, 'utf8')
   if (
-    callManager.includes('startNativeWebRtcAnswer(callId, token)') &&
-    !callManager.includes(notifyCallAnsweredNoNativeStartMarker)
+    callManager.includes('private fun startNativeWebRtcAnswer') &&
+    callManager.includes('fun notifyCallAnswered(callId: String)') &&
+    !callManager.includes(notifyCallAnsweredMainThreadMarker)
   ) {
-    callManager = callManager.replace(
-      `        eventEmitter?.invoke("callAnswered", data)
-        startNativeWebRtcAnswer(callId, token)
-    }`,
-      `        eventEmitter?.invoke("callAnswered", data)
+    const mainLooperStart = `        eventEmitter?.invoke("callAnswered", data)
+        // ${notifyCallAnsweredMainThreadMarker}
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            startNativeWebRtcAnswer(callId, token)
+        }
+    }`
+    if (callManager.includes(notifyCallAnsweredNoNativeStartMarker)) {
+      callManager = callManager.replace(
+        `        eventEmitter?.invoke("callAnswered", data)
         // ${notifyCallAnsweredNoNativeStartMarker}
     }`,
-    )
+        mainLooperStart,
+      )
+    } else if (callManager.includes('startNativeWebRtcAnswer(callId, token)')) {
+      callManager = callManager.replace(
+        `        eventEmitter?.invoke("callAnswered", data)
+        startNativeWebRtcAnswer(callId, token)
+    }`,
+        mainLooperStart,
+      )
+    } else {
+      callManager = callManager.replace(
+        `        eventEmitter?.invoke("callAnswered", data)
+    }
+
+    // AiMediaTank native WebRTC base URL fallback`,
+        `        eventEmitter?.invoke("callAnswered", data)
+        // ${notifyCallAnsweredMainThreadMarker}
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            startNativeWebRtcAnswer(callId, token)
+        }
+    }
+
+    // AiMediaTank native WebRTC base URL fallback`,
+      )
+    }
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
-    console.log('[patch-android-fcm] notifyCallAnswered defers native WebRTC to JS')
+    console.log('[patch-android-fcm] notifyCallAnswered starts WebRTC on main looper')
   }
 }
 

@@ -641,7 +641,10 @@ export async function prepareNativeWebRtcAnswer(
   try {
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeWebRtcPlugin
-    if (typeof plugin.prepareNativeWebRtcAnswer !== 'function') return
+    if (typeof plugin.prepareNativeWebRtcAnswer !== 'function') {
+      console.error('[NativeCall] prepareNativeWebRtcAnswer plugin method missing — rebuild native app')
+      return
+    }
     await plugin.prepareNativeWebRtcAnswer({ callId, declineToken })
   } catch (error) {
     console.error('[NativeCall] prepareNativeWebRtcAnswer failed:', error)

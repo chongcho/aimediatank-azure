@@ -719,21 +719,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     try {
       if (isNativeAndroidCallApp()) {
         nativeWebRtcAndroidRef.current = true
-        const offerSdp = await resolvePendingOffer(
-          id,
-          opts?.fromCallKit ? declineToken : undefined,
-        )
-        if (!offerSdp && !opts?.fromCallKit) {
-          reportError('Could not connect — offer missing')
-          await endCall()
-          return false
-        }
-        if (!opts?.fromCallKit) {
+        // Native engine bootstraps the offer — do not block accept on WebView poll SDP.
+        if (opts?.fromCallKit && declineToken) {
+          await nativeCallKitApi('accept', id, declineToken)
+        } else if (!opts?.fromCallKit) {
           await voiceApi('accept', { callId: id })
-          await prepareNativeWebRtcAnswer(id, declineToken)
-        } else if (!declineToken) {
-          await prepareNativeWebRtcAnswer(id)
         }
+        await prepareNativeWebRtcAnswer(id, declineToken)
         pendingOfferRef.current = null
         setCallState('connecting')
         requestOpenTalkChat()
