@@ -715,12 +715,6 @@ class NativeVoiceWebRtcEngine private constructor(
         audioManager.isSpeakerphoneOn = true
         routeToBuiltinSpeaker(audioManager)
 
-        try {
-            audioDeviceModule?.setSpeakerphoneOn(true)
-        } catch (e: Exception) {
-            Log.w(TAG, "setSpeakerphoneOn skipped", e)
-        }
-
         val voiceMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
         if (voiceMax > 0) {
             audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, voiceMax, 0)
