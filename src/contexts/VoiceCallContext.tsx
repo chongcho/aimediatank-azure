@@ -20,6 +20,7 @@ import {
   isNativeVoiceCallApp,
 } from '@/lib/nativeCallBridge'
 import {
+  dismissVoiceCallPushNotifications,
   installVoiceCallAudioUnlock,
   primeVoiceCallAfterNotificationOpen,
   retryVoiceCallRingtone,
@@ -248,6 +249,19 @@ export function VoiceCallProvider({
     void registerVoiceCallPush()
     return installPushSubscriptionRefresh()
   }, [session?.user?.id])
+
+  useEffect(() => {
+    if (
+      voiceCall.callState !== 'connecting' &&
+      voiceCall.callState !== 'connected'
+    ) {
+      return
+    }
+    stopVoiceCallRingtone()
+    if (voiceCall.callId) {
+      void dismissVoiceCallPushNotifications(voiceCall.callId)
+    }
+  }, [voiceCall.callState, voiceCall.callId])
 
   useEffect(() => {
     if (!session?.user) {

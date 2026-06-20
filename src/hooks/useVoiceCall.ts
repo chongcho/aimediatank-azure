@@ -443,9 +443,42 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       reattachRemoteAudio()
     }
 
+    let iceDisconnectTimer: ReturnType<typeof setTimeout> | null = null
+    pc.oniceconnectionstatechange = () => {
+      const iceState = pc.iceConnectionState
+      if (iceState === 'connected' || iceState === 'completed') {
+        if (iceDisconnectTimer) {
+          clearTimeout(iceDisconnectTimer)
+          iceDisconnectTimer = null
+        }
+      } else if (iceState === 'failed') {
+        if (iceDisconnectTimer) {
+          clearTimeout(iceDisconnectTimer)
+          iceDisconnectTimer = null
+        }
+        reportError('Call connection failed')
+        void endCall()
+      } else if (iceState === 'disconnected') {
+        if (iceDisconnectTimer) clearTimeout(iceDisconnectTimer)
+        iceDisconnectTimer = setTimeout(() => {
+          iceDisconnectTimer = null
+          const current = pcRef.current
+          if (!current || current !== pc) return
+          const state = current.iceConnectionState
+          if (state === 'disconnected' || state === 'failed') {
+            reportError('Call connection lost')
+            void endCall()
+          }
+        }, 8000)
+      }
+    }
+
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') {
         stopVoiceCallRingtone()
+        if (callIdRef.current) {
+          void dismissVoiceCallPushNotifications(callIdRef.current)
+        }
         setCallState('connected')
         reattachRemoteAudio()
         if (callIdRef.current) {
@@ -537,6 +570,18 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   const handleRemoteOffer = useCallback(
     async (signal: PollSignal, caller: VoiceCallUser) => {
+      const normalizedId = normalizeVoiceCallId(signal.callId)
+      const state = callStateRef.current
+      if (
+        state === 'connecting' ||
+        state === 'connected' ||
+        (callIdRef.current &&
+          voiceCallIdsMatch(callIdRef.current, normalizedId) &&
+          (state === 'incoming' || state === 'outgoing'))
+      ) {
+        storePendingOffer(signal.payload)
+        return
+      }
       storePendingOffer(signal.payload)
       // iOS: VoIP push + App bridge own CallKit; Android/other use JS native UI fallback.
       const needsNativeUiFallback = !isNativeVoiceCallApp() || isNativeAndroidCallApp()
@@ -917,7 +962,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             isNativeIosCallApp() &&
             typeof document !== 'undefined' &&
             !document.hidden
-          if (callState === 'idle' && !iosForegroundInApp) {
+          if (callStateRef.current === 'idle' && !iosForegroundInApp) {
             const caller = data.incomingCalls?.find((c) => c.id === signal.callId)?.caller
             if (caller) {
               await handleRemoteOffer(signal, caller)
@@ -987,7 +1032,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           return
         }
         if (
-          localState === 'incoming' &&
+          (localState === 'incoming' || localState === 'outgoing') &&
           data.activeCall?.id &&
           voiceCallIdsMatch(data.activeCall.id, localCallId) &&
           data.activeCall.status === 'active'
@@ -1006,7 +1051,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         }
       }
 
-      if (callState === 'idle' && data.incomingCalls?.length) {
+      if (callStateRef.current === 'idle' && data.incomingCalls?.length) {
         const incoming = data.incomingCalls[0]
         if (!handledIncomingRef.current.has(`call-${incoming.id}`)) {
           handledIncomingRef.current.add(`call-${incoming.id}`)
@@ -1042,7 +1087,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         }
       }
     },
-    [callState, handleRemoteAnswer, handleRemoteIce, handleRemoteOffer, resetCall, storePendingOffer],
+    [handleRemoteAnswer, handleRemoteIce, handleRemoteOffer, resetCall, storePendingOffer],
   )
 
   const runPendingVoiceAction = useCallback(() => {

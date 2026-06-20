@@ -110,6 +110,7 @@ class NativeVoiceWebRtcEngine private constructor(
     private var bootstrapGeneration: UUID? = null
     private var createAnswerGeneration: UUID? = null
     private var sessionPollGeneration: UUID? = null
+    private var iceDisconnectRunnable: Runnable? = null
     private var cachedCaller: JSONObject? = null
     private var parsedIceServers: List<PeerConnection.IceServer> = defaultIceServers()
 
@@ -233,6 +234,7 @@ class NativeVoiceWebRtcEngine private constructor(
     fun endCall(syncServer: Boolean = true, reason: String = "user") {
         val id = callId
         val authToken = token
+        cancelIceDisconnectTimer()
         stopIcePoll()
         stopSessionPoll()
         bootstrapGeneration = null
@@ -835,19 +837,44 @@ class NativeVoiceWebRtcEngine private constructor(
     private fun failCall(callId: String, error: String) {
         Log.e(TAG, "failed $callId: $error")
         token?.let { postNativeTrace(callId, it, "native_webrtc_failed", JSONObject().put("error", error)) }
+        val authToken = token
+        cancelIceDisconnectTimer()
         isAnswering = false
         bootstrapGeneration = null
         running.set(false)
         tearDownPeerConnection(notify = false)
         emitFailed(callId, error)
         injectUiEvent("aimediatank-callkit-end", JSONObject().put("callId", callId))
+        if (!authToken.isNullOrEmpty()) {
+            executor.execute { postNativeCallKit("end", callId, authToken) }
+        } else {
+            executor.execute { postSessionAction("end", callId) }
+        }
         this.callId = null
         token = null
+    }
+
+    private fun cancelIceDisconnectTimer() {
+        iceDisconnectRunnable?.let { mainHandler.removeCallbacks(it) }
+        iceDisconnectRunnable = null
+    }
+
+    private fun scheduleIceDisconnectFail(callId: String) {
+        cancelIceDisconnectTimer()
+        val runnable = Runnable {
+            iceDisconnectRunnable = null
+            if (this.callId != callId) return@Runnable
+            if (!isMediaConnected && peerConnection == null) return@Runnable
+            failCall(callId, "ICE disconnected")
+        }
+        iceDisconnectRunnable = runnable
+        mainHandler.postDelayed(runnable, 8000)
     }
 
     private fun markConnected(callId: String) {
         if (!isAnswering && peerConnection == null && !isCaller) return
         if (isMediaConnected) return
+        cancelIceDisconnectTimer()
         invalidateRemoteIceProcessing()
         isMediaConnected = true
         isAnswering = false
@@ -895,12 +922,17 @@ class NativeVoiceWebRtcEngine private constructor(
         when (state) {
             PeerConnection.IceConnectionState.CONNECTED,
             PeerConnection.IceConnectionState.COMPLETED,
-            -> markConnected(id)
+            -> {
+                cancelIceDisconnectTimer()
+                markConnected(id)
+            }
             PeerConnection.IceConnectionState.FAILED -> failCall(id, "ICE failed")
             PeerConnection.IceConnectionState.CHECKING ->
                 token?.let { postNativeTrace(id, it, "native_webrtc_ice_checking") }
-            PeerConnection.IceConnectionState.DISCONNECTED ->
+            PeerConnection.IceConnectionState.DISCONNECTED -> {
                 token?.let { postNativeTrace(id, it, "native_webrtc_ice_disconnected") }
+                scheduleIceDisconnectFail(id)
+            }
             else -> {}
         }
     }

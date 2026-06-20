@@ -1203,9 +1203,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }, [session?.user?.id])
 
   useEffect(() => {
-    if (!isActiveVoiceCall) return
+    // Desktop uses the floating VoiceCallOverlay — avoid opening the TalkChat phone picker too.
+    if (!isActiveVoiceCall || isDesktop) return
     setShowVoiceCallPicker(true)
-  }, [isActiveVoiceCall])
+  }, [isActiveVoiceCall, isDesktop])
 
   const toggleVoiceCallPicker = () => {
     if (!isSignedIn) {
