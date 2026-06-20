@@ -49,7 +49,7 @@ public class MainActivity extends BridgeActivity {
 
     private int activeCallVolumeStream() {
         if (CallVolumeState.voiceCallActive) {
-            return AudioManager.STREAM_VOICE_CALL;
+            return AudioManager.STREAM_MUSIC;
         }
         if (CallVolumeState.ringActive) {
             return AudioManager.STREAM_RING;
