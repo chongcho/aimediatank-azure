@@ -98,6 +98,8 @@ class NativeVoiceWebRtcEngine private constructor(
     private var isAnswering = false
     @Volatile
     private var isMediaConnected = false
+    @Volatile
+    private var remoteIceEpoch = 0L
     private var pollSince = "1970-01-01T00:00:00.000Z"
 
     private val appliedRemoteIceKeys = mutableSetOf<String>()
@@ -536,10 +538,13 @@ class NativeVoiceWebRtcEngine private constructor(
             val answer = SessionDescription(SessionDescription.Type.ANSWER, sdp)
             pc.setRemoteDescription(object : SdpObserverAdapter() {
                 override fun onSetSuccess() {
-                    remoteAnswerApplied = true
                     remoteDescriptionReady = true
-                    Log.i(TAG, "applied remote answer $callId")
                     flushPendingRemoteIce(callId)
+                    remoteAnswerApplied = true
+                    if (isCaller) {
+                        stopSessionPoll()
+                    }
+                    Log.i(TAG, "applied remote answer $callId")
                 }
 
                 override fun onSetFailure(error: String?) {
@@ -682,7 +687,7 @@ class NativeVoiceWebRtcEngine private constructor(
                                 extractSdp(signal.payload)?.let { applyRemoteAnswer(callId, it) }
                             }
                         }
-                        if (shouldProcessRemoteIce()) {
+                        if (shouldProcessRemoteIce() && !asCaller) {
                             for (signal in callSignals) {
                                 if (signal.type != "ice") continue
                                 extractCandidate(signal.payload)?.let { addRemoteIceCandidate(it, callId) }
@@ -703,6 +708,11 @@ class NativeVoiceWebRtcEngine private constructor(
 
     private fun stopSessionPoll() {
         sessionPollGeneration = null
+    }
+
+    private fun invalidateRemoteIceProcessing() {
+        remoteIceEpoch++
+        pendingRemoteIce.clear()
     }
 
     private fun flushPendingRemoteIce(callId: String) {
@@ -732,7 +742,9 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun addRemoteIceCandidate(dict: JSONObject, callId: String) {
+        if (isCaller && remoteAnswerApplied) return
         if (!shouldProcessRemoteIce()) return
+        val epoch = remoteIceEpoch
         val key = iceCandidateKey(dict)
         if (appliedRemoteIceKeys.contains(key)) return
         if (!remoteDescriptionReady) {
@@ -745,6 +757,8 @@ class NativeVoiceWebRtcEngine private constructor(
         val mLineIndex = dict.optInt("sdpMLineIndex", 0)
 
         val task = Runnable {
+            if (epoch != remoteIceEpoch) return@Runnable
+            if (isCaller && remoteAnswerApplied) return@Runnable
             if (!shouldProcessRemoteIce()) return@Runnable
             val pc = peerConnection ?: return@Runnable
             if (this.callId != callId) return@Runnable
@@ -785,6 +799,7 @@ class NativeVoiceWebRtcEngine private constructor(
         remoteDescriptionReady = false
         remoteAnswerApplied = false
         pendingRemoteIce.clear()
+        invalidateRemoteIceProcessing()
         localAudioTrack?.dispose()
         localAudioTrack = null
         audioSource?.dispose()
@@ -829,6 +844,7 @@ class NativeVoiceWebRtcEngine private constructor(
     private fun markConnected(callId: String) {
         if (!isAnswering && peerConnection == null && !isCaller) return
         if (isMediaConnected) return
+        invalidateRemoteIceProcessing()
         isMediaConnected = true
         isAnswering = false
         bootstrapGeneration = null
