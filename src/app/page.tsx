@@ -162,7 +162,7 @@ function HomeContent() {
     }
   }, [media, loading, sort, type, search])
 
-  const refreshHomeLayoutUi = useCallback(() => {
+  const refreshHomeLayoutUi = useCallback((initializeSort = false) => {
     const bust = typeof window !== 'undefined' ? `?_=${Date.now()}` : ''
     fetch(`/api/ui/home-layout${bust}`, {
       cache: 'no-store',
@@ -171,17 +171,40 @@ function HomeContent() {
       .then((res) => res.json())
       .then((data) => {
         const layout = data.layout
+        const defaultSort = data.defaultSort === 'recent' || data.defaultSort === 'random' ? data.defaultSort : 'popular'
         setHomeLayout(
           layout === 'grid_top' || layout === 'grid_center' ? layout : layout === 'grid' ? 'grid_center' : 'masonry'
         )
         setHomePreplay(data.preplay !== false)
         setHomePreplaySound(data.homePreplaySound !== false)
+        try {
+          if (!localStorage.getItem('mediaSortPreference')) {
+            setSort(defaultSort)
+          }
+        } catch {
+          setSort(defaultSort)
+        }
+        if (initializeSort) {
+          setSortInitialized(true)
+        }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (initializeSort) {
+          setSortInitialized(true)
+        }
+      })
   }, [])
 
   useEffect(() => {
-    refreshHomeLayoutUi()
+    const savedSort = localStorage.getItem('mediaSortPreference')
+    const normalizedSort = savedSort === 'rated' ? 'random' : savedSort
+    if (normalizedSort && ['popular', 'recent', 'random'].includes(normalizedSort)) {
+      setSort(normalizedSort)
+      setSortInitialized(true)
+      refreshHomeLayoutUi(false)
+      return
+    }
+    refreshHomeLayoutUi(true)
   }, [refreshHomeLayoutUi])
 
   useEffect(() => {
@@ -349,16 +372,6 @@ function HomeContent() {
     requestAnimationFrame(() => {
       requestAnimationFrame(clear)
     })
-  }, [])
-
-  // Load sort preference from localStorage on mount (client-side only)
-  useEffect(() => {
-    const savedSort = localStorage.getItem('mediaSortPreference')
-    const normalizedSort = savedSort === 'rated' ? 'random' : savedSort
-    if (normalizedSort && ['popular', 'recent', 'random'].includes(normalizedSort)) {
-      setSort(normalizedSort)
-    }
-    setSortInitialized(true)
   }, [])
 
   // Handler for when user changes sort - saves to localStorage

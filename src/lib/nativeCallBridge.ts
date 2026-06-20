@@ -65,6 +65,8 @@ export interface NativeCallBridgeHandlers {
       avatar: string | null
     }
   }) => void
+  /** Native caller received remote answer — stop ringback before ICE connects. */
+  onNativeCallNegotiating?: (callId: string) => void
 }
 
 let bridgeInitialized = false
@@ -99,6 +101,7 @@ let pendingNativeConnected: {
     avatar: string | null
   }
 } | null = null
+let pendingNativeNegotiating: string | null = null
 let webViewInjectListenerAttached = false
 
 function attachWebViewCallKitInjectListener(): void {
@@ -170,6 +173,16 @@ function attachWebViewCallKitInjectListener(): void {
       pendingNativeConnected = payload
     }
   })
+
+  window.addEventListener('aimediatank-native-call-negotiating', (event) => {
+    const callId = (event as CustomEvent<{ callId?: string }>).detail?.callId
+    if (!callId) return
+    if (bridgeHandlers?.onNativeCallNegotiating) {
+      bridgeHandlers.onNativeCallNegotiating(callId)
+    } else {
+      pendingNativeNegotiating = callId
+    }
+  })
 }
 
 function flushPendingNativeCallEvents(): void {
@@ -198,6 +211,11 @@ function flushPendingNativeCallEvents(): void {
     const payload = pendingNativeConnected
     pendingNativeConnected = null
     bridgeHandlers.onNativeCallConnected(payload)
+  }
+  if (pendingNativeNegotiating && bridgeHandlers.onNativeCallNegotiating) {
+    const callId = pendingNativeNegotiating
+    pendingNativeNegotiating = null
+    bridgeHandlers.onNativeCallNegotiating(callId)
   }
 }
 

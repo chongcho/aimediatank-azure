@@ -308,6 +308,27 @@ export function stopVoiceCallRingtone() {
   activeRingKind = null
 }
 
+/** Close lock-screen / SW voice-call notifications so stale pushes cannot re-alert. */
+export async function dismissVoiceCallPushNotifications(callId: string) {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+  try {
+    const reg = await navigator.serviceWorker.ready
+    const notifications = await reg.getNotifications()
+    const normalized = callId.trim().toLowerCase()
+    for (const notification of notifications) {
+      const data = (notification.data || {}) as { type?: string; callId?: string }
+      if (
+        data.type === 'voice_call' &&
+        (data.callId || '').trim().toLowerCase() === normalized
+      ) {
+        notification.close()
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
 function isSameRingRunning(kind: RingKind) {
   return (
     activeRingKind === kind &&

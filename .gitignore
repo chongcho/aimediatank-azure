@@ -46,6 +46,17 @@ docs/session-log-*.md
 *-firebase-adminsdk-*.json
 aimediatank-gcp-*.json
 android-keystore.b64.txt
+appstore-key.b64.txt
+# Apple / Android signing — CI uses GitHub Secrets, never commit these
+*.p8
+*.p12
+*.jks
+*.mobileprovision
+AuthKey_*.p8
+AppleDistribution.p12
+android/aimediatank-release.jks
+# Stray local copy; Gradle uses android/app/google-services.json only
+Android App/
 ios/App/App/public/
 ios/DerivedData/
 *.xcuserdata

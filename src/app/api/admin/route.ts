@@ -898,11 +898,15 @@ export async function GET(request: Request) {
             : 'masonry'
         const preplay = row.preplay
         const homePreplaySound = row.homePreplaySound !== false
+        const defaultSort =
+          (row as { defaultSort?: string | null }).defaultSort && ['popular', 'recent', 'random'].includes((row as { defaultSort?: string | null }).defaultSort as string)
+            ? ((row as { defaultSort?: string | null }).defaultSort as string)
+            : 'popular'
         const autoTranslation = row.autoTranslation !== false
-        return NextResponse.json({ layout, preplay, homePreplaySound, autoTranslation })
+        return NextResponse.json({ layout, preplay, homePreplaySound, defaultSort, autoTranslation })
       } catch (error) {
         console.error('Home layout settings unavailable:', error)
-        return NextResponse.json({ layout: 'masonry', preplay: true, homePreplaySound: true, autoTranslation: true })
+        return NextResponse.json({ layout: 'masonry', preplay: true, homePreplaySound: true, defaultSort: 'popular', autoTranslation: true })
       }
     }
 
@@ -2203,19 +2207,25 @@ export async function POST(request: Request) {
       }
 
       case 'setHomeLayout': {
-        const { layout, preplay } = data || {}
+        const { layout, preplay, defaultSort } = data || {}
         const validLayouts = ['masonry', 'grid_top', 'grid_center']
+        const validDefaultSorts = ['popular', 'recent', 'random']
         const layoutVal = layout === 'grid' ? 'grid_center' : layout
         if (!layoutVal || !validLayouts.includes(layoutVal)) {
           return NextResponse.json({ error: 'layout must be "masonry", "grid_top", or "grid_center"' }, { status: 400 })
         }
         const preplayBool = typeof preplay === 'boolean' ? preplay : undefined
+        const defaultSortVal = typeof defaultSort === 'string' ? defaultSort : undefined
+        if (defaultSortVal !== undefined && !validDefaultSorts.includes(defaultSortVal)) {
+          return NextResponse.json({ error: 'defaultSort must be "popular", "recent", or "random"' }, { status: 400 })
+        }
         let row = await getFirstHomeLayoutSetting()
         if (!row) {
           row = await prisma.homeLayoutSetting.create({
             data: {
               layout: layoutVal,
               ...(preplayBool !== undefined && { preplay: preplayBool }),
+              ...(defaultSortVal !== undefined && { defaultSort: defaultSortVal }),
             },
           })
         } else {
@@ -2224,6 +2234,7 @@ export async function POST(request: Request) {
             data: {
               layout: layoutVal,
               ...(preplayBool !== undefined && { preplay: preplayBool }),
+              ...(defaultSortVal !== undefined && { defaultSort: defaultSortVal }),
             },
           })
         }
@@ -2231,6 +2242,7 @@ export async function POST(request: Request) {
           layout: layoutVal,
           preplay: row.preplay,
           homePreplaySound: row.homePreplaySound,
+          defaultSort: (row as { defaultSort?: string | null }).defaultSort ?? 'popular',
           autoTranslation: row.autoTranslation,
         })
         return NextResponse.json({
@@ -2238,6 +2250,10 @@ export async function POST(request: Request) {
           layout: row.layout as string,
           preplay: row.preplay,
           homePreplaySound: row.homePreplaySound !== false,
+          defaultSort:
+            (row as { defaultSort?: string | null }).defaultSort && ['popular', 'recent', 'random'].includes((row as { defaultSort?: string | null }).defaultSort as string)
+              ? ((row as { defaultSort?: string | null }).defaultSort as string)
+              : 'popular',
           autoTranslation: row.autoTranslation !== false,
         })
       }

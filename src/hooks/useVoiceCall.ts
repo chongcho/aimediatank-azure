@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { getIceServers } from '@/lib/voiceCallConfig'
 import {
+  dismissVoiceCallPushNotifications,
   markOpenedFromCallNotification,
   markVoiceCallUserGesture,
   retryVoiceCallRingtone,
@@ -444,6 +445,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') {
+        stopVoiceCallRingtone()
         setCallState('connected')
         reattachRemoteAudio()
         if (callIdRef.current) {
@@ -484,6 +486,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         pendingAnswerRef.current = null
         await flushPendingIceCandidates(pc)
         setCallState('connecting')
+        stopVoiceCallRingtone()
         reattachRemoteAudio()
         console.info('[VoiceCall] applied remote answer', callIdRef.current)
         return true
@@ -723,10 +726,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
     markVoiceCallUserGesture()
     answeringRef.current = true
+    stopVoiceCallRingtone()
     try {
       if (isNativeAndroidCallApp()) {
         nativeWebRtcAndroidRef.current = true
-        stopVoiceCallRingtone()
+        void dismissVoiceCallPushNotifications(id)
         // In-app Accept: start native WebRTC here. answerNativeCall only reaches Telecom
         // when ConnectionService registered a connection — often missing for poll/FCM UI.
         if (!declineToken) {
@@ -762,6 +766,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       } else if (!opts?.fromCallKit) {
         await voiceApi('accept', { callId: id })
       }
+
+      void dismissVoiceCallPushNotifications(id)
 
       const pc = createPeerConnection()
       await pc.setRemoteDescription(new RTCSessionDescription(offerSdp))
@@ -981,6 +987,16 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           return
         }
         if (
+          localState === 'incoming' &&
+          data.activeCall?.id &&
+          voiceCallIdsMatch(data.activeCall.id, localCallId) &&
+          data.activeCall.status === 'active'
+        ) {
+          stopVoiceCallRingtone()
+          void dismissVoiceCallPushNotifications(localCallId)
+          setCallState('connecting')
+        }
+        if (
           ended ||
           (data.activeCall && !voiceCallIdsMatch(data.activeCall.id, localCallId)) ||
           (!stillActive && !data.activeCall)
@@ -1045,6 +1061,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const applyIncomingCall = useCallback((callId: string, caller: VoiceCallUser, opts?: { callKitOnly?: boolean }) => {
     const normalizedId = normalizeVoiceCallId(callId)
     if (callStateRef.current === 'connecting' || callStateRef.current === 'connected') {
+      stopVoiceCallRingtone()
       callIdRef.current = normalizedId
       setCallId(normalizedId)
       setRemoteUser(caller)
@@ -1060,6 +1077,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       return
     }
     if (callStateRef.current !== 'idle' && callStateRef.current !== 'incoming') return
+    if (answeringRef.current) {
+      stopVoiceCallRingtone()
+      return
+    }
     if (handledIncomingRef.current.has(`call-${normalizedId}`)) {
       runPendingVoiceAction()
       return
@@ -1290,6 +1311,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         callKitSignalingRef.current = false
         nativeWebRtcCalleeRef.current = false
         answeringRef.current = false
+        stopVoiceCallRingtone()
         callIdRef.current = normalizedId
         setCallId(normalizedId)
         if (payload.caller) {
@@ -1308,6 +1330,16 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           requestOpenTalkChat()
         }
         void markNativeCallConnected(normalizedId)
+      },
+      onNativeCallNegotiating: (callId) => {
+        const normalizedId = normalizeVoiceCallId(callId)
+        if (callIdRef.current && !voiceCallIdsMatch(callIdRef.current, normalizedId)) return
+        stopVoiceCallRingtone()
+        callIdRef.current = normalizedId
+        setCallId(normalizedId)
+        if (callStateRef.current === 'outgoing' || callStateRef.current === 'incoming') {
+          setCallState('connecting')
+        }
       },
       onCallRejected: (callId) => {
         if (callIdRef.current && !voiceCallIdsMatch(callIdRef.current, callId)) return
@@ -1466,6 +1498,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         return
       }
       if (data.type === 'VOICE_CALL_INCOMING' && data.caller) {
+        if (
+          answeringRef.current ||
+          callStateRef.current === 'connecting' ||
+          callStateRef.current === 'connected'
+        ) {
+          stopVoiceCallRingtone()
+          return
+        }
         if (!isNativeIosCallApp()) {
           requestOpenTalkChat()
         }

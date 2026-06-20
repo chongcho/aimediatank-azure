@@ -3153,6 +3153,7 @@ if (fs.existsSync(callManagerPath)) {
             val target = (max * targetFraction).toInt().coerceIn(1, max)
             audioManager.setStreamVolume(stream, target, 0)
         }
+        enableVoiceCallLoudnessBoost()
         reapplyVolumeControlStream()
     }
 
@@ -3308,5 +3309,41 @@ if (fs.existsSync(callManagerPath)) {
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
     console.log('[patch-android-fcm] CallManager voice volume keys STREAM_VOICE_CALL')
+  }
+
+  callManager = fs.readFileSync(callManagerPath, 'utf8')
+  const loudnessAfterMediaVolumeMarker = 'AiMediaTank loudness boost after media volume'
+  if (
+    callManager.includes('fun setVoiceCallMediaVolume(level: Float)') &&
+    callManager.includes(voiceCallTelecomSpeakerMarker) &&
+    !callManager.includes(loudnessAfterMediaVolumeMarker)
+  ) {
+    callManager = callManager.replace(
+      `        for (stream in streams) {
+            val max = audioManager.getStreamMaxVolume(stream)
+            if (max <= 0) continue
+            val target = (max * targetFraction).toInt().coerceIn(1, max)
+            audioManager.setStreamVolume(stream, target, 0)
+        }
+        reapplyVolumeControlStream()
+    }
+
+    private fun notifyError`,
+      `        for (stream in streams) {
+            val max = audioManager.getStreamMaxVolume(stream)
+            if (max <= 0) continue
+            val target = (max * targetFraction).toInt().coerceIn(1, max)
+            audioManager.setStreamVolume(stream, target, 0)
+        }
+        // ${loudnessAfterMediaVolumeMarker}
+        enableVoiceCallLoudnessBoost()
+        reapplyVolumeControlStream()
+    }
+
+    private fun notifyError`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager restore loudness boost on media volume')
   }
 }

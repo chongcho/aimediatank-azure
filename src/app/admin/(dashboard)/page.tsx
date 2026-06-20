@@ -399,6 +399,7 @@ export default function AdminPage() {
   const [navbarLoading, setNavbarLoading] = useState(false)
   const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid_top' | 'grid_center'>('masonry')
   const [homePreplay, setHomePreplay] = useState(true)
+  const [homeDefaultSort, setHomeDefaultSort] = useState<'popular' | 'recent' | 'random'>('popular')
   /** Homepage volume chip visibility (Media Badge Control); stored on HomeLayoutSetting */
   const [homePreplaySound, setHomePreplaySound] = useState(true)
   const [homePreplaySoundSaving, setHomePreplaySoundSaving] = useState(false)
@@ -936,6 +937,9 @@ export default function AdminPage() {
             layout === 'grid_top' || layout === 'grid_center' ? layout : layout === 'grid' ? 'grid_center' : 'masonry'
           )
           setHomePreplay(data.preplay !== false)
+          setHomeDefaultSort(
+            data.defaultSort === 'recent' || data.defaultSort === 'random' ? data.defaultSort : 'popular'
+          )
           setHomePreplaySound(data.homePreplaySound !== false)
           setAutoTranslation(data.autoTranslation !== false)
         } finally {
@@ -3353,6 +3357,19 @@ export default function AdminPage() {
                       <option value="off">Off</option>
                     </select>
                   </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label className="text-white font-medium">Sort by:</label>
+                    <select
+                      value={homeDefaultSort}
+                      onChange={(e) => setHomeDefaultSort(e.target.value as 'popular' | 'recent' | 'random')}
+                      disabled={homeLayoutSaving}
+                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="popular">Most Popular</option>
+                      <option value="recent">Most Recent</option>
+                      <option value="random">Random</option>
+                    </select>
+                  </div>
                   <button
                     onClick={async () => {
                       setHomeLayoutSaving(true)
@@ -3362,7 +3379,7 @@ export default function AdminPage() {
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
                             action: 'setHomeLayout',
-                            data: { layout: homeLayout, preplay: homePreplay },
+                            data: { layout: homeLayout, preplay: homePreplay, defaultSort: homeDefaultSort },
                           }),
                         })
                         const data = await res.json()
@@ -3372,6 +3389,8 @@ export default function AdminPage() {
                         }
                         if (data.layout) setHomeLayout(data.layout)
                         if (typeof data.preplay === 'boolean') setHomePreplay(data.preplay)
+                        if (data.defaultSort === 'recent' || data.defaultSort === 'random') setHomeDefaultSort(data.defaultSort)
+                        else setHomeDefaultSort('popular')
                         if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
                         if (typeof data.autoTranslation === 'boolean') setAutoTranslation(data.autoTranslation)
                         if (typeof window !== 'undefined') {

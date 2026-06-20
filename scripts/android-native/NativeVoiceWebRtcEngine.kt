@@ -543,6 +543,10 @@ class NativeVoiceWebRtcEngine private constructor(
                     remoteAnswerApplied = true
                     if (isCaller) {
                         stopSessionPoll()
+                        injectUiEvent(
+                            "aimediatank-native-call-negotiating",
+                            JSONObject().put("callId", callId.lowercase()),
+                        )
                     }
                     Log.i(TAG, "applied remote answer $callId")
                 }
@@ -864,7 +868,7 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun scheduleConnectedUiSync(callId: String, caller: JSONObject?) {
-        val delays = longArrayOf(0, 1000, 2000, 4000, 8000, 15000, 30000, 60000, 120000)
+        val delays = longArrayOf(0, 1000, 3000, 8000)
         for (delay in delays) {
             mainHandler.postDelayed({
                 if (!isMediaConnected || this.callId != callId) return@postDelayed

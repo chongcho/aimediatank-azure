@@ -6,6 +6,8 @@ export const dynamic = 'force-dynamic'
 
 const LAYOUTS = ['masonry', 'grid_top', 'grid_center'] as const
 export type HomeLayoutType = (typeof LAYOUTS)[number]
+const DEFAULT_SORTS = ['popular', 'recent', 'random'] as const
+export type HomeDefaultSortType = (typeof DEFAULT_SORTS)[number]
 
 function normalizeLayout(raw: string): HomeLayoutType {
   if (LAYOUTS.includes(raw as HomeLayoutType)) return raw as HomeLayoutType
@@ -13,10 +15,16 @@ function normalizeLayout(raw: string): HomeLayoutType {
   return 'masonry'
 }
 
+function normalizeDefaultSort(raw: string | null | undefined): HomeDefaultSortType {
+  if (raw && DEFAULT_SORTS.includes(raw as HomeDefaultSortType)) return raw as HomeDefaultSortType
+  return 'popular'
+}
+
 async function getOrCreateSetting(): Promise<{
   layout: HomeLayoutType
   preplay: boolean
   homePreplaySound: boolean
+  defaultSort: HomeDefaultSortType
   autoTranslation: boolean
 }> {
   let row = await getFirstHomeLayoutSetting()
@@ -30,6 +38,7 @@ async function getOrCreateSetting(): Promise<{
     layout: layoutVal,
     preplay: row.preplay,
     homePreplaySound: row.homePreplaySound !== false,
+    defaultSort: normalizeDefaultSort((row as { defaultSort?: string | null }).defaultSort),
     autoTranslation: row.autoTranslation !== false,
   }
 }
@@ -42,12 +51,12 @@ const NO_STORE_HEADERS = {
 
 export async function GET() {
   try {
-    const { layout, preplay, homePreplaySound, autoTranslation } = await getOrCreateSetting()
-    return NextResponse.json({ layout, preplay, homePreplaySound, autoTranslation }, { headers: NO_STORE_HEADERS })
+    const { layout, preplay, homePreplaySound, defaultSort, autoTranslation } = await getOrCreateSetting()
+    return NextResponse.json({ layout, preplay, homePreplaySound, defaultSort, autoTranslation }, { headers: NO_STORE_HEADERS })
   } catch (error) {
     console.error('Home layout settings unavailable:', error)
     return NextResponse.json(
-      { layout: 'masonry', preplay: true, homePreplaySound: true, autoTranslation: true },
+      { layout: 'masonry', preplay: true, homePreplaySound: true, defaultSort: 'popular', autoTranslation: true },
       { headers: NO_STORE_HEADERS }
     )
   }
