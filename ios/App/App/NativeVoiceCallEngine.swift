@@ -93,9 +93,20 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     func audioSessionActivated() {
         audioSessionReady = true
-        RTCAudioSession.sharedInstance().audioSessionDidActivate(AVAudioSession.sharedInstance())
-        RTCAudioSession.sharedInstance().isAudioEnabled = true
+        let rtc = RTCAudioSession.sharedInstance()
+        rtc.lockForConfiguration()
+        defer { rtc.unlockForConfiguration() }
+        rtc.audioSessionDidActivate(AVAudioSession.sharedInstance())
+        rtc.isAudioEnabled = true
         beginAnswerIfNeeded()
+    }
+
+    private func ensureWebRtcAudioEnabled() {
+        guard audioSessionReady else { return }
+        let rtc = RTCAudioSession.sharedInstance()
+        rtc.lockForConfiguration()
+        defer { rtc.unlockForConfiguration() }
+        rtc.isAudioEnabled = true
     }
 
     func audioSessionDeactivated() {
@@ -196,10 +207,16 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             failCall(callId: callId, error: "invalid offer sdp")
             return
         }
+        guard audioSessionReady else {
+            print("[NativeVoiceCallEngine] defer createAnswer — awaiting CallKit audio \(callId)")
+            pendingStart = true
+            return
+        }
 
         let generation = UUID()
         tearDownPeerConnection(notify: false)
         createAnswerGeneration = generation
+        ensureWebRtcAudioEnabled()
 
         let config = RTCConfiguration()
         config.iceServers = iceServers
@@ -219,6 +236,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
         let audioSource = peerConnectionFactory().audioSource(with: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil))
         let audioTrack = peerConnectionFactory().audioTrack(with: audioSource, trackId: "audio0")
+        audioTrack.isEnabled = true
         pc.add(audioTrack, streamIds: ["stream0"])
 
         let offer = RTCSessionDescription(type: .offer, sdp: sdp)
@@ -320,6 +338,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         bootstrapGeneration = nil
         stopIcePoll()
         print("[NativeVoiceCallEngine] connected \(callId)")
+        ensureWebRtcAudioEnabled()
         postTrace(callId: callId, token: token ?? "", event: "native_webrtc_connected")
         let caller = cachedCaller
         runOnMain { [weak self] in

@@ -1352,7 +1352,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         const normalizedId = normalizeVoiceCallId(payload.callId)
         callKitAnswerInFlightRef.current = null
         callKitSignalingRef.current = false
-        nativeWebRtcCalleeRef.current = false
+        if (!isNativeIosCallApp()) {
+          nativeWebRtcCalleeRef.current = false
+        }
         answeringRef.current = false
         stopVoiceCallRingtone()
         callIdRef.current = normalizedId
@@ -1393,7 +1395,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         stopVoiceCallRingtone()
         callKitAnswerInFlightRef.current = null
         callKitSignalingRef.current = false
-        nativeWebRtcCalleeRef.current = false
+        if (!isNativeIosCallApp()) {
+          nativeWebRtcCalleeRef.current = false
+        }
         nativeWebRtcAndroidRef.current = false
         const normalizedId = normalizeVoiceCallId(callId)
         void (async () => {

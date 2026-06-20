@@ -297,7 +297,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         endAnswerBackgroundSupport()
     }
 
-    /// CallKit activates audio after fulfill — if didActivate is delayed on lock screen, unstick WebRTC.
+    /// CallKit activates audio after fulfill — never fake didActivate; WebRTC mic requires the real session.
     private func scheduleCallKitAudioActivationFallback(callId: String) {
         let normalized = callId.lowercased()
         let generation = UUID()
@@ -308,9 +308,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 return
             }
             guard NativeVoiceCallEngine.shared.awaitsCallKitAudioActivation else { return }
-            print("[AiMediaTankVoipPushBridge] didActivate fallback — activating audio for \(normalized)")
-            self.postVoiceTrace(callId: normalized, event: "callkit_audio_fallback")
-            NativeVoiceCallEngine.shared.audioSessionActivated()
+            print("[AiMediaTankVoipPushBridge] still awaiting CallKit didActivate for \(normalized)")
+            self.postVoiceTrace(callId: normalized, event: "callkit_audio_awaiting_did_activate")
         }
     }
 
@@ -1347,13 +1346,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Push in-app call state after unlock — never foreground WebView during CallKit (#1→#3).
     func syncLockScreenCallUiIfNeeded() {
         guard Self.canDeliverToWebView() else { return }
-        NativeVoiceCallEngine.shared.syncUiIfConnected()
+        if NativeVoiceCallEngine.shared.isMediaConnected {
+            NativeVoiceCallEngine.shared.syncUiIfConnected()
+            return
+        }
 
         let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased()
             ?? NativeVoiceCallEngine.shared.activeCallId?.lowercased()
         guard let callId, !callId.isEmpty else { return }
         guard Self.isLockScreenNativeAnswer(callId: callId)
             || NativeVoiceCallEngine.shared.activeCallId?.lowercased() == callId else { return }
+        if NativeVoiceCallEngine.shared.isMediaConnected { return }
 
         let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId))
         pendingJsAnswerCallId = callId
@@ -1670,7 +1673,15 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
         NativeVoiceCallEngine.shared.audioSessionDeactivated()
-        releaseAudioSession()
+        let callStillLive = hasActiveCallKitCall()
+            || hasPendingCallKitAnswer()
+            || NativeVoiceCallEngine.shared.isMediaConnected
+            || NativeVoiceCallEngine.shared.isActive
+        if !callStillLive {
+            releaseAudioSession()
+        } else {
+            print("[AiMediaTankVoipPushBridge] skip audio release — call still active")
+        }
     }
 }
 
@@ -1679,7 +1690,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 extension AiMediaTankVoipPushBridge: NativeVoiceCallEngineDelegate {
     func nativeVoiceCallEngineDidConnect(callId: String, caller: [String: Any]?) {
         print("[AiMediaTankVoipPushBridge] native WebRTC connected \(callId)")
-        syncLockScreenCallUiIfNeeded()
         reportCallConnected(callId: callId)
     }
 
