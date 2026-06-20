@@ -100,6 +100,8 @@ class NativeVoiceWebRtcEngine private constructor(
     private var pollSince = "1970-01-01T00:00:00.000Z"
 
     private val appliedRemoteIceKeys = mutableSetOf<String>()
+    private val pendingRemoteIce = mutableListOf<JSONObject>()
+    private var remoteDescriptionReady = false
     private var remoteAnswerApplied = false
     private var icePollGeneration: UUID? = null
     private var bootstrapGeneration: UUID? = null
@@ -133,7 +135,9 @@ class NativeVoiceWebRtcEngine private constructor(
                 bootstrapGeneration = null
                 stopSessionPoll()
                 appliedRemoteIceKeys.clear()
+                remoteDescriptionReady = false
                 remoteAnswerApplied = false
+                pendingRemoteIce.clear()
                 Log.i(TAG, "upgrade answer $normalized with decline token")
                 executor.execute {
                     postNativeTrace(normalized, newToken!!, "native_webrtc_token_upgrade")
@@ -163,7 +167,9 @@ class NativeVoiceWebRtcEngine private constructor(
         isMediaConnected = false
         running.set(true)
         appliedRemoteIceKeys.clear()
+        remoteDescriptionReady = false
         remoteAnswerApplied = false
+        pendingRemoteIce.clear()
         cachedCaller = null
 
         Log.i(
@@ -202,7 +208,9 @@ class NativeVoiceWebRtcEngine private constructor(
         isMediaConnected = false
         running.set(true)
         appliedRemoteIceKeys.clear()
+        remoteDescriptionReady = false
         remoteAnswerApplied = false
+        pendingRemoteIce.clear()
         cachedCaller = null
         parsedIceServers = parseIceServers(iceServersJson)
 
@@ -427,7 +435,7 @@ class NativeVoiceWebRtcEngine private constructor(
         callId: String,
         offerSdp: String,
         iceServers: List<PeerConnection.IceServer>,
-        pendingRemoteIce: List<JSONObject> = emptyList(),
+        initialRemoteIce: List<JSONObject> = emptyList(),
     ) {
         val sdp = normalizeSdp(offerSdp)
         if (!sdp.startsWith("v=") || sdp.startsWith("{")) {
@@ -456,9 +464,11 @@ class NativeVoiceWebRtcEngine private constructor(
         pc.setRemoteDescription(object : SdpObserverAdapter() {
             override fun onSetSuccess() {
                 if (createAnswerGeneration != generation) return
-                for (candidate in pendingRemoteIce) {
+                remoteDescriptionReady = true
+                for (candidate in initialRemoteIce) {
                     addRemoteIceCandidate(candidate, callId)
                 }
+                flushPendingRemoteIce(callId)
                 val constraints = MediaConstraints()
                 pc.createAnswer(object : SdpObserverAdapter() {
                     override fun onCreateSuccess(desc: SessionDescription?) {
@@ -522,7 +532,9 @@ class NativeVoiceWebRtcEngine private constructor(
             pc.setRemoteDescription(object : SdpObserverAdapter() {
                 override fun onSetSuccess() {
                     remoteAnswerApplied = true
+                    remoteDescriptionReady = true
                     Log.i(TAG, "applied remote answer $callId")
+                    flushPendingRemoteIce(callId)
                 }
 
                 override fun onSetFailure(error: String?) {
@@ -620,12 +632,15 @@ class NativeVoiceWebRtcEngine private constructor(
                 result.onSuccess { bootstrap ->
                     runWebRtc("icePoll") {
                         if (icePollGeneration != generation) return@runWebRtc
+                        if (isMediaConnected) return@runWebRtc
                         for (candidate in bootstrap.remoteIce) {
                             addRemoteIceCandidate(candidate, callId)
                         }
                     }
                 }
-                mainHandler.postDelayed({ poll() }, 350)
+                if (icePollGeneration == generation && !isMediaConnected) {
+                    mainHandler.postDelayed({ poll() }, 350)
+                }
             }
         }
         poll()
@@ -648,26 +663,28 @@ class NativeVoiceWebRtcEngine private constructor(
                 result.onSuccess { pollData ->
                     runWebRtc("sessionPoll") {
                         if (sessionPollGeneration != generation) return@runWebRtc
-                        if (peerConnection == null) return@runWebRtc
-                        for (signal in pollData.signals) {
-                            if (!signal.callId.equals(callId, ignoreCase = true)) continue
-                            when (signal.type) {
-                                "answer" -> {
-                                    if (asCaller && !remoteAnswerApplied) {
-                                        extractSdp(signal.payload)?.let { applyRemoteAnswer(callId, it) }
-                                    }
-                                }
-                                "ice" -> {
-                                    extractCandidate(signal.payload)?.let { addRemoteIceCandidate(it, callId) }
-                                }
+                        if (peerConnection == null || isMediaConnected) return@runWebRtc
+                        val callSignals = pollData.signals.filter {
+                            it.callId.equals(callId, ignoreCase = true)
+                        }
+                        for (signal in callSignals) {
+                            if (signal.type != "answer") continue
+                            if (asCaller && !remoteAnswerApplied) {
+                                extractSdp(signal.payload)?.let { applyRemoteAnswer(callId, it) }
                             }
+                        }
+                        for (signal in callSignals) {
+                            if (signal.type != "ice") continue
+                            extractCandidate(signal.payload)?.let { addRemoteIceCandidate(it, callId) }
                         }
                         if (pollData.maxCreatedAt.isNotEmpty()) {
                             pollSince = pollData.maxCreatedAt
                         }
                     }
                 }
-                mainHandler.postDelayed({ poll() }, 350)
+                if (sessionPollGeneration == generation && !isMediaConnected) {
+                    mainHandler.postDelayed({ poll() }, 350)
+                }
             }
         }
         poll()
@@ -677,23 +694,46 @@ class NativeVoiceWebRtcEngine private constructor(
         sessionPollGeneration = null
     }
 
+    private fun flushPendingRemoteIce(callId: String) {
+        if (pendingRemoteIce.isEmpty()) return
+        val queued = pendingRemoteIce.distinctBy { iceCandidateKey(it) }
+        pendingRemoteIce.clear()
+        for (candidate in queued) {
+            addRemoteIceCandidate(candidate, callId)
+        }
+    }
+
     private fun addRemoteIceCandidate(dict: JSONObject, callId: String) {
+        if (isMediaConnected) return
         val key = iceCandidateKey(dict)
-        if (!appliedRemoteIceKeys.add(key)) return
+        if (appliedRemoteIceKeys.contains(key)) return
+        if (!remoteDescriptionReady) {
+            pendingRemoteIce.add(dict)
+            return
+        }
         val sdp = dict.optString("candidate", "")
         if (sdp.isEmpty()) return
         val sdpMid = dict.optString("sdpMid", "").ifEmpty { null }
         val mLineIndex = dict.optInt("sdpMLineIndex", 0)
 
         val task = Runnable {
+            if (isMediaConnected) return@Runnable
             val pc = peerConnection ?: return@Runnable
             if (this.callId != callId) return@Runnable
-            try {
-                val candidate = IceCandidate(sdpMid, mLineIndex, sdp)
-                pc.addIceCandidate(candidate)
-            } catch (e: Exception) {
-                Log.w(TAG, "addIceCandidate failed $callId: ${e.message}")
+            if (pc.remoteDescription == null) {
+                pendingRemoteIce.add(dict)
+                return@Runnable
             }
+            if (!appliedRemoteIceKeys.add(key)) return@Runnable
+            val candidate = IceCandidate(sdpMid, mLineIndex, sdp)
+            pc.addIceCandidate(candidate, object : AddIceObserver {
+                override fun onAddSuccess() {}
+
+                override fun onAddFailure(error: String) {
+                    appliedRemoteIceKeys.remove(key)
+                    Log.w(TAG, "addIceCandidate failed $callId: $error")
+                }
+            })
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             task.run()
@@ -713,6 +753,9 @@ class NativeVoiceWebRtcEngine private constructor(
         createAnswerGeneration = null
         stopIcePoll()
         stopSessionPoll()
+        remoteDescriptionReady = false
+        remoteAnswerApplied = false
+        pendingRemoteIce.clear()
         localAudioTrack?.dispose()
         localAudioTrack = null
         audioSource?.dispose()
