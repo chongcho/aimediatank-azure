@@ -3263,6 +3263,11 @@ if (fs.existsSync(callManagerPath)) {
 
     private fun notifyError`,
     )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager drop in-call LoudnessEnhancer')
+  }
+
   callManager = fs.readFileSync(callManagerPath, 'utf8')
   if (
     callManager.includes('fun reapplyVolumeControlStream()') &&
