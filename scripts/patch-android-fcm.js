@@ -1983,17 +1983,23 @@ if (fs.existsSync(callVolumeStatePath)) {
 
 const callScreenPresentationMarker = 'AiMediaTank CallScreenPresentation'
 const callScreenPresentationV2Marker = 'keep-screen-on flags only'
+const callScreenPresentationMainThreadMarker = 'main looper for window flags'
 const callScreenPresentationSource = `package com.capacitor.voipcalls
 
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.view.WindowManager
 
 /** Clears window flags that block the system screen-timeout after voice calls end. */
 object CallScreenPresentation {
     // ${callScreenPresentationMarker}
     // ${callScreenPresentationV2Marker}
+    // ${callScreenPresentationMainThreadMarker}
+
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     @JvmStatic
     fun clearIfIdle(activity: Activity?) {
@@ -2003,11 +2009,21 @@ object CallScreenPresentation {
 
     @JvmStatic
     fun clear(activity: Activity) {
-        activity.window.clearFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
-        )
-        clearStaleVoiceIncomingIntent(activity)
+        runOnMain {
+            activity.window.clearFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                    or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+            )
+            clearStaleVoiceIncomingIntent(activity)
+        }
+    }
+
+    private fun runOnMain(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            block()
+        } else {
+            mainHandler.post(block)
+        }
     }
 
     private fun clearStaleVoiceIncomingIntent(activity: Activity) {
@@ -2024,10 +2040,17 @@ object CallScreenPresentation {
 }
 `
 
-if (
-  !fs.existsSync(callScreenPresentationPath) ||
-  !fs.readFileSync(callScreenPresentationPath, 'utf8').includes(callScreenPresentationV2Marker)
-) {
+if (fs.existsSync(callScreenPresentationPath)) {
+  const existingPresentation = fs.readFileSync(callScreenPresentationPath, 'utf8')
+  if (
+    !existingPresentation.includes(callScreenPresentationMainThreadMarker) &&
+    existingPresentation.includes('fun clear(activity: Activity) {')
+  ) {
+    fs.writeFileSync(callScreenPresentationPath, callScreenPresentationSource)
+    changed = true
+    console.log('[patch-android-fcm] CallScreenPresentation.kt (main-thread window flags)')
+  }
+} else {
   fs.writeFileSync(callScreenPresentationPath, callScreenPresentationSource)
   changed = true
   console.log('[patch-android-fcm] CallScreenPresentation.kt (wake-lock flags only)')
