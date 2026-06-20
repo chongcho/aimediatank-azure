@@ -627,7 +627,7 @@ function buildSetVoiceCallAudioActiveBlock() {
     fun reapplyVolumeControlStream() {
         if (!voiceCallAudioActive && !CallVolumeState.ringActive) return
         val stream = if (voiceCallAudioActive) {
-            AudioManager.STREAM_MUSIC
+            AudioManager.STREAM_VOICE_CALL
         } else {
             AudioManager.STREAM_MUSIC
         }
@@ -677,15 +677,14 @@ function buildSetVoiceCallAudioActiveBlock() {
         if (active) {
             // ${callActivePlaybackMarker}
             // ${voiceCallCommunicationModeMarker}
-            // ${voiceCallRingLoudnessModeMarker}
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            audioManager.mode = AudioManager.MODE_NORMAL
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
             @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = true
             reapplyVolumeControlStream()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val attrs = android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
                 val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -697,10 +696,11 @@ function buildSetVoiceCallAudioActiveBlock() {
                 @Suppress("DEPRECATION")
                 audioManager.requestAudioFocus(
                     null,
-                    AudioManager.STREAM_MUSIC,
+                    AudioManager.STREAM_VOICE_CALL,
                     AudioManager.AUDIOFOCUS_GAIN
                 )
             }
+            applyTelecomSpeakerRoute()
             return
         }
         releaseGlobalAudioSideEffects()
@@ -2940,5 +2940,331 @@ if (fs.existsSync(callManagerPath)) {
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
     console.log('[patch-android-fcm] CallManager voice call ring loudness mode')
+  }
+}
+
+const voiceCallTelecomSpeakerMarker = 'AiMediaTank telecom managed speaker route'
+const voipTelecomSpeakerMarker = 'AiMediaTank telecom speaker route'
+
+if (fs.existsSync(voipConnectionPath)) {
+  let voipConnection = fs.readFileSync(voipConnectionPath, 'utf8')
+  if (!voipConnection.includes(voipTelecomSpeakerMarker)) {
+    if (!voipConnection.includes('import android.telecom.CallAudioState')) {
+      voipConnection = voipConnection.replace(
+        'import android.telecom.Connection',
+        `import android.telecom.CallAudioState
+import android.telecom.CallEndpoint
+import android.telecom.Connection
+import android.telecom.CallEndpointException
+import android.os.OutcomeReceiver
+import androidx.core.content.ContextCompat`,
+      )
+    }
+    voipConnection = voipConnection.replace(
+      `        setConnectionProperties(PROPERTY_SELF_MANAGED)
+
+        if (video) {`,
+      `        setConnectionProperties(PROPERTY_SELF_MANAGED)
+        setAudioModeIsVoip(true)
+
+        if (video) {`,
+    )
+    voipConnection = voipConnection.replace(
+      `    override fun onShowIncomingCallUi() {`,
+      `    fun requestSpeakerRoute() {
+        // ${voipTelecomSpeakerMarker}
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val speaker = currentCallEndpoints.firstOrNull {
+                it.endpointType == CallEndpoint.TYPE_SPEAKER
+            }
+            if (speaker != null) {
+                requestCallEndpointChange(
+                    speaker,
+                    ContextCompat.getMainExecutor(context),
+                    object : OutcomeReceiver<Void?, CallEndpointException> {
+                        override fun onResult(result: Void?) {
+                            android.util.Log.i("VoipConnection", "telecom speaker callId=$callId")
+                        }
+                        override fun onError(error: CallEndpointException) {
+                            android.util.Log.w("VoipConnection", "telecom speaker failed callId=$callId", error)
+                            routeSpeakerLegacy()
+                        }
+                    },
+                )
+                return
+            }
+        }
+        routeSpeakerLegacy()
+    }
+
+    private fun routeSpeakerLegacy() {
+        @Suppress("DEPRECATION")
+        setAudioRoute(CallAudioState.ROUTE_SPEAKER)
+    }
+
+    fun requestEarpieceRoute() {
+        @Suppress("DEPRECATION")
+        setAudioRoute(CallAudioState.ROUTE_EARPIECE)
+    }
+
+    override fun onShowIncomingCallUi() {`,
+    )
+    voipConnection = voipConnection.replace(
+      `    override fun onAnswer() {
+        setActive()
+        callManager?.notifyCallAnswered(callId)
+    }`,
+      `    override fun onAnswer() {
+        setActive()
+        requestSpeakerRoute()
+        callManager?.notifyCallAnswered(callId)
+    }`,
+    )
+    voipConnection = voipConnection.replace(
+      `    override fun onAnswer(videoState: Int) {
+        setActive()
+        setVideoState(videoState)
+        callManager?.notifyCallAnswered(callId)
+    }`,
+      `    override fun onAnswer(videoState: Int) {
+        setActive()
+        setVideoState(videoState)
+        requestSpeakerRoute()
+        callManager?.notifyCallAnswered(callId)
+    }`,
+    )
+    voipConnection = voipConnection.replace(
+      `            STATE_ACTIVE -> {
+                // Call is now active
+            }`,
+      `            STATE_ACTIVE -> {
+                requestSpeakerRoute()
+            }`,
+    )
+    fs.writeFileSync(voipConnectionPath, voipConnection)
+    changed = true
+    console.log('[patch-android-fcm] VoipConnection telecom speaker route')
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (callManager.includes(voiceCallRingLoudnessModeMarker) && !callManager.includes(voiceCallTelecomSpeakerMarker)) {
+    callManager = callManager.replace(
+      `            // ${voiceCallCommunicationModeMarker}
+            // ${voiceCallRingLoudnessModeMarker}
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.mode = AudioManager.MODE_NORMAL`,
+      `            // ${voiceCallCommunicationModeMarker}
+            // ${voiceCallTelecomSpeakerMarker}
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION`,
+    )
+    callManager = callManager.replace(
+      `        val stream = if (voiceCallAudioActive) {
+            AudioManager.STREAM_MUSIC
+        } else {
+            AudioManager.STREAM_MUSIC
+        }`,
+      `        val stream = if (voiceCallAudioActive) {
+            AudioManager.STREAM_VOICE_CALL
+        } else {
+            AudioManager.STREAM_MUSIC
+        }`,
+    )
+    callManager = callManager.replace(
+      `.setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(attrs)
+                    .build()
+                voiceCallFocusRequest = focusRequest
+                audioManager.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
+            enableVoiceCallLoudnessBoost()`,
+      `.setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(attrs)
+                    .build()
+                voiceCallFocusRequest = focusRequest
+                audioManager.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_VOICE_CALL,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
+            applyTelecomSpeakerRoute()`,
+    )
+    callManager = callManager.replace(
+      /\n    fun setVoiceCallMediaVolume\(level: Float\) \{[\s\S]*?\n    \}\n\n    private fun notifyError/,
+      `
+    fun setVoiceCallMediaVolume(level: Float) {
+        // ${voiceCallMediaVolumeLevelMarker}
+        // ${voiceCallTelecomSpeakerMarker}
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val clamped = level.coerceIn(0f, 1f)
+        val streams = intArrayOf(AudioManager.STREAM_VOICE_CALL, AudioManager.STREAM_MUSIC)
+        if (clamped <= 0f) {
+            for (stream in streams) {
+                audioManager.setStreamVolume(stream, 0, 0)
+            }
+            reapplyVolumeControlStream()
+            return
+        }
+        val ringMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING)
+        val ringFraction = if (ringMax > 0) {
+            audioManager.getStreamVolume(AudioManager.STREAM_RING).toFloat() / ringMax.toFloat()
+        } else {
+            1f
+        }
+        val targetFraction = kotlin.math.max(clamped, ringFraction * clamped)
+        for (stream in streams) {
+            val max = audioManager.getStreamMaxVolume(stream)
+            if (max <= 0) continue
+            val target = (max * targetFraction).toInt().coerceIn(1, max)
+            audioManager.setStreamVolume(stream, target, 0)
+        }
+        reapplyVolumeControlStream()
+    }
+
+    private fun notifyError`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager revert ring loudness mode to telecom speaker')
+  }
+
+  callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (!callManager.includes('fun applyTelecomSpeakerRoute()')) {
+    callManager = callManager.replace(
+      `    fun setAudioRoute(route: String) {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        
+        when (route) {
+            "speaker" -> {
+                audioManager.isSpeakerphoneOn = true
+            }
+            "earpiece" -> {
+                audioManager.isSpeakerphoneOn = false
+            }
+            "bluetooth" -> {
+                // Bluetooth routing is handled automatically when connected
+                audioManager.isBluetoothScoOn = true
+                audioManager.startBluetoothSco()
+            }
+        }
+    }`,
+      `    fun applyTelecomSpeakerRoute() {
+        // ${voiceCallTelecomSpeakerMarker}
+        var telecomRouted = false
+        for (connection in activeCalls.values) {
+            connection.requestSpeakerRoute()
+            telecomRouted = true
+        }
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        if (!telecomRouted) {
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    val speaker = audioManager.availableCommunicationDevices
+                        .firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                    if (speaker != null) {
+                        audioManager.setCommunicationDevice(speaker)
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }
+        setVoiceCallMediaVolume(1.0f)
+        android.util.Log.i(
+            "CallManager",
+            "telecom speaker route connections=\${activeCalls.size} telecom=\$telecomRouted",
+        )
+    }
+
+    fun applyTelecomEarpieceRoute() {
+        for (connection in activeCalls.values) {
+            connection.requestEarpieceRoute()
+        }
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        @Suppress("DEPRECATION")
+        audioManager.isSpeakerphoneOn = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                audioManager.clearCommunicationDevice()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    fun setAudioRoute(route: String) {
+        when (route) {
+            "speaker" -> applyTelecomSpeakerRoute()
+            "earpiece" -> applyTelecomEarpieceRoute()
+            "bluetooth" -> {
+                val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                audioManager.isBluetoothScoOn = true
+                @Suppress("DEPRECATION")
+                audioManager.startBluetoothSco()
+            }
+        }
+    }`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager applyTelecomSpeakerRoute')
+  }
+
+  callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('enableVoiceCallLoudnessBoost()') &&
+    callManager.includes('fun setVoiceCallAudioActive(active: Boolean)') &&
+    !callManager.includes(`${voiceCallTelecomSpeakerMarker}\n            return`)
+  ) {
+    callManager = callManager.replace(
+      `            enableVoiceCallLoudnessBoost()
+            return
+        }
+        releaseGlobalAudioSideEffects()
+    }
+
+    fun setVoiceCallMediaVolume(level: Float) {`,
+      `            applyTelecomSpeakerRoute()
+            return
+        }
+        releaseGlobalAudioSideEffects()
+    }
+
+    fun setVoiceCallMediaVolume(level: Float) {`,
+    )
+    callManager = callManager.replace(
+      `        enableVoiceCallLoudnessBoost()
+        reapplyVolumeControlStream()
+    }
+
+    private fun notifyError`,
+      `        reapplyVolumeControlStream()
+    }
+
+    private fun notifyError`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager drop in-call LoudnessEnhancer')
   }
 }

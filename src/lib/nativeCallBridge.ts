@@ -690,7 +690,7 @@ export async function setNativeWebRtcMuted(muted: boolean): Promise<void> {
   }
 }
 
-/** Android: WebRTC voice calls use MODE_IN_COMMUNICATION + STREAM_VOICE_CALL (Kakao-style). */
+/** Android: route in-call audio via Telecom Connection speaker (KakaoTalk-style). */
 export async function setNativeVoiceCallAudioActive(active: boolean): Promise<void> {
   if (!isNativeAndroidCallApp()) return
   try {
