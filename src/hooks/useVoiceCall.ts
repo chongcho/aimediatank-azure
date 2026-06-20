@@ -913,7 +913,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   useEffect(() => {
     if (!isNativeAndroidCallApp()) return
-    const active = callState === 'connecting' || callState === 'connected'
+    const active =
+      callState === 'outgoing' ||
+      callState === 'connecting' ||
+      callState === 'connected'
     if (!active) {
       void setNativeVoiceCallAudioActive(false)
       return

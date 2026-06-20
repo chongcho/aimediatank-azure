@@ -223,8 +223,10 @@ class NativeVoiceWebRtcEngine private constructor(
         parsedIceServers = parseIceServers(iceServersJson)
 
         Log.i(TAG, "start caller $normalized")
-        ensureVoiceCallAudioActive()
-        runWebRtc("startCaller") { createAndSendOffer(normalized) }
+        runWebRtc("startCaller") {
+            ensureVoiceCallAudioActive()
+            createAndSendOffer(normalized)
+        }
     }
 
     fun setMuted(muted: Boolean) {
@@ -327,7 +329,6 @@ class NativeVoiceWebRtcEngine private constructor(
 
     private fun createAndSendOffer(callId: String) {
         tearDownPeerConnection(notify = false)
-        applyTelecomSpeakerRoute()
         val pc = createPeerConnection(parsedIceServers)
         if (pc == null) {
             failCall(callId, "peer connection create failed")
@@ -335,6 +336,8 @@ class NativeVoiceWebRtcEngine private constructor(
         }
         peerConnection = pc
         attachLocalAudio(pc)
+        applyTelecomSpeakerRoute()
+        localAudioTrack?.setEnabled(true)
 
         val constraints = MediaConstraints()
         pc.createOffer(object : SdpObserverAdapter() {
@@ -543,6 +546,8 @@ class NativeVoiceWebRtcEngine private constructor(
                     remoteDescriptionReady = true
                     flushPendingRemoteIce(callId)
                     remoteAnswerApplied = true
+                    localAudioTrack?.setEnabled(true)
+                    applyTelecomSpeakerRoute()
                     if (isCaller) {
                         stopSessionPoll()
                         injectUiEvent(
@@ -688,16 +693,13 @@ class NativeVoiceWebRtcEngine private constructor(
                             it.callId.equals(callId, ignoreCase = true)
                         }
                         for (signal in callSignals) {
-                            if (signal.type != "answer") continue
-                            if (asCaller && !remoteAnswerApplied) {
+                            if (signal.type == "answer" && asCaller && !remoteAnswerApplied) {
                                 extractSdp(signal.payload)?.let { applyRemoteAnswer(callId, it) }
+                                continue
                             }
-                        }
-                        if (shouldProcessRemoteIce() && !asCaller) {
-                            for (signal in callSignals) {
-                                if (signal.type != "ice") continue
-                                extractCandidate(signal.payload)?.let { addRemoteIceCandidate(it, callId) }
-                            }
+                            if (signal.type != "ice") continue
+                            if (!shouldProcessRemoteIce()) continue
+                            extractCandidate(signal.payload)?.let { addRemoteIceCandidate(it, callId) }
                         }
                         if (pollData.maxCreatedAt.isNotEmpty()) {
                             pollSince = pollData.maxCreatedAt
@@ -822,10 +824,15 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun ensureVoiceCallAudioActive() {
-        mainHandler.post {
-            val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: return@post
+        val activate = Runnable {
+            val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: return@Runnable
             callManager.setVoiceCallAudioActive(true)
             applyTelecomSpeakerRoute()
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            activate.run()
+        } else {
+            mainHandler.post(activate)
         }
     }
 
