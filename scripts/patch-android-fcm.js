@@ -2945,6 +2945,45 @@ if (fs.existsSync(callManagerPath)) {
 
 const voiceCallTelecomSpeakerMarker = 'AiMediaTank telecom managed speaker route'
 const voipTelecomSpeakerMarker = 'AiMediaTank telecom speaker route'
+const voipTelecomSpeakerLegacyMarker = 'AiMediaTank telecom speaker legacy route'
+if (fs.existsSync(voipConnectionPath)) {
+  let voipConnection = fs.readFileSync(voipConnectionPath, 'utf8')
+  if (
+    voipConnection.includes(voipTelecomSpeakerMarker) &&
+    voipConnection.includes('currentCallEndpoints') &&
+    !voipConnection.includes(voipTelecomSpeakerLegacyMarker)
+  ) {
+    voipConnection = voipConnection.replace(
+      /    fun requestSpeakerRoute\(\) \{[\s\S]*?    fun requestEarpieceRoute\(\) \{/,
+      `    fun requestSpeakerRoute() {
+        // ${voipTelecomSpeakerMarker}
+        // ${voipTelecomSpeakerLegacyMarker}
+        routeSpeakerLegacy()
+    }
+
+    private fun routeSpeakerLegacy() {
+        @Suppress("DEPRECATION")
+        setAudioRoute(CallAudioState.ROUTE_SPEAKER)
+        android.util.Log.i("VoipConnection", "telecom speaker callId=$callId")
+    }
+
+    fun requestEarpieceRoute() {`,
+    )
+    voipConnection = voipConnection.replace(
+      `import android.telecom.CallEndpoint
+import android.telecom.Connection
+import android.telecom.CallEndpointException
+import android.os.OutcomeReceiver
+import androidx.core.content.ContextCompat
+`,
+      `import android.telecom.Connection
+`,
+    )
+    fs.writeFileSync(voipConnectionPath, voipConnection)
+    changed = true
+    console.log('[patch-android-fcm] VoipConnection legacy telecom speaker route')
+  }
+}
 
 if (fs.existsSync(voipConnectionPath)) {
   let voipConnection = fs.readFileSync(voipConnectionPath, 'utf8')
@@ -2953,11 +2992,7 @@ if (fs.existsSync(voipConnectionPath)) {
       voipConnection = voipConnection.replace(
         'import android.telecom.Connection',
         `import android.telecom.CallAudioState
-import android.telecom.CallEndpoint
-import android.telecom.Connection
-import android.telecom.CallEndpointException
-import android.os.OutcomeReceiver
-import androidx.core.content.ContextCompat`,
+import android.telecom.Connection`,
       )
     }
     voipConnection = voipConnection.replace(
@@ -2973,33 +3008,14 @@ import androidx.core.content.ContextCompat`,
       `    override fun onShowIncomingCallUi() {`,
       `    fun requestSpeakerRoute() {
         // ${voipTelecomSpeakerMarker}
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val speaker = currentCallEndpoints.firstOrNull {
-                it.endpointType == CallEndpoint.TYPE_SPEAKER
-            }
-            if (speaker != null) {
-                requestCallEndpointChange(
-                    speaker,
-                    ContextCompat.getMainExecutor(context),
-                    object : OutcomeReceiver<Void?, CallEndpointException> {
-                        override fun onResult(result: Void?) {
-                            android.util.Log.i("VoipConnection", "telecom speaker callId=$callId")
-                        }
-                        override fun onError(error: CallEndpointException) {
-                            android.util.Log.w("VoipConnection", "telecom speaker failed callId=$callId", error)
-                            routeSpeakerLegacy()
-                        }
-                    },
-                )
-                return
-            }
-        }
+        // ${voipTelecomSpeakerLegacyMarker}
         routeSpeakerLegacy()
     }
 
     private fun routeSpeakerLegacy() {
         @Suppress("DEPRECATION")
         setAudioRoute(CallAudioState.ROUTE_SPEAKER)
+        android.util.Log.i("VoipConnection", "telecom speaker callId=$callId")
     }
 
     fun requestEarpieceRoute() {

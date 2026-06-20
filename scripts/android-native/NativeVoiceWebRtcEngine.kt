@@ -273,6 +273,9 @@ class NativeVoiceWebRtcEngine private constructor(
                     Log.i(TAG, "webrtc audio track start")
                     mainHandler.post { applyTelecomSpeakerRoute() }
                 }
+
+                override fun onWebRtcAudioTrackStop() {
+                }
             })
             .createAudioDeviceModule()
         audioDeviceModule = adm
