@@ -192,8 +192,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         }
 
         let generation = UUID()
-        createAnswerGeneration = generation
         tearDownPeerConnection(notify: false)
+        createAnswerGeneration = generation
 
         let config = RTCConfiguration()
         config.iceServers = iceServers
