@@ -22,11 +22,16 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var token: String?
     private var baseURL: String = ""
     private var appliedRemoteIceKeys = Set<String>()
+    private var pendingRemoteIce = [[String: Any]]()
+    private var remoteDescriptionReady = false
     private var isAnswering = false
     private var audioSessionReady = false
     private var pendingStart = false
     private var icePollGeneration: UUID?
     private var bootstrapGeneration: UUID?
+    private var createAnswerGeneration: UUID?
+    private var remoteIceEpoch = 0
+    private var iceDisconnectWorkItem: DispatchWorkItem?
     private var cachedCaller: [String: Any]?
     private(set) var isMediaConnected = false
 
@@ -34,7 +39,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         super.init()
     }
 
-    /// Defer WebRTC init until answer ? avoids crashes during PushKit cold wake.
+    /// Defer WebRTC init until answer — avoids crashes during PushKit cold wake.
     private func peerConnectionFactory() -> RTCPeerConnectionFactory {
         if let factory { return factory }
         RTCInitializeSSL()
@@ -64,12 +69,15 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             tearDownPeerConnection(notify: false)
         }
 
+        cancelIceDisconnectTimer()
         self.callId = normalized
         self.token = token
         self.baseURL = baseURL
         isAnswering = true
         pendingStart = true
         appliedRemoteIceKeys.removeAll()
+        pendingRemoteIce.removeAll()
+        remoteDescriptionReady = false
         cachedCaller = nil
         isMediaConnected = false
 
@@ -96,6 +104,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     func endCall(reason: String = "user", syncServer: Bool = true) {
         print("[NativeVoiceCallEngine] end call \(callId ?? "nil") reason=\(reason)")
+        cancelIceDisconnectTimer()
         stopIcePoll()
         bootstrapGeneration = nil
         isAnswering = false
@@ -158,17 +167,32 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                     return
                 }
                 DispatchQueue.main.async {
-                    self.createAnswer(callId: callId, token: token, offerSdp: offerSdp, iceServers: bootstrap.iceServers)
-                    for candidate in bootstrap.remoteIceCandidates {
-                        self.addRemoteIceCandidate(candidate, callId: callId)
-                    }
-                    self.startIcePoll(callId: callId, token: token)
+                    self.createAnswer(
+                        callId: callId,
+                        token: token,
+                        offerSdp: offerSdp,
+                        iceServers: bootstrap.iceServers,
+                        initialRemoteIce: bootstrap.remoteIceCandidates
+                    )
                 }
             }
         }
     }
 
-    private func createAnswer(callId: String, token: String, offerSdp: String, iceServers: [RTCIceServer]) {
+    private func createAnswer(
+        callId: String,
+        token: String,
+        offerSdp: String,
+        iceServers: [RTCIceServer],
+        initialRemoteIce: [[String: Any]] = []
+    ) {
+        guard let sdp = Self.normalizeSdp(offerSdp), sdp.hasPrefix("v="), !sdp.hasPrefix("{") else {
+            failCall(callId: callId, error: "invalid offer sdp")
+            return
+        }
+
+        let generation = UUID()
+        createAnswerGeneration = generation
         tearDownPeerConnection(notify: false)
 
         let config = RTCConfiguration()
@@ -191,14 +215,23 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         let audioTrack = peerConnectionFactory().audioTrack(with: audioSource, trackId: "audio0")
         pc.add(audioTrack, streamIds: ["stream0"])
 
-        let offer = RTCSessionDescription(type: .offer, sdp: offerSdp)
+        let offer = RTCSessionDescription(type: .offer, sdp: sdp)
+        print("[NativeVoiceCallEngine] setRemoteDescription \(callId) len=\(sdp.count)")
         pc.setRemoteDescription(offer) { [weak self] error in
             guard let self else { return }
+            guard self.createAnswerGeneration == generation else { return }
             if let error {
                 self.failCall(callId: callId, error: "setRemoteDescription: \(error.localizedDescription)")
                 return
             }
+            self.remoteDescriptionReady = true
+            for candidate in initialRemoteIce {
+                self.addRemoteIceCandidate(candidate, callId: callId)
+            }
+            self.flushPendingRemoteIce(callId: callId)
+
             pc.answer(for: constraints) { answer, error in
+                guard self.createAnswerGeneration == generation else { return }
                 if let error {
                     self.failCall(callId: callId, error: "createAnswer: \(error.localizedDescription)")
                     return
@@ -208,6 +241,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                     return
                 }
                 pc.setLocalDescription(answer) { error in
+                    guard self.createAnswerGeneration == generation else { return }
                     if let error {
                         self.failCall(callId: callId, error: "setLocalDescription: \(error.localizedDescription)")
                         return
@@ -219,13 +253,19 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                         payload: ["sdp": ["type": Self.sdpTypeString(answer.type), "sdp": answer.sdp]]
                     )
                     self.postTrace(callId: callId, token: token, event: "native_webrtc_answer_sent")
+                    print("[NativeVoiceCallEngine] posted answer sdp \(callId)")
+                    self.startIcePoll(callId: callId, token: token)
                 }
             }
         }
     }
 
     private func tearDownPeerConnection(notify: Bool) {
+        createAnswerGeneration = nil
         stopIcePoll()
+        remoteDescriptionReady = false
+        pendingRemoteIce.removeAll()
+        invalidateRemoteIceProcessing()
         peerConnection?.close()
         peerConnection = nil
         if notify, let callId {
@@ -236,13 +276,18 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     private func failCall(callId: String, error: String) {
         print("[NativeVoiceCallEngine] failed \(callId): \(error)")
-        postTrace(callId: callId, token: token ?? "", event: "native_webrtc_failed", detail: ["error": error])
+        let authToken = token
+        postTrace(callId: callId, token: authToken ?? "", event: "native_webrtc_failed", detail: ["error": error])
+        cancelIceDisconnectTimer()
         isAnswering = false
         pendingStart = false
         bootstrapGeneration = nil
         tearDownPeerConnection(notify: false)
         delegate?.nativeVoiceCallEngineDidFail(callId: callId, error: error)
         injectUiEvent(name: "aimediatank-callkit-end", callId: callId)
+        if let authToken, !authToken.isEmpty {
+            postNativeCallKit(action: "end", callId: callId, token: authToken)
+        }
         self.callId = nil
         self.token = nil
     }
@@ -250,10 +295,13 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private func markConnected(callId: String) {
         guard isAnswering || peerConnection != nil else { return }
         guard !isMediaConnected else { return }
+        cancelIceDisconnectTimer()
+        invalidateRemoteIceProcessing()
         isMediaConnected = true
         isAnswering = false
         pendingStart = false
         bootstrapGeneration = nil
+        stopIcePoll()
         print("[NativeVoiceCallEngine] connected \(callId)")
         postTrace(callId: callId, token: token ?? "", event: "native_webrtc_connected")
         delegate?.nativeVoiceCallEngineDidConnect(callId: callId, caller: cachedCaller)
@@ -262,7 +310,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     private func scheduleConnectedUiSync(callId: String, caller: [String: Any]?) {
         let normalized = callId.lowercased()
-        let delays: [TimeInterval] = [0, 1, 2, 4, 8, 15, 30, 60, 120]
+        let delays: [TimeInterval] = [0, 1, 3, 8]
         for delay in delays {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 guard let self, self.isMediaConnected, self.callId == normalized else { return }
@@ -278,14 +326,19 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
         func poll() {
             guard self.icePollGeneration == generation else { return }
-            guard self.peerConnection != nil else { return }
+            guard self.peerConnection != nil, !self.isMediaConnected else { return }
             self.fetchBootstrap(callId: callId, token: token) { result in
                 guard self.icePollGeneration == generation else { return }
+                guard !self.isMediaConnected else { return }
                 if case .success(let bootstrap) = result {
-                    for candidate in bootstrap.remoteIceCandidates {
-                        self.addRemoteIceCandidate(candidate, callId: callId)
+                    DispatchQueue.main.async {
+                        guard self.icePollGeneration == generation, !self.isMediaConnected else { return }
+                        for candidate in bootstrap.remoteIceCandidates {
+                            self.addRemoteIceCandidate(candidate, callId: callId)
+                        }
                     }
                 }
+                guard self.icePollGeneration == generation, !self.isMediaConnected else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                     poll()
                 }
@@ -298,27 +351,100 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         icePollGeneration = nil
     }
 
+    private func invalidateRemoteIceProcessing() {
+        remoteIceEpoch &+= 1
+        pendingRemoteIce.removeAll()
+    }
+
+    private func flushPendingRemoteIce(callId: String) {
+        guard !pendingRemoteIce.isEmpty, shouldProcessRemoteIce() else { return }
+        let queued = pendingRemoteIce
+        pendingRemoteIce.removeAll()
+        for candidate in queued {
+            addRemoteIceCandidate(candidate, callId: callId)
+        }
+    }
+
+    private func shouldProcessRemoteIce() -> Bool {
+        if isMediaConnected { return false }
+        guard let pc = peerConnection else { return false }
+        return canAcceptRemoteIce(pc)
+    }
+
+    private func canAcceptRemoteIce(_ pc: RTCPeerConnection) -> Bool {
+        switch pc.iceConnectionState {
+        case .connected, .completed, .closed, .failed:
+            return false
+        default:
+            return true
+        }
+    }
+
     private func addRemoteIceCandidate(_ dict: [String: Any], callId: String) {
-        guard let pc = peerConnection else { return }
+        let epoch = remoteIceEpoch
         let key = candidateKey(dict)
-        guard !appliedRemoteIceKeys.contains(key) else { return }
-        appliedRemoteIceKeys.insert(key)
-        guard let sdp = dict["candidate"] as? String, !sdp.isEmpty else { return }
-        let mLineIndex = Int32(dict["sdpMLineIndex"] as? Int ?? 0)
-        let rawMid = dict["sdpMid"] as? String
-        let sdpMid = (rawMid?.isEmpty == false) ? rawMid : nil
-        pc.add(RTCIceCandidate(sdp: sdp, sdpMLineIndex: mLineIndex, sdpMid: sdpMid)) { error in
-            if let error {
-                print("[NativeVoiceCallEngine] add ICE failed \(callId): \(error.localizedDescription)")
+        if appliedRemoteIceKeys.contains(key) { return }
+        if !remoteDescriptionReady {
+            pendingRemoteIce.append(dict)
+            return
+        }
+        if !shouldProcessRemoteIce() { return }
+
+        let task = { [weak self] in
+            guard let self else { return }
+            guard epoch == self.remoteIceEpoch else { return }
+            guard self.callId == callId.lowercased() else { return }
+            if !self.shouldProcessRemoteIce() { return }
+            guard let pc = self.peerConnection else { return }
+            if pc.remoteDescription == nil {
+                self.pendingRemoteIce.append(dict)
+                return
             }
+            if !self.canAcceptRemoteIce(pc) { return }
+            guard !self.appliedRemoteIceKeys.contains(key) else { return }
+            guard let sdp = dict["candidate"] as? String, !sdp.isEmpty else { return }
+            self.appliedRemoteIceKeys.insert(key)
+            let mLineIndex = Int32(dict["sdpMLineIndex"] as? Int ?? 0)
+            let rawMid = dict["sdpMid"] as? String
+            let sdpMid = (rawMid?.isEmpty == false) ? rawMid : nil
+            pc.add(RTCIceCandidate(sdp: sdp, sdpMLineIndex: mLineIndex, sdpMid: sdpMid)) { error in
+                if let error {
+                    self.appliedRemoteIceKeys.remove(key)
+                    print("[NativeVoiceCallEngine] add ICE failed \(callId): \(error.localizedDescription)")
+                }
+            }
+        }
+
+        if Thread.isMainThread {
+            task()
+        } else {
+            DispatchQueue.main.async(execute: task)
         }
     }
 
     private func candidateKey(_ dict: [String: Any]) -> String {
-        if let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]) {
-            return String(data: data, encoding: .utf8) ?? UUID().uuidString
+        let sdp = dict["candidate"] as? String ?? ""
+        let mid = dict["sdpMid"] as? String ?? ""
+        let idx = dict["sdpMLineIndex"] as? Int ?? -1
+        return "\(idx)|\(mid)|\(sdp)"
+    }
+
+    private func cancelIceDisconnectTimer() {
+        iceDisconnectWorkItem?.cancel()
+        iceDisconnectWorkItem = nil
+    }
+
+    private func scheduleIceDisconnectFail(callId: String) {
+        cancelIceDisconnectTimer()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.iceDisconnectWorkItem = nil
+            guard self.callId == callId.lowercased() else { return }
+            if !self.isMediaConnected, self.peerConnection == nil { return }
+            self.failCall(callId: callId, error: "ICE disconnected")
         }
-        return UUID().uuidString
+        iceDisconnectWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: work)
     }
 
     // MARK: - RTCPeerConnectionDelegate
@@ -330,8 +456,10 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
         guard let callId else { return }
+        print("[NativeVoiceCallEngine] ice state \(callId): \(newState.rawValue)")
         switch newState {
         case .connected, .completed:
+            cancelIceDisconnectTimer()
             markConnected(callId: callId)
         case .failed:
             failCall(callId: callId, error: "ICE failed")
@@ -339,6 +467,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             postTrace(callId: callId, token: token ?? "", event: "native_webrtc_ice_checking")
         case .disconnected:
             postTrace(callId: callId, token: token ?? "", event: "native_webrtc_ice_disconnected")
+            scheduleIceDisconnectFail(callId: callId)
         default:
             break
         }
@@ -473,12 +602,37 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         }
     }
 
+    private static func normalizeSdp(_ sdp: String) -> String? {
+        let trimmed = sdp.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("v=") else { return nil }
+        var crlf = trimmed.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\n", with: "\r\n")
+        if !crlf.hasSuffix("\r\n") {
+            crlf += "\r\n"
+        }
+        return crlf
+    }
+
     private static func extractSdp(from value: Any?) -> String? {
         guard let value else { return nil }
-        if let str = value as? String, str.contains("v=0") { return str }
+        if let str = value as? String {
+            let trimmed = str.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("v=") { return trimmed }
+        }
         guard let obj = value as? [String: Any] else { return nil }
-        if let sdp = obj["sdp"] as? String { return sdp }
-        if let nested = obj["sdp"] as? [String: Any], let sdp = nested["sdp"] as? String { return sdp }
+        if let nested = obj["sdp"] as? [String: Any],
+           let nestedSdp = nested["sdp"] as? String {
+            let trimmed = nestedSdp.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("v=") { return trimmed }
+        }
+        if let direct = obj["sdp"] as? String {
+            let trimmed = direct.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("v="), !trimmed.hasPrefix("{") { return trimmed }
+        }
+        let type = obj["type"] as? String ?? ""
+        if (type == "offer" || type == "answer"), let direct = obj["sdp"] as? String {
+            let trimmed = direct.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("v=") { return trimmed }
+        }
         return nil
     }
 
