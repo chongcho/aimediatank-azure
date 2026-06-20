@@ -269,8 +269,10 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         peerConnection?.close()
         peerConnection = nil
         if notify, let callId {
-            delegate?.nativeVoiceCallEngineDidEnd(callId: callId)
-            injectUiEvent(name: "aimediatank-callkit-end", callId: callId)
+            runOnMain { [weak self] in
+                self?.delegate?.nativeVoiceCallEngineDidEnd(callId: callId)
+                self?.injectUiEvent(name: "aimediatank-callkit-end", callId: callId)
+            }
         }
     }
 
@@ -283,8 +285,10 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         pendingStart = false
         bootstrapGeneration = nil
         tearDownPeerConnection(notify: false)
-        delegate?.nativeVoiceCallEngineDidFail(callId: callId, error: error)
-        injectUiEvent(name: "aimediatank-callkit-end", callId: callId)
+        runOnMain { [weak self] in
+            self?.delegate?.nativeVoiceCallEngineDidFail(callId: callId, error: error)
+            self?.injectUiEvent(name: "aimediatank-callkit-end", callId: callId)
+        }
         if let authToken, !authToken.isEmpty {
             postNativeCallKit(action: "end", callId: callId, token: authToken)
         }
@@ -304,8 +308,12 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         stopIcePoll()
         print("[NativeVoiceCallEngine] connected \(callId)")
         postTrace(callId: callId, token: token ?? "", event: "native_webrtc_connected")
-        delegate?.nativeVoiceCallEngineDidConnect(callId: callId, caller: cachedCaller)
-        scheduleConnectedUiSync(callId: callId, caller: cachedCaller)
+        let caller = cachedCaller
+        runOnMain { [weak self] in
+            guard let self, self.isMediaConnected, self.callId == callId.lowercased() else { return }
+            self.delegate?.nativeVoiceCallEngineDidConnect(callId: callId, caller: caller)
+            self.scheduleConnectedUiSync(callId: callId, caller: caller)
+        }
     }
 
     private func scheduleConnectedUiSync(callId: String, caller: [String: Any]?) {
@@ -668,30 +676,44 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         return servers
     }
 
+    private func runOnMain(_ block: @escaping () -> Void) {
+        if Thread.isMainThread {
+            block()
+        } else {
+            DispatchQueue.main.async(execute: block)
+        }
+    }
+
     private func injectUiEvent(name: String, callId: String, extra: [String: Any] = [:]) {
-        guard UIApplication.shared.isProtectedDataAvailable else { return }
-        guard let bridge = Self.findBridgeViewController(), let webView = bridge.webView else { return }
-        var detail: [String: Any] = ["callId": callId.lowercased()]
-        for (key, value) in extra { detail[key] = value }
-        guard let detailData = try? JSONSerialization.data(withJSONObject: detail),
-              let detailJson = String(data: detailData, encoding: .utf8) else { return }
-        let js = """
-        (function(){ try { window.dispatchEvent(new CustomEvent('\\(name)', { detail: \\(detailJson) })); } catch (e) {} })();
-        """
-        webView.evaluateJavaScript(js, completionHandler: nil)
+        runOnMain { [weak self] in
+            guard let self else { return }
+            guard UIApplication.shared.isProtectedDataAvailable else { return }
+            guard let bridge = Self.findBridgeViewController(), let webView = bridge.webView else { return }
+            var detail: [String: Any] = ["callId": callId.lowercased()]
+            for (key, value) in extra { detail[key] = value }
+            guard let detailData = try? JSONSerialization.data(withJSONObject: detail),
+                  let detailJson = String(data: detailData, encoding: .utf8) else { return }
+            let js = """
+            (function(){ try { window.dispatchEvent(new CustomEvent('\\(name)', { detail: \\(detailJson) })); } catch (e) {} })();
+            """
+            webView.evaluateJavaScript(js, completionHandler: nil)
+        }
     }
 
     private func injectNativeConnected(callId: String, caller: [String: Any]?) {
-        guard UIApplication.shared.isProtectedDataAvailable else { return }
-        guard let bridge = Self.findBridgeViewController(), let webView = bridge.webView else { return }
-        var detail: [String: Any] = ["callId": callId.lowercased()]
-        if let caller { detail["caller"] = caller }
-        guard let detailData = try? JSONSerialization.data(withJSONObject: detail),
-              let detailJson = String(data: detailData, encoding: .utf8) else { return }
-        let js = """
-        (function(){ try { window.dispatchEvent(new CustomEvent('aimediatank-native-call-connected', { detail: \\(detailJson) })); } catch (e) {} })();
-        """
-        webView.evaluateJavaScript(js, completionHandler: nil)
+        runOnMain { [weak self] in
+            guard let self else { return }
+            guard UIApplication.shared.isProtectedDataAvailable else { return }
+            guard let bridge = Self.findBridgeViewController(), let webView = bridge.webView else { return }
+            var detail: [String: Any] = ["callId": callId.lowercased()]
+            if let caller { detail["caller"] = caller }
+            guard let detailData = try? JSONSerialization.data(withJSONObject: detail),
+                  let detailJson = String(data: detailData, encoding: .utf8) else { return }
+            let js = """
+            (function(){ try { window.dispatchEvent(new CustomEvent('aimediatank-native-call-connected', { detail: \\(detailJson) })); } catch (e) {} })();
+            """
+            webView.evaluateJavaScript(js, completionHandler: nil)
+        }
     }
 
     private static func findBridgeViewController() -> CAPBridgeViewController? {

@@ -1452,12 +1452,19 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
           } catch (e) {}
         })();
         """
-        webView.evaluateJavaScript(js) { _, error in
-            if let error {
-                print("[AiMediaTankVoipPushBridge] WebView inject failed \(callId): \(error.localizedDescription)")
-            } else {
-                print("[AiMediaTankVoipPushBridge] WebView inject ok \(callId)")
+        let inject = {
+            webView.evaluateJavaScript(js) { _, error in
+                if let error {
+                    print("[AiMediaTankVoipPushBridge] WebView inject failed \(callId): \(error.localizedDescription)")
+                } else {
+                    print("[AiMediaTankVoipPushBridge] WebView inject ok \(callId)")
+                }
             }
+        }
+        if Thread.isMainThread {
+            inject()
+        } else {
+            DispatchQueue.main.async(execute: inject)
         }
     }
 
@@ -1474,10 +1481,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
           } catch (e) {}
         })();
         """
-        webView.evaluateJavaScript(js) { _, error in
-            if let error {
-                print("[AiMediaTankVoipPushBridge] cancel inject failed \(normalized): \(error.localizedDescription)")
+        let inject = {
+            webView.evaluateJavaScript(js) { _, error in
+                if let error {
+                    print("[AiMediaTankVoipPushBridge] cancel inject failed \(normalized): \(error.localizedDescription)")
+                }
             }
+        }
+        if Thread.isMainThread {
+            inject()
+        } else {
+            DispatchQueue.main.async(execute: inject)
         }
     }
 
