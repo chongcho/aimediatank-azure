@@ -1197,7 +1197,7 @@ if (fs.existsSync(callManagerPath)) {
         } else {
             1f
         }
-        val targetFraction = kotlin.math.max(clamped, ringFraction * clamped)
+        val targetFraction = kotlin.math.max(clamped, ringFraction)
         for (stream in streams) {
             val max = audioManager.getStreamMaxVolume(stream)
             if (max <= 0) continue
@@ -1323,7 +1323,7 @@ if (fs.existsSync(callManagerPath)) {
         } else {
             1f
         }
-        val targetFraction = kotlin.math.max(clamped, ringFraction * clamped)
+        val targetFraction = kotlin.math.max(clamped, ringFraction)
         val target = (max * targetFraction).toInt().coerceIn(1, max)
         audioManager.setStreamVolume(stream, target, 0)
         reapplyVolumeControlStream()
@@ -1424,7 +1424,7 @@ if (fs.existsSync(callManagerPath)) {
         } else {
             1f
         }
-        val targetFraction = kotlin.math.max(clamped, ringFraction * clamped)
+        val targetFraction = kotlin.math.max(clamped, ringFraction)
         for (stream in streams) {
             val max = audioManager.getStreamMaxVolume(stream)
             if (max <= 0) continue
@@ -2916,7 +2916,7 @@ if (fs.existsSync(callManagerPath)) {
         } else {
             1f
         }
-        val targetFraction = kotlin.math.max(clamped, ringFraction * clamped)
+        val targetFraction = kotlin.math.max(clamped, ringFraction)
         val streams = intArrayOf(AudioManager.STREAM_MUSIC, AudioManager.STREAM_VOICE_CALL)
         if (clamped <= 0f) {
             for (stream in streams) {
@@ -3146,7 +3146,7 @@ if (fs.existsSync(callManagerPath)) {
         } else {
             1f
         }
-        val targetFraction = kotlin.math.max(clamped, ringFraction * clamped)
+        val targetFraction = kotlin.math.max(clamped, ringFraction)
         for (stream in streams) {
             val max = audioManager.getStreamMaxVolume(stream)
             if (max <= 0) continue

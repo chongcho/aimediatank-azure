@@ -151,6 +151,10 @@ class NativeVoiceWebRtcEngine private constructor(
             } else if (inlineOffer != null) {
                 bootstrapGeneration = null
                 stopSessionPoll()
+                appliedRemoteIceKeys.clear()
+                remoteDescriptionReady = false
+                remoteAnswerApplied = false
+                pendingRemoteIce.clear()
                 Log.i(TAG, "upgrade answer $normalized with inline offer")
                 executor.execute {
                     beginAnswerWithInlineOffer(normalized, inlineOffer)
