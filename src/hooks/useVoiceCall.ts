@@ -970,6 +970,17 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           return
         }
         if (
+          isNativeAndroidCallApp() &&
+          nativeWebRtcAndroidRef.current &&
+          (localState === 'outgoing' || localState === 'connecting' || localState === 'connected')
+        ) {
+          // Native WebRTC owns signaling; only end when server reports the call ended.
+          if (ended) {
+            resetCall({ endNativeUi: true })
+          }
+          return
+        }
+        if (
           ended ||
           (data.activeCall && !voiceCallIdsMatch(data.activeCall.id, localCallId)) ||
           (!stillActive && !data.activeCall)

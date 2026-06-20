@@ -100,6 +100,7 @@ class NativeVoiceWebRtcEngine private constructor(
     private var pollSince = "1970-01-01T00:00:00.000Z"
 
     private val appliedRemoteIceKeys = mutableSetOf<String>()
+    private var remoteAnswerApplied = false
     private var icePollGeneration: UUID? = null
     private var bootstrapGeneration: UUID? = null
     private var createAnswerGeneration: UUID? = null
@@ -132,6 +133,7 @@ class NativeVoiceWebRtcEngine private constructor(
                 bootstrapGeneration = null
                 stopSessionPoll()
                 appliedRemoteIceKeys.clear()
+                remoteAnswerApplied = false
                 Log.i(TAG, "upgrade answer $normalized with decline token")
                 executor.execute {
                     postNativeTrace(normalized, newToken!!, "native_webrtc_token_upgrade")
@@ -161,6 +163,7 @@ class NativeVoiceWebRtcEngine private constructor(
         isMediaConnected = false
         running.set(true)
         appliedRemoteIceKeys.clear()
+        remoteAnswerApplied = false
         cachedCaller = null
 
         Log.i(
@@ -199,6 +202,7 @@ class NativeVoiceWebRtcEngine private constructor(
         isMediaConnected = false
         running.set(true)
         appliedRemoteIceKeys.clear()
+        remoteAnswerApplied = false
         cachedCaller = null
         parsedIceServers = parseIceServers(iceServersJson)
 
@@ -508,18 +512,24 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun applyRemoteAnswer(callId: String, answerSdp: String) {
-        val pc = peerConnection ?: return
-        val sdp = normalizeSdp(answerSdp)
-        val answer = SessionDescription(SessionDescription.Type.ANSWER, sdp)
-        pc.setRemoteDescription(object : SdpObserverAdapter() {
-            override fun onSetSuccess() {
-                Log.i(TAG, "applied remote answer $callId")
-            }
+        if (remoteAnswerApplied) return
+        runWebRtc("applyAnswer") {
+            if (remoteAnswerApplied) return@runWebRtc
+            val pc = peerConnection ?: return@runWebRtc
+            if (this.callId != callId) return@runWebRtc
+            val sdp = normalizeSdp(answerSdp)
+            val answer = SessionDescription(SessionDescription.Type.ANSWER, sdp)
+            pc.setRemoteDescription(object : SdpObserverAdapter() {
+                override fun onSetSuccess() {
+                    remoteAnswerApplied = true
+                    Log.i(TAG, "applied remote answer $callId")
+                }
 
-            override fun onSetFailure(error: String?) {
-                Log.w(TAG, "setRemote answer failed $callId: $error")
-            }
-        }, answer)
+                override fun onSetFailure(error: String?) {
+                    Log.w(TAG, "setRemote answer failed $callId: $error")
+                }
+            }, answer)
+        }
     }
 
     private fun bootstrapUntilOfferReady(callId: String, authToken: String, attempt: Int) {
@@ -604,12 +614,15 @@ class NativeVoiceWebRtcEngine private constructor(
 
         fun poll() {
             if (icePollGeneration != generation) return
-            if (peerConnection == null) return
+            if (peerConnection == null || isMediaConnected) return
             fetchNativeBootstrap(callId, authToken) { result ->
                 if (icePollGeneration != generation) return@fetchNativeBootstrap
                 result.onSuccess { bootstrap ->
-                    for (candidate in bootstrap.remoteIce) {
-                        addRemoteIceCandidate(candidate, callId)
+                    runWebRtc("icePoll") {
+                        if (icePollGeneration != generation) return@runWebRtc
+                        for (candidate in bootstrap.remoteIce) {
+                            addRemoteIceCandidate(candidate, callId)
+                        }
                     }
                 }
                 mainHandler.postDelayed({ poll() }, 350)
@@ -629,25 +642,29 @@ class NativeVoiceWebRtcEngine private constructor(
 
         fun poll() {
             if (sessionPollGeneration != generation) return
-            if (peerConnection == null) return
+            if (peerConnection == null || isMediaConnected) return
             fetchSessionPoll { result ->
                 if (sessionPollGeneration != generation) return@fetchSessionPoll
                 result.onSuccess { pollData ->
-                    for (signal in pollData.signals) {
-                        if (!signal.callId.equals(callId, ignoreCase = true)) continue
-                        when (signal.type) {
-                            "answer" -> {
-                                if (asCaller) {
-                                    extractSdp(signal.payload)?.let { applyRemoteAnswer(callId, it) }
+                    runWebRtc("sessionPoll") {
+                        if (sessionPollGeneration != generation) return@runWebRtc
+                        if (peerConnection == null) return@runWebRtc
+                        for (signal in pollData.signals) {
+                            if (!signal.callId.equals(callId, ignoreCase = true)) continue
+                            when (signal.type) {
+                                "answer" -> {
+                                    if (asCaller && !remoteAnswerApplied) {
+                                        extractSdp(signal.payload)?.let { applyRemoteAnswer(callId, it) }
+                                    }
+                                }
+                                "ice" -> {
+                                    extractCandidate(signal.payload)?.let { addRemoteIceCandidate(it, callId) }
                                 }
                             }
-                            "ice" -> {
-                                extractCandidate(signal.payload)?.let { addRemoteIceCandidate(it, callId) }
-                            }
                         }
-                    }
-                    if (pollData.maxCreatedAt.isNotEmpty()) {
-                        pollSince = pollData.maxCreatedAt
+                        if (pollData.maxCreatedAt.isNotEmpty()) {
+                            pollSince = pollData.maxCreatedAt
+                        }
                     }
                 }
                 mainHandler.postDelayed({ poll() }, 350)
@@ -661,15 +678,35 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun addRemoteIceCandidate(dict: JSONObject, callId: String) {
-        val pc = peerConnection ?: return
-        val key = dict.toString()
+        val key = iceCandidateKey(dict)
         if (!appliedRemoteIceKeys.add(key)) return
         val sdp = dict.optString("candidate", "")
         if (sdp.isEmpty()) return
         val sdpMid = dict.optString("sdpMid", "").ifEmpty { null }
         val mLineIndex = dict.optInt("sdpMLineIndex", 0)
-        val candidate = IceCandidate(sdpMid, mLineIndex, sdp)
-        pc.addIceCandidate(candidate)
+
+        val task = Runnable {
+            val pc = peerConnection ?: return@Runnable
+            if (this.callId != callId) return@Runnable
+            try {
+                val candidate = IceCandidate(sdpMid, mLineIndex, sdp)
+                pc.addIceCandidate(candidate)
+            } catch (e: Exception) {
+                Log.w(TAG, "addIceCandidate failed $callId: ${e.message}")
+            }
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            task.run()
+        } else {
+            mainHandler.post(task)
+        }
+    }
+
+    private fun iceCandidateKey(dict: JSONObject): String {
+        val sdp = dict.optString("candidate", "")
+        val mid = dict.optString("sdpMid", "")
+        val idx = dict.optInt("sdpMLineIndex", -1)
+        return "$idx|$mid|$sdp"
     }
 
     private fun tearDownPeerConnection(notify: Boolean) {
@@ -723,6 +760,8 @@ class NativeVoiceWebRtcEngine private constructor(
         isMediaConnected = true
         isAnswering = false
         bootstrapGeneration = null
+        stopIcePoll()
+        stopSessionPoll()
         running.set(true)
         Log.i(TAG, "connected $callId")
         token?.let { postNativeTrace(callId, it, "native_webrtc_connected") }

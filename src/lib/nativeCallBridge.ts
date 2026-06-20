@@ -102,7 +102,7 @@ let pendingNativeConnected: {
 let webViewInjectListenerAttached = false
 
 function attachWebViewCallKitInjectListener(): void {
-  if (!isNativeIosCallApp() || typeof window === 'undefined' || webViewInjectListenerAttached) return
+  if (!isNativeVoiceCallApp() || typeof window === 'undefined' || webViewInjectListenerAttached) return
   webViewInjectListenerAttached = true
 
   window.addEventListener('aimediatank-callkit-end', (event) => {
