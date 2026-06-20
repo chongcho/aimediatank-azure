@@ -90,6 +90,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Blocks PushKit registry refresh while an incoming VoIP push is being handled.
     private var incomingVoipPushInFlight = 0
     private var audioActivationFallbackGeneration: UUID?
+    /// Prevents duplicate reportCall/CXEndCallAction when JS echoes end back into the plugin.
+    private var endedCallKitCallIds = Set<String>()
 
     private static func isForegroundActive() -> Bool {
         guard UIApplication.shared.applicationState == .active else { return false }
@@ -700,6 +702,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Tear down timers from a prior call so they cannot dismiss the next incoming call.
     private func prepareForNewIncomingCall(callId: String) {
         let normalized = callId.lowercased()
+        endedCallKitCallIds.remove(normalized)
         Self.clearCallCancelled(normalized)
         cancelDismissRetries(except: normalized)
         stopStatusWatches(except: normalized)
@@ -709,19 +712,23 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// End a CallKit call (ringing or already answered) and notify JS to tear down WebRTC.
     private func endCallKitCall(uuid: UUID, reason: CXCallEndedReason = .remoteEnded, notifyJs: Bool = true) {
         let callId = uuid.uuidString.lowercased()
-        if NativeVoiceCallEngine.shared.activeCallId == callId {
-            NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
-        }
         let end = { [weak self] in
             guard let self = self else { return }
-            self.provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
-            let endCallAction = CXEndCallAction(call: uuid)
-            self.callController.request(CXTransaction(action: endCallAction)) { error in
-                if let error {
-                    print("[AiMediaTankVoipPushBridge] CXEndCallAction failed for \(uuid): \(error.localizedDescription)")
+            let alreadyEnded = self.endedCallKitCallIds.contains(callId)
+            if !alreadyEnded {
+                self.endedCallKitCallIds.insert(callId)
+                if NativeVoiceCallEngine.shared.activeCallId == callId {
+                    NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
+                }
+                self.provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
+                let endCallAction = CXEndCallAction(call: uuid)
+                self.callController.request(CXTransaction(action: endCallAction)) { error in
+                    if let error {
+                        print("[AiMediaTankVoipPushBridge] CXEndCallAction failed for \(uuid): \(error.localizedDescription)")
+                    }
                 }
             }
-            if notifyJs {
+            if notifyJs, !alreadyEnded {
                 NotificationCenter.default.post(
                     name: Self.callKitEndNotification,
                     object: nil,
@@ -734,7 +741,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             }
             self.cancelDismissRetries(callId: callId)
             self.stopCallStatusWatch(callId: callId)
-            self.releaseAudioSession()
+            // Audio session is released in provider(_:didDeactivate:) — do not setActive(false) here.
         }
         if Thread.isMainThread {
             end()
@@ -1613,22 +1620,26 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let callId = action.callUUID.uuidString.lowercased()
         audioActivationFallbackGeneration = nil
         Self.clearLockScreenNativeAnswer(callId: callId)
-        if NativeVoiceCallEngine.shared.activeCallId == callId {
-            NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
+        let alreadyHandled = endedCallKitCallIds.contains(callId)
+        if !alreadyHandled {
+            endedCallKitCallIds.insert(callId)
+            if NativeVoiceCallEngine.shared.activeCallId == callId {
+                NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
+            }
+            syncCallEndToServer(callId: callId)
+            injectCallCancelToWebView(callId: callId)
+            stopCallStatusWatch(callId: callId)
+            clearPendingCallKitAnswer()
+            NotificationCenter.default.post(
+                name: Self.callKitEndNotification,
+                object: nil,
+                userInfo: ["callId": callId]
+            )
+            provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .remoteEnded)
+            Self.noteCallDismissed(callId)
         }
-        syncCallEndToServer(callId: callId)
-        injectCallCancelToWebView(callId: callId)
-        stopCallStatusWatch(callId: callId)
-        clearPendingCallKitAnswer()
-        NotificationCenter.default.post(
-            name: Self.callKitEndNotification,
-            object: nil,
-            userInfo: ["callId": callId]
-        )
-        provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .remoteEnded)
-        Self.noteCallDismissed(callId)
         action.fulfill()
-        releaseAudioSession()
+        // CallKit invokes provider(_:didDeactivate:) — release audio there only.
     }
 
     func provider(_ provider: CXProvider, perform action: CXStartCallAction) {

@@ -1409,7 +1409,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
               // Native bridge may have already synced end; still tear down locally.
             }
           }
-          resetCallRef.current({ endNativeUi: true })
+          // iOS native already ended CallKit before injecting aimediatank-callkit-end —
+          // calling endNativeCall again here races CallKit teardown and can crash after hang-up.
+          resetCallRef.current({ endNativeUi: !isNativeIosCallApp() })
         })()
       },
     })

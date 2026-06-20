@@ -32,6 +32,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var createAnswerGeneration: UUID?
     private var remoteIceEpoch = 0
     private var iceDisconnectWorkItem: DispatchWorkItem?
+    private var uiSyncGeneration = UUID()
+    private var isShuttingDownPeerConnection = false
     private var cachedCaller: [String: Any]?
     private(set) var isMediaConnected = false
 
@@ -105,20 +107,24 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     func endCall(reason: String = "user", syncServer: Bool = true) {
         print("[NativeVoiceCallEngine] end call \(callId ?? "nil") reason=\(reason)")
         cancelIceDisconnectTimer()
+        uiSyncGeneration = UUID()
         stopIcePoll()
         bootstrapGeneration = nil
         isAnswering = false
         pendingStart = false
         isMediaConnected = false
 
-        if syncServer, let callId, let token {
-            postNativeCallKit(action: "end", callId: callId, token: token)
+        let endedCallId = callId
+        let authToken = token
+
+        if syncServer, let endedCallId, let authToken {
+            postNativeCallKit(action: "end", callId: endedCallId, token: authToken)
         }
 
-        tearDownPeerConnection(notify: true)
         self.callId = nil
         self.token = nil
         cachedCaller = nil
+        tearDownPeerConnection(notify: true, notifyCallId: endedCallId)
     }
 
     func syncUiIfConnected() {
@@ -260,18 +266,23 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         }
     }
 
-    private func tearDownPeerConnection(notify: Bool) {
-        createAnswerGeneration = nil
-        stopIcePoll()
-        remoteDescriptionReady = false
-        pendingRemoteIce.removeAll()
-        invalidateRemoteIceProcessing()
-        peerConnection?.close()
-        peerConnection = nil
-        if notify, let callId {
-            runOnMain { [weak self] in
-                self?.delegate?.nativeVoiceCallEngineDidEnd(callId: callId)
-                self?.injectUiEvent(name: "aimediatank-callkit-end", callId: callId)
+    private func tearDownPeerConnection(notify: Bool, notifyCallId: String? = nil) {
+        let callIdForNotify = notify ? notifyCallId : nil
+        runOnMain { [weak self] in
+            guard let self else { return }
+            self.isShuttingDownPeerConnection = true
+            self.createAnswerGeneration = nil
+            self.stopIcePoll()
+            self.remoteDescriptionReady = false
+            self.pendingRemoteIce.removeAll()
+            self.invalidateRemoteIceProcessing()
+            let pc = self.peerConnection
+            self.peerConnection = nil
+            pc?.close()
+            self.isShuttingDownPeerConnection = false
+            if let callIdForNotify {
+                self.delegate?.nativeVoiceCallEngineDidEnd(callId: callIdForNotify)
+                self.injectUiEvent(name: "aimediatank-callkit-end", callId: callIdForNotify)
             }
         }
     }
@@ -279,11 +290,15 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private func failCall(callId: String, error: String) {
         print("[NativeVoiceCallEngine] failed \(callId): \(error)")
         let authToken = token
+        uiSyncGeneration = UUID()
         postTrace(callId: callId, token: authToken ?? "", event: "native_webrtc_failed", detail: ["error": error])
         cancelIceDisconnectTimer()
         isAnswering = false
         pendingStart = false
         bootstrapGeneration = nil
+        isMediaConnected = false
+        self.callId = nil
+        self.token = nil
         tearDownPeerConnection(notify: false)
         runOnMain { [weak self] in
             self?.delegate?.nativeVoiceCallEngineDidFail(callId: callId, error: error)
@@ -292,8 +307,6 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         if let authToken, !authToken.isEmpty {
             postNativeCallKit(action: "end", callId: callId, token: authToken)
         }
-        self.callId = nil
-        self.token = nil
     }
 
     private func markConnected(callId: String) {
@@ -318,10 +331,12 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     private func scheduleConnectedUiSync(callId: String, caller: [String: Any]?) {
         let normalized = callId.lowercased()
+        let generation = uiSyncGeneration
         let delays: [TimeInterval] = [0, 1, 3, 8]
         for delay in delays {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self, self.isMediaConnected, self.callId == normalized else { return }
+                guard let self, generation == self.uiSyncGeneration else { return }
+                guard self.isMediaConnected, self.callId == normalized else { return }
                 self.injectNativeConnected(callId: normalized, caller: caller)
             }
         }
@@ -463,7 +478,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
-        guard let callId else { return }
+        guard let callId, !isShuttingDownPeerConnection else { return }
         print("[NativeVoiceCallEngine] ice state \(callId): \(newState.rawValue)")
         switch newState {
         case .connected, .completed:
