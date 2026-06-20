@@ -1071,18 +1071,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             if (declineToken) {
               cacheNativeDeclineToken(incoming.id, declineToken)
             }
-            const skipDuplicateNativeUi =
-              isNativeAndroidCallApp() &&
-              (callStateRef.current === 'connecting' || callStateRef.current === 'connected')
-            if (!skipDuplicateNativeUi) {
-              void reportIncomingCallToNativeUi({
-                callId: incoming.id,
-                handle: incoming.caller.username || incoming.caller.id,
-                displayName: label,
-                declineToken,
-                caller: incoming.caller,
-              })
-            }
+            void reportIncomingCallToNativeUi({
+              callId: incoming.id,
+              handle: incoming.caller.username || incoming.caller.id,
+              displayName: label,
+              declineToken,
+              caller: incoming.caller,
+            })
           }
         }
       }
