@@ -3263,8 +3263,29 @@ if (fs.existsSync(callManagerPath)) {
 
     private fun notifyError`,
     )
+  callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('fun reapplyVolumeControlStream()') &&
+    callManager.includes('voiceCallAudioActive) {\n            AudioManager.STREAM_MUSIC') &&
+    !callManager.includes(`${voiceCallTelecomSpeakerMarker}\n        resolveVolumeActivity`)
+  ) {
+    callManager = callManager.replace(
+      `        val stream = if (voiceCallAudioActive) {
+            AudioManager.STREAM_MUSIC
+        } else {
+            AudioManager.STREAM_MUSIC
+        }
+        resolveVolumeActivity()?.volumeControlStream = stream`,
+      `        val stream = if (voiceCallAudioActive) {
+            AudioManager.STREAM_VOICE_CALL
+        } else {
+            AudioManager.STREAM_MUSIC
+        }
+        // ${voiceCallTelecomSpeakerMarker}
+        resolveVolumeActivity()?.volumeControlStream = stream`,
+    )
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
-    console.log('[patch-android-fcm] CallManager drop in-call LoudnessEnhancer')
+    console.log('[patch-android-fcm] CallManager voice volume keys STREAM_VOICE_CALL')
   }
 }
