@@ -96,6 +96,7 @@ class NativeVoiceWebRtcEngine private constructor(
     private var token: String? = null
     private var isCaller = false
     private var isAnswering = false
+    @Volatile
     private var isMediaConnected = false
     private var pollSince = "1970-01-01T00:00:00.000Z"
 
@@ -633,7 +634,9 @@ class NativeVoiceWebRtcEngine private constructor(
             if (peerConnection == null || isMediaConnected) return
             fetchNativeBootstrap(callId, authToken) { result ->
                 if (icePollGeneration != generation) return@fetchNativeBootstrap
+                if (isMediaConnected) return@fetchNativeBootstrap
                 result.onSuccess { bootstrap ->
+                    if (icePollGeneration != generation || isMediaConnected) return@onSuccess
                     runWebRtc("icePoll") {
                         if (icePollGeneration != generation) return@runWebRtc
                         if (isMediaConnected) return@runWebRtc
@@ -664,7 +667,9 @@ class NativeVoiceWebRtcEngine private constructor(
             if (peerConnection == null || isMediaConnected) return
             fetchSessionPoll { result ->
                 if (sessionPollGeneration != generation) return@fetchSessionPoll
+                if (isMediaConnected) return@fetchSessionPoll
                 result.onSuccess { pollData ->
+                    if (sessionPollGeneration != generation || isMediaConnected) return@onSuccess
                     runWebRtc("sessionPoll") {
                         if (sessionPollGeneration != generation) return@runWebRtc
                         if (peerConnection == null || isMediaConnected) return@runWebRtc
@@ -677,9 +682,11 @@ class NativeVoiceWebRtcEngine private constructor(
                                 extractSdp(signal.payload)?.let { applyRemoteAnswer(callId, it) }
                             }
                         }
-                        for (signal in callSignals) {
-                            if (signal.type != "ice") continue
-                            extractCandidate(signal.payload)?.let { addRemoteIceCandidate(it, callId) }
+                        if (shouldProcessRemoteIce()) {
+                            for (signal in callSignals) {
+                                if (signal.type != "ice") continue
+                                extractCandidate(signal.payload)?.let { addRemoteIceCandidate(it, callId) }
+                            }
                         }
                         if (pollData.maxCreatedAt.isNotEmpty()) {
                             pollSince = pollData.maxCreatedAt
@@ -699,7 +706,7 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun flushPendingRemoteIce(callId: String) {
-        if (pendingRemoteIce.isEmpty()) return
+        if (pendingRemoteIce.isEmpty() || !shouldProcessRemoteIce()) return
         val queued = pendingRemoteIce.distinctBy { iceCandidateKey(it) }
         pendingRemoteIce.clear()
         for (candidate in queued) {
@@ -707,8 +714,25 @@ class NativeVoiceWebRtcEngine private constructor(
         }
     }
 
+    private fun shouldProcessRemoteIce(): Boolean {
+        if (isMediaConnected) return false
+        val pc = peerConnection ?: return false
+        return canAcceptRemoteIce(pc)
+    }
+
+    private fun canAcceptRemoteIce(pc: PeerConnection): Boolean {
+        return when (pc.iceConnectionState()) {
+            PeerConnection.IceConnectionState.CONNECTED,
+            PeerConnection.IceConnectionState.COMPLETED,
+            PeerConnection.IceConnectionState.CLOSED,
+            PeerConnection.IceConnectionState.FAILED,
+            -> false
+            else -> true
+        }
+    }
+
     private fun addRemoteIceCandidate(dict: JSONObject, callId: String) {
-        if (isMediaConnected) return
+        if (!shouldProcessRemoteIce()) return
         val key = iceCandidateKey(dict)
         if (appliedRemoteIceKeys.contains(key)) return
         if (!remoteDescriptionReady) {
@@ -721,13 +745,14 @@ class NativeVoiceWebRtcEngine private constructor(
         val mLineIndex = dict.optInt("sdpMLineIndex", 0)
 
         val task = Runnable {
-            if (isMediaConnected) return@Runnable
+            if (!shouldProcessRemoteIce()) return@Runnable
             val pc = peerConnection ?: return@Runnable
             if (this.callId != callId) return@Runnable
             if (pc.remoteDescription == null) {
                 pendingRemoteIce.add(dict)
                 return@Runnable
             }
+            if (!canAcceptRemoteIce(pc)) return@Runnable
             if (!appliedRemoteIceKeys.add(key)) return@Runnable
             val candidate = IceCandidate(sdpMid, mLineIndex, sdp)
             pc.addIceCandidate(candidate, object : AddIceObserver {
