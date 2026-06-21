@@ -1397,6 +1397,48 @@ export default function AdminPage() {
     }
   }, [])
 
+  const persistHomeLayoutSettings = useCallback(async (settings: {
+    layout: 'masonry' | 'grid_top' | 'grid_center'
+    preplay: boolean
+    defaultSort: 'popular' | 'recent' | 'random'
+  }) => {
+    setHomeLayoutSaving(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setHomeLayout',
+          data: settings,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        console.error('Home layout save failed:', data)
+        return
+      }
+      if (data.layout) setHomeLayout(data.layout)
+      if (typeof data.preplay === 'boolean') setHomePreplay(data.preplay)
+      if (data.defaultSort === 'recent' || data.defaultSort === 'random') setHomeDefaultSort(data.defaultSort)
+      else setHomeDefaultSort('popular')
+      if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
+      if (typeof data.autoTranslation === 'boolean') setAutoTranslation(data.autoTranslation)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('homeLayoutUpdated'))
+        window.dispatchEvent(new Event('mediaBadgeSettingsUpdated'))
+        try {
+          localStorage.setItem('homeLayoutUiRev', String(Date.now()))
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch (error) {
+      console.error('Error saving home layout settings:', error)
+    } finally {
+      setHomeLayoutSaving(false)
+    }
+  }, [])
+
   const toggleHomePreplaySound = async (next: boolean) => {
     setHomePreplaySoundSaving(true)
     try {
@@ -3461,7 +3503,15 @@ export default function AdminPage() {
                     <label className="text-white font-medium">Layout:</label>
                     <select
                       value={homeLayout}
-                      onChange={(e) => setHomeLayout(e.target.value as 'masonry' | 'grid_top' | 'grid_center')}
+                      onChange={(e) => {
+                        const layout = e.target.value as 'masonry' | 'grid_top' | 'grid_center'
+                        setHomeLayout(layout)
+                        void persistHomeLayoutSettings({
+                          layout,
+                          preplay: homePreplay,
+                          defaultSort: homeDefaultSort,
+                        })
+                      }}
                       disabled={homeLayoutSaving}
                       className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
                     >
@@ -3474,7 +3524,15 @@ export default function AdminPage() {
                     <label className="text-white font-medium">Preplay:</label>
                     <select
                       value={homePreplay ? 'on' : 'off'}
-                      onChange={(e) => setHomePreplay(e.target.value === 'on')}
+                      onChange={(e) => {
+                        const preplay = e.target.value === 'on'
+                        setHomePreplay(preplay)
+                        void persistHomeLayoutSettings({
+                          layout: homeLayout,
+                          preplay,
+                          defaultSort: homeDefaultSort,
+                        })
+                      }}
                       disabled={homeLayoutSaving}
                       className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
                     >
@@ -3486,7 +3544,15 @@ export default function AdminPage() {
                     <label className="text-white font-medium">Sort by:</label>
                     <select
                       value={homeDefaultSort}
-                      onChange={(e) => setHomeDefaultSort(e.target.value as 'popular' | 'recent' | 'random')}
+                      onChange={(e) => {
+                        const defaultSort = e.target.value as 'popular' | 'recent' | 'random'
+                        setHomeDefaultSort(defaultSort)
+                        void persistHomeLayoutSettings({
+                          layout: homeLayout,
+                          preplay: homePreplay,
+                          defaultSort,
+                        })
+                      }}
                       disabled={homeLayoutSaving}
                       className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
                     >
@@ -3495,47 +3561,6 @@ export default function AdminPage() {
                       <option value="random">Random</option>
                     </select>
                   </div>
-                  <button
-                    onClick={async () => {
-                      setHomeLayoutSaving(true)
-                      try {
-                        const res = await fetch('/api/admin', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'setHomeLayout',
-                            data: { layout: homeLayout, preplay: homePreplay, defaultSort: homeDefaultSort },
-                          }),
-                        })
-                        const data = await res.json()
-                        if (!res.ok) {
-                          console.error('Home layout save failed:', data)
-                          return
-                        }
-                        if (data.layout) setHomeLayout(data.layout)
-                        if (typeof data.preplay === 'boolean') setHomePreplay(data.preplay)
-                        if (data.defaultSort === 'recent' || data.defaultSort === 'random') setHomeDefaultSort(data.defaultSort)
-                        else setHomeDefaultSort('popular')
-                        if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
-                        if (typeof data.autoTranslation === 'boolean') setAutoTranslation(data.autoTranslation)
-                        if (typeof window !== 'undefined') {
-                          window.dispatchEvent(new Event('homeLayoutUpdated'))
-                          window.dispatchEvent(new Event('mediaBadgeSettingsUpdated'))
-                          try {
-                            localStorage.setItem('homeLayoutUiRev', String(Date.now()))
-                          } catch {
-                            /* ignore */
-                          }
-                        }
-                      } finally {
-                        setHomeLayoutSaving(false)
-                      }
-                    }}
-                    disabled={homeLayoutSaving}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium disabled:opacity-50"
-                  >
-                    {homeLayoutSaving ? 'Saving…' : 'Save'}
-                  </button>
                 </div>
               )}
             </div>
@@ -3562,7 +3587,7 @@ export default function AdminPage() {
                       { label: 'Card', value: mediaDetailCard, key: 'cardEnabled' as const },
                       { label: 'AI Tool', value: mediaDetailAiTool, key: 'aiToolEnabled' as const },
                     ].map(({ label, value, key }) => (
-                      <div key={label} className="flex items-center gap-2">
+                      <div key={label} className="flex shrink-0 items-center gap-2 whitespace-nowrap">
                         <label className="text-gray-300 text-sm">{label}</label>
                         <select
                           value={value ? 'on' : 'off'}
