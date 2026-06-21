@@ -172,6 +172,7 @@ export async function sendAndroidCallPushToUser(
     video: 'false',
     callerId: payload.caller.id,
     callerUsername: payload.caller.username,
+    callerLegalName: payload.caller.legalName ?? '',
     callerName: payload.caller.name ?? '',
   }
   if (declineToken) data.declineToken = declineToken

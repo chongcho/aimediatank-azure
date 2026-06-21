@@ -12,6 +12,7 @@ import { plannedVoipCancelPushAttempts } from '@/lib/voipPush'
 import { recordVoipCancelBurst, formatCalleeIosTokenSummary, logVoipPipelineSummary } from '@/lib/voipCallTrace'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 import { createVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
+import { VOICE_CALL_USER_SELECT, voiceCallDisplayName } from '@/lib/voiceCallUser'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,8 +41,8 @@ async function getCallForUser(callIdRaw: string, userId: string) {
       OR: [{ callerId: userId }, { calleeId: userId }],
     },
     include: {
-      caller: { select: { id: true, username: true, name: true, avatar: true } },
-      callee: { select: { id: true, username: true, name: true, avatar: true } },
+      caller: { select: VOICE_CALL_USER_SELECT },
+      callee: { select: VOICE_CALL_USER_SELECT },
     },
   })
 }
@@ -124,7 +125,7 @@ export async function GET(request: Request) {
         createdAt: { gt: sinceDate },
       },
       include: {
-        caller: { select: { id: true, username: true, name: true, avatar: true } },
+        caller: { select: VOICE_CALL_USER_SELECT },
       },
       orderBy: { createdAt: 'asc' },
       take: 5,
@@ -199,8 +200,8 @@ export async function GET(request: Request) {
         status: { in: [...ACTIVE_STATUSES] },
       },
       include: {
-        caller: { select: { id: true, username: true, name: true, avatar: true } },
-        callee: { select: { id: true, username: true, name: true, avatar: true } },
+        caller: { select: VOICE_CALL_USER_SELECT },
+        callee: { select: VOICE_CALL_USER_SELECT },
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -314,12 +315,12 @@ export async function POST(request: Request) {
           status: 'ringing',
         },
         include: {
-          caller: { select: { id: true, username: true, name: true, avatar: true } },
-          callee: { select: { id: true, username: true, name: true, avatar: true } },
+          caller: { select: VOICE_CALL_USER_SELECT },
+          callee: { select: VOICE_CALL_USER_SELECT },
         },
       })
 
-      const callerLabel = call.caller.username || call.caller.name || 'AiMediaTank'
+      const callerLabel = voiceCallDisplayName(call.caller, 'AiMediaTank')
       const nativeAndroidCallee = await calleeHasAndroidNativeCallToken(calleeId)
       if (!nativeAndroidCallee) {
         void sendVoiceCallRingPushBurstToUser(calleeId, {

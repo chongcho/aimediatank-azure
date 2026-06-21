@@ -16,6 +16,7 @@ export interface NativeIncomingCallPayload {
   metadata?: {
     callerId?: string
     callerUsername?: string
+    callerLegalName?: string | null
     callerName?: string | null
     callerAvatar?: string | null
     declineToken?: string
@@ -62,6 +63,7 @@ export interface NativeCallBridgeHandlers {
       id: string
       username: string
       name: string | null
+      legalName: string | null
       avatar: string | null
     }
   }) => void
@@ -98,6 +100,7 @@ let pendingNativeConnected: {
     id: string
     username: string
     name: string | null
+    legalName: string | null
     avatar: string | null
   }
 } | null = null
@@ -149,6 +152,7 @@ function attachWebViewCallKitInjectListener(): void {
         id?: string
         username?: string
         name?: string | null
+        legalName?: string | null
         avatar?: string | null
       }
     }>).detail
@@ -163,6 +167,7 @@ function attachWebViewCallKitInjectListener(): void {
               id: caller.id,
               username: caller.username,
               name: caller.name ?? null,
+              legalName: caller.legalName ?? null,
               avatar: caller.avatar ?? null,
             }
           : undefined,
@@ -530,6 +535,7 @@ export async function reportIncomingCallToNativeUi(params: {
     id: string
     username: string
     name: string | null
+    legalName: string | null
     avatar: string | null
   }
 }): Promise<void> {
@@ -552,6 +558,7 @@ export async function reportIncomingCallToNativeUi(params: {
         ? {
             callerId: params.caller.id,
             callerUsername: params.caller.username,
+            callerLegalName: params.caller.legalName,
             callerName: params.caller.name,
             callerAvatar: params.caller.avatar,
           }

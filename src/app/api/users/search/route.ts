@@ -10,6 +10,7 @@ const USER_SELECT = {
   id: true,
   username: true,
   name: true,
+  legalName: true,
   role: true,
   avatar: true,
 } as const

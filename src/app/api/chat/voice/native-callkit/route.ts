@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getIceServers } from '@/lib/voiceCallConfig'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 import { verifyVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
+import { VOICE_CALL_USER_SELECT } from '@/lib/voiceCallUser'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
   const call = await prisma.voiceCall.findUnique({
     where: { id: callId },
     include: {
-      caller: { select: { id: true, username: true, name: true, avatar: true } },
+      caller: { select: VOICE_CALL_USER_SELECT },
     },
   })
   if (!call) {

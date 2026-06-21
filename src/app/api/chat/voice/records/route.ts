@@ -2,15 +2,9 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { VOICE_CALL_USER_SELECT } from '@/lib/voiceCallUser'
 
 export const dynamic = 'force-dynamic'
-
-const USER_SELECT = {
-  id: true,
-  username: true,
-  name: true,
-  avatar: true,
-} as const
 
 /** GET /api/chat/voice/records — recent voice call history for the call picker */
 export async function GET() {
@@ -30,8 +24,8 @@ export async function GET() {
         status: { in: ['ended', 'rejected', 'missed', 'active', 'ringing'] },
       },
       include: {
-        caller: { select: USER_SELECT },
-        callee: { select: USER_SELECT },
+        caller: { select: VOICE_CALL_USER_SELECT },
+        callee: { select: VOICE_CALL_USER_SELECT },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,

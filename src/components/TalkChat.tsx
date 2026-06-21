@@ -103,6 +103,7 @@ interface UserSuggestion {
   id: string
   username: string
   name: string | null
+  legalName: string | null
   avatar: string | null
 }
 

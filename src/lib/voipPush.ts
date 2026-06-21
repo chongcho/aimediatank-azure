@@ -10,6 +10,7 @@ export interface VoipCallPushPayload {
     id: string
     username: string
     name: string | null
+    legalName: string | null
     avatar: string | null
   }
   displayName: string
@@ -334,6 +335,7 @@ export async function sendVoipCallPushToUser(
       metadata: {
         callerId: payload.caller.id,
         callerUsername: payload.caller.username,
+        callerLegalName: payload.caller.legalName,
         callerName: payload.caller.name,
         callerAvatar: payload.caller.avatar,
         ...(declineToken ? { declineToken } : {}),

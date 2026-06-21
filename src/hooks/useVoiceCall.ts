@@ -33,20 +33,15 @@ import {
 } from '@/lib/nativeCallBridge'
 import { normalizeVoiceCallId, voiceCallIdsMatch } from '@/lib/voiceCallId'
 import { getVoiceCallVoiceVolume, setVoiceCallVoiceVolume } from '@/lib/voiceCallVolume'
+import { voiceCallDisplayName, type VoiceCallParticipant } from '@/lib/voiceCallUser'
 
-export interface VoiceCallUser {
-  id: string
-  username: string
-  name: string | null
-  avatar: string | null
-}
+export type VoiceCallUser = VoiceCallParticipant
 
 export type VoiceCallState = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'connected' | 'ended'
 
-/** Incoming/active call UI: show platform nickname (username), not legal/full name. */
+/** Incoming/active call UI label (legal name first for CJK and other scripts). */
 export function voiceCallNickname(user: VoiceCallUser | null | undefined): string {
-  if (!user) return ''
-  return (user.username || user.name || '').trim()
+  return voiceCallDisplayName(user)
 }
 
 /** CallKit owns the ring on iOS — in-app incoming overlay (#1) must not appear. */
@@ -1173,6 +1168,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       return {
         id: meta.callerId,
         username: meta.callerUsername || meta.callerId,
+        legalName: meta.callerLegalName ?? null,
         name: meta.callerName ?? null,
         avatar: meta.callerAvatar ?? null,
       }
