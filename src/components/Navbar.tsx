@@ -59,8 +59,9 @@ function NavbarContent() {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
   const [isVersionOpen, setIsVersionOpen] = useState(false)
-  // IMPORTANT: keep chat closed by default to avoid background polling slowing the app.
-  const [talkChatPanel, setTalkChatPanel] = useState<'closed' | 'chat' | 'voice'>('closed')
+  // IMPORTANT: keep panels closed by default to avoid background polling slowing the app.
+  const [chatPanelOpen, setChatPanelOpen] = useState(false)
+  const [voicePanelOpen, setVoicePanelOpen] = useState(false)
   const [isPageVisible, setIsPageVisible] = useState(true)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -122,12 +123,11 @@ function NavbarContent() {
 
   // If an interactive navbar item is disabled via Navbar Control, force-close it.
   useEffect(() => {
-    if (!isNavbarItemEnabled('chat') && !isNavbarItemEnabled('phone')) {
-      setTalkChatPanel('closed')
-    } else if (!isNavbarItemEnabled('chat') && talkChatPanel === 'chat') {
-      setTalkChatPanel('closed')
-    } else if (!isNavbarItemEnabled('phone') && talkChatPanel === 'voice') {
-      setTalkChatPanel('closed')
+    if (!isNavbarItemEnabled('chat')) {
+      setChatPanelOpen(false)
+    }
+    if (!isNavbarItemEnabled('phone')) {
+      setVoicePanelOpen(false)
     }
     if (!isNavbarItemEnabled('notification')) {
       setIsAlertsOpen(false)
@@ -135,7 +135,7 @@ function NavbarContent() {
       setIsSelectMode(false)
       setSelectedIds(new Set())
     }
-  }, [isNavbarItemEnabled, talkChatPanel])
+  }, [isNavbarItemEnabled])
 
   // Deep link: /?openChat=1 (e.g. from /open-chat) opens TalkChat once while the param stays; not on every navbar refetch.
   useEffect(() => {
@@ -145,13 +145,13 @@ function NavbarContent() {
     }
     if (!isNavbarItemEnabled('chat')) return
     if (openChatDeepLinkConsumedRef.current) return
-    setTalkChatPanel('chat')
+    setChatPanelOpen(true)
     openChatDeepLinkConsumedRef.current = true
   }, [searchParams, isNavbarItemEnabled])
 
   // Homepage media card Chat button (and other callers) open TalkChat without toggling navbar button.
   useEffect(() => {
-    const open = () => setTalkChatPanel('chat')
+    const open = () => setChatPanelOpen(true)
     window.addEventListener(OPEN_TALK_CHAT_EVENT, open)
     return () => window.removeEventListener(OPEN_TALK_CHAT_EVENT, open)
   }, [])
@@ -161,15 +161,11 @@ function NavbarContent() {
       router.push('/login')
       return
     }
-    setTalkChatPanel((prev) => (prev === 'voice' ? 'closed' : 'voice'))
+    setVoicePanelOpen((prev) => !prev)
   }, [router, session?.user])
 
   const handleToggleChat = useCallback(() => {
-    setTalkChatPanel((prev) => (prev === 'chat' ? 'closed' : 'chat'))
-  }, [])
-
-  const handleCloseTalkChat = useCallback(() => {
-    setTalkChatPanel('closed')
+    setChatPanelOpen((prev) => !prev)
   }, [])
 
   const accountDeactivated = Boolean(
@@ -1278,13 +1274,12 @@ function NavbarContent() {
           document.body
         )}
 
-      {/* Talk Chat — mount when open (feed Chat badge can open even if navbar Chat menu is hidden). */}
-      {talkChatPanel !== 'closed' && (
-        <TalkChat
-          isOpen
-          onClose={handleCloseTalkChat}
-          panelMode={talkChatPanel === 'voice' ? 'voice' : 'chat'}
-        />
+      {/* Chat and Talk are independent floating panels — either or both can be open. */}
+      {chatPanelOpen && (
+        <TalkChat isOpen onClose={() => setChatPanelOpen(false)} panelMode="chat" />
+      )}
+      {voicePanelOpen && (
+        <TalkChat isOpen onClose={() => setVoicePanelOpen(false)} panelMode="voice" />
       )}
 
     </nav>

@@ -172,6 +172,10 @@ function TalkChatContent({
   onClose: () => void
   panelMode?: 'chat' | 'voice'
 }) {
+  const isVoicePanel = panelMode === 'voice'
+  const layoutStorageKeys = isVoicePanel
+    ? { position: 'talkChatVoicePosition', size: 'talkChatVoiceCustomSize' }
+    : { position: 'talkChatPosition', size: 'talkChatCustomSize' }
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
@@ -387,7 +391,7 @@ function TalkChatContent({
   }
   // Show user picker for private chat
   const [showUserPicker, setShowUserPicker] = useState(false)
-  const [showVoiceCallPicker, setShowVoiceCallPicker] = useState(false)
+  const [showVoiceCallPicker, setShowVoiceCallPicker] = useState(isVoicePanel)
   const [voiceCallTab, setVoiceCallTab] = useState<'recent' | 'contacts'>('recent')
   const [voiceCallPickTarget, setVoiceCallPickTarget] = useState<UserSuggestion | null>(null)
   const [voiceCallSearchQuery, setVoiceCallSearchQuery] = useState('')
@@ -752,8 +756,8 @@ function TalkChatContent({
   // Load saved position and size from localStorage
   useEffect(() => {
     if (isDesktop) {
-      const savedPosition = localStorage.getItem('talkChatPosition')
-      const savedSize = localStorage.getItem('talkChatCustomSize')
+      const savedPosition = localStorage.getItem(layoutStorageKeys.position)
+      const savedSize = localStorage.getItem(layoutStorageKeys.size)
       
       // First load size (needed for position constraint)
       let loadedWidth = 500
@@ -779,6 +783,13 @@ function TalkChatContent({
           })
           setHasCustomPosition(true)
         } catch {}
+      } else if (isVoicePanel) {
+        // Default Talk window to top-right so it can sit beside Chat.
+        setPosition({
+          x: Math.max(0, window.innerWidth - loadedWidth - 24),
+          y: Math.max(0, window.innerHeight - loadedHeight - 24),
+        })
+        setHasCustomPosition(true)
       }
       if (savedSize) {
         try {
@@ -787,14 +798,14 @@ function TalkChatContent({
         } catch {}
       }
     }
-  }, [isDesktop])
+  }, [isDesktop, isVoicePanel, layoutStorageKeys.position, layoutStorageKeys.size])
 
   // Save position and size to localStorage
   useEffect(() => {
     if (isDesktop && hasCustomPosition) {
-      localStorage.setItem('talkChatPosition', JSON.stringify(position))
+      localStorage.setItem(layoutStorageKeys.position, JSON.stringify(position))
     }
-  }, [position, isDesktop, hasCustomPosition])
+  }, [position, isDesktop, hasCustomPosition, layoutStorageKeys.position])
 
   // Keep chat visible when window is resized
   useEffect(() => {
@@ -817,9 +828,9 @@ function TalkChatContent({
 
   useEffect(() => {
     if (isDesktop) {
-      localStorage.setItem('talkChatCustomSize', JSON.stringify(size))
+      localStorage.setItem(layoutStorageKeys.size, JSON.stringify(size))
     }
-  }, [size, isDesktop])
+  }, [size, isDesktop, layoutStorageKeys.size])
 
   // Drag handlers
   const handleDragStart = (e: React.MouseEvent) => {
@@ -981,7 +992,7 @@ function TalkChatContent({
     if (!isDesktop) return
     setHasCustomPosition(false)
     setPosition({ x: 0, y: 0 })
-    localStorage.removeItem('talkChatPosition')
+    localStorage.removeItem(layoutStorageKeys.position)
   }
 
   // Block background scroll when touch starts inside chat and moves
@@ -1355,10 +1366,11 @@ function TalkChatContent({
   }, [session?.user?.id])
 
   useEffect(() => {
-    // Desktop uses the floating VoiceCallOverlay — avoid opening the TalkChat phone picker too.
+    if (!isVoicePanel) return
+    // Mobile in-call UI lives in this panel; desktop uses VoiceCallOverlay.
     if (!isActiveVoiceCall || isDesktop) return
     setShowVoiceCallPicker(true)
-  }, [isActiveVoiceCall, isDesktop])
+  }, [isActiveVoiceCall, isDesktop, isVoicePanel])
 
   const openVoiceCallPickerPanel = useCallback(() => {
     if (!isSignedIn) {
@@ -1388,11 +1400,13 @@ function TalkChatContent({
       openVoiceCallPickerPanel()
       return
     }
-    setShowVoiceCallPicker(false)
-    setVoiceCallPickTarget(null)
-    setVoiceCallSearchQuery('')
-    setVoiceCallSearchedUsers([])
-  }, [panelMode, openVoiceCallPickerPanel])
+    if (!isVoicePanel) {
+      setShowVoiceCallPicker(false)
+      setVoiceCallPickTarget(null)
+      setVoiceCallSearchQuery('')
+      setVoiceCallSearchedUsers([])
+    }
+  }, [panelMode, openVoiceCallPickerPanel, isVoicePanel])
 
   useEffect(() => {
     if (!showVoiceCallPicker || !session?.user?.id) return
@@ -2767,7 +2781,7 @@ function TalkChatContent({
           left: 0,
           right: 0,
         }),
-        zIndex: 99999,
+        zIndex: isVoicePanel ? 100000 : 99999,
         pointerEvents: 'none',
       }}>
       {/* Wrapper to center chat - 2 tile width */}
@@ -3371,51 +3385,27 @@ function TalkChatContent({
               )}
             </div>
             <div style={{
-              padding: '8px 12px',
+              padding: '10px 12px',
               background: '#e8e8e8',
               borderTop: '1px solid #ccc',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'flex-end',
-              gap: '8px',
             }}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (isActiveVoiceCall) return
-                  setShowVoiceCallPicker(false)
-                  setVoiceCallPickTarget(null)
-                  setVoiceCallSearchQuery('')
-                  setVoiceCallSearchedUsers([])
-                }}
-                disabled={isActiveVoiceCall}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: '#9ca3af',
-                  color: 'white',
-                  fontWeight: 600,
-                  cursor: isActiveVoiceCall ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  opacity: isActiveVoiceCall ? 0.6 : 1,
-                }}
-              >
-                {tr[TC.cancel]}
-              </button>
               <button
                 type="button"
                 onClick={handleConfirmVoiceCall}
                 disabled={!voiceCallPickTarget || isActiveVoiceCall}
                 style={{
-                  padding: '8px 16px',
-                  borderRadius: '6px',
+                  padding: '12px 28px',
+                  borderRadius: '8px',
                   border: 'none',
                   background: voiceCallPickTarget ? '#059669' : '#9ca3af',
                   color: 'white',
                   fontWeight: 700,
                   cursor: voiceCallPickTarget ? 'pointer' : 'not-allowed',
-                  fontSize: '14px',
+                  fontSize: '16px',
+                  minWidth: '120px',
                 }}
               >
                 {tr[TC.voiceCallStartButton]}
