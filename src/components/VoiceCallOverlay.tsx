@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
+import { voiceCallNickname } from '@/hooks/useVoiceCall'
 import type { VoiceCallRingtoneId } from '@/lib/voiceCallVolume'
 import { formatVolumePercent } from '@/lib/voiceCallVolume'
 
@@ -71,8 +72,7 @@ interface VoiceCallOverlayProps {
 type CallUiMode = 'fullscreen' | 'popup'
 
 function displayName(user: VoiceCallUser | null) {
-  if (!user) return ''
-  return (user.name || user.username || '').trim()
+  return voiceCallNickname(user)
 }
 
 function formatCallStatus(template: string, user: VoiceCallUser | null) {

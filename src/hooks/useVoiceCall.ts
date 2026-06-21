@@ -43,6 +43,12 @@ export interface VoiceCallUser {
 
 export type VoiceCallState = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'connected' | 'ended'
 
+/** Incoming/active call UI: show platform nickname (username), not legal/full name. */
+export function voiceCallNickname(user: VoiceCallUser | null | undefined): string {
+  if (!user) return ''
+  return (user.username || user.name || '').trim()
+}
+
 /** CallKit owns the ring on iOS — in-app incoming overlay (#1) must not appear. */
 function shouldSuppressIosIncomingUi(call?: NativeIncomingCallPayload): boolean {
   if (!isNativeIosCallApp()) return false
@@ -586,7 +592,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       // iOS: VoIP push + App bridge own CallKit; Android/other use JS native UI fallback.
       const needsNativeUiFallback = !isNativeVoiceCallApp() || isNativeAndroidCallApp()
       if (needsNativeUiFallback) {
-        const label = caller.name || caller.username || 'AiMediaTank'
+        const label = voiceCallNickname(caller) || 'AiMediaTank'
         const declineToken = getCachedNativeDeclineToken(signal.callId)
         const skipDuplicateNativeUi =
           isNativeAndroidCallApp() &&
@@ -1068,7 +1074,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           }
           setCallState('incoming')
           if (!isNativeIosCallApp()) {
-            const label = incoming.caller.name || incoming.caller.username || 'AiMediaTank'
+            const label = voiceCallNickname(incoming.caller) || 'AiMediaTank'
             const declineToken =
               (incoming as { declineToken?: string }).declineToken?.trim() || undefined
             if (declineToken) {

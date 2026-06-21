@@ -319,7 +319,7 @@ export async function POST(request: Request) {
         },
       })
 
-      const callerLabel = call.caller.name || call.caller.username
+      const callerLabel = call.caller.username || call.caller.name
       const nativeAndroidCallee = await calleeHasAndroidNativeCallToken(calleeId)
       if (!nativeAndroidCallee) {
         void sendVoiceCallRingPushBurstToUser(calleeId, {

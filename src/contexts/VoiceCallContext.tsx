@@ -38,7 +38,7 @@ import {
   type VoiceCallRingtoneId,
 } from '@/lib/voiceCallVolume'
 import { useSession } from 'next-auth/react'
-import { useVoiceCall, type VoiceCallState, type VoiceCallUser } from '@/hooks/useVoiceCall'
+import { useVoiceCall, type VoiceCallState, type VoiceCallUser, voiceCallNickname } from '@/hooks/useVoiceCall'
 import { VoiceCallOverlay } from '@/components/VoiceCallOverlay'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 import { useUiLocale } from '@/hooks/useUiLocale'
@@ -70,8 +70,7 @@ interface VoiceCallContextValue {
 const VoiceCallContext = createContext<VoiceCallContextValue | null>(null)
 
 function voiceCallDisplayName(user: VoiceCallUser | null) {
-  if (!user) return '?'
-  return (user.name || user.username || '').trim() || '?'
+  return voiceCallNickname(user) || '?'
 }
 
 function formatVoiceCallAnnouncement(template: string, user: VoiceCallUser | null) {
