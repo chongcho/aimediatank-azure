@@ -901,7 +901,7 @@ function HomeContent() {
             <h1 className="text-base font-bold">
               <span className="text-gradient">AI Media Tank (AiM)</span>
             </h1>
-            <p className="text-gray-400 text-[13px] md:text-sm italic">
+            <p className="text-gray-300 text-[13px] md:text-sm italic">
               Community for AI and Real Contents Creators and Digital Enthusiasts
             </p>
           </div>
@@ -918,7 +918,7 @@ function HomeContent() {
               onChange={(e) => handleSearchChange(e.target.value)}
               onFocus={() => search.length >= 2 && setShowSuggestions(true)}
               placeholder="Search media or @username..."
-              className="w-full pl-4 pr-24 py-2.5 bg-tank-gray border border-tank-light rounded-lg focus:border-tank-accent"
+              className="w-full pl-4 pr-24 py-2.5 bg-tank-gray border border-tank-accent rounded-lg focus:border-tank-accent"
               autoComplete="off"
             />
             <button
@@ -1021,7 +1021,7 @@ function HomeContent() {
 
         {/* Right: Sort Options */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <label htmlFor="sort-select" className="text-sm text-gray-500 whitespace-nowrap">Sort by:</label>
+          <label htmlFor="sort-select" className="text-sm text-gray-300 whitespace-nowrap">Sort by:</label>
           <select
             id="sort-select"
             value={sort}
