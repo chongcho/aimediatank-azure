@@ -183,11 +183,7 @@ function NavbarContent() {
     }
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
     if (isMobile) {
-      // Mobile: one full-screen panel — switch or toggle closed.
-      if (voicePanelOpen && !chatPanelOpen) {
-        setVoicePanelOpen(false)
-        return
-      }
+      // Mobile: navbar selects the screen — no toggle-close; use panel X to dismiss.
       if (chatPanelOpen) setChatPanelOpen(false)
       setVoicePanelOpen(true)
       setFrontPanel('voice')
@@ -208,10 +204,6 @@ function NavbarContent() {
   const handleToggleChat = useCallback(() => {
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
     if (isMobile) {
-      if (chatPanelOpen && !voicePanelOpen) {
-        setChatPanelOpen(false)
-        return
-      }
       if (voicePanelOpen) setVoicePanelOpen(false)
       setChatPanelOpen(true)
       setFrontPanel('chat')
