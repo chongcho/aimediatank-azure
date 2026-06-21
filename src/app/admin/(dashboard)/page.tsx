@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -1357,6 +1357,45 @@ export default function AdminPage() {
       setMediaBadgeLoading(false)
     }
   }
+
+  const persistMediaDetailSettings = useCallback(async (settings: {
+    downloadEnabled: boolean
+    shareEnabled: boolean
+    sendByEmailEnabled: boolean
+    cardEnabled: boolean
+    aiToolEnabled: boolean
+    shareAppsEnabled: Record<string, boolean>
+  }) => {
+    setMediaDetailSaving(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setMediaDetail',
+          data: settings,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        console.error('Media detail save failed:', data)
+        return
+      }
+      if (typeof data.downloadEnabled === 'boolean') setMediaDetailDownload(data.downloadEnabled)
+      if (typeof data.shareEnabled === 'boolean') setMediaDetailShare(data.shareEnabled)
+      if (typeof data.sendByEmailEnabled === 'boolean') setMediaDetailSendByEmail(data.sendByEmailEnabled)
+      if (typeof data.cardEnabled === 'boolean') setMediaDetailCard(data.cardEnabled)
+      if (typeof data.aiToolEnabled === 'boolean') setMediaDetailAiTool(data.aiToolEnabled)
+      if (data.shareAppsEnabled && typeof data.shareAppsEnabled === 'object') {
+        setMediaDetailShareApps((prev) => ({ ...prev, ...data.shareAppsEnabled }))
+      }
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('mediaDetailUpdated'))
+    } catch (error) {
+      console.error('Error saving media detail settings:', error)
+    } finally {
+      setMediaDetailSaving(false)
+    }
+  }, [])
 
   const toggleHomePreplaySound = async (next: boolean) => {
     setHomePreplaySoundSaving(true)
@@ -3517,17 +3556,32 @@ export default function AdminPage() {
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-3">
                     {[
-                      { label: 'Download', value: mediaDetailDownload, onChange: setMediaDetailDownload },
-                      { label: 'Share', value: mediaDetailShare, onChange: setMediaDetailShare },
-                      { label: 'Send by email', value: mediaDetailSendByEmail, onChange: setMediaDetailSendByEmail },
-                      { label: 'Card', value: mediaDetailCard, onChange: setMediaDetailCard },
-                      { label: 'AI Tool', value: mediaDetailAiTool, onChange: setMediaDetailAiTool },
-                    ].map(({ label, value, onChange }) => (
+                      { label: 'Download', value: mediaDetailDownload, key: 'downloadEnabled' as const },
+                      { label: 'Share', value: mediaDetailShare, key: 'shareEnabled' as const },
+                      { label: 'Send by email', value: mediaDetailSendByEmail, key: 'sendByEmailEnabled' as const },
+                      { label: 'Card', value: mediaDetailCard, key: 'cardEnabled' as const },
+                      { label: 'AI Tool', value: mediaDetailAiTool, key: 'aiToolEnabled' as const },
+                    ].map(({ label, value, key }) => (
                       <div key={label} className="flex items-center gap-2">
                         <label className="text-gray-300 text-sm">{label}</label>
                         <select
                           value={value ? 'on' : 'off'}
-                          onChange={(e) => onChange(e.target.value === 'on')}
+                          onChange={(e) => {
+                            const next = e.target.value === 'on'
+                            if (key === 'downloadEnabled') setMediaDetailDownload(next)
+                            else if (key === 'shareEnabled') setMediaDetailShare(next)
+                            else if (key === 'sendByEmailEnabled') setMediaDetailSendByEmail(next)
+                            else if (key === 'cardEnabled') setMediaDetailCard(next)
+                            else setMediaDetailAiTool(next)
+                            void persistMediaDetailSettings({
+                              downloadEnabled: key === 'downloadEnabled' ? next : mediaDetailDownload,
+                              shareEnabled: key === 'shareEnabled' ? next : mediaDetailShare,
+                              sendByEmailEnabled: key === 'sendByEmailEnabled' ? next : mediaDetailSendByEmail,
+                              cardEnabled: key === 'cardEnabled' ? next : mediaDetailCard,
+                              aiToolEnabled: key === 'aiToolEnabled' ? next : mediaDetailAiTool,
+                              shareAppsEnabled: mediaDetailShareApps,
+                            })
+                          }}
                           disabled={mediaDetailSaving}
                           className="bg-tank-dark border border-tank-light rounded px-2 py-1 text-white text-sm"
                         >
@@ -3556,7 +3610,21 @@ export default function AdminPage() {
                           <label className="text-gray-300 text-sm">{label}</label>
                           <select
                             value={mediaDetailShareApps[key as keyof typeof mediaDetailShareApps] !== false ? 'on' : 'off'}
-                            onChange={(e) => setMediaDetailShareApps((prev) => ({ ...prev, [key]: e.target.value === 'on' }))}
+                            onChange={(e) => {
+                              const nextShareApps = {
+                                ...mediaDetailShareApps,
+                                [key]: e.target.value === 'on',
+                              }
+                              setMediaDetailShareApps(nextShareApps)
+                              void persistMediaDetailSettings({
+                                downloadEnabled: mediaDetailDownload,
+                                shareEnabled: mediaDetailShare,
+                                sendByEmailEnabled: mediaDetailSendByEmail,
+                                cardEnabled: mediaDetailCard,
+                                aiToolEnabled: mediaDetailAiTool,
+                                shareAppsEnabled: nextShareApps,
+                              })
+                            }}
                             disabled={mediaDetailSaving}
                             className="bg-tank-dark border border-tank-light rounded px-2 py-1 text-white text-sm"
                           >
@@ -3567,48 +3635,6 @@ export default function AdminPage() {
                       ))}
                     </div>
                   </div>
-                  <button
-                    onClick={async () => {
-                      setMediaDetailSaving(true)
-                      try {
-                        const res = await fetch('/api/admin', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'setMediaDetail',
-                            data: {
-                              downloadEnabled: mediaDetailDownload,
-                              shareEnabled: mediaDetailShare,
-                              sendByEmailEnabled: mediaDetailSendByEmail,
-                              cardEnabled: mediaDetailCard,
-                              aiToolEnabled: mediaDetailAiTool,
-                              shareAppsEnabled: mediaDetailShareApps,
-                            },
-                          }),
-                        })
-                        const data = await res.json()
-                        if (!res.ok) {
-                          console.error('Media detail save failed:', data)
-                          return
-                        }
-                        if (typeof data.downloadEnabled === 'boolean') setMediaDetailDownload(data.downloadEnabled)
-                        if (typeof data.shareEnabled === 'boolean') setMediaDetailShare(data.shareEnabled)
-                        if (typeof data.sendByEmailEnabled === 'boolean') setMediaDetailSendByEmail(data.sendByEmailEnabled)
-                        if (typeof data.cardEnabled === 'boolean') setMediaDetailCard(data.cardEnabled)
-                        if (typeof data.aiToolEnabled === 'boolean') setMediaDetailAiTool(data.aiToolEnabled)
-                        if (data.shareAppsEnabled && typeof data.shareAppsEnabled === 'object') {
-                          setMediaDetailShareApps((prev) => ({ ...prev, ...data.shareAppsEnabled }))
-                        }
-                        if (typeof window !== 'undefined') window.dispatchEvent(new Event('mediaDetailUpdated'))
-                      } finally {
-                        setMediaDetailSaving(false)
-                      }
-                    }}
-                    disabled={mediaDetailSaving}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium disabled:opacity-50"
-                  >
-                    {mediaDetailSaving ? 'Saving…' : 'Save'}
-                  </button>
                 </div>
               )}
             </div>
