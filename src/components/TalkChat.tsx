@@ -2779,6 +2779,7 @@ function TalkChatContent({
         }),
         zIndex: isFront ? 100001 : 100000,
         pointerEvents: 'none',
+        ...(!isDesktop && !isFront ? { visibility: 'hidden' as const } : {}),
       }}>
       {/* Wrapper to center chat - 2 tile width */}
       <div className="chat-wrapper-responsive" style={{ 
@@ -2821,7 +2822,7 @@ function TalkChatContent({
             boxShadow: isDesktop && hasCustomPosition ? '0 4px 30px rgba(0, 0, 0, 0.2)' : '0 -4px 20px rgba(0, 0, 0, 0.15)',
             background: '#f0f0f0',
             transition: isDesktop && (isDragging || isResizingWidth || isResizingHeight) ? 'none' : isDesktop ? 'height 0.3s ease-in-out' : 'none',
-            pointerEvents: 'auto',
+            pointerEvents: !isDesktop && !isFront ? 'none' : 'auto',
             overscrollBehavior: 'contain',
             boxSizing: 'border-box',
           }}>

@@ -166,6 +166,9 @@ function NavbarContent() {
   // Homepage media card Chat button (and other callers) open TalkChat without toggling navbar button.
   useEffect(() => {
     const open = () => {
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        setVoicePanelOpen(false)
+      }
       setChatPanelOpen(true)
       setFrontPanel('chat')
     }
@@ -178,6 +181,18 @@ function NavbarContent() {
       router.push('/login')
       return
     }
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+    if (isMobile) {
+      // Mobile: one full-screen panel — switch or toggle closed.
+      if (voicePanelOpen && !chatPanelOpen) {
+        setVoicePanelOpen(false)
+        return
+      }
+      if (chatPanelOpen) setChatPanelOpen(false)
+      setVoicePanelOpen(true)
+      setFrontPanel('voice')
+      return
+    }
     if (voicePanelOpen) {
       if (frontPanel !== 'voice') {
         setFrontPanel('voice')
@@ -188,9 +203,20 @@ function NavbarContent() {
     }
     setVoicePanelOpen(true)
     setFrontPanel('voice')
-  }, [router, session?.user, voicePanelOpen, frontPanel])
+  }, [router, session?.user, voicePanelOpen, chatPanelOpen, frontPanel])
 
   const handleToggleChat = useCallback(() => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+    if (isMobile) {
+      if (chatPanelOpen && !voicePanelOpen) {
+        setChatPanelOpen(false)
+        return
+      }
+      if (voicePanelOpen) setVoicePanelOpen(false)
+      setChatPanelOpen(true)
+      setFrontPanel('chat')
+      return
+    }
     if (chatPanelOpen) {
       if (frontPanel !== 'chat') {
         setFrontPanel('chat')
@@ -201,7 +227,7 @@ function NavbarContent() {
     }
     setChatPanelOpen(true)
     setFrontPanel('chat')
-  }, [chatPanelOpen, frontPanel])
+  }, [chatPanelOpen, voicePanelOpen, frontPanel])
 
   const accountDeactivated = Boolean(
     userData?.accountDeactivatedAt || session?.user?.accountDeactivated,
@@ -611,6 +637,9 @@ function NavbarContent() {
       </span>
     </button>
   ) : null
+
+  const chatIsFront = chatPanelOpen && (!voicePanelOpen || frontPanel !== 'voice')
+  const voiceIsFront = voicePanelOpen && frontPanel === 'voice'
 
   return (
     <VoiceCallProvider>
@@ -1309,19 +1338,35 @@ function NavbarContent() {
           document.body
         )}
 
-      {/* Chat and Talk are independent floating panels — either or both can be open. */}
-      {chatPanelOpen && (
+      {/* Chat and Talk — desktop can stack both; mobile shows one at a time. Render back layer first. */}
+      {chatPanelOpen && !chatIsFront && (
         <TalkChat
           isOpen
-          isFront={frontPanel === 'chat'}
+          isFront={false}
           onClose={() => setChatPanelOpen(false)}
           panelMode="chat"
         />
       )}
-      {voicePanelOpen && (
+      {voicePanelOpen && !voiceIsFront && (
         <TalkChat
           isOpen
-          isFront={frontPanel === 'voice'}
+          isFront={false}
+          onClose={() => setVoicePanelOpen(false)}
+          panelMode="voice"
+        />
+      )}
+      {chatPanelOpen && chatIsFront && (
+        <TalkChat
+          isOpen
+          isFront
+          onClose={() => setChatPanelOpen(false)}
+          panelMode="chat"
+        />
+      )}
+      {voicePanelOpen && voiceIsFront && (
+        <TalkChat
+          isOpen
+          isFront
           onClose={() => setVoicePanelOpen(false)}
           panelMode="voice"
         />
