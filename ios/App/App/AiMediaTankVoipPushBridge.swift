@@ -189,6 +189,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         releaseAudioSession()
     }
 
+    /// CallKit reset terminates every call — tear down native WebRTC and always release audio.
+    private func tearDownNativeVoiceAfterCallKitReset() {
+        if NativeVoiceCallEngine.shared.isActive
+            || NativeVoiceCallEngine.shared.isMediaConnected
+            || NativeVoiceCallEngine.shared.activeCallId != nil {
+            NativeVoiceCallEngine.shared.audioSessionDeactivated()
+            NativeVoiceCallEngine.shared.endCall(reason: "callkit_provider_reset", syncServer: false)
+        }
+        releaseAudioSession()
+    }
+
     /// After a crash or stale CallKit state, tear down audio and orphaned rings so Phone calls work again.
     func recoverFromStaleCallState() {
         if hasPendingCallKitAnswer() { return }
@@ -1338,7 +1349,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         statusWatchGeneration.keys.forEach { stopCallStatusWatch(callId: $0) }
         dismissRetryGeneration.removeAll()
         clearPendingCallKitAnswer()
-        releaseAudioSession()
+        tearDownNativeVoiceAfterCallKitReset()
         dismissAllRingingCalls()
         UserDefaults.standard.removeObject(forKey: Self.ringingCallIdsKey)
     }
