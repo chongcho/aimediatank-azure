@@ -628,6 +628,9 @@ export default function AdminPage() {
   const [creditsAmount, setCreditsAmount] = useState('')
   const [creditsComment, setCreditsComment] = useState('')
   const [creditsSendEmail, setCreditsSendEmail] = useState(true)
+  const [creditsSubmitting, setCreditsSubmitting] = useState(false)
+  const creditsSubmittingRef = useRef(false)
+  const creditsIdempotencyKeyRef = useRef<string | null>(null)
   
   // Chat search/filter state
   const [chatSearch, setChatSearch] = useState('')
@@ -1566,6 +1569,87 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Failed to fetch credit history:', error)
       setCreditHistoryModal(prev => prev ? { ...prev, loading: false } : null)
+    }
+  }
+
+  const resetCreditsModal = () => {
+    setCreditsModal(null)
+    setCreditsAmount('')
+    setCreditsComment('')
+    setCreditsSendEmail(true)
+    creditsIdempotencyKeyRef.current = null
+  }
+
+  const openCreditsModal = (user: {
+    id: string
+    username: string
+    legalName: string | null
+    bonusCredits?: number | null
+    paidUploadCredits?: number | null
+    email: string
+  }) => {
+    creditsIdempotencyKeyRef.current =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    setCreditsAmount('')
+    setCreditsComment('')
+    setCreditsSendEmail(true)
+    setCreditsModal({
+      show: true,
+      userId: user.id,
+      username: user.username,
+      legalName: user.legalName,
+      currentCredits: (user.bonusCredits || 0) + (user.paidUploadCredits || 0),
+      email: user.email,
+    })
+  }
+
+  const submitGiveCredits = async () => {
+    if (creditsSubmittingRef.current || !creditsModal) return
+
+    const credits = parseInt(creditsAmount, 10)
+    if (!Number.isFinite(credits) || credits <= 0) return
+
+    creditsSubmittingRef.current = true
+    setCreditsSubmitting(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'giveCredits',
+          targetId: creditsModal.userId,
+          data: {
+            credits,
+            reason: creditsComment || 'Admin bonus credits',
+            sendEmail: creditsSendEmail,
+            email: creditsModal.email,
+            idempotencyKey: creditsIdempotencyKeyRef.current,
+          },
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setToast({
+          message: (data as { message?: string }).message || 'Credits given successfully',
+          type: 'success',
+        })
+        fetchData()
+        setShowUserModal(false)
+        resetCreditsModal()
+      } else {
+        setToast({
+          message: (data as { error?: string }).error || 'Failed to give credits',
+          type: 'error',
+        })
+      }
+    } catch (error) {
+      console.error('Error giving credits:', error)
+      setToast({ message: 'Failed to give credits', type: 'error' })
+    } finally {
+      creditsSubmittingRef.current = false
+      setCreditsSubmitting(false)
     }
   }
 
@@ -4554,16 +4638,7 @@ export default function AdminPage() {
               
               {/* Give Credits - Green */}
               <button
-                onClick={() => {
-                  setCreditsModal({
-                    show: true,
-                    userId: selectedUser.id,
-                    username: selectedUser.username,
-                    legalName: selectedUser.legalName,
-                    currentCredits: (selectedUser.bonusCredits || 0) + (selectedUser.paidUploadCredits || 0),
-                    email: selectedUser.email
-                  })
-                }}
+                onClick={() => openCreditsModal(selectedUser)}
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg py-2.5 px-4 font-medium transition-colors"
               >
                 🎁 Give Credits
@@ -4786,7 +4861,7 @@ export default function AdminPage() {
 
       {/* Give Credits Modal */}
       {creditsModal?.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setCreditsModal(null); setCreditsAmount(''); setCreditsComment(''); setCreditsSendEmail(true); }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { if (!creditsSubmitting) resetCreditsModal() }}>
           <div className="bg-[#1a1a2e] rounded-xl p-6 max-w-md w-full border border-gray-700" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-bold mb-6 text-tank-accent">🎁 Give Credits</h2>
             
@@ -4805,7 +4880,8 @@ export default function AdminPage() {
                   value={creditsComment}
                   onChange={(e) => setCreditsComment(e.target.value)}
                   placeholder="Enter reason for giving credits..."
-                  className="w-full bg-transparent border-none outline-none text-gray-300 resize-none h-16"
+                  disabled={creditsSubmitting}
+                  className="w-full bg-transparent border-none outline-none text-gray-300 resize-none h-16 disabled:opacity-60"
                 />
               </div>
               
@@ -4818,7 +4894,8 @@ export default function AdminPage() {
                   value={creditsAmount}
                   onChange={(e) => setCreditsAmount(e.target.value)}
                   placeholder="Enter number of credits..."
-                  className="w-full bg-tank-dark border-2 border-tank-accent rounded-lg px-4 py-3 text-white focus:outline-none"
+                  disabled={creditsSubmitting}
+                  className="w-full bg-tank-dark border-2 border-tank-accent rounded-lg px-4 py-3 text-white focus:outline-none disabled:opacity-60"
                   autoFocus
                 />
               </div>
@@ -4829,7 +4906,8 @@ export default function AdminPage() {
                   type="checkbox"
                   checked={creditsSendEmail}
                   onChange={(e) => setCreditsSendEmail(e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-600 bg-tank-dark text-tank-accent focus:ring-tank-accent"
+                  disabled={creditsSubmitting}
+                  className="w-5 h-5 rounded border-gray-600 bg-tank-dark text-tank-accent focus:ring-tank-accent disabled:opacity-60"
                 />
                 <span className="text-gray-300">Send notification email to creator</span>
               </label>
@@ -4837,31 +4915,20 @@ export default function AdminPage() {
             
             <div className="flex gap-3">
               <button
-                onClick={() => { setCreditsModal(null); setCreditsAmount(''); setCreditsComment(''); setCreditsSendEmail(true); }}
-                className="flex-1 bg-tank-dark hover:bg-tank-light text-white rounded-lg py-3 px-4 font-medium"
+                type="button"
+                onClick={() => resetCreditsModal()}
+                disabled={creditsSubmitting}
+                className="flex-1 bg-tank-dark hover:bg-tank-light text-white rounded-lg py-3 px-4 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
-                onClick={async () => {
-                  const credits = parseInt(creditsAmount)
-                  if (credits > 0) {
-                    await handleAction('giveCredits', creditsModal.userId, { 
-                      credits, 
-                      reason: creditsComment || 'Admin bonus credits',
-                      sendEmail: creditsSendEmail,
-                      email: creditsModal.email
-                    })
-                    setCreditsModal(null)
-                    setCreditsAmount('')
-                    setCreditsComment('')
-                    setCreditsSendEmail(true)
-                  }
-                }}
-                disabled={!creditsAmount || parseInt(creditsAmount) <= 0}
+                type="button"
+                onClick={() => void submitGiveCredits()}
+                disabled={creditsSubmitting || !creditsAmount || parseInt(creditsAmount, 10) <= 0}
                 className="flex-1 bg-tank-accent hover:bg-tank-accent/80 text-black rounded-lg py-3 px-4 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Give Credits
+                {creditsSubmitting ? 'Giving Credits…' : 'Give Credits'}
               </button>
             </div>
           </div>

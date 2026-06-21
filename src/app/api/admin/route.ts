@@ -1714,9 +1714,36 @@ export async function POST(request: Request) {
         const credits = parseInt(data?.credits) || 0
         const shouldSendEmail = data?.sendEmail !== false // Default to true for backward compatibility
         const reason = data?.reason || 'Admin bonus credits'
+        const idempotencyKey =
+          typeof data?.idempotencyKey === 'string' ? data.idempotencyKey.trim().slice(0, 64) : ''
         
         if (credits <= 0) {
           return NextResponse.json({ error: 'Invalid credits amount' }, { status: 400 })
+        }
+
+        if (idempotencyKey) {
+          const existing = await prisma.adminAction.findFirst({
+            where: {
+              action: 'GIVE_CREDITS',
+              adminId,
+              targetId,
+              details: { contains: idempotencyKey },
+            },
+            select: { details: true },
+          })
+          if (existing) {
+            let parsed: { credits?: number; emailSent?: boolean } = {}
+            try {
+              parsed = JSON.parse(existing.details || '{}')
+            } catch {
+              /* ignore malformed audit payload */
+            }
+            return NextResponse.json({
+              message: `${parsed.credits ?? credits} credits given${parsed.emailSent ? ' (email sent)' : ''}`,
+              emailSent: parsed.emailSent ?? false,
+              alreadyProcessed: true,
+            })
+          }
         }
         
         // Get user info for email and admin info for history
@@ -1793,7 +1820,12 @@ export async function POST(request: Request) {
           }
         }
         
-        await logAdminAction(adminId, 'GIVE_CREDITS', 'USER', targetId, { credits, reason, emailSent: emailActuallySent })
+        await logAdminAction(adminId, 'GIVE_CREDITS', 'USER', targetId, {
+          credits,
+          reason,
+          emailSent: emailActuallySent,
+          ...(idempotencyKey ? { idempotencyKey } : {}),
+        })
         return NextResponse.json({ 
           message: `${credits} credits given${shouldSendEmail ? (emailActuallySent ? ' (email sent)' : ' (email failed)') : ''}`,
           emailSent: emailActuallySent
