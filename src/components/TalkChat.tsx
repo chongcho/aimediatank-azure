@@ -1411,7 +1411,7 @@ function TalkChatContent({
   }, [panelMode, openVoiceCallPickerPanel, isVoicePanel])
 
   useEffect(() => {
-    if (!showVoiceCallPicker || !session?.user?.id) return
+    if (!isFront || !showVoiceCallPicker || !session?.user?.id) return
     let cancelled = false
     setLoadingVoiceCallRecords(true)
     void (async () => {
@@ -1429,10 +1429,10 @@ function TalkChatContent({
     return () => {
       cancelled = true
     }
-  }, [showVoiceCallPicker, session?.user?.id])
+  }, [isFront, showVoiceCallPicker, session?.user?.id])
 
   useEffect(() => {
-    if (!showVoiceCallPicker || voiceCallTab !== 'contacts' || !session?.user?.id) return
+    if (!isFront || !showVoiceCallPicker || voiceCallTab !== 'contacts' || !session?.user?.id) return
     let cancelled = false
     setLoadingVoiceCallContacts(true)
     void (async () => {
@@ -1450,10 +1450,10 @@ function TalkChatContent({
     return () => {
       cancelled = true
     }
-  }, [showVoiceCallPicker, voiceCallTab, session?.user?.id])
+  }, [isFront, showVoiceCallPicker, voiceCallTab, session?.user?.id])
 
   useEffect(() => {
-    if (!showVoiceCallPicker) return
+    if (!isFront || !showVoiceCallPicker) return
     const q = voiceCallSearchQuery.trim()
     if (!q) {
       setVoiceCallSearchedUsers([])
@@ -1481,7 +1481,7 @@ function TalkChatContent({
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [showVoiceCallPicker, voiceCallSearchQuery])
+  }, [isFront, showVoiceCallPicker, voiceCallSearchQuery])
 
   // Toggle new chat picker (renamed from chat records)
   const toggleNewChat = () => {
@@ -3012,12 +3012,12 @@ function TalkChatContent({
             )}
           </div>
           
-          {/* Close button — desktop minimize line; mobile square X */}
+          {/* Close button — square blue X (desktop + mobile) */}
           <div style={{ display: 'flex', gap: '1px', flexShrink: 0 }}>
             <button
               type="button"
               onClick={onClose}
-              className={isDesktop ? 'h-6 sm:h-7 w-7 sm:w-8' : 'h-7 w-7'}
+              className="h-7 w-7"
               style={{
                 borderRadius: '4px',
                 border: 'none',
@@ -3031,15 +3031,9 @@ function TalkChatContent({
               title={tr[TC.closeKongTitle]}
               aria-label={tr[TC.closeKongTitle]}
             >
-              {isDesktop ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                  <path strokeLinecap="round" d="M6 19h12" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              )}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
         </div>

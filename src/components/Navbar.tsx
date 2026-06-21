@@ -288,6 +288,32 @@ function NavbarContent() {
     },
     [talkChatPanelsOpen, closeTalkChatPanels, router, isSubscriber]
   )
+
+  const handleHomeNavClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>, refreshIfHome = false) => {
+      e.preventDefault()
+      sessionStorage.removeItem('homeScrollState')
+      clearHomeFeed()
+      const onHome = window.location.pathname === '/'
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+      if (talkChatPanelsOpen) {
+        closeTalkChatPanels()
+      }
+      if (onHome) {
+        document.body.scrollTop = 0
+        if (refreshIfHome) {
+          window.dispatchEvent(new Event('homeRefreshRequested'))
+        }
+        return
+      }
+      if (isMobile) {
+        router.push('/')
+      } else {
+        window.location.href = '/'
+      }
+    },
+    [talkChatPanelsOpen, closeTalkChatPanels, router]
+  )
   
   // Display name - show Nickname (username) in navbar
   const displayName = userData?.username || session?.user?.username || 'User'
@@ -667,17 +693,12 @@ function NavbarContent() {
       <div className="max-w-7xl mx-auto pl-2 pr-4 sm:pl-3 sm:pr-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo and Home Icon */}
-          <div className="flex items-center flex-shrink-0">
-            <Link href="/" className="flex items-center" onClick={(e) => { 
-              e.preventDefault();
-              sessionStorage.removeItem('homeScrollState');
-              clearHomeFeed();
-              if (window.location.pathname === '/') {
-                document.body.scrollTop = 0;
-              } else {
-                window.location.href = '/';
-              }
-            }}>
+          <div className="navbar-brand flex items-center flex-shrink-0">
+            <Link
+              href="/"
+              className="relative z-[2] flex touch-manipulation items-center [-webkit-tap-highlight-color:transparent]"
+              onClick={(e) => handleHomeNavClick(e)}
+            >
             <img 
               src="/logo.png" 
               alt="AI Media Tank (AiM)" 
@@ -688,18 +709,8 @@ function NavbarContent() {
             {isNavbarItemEnabled('home') && (
             <Link 
               href="/" 
-              className="ml-[20px] text-gray-400 hover:text-white transition-colors"
-              onClick={(e) => { 
-                e.preventDefault();
-                sessionStorage.removeItem('homeScrollState');
-                clearHomeFeed();
-                if (window.location.pathname === '/') {
-                  document.body.scrollTop = 0;
-                  window.dispatchEvent(new Event('homeRefreshRequested'));
-                } else {
-                  window.location.href = '/';
-                }
-              }}
+              className="relative z-[2] ml-[20px] touch-manipulation text-gray-400 hover:text-white transition-colors [-webkit-tap-highlight-color:transparent]"
+              onClick={(e) => handleHomeNavClick(e, true)}
               title={t('home')}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
@@ -724,7 +735,7 @@ function NavbarContent() {
               <button
                 type="button"
                 onClick={handleToggleTalk}
-                className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 px-px text-center hover:bg-emerald-700 transition-colors"
+                className="inline-flex h-9 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg bg-emerald-600 px-px text-center hover:bg-emerald-700 transition-colors [-webkit-tap-highlight-color:transparent]"
                 aria-label={t('phone')}
                 title={t('phone')}
               >
@@ -736,7 +747,7 @@ function NavbarContent() {
               <div className="relative">
                 <button
                   onClick={handleToggleChat}
-                  className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-yellow-300 px-px text-center hover:bg-yellow-400 transition-colors"
+                  className="inline-flex h-9 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg bg-yellow-300 px-px text-center hover:bg-yellow-400 transition-colors [-webkit-tap-highlight-color:transparent]"
                   aria-label={t('kong')}
                   title={t('kong')}
                 >

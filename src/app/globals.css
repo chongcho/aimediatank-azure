@@ -200,6 +200,12 @@ html.capacitor-native.android .pwa-navbar .navbar-actions {
     z-index: 2;
     isolation: isolate;
   }
+
+  .pwa-navbar .navbar-brand {
+    position: relative;
+    z-index: 2;
+    isolation: isolate;
+  }
 }
 
 html.capacitor-native.android .home-hero {
