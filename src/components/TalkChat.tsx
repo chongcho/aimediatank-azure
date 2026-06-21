@@ -327,20 +327,7 @@ function TalkChatContent({
     return () => window.removeEventListener('profileUpdated', handleProfileUpdate)
   }, [session?.user])
   
-  // Size control functions (tall aligns with navbar, max is 40vh/50vh)
-  const pushDown = () => {
-    if (chatSize === 'tall') setChatSize('max')
-    else if (chatSize === 'max') setChatSize('medium')
-    else if (chatSize === 'medium') setChatSize('min')
-  }
-  
-  const pushUp = () => {
-    if (chatSize === 'min') setChatSize('medium')
-    else if (chatSize === 'medium') setChatSize('max')
-    else if (chatSize === 'max') setChatSize('tall')
-  }
-  
-  // Get height based on chat size
+  // Size control functions (desktop floating panel heights)
   const getChatHeight = () => {
     switch (chatSize) {
       case 'tall': return '70vh' // Desktop tall
@@ -359,14 +346,6 @@ function TalkChatContent({
     }
   }
   
-  const getMobileChatHeight = () => {
-    switch (chatSize) {
-      case 'tall': return isPWA ? 'calc(100dvh - 88px)' : 'calc(100dvh - 65px)' // PWA: 23px shorter
-      case 'max': return '50vh'
-      case 'medium': return '35vh'
-      case 'min': return 'auto'
-    }
-  }
   // Chat mode: 'open' or 'private'
   const [chatMode, setChatModeState] = useState<'open' | 'private'>('open')
   // Private chat recipients (supports multiple for group chat)
@@ -1016,7 +995,7 @@ function TalkChatContent({
       if (!touchStartedInChat) return
       
       const target = e.target as HTMLElement
-      const scrollableParent = target.closest('.chat-messages-scroll, .emoji-picker-scroll, .media-picker-scroll, [data-scrollable]') as HTMLElement
+      const scrollableParent = target.closest('.chat-messages-scroll, .emoji-picker-scroll, .media-picker-scroll, .chat-voice-call-scroll, [data-scrollable]') as HTMLElement
       
       if (scrollableParent) {
         const { scrollTop, scrollHeight, clientHeight } = scrollableParent
@@ -2218,6 +2197,19 @@ function TalkChatContent({
     const textarea = el ?? inputRef.current
     if (!textarea) return
 
+    if (!textarea.value) {
+      textarea.style.height = `${MESSAGE_COMPOSER_MIN_HEIGHT_PX}px`
+      textarea.style.maxHeight = `${MESSAGE_COMPOSER_MAX_HEIGHT_PX}px`
+      textarea.style.overflowY = 'hidden'
+      setComposerHeightPx(MESSAGE_COMPOSER_MIN_HEIGHT_PX)
+      setComposerScrollable(false)
+      const formEl = composerFormRef.current
+      if (formEl) {
+        setComposerFormHeightPx(formEl.offsetHeight)
+      }
+      return
+    }
+
     textarea.style.maxHeight = 'none'
     textarea.style.height = `${MESSAGE_COMPOSER_MIN_HEIGHT_PX}px`
     const scrollHeight = textarea.scrollHeight
@@ -2470,12 +2462,6 @@ function TalkChatContent({
     })
     return () => cancelAnimationFrame(raf)
   }, [messages.length, didInitialScroll, chatOverlayOpen, chatSize, scrollToBottomInstant])
-
-  useEffect(() => {
-    if (isInitialized) {
-      inputRef.current?.focus()
-    }
-  }, [isInitialized])
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -2775,8 +2761,14 @@ function TalkChatContent({
           left: position.x,
           bottom: 'auto',
           right: 'auto',
+        } : isDesktop ? {
+          // Desktop: bottom-anchored floating panel
+          bottom: 'env(safe-area-inset-bottom, 0px)',
+          left: 0,
+          right: 0,
         } : {
-          // Normal positioning from bottom
+          // Mobile: fill from navbar bottom to screen bottom
+          top: 'var(--talkchat-mobile-top, calc(4rem + env(safe-area-inset-top, 0px)))',
           bottom: 'env(safe-area-inset-bottom, 0px)',
           left: 0,
           right: 0,
@@ -2790,6 +2782,7 @@ function TalkChatContent({
         bottom: 0,
         left: 0,
         right: 0,
+        height: isDesktop ? undefined : '100%',
         display: isDesktop && hasCustomPosition ? 'block' : 'flex',
         justifyContent: 'center',
         background: 'transparent',
@@ -2813,8 +2806,8 @@ function TalkChatContent({
           onPointerDown={(e) => e.stopPropagation()}
           style={{
             position: 'relative',
-            height: isDesktop && hasCustomPosition ? size.height : getChatHeight(),
-            minHeight: isDesktop ? 'auto' : getChatMinHeight(),
+            height: isDesktop && hasCustomPosition ? size.height : isDesktop ? getChatHeight() : '100%',
+            minHeight: isDesktop ? 'auto' : 0,
             width: isDesktop && hasCustomPosition ? size.width : '100%',
             maxWidth: isDesktop && hasCustomPosition ? 'none' : '1000px',
             display: 'flex',
@@ -2823,7 +2816,7 @@ function TalkChatContent({
             overflow: 'hidden',
             boxShadow: isDesktop && hasCustomPosition ? '0 4px 30px rgba(0, 0, 0, 0.2)' : '0 -4px 20px rgba(0, 0, 0, 0.15)',
             background: '#f0f0f0',
-            transition: isDragging || isResizingWidth || isResizingHeight ? 'none' : 'height 0.3s ease-in-out',
+            transition: isDesktop && (isDragging || isResizingWidth || isResizingHeight) ? 'none' : isDesktop ? 'height 0.3s ease-in-out' : 'none',
             pointerEvents: 'auto',
             overscrollBehavior: 'contain',
             boxSizing: 'border-box',
@@ -2831,7 +2824,8 @@ function TalkChatContent({
           <style>{`
             @media (max-width: 767px) {
               .chat-container-responsive {
-                height: ${getMobileChatHeight()} !important;
+                height: 100% !important;
+                min-height: 0 !important;
                 border-radius: 0 !important;
                 max-width: 100% !important;
               }
@@ -2994,94 +2988,35 @@ function TalkChatContent({
             )}
           </div>
           
-          {/* Size control buttons - different for desktop vs mobile */}
+          {/* Close button — desktop minimize line; mobile square X */}
           <div style={{ display: 'flex', gap: '1px', flexShrink: 0 }}>
-            {isDesktop ? (
-              /* Desktop: Close button - hides entire chat popup */
-              <button
-                onClick={onClose}
-                className="h-6 sm:h-7 w-7 sm:w-8"
-                style={{
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: '#2563eb',
-                  color: 'white',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                title={tr[TC.closeKongTitle]}
-              >
-                {/* Minimize/close icon - horizontal line */}
+            <button
+              type="button"
+              onClick={onClose}
+              className={isDesktop ? 'h-6 sm:h-7 w-7 sm:w-8' : 'h-7 w-7'}
+              style={{
+                borderRadius: '4px',
+                border: 'none',
+                background: '#2563eb',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title={tr[TC.closeKongTitle]}
+              aria-label={tr[TC.closeKongTitle]}
+            >
+              {isDesktop ? (
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                   <path strokeLinecap="round" d="M6 19h12" />
                 </svg>
-              </button>
-            ) : (
-              /* Mobile: Up/Down buttons */
-              <>
-            <button
-              onClick={pushUp}
-              disabled={chatSize === 'tall'}
-                  className="w-6 h-6"
-              style={{
-                borderRadius: '3px 0 0 3px',
-                border: 'none',
-                background: chatSize === 'tall' ? '#94a3b8' : '#2563eb',
-                color: 'white',
-                cursor: chatSize === 'tall' ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: chatSize === 'tall' ? 0.5 : 1,
-              }}
-              title={
-                chatSize === 'min'
-                  ? tr[TC.titleMediumSize]
-                  : chatSize === 'medium'
-                    ? tr[TC.titleMaxSize]
-                    : chatSize === 'max'
-                      ? tr[TC.titleTallNavbar]
-                      : tr[TC.titleAlreadyTallest]
-              }
-            >
-              {/* Up arrow */}
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
             </button>
-            <button
-              onClick={pushDown}
-              disabled={chatSize === 'min'}
-                  className="w-6 h-6"
-              style={{
-                borderRadius: '0 3px 3px 0',
-                border: 'none',
-                background: chatSize === 'min' ? '#94a3b8' : '#2563eb',
-                color: 'white',
-                cursor: chatSize === 'min' ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: chatSize === 'min' ? 0.5 : 1,
-              }}
-              title={
-                chatSize === 'tall'
-                  ? tr[TC.titleMaxSize]
-                  : chatSize === 'max'
-                    ? tr[TC.titleMediumSize]
-                    : chatSize === 'medium'
-                      ? tr[TC.titleMinimize]
-                      : tr[TC.titleAlreadyMinimized]
-              }
-            >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-              </>
-            )}
           </div>
         </div>
 
@@ -3323,23 +3258,27 @@ function TalkChatContent({
             </div>
             <div
               className="chat-voice-call-scroll"
-              style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 12px' }}
+              data-scrollable
+              onTouchMove={(e) => e.stopPropagation()}
+              style={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                padding: '8px 12px',
+                WebkitOverflowScrolling: 'touch',
+                overscrollBehavior: 'contain',
+                touchAction: 'pan-y',
+              }}
             >
               <style>{`
+                .chat-voice-call-scroll {
+                  scrollbar-width: none;
+                  -ms-overflow-style: none;
+                }
                 .chat-voice-call-scroll::-webkit-scrollbar {
-                  width: 10px;
-                }
-                .chat-voice-call-scroll::-webkit-scrollbar-track {
-                  background: #e0e0e0;
-                  border-radius: 5px;
-                }
-                .chat-voice-call-scroll::-webkit-scrollbar-thumb {
-                  background: #888;
-                  border-radius: 5px;
-                  min-height: 40px;
-                }
-                .chat-voice-call-scroll::-webkit-scrollbar-thumb:hover {
-                  background: #666;
+                  display: none;
+                  width: 0;
+                  height: 0;
                 }
               `}</style>
               {voiceCallSearching ? (
@@ -3533,6 +3472,7 @@ function TalkChatContent({
         <div 
           ref={messagesContainerRef}
           className="chat-messages-scroll"
+          data-scrollable
           onTouchMove={(e) => e.stopPropagation()}
           onWheel={() => {
             hasUserScrollIntentRef.current = true
@@ -3567,23 +3507,19 @@ function TalkChatContent({
             scrollPaddingBottom: '4px',
             background: '#f5f5f5',
             overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-y',
           }}
         >
           <style>{`
+            .chat-messages-scroll {
+              scrollbar-width: none;
+              -ms-overflow-style: none;
+            }
             .chat-messages-scroll::-webkit-scrollbar {
-              width: 10px;
-            }
-            .chat-messages-scroll::-webkit-scrollbar-track {
-              background: #e0e0e0;
-              border-radius: 5px;
-            }
-            .chat-messages-scroll::-webkit-scrollbar-thumb {
-              background: #888;
-              border-radius: 5px;
-              min-height: 40px;
-            }
-            .chat-messages-scroll::-webkit-scrollbar-thumb:hover {
-              background: #666;
+              display: none;
+              width: 0;
+              height: 0;
             }
           `}</style>
           {chatMode === 'private' && selectedRecipients.length === 0 ? (
@@ -4922,7 +4858,7 @@ function TalkChatContent({
               })}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {/* Media Attach Button */}
             <button
               type="button"
@@ -4979,6 +4915,7 @@ function TalkChatContent({
             )}
             <textarea
               ref={inputRef}
+              rows={1}
               value={newMessage}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
@@ -4993,7 +4930,7 @@ function TalkChatContent({
                 borderRadius: '6px',
                 border: '1px solid #ccc',
                 backgroundColor: isSignedIn ? '#fff' : '#f0f0f0',
-                fontSize: '14px',
+                fontSize: isDesktop ? '14px' : '16px',
                 lineHeight: `${MESSAGE_COMPOSER_LINE_HEIGHT_PX}px`,
                 outline: 'none',
                 color: '#333',
