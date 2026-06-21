@@ -18,6 +18,13 @@ import { useVoiceCallContext } from '@/contexts/VoiceCallContext'
 
 const TC = talkChatIdx
 
+const MESSAGE_COMPOSER_LINE_HEIGHT_PX = 20
+const MESSAGE_COMPOSER_PAD_Y_PX = 6
+const MESSAGE_COMPOSER_LINES = 2
+const MESSAGE_COMPOSER_HEIGHT_PX =
+  MESSAGE_COMPOSER_PAD_Y_PX * 2 + MESSAGE_COMPOSER_LINE_HEIGHT_PX * MESSAGE_COMPOSER_LINES
+const MESSAGE_COMPOSER_PICKER_BOTTOM_PX = MESSAGE_COMPOSER_HEIGHT_PX + 16
+
 interface ChatMessage {
   id: string
   content: string
@@ -408,7 +415,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [didInitialScroll, setDidInitialScroll] = useState(false)
   const hasUserScrollIntentRef = useRef(false)
   const ignoreInitialScrollRef = useRef(true)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const emojiToggleRef = useRef<HTMLButtonElement>(null)
   const mediaPickerRef = useRef<HTMLDivElement>(null)
@@ -2024,9 +2031,10 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
 
   // Handle input change with @mention detection
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
     setNewMessage(value)
+    e.target.scrollTop = e.target.scrollHeight
 
     // Detect @mention
     const cursorPos = e.target.selectionStart || value.length
@@ -2059,7 +2067,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
 
   // Handle keyboard navigation in mention picker
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (showMentionPicker && mentionUsers.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -2073,6 +2081,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       } else if (e.key === 'Escape') {
         setShowMentionPicker(false)
       }
+      return
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      e.currentTarget.form?.requestSubmit()
     }
   }
 
@@ -4304,7 +4318,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               ref={mentionPickerRef}
               style={{
                 position: 'absolute',
-                bottom: '54px',
+                bottom: `${MESSAGE_COMPOSER_PICKER_BOTTOM_PX}px`,
                 left: '12px',
                 width: '220px',
                 background: 'white',
@@ -4376,7 +4390,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               ref={mediaPickerRef}
               style={{
                 position: 'absolute',
-                bottom: '52px',
+                bottom: `${MESSAGE_COMPOSER_PICKER_BOTTOM_PX}px`,
                 left: '12px',
                 width: '320px',
                 maxHeight: '320px',
@@ -4648,7 +4662,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               ref={emojiPickerRef}
               style={{
                 position: 'absolute',
-                bottom: '52px',
+                bottom: `${MESSAGE_COMPOSER_PICKER_BOTTOM_PX}px`,
                 left: '50px',
                 width: '300px',
                 maxHeight: '220px',
@@ -4811,7 +4825,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               })}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px' }}>
             {/* Media Attach Button */}
             <button
               type="button"
@@ -4866,25 +4880,30 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 </span>
               </button>
             )}
-            <input
+            <textarea
               ref={inputRef}
-              type="text"
               value={newMessage}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder={composerPlaceholderTr}
               disabled={!isSignedIn || (chatMode === 'private' && selectedRecipients.length === 0)}
+              rows={MESSAGE_COMPOSER_LINES}
               style={{
                 flex: 1,
-                height: '32px',
-                padding: '0 12px',
+                height: `${MESSAGE_COMPOSER_HEIGHT_PX}px`,
+                maxHeight: `${MESSAGE_COMPOSER_HEIGHT_PX}px`,
+                padding: `${MESSAGE_COMPOSER_PAD_Y_PX}px 12px`,
                 borderRadius: '6px',
                 border: '1px solid #ccc',
                 backgroundColor: isSignedIn ? '#fff' : '#f0f0f0',
                 fontSize: '14px',
+                lineHeight: `${MESSAGE_COMPOSER_LINE_HEIGHT_PX}px`,
                 outline: 'none',
                 color: '#333',
                 boxSizing: 'border-box',
+                resize: 'none',
+                overflowY: 'auto',
+                fontFamily: 'inherit',
               }}
             />
             <button
