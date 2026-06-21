@@ -359,6 +359,7 @@ function TalkChatContent({
   // Show user picker for private chat
   const [showUserPicker, setShowUserPicker] = useState(false)
   const [showVoiceCallPicker, setShowVoiceCallPicker] = useState(false)
+  const [voiceCallTab, setVoiceCallTab] = useState<'recent' | 'contacts'>('recent')
   const [voiceCallPickTarget, setVoiceCallPickTarget] = useState<UserSuggestion | null>(null)
   const [voiceCallSearchQuery, setVoiceCallSearchQuery] = useState('')
   const [voiceCallRecords, setVoiceCallRecords] = useState<Array<{
@@ -369,7 +370,9 @@ function TalkChatContent({
     at: string
   }>>([])
   const [voiceCallSearchedUsers, setVoiceCallSearchedUsers] = useState<UserSuggestion[]>([])
+  const [voiceCallContacts, setVoiceCallContacts] = useState<UserSuggestion[]>([])
   const [loadingVoiceCallRecords, setLoadingVoiceCallRecords] = useState(false)
+  const [loadingVoiceCallContacts, setLoadingVoiceCallContacts] = useState(false)
   const [searchingVoiceCallUsers, setSearchingVoiceCallUsers] = useState(false)
   const chatOverlayOpen = showUserPicker || showVoiceCallPicker
   const [userSearchQuery, setUserSearchQuery] = useState('')
@@ -558,11 +561,100 @@ function TalkChatContent({
 
   const pubNavActive = chatMode === 'open' && !showVoiceCallPicker && !isActiveVoiceCall
   const myNavActive = chatMode === 'private' && !showVoiceCallPicker && !isActiveVoiceCall
+  const voiceCallRecentActive = showVoiceCallPicker && voiceCallTab === 'recent'
+  const voiceCallContactsActive = showVoiceCallPicker && voiceCallTab === 'contacts'
 
   const handleConfirmVoiceCall = () => {
     if (!voiceCallPickTarget || !voiceCall || isActiveVoiceCall) return
     void voiceCall.startCall(voiceCallPickTarget, activeConversation?.id ?? null)
     setVoiceCallPickTarget(null)
+  }
+
+  const switchToVoiceCallRecent = () => {
+    setVoiceCallTab('recent')
+    setVoiceCallPickTarget(null)
+    setVoiceCallSearchQuery('')
+    setVoiceCallSearchedUsers([])
+  }
+
+  const switchToVoiceCallContacts = () => {
+    setVoiceCallTab('contacts')
+    setVoiceCallPickTarget(null)
+    setVoiceCallSearchQuery('')
+    setVoiceCallSearchedUsers([])
+  }
+
+  const renderVoiceCallPickUser = (user: UserSuggestion, key: string, subtitle?: string) => {
+    const selected = voiceCallPickTarget?.id === user.id
+    return (
+      <button
+        key={key}
+        type="button"
+        onClick={() => setVoiceCallPickTarget(user)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          padding: '10px 12px',
+          marginBottom: '6px',
+          border: selected ? '2px solid #059669' : '1px solid #e5e7eb',
+          borderRadius: '8px',
+          background: selected ? '#ecfdf5' : 'white',
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        <div style={{
+          width: '36px',
+          height: '36px',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          background: '#8b5cf6',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          {user.avatar ? (
+            <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <span style={{ color: 'white', fontWeight: 700, fontSize: '14px' }}>
+              {(user.username || '?')[0]?.toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: '14px', color: '#111' }}>
+            @{formatDisplayUsername(user.username)}
+          </div>
+          {user.name && (
+            <div style={{ fontSize: '12px', color: '#666' }}>{user.name}</div>
+          )}
+          {subtitle && (
+            <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>{subtitle}</div>
+          )}
+        </div>
+        <div style={{
+          marginLeft: 'auto',
+          width: '18px',
+          height: '18px',
+          borderRadius: '50%',
+          border: selected ? 'none' : '2px solid #d1d5db',
+          background: selected ? '#059669' : 'transparent',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          {selected && (
+            <svg width="10" height="10" fill="white" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          )}
+        </div>
+      </button>
+    )
   }
 
   const composerPlaceholderEn = useMemo(() => {
@@ -1110,6 +1202,8 @@ function TalkChatContent({
     setVoiceCallSearchQuery('')
     setVoiceCallSearchedUsers([])
     setVoiceCallRecords([])
+    setVoiceCallContacts([])
+    setVoiceCallTab('recent')
     // Close all popups
     setShowUserPicker(false)
     setShowChatRecords(false)
@@ -1186,6 +1280,8 @@ function TalkChatContent({
     setVoiceCallSearchQuery('')
     setVoiceCallSearchedUsers([])
     setVoiceCallRecords([])
+    setVoiceCallContacts([])
+    setVoiceCallTab('recent')
     setShowChatRecords(false)
     setShowInvites(false)
   }
@@ -1251,6 +1347,8 @@ function TalkChatContent({
     setVoiceCallSearchQuery('')
     setVoiceCallSearchedUsers([])
     setVoiceCallRecords([])
+    setVoiceCallContacts([])
+    setVoiceCallTab('recent')
     setLoadingVoiceCallRecords(true)
     setShowVoiceCallPicker(true)
   }, [isActiveVoiceCall, isSignedIn])
@@ -1283,6 +1381,27 @@ function TalkChatContent({
   }, [showVoiceCallPicker, session?.user?.id])
 
   useEffect(() => {
+    if (!showVoiceCallPicker || voiceCallTab !== 'contacts' || !session?.user?.id) return
+    let cancelled = false
+    setLoadingVoiceCallContacts(true)
+    void (async () => {
+      try {
+        const res = await fetch('/api/users/search?listAll=1&limit=500')
+        if (cancelled || !res.ok) return
+        const data = await res.json()
+        if (!cancelled) setVoiceCallContacts(data.users || [])
+      } catch (error) {
+        if (!cancelled) console.error('Error loading voice call contacts:', error)
+      } finally {
+        if (!cancelled) setLoadingVoiceCallContacts(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [showVoiceCallPicker, voiceCallTab, session?.user?.id])
+
+  useEffect(() => {
     if (!showVoiceCallPicker) return
     const q = voiceCallSearchQuery.trim()
     if (!q) {
@@ -1295,7 +1414,7 @@ function TalkChatContent({
         setSearchingVoiceCallUsers(true)
         try {
           const res = await fetch(
-            `/api/users/search?listAll=1&subscribersOnly=1&q=${encodeURIComponent(q)}&limit=50`,
+            `/api/users/search?listAll=1&q=${encodeURIComponent(q)}&limit=50`,
           )
           if (cancelled || !res.ok) return
           const data = await res.json()
@@ -2694,6 +2813,66 @@ function TalkChatContent({
             }
           `}</style>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 1, minWidth: 0 }}>
+            {showVoiceCallPicker ? (
+              <>
+                <div
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '6px',
+                    background: '#059669',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                  aria-hidden
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                  </svg>
+                </div>
+                <button
+                  type="button"
+                  onClick={switchToVoiceCallRecent}
+                  className="chat-btn-responsive"
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    background: voiceCallRecentActive ? '#10b981' : 'transparent',
+                    color: voiceCallRecentActive ? 'white' : '#666',
+                    fontWeight: '700',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {tr[TC.voiceCallRecent]}
+                </button>
+                <button
+                  type="button"
+                  onClick={switchToVoiceCallContacts}
+                  className="chat-btn-responsive"
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    background: voiceCallContactsActive ? '#059669' : 'transparent',
+                    color: voiceCallContactsActive ? 'white' : '#666',
+                    fontWeight: '700',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {tr[TC.voiceCallContacts]}
+                </button>
+              </>
+            ) : (
+              <>
             {/* User Avatar */}
             <div style={{
               width: '28px',
@@ -2789,6 +2968,8 @@ function TalkChatContent({
                 </span>
               )}
             </div>
+              </>
+            )}
           </div>
           
           {/* Size control buttons - different for desktop vs mobile */}
@@ -3149,75 +3330,19 @@ function TalkChatContent({
                     {tr[TC.noUsersFound]}
                   </div>
                 ) : (
-                  voiceCallSearchedUsers.map((user) => {
-                    const selected = voiceCallPickTarget?.id === user.id
-                    return (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => setVoiceCallPickTarget(user)}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '10px 12px',
-                          marginBottom: '6px',
-                          border: selected ? '2px solid #059669' : '1px solid #e5e7eb',
-                          borderRadius: '8px',
-                          background: selected ? '#ecfdf5' : 'white',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                        }}
-                      >
-                        <div style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '8px',
-                          overflow: 'hidden',
-                          background: '#8b5cf6',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}>
-                          {user.avatar ? (
-                            <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          ) : (
-                            <span style={{ color: 'white', fontWeight: 700, fontSize: '14px' }}>
-                              {(user.username || '?')[0]?.toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: '14px', color: '#111' }}>
-                            @{formatDisplayUsername(user.username)}
-                          </div>
-                          {user.name && (
-                            <div style={{ fontSize: '12px', color: '#666' }}>{user.name}</div>
-                          )}
-                        </div>
-                        <div style={{
-                          marginLeft: 'auto',
-                          width: '18px',
-                          height: '18px',
-                          borderRadius: '50%',
-                          border: selected ? 'none' : '2px solid #d1d5db',
-                          background: selected ? '#059669' : 'transparent',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}>
-                          {selected && (
-                            <svg width="10" height="10" fill="white" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </div>
-                      </button>
-                    )
-                  })
+                  voiceCallSearchedUsers.map((user) => renderVoiceCallPickUser(user, user.id))
+                )
+              ) : voiceCallTab === 'contacts' ? (
+                loadingVoiceCallContacts ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
+                    {tr[TC.loading]}
+                  </div>
+                ) : voiceCallContacts.length === 0 ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
+                    {tr[TC.voiceCallNoContacts]}
+                  </div>
+                ) : (
+                  voiceCallContacts.map((user) => renderVoiceCallPickUser(user, user.id))
                 )
               ) : loadingVoiceCallRecords ? (
                 <div style={{ padding: '16px', textAlign: 'center', color: '#666', fontSize: '14px' }}>
@@ -3228,79 +3353,13 @@ function TalkChatContent({
                   {tr[TC.voiceCallNoRecords]}
                 </div>
               ) : (
-                voiceCallRecords.map((record) => {
-                  const user = record.peer
-                  const selected = voiceCallPickTarget?.id === user.id
-                  return (
-                    <button
-                      key={record.callId}
-                      type="button"
-                      onClick={() => setVoiceCallPickTarget(user)}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '10px 12px',
-                        marginBottom: '6px',
-                        border: selected ? '2px solid #059669' : '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        background: selected ? '#ecfdf5' : 'white',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                    >
-                      <div style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        background: '#8b5cf6',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}>
-                        {user.avatar ? (
-                          <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <span style={{ color: 'white', fontWeight: 700, fontSize: '14px' }}>
-                            {(user.username || '?')[0]?.toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: '14px', color: '#111' }}>
-                          @{formatDisplayUsername(user.username)}
-                        </div>
-                        {user.name && (
-                          <div style={{ fontSize: '12px', color: '#666' }}>{user.name}</div>
-                        )}
-                        <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
-                          {formatVoiceCallRecordSubtitle(record)}
-                        </div>
-                      </div>
-                      <div style={{
-                        marginLeft: 'auto',
-                        width: '18px',
-                        height: '18px',
-                        borderRadius: '50%',
-                        border: selected ? 'none' : '2px solid #d1d5db',
-                        background: selected ? '#059669' : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}>
-                        {selected && (
-                          <svg width="10" height="10" fill="white" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                    </button>
-                  )
-                })
+                voiceCallRecords.map((record) =>
+                  renderVoiceCallPickUser(
+                    record.peer,
+                    record.callId,
+                    formatVoiceCallRecordSubtitle(record),
+                  ),
+                )
               )}
             </div>
             <div style={{
