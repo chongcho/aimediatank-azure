@@ -104,6 +104,44 @@ function NavbarContent() {
 
   const talkChatPanelsOpen = chatPanelOpen || voicePanelOpen
 
+  const isMobileViewport = useCallback(
+    () => typeof window !== 'undefined' && window.innerWidth < 768,
+    [],
+  )
+
+  const goHome = useCallback(
+    (options?: { refreshIfAlreadyHome?: boolean }) => {
+      sessionStorage.removeItem('homeScrollState')
+      clearHomeFeed()
+      closeTalkChatPanels()
+
+      if (pathname === '/') {
+        document.body.scrollTop = 0
+        if (options?.refreshIfAlreadyHome) {
+          window.dispatchEvent(new Event('homeRefreshRequested'))
+        }
+        return
+      }
+
+      // After Post (/upload or /pricing), soft router.push('/') can stall on mobile WebViews.
+      if (
+        isMobileViewport() &&
+        (pathname === '/upload' || pathname === '/pricing' || pathname.startsWith('/upload/'))
+      ) {
+        window.location.assign('/')
+        return
+      }
+
+      if (isMobileViewport()) {
+        router.push('/')
+        return
+      }
+
+      window.location.href = '/'
+    },
+    [pathname, closeTalkChatPanels, router, isMobileViewport],
+  )
+
   // Close Talk/Chat when navigating away so panels do not block the next screen.
   useEffect(() => {
     closeTalkChatPanels()
@@ -277,42 +315,24 @@ function NavbarContent() {
 
   const handlePostClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>) => {
-      if (!talkChatPanelsOpen) return
       const href = isSubscriber ? '/upload' : '/pricing'
-      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-      closeTalkChatPanels()
-      if (isMobile) {
-        e.preventDefault()
-        router.push(href)
+      if (!isMobileViewport()) {
+        if (talkChatPanelsOpen) closeTalkChatPanels()
+        return
       }
+      e.preventDefault()
+      if (talkChatPanelsOpen) closeTalkChatPanels()
+      router.push(href)
     },
-    [talkChatPanelsOpen, closeTalkChatPanels, router, isSubscriber]
+    [talkChatPanelsOpen, closeTalkChatPanels, router, isSubscriber, isMobileViewport]
   )
 
   const handleHomeNavClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>, refreshIfHome = false) => {
       e.preventDefault()
-      sessionStorage.removeItem('homeScrollState')
-      clearHomeFeed()
-      const onHome = window.location.pathname === '/'
-      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-      if (talkChatPanelsOpen) {
-        closeTalkChatPanels()
-      }
-      if (onHome) {
-        document.body.scrollTop = 0
-        if (refreshIfHome) {
-          window.dispatchEvent(new Event('homeRefreshRequested'))
-        }
-        return
-      }
-      if (isMobile) {
-        router.push('/')
-      } else {
-        window.location.href = '/'
-      }
+      goHome({ refreshIfAlreadyHome: refreshIfHome })
     },
-    [talkChatPanelsOpen, closeTalkChatPanels, router]
+    [goHome]
   )
   
   // Display name - show Nickname (username) in navbar
