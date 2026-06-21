@@ -1,5 +1,6 @@
 package com.aimediatank.app;
 
+import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
@@ -8,6 +9,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Display;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
@@ -26,6 +28,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        if (redirectIfSecondaryDisplay()) {
+            return;
+        }
         super.onCreate(savedInstanceState);
         applySystemBars();
         syncIncomingCallPresentation(getIntent());
@@ -34,6 +39,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onResume() {
+        if (redirectIfSecondaryDisplay()) {
+            return;
+        }
         super.onResume();
         applySystemBars();
         syncIncomingCallPresentation(getIntent());
@@ -84,6 +92,44 @@ public class MainActivity extends BridgeActivity {
             return true;
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    /** Keep UI on the primary display only (foldables / simulated secondary displays). */
+    private boolean redirectIfSecondaryDisplay() {
+        Display display = resolveCurrentDisplay();
+        if (display == null || display.getDisplayId() == Display.DEFAULT_DISPLAY) {
+            return false;
+        }
+        Log.i(TAG, "Closing secondary display instance (displayId=" + display.getDisplayId() + ')');
+        Intent relaunch = new Intent(this, MainActivity.class);
+        Intent current = getIntent();
+        if (current != null) {
+            relaunch.setAction(current.getAction());
+            relaunch.setData(current.getData());
+            relaunch.putExtras(current);
+        }
+        relaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ActivityOptions options = ActivityOptions.makeBasic();
+            options.setLaunchDisplayId(Display.DEFAULT_DISPLAY);
+            startActivity(relaunch, options.toBundle());
+        } else {
+            startActivity(relaunch);
+        }
+        finishAndRemoveTask();
+        return true;
+    }
+
+    private Display resolveCurrentDisplay() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return getDisplay();
+        }
+        Window window = getWindow();
+        if (window == null) {
+            return null;
+        }
+        View decor = window.getDecorView();
+        return decor != null ? decor.getDisplay() : null;
     }
 
     /** Black system bars; light (gray/white) status + nav icons on dark backgrounds. */
