@@ -56,7 +56,7 @@ const EN: Pack = {
   about: 'About',
   play: 'Play',
   card: 'Card',
-  phone: 'Phone',
+  phone: 'Talk',
   kong: 'Chat',
   markAllRead: 'Mark all read',
   delete: 'Delete',

@@ -14,9 +14,43 @@ import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { TALK_CHAT_MAP, talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
+import { navBarT } from '@/messages/navBar'
 import { useVoiceCallContext } from '@/contexts/VoiceCallContext'
 
 const TC = talkChatIdx
+
+function ChatWindowBrandIcon({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        width: '28px',
+        height: '28px',
+        borderRadius: '6px',
+        background: '#fde047',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}
+      title={label}
+      aria-label={label}
+    >
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#111827"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    </div>
+  )
+}
 
 const MESSAGE_COMPOSER_LINE_HEIGHT_PX = 20
 const MESSAGE_COMPOSER_PAD_Y_PX = 6
@@ -163,8 +197,7 @@ function TalkChatContent({
   const [missingPreviewIds, setMissingPreviewIds] = useState<Record<string, true>>({})
   const [attachedMediaIds, setAttachedMediaIds] = useState<string[]>([])
   const [attachedMediaInfo, setAttachedMediaInfo] = useState<Record<string, { title: string; thumbnailUrl?: string | null }>>({})
-  // Current user avatar and username (fetched fresh from API)
-  const [userAvatar, setUserAvatar] = useState<string | null>(null)
+  // Current username (fetched fresh from API)
   const [currentUsername, setCurrentUsername] = useState<string | null>(null)
   // @mention states
   const [showMentionPicker, setShowMentionPicker] = useState(false)
@@ -270,7 +303,7 @@ function TalkChatContent({
     }
   }, [inlineNotice])
   
-  // Fetch user avatar and username (fresh from API)
+  // Fetch username (fresh from API)
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!session?.user) return
@@ -279,7 +312,6 @@ function TalkChatContent({
         const res = await fetch(`/api/user/profile?t=${Date.now()}`, { cache: 'no-store' })
         if (res.ok) {
           const data = await res.json()
-          setUserAvatar(data.user?.avatar || null)
           setCurrentUsername(data.user?.username || null)
         }
       } catch (error) {
@@ -524,6 +556,7 @@ function TalkChatContent({
     if (guestLocal) void ensureGuestGeoLoaded()
   }, [guestLocal, ensureGuestGeoLoaded])
   const tr = useMemo(() => talkChatTr(localeTag), [localeTag])
+  const chatBrandLabel = navBarT(localeTag, 'kong')
   const trRef = useRef(tr)
   trRef.current = tr
 
@@ -2873,34 +2906,7 @@ function TalkChatContent({
               </>
             ) : (
               <>
-            {/* User Avatar */}
-            <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              overflow: 'hidden',
-              background: session?.user ? 'linear-gradient(135deg, #8b5cf6, #a855f7)' : '#6b7280',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              {userAvatar ? (
-                <img 
-                  src={`${userAvatar}${userAvatar.includes('?') ? '&' : '?'}t=${Date.now()}`}
-                  alt="" 
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              ) : (
-                <span style={{
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  color: 'white',
-                }}>
-                  {session?.user?.name?.[0]?.toUpperCase() || session?.user?.username?.[0]?.toUpperCase() || '?'}
-                </span>
-              )}
-            </div>
+            <ChatWindowBrandIcon label={chatBrandLabel} />
             
             {/* Pub Chat (public / open chat) */}
             <button
