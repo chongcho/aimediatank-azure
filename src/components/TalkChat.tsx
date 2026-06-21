@@ -20,10 +20,13 @@ const TC = talkChatIdx
 
 const MESSAGE_COMPOSER_LINE_HEIGHT_PX = 20
 const MESSAGE_COMPOSER_PAD_Y_PX = 6
-const MESSAGE_COMPOSER_LINES = 2
-const MESSAGE_COMPOSER_HEIGHT_PX =
-  MESSAGE_COMPOSER_PAD_Y_PX * 2 + MESSAGE_COMPOSER_LINE_HEIGHT_PX * MESSAGE_COMPOSER_LINES
-const MESSAGE_COMPOSER_PICKER_BOTTOM_PX = MESSAGE_COMPOSER_HEIGHT_PX + 16
+const MESSAGE_COMPOSER_MIN_LINES = 1
+const MESSAGE_COMPOSER_MAX_LINES = 6
+const MESSAGE_COMPOSER_MIN_HEIGHT_PX =
+  MESSAGE_COMPOSER_PAD_Y_PX * 2 + MESSAGE_COMPOSER_LINE_HEIGHT_PX * MESSAGE_COMPOSER_MIN_LINES
+const MESSAGE_COMPOSER_MAX_HEIGHT_PX =
+  MESSAGE_COMPOSER_PAD_Y_PX * 2 + MESSAGE_COMPOSER_LINE_HEIGHT_PX * MESSAGE_COMPOSER_MAX_LINES
+const MESSAGE_COMPOSER_PICKER_GAP_PX = 16
 
 interface ChatMessage {
   id: string
@@ -128,6 +131,8 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
+  const [composerHeightPx, setComposerHeightPx] = useState(MESSAGE_COMPOSER_MIN_HEIGHT_PX)
+  const [composerScrollable, setComposerScrollable] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -2031,10 +2036,30 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
 
   // Handle input change with @mention detection
+  const syncComposerHeight = useCallback((el: HTMLTextAreaElement) => {
+    el.style.height = 'auto'
+    const scrollHeight = el.scrollHeight
+    const next = Math.min(
+      MESSAGE_COMPOSER_MAX_HEIGHT_PX,
+      Math.max(MESSAGE_COMPOSER_MIN_HEIGHT_PX, scrollHeight)
+    )
+    setComposerHeightPx(next)
+    setComposerScrollable(scrollHeight > MESSAGE_COMPOSER_MAX_HEIGHT_PX)
+    if (scrollHeight > MESSAGE_COMPOSER_MAX_HEIGHT_PX) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    syncComposerHeight(el)
+  }, [newMessage, syncComposerHeight])
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
     setNewMessage(value)
-    e.target.scrollTop = e.target.scrollHeight
+    syncComposerHeight(e.target)
 
     // Detect @mention
     const cursorPos = e.target.selectionStart || value.length
@@ -4318,7 +4343,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               ref={mentionPickerRef}
               style={{
                 position: 'absolute',
-                bottom: `${MESSAGE_COMPOSER_PICKER_BOTTOM_PX}px`,
+                bottom: `${composerHeightPx + MESSAGE_COMPOSER_PICKER_GAP_PX}px`,
                 left: '12px',
                 width: '220px',
                 background: 'white',
@@ -4390,7 +4415,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               ref={mediaPickerRef}
               style={{
                 position: 'absolute',
-                bottom: `${MESSAGE_COMPOSER_PICKER_BOTTOM_PX}px`,
+                bottom: `${composerHeightPx + MESSAGE_COMPOSER_PICKER_GAP_PX}px`,
                 left: '12px',
                 width: '320px',
                 maxHeight: '320px',
@@ -4662,7 +4687,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               ref={emojiPickerRef}
               style={{
                 position: 'absolute',
-                bottom: `${MESSAGE_COMPOSER_PICKER_BOTTOM_PX}px`,
+                bottom: `${composerHeightPx + MESSAGE_COMPOSER_PICKER_GAP_PX}px`,
                 left: '50px',
                 width: '300px',
                 maxHeight: '220px',
@@ -4887,11 +4912,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
               onKeyDown={handleKeyDown}
               placeholder={composerPlaceholderTr}
               disabled={!isSignedIn || (chatMode === 'private' && selectedRecipients.length === 0)}
-              rows={MESSAGE_COMPOSER_LINES}
+              rows={MESSAGE_COMPOSER_MIN_LINES}
               style={{
                 flex: 1,
-                height: `${MESSAGE_COMPOSER_HEIGHT_PX}px`,
-                maxHeight: `${MESSAGE_COMPOSER_HEIGHT_PX}px`,
+                height: `${composerHeightPx}px`,
+                minHeight: `${MESSAGE_COMPOSER_MIN_HEIGHT_PX}px`,
+                maxHeight: `${MESSAGE_COMPOSER_MAX_HEIGHT_PX}px`,
                 padding: `${MESSAGE_COMPOSER_PAD_Y_PX}px 12px`,
                 borderRadius: '6px',
                 border: '1px solid #ccc',
@@ -4902,7 +4928,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 color: '#333',
                 boxSizing: 'border-box',
                 resize: 'none',
-                overflowY: 'auto',
+                overflowY: composerScrollable ? 'auto' : 'hidden',
                 fontFamily: 'inherit',
               }}
             />
