@@ -97,9 +97,8 @@ interface MediaPreview {
 interface TalkChatProps {
   isOpen: boolean
   onClose: () => void
-  /** Open the voice-call picker when TalkChat mounts (e.g. from navbar Phone button). */
-  openVoiceCallPicker?: boolean
-  onVoiceCallPickerOpened?: () => void
+  /** Which panel the navbar requested: chat (Pub/My) or voice-call picker. */
+  panelMode?: 'chat' | 'voice'
 }
 
 // Common emojis organized by category
@@ -168,12 +167,10 @@ function titleFromUploadFilename(name: string, untitledLabel = 'Untitled'): stri
 
 function TalkChatContent({
   onClose,
-  openVoiceCallPicker: openVoiceCallPickerProp,
-  onVoiceCallPickerOpened,
+  panelMode = 'chat',
 }: {
   onClose: () => void
-  openVoiceCallPicker?: boolean
-  onVoiceCallPickerOpened?: () => void
+  panelMode?: 'chat' | 'voice'
 }) {
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -1387,10 +1384,15 @@ function TalkChatContent({
   }, [isActiveVoiceCall, isSignedIn])
 
   useEffect(() => {
-    if (!openVoiceCallPickerProp) return
-    openVoiceCallPickerPanel()
-    onVoiceCallPickerOpened?.()
-  }, [openVoiceCallPickerProp, openVoiceCallPickerPanel, onVoiceCallPickerOpened])
+    if (panelMode === 'voice') {
+      openVoiceCallPickerPanel()
+      return
+    }
+    setShowVoiceCallPicker(false)
+    setVoiceCallPickTarget(null)
+    setVoiceCallSearchQuery('')
+    setVoiceCallSearchedUsers([])
+  }, [panelMode, openVoiceCallPickerPanel])
 
   useEffect(() => {
     if (!showVoiceCallPicker || !session?.user?.id) return
@@ -5135,8 +5137,7 @@ function TalkChatContent({
 export default function TalkChat({
   isOpen,
   onClose,
-  openVoiceCallPicker,
-  onVoiceCallPickerOpened,
+  panelMode = 'chat',
 }: TalkChatProps) {
   const [mounted, setMounted] = useState(false)
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
@@ -5172,8 +5173,7 @@ export default function TalkChat({
   return createPortal(
     <TalkChatContent
       onClose={onClose}
-      openVoiceCallPicker={openVoiceCallPicker}
-      onVoiceCallPickerOpened={onVoiceCallPickerOpened}
+      panelMode={panelMode}
     />,
     document.body
   )
