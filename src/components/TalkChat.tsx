@@ -21,8 +21,12 @@ const TC = talkChatIdx
 const MESSAGE_COMPOSER_LINE_HEIGHT_PX = 20
 const MESSAGE_COMPOSER_PAD_Y_PX = 6
 const MESSAGE_COMPOSER_MIN_LINES = 1
+/** KakaoTalk-style cap: grow from 1 line up to 5, then scroll internally. */
+const MESSAGE_COMPOSER_MAX_LINES = 5
 const MESSAGE_COMPOSER_MIN_HEIGHT_PX =
   MESSAGE_COMPOSER_PAD_Y_PX * 2 + MESSAGE_COMPOSER_LINE_HEIGHT_PX * MESSAGE_COMPOSER_MIN_LINES
+const MESSAGE_COMPOSER_MAX_HEIGHT_PX =
+  MESSAGE_COMPOSER_PAD_Y_PX * 2 + MESSAGE_COMPOSER_LINE_HEIGHT_PX * MESSAGE_COMPOSER_MAX_LINES
 const MESSAGE_COMPOSER_PICKER_GAP_PX = 16
 
 interface ChatMessage {
@@ -129,7 +133,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [composerHeightPx, setComposerHeightPx] = useState(MESSAGE_COMPOSER_MIN_HEIGHT_PX)
-  const [composerMaxHeightPx, setComposerMaxHeightPx] = useState(4096)
   const [composerFormHeightPx, setComposerFormHeightPx] = useState(0)
   const [composerScrollable, setComposerScrollable] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -2036,20 +2039,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   }
 
   // Handle input change with @mention detection
-  const measureComposerMaxHeight = useCallback((textareaEl: HTMLTextAreaElement) => {
-    const messagesEl = messagesContainerRef.current
-    const formEl = composerFormRef.current
-    if (!messagesEl || !formEl) {
-      return MESSAGE_COMPOSER_MIN_HEIGHT_PX
-    }
-
-    const formTotal = formEl.offsetHeight
-    const textareaCurrent = textareaEl.offsetHeight
-    const formOverhead = Math.max(0, formTotal - textareaCurrent)
-    const available = messagesEl.clientHeight + formTotal
-    return Math.max(MESSAGE_COMPOSER_MIN_HEIGHT_PX, available - formOverhead)
-  }, [])
-
   const syncComposerHeight = useCallback((el?: HTMLTextAreaElement) => {
     const textarea = el ?? inputRef.current
     if (!textarea) return
@@ -2057,46 +2046,41 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     textarea.style.maxHeight = 'none'
     textarea.style.height = `${MESSAGE_COMPOSER_MIN_HEIGHT_PX}px`
     const scrollHeight = textarea.scrollHeight
-    const maxHeight = measureComposerMaxHeight(textarea)
-    const next = Math.min(maxHeight, Math.max(MESSAGE_COMPOSER_MIN_HEIGHT_PX, scrollHeight))
+    const next = Math.min(
+      MESSAGE_COMPOSER_MAX_HEIGHT_PX,
+      Math.max(MESSAGE_COMPOSER_MIN_HEIGHT_PX, scrollHeight)
+    )
 
     textarea.style.height = `${next}px`
-    textarea.style.maxHeight = `${maxHeight}px`
-    textarea.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden'
-    if (scrollHeight > maxHeight) {
+    textarea.style.maxHeight = `${MESSAGE_COMPOSER_MAX_HEIGHT_PX}px`
+    textarea.style.overflowY = scrollHeight > MESSAGE_COMPOSER_MAX_HEIGHT_PX ? 'auto' : 'hidden'
+    if (scrollHeight > MESSAGE_COMPOSER_MAX_HEIGHT_PX) {
       textarea.scrollTop = textarea.scrollHeight
     }
 
-    setComposerMaxHeightPx(maxHeight)
     setComposerHeightPx(next)
-    setComposerScrollable(scrollHeight > maxHeight)
+    setComposerScrollable(scrollHeight > MESSAGE_COMPOSER_MAX_HEIGHT_PX)
 
     const formEl = composerFormRef.current
     if (formEl) {
       setComposerFormHeightPx(formEl.offsetHeight)
     }
-  }, [measureComposerMaxHeight])
+  }, [])
 
   useLayoutEffect(() => {
-    const el = inputRef.current
-    if (!el) return
-    syncComposerHeight(el)
+    syncComposerHeight()
   }, [newMessage, syncComposerHeight, attachedMediaIds.length])
 
   useEffect(() => {
     if (chatOverlayOpen || chatSize === 'min') return
 
-    const messagesEl = messagesContainerRef.current
     const formEl = composerFormRef.current
     const chatEl = chatContainerRef.current
-    if (!messagesEl) return
+    if (!formEl && !chatEl) return
 
-    const remeasure = () => {
-      syncComposerHeight()
-    }
+    const remeasure = () => syncComposerHeight()
 
     const observer = new ResizeObserver(remeasure)
-    observer.observe(messagesEl)
     if (formEl) observer.observe(formEl)
     if (chatEl) observer.observe(chatEl)
     remeasure()
@@ -4967,7 +4951,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 flex: 1,
                 height: `${composerHeightPx}px`,
                 minHeight: `${MESSAGE_COMPOSER_MIN_HEIGHT_PX}px`,
-                maxHeight: `${composerMaxHeightPx}px`,
+                maxHeight: `${MESSAGE_COMPOSER_MAX_HEIGHT_PX}px`,
                 padding: `${MESSAGE_COMPOSER_PAD_Y_PX}px 12px`,
                 borderRadius: '6px',
                 border: '1px solid #ccc',
@@ -4982,6 +4966,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 overflowWrap: 'anywhere',
                 wordBreak: 'break-word',
                 fontFamily: 'inherit',
+                transition: 'height 0.12s ease-out',
               }}
             />
             <button
