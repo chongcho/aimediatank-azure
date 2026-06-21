@@ -475,6 +475,11 @@ select {
          transition-all duration-200;
 }
 
+/* Homepage search — border matches feed badge text (gray-300), not accent green */
+input#search-media {
+  @apply border-gray-300 bg-tank-gray focus:border-gray-300 focus:ring-gray-300/50;
+}
+
 /* Date input value visibility (browser often uses separate inner elements) */
 input[type="date"]::-webkit-datetime-edit,
 input[type="date"]::-webkit-datetime-edit-text,

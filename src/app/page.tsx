@@ -918,7 +918,7 @@ function HomeContent() {
               onChange={(e) => handleSearchChange(e.target.value)}
               onFocus={() => search.length >= 2 && setShowSuggestions(true)}
               placeholder="Search media or @username..."
-              className="w-full pl-4 pr-24 py-2.5 bg-tank-gray border border-tank-accent rounded-lg focus:border-tank-accent"
+              className="w-full pl-4 pr-24 py-2.5 bg-tank-gray border border-gray-300 rounded-lg focus:border-gray-300 focus:ring-gray-300/50"
               autoComplete="off"
             />
             <button
