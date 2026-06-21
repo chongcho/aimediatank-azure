@@ -24,7 +24,8 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "AiMediaTank";
-    private static final int CHROME_COLOR = Color.parseColor("#0a0a0b");
+    /** Match web shell / appBackground — black bars, white system icons (Display 1). */
+    private static final int CHROME_COLOR = Color.BLACK;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -32,9 +33,11 @@ public class MainActivity extends BridgeActivity {
             return;
         }
         super.onCreate(savedInstanceState);
+        setTheme(R.style.AppTheme_NoActionBar);
         applySystemBars();
         syncIncomingCallPresentation(getIntent());
         registerVoipPhoneAccountSafely();
+        getWindow().getDecorView().post(this::applySystemBars);
     }
 
     @Override
@@ -47,6 +50,14 @@ public class MainActivity extends BridgeActivity {
         syncIncomingCallPresentation(getIntent());
         setVolumeControlStream(activeCallVolumeStream());
         AndroidAudioCleanup.resetIfIdle(this);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            applySystemBars();
+        }
     }
 
     @Override
@@ -142,8 +153,8 @@ public class MainActivity extends BridgeActivity {
             window.setNavigationBarColor(CHROME_COLOR);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.setNavigationBarContrastEnforced(true);
-            window.setStatusBarContrastEnforced(true);
+            window.setNavigationBarContrastEnforced(false);
+            window.setStatusBarContrastEnforced(false);
         }
 
         View decor = window.getDecorView();
@@ -151,17 +162,16 @@ public class MainActivity extends BridgeActivity {
         if (controller != null) {
             controller.setAppearanceLightStatusBars(false);
             controller.setAppearanceLightNavigationBars(false);
-            return;
+        } else {
+            int flags = decor.getSystemUiVisibility();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
+            decor.setSystemUiVisibility(flags);
         }
-
-        int flags = decor.getSystemUiVisibility();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-        }
-        decor.setSystemUiVisibility(flags);
     }
 
     @Override
