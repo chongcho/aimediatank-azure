@@ -131,7 +131,7 @@ html.capacitor-native body::after {
 
 html.capacitor-native .pwa-navbar {
   top: var(--app-safe-top, var(--app-safe-top-fallback)) !important;
-  z-index: 9990 !important;
+  z-index: 100010 !important;
   pointer-events: auto;
 }
 
@@ -166,6 +166,7 @@ html.capacitor-native.android body::before {
 html.capacitor-native.android .pwa-navbar {
   top: 0 !important;
   padding-top: var(--android-navbar-top-pad, 30px);
+  z-index: 100010 !important;
 }
 
 html.capacitor-native.android main.pt-16 {

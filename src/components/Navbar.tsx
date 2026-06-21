@@ -62,6 +62,8 @@ function NavbarContent() {
   // IMPORTANT: keep panels closed by default to avoid background polling slowing the app.
   const [chatPanelOpen, setChatPanelOpen] = useState(false)
   const [voicePanelOpen, setVoicePanelOpen] = useState(false)
+  /** Which TalkChat panel is on top when both are open. */
+  const [frontPanel, setFrontPanel] = useState<'chat' | 'voice' | null>(null)
   const [isPageVisible, setIsPageVisible] = useState(true)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -146,12 +148,27 @@ function NavbarContent() {
     if (!isNavbarItemEnabled('chat')) return
     if (openChatDeepLinkConsumedRef.current) return
     setChatPanelOpen(true)
+    setFrontPanel('chat')
     openChatDeepLinkConsumedRef.current = true
   }, [searchParams, isNavbarItemEnabled])
 
+  // Keep front panel valid when only one TalkChat panel remains open.
+  useEffect(() => {
+    if (!chatPanelOpen && !voicePanelOpen) {
+      setFrontPanel(null)
+    } else if (!chatPanelOpen && voicePanelOpen) {
+      setFrontPanel('voice')
+    } else if (chatPanelOpen && !voicePanelOpen) {
+      setFrontPanel('chat')
+    }
+  }, [chatPanelOpen, voicePanelOpen])
+
   // Homepage media card Chat button (and other callers) open TalkChat without toggling navbar button.
   useEffect(() => {
-    const open = () => setChatPanelOpen(true)
+    const open = () => {
+      setChatPanelOpen(true)
+      setFrontPanel('chat')
+    }
     window.addEventListener(OPEN_TALK_CHAT_EVENT, open)
     return () => window.removeEventListener(OPEN_TALK_CHAT_EVENT, open)
   }, [])
@@ -161,12 +178,30 @@ function NavbarContent() {
       router.push('/login')
       return
     }
-    setVoicePanelOpen((prev) => !prev)
-  }, [router, session?.user])
+    if (voicePanelOpen) {
+      if (frontPanel !== 'voice') {
+        setFrontPanel('voice')
+      } else {
+        setVoicePanelOpen(false)
+      }
+      return
+    }
+    setVoicePanelOpen(true)
+    setFrontPanel('voice')
+  }, [router, session?.user, voicePanelOpen, frontPanel])
 
   const handleToggleChat = useCallback(() => {
-    setChatPanelOpen((prev) => !prev)
-  }, [])
+    if (chatPanelOpen) {
+      if (frontPanel !== 'chat') {
+        setFrontPanel('chat')
+      } else {
+        setChatPanelOpen(false)
+      }
+      return
+    }
+    setChatPanelOpen(true)
+    setFrontPanel('chat')
+  }, [chatPanelOpen, frontPanel])
 
   const accountDeactivated = Boolean(
     userData?.accountDeactivatedAt || session?.user?.accountDeactivated,
@@ -579,7 +614,7 @@ function NavbarContent() {
 
   return (
     <VoiceCallProvider>
-    <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 bg-tank-dark/90 backdrop-blur-md border-b border-tank-light pwa-navbar">
+    <nav ref={navRef} className="fixed top-0 left-0 right-0 z-[100010] bg-tank-dark/90 backdrop-blur-md border-b border-tank-light pwa-navbar">
       <div className="max-w-7xl mx-auto pl-2 pr-4 sm:pl-3 sm:pr-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo and Home Icon */}
@@ -991,7 +1026,7 @@ function NavbarContent() {
             ref={feedTextMenuRef}
             role="menu"
             tabIndex={-1}
-            className="fixed z-[110] min-w-[148px] rounded-lg border border-tank-light bg-tank-gray py-1 shadow-xl outline-none"
+            className="fixed z-[100020] min-w-[148px] rounded-lg border border-tank-light bg-tank-gray py-1 shadow-xl outline-none"
             style={{ top: feedTextMenuPos.top, left: feedTextMenuPos.left }}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -1033,7 +1068,7 @@ function NavbarContent() {
         createPortal(
           <div
             ref={alertsPanelRef}
-            className="fixed inset-0 z-[105] flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-16 sm:py-20"
+            className="fixed inset-0 z-[100020] flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-16 sm:py-20"
             role="dialog"
             aria-modal="true"
             aria-labelledby="navbar-notifications-title"
@@ -1045,7 +1080,7 @@ function NavbarContent() {
               onClick={closeAlertsPanel}
             />
             <div
-              className="relative z-[106] w-full max-w-md overflow-hidden rounded-xl border border-tank-light bg-tank-gray shadow-2xl"
+              className="relative z-[100021] w-full max-w-md overflow-hidden rounded-xl border border-tank-light bg-tank-gray shadow-2xl"
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between gap-2 border-b border-tank-light bg-tank-dark px-3 py-2">
@@ -1215,7 +1250,7 @@ function NavbarContent() {
         createPortal(
           <div
             ref={versionPanelRef}
-            className="fixed inset-0 z-[105] flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-16 sm:py-20"
+            className="fixed inset-0 z-[100020] flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-16 sm:py-20"
             role="dialog"
             aria-modal="true"
             aria-labelledby="navbar-version-title"
@@ -1227,7 +1262,7 @@ function NavbarContent() {
               onClick={closeVersionPanel}
             />
             <div
-              className="relative z-[106] w-full max-w-md overflow-hidden rounded-xl border border-tank-light bg-tank-gray shadow-2xl"
+              className="relative z-[100021] w-full max-w-md overflow-hidden rounded-xl border border-tank-light bg-tank-gray shadow-2xl"
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between gap-2 border-b border-tank-light bg-tank-dark px-3 py-2">
@@ -1276,10 +1311,20 @@ function NavbarContent() {
 
       {/* Chat and Talk are independent floating panels — either or both can be open. */}
       {chatPanelOpen && (
-        <TalkChat isOpen onClose={() => setChatPanelOpen(false)} panelMode="chat" />
+        <TalkChat
+          isOpen
+          isFront={frontPanel === 'chat'}
+          onClose={() => setChatPanelOpen(false)}
+          panelMode="chat"
+        />
       )}
       {voicePanelOpen && (
-        <TalkChat isOpen onClose={() => setVoicePanelOpen(false)} panelMode="voice" />
+        <TalkChat
+          isOpen
+          isFront={frontPanel === 'voice'}
+          onClose={() => setVoicePanelOpen(false)}
+          panelMode="voice"
+        />
       )}
 
     </nav>

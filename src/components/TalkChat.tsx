@@ -99,6 +99,8 @@ interface TalkChatProps {
   onClose: () => void
   /** Which panel the navbar requested: chat (Pub/My) or voice-call picker. */
   panelMode?: 'chat' | 'voice'
+  /** When both Chat and Talk are open, the front panel stacks above the other. */
+  isFront?: boolean
 }
 
 // Common emojis organized by category
@@ -168,9 +170,11 @@ function titleFromUploadFilename(name: string, untitledLabel = 'Untitled'): stri
 function TalkChatContent({
   onClose,
   panelMode = 'chat',
+  isFront = true,
 }: {
   onClose: () => void
   panelMode?: 'chat' | 'voice'
+  isFront?: boolean
 }) {
   const isVoicePanel = panelMode === 'voice'
   const layoutStorageKeys = isVoicePanel
@@ -2773,7 +2777,7 @@ function TalkChatContent({
           left: 0,
           right: 0,
         }),
-        zIndex: isVoicePanel ? 100000 : 99999,
+        zIndex: isFront ? 100001 : 100000,
         pointerEvents: 'none',
       }}>
       {/* Wrapper to center chat - 2 tile width */}
@@ -5065,6 +5069,7 @@ export default function TalkChat({
   isOpen,
   onClose,
   panelMode = 'chat',
+  isFront = true,
 }: TalkChatProps) {
   const [mounted, setMounted] = useState(false)
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
@@ -5101,6 +5106,7 @@ export default function TalkChat({
     <TalkChatContent
       onClose={onClose}
       panelMode={panelMode}
+      isFront={isFront}
     />,
     document.body
   )

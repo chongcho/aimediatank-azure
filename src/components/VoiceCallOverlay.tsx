@@ -8,10 +8,10 @@ import type { VoiceCallRingtoneId } from '@/lib/voiceCallVolume'
 import { formatVolumePercent } from '@/lib/voiceCallVolume'
 
 const CALL_POPUP_WIDTH = 360
-const CALL_POPUP_Z_INDEX = 100000
-/** Above TalkChat overlays (100001) so the call UI covers the whole screen on mobile. */
-const FULLSCREEN_CALL_Z_INDEX = 100002
-const MINIMIZED_CALL_Z_INDEX = 100002
+const CALL_POPUP_Z_INDEX = 100050
+/** Above navbar (100010) and TalkChat so the call UI covers the screen on mobile. */
+const FULLSCREEN_CALL_Z_INDEX = 100050
+const MINIMIZED_CALL_Z_INDEX = 100050
 
 interface VoiceCallOverlayProps {
   callState: VoiceCallState
