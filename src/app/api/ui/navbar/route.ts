@@ -17,7 +17,7 @@ const defaultItems = [
   { itemKey: 'signIn', label: 'Log in', isEnabled: true, sortOrder: 10 },
   { itemKey: 'signUp', label: 'Join', isEnabled: true, sortOrder: 11 },
   { itemKey: 'notification', label: 'Notification', isEnabled: true, sortOrder: 12 },
-  { itemKey: 'phone', label: 'Phone', isEnabled: true, sortOrder: 13 },
+  { itemKey: 'phone', label: 'Talk', isEnabled: true, sortOrder: 13 },
 ]
 
 export async function GET() {

@@ -3515,65 +3515,27 @@ export default function AdminPage() {
                 <p className="text-gray-400">Loading…</p>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-4">
-                    <label className="text-white font-medium">Download:</label>
-                    <select
-                      value={mediaDetailDownload ? 'on' : 'off'}
-                      onChange={(e) => setMediaDetailDownload(e.target.value === 'on')}
-                      disabled={mediaDetailSaving}
-                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="on">On</option>
-                      <option value="off">Off</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4">
-                    <label className="text-white font-medium">Share:</label>
-                    <select
-                      value={mediaDetailShare ? 'on' : 'off'}
-                      onChange={(e) => setMediaDetailShare(e.target.value === 'on')}
-                      disabled={mediaDetailSaving}
-                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="on">On</option>
-                      <option value="off">Off</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4">
-                    <label className="text-white font-medium">Send by email:</label>
-                    <select
-                      value={mediaDetailSendByEmail ? 'on' : 'off'}
-                      onChange={(e) => setMediaDetailSendByEmail(e.target.value === 'on')}
-                      disabled={mediaDetailSaving}
-                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="on">On</option>
-                      <option value="off">Off</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4">
-                    <label className="text-white font-medium">Card:</label>
-                    <select
-                      value={mediaDetailCard ? 'on' : 'off'}
-                      onChange={(e) => setMediaDetailCard(e.target.value === 'on')}
-                      disabled={mediaDetailSaving}
-                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="on">On</option>
-                      <option value="off">Off</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4">
-                    <label className="text-white font-medium">AI Tool:</label>
-                    <select
-                      value={mediaDetailAiTool ? 'on' : 'off'}
-                      onChange={(e) => setMediaDetailAiTool(e.target.value === 'on')}
-                      disabled={mediaDetailSaving}
-                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="on">On</option>
-                      <option value="off">Off</option>
-                    </select>
+                  <div className="flex flex-wrap gap-3">
+                    {[
+                      { label: 'Download', value: mediaDetailDownload, onChange: setMediaDetailDownload },
+                      { label: 'Share', value: mediaDetailShare, onChange: setMediaDetailShare },
+                      { label: 'Send by email', value: mediaDetailSendByEmail, onChange: setMediaDetailSendByEmail },
+                      { label: 'Card', value: mediaDetailCard, onChange: setMediaDetailCard },
+                      { label: 'AI Tool', value: mediaDetailAiTool, onChange: setMediaDetailAiTool },
+                    ].map(({ label, value, onChange }) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <label className="text-gray-300 text-sm">{label}</label>
+                        <select
+                          value={value ? 'on' : 'off'}
+                          onChange={(e) => onChange(e.target.value === 'on')}
+                          disabled={mediaDetailSaving}
+                          className="bg-tank-dark border border-tank-light rounded px-2 py-1 text-white text-sm"
+                        >
+                          <option value="on">On</option>
+                          <option value="off">Off</option>
+                        </select>
+                      </div>
+                    ))}
                   </div>
                   <div className="pt-2">
                     <p className="text-gray-400 text-sm mb-2">Share modal — which apps to show</p>
