@@ -798,6 +798,7 @@ export async function GET(request: Request) {
         { itemKey: 'signIn', label: 'Log in', isEnabled: true, sortOrder: 10 },
         { itemKey: 'signUp', label: 'Join', isEnabled: true, sortOrder: 11 },
         { itemKey: 'notification', label: 'Notification', isEnabled: true, sortOrder: 12 },
+        { itemKey: 'phone', label: 'Phone', isEnabled: true, sortOrder: 13 },
       ]
 
       try {
@@ -924,6 +925,7 @@ export async function GET(request: Request) {
           downloadEnabled: row.downloadEnabled ?? true,
           shareEnabled: row.shareEnabled ?? true,
           sendByEmailEnabled: rowWithExtras.sendByEmailEnabled ?? true,
+          cardEnabled: row.cardEnabled ?? true,
           aiToolEnabled: row.aiToolEnabled ?? true,
           shareAppsEnabled,
         })
@@ -934,6 +936,7 @@ export async function GET(request: Request) {
           downloadEnabled: true,
           shareEnabled: true,
           sendByEmailEnabled: true,
+          cardEnabled: true,
           aiToolEnabled: true,
           shareAppsEnabled: { ...DEFAULT_SHARE_APPS },
         })
@@ -2346,12 +2349,14 @@ export async function POST(request: Request) {
           downloadEnabled: downloadPayload,
           shareEnabled: sharePayload,
           sendByEmailEnabled: sendByEmailPayload,
+          cardEnabled: cardPayload,
           aiToolEnabled: aiToolPayload,
           shareAppsEnabled: shareAppsPayload,
         } = data || {}
         const downloadBool = typeof downloadPayload === 'boolean' ? downloadPayload : undefined
         const shareBool = typeof sharePayload === 'boolean' ? sharePayload : undefined
         const sendByEmailBool = typeof sendByEmailPayload === 'boolean' ? sendByEmailPayload : undefined
+        const cardBool = typeof cardPayload === 'boolean' ? cardPayload : undefined
         const aiToolBool = typeof aiToolPayload === 'boolean' ? aiToolPayload : undefined
         const shareAppsObj = shareAppsPayload && typeof shareAppsPayload === 'object' && !Array.isArray(shareAppsPayload)
           ? (shareAppsPayload as Record<string, boolean>)
@@ -2380,6 +2385,7 @@ export async function POST(request: Request) {
         if (downloadBool !== undefined) updateData.downloadEnabled = downloadBool
         if (shareBool !== undefined) updateData.shareEnabled = shareBool
         if (sendByEmailBool !== undefined) updateData.sendByEmailEnabled = sendByEmailBool
+        if (cardBool !== undefined) updateData.cardEnabled = cardBool
         if (aiToolBool !== undefined) updateData.aiToolEnabled = aiToolBool
         if (shareAppsJson !== undefined) updateData.shareAppsEnabled = shareAppsJson
         if (!row) {
@@ -2387,6 +2393,7 @@ export async function POST(request: Request) {
           if (downloadBool !== undefined) createData.downloadEnabled = downloadBool
           if (shareBool !== undefined) createData.shareEnabled = shareBool
           if (sendByEmailBool !== undefined) createData.sendByEmailEnabled = sendByEmailBool
+          if (cardBool !== undefined) createData.cardEnabled = cardBool
           if (aiToolBool !== undefined) createData.aiToolEnabled = aiToolBool
           if (shareAppsJson !== undefined) createData.shareAppsEnabled = shareAppsJson
           row = await prisma.mediaDetailSetting.create({
@@ -2405,6 +2412,7 @@ export async function POST(request: Request) {
           downloadEnabled: row.downloadEnabled,
           shareEnabled: row.shareEnabled,
           sendByEmailEnabled: updated.sendByEmailEnabled,
+          cardEnabled: row.cardEnabled,
           aiToolEnabled: row.aiToolEnabled,
           shareAppsEnabled,
         })
@@ -2413,6 +2421,7 @@ export async function POST(request: Request) {
           downloadEnabled: row.downloadEnabled,
           shareEnabled: row.shareEnabled,
           sendByEmailEnabled: updated.sendByEmailEnabled,
+          cardEnabled: row.cardEnabled,
           aiToolEnabled: row.aiToolEnabled,
           shareAppsEnabled,
         })

@@ -13,6 +13,7 @@ import { mergeStoredMediaViews } from '@/lib/mediaViewsSync'
 import { getStoredLikes, publishLikes, subscribeLikes } from '@/lib/mediaLikesSync'
 import { calendarLocaleFromUiTag } from '@/lib/localeUi'
 import MediaShareModal from '@/components/MediaShareModal'
+import CelebrationCardModal from '@/components/CelebrationCardModal'
 import { ThumbsUpIcon } from '@/components/ThumbsUpIcon'
 import {
   fetchMediaDetailSettings,
@@ -114,7 +115,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const [mediaDetailDownloadEnabled, setMediaDetailDownloadEnabled] = useState(true)
   const [mediaDetailShareEnabled, setMediaDetailShareEnabled] = useState(true)
   const [mediaDetailSendByEmailEnabled, setMediaDetailSendByEmailEnabled] = useState(true)
+  const [mediaDetailCardEnabled, setMediaDetailCardEnabled] = useState(true)
   const [mediaDetailAiToolEnabled, setMediaDetailAiToolEnabled] = useState(true)
+  const [showCardModal, setShowCardModal] = useState(false)
   const [shareAppsEnabled, setShareAppsEnabled] = useState<Record<string, boolean>>({
     email: true, whatsapp: true, kakao: true, facebook: true, x: true, linkedin: true, reddit: true, youtube: true, tiktok: true, instagram: true,
   })
@@ -238,6 +241,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         setMediaDetailDownloadEnabled(data.downloadEnabled)
         setMediaDetailShareEnabled(data.shareEnabled)
         setMediaDetailSendByEmailEnabled(data.sendByEmailEnabled)
+        setMediaDetailCardEnabled(data.cardEnabled)
         setMediaDetailAiToolEnabled(data.aiToolEnabled)
         setShareAppsEnabled(data.shareAppsEnabled)
       } catch (error) {
@@ -1031,6 +1035,22 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     )}
                   </>
                 )}
+
+                {mediaDetailCardEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!session) {
+                        router.push('/login')
+                        return
+                      }
+                      setShowCardModal(true)
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-pink-500 text-white hover:bg-pink-600"
+                  >
+                    {tMedia('card')}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1126,6 +1146,14 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         shareAppsEnabled={shareAppsEnabled}
         onCopyStatusChange={setShareStatus}
       />
+
+      {showCardModal && media && (
+        <CelebrationCardModal
+          mediaId={mediaId}
+          mediaTitle={shareTitle}
+          onClose={() => setShowCardModal(false)}
+        />
+      )}
 
       {/* Send by email modal */}
       {showEmailModal && (

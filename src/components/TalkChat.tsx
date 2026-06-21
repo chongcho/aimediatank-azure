@@ -63,6 +63,9 @@ interface MediaPreview {
 interface TalkChatProps {
   isOpen: boolean
   onClose: () => void
+  /** Open the voice-call picker when TalkChat mounts (e.g. from navbar Phone button). */
+  openVoiceCallPicker?: boolean
+  onVoiceCallPickerOpened?: () => void
 }
 
 // Common emojis organized by category
@@ -129,7 +132,15 @@ function titleFromUploadFilename(name: string, untitledLabel = 'Untitled'): stri
   return base.replace(/\.[^.]+$/, '').trim() || untitledLabel
 }
 
-function TalkChatContent({ onClose }: { onClose: () => void }) {
+function TalkChatContent({
+  onClose,
+  openVoiceCallPicker: openVoiceCallPickerProp,
+  onVoiceCallPickerOpened,
+}: {
+  onClose: () => void
+  openVoiceCallPicker?: boolean
+  onVoiceCallPickerOpened?: () => void
+}) {
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
@@ -547,7 +558,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
 
   const pubNavActive = chatMode === 'open' && !showVoiceCallPicker && !isActiveVoiceCall
   const myNavActive = chatMode === 'private' && !showVoiceCallPicker && !isActiveVoiceCall
-  const phoneNavActive = showVoiceCallPicker || isActiveVoiceCall
 
   const handleConfirmVoiceCall = () => {
     if (!voiceCallPickTarget || !voiceCall || isActiveVoiceCall) return
@@ -1224,7 +1234,7 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
     setShowVoiceCallPicker(true)
   }, [isActiveVoiceCall, isDesktop])
 
-  const toggleVoiceCallPicker = () => {
+  const openVoiceCallPickerPanel = useCallback(() => {
     if (!isSignedIn) {
       setInlineNotice(TALK_CHAT_MAP.noticeSignInMyKong)
       return
@@ -1233,27 +1243,23 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
       setShowVoiceCallPicker(true)
       return
     }
+    setShowUserPicker(false)
+    setSelectedRecipients([])
+    setActiveConversation(null)
+    setMessages([])
+    setVoiceCallPickTarget(null)
+    setVoiceCallSearchQuery('')
+    setVoiceCallSearchedUsers([])
+    setVoiceCallRecords([])
+    setLoadingVoiceCallRecords(true)
+    setShowVoiceCallPicker(true)
+  }, [isActiveVoiceCall, isSignedIn])
 
-    const next = !showVoiceCallPicker
-    if (next) {
-      setShowUserPicker(false)
-      setSelectedRecipients([])
-      setActiveConversation(null)
-      setMessages([])
-      setVoiceCallPickTarget(null)
-      setVoiceCallSearchQuery('')
-      setVoiceCallSearchedUsers([])
-      setVoiceCallRecords([])
-      setLoadingVoiceCallRecords(true)
-    } else {
-      setVoiceCallPickTarget(null)
-      setVoiceCallSearchQuery('')
-      setVoiceCallSearchedUsers([])
-      setVoiceCallRecords([])
-      setLoadingVoiceCallRecords(false)
-    }
-    setShowVoiceCallPicker(next)
-  }
+  useEffect(() => {
+    if (!openVoiceCallPickerProp) return
+    openVoiceCallPickerPanel()
+    onVoiceCallPickerOpened?.()
+  }, [openVoiceCallPickerProp, openVoiceCallPickerPanel, onVoiceCallPickerOpened])
 
   useEffect(() => {
     if (!showVoiceCallPicker || !session?.user?.id) return
@@ -2783,33 +2789,6 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
                 </span>
               )}
             </div>
-
-            {/* Voice call — always visible when signed in */}
-            {isSignedIn && voiceCall && (
-              <button
-                type="button"
-                onClick={toggleVoiceCallPicker}
-                className="chat-btn-responsive"
-                style={{
-                  padding: '4px 6px',
-                  borderRadius: '4px',
-                  border: phoneNavActive ? '2px solid #065f46' : '1px solid #d1d5db',
-                  background: phoneNavActive ? '#059669' : '#9ca3af',
-                  color: 'white',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: phoneNavActive ? '0 0 0 1px rgba(6,95,70,0.35)' : 'none',
-                  transition: 'background 0.2s, border-color 0.2s',
-                }}
-                title={tr[TC.voiceCall]}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                </svg>
-              </button>
-            )}
           </div>
           
           {/* Size control buttons - different for desktop vs mobile */}
@@ -5088,7 +5067,12 @@ function TalkChatContent({ onClose }: { onClose: () => void }) {
   )
 }
 
-export default function TalkChat({ isOpen, onClose }: TalkChatProps) {
+export default function TalkChat({
+  isOpen,
+  onClose,
+  openVoiceCallPicker,
+  onVoiceCallPickerOpened,
+}: TalkChatProps) {
   const [mounted, setMounted] = useState(false)
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
 
@@ -5121,7 +5105,11 @@ export default function TalkChat({ isOpen, onClose }: TalkChatProps) {
   }
 
   return createPortal(
-    <TalkChatContent onClose={onClose} />,
+    <TalkChatContent
+      onClose={onClose}
+      openVoiceCallPicker={openVoiceCallPicker}
+      onVoiceCallPickerOpened={onVoiceCallPickerOpened}
+    />,
     document.body
   )
 }

@@ -410,6 +410,7 @@ export default function AdminPage() {
   const [mediaDetailDownload, setMediaDetailDownload] = useState(true)
   const [mediaDetailShare, setMediaDetailShare] = useState(true)
   const [mediaDetailSendByEmail, setMediaDetailSendByEmail] = useState(true)
+  const [mediaDetailCard, setMediaDetailCard] = useState(true)
   const [mediaDetailAiTool, setMediaDetailAiTool] = useState(true)
   const [mediaDetailShareApps, setMediaDetailShareApps] = useState<Record<string, boolean>>({
     email: true, whatsapp: true, kakao: true, facebook: true, x: true, linkedin: true, reddit: true, youtube: true, tiktok: true, instagram: true,
@@ -956,6 +957,7 @@ export default function AdminPage() {
           setMediaDetailDownload(data.downloadEnabled !== false)
           setMediaDetailShare(data.shareEnabled !== false)
           setMediaDetailSendByEmail(data.sendByEmailEnabled !== false)
+          setMediaDetailCard(data.cardEnabled !== false)
           setMediaDetailAiTool(data.aiToolEnabled !== false)
           if (data.shareAppsEnabled && typeof data.shareAppsEnabled === 'object' && !Array.isArray(data.shareAppsEnabled)) {
             setMediaDetailShareApps((prev) => ({ ...prev, ...data.shareAppsEnabled }))
@@ -3506,7 +3508,7 @@ export default function AdminPage() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">📄 Media Detail</h2>
                 <p className="text-gray-400 text-sm">
-                  Show or hide Download, Share, Send by email, and AI Tool label on the media detail page
+                  Show or hide Download, Share, Send by email, Card, and AI Tool label on the media detail page
                 </p>
               </div>
               {mediaDetailLoading ? (
@@ -3542,6 +3544,18 @@ export default function AdminPage() {
                     <select
                       value={mediaDetailSendByEmail ? 'on' : 'off'}
                       onChange={(e) => setMediaDetailSendByEmail(e.target.value === 'on')}
+                      disabled={mediaDetailSaving}
+                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="on">On</option>
+                      <option value="off">Off</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label className="text-white font-medium">Card:</label>
+                    <select
+                      value={mediaDetailCard ? 'on' : 'off'}
+                      onChange={(e) => setMediaDetailCard(e.target.value === 'on')}
                       disabled={mediaDetailSaving}
                       className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
                     >
@@ -3604,6 +3618,7 @@ export default function AdminPage() {
                               downloadEnabled: mediaDetailDownload,
                               shareEnabled: mediaDetailShare,
                               sendByEmailEnabled: mediaDetailSendByEmail,
+                              cardEnabled: mediaDetailCard,
                               aiToolEnabled: mediaDetailAiTool,
                               shareAppsEnabled: mediaDetailShareApps,
                             },
@@ -3617,6 +3632,7 @@ export default function AdminPage() {
                         if (typeof data.downloadEnabled === 'boolean') setMediaDetailDownload(data.downloadEnabled)
                         if (typeof data.shareEnabled === 'boolean') setMediaDetailShare(data.shareEnabled)
                         if (typeof data.sendByEmailEnabled === 'boolean') setMediaDetailSendByEmail(data.sendByEmailEnabled)
+                        if (typeof data.cardEnabled === 'boolean') setMediaDetailCard(data.cardEnabled)
                         if (typeof data.aiToolEnabled === 'boolean') setMediaDetailAiTool(data.aiToolEnabled)
                         if (data.shareAppsEnabled && typeof data.shareAppsEnabled === 'object') {
                           setMediaDetailShareApps((prev) => ({ ...prev, ...data.shareAppsEnabled }))

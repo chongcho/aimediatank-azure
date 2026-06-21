@@ -1,12 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
-import MediaMessageModal from './MediaMessageModal'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
 import { clearHomeFeed } from '@/lib/homePrefetchCache'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
@@ -48,6 +47,7 @@ export default function Navbar() {
 
 function NavbarContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const { data: session, status, update: updateSession } = useSession()
   const [restoreLoading, setRestoreLoading] = useState(false)
   const { tNavbar: t, tFeed } = useUiLocale()
@@ -61,8 +61,8 @@ function NavbarContent() {
   const [isVersionOpen, setIsVersionOpen] = useState(false)
   // IMPORTANT: keep chat closed by default to avoid background polling slowing the app.
   const [isTalkChatOpen, setIsTalkChatOpen] = useState(false)
+  const [talkChatOpenVoiceCall, setTalkChatOpenVoiceCall] = useState(false)
   const [isPageVisible, setIsPageVisible] = useState(true)
-  const [isMediaMessageOpen, setIsMediaMessageOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [chatInviteCount, setChatInviteCount] = useState(0)
@@ -123,8 +123,9 @@ function NavbarContent() {
 
   // If an interactive navbar item is disabled via Navbar Control, force-close it.
   useEffect(() => {
-    if (!isNavbarItemEnabled('chat')) {
+    if (!isNavbarItemEnabled('chat') && !isNavbarItemEnabled('phone')) {
       setIsTalkChatOpen(false)
+      setTalkChatOpenVoiceCall(false)
     }
     if (!isNavbarItemEnabled('notification')) {
       setIsAlertsOpen(false)
@@ -151,6 +152,20 @@ function NavbarContent() {
     const open = () => setIsTalkChatOpen(true)
     window.addEventListener(OPEN_TALK_CHAT_EVENT, open)
     return () => window.removeEventListener(OPEN_TALK_CHAT_EVENT, open)
+  }, [])
+
+  const handleOpenVoiceCall = useCallback(() => {
+    if (!session?.user) {
+      router.push('/login')
+      return
+    }
+    setTalkChatOpenVoiceCall(true)
+    setIsTalkChatOpen(true)
+  }, [router, session?.user])
+
+  const handleCloseTalkChat = useCallback(() => {
+    setIsTalkChatOpen(false)
+    setTalkChatOpenVoiceCall(false)
   }, [])
 
   const accountDeactivated = Boolean(
@@ -621,16 +636,18 @@ function NavbarContent() {
 
           {/* Right Side */}
           <div className="navbar-actions flex items-center gap-2 flex-shrink-0">
-            {/* Card (/ecard) — visibility via mediaMessage */}
-            {isNavbarItemEnabled('mediaMessage') && (
-              <Link
-                href="/ecard"
-                className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-pink-500 px-px text-center hover:bg-pink-600 transition-colors"
-                aria-label={t('card')}
-                title={t('card')}
+            {isNavbarItemEnabled('phone') && (
+              <button
+                type="button"
+                onClick={handleOpenVoiceCall}
+                className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 px-px text-center hover:bg-emerald-700 transition-colors"
+                aria-label={t('phone')}
+                title={t('phone')}
               >
-                <span className="text-sm font-bold text-white">{t('card')}</span>
-              </Link>
+                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                </svg>
+              </button>
             )}
             {/* Chat (Talk chat) button */}
             {isNavbarItemEnabled('chat') && (
@@ -1263,18 +1280,12 @@ function NavbarContent() {
       {isTalkChatOpen && (
         <TalkChat
           isOpen={isTalkChatOpen}
-          onClose={() => setIsTalkChatOpen(false)}
+          onClose={handleCloseTalkChat}
+          openVoiceCallPicker={talkChatOpenVoiceCall}
+          onVoiceCallPickerOpened={() => setTalkChatOpenVoiceCall(false)}
         />
       )}
 
-      {session && isNavbarItemEnabled('mediaMessage') && (
-        <MediaMessageModal
-          isOpen={isMediaMessageOpen}
-          onClose={() => setIsMediaMessageOpen(false)}
-          defaultRecipient="@aidog"
-          myContentsHref={`/profile/${userData?.username || session?.user?.username || 'me'}`}
-        />
-      )}
     </nav>
     </VoiceCallProvider>
   )

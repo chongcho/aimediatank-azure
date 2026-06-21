@@ -761,6 +761,7 @@ model MediaDetailSetting {
   downloadEnabled     Boolean  @default(true)
   shareEnabled        Boolean  @default(true)
   sendByEmailEnabled  Boolean  @default(true)
+  cardEnabled         Boolean  @default(true) // show Celebration Card button on media detail page
   aiToolEnabled       Boolean  @default(true) // show "AI Tool: …" when media has aiTool set
   shareAppsEnabled    Json?    // { email, whatsapp, kakao, facebook, x, linkedin, reddit, youtube, tiktok, instagram }
   createdAt           DateTime @default(now())

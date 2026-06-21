@@ -28,6 +28,7 @@ export type MediaPageKey =
   | 'preparing'
   | 'downloading'
   | 'share'
+  | 'card'
   | 'copied'
   | 'sendByEmail'
   | 'buyNow'
@@ -116,6 +117,7 @@ const EN: Pack = {
   preparing: 'Preparing...',
   downloading: 'Downloading ...',
   share: 'Share',
+  card: 'Card',
   copied: 'Copied!',
   sendByEmail: 'Send by email',
   buyNow: 'Buy Now',
@@ -210,6 +212,7 @@ const KO: Pack = {
   preparing: '준비 중…',
   downloading: '다운로드 중…',
   share: '공유',
+  card: '카드',
   copied: '복사됨!',
   sendByEmail: '이메일로 보내기',
   buyNow: '바로 구매',
@@ -302,6 +305,7 @@ const JA: Pack = {
   preparing: '準備中…',
   downloading: 'ダウンロード中…',
   share: '共有',
+  card: 'カード',
   copied: 'コピーしました',
   sendByEmail: 'メールで送る',
   buyNow: '今すぐ購入',
@@ -393,6 +397,7 @@ const ZH: Pack = {
   preparing: '准备中…',
   downloading: '下载中…',
   share: '分享',
+  card: '卡片',
   copied: '已复制！',
   sendByEmail: '通过邮件发送',
   buyNow: '立即购买',
