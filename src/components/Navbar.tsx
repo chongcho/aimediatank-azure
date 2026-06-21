@@ -46,6 +46,7 @@ export default function Navbar() {
 }
 
 function NavbarContent() {
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
   const { data: session, status, update: updateSession } = useSession()
@@ -94,6 +95,19 @@ function NavbarContent() {
   const versionPanelRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
+
+  const closeTalkChatPanels = useCallback(() => {
+    setChatPanelOpen(false)
+    setVoicePanelOpen(false)
+    setFrontPanel(null)
+  }, [])
+
+  const talkChatPanelsOpen = chatPanelOpen || voicePanelOpen
+
+  // Close Talk/Chat when navigating away so panels do not block the next screen.
+  useEffect(() => {
+    closeTalkChatPanels()
+  }, [pathname, closeTalkChatPanels])
 
   const fetchNavbarMenuSettings = useCallback(async () => {
     try {
@@ -260,6 +274,20 @@ function NavbarContent() {
       session?.user?.role === 'SUBSCRIBER' ||
       session?.user?.role === 'ADMIN')
   const isAdmin = isAppAdminRole(userData?.role) || isAppAdminRole(session?.user?.role)
+
+  const handlePostClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (!talkChatPanelsOpen) return
+      const href = isSubscriber ? '/upload' : '/pricing'
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+      closeTalkChatPanels()
+      if (isMobile) {
+        e.preventDefault()
+        router.push(href)
+      }
+    },
+    [talkChatPanelsOpen, closeTalkChatPanels, router, isSubscriber]
+  )
   
   // Display name - show Nickname (username) in navbar
   const displayName = userData?.username || session?.user?.username || 'User'
@@ -730,7 +758,8 @@ function NavbarContent() {
                 {isNavbarItemEnabled('upload') && (
                   <Link
                     href={isSubscriber ? '/upload' : '/pricing'}
-                    className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-px text-center hover:bg-blue-700 transition-colors"
+                    onClick={handlePostClick}
+                    className="relative z-[2] inline-flex h-9 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg bg-blue-600 px-px text-center hover:bg-blue-700 transition-colors [-webkit-tap-highlight-color:transparent]"
                   >
                     <span className="text-sm font-bold text-white">{t('post')}</span>
                   </Link>

@@ -63,6 +63,34 @@ const MESSAGE_COMPOSER_MAX_HEIGHT_PX =
   MESSAGE_COMPOSER_PAD_Y_PX * 2 + MESSAGE_COMPOSER_LINE_HEIGHT_PX * MESSAGE_COMPOSER_MAX_LINES
 const MESSAGE_COMPOSER_PICKER_GAP_PX = 16
 
+/** Desktop navbar is h-16 (4rem); measured at drag time when available. */
+const DESKTOP_NAVBAR_BOTTOM_FALLBACK_PX = 64
+
+function getDesktopNavbarBottom(): number {
+  if (typeof document === 'undefined') return DESKTOP_NAVBAR_BOTTOM_FALLBACK_PX
+  const nav = document.querySelector('.pwa-navbar')
+  if (nav instanceof HTMLElement) {
+    const bottom = nav.getBoundingClientRect().bottom
+    if (Number.isFinite(bottom) && bottom > 0) return bottom
+  }
+  return DESKTOP_NAVBAR_BOTTOM_FALLBACK_PX
+}
+
+function clampDesktopPanelPosition(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  const minY = getDesktopNavbarBottom()
+  const maxX = Math.max(0, window.innerWidth - width)
+  const maxY = Math.max(minY, window.innerHeight - height)
+  return {
+    x: Math.max(0, Math.min(x, maxX)),
+    y: Math.max(minY, Math.min(y, maxY)),
+  }
+}
+
 interface ChatMessage {
   id: string
   content: string
@@ -757,21 +785,19 @@ function TalkChatContent({
       if (savedPosition) {
         try {
           const pos = JSON.parse(savedPosition)
-          // Constrain position to current viewport
-          const maxX = Math.max(0, window.innerWidth - loadedWidth)
-          const maxY = Math.max(0, window.innerHeight - loadedHeight)
-          setPosition({
-            x: Math.max(0, Math.min(pos.x, maxX)),
-            y: Math.max(0, Math.min(pos.y, maxY))
-          })
+          setPosition(clampDesktopPanelPosition(pos.x, pos.y, loadedWidth, loadedHeight))
           setHasCustomPosition(true)
         } catch {}
       } else if (isVoicePanel) {
-        // Default Talk window to top-right so it can sit beside Chat.
-        setPosition({
-          x: Math.max(0, window.innerWidth - loadedWidth - 24),
-          y: Math.max(0, window.innerHeight - loadedHeight - 24),
-        })
+        // Default Talk window to bottom-right so it stays below the navbar.
+        setPosition(
+          clampDesktopPanelPosition(
+            window.innerWidth - loadedWidth - 24,
+            window.innerHeight - loadedHeight - 24,
+            loadedWidth,
+            loadedHeight,
+          ),
+        )
         setHasCustomPosition(true)
       }
       if (savedSize) {
@@ -795,14 +821,7 @@ function TalkChatContent({
     if (!isDesktop || !hasCustomPosition) return
 
     const handleWindowResize = () => {
-      setPosition(prev => {
-        const maxX = Math.max(0, window.innerWidth - size.width)
-        const maxY = Math.max(0, window.innerHeight - size.height)
-        return {
-          x: Math.max(0, Math.min(prev.x, maxX)),
-          y: Math.max(0, Math.min(prev.y, maxY))
-        }
-      })
+      setPosition((prev) => clampDesktopPanelPosition(prev.x, prev.y, size.width, size.height))
     }
 
     window.addEventListener('resize', handleWindowResize)
@@ -836,13 +855,7 @@ function TalkChatContent({
     const handleMouseMove = (e: MouseEvent) => {
       const newX = e.clientX - dragOffset.x
       const newY = e.clientY - dragOffset.y
-      // Constrain to viewport
-      const maxX = window.innerWidth - size.width
-      const maxY = window.innerHeight - size.height
-      setPosition({
-        x: Math.max(0, Math.min(newX, maxX)),
-        y: Math.max(0, Math.min(newY, maxY))
-      })
+      setPosition(clampDesktopPanelPosition(newX, newY, size.width, size.height))
     }
 
     const handleMouseUp = () => {
@@ -941,17 +954,21 @@ function TalkChatContent({
       if (resizeDirection === 'top') {
         // Top edge - drag up to make taller, bottom edge stays fixed
         const bottomEdge = hasCustomPosition ? position.y + size.height : rect.bottom
+        const minY = getDesktopNavbarBottom()
         const newHeight = Math.max(250, Math.min(700, bottomEdge - e.clientY))
         if (hasCustomPosition) {
-          const newY = bottomEdge - newHeight
-          setPosition(prev => ({ ...prev, y: Math.max(0, newY) }))
+          const newY = Math.max(minY, bottomEdge - newHeight)
+          const clampedHeight = bottomEdge - newY
+          setPosition((prev) => ({ ...prev, y: newY }))
+          setSize((prev) => ({ ...prev, height: clampedHeight }))
+        } else {
+          setSize((prev) => ({ ...prev, height: newHeight }))
         }
-        setSize(prev => ({ ...prev, height: newHeight }))
       } else if (resizeDirection === 'bottom') {
         // Bottom edge - drag down to make taller, top edge stays fixed
         const topEdge = hasCustomPosition ? position.y : rect.top
-        // Also constrain to not go below viewport
-        const maxBottomHeight = window.innerHeight - topEdge
+        const minY = getDesktopNavbarBottom()
+        const maxBottomHeight = window.innerHeight - Math.max(minY, topEdge)
         const newHeight = Math.max(250, Math.min(700, maxBottomHeight, e.clientY - topEdge))
         setSize(prev => ({ ...prev, height: newHeight }))
       }
@@ -980,6 +997,8 @@ function TalkChatContent({
 
   // Block background scroll when touch starts inside chat and moves
   useEffect(() => {
+    if (!isFront) return
+
     let touchStartedInChat = false
     let startY = 0
 
@@ -1032,7 +1051,7 @@ function TalkChatContent({
       document.removeEventListener('touchmove', handleTouchMove)
       document.removeEventListener('touchend', handleTouchEnd)
     }
-  }, [])
+  }, [isFront])
 
   // Close pickers when clicking outside
   useEffect(() => {
@@ -2370,11 +2389,11 @@ function TalkChatContent({
 
   // Fetch messages only after initialized
   useEffect(() => {
-    if (!isInitialized) return
+    if (!isInitialized || !isFront) return
     fetchMessages()
     const interval = setInterval(fetchMessages, 15000)
     return () => clearInterval(interval)
-  }, [isInitialized, fetchMessages])
+  }, [isInitialized, isFront, fetchMessages])
 
   useEffect(() => {
     setDidInitialScroll(false)
@@ -2395,21 +2414,21 @@ function TalkChatContent({
 
   // Fetch chat invites periodically
   useEffect(() => {
-    if (!isInitialized || !session?.user?.id) return
+    if (!isInitialized || !session?.user?.id || !isFront) return
     if (!isPageVisible || chatSize === 'min') return
     fetchChatInvites()
     const interval = setInterval(fetchChatInvites, 30000) // Check every 30 seconds
     return () => clearInterval(interval)
-  }, [isInitialized, session?.user?.id, fetchChatInvites, isPageVisible, chatSize])
+  }, [isInitialized, isFront, session?.user?.id, fetchChatInvites, isPageVisible, chatSize])
 
   // Fetch unread count periodically
   useEffect(() => {
-    if (!isInitialized || !session?.user?.id) return
+    if (!isInitialized || !session?.user?.id || !isFront) return
     if (!isPageVisible || chatSize === 'min') return
     fetchUnreadCount()
     const interval = setInterval(fetchUnreadCount, 30000) // Check every 30 seconds
     return () => clearInterval(interval)
-  }, [isInitialized, session?.user?.id, fetchUnreadCount, isPageVisible, chatSize])
+  }, [isInitialized, isFront, session?.user?.id, fetchUnreadCount, isPageVisible, chatSize])
 
   // Fetch chat records when in private mode without any recipients
   useEffect(() => {
@@ -2777,7 +2796,7 @@ function TalkChatContent({
           left: 0,
           right: 0,
         }),
-        zIndex: isFront ? 100001 : 100000,
+        zIndex: isDesktop ? (isFront ? 100001 : 100000) : (isFront ? 9990 : 9989),
         pointerEvents: 'none',
         ...(!isDesktop && !isFront ? { visibility: 'hidden' as const } : {}),
       }}>
