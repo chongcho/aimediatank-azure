@@ -276,10 +276,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func endCallFromPluginRequest(callId: String) {
         let normalized = callId.lowercased()
-        if NativeVoiceCallEngine.shared.activeCallId == normalized {
-            NativeVoiceCallEngine.shared.endCall(reason: "plugin_end", syncServer: false)
-        }
         guard let uuid = UUID(uuidString: normalized) else { return }
+        // End CallKit first; endCallKitCall tears down native WebRTC when activeCallId matches.
         endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: true)
     }
 
@@ -490,6 +488,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     /// Defer stale CallKit cleanup until foreground — never during VoIP cold wake before reportNewIncomingCall.
     func recoverStaleCallStateWhenIdle() {
+        if !hasActiveCallKitCall() && !hasPendingCallKitAnswer() {
+            if NativeVoiceCallEngine.shared.isActive || NativeVoiceCallEngine.shared.isMediaConnected {
+                print("[AiMediaTankVoipPushBridge] stale recovery — native WebRTC without CallKit call")
+                NativeVoiceCallEngine.shared.endCall(reason: "stale_recovery", syncServer: false)
+            }
+        }
         recoverFromStaleCallState()
     }
 
@@ -730,7 +734,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 if NativeVoiceCallEngine.shared.activeCallId == callId {
                     NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
                 }
-                self.provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
+                // Use CXEndCallAction only — reportCall + action together can trigger providerDidReset.
                 let endCallAction = CXEndCallAction(call: uuid)
                 self.callController.request(CXTransaction(action: endCallAction)) { error in
                     if let error {
@@ -1350,8 +1354,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         dismissRetryGeneration.removeAll()
         clearPendingCallKitAnswer()
         tearDownNativeVoiceAfterCallKitReset()
-        dismissAllRingingCalls()
+        // Never call reportCall / CXEndCallAction here — the provider was reset and is invalid.
+        endedCallKitCallIds.removeAll()
         UserDefaults.standard.removeObject(forKey: Self.ringingCallIdsKey)
+        releaseAudioSession()
     }
 
     /// Push in-app call state after unlock — never foreground WebView during CallKit (#1→#3).
@@ -1649,7 +1655,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 object: nil,
                 userInfo: ["callId": callId]
             )
-            provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .remoteEnded)
             Self.noteCallDismissed(callId)
         }
         action.fulfill()

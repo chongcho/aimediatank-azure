@@ -110,8 +110,11 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     }
 
     func audioSessionDeactivated() {
-        RTCAudioSession.sharedInstance().audioSessionDidDeactivate(AVAudioSession.sharedInstance())
-        RTCAudioSession.sharedInstance().isAudioEnabled = false
+        let rtc = RTCAudioSession.sharedInstance()
+        rtc.lockForConfiguration()
+        defer { rtc.unlockForConfiguration() }
+        rtc.audioSessionDidDeactivate(AVAudioSession.sharedInstance())
+        rtc.isAudioEnabled = false
         audioSessionReady = false
     }
 
