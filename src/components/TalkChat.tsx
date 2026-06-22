@@ -1393,7 +1393,6 @@ function TalkChatContent({
     setVoiceCallRecords([])
     setVoiceCallContacts([])
     setVoiceCallTab('recent')
-    setLoadingVoiceCallRecords(true)
     setShowVoiceCallPicker(true)
   }, [isActiveVoiceCall, isSignedIn])
 
@@ -1423,13 +1422,14 @@ function TalkChatContent({
       } catch (error) {
         if (!cancelled) console.error('Error loading voice call records:', error)
       } finally {
-        if (!cancelled) setLoadingVoiceCallRecords(false)
+        setLoadingVoiceCallRecords(false)
       }
     })()
     return () => {
       cancelled = true
+      setLoadingVoiceCallRecords(false)
     }
-  }, [isFront, showVoiceCallPicker, session?.user?.id])
+  }, [isFront, showVoiceCallPicker, session?.user?.id, voiceCall?.callState])
 
   useEffect(() => {
     if (!isFront || !showVoiceCallPicker || voiceCallTab !== 'contacts' || !session?.user?.id) return
@@ -1444,11 +1444,12 @@ function TalkChatContent({
       } catch (error) {
         if (!cancelled) console.error('Error loading voice call contacts:', error)
       } finally {
-        if (!cancelled) setLoadingVoiceCallContacts(false)
+        setLoadingVoiceCallContacts(false)
       }
     })()
     return () => {
       cancelled = true
+      setLoadingVoiceCallContacts(false)
     }
   }, [isFront, showVoiceCallPicker, voiceCallTab, session?.user?.id])
 

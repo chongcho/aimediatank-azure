@@ -251,9 +251,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     const endNativeUi = options?.endNativeUi ?? true
     stopVoiceCallRingtone()
     if (isNativeAndroidCallApp()) {
-      void setNativeVoiceCallAudioActive(false)
-      void clearNativeCallScreenPresentation()
-      void endNativeWebRtc()
+      void (async () => {
+        await setNativeVoiceCallAudioActive(false)
+        await clearNativeCallScreenPresentation()
+        await endNativeWebRtc()
+      })()
     }
     if (id && endNativeUi) {
       // iOS incoming ring is owned by CallKit — session poll must not dismiss native UI.

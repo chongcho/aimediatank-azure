@@ -1984,11 +1984,13 @@ if (fs.existsSync(callVolumeStatePath)) {
 const callScreenPresentationMarker = 'AiMediaTank CallScreenPresentation'
 const callScreenPresentationV2Marker = 'keep-screen-on flags only'
 const callScreenPresentationMainThreadMarker = 'main looper for window flags'
+const callScreenPresentationSleepUnlockMarker = 'reset show-when-locked on clear'
 const callScreenPresentationSource = `package com.capacitor.voipcalls
 
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.WindowManager
@@ -1998,6 +2000,7 @@ object CallScreenPresentation {
     // ${callScreenPresentationMarker}
     // ${callScreenPresentationV2Marker}
     // ${callScreenPresentationMainThreadMarker}
+    // ${callScreenPresentationSleepUnlockMarker}
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -2010,6 +2013,10 @@ object CallScreenPresentation {
     @JvmStatic
     fun clear(activity: Activity) {
         runOnMain {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                activity.setShowWhenLocked(false)
+                activity.setTurnScreenOn(false)
+            }
             activity.window.clearFlags(
                 WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                     or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
@@ -2043,6 +2050,13 @@ object CallScreenPresentation {
 if (fs.existsSync(callScreenPresentationPath)) {
   const existingPresentation = fs.readFileSync(callScreenPresentationPath, 'utf8')
   if (
+    !existingPresentation.includes(callScreenPresentationSleepUnlockMarker) &&
+    existingPresentation.includes('fun clear(activity: Activity) {')
+  ) {
+    fs.writeFileSync(callScreenPresentationPath, callScreenPresentationSource)
+    changed = true
+    console.log('[patch-android-fcm] CallScreenPresentation.kt (sleep unlock + main-thread flags)')
+  } else if (
     !existingPresentation.includes(callScreenPresentationMainThreadMarker) &&
     existingPresentation.includes('fun clear(activity: Activity) {')
   ) {
@@ -2075,7 +2089,7 @@ if (fs.existsSync(pluginPath)) {
 
     @PluginMethod
     fun clearCallScreenPresentation(call: PluginCall) {
-        CallScreenPresentation.clearIfIdle(activity)
+        activity?.let { CallScreenPresentation.clear(it) }
         call.resolve()
     }`,
       )
@@ -2177,6 +2191,31 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginSource)
     changed = true
     console.log('[patch-android-fcm] plugin: screen clear only via clearCallScreenPresentation')
+  }
+}
+
+const forceClearScreenPluginMarker = 'clearCallScreenPresentation uses force clear'
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (
+    pluginSource.includes('fun clearCallScreenPresentation(call: PluginCall)') &&
+    pluginSource.includes('CallScreenPresentation.clearIfIdle(activity)') &&
+    !pluginSource.includes(forceClearScreenPluginMarker)
+  ) {
+    pluginSource = pluginSource.replace(
+      `    fun clearCallScreenPresentation(call: PluginCall) {
+        CallScreenPresentation.clearIfIdle(activity)
+        call.resolve()
+    }`,
+      `    fun clearCallScreenPresentation(call: PluginCall) {
+        // ${forceClearScreenPluginMarker}
+        activity?.let { CallScreenPresentation.clear(it) }
+        call.resolve()
+    }`,
+    )
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] clearCallScreenPresentation: force clear after call')
   }
 }
 
@@ -2356,7 +2395,7 @@ if (fs.existsSync(pluginPath)) {
     const insertAfter = pluginSource.includes('fun clearCallScreenPresentation(call: PluginCall)')
       ? `    @PluginMethod
     fun clearCallScreenPresentation(call: PluginCall) {
-        CallScreenPresentation.clearIfIdle(activity)
+        activity?.let { CallScreenPresentation.clear(it) }
         call.resolve()
     }`
       : `    @PluginMethod

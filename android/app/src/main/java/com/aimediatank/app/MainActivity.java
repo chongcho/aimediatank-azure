@@ -193,7 +193,7 @@ public class MainActivity extends BridgeActivity {
         if (isVoiceIncomingIntent(getIntent())) {
             clearVoiceIncomingFromIntent();
         }
-        CallScreenPresentation.clearIfIdle(this);
+        CallScreenPresentation.clear(this);
     }
 
     /** Lock-screen incoming + screen-on while ringing, in a call, or launching from FCM. */
