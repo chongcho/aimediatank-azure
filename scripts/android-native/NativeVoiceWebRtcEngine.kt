@@ -71,6 +71,11 @@ class NativeVoiceWebRtcEngine private constructor(
             val engine = instance ?: return false
             return engine.isHandlingCall(callIdRaw)
         }
+
+        /** Read engine state without creating a new instance (PSTN containment). */
+        fun peekIsActive(): Boolean = instance?.isActive() == true
+
+        fun peekIsMediaConnected(): Boolean = instance?.isMediaConnected == true
     }
 
     private fun releaseFactory() {

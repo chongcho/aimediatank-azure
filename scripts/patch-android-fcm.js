@@ -3984,3 +3984,196 @@ if (fs.existsSync(callManagerPath)) {
     console.log('[patch-android-fcm] CallManager disable global LoudnessEnhancer(0)')
   }
 }
+
+const yieldToPstnMarker = 'yieldToPstn unconditional'
+const pstnSafeModeMarker = 'PSTN-safe never MODE_IN_COMMUNICATION'
+
+if (fs.existsSync(appSystemEffectsGuardPath)) {
+  let guard = fs.readFileSync(appSystemEffectsGuardPath, 'utf8')
+  if (!guard.includes(yieldToPstnMarker)) {
+    guard = guard.replace(
+      `        return try {
+            val baseUrl = CapacitorVoipCallsPlugin.getInstance()?.callManager?.resolveWebRtcBaseUrl()
+                ?: "https://aimediatank.com"
+            NativeVoiceWebRtcEngine.shared(context.applicationContext, baseUrl) { _, _ -> }.isActive()
+        } catch (_: Exception) {
+            false
+        }
+    }`,
+      `        return NativeVoiceWebRtcEngine.peekIsActive()
+    }
+
+    @JvmStatic
+    fun yieldToPstn(context: Context, telephonyState: Int) {
+        // ${yieldToPstnMarker}
+        val appContext = context.applicationContext
+        Log.i(TAG, "yield audio to PSTN state=$telephonyState")
+        try {
+            CapacitorVoipCallsPlugin.getInstance()?.callManager?.releaseIfStale()
+        } catch (_: Exception) {
+        }
+        CallVolumeState.voiceCallActive = false
+        CallVolumeState.ringActive = false
+        try {
+            CapacitorVoipCallsPlugin.getInstance()?.callManager?.forceReleaseGlobalAudio()
+        } catch (_: Exception) {
+            AndroidAudioCleanup.releaseGlobalAudioRouting(appContext)
+        }
+        resolveActivity(appContext)?.let { activity ->
+            CallScreenPresentation.clear(activity)
+        }
+        if (!NativeVoiceWebRtcEngine.peekIsMediaConnected()) {
+            NativeVoiceWebRtcEngine.endGlobal()
+        }
+    }`,
+    )
+    guard = guard.replace(
+      `                        enforceContainment(context, "pstn_state_$state")`,
+      `                        yieldToPstn(context, state)`,
+    )
+    guard = guard.replace(
+      `    private const val WATCHDOG_MS = 45_000L`,
+      `    private const val WATCHDOG_MS = 15_000L`,
+    )
+    fs.writeFileSync(appSystemEffectsGuardPath, guard)
+    changed = true
+    console.log('[patch-android-fcm] AppSystemEffectsGuard yieldToPstn on cellular ring/answer')
+  } else if (guard.includes('enforceContainment(context, "pstn_state_$state")')) {
+    guard = guard.replace(
+      `enforceContainment(context, "pstn_state_$state")`,
+      `yieldToPstn(context, state)`,
+    )
+    fs.writeFileSync(appSystemEffectsGuardPath, guard)
+    changed = true
+    console.log('[patch-android-fcm] AppSystemEffectsGuard legacy PSTN listener yieldToPstn')
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (callManager.includes('NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl())') &&
+      callManager.includes('hasActiveAppCallSession') &&
+      !callManager.includes('NativeVoiceWebRtcEngine.peekIsActive()')) {
+    callManager = callManager.replace(
+      `        return try {
+            NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl()) { _, _ -> }.isActive()
+        } catch (_: Exception) {
+            false
+        }`,
+      `        return NativeVoiceWebRtcEngine.peekIsActive()`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager peek WebRTC without creating engine')
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (callManager.includes('fun applyTelecomSpeakerRoute()') && !callManager.includes(pstnSafeModeMarker)) {
+    callManager = callManager.replace(
+      `    fun applyTelecomSpeakerRoute() {
+        // AiMediaTank telecom managed speaker route
+        var telecomRouted = false
+        for (connection in activeCalls.values) {
+            connection.requestSpeakerRoute()
+            telecomRouted = true
+        }
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        if (!telecomRouted) {
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    val speaker = audioManager.availableCommunicationDevices
+                        .firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                    if (speaker != null) {
+                        audioManager.setCommunicationDevice(speaker)
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }
+        setVoiceCallMediaVolume(1.0f)
+        android.util.Log.i(
+            "CallManager",
+            "telecom speaker route connections=\${activeCalls.size} telecom=\$telecomRouted",
+        )
+    }`,
+      `    fun applyTelecomSpeakerRoute() {
+        // AiMediaTank telecom managed speaker route
+        // ${pstnSafeModeMarker}
+        var telecomRouted = false
+        for (connection in activeCalls.values) {
+            connection.requestSpeakerRoute()
+            telecomRouted = true
+        }
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        @Suppress("DEPRECATION")
+        audioManager.isSpeakerphoneOn = true
+        if (telecomRouted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val speaker = audioManager.availableCommunicationDevices
+                    .firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                if (speaker != null) {
+                    audioManager.setCommunicationDevice(speaker)
+                }
+            } catch (_: Exception) {
+            }
+        }
+        if (audioManager.mode != AudioManager.MODE_NORMAL) {
+            audioManager.mode = AudioManager.MODE_NORMAL
+        }
+        setVoiceCallMediaVolume(1.0f)
+        android.util.Log.i(
+            "CallManager",
+            "telecom speaker route connections=\${activeCalls.size} telecom=\$telecomRouted",
+        )
+    }`,
+    )
+    callManager = callManager.replace(
+      `            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = true
+            reapplyVolumeControlStream()`,
+      `            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            // ${pstnSafeModeMarker}
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = true
+            if (audioManager.mode != AudioManager.MODE_NORMAL) {
+                audioManager.mode = AudioManager.MODE_NORMAL
+            }
+            reapplyVolumeControlStream()`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager PSTN-safe audio mode (MODE_NORMAL)')
+  }
+}
+
+if (fs.existsSync(nativeWebRtcEngineDestPath)) {
+  let engine = fs.readFileSync(nativeWebRtcEngineDestPath, 'utf8')
+  if (!engine.includes('fun peekIsActive()')) {
+    engine = engine.replace(
+      `        fun isHandlingCallId(callIdRaw: String): Boolean {
+            val engine = instance ?: return false
+            return engine.isHandlingCall(callIdRaw)
+        }
+    }`,
+      `        fun isHandlingCallId(callIdRaw: String): Boolean {
+            val engine = instance ?: return false
+            return engine.isHandlingCall(callIdRaw)
+        }
+
+        fun peekIsActive(): Boolean = instance?.isActive() == true
+
+        fun peekIsMediaConnected(): Boolean = instance?.isMediaConnected == true
+    }`,
+    )
+    fs.writeFileSync(nativeWebRtcEngineDestPath, engine)
+    changed = true
+    console.log('[patch-android-fcm] NativeVoiceWebRtcEngine peek helpers')
+  }
+}
