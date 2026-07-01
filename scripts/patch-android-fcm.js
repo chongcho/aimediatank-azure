@@ -1608,6 +1608,7 @@ if (fs.existsSync(callManagerPath)) {
 }
 
 const androidAudioCleanupPath = path.join(pluginDir, 'AndroidAudioCleanup.kt')
+const appSystemEffectsGuardPath = path.join(pluginDir, 'AppSystemEffectsGuard.kt')
 if (!fs.existsSync(androidAudioCleanupPath)) {
   fs.writeFileSync(
     androidAudioCleanupPath,
@@ -3547,5 +3548,439 @@ import android.util.Log`,
     fs.writeFileSync(androidAudioCleanupPath, cleanup)
     changed = true
     console.log('[patch-android-fcm] AndroidAudioCleanup clear communication device')
+  }
+}
+
+const systemEffectsContainmentMarker = 'AiMediaTank system effects containment'
+const appSystemEffectsGuardSource = `package com.capacitor.voipcalls
+
+import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.telephony.PhoneStateListener
+import android.telephony.TelephonyCallback
+import android.telephony.TelephonyManager
+import android.util.Log
+import androidx.core.content.ContextCompat
+
+/**
+ * Containment: global AudioManager / window flags must never leak outside an app voice-call session.
+ * PSTN and other phone functions take priority when no active AiMediaTank call is running.
+ */
+object AppSystemEffectsGuard {
+    // ${systemEffectsContainmentMarker}
+    private const val TAG = "AppSystemEffectsGuard"
+    private const val WATCHDOG_MS = 45_000L
+    private val mainHandler = Handler(Looper.getMainLooper())
+    @Volatile private var pstnListenerInstalled = false
+    @Volatile private var watchdogInstalled = false
+
+    @JvmStatic
+    fun isAppCallSessionActive(context: Context): Boolean {
+        if (IncomingRingAudioHelper.isActive()) return true
+        try {
+            val manager = CapacitorVoipCallsPlugin.getInstance()?.callManager
+            if (manager != null && manager.hasActiveAppCallSession()) return true
+        } catch (_: Exception) {
+        }
+        return try {
+            val baseUrl = CapacitorVoipCallsPlugin.getInstance()?.callManager?.resolveWebRtcBaseUrl()
+                ?: "https://aimediatank.com"
+            NativeVoiceWebRtcEngine.shared(context.applicationContext, baseUrl) { _, _ -> }.isActive()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    @JvmStatic
+    fun enforceContainment(context: Context, reason: String) {
+        val appContext = context.applicationContext
+        try {
+            CapacitorVoipCallsPlugin.getInstance()?.callManager?.releaseIfStale()
+        } catch (_: Exception) {
+        }
+        if (isAppCallSessionActive(appContext)) {
+            Log.d(TAG, "skip enforce ($reason) — app call session active")
+            return
+        }
+        Log.i(TAG, "enforce containment ($reason)")
+        CallVolumeState.voiceCallActive = false
+        CallVolumeState.ringActive = false
+        try {
+            CapacitorVoipCallsPlugin.getInstance()?.callManager?.forceReleaseGlobalAudio()
+        } catch (_: Exception) {
+            AndroidAudioCleanup.releaseGlobalAudioRouting(appContext)
+        }
+        resolveActivity(appContext)?.let { activity ->
+            CallScreenPresentation.clear(activity)
+        }
+    }
+
+    @JvmStatic
+    fun install(context: Context) {
+        val appContext = context.applicationContext
+        installPstnListener(appContext)
+        installWatchdog(appContext)
+    }
+
+    private fun resolveActivity(context: Context): Activity? {
+        return CapacitorVoipCallsPlugin.getInstance()?.activity ?: (context as? Activity)
+    }
+
+    private fun installWatchdog(context: Context) {
+        if (watchdogInstalled) return
+        watchdogInstalled = true
+        val appContext = context.applicationContext
+        val runnable = object : Runnable {
+            override fun run() {
+                enforceContainment(appContext, "watchdog")
+                mainHandler.postDelayed(this, WATCHDOG_MS)
+            }
+        }
+        mainHandler.postDelayed(runnable, WATCHDOG_MS)
+    }
+
+    private fun installPstnListener(context: Context) {
+        if (pstnListenerInstalled) return
+        pstnListenerInstalled = true
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.w(TAG, "READ_PHONE_STATE not granted — PSTN listener skipped")
+            return
+        }
+        val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val callback = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
+                override fun onCallStateChanged(state: Int) {
+                    if (state == TelephonyManager.CALL_STATE_RINGING ||
+                        state == TelephonyManager.CALL_STATE_OFFHOOK
+                    ) {
+                        enforceContainment(context, "pstn_state_$state")
+                    }
+                }
+            }
+            tm.registerTelephonyCallback(context.mainExecutor, callback)
+            return
+        }
+        @Suppress("DEPRECATION")
+        tm.listen(
+            object : PhoneStateListener() {
+                @Deprecated("Deprecated in Java")
+                override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+                    if (state == TelephonyManager.CALL_STATE_RINGING ||
+                        state == TelephonyManager.CALL_STATE_OFFHOOK
+                    ) {
+                        enforceContainment(context, "pstn_state_$state")
+                    }
+                }
+            },
+            PhoneStateListener.LISTEN_CALL_STATE,
+        )
+    }
+}
+`
+
+if (
+  !fs.existsSync(appSystemEffectsGuardPath) ||
+  !fs.readFileSync(appSystemEffectsGuardPath, 'utf8').includes(systemEffectsContainmentMarker)
+) {
+  fs.writeFileSync(appSystemEffectsGuardPath, appSystemEffectsGuardSource)
+  changed = true
+  console.log('[patch-android-fcm] AppSystemEffectsGuard.kt (PSTN containment)')
+}
+
+if (fs.existsSync(androidAudioCleanupPath)) {
+  let cleanup = fs.readFileSync(androidAudioCleanupPath, 'utf8')
+  if (!cleanup.includes('fun releaseGlobalAudioRouting')) {
+    cleanup = cleanup.replace(
+      `/** Reset global audio routing AiMediaTank may have touched. Does not change volume levels. */
+object AndroidAudioCleanup {
+    private const val TAG = "AndroidAudioCleanup"
+
+    @JvmStatic
+    fun resetIfIdle(context: Context) {
+        CapacitorVoipCallsPlugin.getInstance()?.callManager?.releaseIfStale()
+        if (CallVolumeState.shouldAdjustMediaVolume()) return
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        try {
+            @Suppress("DEPRECATION")
+            am.isSpeakerphoneOn = false
+            am.isMicrophoneMute = false
+            @Suppress("DEPRECATION")
+            am.stopBluetoothSco()
+            am.isBluetoothScoOn = false
+        } catch (e: Exception) {
+            Log.w(TAG, "speaker/bluetooth reset skipped", e)
+        }
+        // ${pstnSafeAudioCleanupMarker}
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                am.clearCommunicationDevice()
+            } catch (e: Exception) {
+                Log.w(TAG, "clearCommunicationDevice skipped", e)
+            }
+        }
+        if (am.mode != AudioManager.MODE_NORMAL) {
+            am.mode = AudioManager.MODE_NORMAL
+        }
+        @Suppress("DEPRECATION")
+        am.abandonAudioFocus(null)
+    }
+}`,
+      `/** Reset global audio routing AiMediaTank may have touched. Does not change volume levels. */
+object AndroidAudioCleanup {
+    private const val TAG = "AndroidAudioCleanup"
+
+    @JvmStatic
+    fun resetIfIdle(context: Context) {
+        AppSystemEffectsGuard.enforceContainment(context, "reset_if_idle")
+    }
+
+    @JvmStatic
+    fun releaseGlobalAudioRouting(context: Context) {
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        try {
+            @Suppress("DEPRECATION")
+            am.isSpeakerphoneOn = false
+            am.isMicrophoneMute = false
+            @Suppress("DEPRECATION")
+            am.stopBluetoothSco()
+            am.isBluetoothScoOn = false
+        } catch (e: Exception) {
+            Log.w(TAG, "speaker/bluetooth reset skipped", e)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                am.clearCommunicationDevice()
+            } catch (e: Exception) {
+                Log.w(TAG, "clearCommunicationDevice skipped", e)
+            }
+        }
+        if (am.mode != AudioManager.MODE_NORMAL) {
+            am.mode = AudioManager.MODE_NORMAL
+        }
+        @Suppress("DEPRECATION")
+        am.abandonAudioFocus(null)
+    }
+}`,
+    )
+    if (!cleanup.includes('fun releaseGlobalAudioRouting')) {
+      cleanup = cleanup.replace(
+        `@JvmStatic
+    fun resetIfIdle(context: Context) {
+        CapacitorVoipCallsPlugin.getInstance()?.callManager?.releaseIfStale()
+        if (CallVolumeState.shouldAdjustMediaVolume()) return`,
+        `@JvmStatic
+    fun resetIfIdle(context: Context) {
+        AppSystemEffectsGuard.enforceContainment(context, "reset_if_idle")
+    }
+
+    @JvmStatic
+    fun releaseGlobalAudioRouting(context: Context) {
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        try {
+            @Suppress("DEPRECATION")
+            am.isSpeakerphoneOn = false
+            am.isMicrophoneMute = false
+            @Suppress("DEPRECATION")
+            am.stopBluetoothSco()
+            am.isBluetoothScoOn = false
+        } catch (e: Exception) {
+            Log.w(TAG, "speaker/bluetooth reset skipped", e)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                am.clearCommunicationDevice()
+            } catch (e: Exception) {
+                Log.w(TAG, "clearCommunicationDevice skipped", e)
+            }
+        }
+        if (am.mode != AudioManager.MODE_NORMAL) {
+            am.mode = AudioManager.MODE_NORMAL
+        }
+        @Suppress("DEPRECATION")
+        am.abandonAudioFocus(null)
+    }
+
+    @JvmStatic
+    private fun resetIfIdleLegacy(context: Context) {
+        CapacitorVoipCallsPlugin.getInstance()?.callManager?.releaseIfStale()
+        if (CallVolumeState.shouldAdjustMediaVolume()) return`,
+      )
+    }
+    fs.writeFileSync(androidAudioCleanupPath, cleanup)
+    changed = true
+    console.log('[patch-android-fcm] AndroidAudioCleanup delegates to AppSystemEffectsGuard')
+  }
+}
+
+const callManagerContainmentMarker = 'hasActiveAppCallSession'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (!callManager.includes(callManagerContainmentMarker)) {
+    callManager = callManager.replace(
+      `    fun reapplyVolumeControlStream() {
+        if (!voiceCallAudioActive && !CallVolumeState.ringActive) return
+        val stream = if (voiceCallAudioActive) {
+            AudioManager.STREAM_VOICE_CALL
+        } else {
+            AudioManager.STREAM_MUSIC
+        }`,
+      `    fun hasActiveAppCallSession(): Boolean {
+        // ${callManagerContainmentMarker}
+        if (IncomingRingAudioHelper.isActive()) return true
+        if (activeCalls.isNotEmpty()) return true
+        return try {
+            NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl()) { _, _ -> }.isActive()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun forceReleaseGlobalAudio() {
+        voiceCallAudioActive = false
+        CallVolumeState.voiceCallActive = false
+        releaseGlobalAudioSideEffects()
+    }
+
+    fun reapplyVolumeControlStream() {
+        if (!voiceCallAudioActive && !CallVolumeState.ringActive) return
+        val stream = if (voiceCallAudioActive) {
+            AudioManager.STREAM_MUSIC
+        } else if (CallVolumeState.ringActive) {
+            AudioManager.STREAM_RING
+        } else {
+            AudioManager.STREAM_MUSIC
+        }`,
+    )
+    callManager = callManager.replace(
+      `        releaseGlobalAudioSideEffects()
+    }
+
+    fun setVoiceCallMediaVolume(level: Float) {`,
+      `        releaseGlobalAudioSideEffects()
+        AppSystemEffectsGuard.enforceContainment(context, "voice_audio_deactivated")
+    }
+
+    fun setVoiceCallMediaVolume(level: Float) {`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager app-call session tracking + PSTN-safe volume stream')
+  }
+}
+
+const pluginContainmentMarker = 'AppSystemEffectsGuard.install'
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (!pluginSource.includes(pluginContainmentMarker)) {
+    pluginSource = pluginSource.replace(
+      `    override fun load() {
+        callManager = CallManager(this)
+        pluginInstance = this
+        flushPendingEvents()
+    }`,
+      `    override fun load() {
+        callManager = CallManager(this)
+        pluginInstance = this
+        flushPendingEvents()
+        // ${pluginContainmentMarker}
+        AppSystemEffectsGuard.install(context.applicationContext)
+    }`,
+    )
+    pluginSource = pluginSource.replace(
+      `    override fun handleOnResume() {
+        super.handleOnResume()
+        // AiMediaTank reapply voice volume on resume
+        callManager?.reapplyVolumeControlStream()
+        IncomingRingAudioHelper.reapply(context)
+    }`,
+      `    override fun handleOnPause() {
+        super.handleOnPause()
+        AppSystemEffectsGuard.enforceContainment(context, "plugin_pause")
+    }
+
+    override fun handleOnResume() {
+        super.handleOnResume()
+        // AiMediaTank reapply voice volume on resume
+        callManager?.reapplyVolumeControlStream()
+        IncomingRingAudioHelper.reapply(context)
+        AppSystemEffectsGuard.enforceContainment(context, "plugin_resume")
+    }`,
+    )
+    pluginSource = pluginSource.replace(
+      `    override fun handleOnDestroy() {
+        if (pluginInstance === this) {
+            pluginInstance = null
+        }
+        super.handleOnDestroy()
+    }`,
+      `    override fun handleOnDestroy() {
+        AppSystemEffectsGuard.enforceContainment(context, "plugin_destroy")
+        if (pluginInstance === this) {
+            pluginInstance = null
+        }
+        super.handleOnDestroy()
+    }`,
+    )
+    if (!pluginSource.includes('fun enforceSystemEffectsContainment')) {
+      pluginSource = pluginSource.replace(
+        `    @PluginMethod
+    fun clearCallScreenPresentation(call: PluginCall) {
+        // clearCallScreenPresentation uses force clear
+        activity?.let { CallScreenPresentation.clear(it) }
+        call.resolve()
+    }`,
+        `    @PluginMethod
+    fun clearCallScreenPresentation(call: PluginCall) {
+        // clearCallScreenPresentation uses force clear
+        activity?.let { CallScreenPresentation.clear(it) }
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun enforceSystemEffectsContainment(call: PluginCall) {
+        AppSystemEffectsGuard.enforceContainment(context, "js_request")
+        call.resolve()
+    }`,
+      )
+    }
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] plugin lifecycle + enforceSystemEffectsContainment')
+  }
+}
+
+const removeGlobalLoudnessMarker = 'no global LoudnessEnhancer session 0'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (callManager.includes('LoudnessEnhancer(0)') && !callManager.includes(removeGlobalLoudnessMarker)) {
+    callManager = callManager.replace(
+      `    private fun enableVoiceCallLoudnessBoost() {
+        // AiMediaTank voice call loudness enhancer
+        releaseVoiceCallLoudnessBoost()
+        try {
+            voiceCallLoudnessEnhancer = LoudnessEnhancer(0).apply {
+                setTargetGain(voiceCallLoudnessBoostMb)
+                enabled = true
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("CallManager", "voice call loudness boost unavailable", e)
+        }
+    }`,
+      `    private fun enableVoiceCallLoudnessBoost() {
+        // ${removeGlobalLoudnessMarker}
+        releaseVoiceCallLoudnessBoost()
+    }`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager disable global LoudnessEnhancer(0)')
   }
 }

@@ -1,0 +1,25 @@
+# Android system-effects containment (critical)
+
+AiMediaTank voice calls must **never leak global side effects** into PSTN/cellular calls or other phone functions.
+
+## Forbidden outside an active app voice-call session
+
+- `AudioManager.MODE_IN_COMMUNICATION` left set after call ends
+- `setCommunicationDevice()` / speaker route without `clearCommunicationDevice()` on release
+- Volume changes on `STREAM_VOICE_CALL` (cellular stream) — use `STREAM_MUSIC` only
+- `LoudnessEnhancer(0)` or other global (session 0) audio effects
+- `FLAG_KEEP_SCREEN_ON` / `setShowWhenLocked` without clearing after call
+- Orphan Telecom `VoipConnection` entries (phone appears busy → voicemail)
+
+## Required patterns
+
+1. **AppSystemEffectsGuard** — single enforcement path; never touch global audio without an active session (`hasActiveAppCallSession()`).
+2. **Always release on call end** — JS `resetCall` → deactivate audio → clear screen → end WebRTC → `enforceSystemEffectsContainment`.
+3. **Lifecycle safety nets** — `MainActivity` pause/stop, plugin pause/destroy, 45s watchdog, PSTN `PhoneStateListener`.
+4. **Self-managed VoIP only** — ConnectionService must not register as default dialer; connections must be destroyed when calls end.
+5. **Patches live in** `scripts/patch-android-fcm.js` — run on `npm install`; do not edit `node_modules` directly.
+
+## Before merging Android voice/audio changes
+
+- Confirm no new global `AudioManager` / `TelecomManager` usage without guard + release path
+- Test: AiMediaTank voice call → hang up → iPhone PSTN call to same device rings normally

@@ -15,6 +15,7 @@ import {
   clearNativeCallScreenPresentation,
   endNativeCall,
   endNativeWebRtc,
+  enforceNativeSystemEffectsContainment,
   getCachedNativeDeclineToken,
   initNativeCallBridge,
   isNativeAndroidCallApp,
@@ -255,6 +256,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         await setNativeVoiceCallAudioActive(false)
         await clearNativeCallScreenPresentation()
         await endNativeWebRtc()
+        await enforceNativeSystemEffectsContainment()
       })()
     }
     if (id && endNativeUi) {
@@ -1500,6 +1502,24 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       void lock?.release()
     }
   }, [callState])
+
+  // Android: release global audio routing if the WebView hides while no app call is active.
+  useEffect(() => {
+    if (!enabled || !isNativeAndroidCallApp() || typeof document === 'undefined') return
+
+    const releaseIfIdle = () => {
+      const state = callStateRef.current
+      if (state !== 'idle' && state !== 'ended') return
+      void enforceNativeSystemEffectsContainment()
+    }
+
+    document.addEventListener('visibilitychange', releaseIfIdle)
+    window.addEventListener('pagehide', releaseIfIdle)
+    return () => {
+      document.removeEventListener('visibilitychange', releaseIfIdle)
+      window.removeEventListener('pagehide', releaseIfIdle)
+    }
+  }, [enabled])
 
   // Auto-drop an unanswered call after the ring timeout (caller hangs up,
   // callee rejects). The timer is cleared once the call connects or ends.

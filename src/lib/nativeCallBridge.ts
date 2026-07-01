@@ -633,6 +633,7 @@ export async function setNativeAudioRoute(route: NativeAudioRoute): Promise<bool
 type NativeVoiceCallAudioPlugin = {
   setVoiceCallAudioActive?: (options: { active: boolean }) => Promise<void>
   clearCallScreenPresentation?: () => Promise<void>
+  enforceSystemEffectsContainment?: () => Promise<void>
   startCallRing?: (options: { url: string; incoming?: boolean }) => Promise<void>
   stopCallRing?: () => Promise<void>
   setCallRingVolume?: (options: { level: number }) => Promise<void>
@@ -738,6 +739,19 @@ export async function clearNativeCallScreenPresentation(): Promise<void> {
     await plugin.clearCallScreenPresentation()
   } catch (error) {
     console.error('[NativeCall] clearCallScreenPresentation failed:', error)
+  }
+}
+
+/** Android: release any global audio/telecom side effects when no app call is active. */
+export async function enforceNativeSystemEffectsContainment(): Promise<void> {
+  if (!isNativeAndroidCallApp()) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
+    if (typeof plugin.enforceSystemEffectsContainment !== 'function') return
+    await plugin.enforceSystemEffectsContainment()
+  } catch (error) {
+    console.error('[NativeCall] enforceSystemEffectsContainment failed:', error)
   }
 }
 

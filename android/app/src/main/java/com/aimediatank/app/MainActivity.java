@@ -17,6 +17,7 @@ import android.view.WindowManager;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.capacitor.voipcalls.AndroidAudioCleanup;
+import com.capacitor.voipcalls.AppSystemEffectsGuard;
 import com.capacitor.voipcalls.CallScreenPresentation;
 import com.capacitor.voipcalls.CallVolumeState;
 import com.capacitor.voipcalls.VoipConnectionService;
@@ -37,6 +38,7 @@ public class MainActivity extends BridgeActivity {
         applySystemBars();
         syncIncomingCallPresentation(getIntent());
         registerVoipPhoneAccountSafely();
+        AppSystemEffectsGuard.install(getApplicationContext());
         getWindow().getDecorView().post(this::applySystemBars);
     }
 
@@ -61,6 +63,12 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onStop() {
+        AndroidAudioCleanup.resetIfIdle(this);
+        super.onStop();
+    }
+
+    @Override
     public void onPause() {
         AndroidAudioCleanup.resetIfIdle(this);
         super.onPause();
@@ -68,7 +76,7 @@ public class MainActivity extends BridgeActivity {
 
     private int activeCallVolumeStream() {
         if (CallVolumeState.voiceCallActive) {
-            return AudioManager.STREAM_VOICE_CALL;
+            return AudioManager.STREAM_MUSIC;
         }
         if (CallVolumeState.ringActive) {
             return AudioManager.STREAM_RING;
