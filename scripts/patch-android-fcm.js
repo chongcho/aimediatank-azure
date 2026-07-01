@@ -3409,3 +3409,143 @@ if (fs.existsSync(callManagerPath)) {
     console.log('[patch-android-fcm] CallManager restore loudness boost on media volume')
   }
 }
+
+const pstnSafeAudioCleanupMarker = 'clear communication device for PSTN'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('fun releaseGlobalAudioSideEffects()') &&
+    !callManager.includes(pstnSafeAudioCleanupMarker)
+  ) {
+    callManager = callManager.replace(
+      `        try {
+            @Suppress("DEPRECATION")
+            audioManager.stopBluetoothSco()
+            audioManager.isBluetoothScoOn = false
+        } catch (_: Exception) {
+        }
+        if (audioManager.mode != AudioManager.MODE_NORMAL) {
+            audioManager.mode = AudioManager.MODE_NORMAL
+        }
+        releaseVoiceCallLoudnessBoost()`,
+      `        try {
+            @Suppress("DEPRECATION")
+            audioManager.stopBluetoothSco()
+            audioManager.isBluetoothScoOn = false
+        } catch (_: Exception) {
+        }
+        // ${pstnSafeAudioCleanupMarker}
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                audioManager.clearCommunicationDevice()
+            } catch (_: Exception) {
+            }
+        }
+        if (audioManager.mode != AudioManager.MODE_NORMAL) {
+            audioManager.mode = AudioManager.MODE_NORMAL
+        }
+        releaseVoiceCallLoudnessBoost()`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager clear communication device on audio release')
+  }
+}
+
+const pstnMediaVolumeMarker = 'PSTN-safe media volume STREAM_MUSIC only'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('fun setVoiceCallMediaVolume(level: Float)') &&
+    callManager.includes('AudioManager.STREAM_VOICE_CALL') &&
+    !callManager.includes(pstnMediaVolumeMarker)
+  ) {
+    callManager = callManager.replace(
+      `        val streams = intArrayOf(AudioManager.STREAM_MUSIC, AudioManager.STREAM_VOICE_CALL)`,
+      `        // ${pstnMediaVolumeMarker}
+        val streams = intArrayOf(AudioManager.STREAM_MUSIC)`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager avoid STREAM_VOICE_CALL volume (PSTN safe)')
+  }
+}
+
+const purgeOrphanTelecomMarker = 'purge orphan telecom for PSTN'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('fun releaseIfStale()') &&
+    !callManager.includes(purgeOrphanTelecomMarker)
+  ) {
+    callManager = callManager.replace(
+      `    fun releaseIfStale() {
+        if (activeCalls.isEmpty() && !IncomingRingAudioHelper.isActive() && voiceCallAudioActive) {
+            setVoiceCallAudioActive(false)
+        }
+    }`,
+      `    fun releaseIfStale() {
+        if (IncomingRingAudioHelper.isActive()) return
+        val webRtcActive = try {
+            NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl()) { _, _ -> }.isActive()
+        } catch (_: Exception) {
+            false
+        }
+        if (!webRtcActive && activeCalls.isNotEmpty()) {
+            // ${purgeOrphanTelecomMarker}
+            for (callId in activeCalls.keys.toList()) {
+                endCall(callId)
+            }
+        }
+        if (activeCalls.isEmpty() && !IncomingRingAudioHelper.isActive() && voiceCallAudioActive) {
+            setVoiceCallAudioActive(false)
+        }
+    }`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager purge orphan telecom connections')
+  }
+}
+
+if (fs.existsSync(androidAudioCleanupPath)) {
+  let cleanup = fs.readFileSync(androidAudioCleanupPath, 'utf8')
+  if (!cleanup.includes(pstnSafeAudioCleanupMarker)) {
+    cleanup = cleanup.replace(
+      `import android.content.Context
+import android.media.AudioManager
+import android.util.Log`,
+      `import android.content.Context
+import android.media.AudioManager
+import android.os.Build
+import android.util.Log`,
+    )
+    cleanup = cleanup.replace(
+      `            am.isBluetoothScoOn = false
+        } catch (e: Exception) {
+            Log.w(TAG, "speaker/bluetooth reset skipped", e)
+        }
+        if (am.mode != AudioManager.MODE_NORMAL) {
+            am.mode = AudioManager.MODE_NORMAL
+        }`,
+      `            am.isBluetoothScoOn = false
+        } catch (e: Exception) {
+            Log.w(TAG, "speaker/bluetooth reset skipped", e)
+        }
+        // ${pstnSafeAudioCleanupMarker}
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                am.clearCommunicationDevice()
+            } catch (e: Exception) {
+                Log.w(TAG, "clearCommunicationDevice skipped", e)
+            }
+        }
+        if (am.mode != AudioManager.MODE_NORMAL) {
+            am.mode = AudioManager.MODE_NORMAL
+        }`,
+    )
+    fs.writeFileSync(androidAudioCleanupPath, cleanup)
+    changed = true
+    console.log('[patch-android-fcm] AndroidAudioCleanup clear communication device')
+  }
+}
