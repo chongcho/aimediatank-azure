@@ -144,12 +144,14 @@ export async function middleware(request: NextRequest) {
   }
 
   const userAgent = request.headers.get('user-agent') ?? undefined
+  const referrer = request.headers.get('referer') ?? undefined
   if (
     isLikelyAzurePlatformPing({
       headers: request.headers,
       clientIp,
       pathname,
       userAgent,
+      referrer,
     })
   ) {
     return NextResponse.next()
@@ -174,7 +176,6 @@ export async function middleware(request: NextRequest) {
   }
 
   const ip = clientIp
-  const referrer = request.headers.get('referer') ?? undefined
   const method = request.method
   const query = request.nextUrl.search ? request.nextUrl.search.slice(1) : undefined
 

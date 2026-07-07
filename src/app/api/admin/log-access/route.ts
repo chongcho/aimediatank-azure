@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseUserAgent } from '@/lib/parseUserAgent'
 import { detectAbnormalAccess, detectBadBotUserAgent, maybeNotifyAbnormalAccess } from '@/lib/accessLogAbnormal'
-import { isPrivateClientIp } from '@/lib/clientIpFromRequest'
+import { isLikelyAzurePlatformPingFromLog, isPrivateClientIp } from '@/lib/clientIpFromRequest'
 import { lookupGeoByIp } from '@/lib/ipGeoLookup'
 
 export const dynamic = 'force-dynamic'
@@ -48,6 +48,19 @@ export async function POST(request: Request) {
 
     if (!path || typeof path !== 'string') {
       return NextResponse.json({ error: 'path required' }, { status: 400 })
+    }
+
+    if (
+      isLikelyAzurePlatformPingFromLog({
+        ipAddress,
+        path,
+        userAgent,
+        referrer,
+        ipDebugHeaders:
+          typeof ipDebugHeaders === 'string' ? ipDebugHeaders : null,
+      })
+    ) {
+      return NextResponse.json({ ok: true, skipped: 'platform_ping' })
     }
 
     const { browser, os, device } = parseUserAgent(userAgent)
