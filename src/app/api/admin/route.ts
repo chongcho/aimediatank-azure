@@ -373,10 +373,35 @@ export async function GET(request: Request) {
       const methodFilter = searchParams.get('method') || ''
       const abnormalOnly =
         searchParams.get('abnormalOnly') === '1' || searchParams.get('abnormalOnly') === 'true'
+      const privateIpOnly =
+        searchParams.get('privateIpOnly') === '1' || searchParams.get('privateIpOnly') === 'true'
+      const ipDebugOnly =
+        searchParams.get('ipDebugOnly') === '1' || searchParams.get('ipDebugOnly') === 'true'
 
       const mode = 'insensitive' as const
       const parts: Record<string, unknown>[] = []
       if (abnormalOnly) parts.push({ abnormalFlags: { not: null } })
+      if (ipDebugOnly) parts.push({ ipDebugHeaders: { not: null } })
+      if (privateIpOnly) {
+        parts.push({
+          OR: [
+            { ipAddress: null },
+            { ipAddress: { startsWith: '127.' } },
+            { ipAddress: { startsWith: '10.' } },
+            { ipAddress: { startsWith: '192.168.' } },
+            { ipAddress: '::1' },
+            { ipAddress: { startsWith: 'fc' } },
+            { ipAddress: { startsWith: 'fd' } },
+            { ipAddress: { startsWith: '172.16.' } },
+            { ipAddress: { startsWith: '172.17.' } },
+            { ipAddress: { startsWith: '172.18.' } },
+            { ipAddress: { startsWith: '172.19.' } },
+            { ipAddress: { startsWith: '172.2' } },
+            { ipAddress: { startsWith: '172.30.' } },
+            { ipAddress: { startsWith: '172.31.' } },
+          ],
+        })
+      }
       if (fromStr || toStr) {
         const dr: { gte?: Date; lte?: Date } = {}
         if (fromStr) dr.gte = new Date(fromStr)

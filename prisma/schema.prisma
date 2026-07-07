@@ -273,6 +273,7 @@ model SiteAccessLog {
   userEmail   String?
   statusCode     Int?
   abnormalFlags  String?  @db.Text // JSON string[] — security / probe detection codes (see accessLogAbnormal)
+  ipDebugHeaders String?  @db.Text // JSON — proxy headers when ipAddress is private/missing (localhost investigation)
   createdAt      DateTime @default(now())
 
   @@index([createdAt])

@@ -9,6 +9,11 @@ import { detectBadBotUserAgent } from '@/lib/badBotDetect'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
 import { parseGamePath, isGameRouteAllowed } from '@/lib/gameRouteAccess'
 import { fetchGameRouteAccess } from '@/lib/gameRouteAccessClient'
+import {
+  collectIpDebugHeaders,
+  serializeIpDebugHeaders,
+  shouldCaptureIpDebugHeaders,
+} from '@/lib/ipDebugHeaders'
 
 const LOG_ACCESS_PATH = '/api/admin/log-access'
 const SESSION_COOKIE = '_sa_sid'
@@ -205,6 +210,9 @@ export async function middleware(request: NextRequest) {
     userId,
     userName,
     userEmail,
+    ...(shouldCaptureIpDebugHeaders(clientIp)
+      ? { ipDebugHeaders: serializeIpDebugHeaders(collectIpDebugHeaders(request.headers)) }
+      : {}),
   }
 
   const response = NextResponse.next()

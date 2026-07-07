@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
+import { Fragment, useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
+import { parseIpDebugHeaders } from '@/lib/ipDebugHeaders'
 import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX } from '@/lib/uploadPlanConfig'
 import MarketingPopupView from '@/components/MarketingPopupView'
 const RUNTIME_RISK_FLAG_LABELS: Record<string, string> = {
@@ -580,6 +581,7 @@ export default function AdminPage() {
     userEmail: string | null
     statusCode: number | null
     abnormalFlags: string | null
+    ipDebugHeaders: string | null
     riskFlags?: string[] | null
     riskScore?: number | null
     createdAt: string
@@ -598,6 +600,9 @@ export default function AdminPage() {
   const [alCountryFilter, setAlCountryFilter] = useState<string[]>([])
   const [alMethodFilter, setAlMethodFilter] = useState<string[]>([])
   const [alAbnormalOnly, setAlAbnormalOnly] = useState(false)
+  const [alPrivateIpOnly, setAlPrivateIpOnly] = useState(false)
+  const [alIpDebugOnly, setAlIpDebugOnly] = useState(false)
+  const [accessLogIpDebugExpanded, setAccessLogIpDebugExpanded] = useState<string | null>(null)
   const [alDistinct, setAlDistinct] = useState<{ browsers: string[]; oses: string[]; countries: string[]; methods: string[] }>({ browsers: [], oses: [], countries: [], methods: [] })
 
   const [blockedIps, setBlockedIps] = useState<Array<{
@@ -861,7 +866,7 @@ export default function AdminPage() {
     if (isAppAdminRole(session?.user?.role)) {
       fetchData()
     }
-  }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsSearchDebounced, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter, alAbnormalOnly])
+  }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsSearchDebounced, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter, alAbnormalOnly, alPrivateIpOnly, alIpDebugOnly])
 
   const fetchData = async () => {
     setLoading(true)
@@ -917,6 +922,8 @@ export default function AdminPage() {
         if (alCountryFilter.length) params.set('country', alCountryFilter.join(','))
         if (alMethodFilter.length) params.set('method', alMethodFilter.join(','))
         if (alAbnormalOnly) params.set('abnormalOnly', '1')
+        if (alPrivateIpOnly) params.set('privateIpOnly', '1')
+        if (alIpDebugOnly) params.set('ipDebugOnly', '1')
         const dParams = new URLSearchParams({ action: 'accessLogsDistinct' })
         if (effectiveFrom) dParams.set('from', effectiveFrom)
         if (effectiveTo) dParams.set('to', effectiveTo)
@@ -2162,7 +2169,25 @@ export default function AdminPage() {
                   />
                   Abnormal only
                 </label>
-                {(accessLogsSearch.trim() || alTimePeriod || alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0 || alAbnormalOnly) && (
+                <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer whitespace-nowrap" title="127.0.0.1, 10.x, 192.168.x, etc.">
+                  <input
+                    type="checkbox"
+                    checked={alPrivateIpOnly}
+                    onChange={(e) => { setAlPrivateIpOnly(e.target.checked); setAccessLogsPage(1) }}
+                    className="rounded border-tank-light/50"
+                  />
+                  Private IP
+                </label>
+                <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer whitespace-nowrap" title="Rows with captured proxy headers (localhost investigation)">
+                  <input
+                    type="checkbox"
+                    checked={alIpDebugOnly}
+                    onChange={(e) => { setAlIpDebugOnly(e.target.checked); setAccessLogsPage(1) }}
+                    className="rounded border-tank-light/50"
+                  />
+                  IP debug
+                </label>
+                {(accessLogsSearch.trim() || alTimePeriod || alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0 || alAbnormalOnly || alPrivateIpOnly || alIpDebugOnly) && (
                   <button
                     onClick={() => {
                       setAccessLogsSearch('')
@@ -2173,6 +2198,8 @@ export default function AdminPage() {
                       setAlCountryFilter([])
                       setAlMethodFilter([])
                       setAlAbnormalOnly(false)
+                      setAlPrivateIpOnly(false)
+                      setAlIpDebugOnly(false)
                       setAccessLogsPage(1)
                     }}
                     className="text-xs text-red-400 hover:text-red-300 whitespace-nowrap"
@@ -2203,7 +2230,7 @@ export default function AdminPage() {
               <p className="text-gray-400 text-sm mb-4">
                 Use the <strong className="text-gray-300">search box</strong> above to filter by path, IP, email, name, referrer, session id, user agent, country/city, or method (matches any column). Column filters and time range combine with search.
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
-                Rows with <span className="text-amber-400/90">security flags</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and now also include payload/header anomalies. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. Use <strong className="text-gray-300">Block IP</strong> in each row to add that address to the blocklist. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—use the <strong className="text-gray-300">Blocked IPs</strong> tab for the full list and enforcement. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
+                Rows with <span className="text-amber-400/90">security flags</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and now also include payload/header anomalies. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. For <strong className="text-gray-300">127.0.0.1</strong> / private IP traffic, use the <strong className="text-gray-300">IP debug</strong> button to inspect proxy headers (<code className="text-gray-500">X-Forwarded-For</code>, Azure <code className="text-gray-500">X-ARR-*</code>, etc.) and determine whether the request is internal, mis-attributed external, or platform health traffic. Use <strong className="text-gray-300">Block IP</strong> in each row to add that address to the blocklist. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—use the <strong className="text-gray-300">Blocked IPs</strong> tab for the full list and enforcement. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -2233,13 +2260,27 @@ export default function AdminPage() {
                       const rowFlags = parseAccessLogAbnormalFlags(log.abnormalFlags)
                       const riskFlags = Array.isArray(log.riskFlags) ? log.riskFlags : []
                       const riskScore = typeof log.riskScore === 'number' ? log.riskScore : 0
+                      const ipDebug = parseIpDebugHeaders(log.ipDebugHeaders)
+                      const ipDebugOpen = accessLogIpDebugExpanded === log.id
                       return (
-                      <tr key={log.id} className={`border-b border-tank-light/10 hover:bg-tank-light/5 ${rowFlags.length || riskScore >= 60 ? 'bg-amber-950/15' : ''}`}>
+                      <Fragment key={log.id}>
+                      <tr className={`border-b border-tank-light/10 hover:bg-tank-light/5 ${rowFlags.length || riskScore >= 60 ? 'bg-amber-950/15' : ''}`}>
                         <td className="p-3 text-gray-300 whitespace-nowrap" title={log.createdAt}>
                           {new Date(log.createdAt).toLocaleString()}
                         </td>
-                        <td className="p-3 text-gray-300 font-mono text-xs whitespace-nowrap" title={log.ipAddress ?? ''}>
-                          {log.ipAddress ?? '-'}
+                        <td className="p-3 text-gray-300 font-mono text-xs whitespace-nowrap align-top">
+                          <div className="flex flex-col gap-1">
+                            <span title={log.ipAddress ?? ''}>{log.ipAddress ?? '-'}</span>
+                            {ipDebug && (
+                              <button
+                                type="button"
+                                onClick={() => setAccessLogIpDebugExpanded(ipDebugOpen ? null : log.id)}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-900/40 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-800/40 w-fit"
+                              >
+                                {ipDebugOpen ? 'Hide IP debug' : 'IP debug'}
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="p-3 align-top whitespace-nowrap">
                           {log.ipAddress ? (
@@ -2314,6 +2355,17 @@ export default function AdminPage() {
                         <td className="p-3 text-gray-400 max-w-[150px] truncate" title={log.referrer ?? ''}>{log.referrer || '-'}</td>
                         <td className="p-3 text-gray-500 font-mono text-xs">{log.sessionId ? log.sessionId.slice(0, 8) + '…' : '-'}</td>
                       </tr>
+                      {ipDebug && ipDebugOpen && (
+                        <tr key={`${log.id}-ip-debug`} className="border-b border-tank-light/10 bg-cyan-950/10">
+                          <td colSpan={14} className="p-3">
+                            <div className="text-xs text-cyan-200/90 font-medium mb-2">Proxy / platform headers (localhost investigation)</div>
+                            <pre className="text-[11px] leading-relaxed text-gray-300 font-mono whitespace-pre-wrap break-all bg-black/30 rounded p-3 border border-cyan-800/30 max-h-64 overflow-auto">
+                              {Object.entries(ipDebug).map(([key, value]) => `${key}: ${value}`).join('\n')}
+                            </pre>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                       )
                     })}
                   </tbody>

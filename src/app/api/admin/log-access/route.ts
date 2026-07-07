@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       userName,
       userEmail,
       statusCode,
+      ipDebugHeaders,
     } = body as {
       ipAddress?: string
       userAgent?: string
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       userName?: string
       userEmail?: string
       statusCode?: number
+      ipDebugHeaders?: string | null
     }
 
     if (!path || typeof path !== 'string') {
@@ -102,6 +104,10 @@ export async function POST(request: Request) {
         userEmail: userEmail ?? null,
         statusCode: statusCode ?? null,
         abnormalFlags: abnormalFlagsArr.length ? JSON.stringify(abnormalFlagsArr) : null,
+        ipDebugHeaders:
+          typeof ipDebugHeaders === 'string' && ipDebugHeaders.trim()
+            ? ipDebugHeaders.trim().slice(0, 4096)
+            : null,
       },
     })
 
