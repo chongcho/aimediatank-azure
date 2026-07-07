@@ -26,7 +26,8 @@ function decodePathSegment(path: string): string {
   }
 }
 
-const TRAVERSAL_RE = /\.\.(?:\/|\\)|%2e%2e|%252e|\.%2e|\.\.%2f|(?:^|\/)\w+\.\.(?:\/|$)/i
+const TRAVERSAL_RE =
+  /\.\.(?:\/|\\)|%2e%2e|%252e|\.%2e|\.\.%2f|(?:^|\/)\w+\.\.(?:\/|$)|%25c0%25af|%c0%af/i
 // Encoded quote/apostrophe prefix (e.g. /%22/_next/static/...) — path normalization probes.
 const ENCODED_DELIMITER_PREFIX_RE = /^\/(?:%22|%2522|%27|%2527)(?:\/|$)/i
 const ENCODED_DOTENV_RE =
@@ -168,6 +169,7 @@ const AWS_RES = [
   /(^|\/)config\/aws\.ya?ml$/i,
   /(^|\/)aws-secret\.ya?ml$/i,
   /(^|\/)aws[-.]config\.js$/i,
+  /(^|\/)aws-exports\.js$/i,
   /(^|\/)aws(?:[-_]credentials)?\.json$/i,
   /(^|\/)config\/aws\.json$/i,
   /(^|\/)secrets\/aws\.json$/i,
@@ -217,6 +219,7 @@ const PHP_RES = [
   /(^|\/)_debugbar(?:\/|$)/i,
   /(^|\/)livewire\/update/i,
   /(^|\/)telescope\/api\//i,
+  /(^|\/)telescope(?:\/|$)/i,
   /(^|\/)phpinfo\.php(?:%23|#)/i,
   /(^|\/)phptest\.php(?:%23|#)/i,
   /(^|\/)php\.php(?:%23|#)/i,
@@ -342,7 +345,7 @@ const CONFIG_RES = [
   /(^|\/)(?:k8s|kubernetes)\.ya?ml$/i,
   /(^|\/)app\.(?:ya?ml|json)$/i,
   /(^|\/)WEB-INF\/(?:web\.xml|context\.xml)$/i,
-  /(^|\/)META-INF\/context\.xml$/i,
+  /(^|\/)META-INF\/(?:context\.xml|MANIFEST\.MF)$/i,
   /(^|\/)server\.xml$/i,
   // SendGrid credential / export probes.
   /(^|\/)sendgrid[\w.-]*\.(?:js|json|py|ya?ml|zip)$/i,
@@ -470,7 +473,13 @@ const CONFIG_RES = [
   // --- Mgmt / ops consoles ---
   /(^|\/)balancer-manager$/i,
   /(^|\/)server-info$/i,
-  /(^|\/)manager\/html$/i,
+  /(^|\/)manager\/html(?:[;?]|$)/i,
+  /(^|\/)host-manager\/html(?:[;?]|$)/i,
+  /(^|\/)console(?:\/|$)/i,
+  /(^|\/)admin\/debug(?:\/|$)/i,
+  /(^|\/)__nextjs_original-stack-frame(?:\/|$)/i,
+  /(^|\/)server\.js(?:$|[?;])/i,
+  /(^|\/)aspnet_client(?:~|$|\/)/i,
   /(^|\/)solr\/admin(?:\/|$)/i,
   /(^|\/)package-updates(?:\/|$)/i,
   // --- Source maps (root-served; _next is excluded from middleware) ---
