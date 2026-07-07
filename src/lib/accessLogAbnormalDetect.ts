@@ -68,6 +68,13 @@ const ENV_RES = [
   /\.dockerenv/i,
   /\.pgpass/i,
   /\.mysql_history/i,
+  // Shell / REPL history files (leak secrets typed at a prompt).
+  /(^|\/)\.(?:sh|zsh|fish|ksh|pry|irb|node_repl|python|php|psql|rediscli|scala)_history$/i,
+  // Streamlit app secrets (/.streamlit/, /app/.streamlit/, /src/.streamlit/).
+  /\.streamlit\/secrets\.toml$/i,
+  /(^|\/)\.secrets\.json$/i,
+  /(^|\/)api[-_]?key\.txt$/i,
+  /(^|\/)manage\/env(?:\/|$)/i,
   // GCP / Firebase credential dumps (common scanner dictionary).
   /(^|\/)application_default_credentials\.json$/i,
   /(^|\/)firebase-adminsdk\.json$/i,
@@ -160,7 +167,7 @@ const WP_RES = [
 const PHP_RES = [
   /phpmyadmin/i,
   /\/pma\//i,
-  /(^|\/)phpinfo(?:\.php)?(?:\/|$)/i,
+  /(^|\/)phpinfo(?:\.\w+)?(?:\/|$)/i,
   /(^|\/)info(?:\/|$)/i,
   /(^|\/)cgi-bin(?:\/|$)/i,
   /(^|\/)index\.php(?:\/|$)/i,
@@ -263,6 +270,8 @@ const CONFIG_RES = [
   /(^|\/)config\.json$/i,
   /(^|\/)config\.json\.(?:save|bak|old|backup|swp|tmp)$/i,
   /(^|\/)config\.ya?ml$/i,
+  /(^|\/)config\.toml$/i,
+  /(^|\/)docker-compose(?:\.[^.\/]+)?\.ya?ml$/i,
   /(^|\/)docker-compose[\w.-]*\.(?:ya?ml|json)(?:%23|#)/i,
   /(^|\/)configuration\.ya?ml$/i,
   /(^|\/)database\.ya?ml$/i,
