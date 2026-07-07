@@ -194,6 +194,8 @@ const WP_RES = [
   /wlwmanifest\.xml/i,
   /wordpress/i,
   /(^|\/)wp-sitemap\.xml$/i,
+  // Bare /wp stub — scanners fingerprint WP installs before wp-admin probes.
+  /(^|\/)wp(?:\/|$)/i,
 ]
 
 const PHP_RES = [
@@ -256,8 +258,10 @@ const CONFIG_RES = [
   /\.old$/i,
   /backup\.(sql|zip|tar|gz)/i,
   // Common dictionary-style recon endpoints hit in case-variant bursts.
-  /(^|\/)(?:demo|test|backup|old|new|bk|bc|main|www)(?:\/|$)/i,
-  /(^|\/)(?:oldsite|old-site)(?:\/|$)/i,
+  /(^|\/)(?:demo|test(?:ing)?|backup|old|new|bk|bc|main|www)(?:\/|$)/i,
+  /(^|\/)(?:oldsite|old-site|newsite|new-site)(?:\/|$)/i,
+  // Drupal / CMS core folder probes (e.g. /core).
+  /(^|\/)core(?:\/|$)/i,
   /(^|\/)20(?:1[7-9]|2[0-4])(?:\/|$)/i,
   // Common scanner probes for downloadable backup dumps.
   /(^|\/)(?:db|web|website|site|public_html|htdocs|www|backup(?:[_-]?(?:full|tpl|2))?|backups?|archive|old|bak|bkp|back|7bk)(?:[_-][^\/]+)?\.(?:zip|tar(?:\.gz)?|tgz|gz)$/i,
