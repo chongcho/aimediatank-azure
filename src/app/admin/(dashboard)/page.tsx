@@ -297,39 +297,38 @@ function ColumnFilter({ label, options, selected, onApply }: {
 }
 
 const TIME_PERIODS = [
-  { label: 'All time', value: '' },
-  { label: 'Last 1 hour', value: '1h' },
-  { label: 'Last 6 hours', value: '6h' },
-  { label: 'Last 24 hours', value: '24h' },
-  { label: 'Today', value: 'today' },
-  { label: 'Yesterday', value: 'yesterday' },
-  { label: 'Last 7 days', value: '7d' },
-  { label: 'Last 30 days', value: '30d' },
-  { label: 'Last 90 days', value: '90d' },
+  { label: 'Day', value: 'day' },
+  { label: 'Week', value: 'week' },
+  { label: 'Month', value: 'month' },
+  { label: '3 months', value: '3m' },
+  { label: '6 months', value: '6m' },
 ] as const
 
 function timePeriodToRange(value: string): { from: string; to: string } {
   const now = new Date()
-  const pad = (d: Date) => d.toISOString().split('T')[0]
   if (!value) return { from: '', to: '' }
-  if (value === 'today') {
-    const s = pad(now)
-    return { from: s, to: '' }
+
+  const from = new Date(now)
+  switch (value) {
+    case 'day':
+      from.setDate(from.getDate() - 1)
+      break
+    case 'week':
+      from.setDate(from.getDate() - 7)
+      break
+    case 'month':
+      from.setMonth(from.getMonth() - 1)
+      break
+    case '3m':
+      from.setMonth(from.getMonth() - 3)
+      break
+    case '6m':
+      from.setMonth(from.getMonth() - 6)
+      break
+    default:
+      return { from: '', to: '' }
   }
-  if (value === 'yesterday') {
-    const y = new Date(now); y.setDate(y.getDate() - 1)
-    return { from: pad(y), to: pad(now) }
-  }
-  const match = value.match(/^(\d+)(h|d)$/)
-  if (match) {
-    const n = parseInt(match[1])
-    const unit = match[2]
-    const from = new Date(now)
-    if (unit === 'h') from.setHours(from.getHours() - n)
-    else from.setDate(from.getDate() - n)
-    return { from: from.toISOString(), to: '' }
-  }
-  return { from: '', to: '' }
+  return { from: from.toISOString(), to: '' }
 }
 
 function TimePeriodFilter({ selected, onApply }: {
@@ -337,7 +336,12 @@ function TimePeriodFilter({ selected, onApply }: {
   onApply: (value: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [local, setLocal] = useState('')
   const ref = useRef<HTMLTableHeaderCellElement>(null)
+
+  useEffect(() => {
+    if (open) setLocal(selected)
+  }, [open, selected])
 
   useEffect(() => {
     if (!open) return
@@ -349,28 +353,50 @@ function TimePeriodFilter({ selected, onApply }: {
   }, [open])
 
   const isFiltered = selected !== ''
-  const currentLabel = TIME_PERIODS.find(p => p.value === selected)?.label ?? 'Time'
+
+  const apply = () => {
+    onApply(local)
+    setOpen(false)
+  }
 
   return (
     <th ref={ref} className="text-left p-3 font-medium whitespace-nowrap relative">
       <button onClick={() => setOpen(!open)} className={`flex items-center gap-1 ${isFiltered ? 'text-tank-accent' : 'text-gray-400'}`}>
-        {isFiltered ? currentLabel : 'Time'}
+        Time
         <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
         </svg>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 bg-tank-dark border border-tank-light/30 rounded-lg shadow-xl min-w-[160px] flex flex-col">
-          <div className="p-1">
-            {TIME_PERIODS.map(p => (
-              <button
-                key={p.value}
-                onClick={() => { onApply(p.value); setOpen(false) }}
-                className={`w-full text-left px-3 py-1.5 rounded text-xs hover:bg-tank-light/10 ${selected === p.value ? 'text-tank-accent font-medium' : 'text-gray-300'}`}
-              >
-                {p.label}
-              </button>
+        <div className="absolute left-0 top-full z-50 mt-1 bg-tank-dark border border-tank-light/30 rounded-lg shadow-xl min-w-[180px] max-h-[300px] flex flex-col">
+          <div className="overflow-y-auto flex-1 p-1">
+            <label className="flex items-center gap-2 px-2 py-1 hover:bg-tank-light/10 rounded cursor-pointer">
+              <input
+                type="radio"
+                name="access-log-time-period"
+                checked={local === ''}
+                onChange={() => setLocal('')}
+                className="accent-[#2dd4bf]"
+              />
+              <span className="text-xs text-gray-300 font-medium">(All time)</span>
+            </label>
+            <div className="border-t border-tank-light/20 my-1" />
+            {TIME_PERIODS.map((p) => (
+              <label key={p.value} className="flex items-center gap-2 px-2 py-1 hover:bg-tank-light/10 rounded cursor-pointer">
+                <input
+                  type="radio"
+                  name="access-log-time-period"
+                  checked={local === p.value}
+                  onChange={() => setLocal(p.value)}
+                  className="accent-[#2dd4bf]"
+                />
+                <span className="text-xs text-gray-300">{p.label}</span>
+              </label>
             ))}
+          </div>
+          <div className="border-t border-tank-light/20 p-2 flex gap-2">
+            <button onClick={apply} className="flex-1 px-2 py-1 bg-tank-accent text-black rounded text-xs font-medium hover:opacity-90">OK</button>
+            <button onClick={() => setOpen(false)} className="flex-1 px-2 py-1 bg-tank-light/20 text-gray-300 rounded text-xs hover:bg-tank-light/30">Cancel</button>
           </div>
         </div>
       )}
