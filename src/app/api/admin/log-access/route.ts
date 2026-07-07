@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseUserAgent } from '@/lib/parseUserAgent'
 import { detectAbnormalAccess, detectBadBotUserAgent, maybeNotifyAbnormalAccess } from '@/lib/accessLogAbnormal'
+import { isPrivateClientIp } from '@/lib/clientIpFromRequest'
 import { lookupGeoByIp } from '@/lib/ipGeoLookup'
 
 export const dynamic = 'force-dynamic'
@@ -59,12 +60,7 @@ export async function POST(request: Request) {
     const providedSecret = request.headers.get(LOG_ACCESS_SECRET_HEADER)?.trim()
     const isTrustedCaller = Boolean(expectedSecret && providedSecret === expectedSecret)
 
-    const isPrivateIp = (ip: string) =>
-      ip.startsWith('10.') || ip.startsWith('127.') || ip.startsWith('192.168.') ||
-      ip === '::1' || ip.startsWith('fc') || ip.startsWith('fd') ||
-      /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
-
-    if (isTrustedCaller && ipAddress && !isPrivateIp(ipAddress)) {
+    if (isTrustedCaller && ipAddress && !isPrivateClientIp(ipAddress)) {
       const geo = await lookupGeoByIp(ipAddress)
       city = geo.city
       region = geo.region

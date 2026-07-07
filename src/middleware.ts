@@ -4,6 +4,12 @@ import { getToken } from 'next-auth/jwt'
 import { ADMIN_FRESH_STEP2_PARAM } from '@/lib/adminFreshStep2'
 import { buildExpiredAdminReauthCookie } from '@/lib/adminReauthConstants'
 import { BLOCKED_IP_LIST_HEADER, isClientIpBlocked } from '@/lib/blockedIpListClient'
+import {
+  getClientIpFromHeaders,
+  isLikelyAzurePlatformPing,
+  isPrivateClientIp,
+  stripClientIpPort,
+} from '@/lib/clientIpFromRequest'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
 import { detectBadBotUserAgent } from '@/lib/badBotDetect'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
@@ -37,18 +43,6 @@ function isSecurityExemptPath(pathname: string): boolean {
   return false
 }
 
-function isPrivateIp(ip: string): boolean {
-  return (
-    ip.startsWith('10.') ||
-    ip.startsWith('127.') ||
-    ip.startsWith('192.168.') ||
-    ip === '::1' ||
-    ip.startsWith('fc') ||
-    ip.startsWith('fd') ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
-  )
-}
-
 function enqueueAutoBlockSecurity(params: {
   clientIp: string | null
   pathname: string
@@ -59,8 +53,8 @@ function enqueueAutoBlockSecurity(params: {
 }) {
   const secret = process.env.BLOCKED_IP_LIST_SECRET?.trim()
   if (!secret || !params.clientIp) return
-  const ip = stripPort(params.clientIp)
-  if (isPrivateIp(ip)) return
+  const ip = stripClientIpPort(params.clientIp)
+  if (isPrivateClientIp(ip)) return
   fetch(`${params.origin}/api/internal/auto-block-probe`, {
     method: 'POST',
     headers: {
@@ -79,17 +73,8 @@ function enqueueAutoBlockSecurity(params: {
   }).catch(() => {})
 }
 
-function stripPort(ip: string): string {
-  if (ip.startsWith('[')) return ip.replace(/^\[([^\]]+)\].*$/, '$1')
-  const parts = ip.split(':')
-  if (parts.length === 2 && /^\d+$/.test(parts[1])) return parts[0]
-  return ip
-}
-
 function getClientIp(request: NextRequest): string | null {
-  const forwarded = request.headers.get('x-forwarded-for')
-  const raw = forwarded ? forwarded.split(',')[0]?.trim() ?? null : request.headers.get('x-real-ip') ?? null
-  return raw ? stripPort(raw) : null
+  return getClientIpFromHeaders(request.headers)
 }
 
 export async function middleware(request: NextRequest) {
@@ -158,6 +143,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  const userAgent = request.headers.get('user-agent') ?? undefined
+  if (
+    isLikelyAzurePlatformPing({
+      headers: request.headers,
+      clientIp,
+      pathname,
+      userAgent,
+    })
+  ) {
+    return NextResponse.next()
+  }
+
   const gamePath = parseGamePath(pathname)
   if (gamePath.kind !== 'none') {
     let isAdmin = false
@@ -177,7 +174,6 @@ export async function middleware(request: NextRequest) {
   }
 
   const ip = clientIp
-  const userAgent = request.headers.get('user-agent') ?? undefined
   const referrer = request.headers.get('referer') ?? undefined
   const method = request.method
   const query = request.nextUrl.search ? request.nextUrl.search.slice(1) : undefined
