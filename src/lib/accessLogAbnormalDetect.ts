@@ -125,6 +125,38 @@ const ENV_RES = [
   /(^|\/)config\/credentials\.ya?ml\.enc$/i,
   /(^|\/)stripe-credentials\.json$/i,
   /(^|\/)rest\/credentials-for-node$/i,
+  // --- Env-file dictionary variants (Laravel/dotenv scanners) ---
+  /(^|\/)env(?:[._-][\w.-]*)?$/i, // env.local, env.prod, env.save, env.cfg, env.1, env_
+  /(^|\/)_{1,2}env$/i, // _env, __env
+  /(^|\/)envfile$/i,
+  /(^|\/)\.?dotenv$/i, // dotenv, .dotenv
+  /(^|\/)environment(?:\.\w+)?$/i, // environment, environment.ts, ENVIRONMENT
+  /(^|\/)application_env$/i,
+  /(^|\/)app_env$/i,
+  /(^|\/)\.app_env$/i,
+  /(^|\/)laravel_env$/i,
+  /(^|\/)(?:app|storage)\/env(?:[._-][\w.-]*)?$/i, // app/env, app/env.local, storage/env(.local)
+  /(^|\/)config\/env(?:ironment)?(?:[._-][\w.-]*)?$/i, // config/env, config/environment, config/env.prod
+  // --- Secret value dumps (env-var-name-as-path) ---
+  /(^|\/)(?:database_url|db_password|db_pass|app_key|app_secret|secret_key|api_secret|aws_secret_access_key|aws_access_key_id|mail_password|redis_url|password|passwd|token)(?:\.txt)?$/i,
+  // --- Secret text-file dumps ---
+  /(^|\/)(?:passwords?|passwd|pass|users?|secrets?|credentials?|api[-_]?keys?|keys|tokens?|db|database|dotenv|log)\.txt$/i,
+  // --- Shell rc / profile files ---
+  /(^|\/)\.(?:bashrc|zshrc|profile|bash_profile|bash_logout|cshrc|kshrc)$/i,
+  // --- Cloud CLI credential caches ---
+  /(^|\/)\.s3cfg$/i,
+  /(^|\/)\.boto$/i,
+  /(^|\/)\.passwd-s3fs$/i,
+  /(^|\/)\.firebaserc$/i,
+  /(^|\/)\.amplifyrc$/i,
+  /(^|\/)amplify\/team-provider-info\.json$/i,
+  /(^|\/)s3(?:[-.][\w.]+|\/buckets?)$/i, // s3.key, s3.secret, s3.yaml, s3-config.json, s3/bucket(s)
+  /(^|\/)ngrok\.ya?ml$/i,
+  /(^|\/)\.ngrok2\//i,
+  /(^|\/)vault\.ya?ml$/i,
+  // --- Package-manager caches ---
+  /(^|\/)\.(?:npm|yarn|pnpm)(?:\/|$)/i,
+  /(^|\/)\.pnp\.js$/i,
 ]
 
 const AWS_RES = [
@@ -186,6 +218,12 @@ const PHP_RES = [
   /(^|\/)phpinfo\.php(?:%23|#)/i,
   /(^|\/)phptest\.php(?:%23|#)/i,
   /(^|\/)php\.php(?:%23|#)/i,
+  /\.cgi$/i, // any CGI endpoint probe
+  /\.exe$/i, // xampp/php-cgi.exe etc.
+  /(^|\/)php-fpm(?:\.d)?(?:\/[\w.-]+)?\.conf$/i, // php-fpm.conf, php-fpm.d/www.conf
+  /(^|\/)php\.ini$/i, // php.ini anywhere (etc/php/.../php.ini)
+  /(^|\/)laravel\.ini$/i,
+  /(^|\/)php-info(?:\/|$)/i,
 ]
 
 const CONFIG_RES = [
@@ -357,6 +395,85 @@ const CONFIG_RES = [
   /^\/page\n/i,
   // Random underscore web-shell style probes (e.g. /_rNd9xZ7kL3); min 10 chars skips /_next.
   /(^|\/)_[a-z0-9]{10,}(?:\/|$)/i,
+  // --- System / OS file LFI probes ---
+  /(^|\/)(?:etc|proc|sys)\//i, // /etc/*, /proc/*, /sys/* (passwd, shadow, environ, resolv.conf, nginx/apache/php/cron/mail configs)
+  /(^|\/)windows\/(?:win|system)\.ini$/i,
+  /(^|\/)boot\.ini$/i,
+  /(^|\/)shadow$/i,
+  /(^|\/)cron\/crontab$/i,
+  /(^|\/)\.vagrant\//i,
+  // --- Log / dump files ---
+  /\.log$/i,
+  /(^|\/)error_log$/i,
+  // --- Ruby / Salt / Python / Terraform / IaC ---
+  /\.rb$/i,
+  /\.sls$/i,
+  /\.py$/i,
+  /\.tf$/i,
+  /(^|\/)\.?terraform(?:[.\/]|$)/i, // .terraform, terraform/, .terraform.tfstate, .terraform.lock.hcl
+  /(^|\/)terraform\.tfvars\.json$/i,
+  /(^|\/)Vagrantfile$/i,
+  /(^|\/)Makefile$/i,
+  /(^|\/)Dockerfile$/i,
+  /(^|\/)\.dockerignore$/i,
+  /(^|\/)ansible\/[\w.-]+\.ya?ml$/i,
+  /(^|\/)(?:k8s|kubernetes)\/[\w.-]+\.ya?ml$/i,
+  /(^|\/)supervisord?\.conf$/i,
+  /(^|\/)supervisor\/[\w.-]+\.conf$/i,
+  /(^|\/)httpd\.conf$/i,
+  /(^|\/)conf\.d\/[\w.-]+\.conf$/i,
+  /(^|\/)mailcow\.conf$/i,
+  /(^|\/)config\/mail\.\w+$/i,
+  /(^|\/)config\/storage\.ya?ml$/i,
+  /(^|\/)config\/initializers\//i,
+  // --- Laravel / framework build & config artifacts ---
+  /(^|\/)artisan$/i,
+  /(^|\/)(?:composer|package)(?:-lock)?\.json$/i,
+  /(^|\/)(?:composer\.lock|yarn\.lock)$/i,
+  /(^|\/)phpunit\.xml(?:\.dist)?$/i,
+  /(^|\/)\.phpunit(?:\.result)?\.cache$/i,
+  /(^|\/)\.user\.ini$/i,
+  /(^|\/)(?:vite|webpack\.mix|craco|next|nuxt)\.config\.(?:js|mjs|cjs|ts)$/i,
+  /(^|\/)webpack\.mix\.js$/i,
+  /(^|\/)ormconfig\.json$/i,
+  /(^|\/)netlify\.toml$/i,
+  /(^|\/)mix-manifest\.json$/i,
+  /(^|\/)laravel(?:[._]config)?$/i, // laravel, laravel.config, laravel_config
+  /(^|\/)(?:app\.config|app_config|\.app_config)$/i,
+  /(^|\/)settings\.php\.save$/i,
+  /(^|\/)application-\w+\.ya?ml$/i, // application-prod.yml, application-staging.yml, ...
+  /(^|\/)web\.(?:release|debug)\.config$/i,
+  /(^|\/)joomla\.xml$/i,
+  /(^|\/)app\/etc\/local\.xml$/i, // Magento
+  /(^|\/)elmah\.axd$/i,
+  /(^|\/)schema\.prisma$/i,
+  /(^|\/)(?:sam-)?template\.ya?ml$/i,
+  /(^|\/)outputs\.tf$/i,
+  /(^|\/)s3-config\.json$/i,
+  /(^|\/)storage\/(?:telescope|debugbar|framework|app|logs)(?:\/|$)/i,
+  // --- Stripe / payment secret files ---
+  /(^|\/)stripe(?:[-.][\w.]+)?\.(?:json|ya?ml|js|ts)$/i,
+  /(^|\/)stripe-keys\.json$/i,
+  /(^|\/)\.stripe$/i,
+  /\.well-known\/stripe/i,
+  // --- Container / infra API + port-in-path probes ---
+  /(^|\/):\d{2,5}(?:\/|$)/i, // /:2375, /:27017/...
+  /(^|\/)v\d+(?:\.\d+)?\/(?:keys|secrets)(?:\/|$)/i,
+  // --- n8n / REST scanner probes (app uses /api, not /rest) ---
+  /(^|\/)rest\//i,
+  // --- Mgmt / ops consoles ---
+  /(^|\/)balancer-manager$/i,
+  /(^|\/)server-info$/i,
+  /(^|\/)manager\/html$/i,
+  /(^|\/)solr\/admin(?:\/|$)/i,
+  /(^|\/)package-updates(?:\/|$)/i,
+  // --- Source maps (root-served; _next is excluded from middleware) ---
+  /(^|\/)static\/[\w./-]+\.map$/i,
+  /(^|\/)app\.js\.map$/i,
+  // --- Double-encoded profiler/debug probes ---
+  /%255f/i, // %255f = double-encoded underscore (e.g. /%255fprofiler)
+  /(^|\/)__debug_{0,2}$/i, // __debug, __debug_, __debug__
+  /(^|\/)swagger\.json$/i,
 ]
 
 function matchesAny(path: string, res: RegExp[]): boolean {
