@@ -218,6 +218,8 @@ const PHP_RES = [
   /(^|\/)phpinfo\.php(?:%23|#)/i,
   /(^|\/)phptest\.php(?:%23|#)/i,
   /(^|\/)php\.php(?:%23|#)/i,
+  // Common webshell dictionary probes (e.g. /w1php, /w2php — no dot before "php").
+  /(^|\/)w\dphp(?:\/|$)/i,
   /\.cgi$/i, // any CGI endpoint probe
   /\.exe$/i, // xampp/php-cgi.exe etc.
   /(^|\/)php-fpm(?:\.d)?(?:\/[\w.-]+)?\.conf$/i, // php-fpm.conf, php-fpm.d/www.conf
