@@ -1,7 +1,7 @@
 # AI Media Tank (AiM) — Policy Home
 
 **Effective Date:** December 20, 2024  
-**Last Updated:** March 6, 2026
+**Last Updated:** July 7, 2026
 
 ---
 
@@ -19,10 +19,11 @@ Governs the use of the Platform, including:
 
 - Eligibility and age requirements (13+ minimum)
 - User accounts, conduct, and responsibilities
-- Content guidelines and AI-generated content policies
-- Copyright, intellectual property, and DMCA procedures
+- Content guidelines, AI disclosure, Open Chat, Private Chat, and Voice Talk
+- Copyright, intellectual property, guest watermarks, and DMCA procedures
 - Payment, refund, and creator payout policies
-- Third-party platform integrations (YouTube, TikTok, X, and others)
+- Third-party platform integrations (YouTube, TikTok, X, KakaoTalk, and others)
+- Native mobile applications (iOS and Android) and social sharing
 - Disclaimer of warranties, limitation of liability, and indemnification
 - Dispute resolution, arbitration, and governing law (State of Washington)
 
@@ -31,9 +32,11 @@ Governs the use of the Platform, including:
 Describes how AI Media Tank, LLC (AiM) collects, uses, stores, shares, and protects personal information, including:
 
 - Information collected (directly, automatically, and from third parties)
+- Communications, messaging, voice call metadata, and push device tokens
 - Legal bases for processing (GDPR compliance)
 - How information is used and shared
-- Cookies and tracking technologies
+- Cookies, push notifications, and tracking technologies
+- Machine translation processing (Azure Translator, MyMemory)
 - Data security measures
 - Privacy rights by region (GDPR, CCPA/CPRA, COPPA, LGPD, PIPEDA)
 - Children's privacy protections

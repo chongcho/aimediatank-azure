@@ -74,29 +74,33 @@ const azureServices = [
 ]
 
 const features = [
-  { icon: '🎬', title: 'Video Publishing', desc: 'Upload, transcode, and stream AI-generated or real-world video content with multi-resolution support and adaptive playback.' },
-  { icon: '🖼️', title: 'Image Gallery', desc: 'Showcase AI artwork and photography in a curated gallery with high-resolution previews, zoom, and metadata display.' },
+  { icon: '🎬', title: 'Video Publishing', desc: 'Upload, transcode, and stream AI-generated or real-world video content with multi-resolution support, adaptive playback, and optional home-feed preview.' },
+  { icon: '🖼️', title: 'Image Gallery', desc: 'Showcase AI artwork and photography in a curated gallery with high-resolution previews, zoom, metadata display, and an integrated crop tool for uploads.' },
   { icon: '🎵', title: 'Music Hosting', desc: 'Share AI-composed tracks and real recordings with built-in audio players, waveform visualization, and download options.' },
-  { icon: '💰', title: 'Creator Marketplace', desc: 'Set your own prices and sell directly to collectors. Stripe handles secure checkout, payouts, and subscription billing.' },
-  { icon: '💬', title: 'Real-Time Messaging', desc: 'Connect with fellow creators through instant chat, media messaging, and threaded conversations — all within the platform.' },
-  { icon: '🎴', title: 'Celebration Cards', desc: 'Create and send personalized digital celebration cards powered by AI — birthdays, holidays, achievements, and more.' },
-  { icon: '⭐', title: 'Ratings & Reviews', desc: 'Build credibility through community ratings. Honest metrics keep discovery fair and help quality content surface.' },
-  { icon: '#️⃣', title: 'Smart Discovery', desc: 'Hashtags, categories, and intelligent filtering help audiences find exactly the content they are looking for.' },
-  { icon: '👤', title: 'Creator Profiles', desc: 'Customizable portfolio pages with bio, social links, media showcase, and transaction history — your professional presence.' },
-  { icon: '🔔', title: 'Live Notifications', desc: 'Stay updated on sales, comments, follows, and platform activity with real-time push and in-app notifications.' },
+  { icon: '💰', title: 'Creator Marketplace', desc: 'Set your own prices and sell directly to collectors. Stripe handles secure checkout, batch purchases, payouts, and subscription billing.' },
+  { icon: '💬', title: 'Open & Private Chat', desc: 'TalkChat powers a public Open Chat room and private one-to-one or group conversations with media sharing, priority flags, unread badges, and resizable panels.' },
+  { icon: '📞', title: 'Voice Talk', desc: 'Place real-time voice calls between members via WebRTC. Native iOS (CallKit) and Android apps ring on the lock screen like a phone call.' },
+  { icon: '🎴', title: 'Celebration Cards', desc: 'Create and send personalized digital celebration cards — birthdays, holidays, achievements, and more — shareable with family and friends.' },
+  { icon: '🌐', title: 'Automatic Translation', desc: 'Titles, descriptions, comments, and chat copy can be machine-translated into your UI language when automatic translation is enabled.' },
+  { icon: '🔗', title: 'Social Sharing', desc: 'Share free platform media and your own uploads to LinkedIn, TikTok, X, Facebook, WhatsApp, Reddit, KakaoTalk, and more.' },
+  { icon: '⭐', title: 'Ratings & Comments', desc: 'Build credibility through community ratings and feed-level comments. Honest metrics keep discovery fair and help quality content surface.' },
+  { icon: '#️⃣', title: 'Smart Discovery', desc: 'Hashtags, categories, sort modes, and intelligent filtering help audiences find exactly the content they are looking for.' },
+  { icon: '👤', title: 'Creator Profiles', desc: 'Customizable portfolio pages with bio, social links, uploads, purchases, saved collections, and transaction history.' },
+  { icon: '🔔', title: 'Live Notifications', desc: 'Stay updated on sales, comments, chat messages, voice calls, and platform activity with push and in-app notifications.' },
   { icon: '🔖', title: 'Save & Bookmark', desc: 'Curate your favorite content into personal collections for quick access and future reference.' },
-  { icon: '📱', title: 'Progressive Web App', desc: 'Install AI Media Tank (AiM) on any device. Offline-capable, home screen icon, push notifications — native app experience.' },
+  { icon: '⬇️', title: 'Smart Downloads', desc: 'Guests may download free media with a burned-in watermark. Registered members receive full-quality downloads per plan and media settings.' },
+  { icon: '📱', title: 'Web, PWA & Native Apps', desc: 'Use AiM in the browser, install as a Progressive Web App, or download the native iOS (TestFlight) and Android (Play internal testing) apps.' },
   { icon: '🔐', title: 'Enterprise Security', desc: 'Azure-backed cloud storage, encrypted transfers, SAS-token authentication, and role-based access control protect every asset.' },
   { icon: '🎞️', title: 'Video Processing', desc: 'Automated multi-resolution transcoding via Azure Functions ensures smooth playback across bandwidth conditions.' },
-  { icon: '🎮', title: 'Interactive Games', desc: 'Built-in retro games — Pac-Man, Tetris, and more — give the community a fun, social break between creating.' },
-  { icon: '🛡️', title: 'Admin Controls', desc: 'Full admin panel with badge management, navbar customization, content moderation, and platform configuration.' },
+  { icon: '🎮', title: 'Interactive Games', desc: 'Built-in retro games — Pac-Man, Tetris, Pong, Breakout, Donkey Kong, and Minesweeper — for a fun break between creating.' },
+  { icon: '🛡️', title: 'Admin Controls', desc: 'Full admin panel with user and media management, chat moderation, access logs, badge and navbar toggles, home layout, and translation settings.' },
 ]
 
 const plans = [
-  { name: 'Viewer', price: 'Free', period: 'Forever', features: ['Browse all content', 'Purchase media', '5 free uploads', 'Basic profile', 'Community access'], popular: false },
-  { name: 'Basic', price: '$2', period: '/month', features: ['Everything in Viewer', '5 free uploads/month', '$1 per additional upload', 'Sell your content', 'Creator badge'], popular: false },
-  { name: 'Advanced', price: '$5', period: '/month', features: ['Everything in Basic', '5 free uploads/month', '$0.50 per additional upload', 'Priority support', 'Analytics dashboard'], popular: true },
-  { name: 'Premium', price: '$8', period: '/month', features: ['Everything in Advanced', 'Unlimited free uploads', 'Featured placement', 'Premium creator badge', 'Early access to features'], popular: false },
+  { name: 'Viewer', price: 'Free', period: 'Forever', features: ['Browse all content', 'Purchase media', '5 free uploads', 'Sell content', 'Open Chat, Private Chat & Voice Talk'], popular: false },
+  { name: 'Basic', price: '$2', period: '/month', features: ['Everything in Viewer', '5 free uploads/month', '$1 per additional upload', 'Unwatermarked downloads', 'Yearly billing available'], popular: false },
+  { name: 'Advanced', price: '$5', period: '/month', features: ['Everything in Basic', '5 free uploads/month', '$0.50 per additional upload', 'Priority support', 'Yearly billing available'], popular: true },
+  { name: 'Premium', price: '$8', period: '/month', features: ['Everything in Advanced', 'Unlimited free uploads', 'Featured placement', 'Premium creator badge', 'Yearly billing available'], popular: false },
 ]
 
 export default function AboutPage() {
@@ -315,9 +319,9 @@ export default function AboutPage() {
           <div className="grid md:grid-cols-4 gap-6">
             {[
               { step: '01', title: 'Create an Account', desc: 'Join free with email or social login (Google, Microsoft, Facebook, Apple). Set up your creator profile in minutes.' },
-              { step: '02', title: 'Upload Your Media', desc: 'Use the streamlined upload form to publish videos, images, or music. Tag AI tools, real devices, and set pricing.' },
-              { step: '03', title: 'Get Discovered', desc: 'Your content appears in the feed with professional badges, hashtags, and metadata. The community rates, comments, and shares.' },
-              { step: '04', title: 'Earn & Grow', desc: 'Sell your work directly through Stripe-powered checkout. Build your reputation, grow your audience, and scale your creative business.' },
+              { step: '02', title: 'Upload Your Media', desc: 'Use the streamlined upload form — with crop tool for images — to publish videos, images, or music. Tag AI tools, real devices, and set pricing.' },
+              { step: '03', title: 'Get Discovered', desc: 'Your content appears in the feed with professional badges, hashtags, and metadata. The community rates, comments, shares, and chats.' },
+              { step: '04', title: 'Earn & Grow', desc: 'Sell through Stripe-powered checkout, connect via Open Chat, Private Chat, and Voice Talk, and scale your creative business.' },
             ].map((item, i) => (
               <div key={i} className="relative">
                 <div className="text-6xl font-extrabold text-tank-accent/10 mb-2">{item.step}</div>
@@ -485,7 +489,7 @@ export default function AboutPage() {
                     <AboutTrans text="Client Layer" />
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    <AboutTrans text="Browser · PWA · Mobile" />
+                    <AboutTrans text="Browser · PWA · Native iOS & Android" />
                   </div>
                 </div>
               </div>
@@ -559,7 +563,8 @@ export default function AboutPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
                     { icon: '💳', name: 'Stripe', sub: 'Payments · Subscriptions · Webhooks' },
-                    { icon: '🔄', name: 'GitHub Actions', sub: 'CI/CD · Staging · Production' },
+                    { icon: '📲', name: 'Firebase & APNs', sub: 'Android FCM · iOS VoIP Push · CallKit' },
+                    { icon: '🔄', name: 'GitHub Actions', sub: 'CI/CD · Staging · Production · Mobile' },
                     { icon: '📢', name: 'Google AdSense', sub: 'Monetization · Ad Display' },
                     { icon: '🤖', name: 'Cursor AI', sub: 'AI-Assisted Development' },
                   ].map((svc, i) => (
@@ -899,7 +904,7 @@ export default function AboutPage() {
                 <AboutTrans text="We are excited to introduce AiMediaTank.com, a platform designed for AI content creators and digital enthusiasts." />
               </p>
               <p>
-                <AboutTrans text="AiMediaTank.com is also a closed-loop social media platform where members can share their thoughts through Open Chat, communicate privately through Private Chat, and create celebration cards to share with family and friends." />
+                <AboutTrans text="AiMediaTank.com is also a closed-loop social media platform where members can share their thoughts through Open Chat, communicate privately through Private Chat, place real-time Voice Talk calls (including native lock-screen ringing on iOS and Android), and create celebration cards to share with family and friends." />
               </p>
               <p>
                 <AboutTrans text="Members can distribute AiMediaTank.com free media and their own content across major social platforms including LinkedIn, TikTok, X, Facebook, WhatsApp, and Reddit, allowing them to amplify their ideas beyond the platform." />
@@ -1124,7 +1129,12 @@ export default function AboutPage() {
                 </li>
                 <li>
                   <Link href="/?openChat=1" className="hover:text-white transition-colors">
-                    <AboutTrans text="Chat" />
+                    <AboutTrans text="Open Chat" />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/open-chat" className="hover:text-white transition-colors">
+                    <AboutTrans text="TalkChat" />
                   </Link>
                 </li>
                 <li>

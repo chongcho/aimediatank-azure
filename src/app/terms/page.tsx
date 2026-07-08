@@ -48,7 +48,7 @@ function TermsPageContent() {
 
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Terms of Service</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: March 6, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: July 7, 2026</p>
 
         {/* 1. Acceptance */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">1. Acceptance of Terms</h2>
@@ -84,6 +84,23 @@ function TermsPageContent() {
         </p>
         <p className="text-gray-300 mb-4">
           The Platform provides tools for creators to publish, distribute, and monetize their content.
+        </p>
+        <p className="text-gray-300 mb-2">In addition to the marketplace, the Platform includes community and communications features, including but not limited to:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li><strong>Open Chat</strong> — a public community chat room (TalkChat)</li>
+          <li><strong>Private Chat</strong> — one-to-one and group messaging with media attachments</li>
+          <li><strong>Voice Talk</strong> — real-time voice calls between members using WebRTC, with native lock-screen incoming-call UI on supported iOS (CallKit) and Android (ConnectionService) apps</li>
+          <li><strong>Celebration Cards</strong> — digital greeting cards shareable with others</li>
+          <li>Comments, ratings, bookmarks, and notifications</li>
+          <li>Built-in games for community entertainment</li>
+          <li>Social sharing to external platforms (including LinkedIn, TikTok, X, Facebook, WhatsApp, Reddit, and KakaoTalk)</li>
+          <li>Upload and crop tools for images and other media</li>
+          <li>Automatic machine translation of user-facing text when enabled by platform settings</li>
+          <li>Guest watermarked downloads of free content; registered members may receive unwatermarked downloads according to plan and media settings</li>
+          <li>Native mobile applications (iOS and Android) in addition to the browser and Progressive Web App (PWA)</li>
+        </ul>
+        <p className="text-gray-300 mb-4">
+          Voice calls require microphone permission on your device. The Platform does not guarantee call quality, connectivity, or availability. Native mobile apps may use push notification services (including Apple Push Notification service and Firebase Cloud Messaging) to deliver incoming-call alerts.
         </p>
         <p className="text-gray-300 mb-4">
           You acknowledge that AI-generated content technologies are evolving, and the legal framework surrounding authorship, copyright, and ownership may change over time. Use of such content is undertaken at your own risk.
@@ -136,6 +153,9 @@ function TermsPageContent() {
           <li>manipulation of engagement metrics</li>
           <li>doxxing or unauthorized disclosure of personal information</li>
           <li>illegal surveillance or unauthorized recording</li>
+          <li>harassment, threats, or spam in Open Chat, Private Chat, or Voice Talk</li>
+          <li>recording voice calls without the consent of all participants where required by law</li>
+          <li>circumventing guest watermarks or download restrictions</li>
         </ul>
         <p className="text-gray-300 mb-4">Violations may result in warnings, suspension, or permanent account termination.</p>
 
@@ -203,22 +223,22 @@ function TermsPageContent() {
               <tr className="border-b border-tank-light/50">
                 <td className="py-2 px-3">Viewer</td>
                 <td className="py-2 px-3">Free</td>
-                <td className="py-2 px-3">Browse, purchase, limited uploads</td>
+                <td className="py-2 px-3">Browse, purchase, sell, 5 free uploads, community features</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-2 px-3">Basic</td>
                 <td className="py-2 px-3">$2/month</td>
-                <td className="py-2 px-3">10 uploads, additional upload fees, selling access</td>
+                <td className="py-2 px-3">5 free uploads/month, $1 per additional upload, yearly billing available</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-2 px-3">Advanced</td>
                 <td className="py-2 px-3">$5/month</td>
-                <td className="py-2 px-3">reduced upload cost, priority support</td>
+                <td className="py-2 px-3">5 free uploads/month, $0.50 per additional upload, priority support</td>
               </tr>
               <tr>
                 <td className="py-2 px-3">Premium</td>
                 <td className="py-2 px-3">$8/month</td>
-                <td className="py-2 px-3">unlimited uploads, featured listings</td>
+                <td className="py-2 px-3">Unlimited free uploads, featured placement, premium badge</td>
               </tr>
             </tbody>
           </table>
@@ -243,10 +263,12 @@ function TermsPageContent() {
         <p className="text-gray-300 mb-4">Upon lawful purchase and download, buyers receive a non-exclusive, perpetual, worldwide, royalty-free license to use, reproduce, display, modify, and distribute the media for personal or commercial purposes, unless otherwise restricted. Ownership remains with the creator.</p>
         <h3 className="text-lg font-semibold mt-6 mb-3">10.8 Prohibited Uses</h3>
         <p className="text-gray-300 mb-4">Buyers may not: claim authorship of the media; resell the media as a competing stock asset; use media for illegal or defamatory purposes.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.9 Guest Downloads and Watermarks</h3>
+        <p className="text-gray-300 mb-4">Visitors who are not logged in may download certain free media only with a burned-in watermark applied by the Platform. Registered members may receive unwatermarked downloads according to their membership plan, purchase status, and per-media download settings. Circumventing watermarks or technical download restrictions is prohibited.</p>
 
         {/* 11. Content Moderation */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">11. Content Moderation</h2>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) reserves the right to remove or disable access to any content at its sole discretion. Where possible, users will be notified regarding the reason for removal.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) reserves the right to remove or disable access to any content at its sole discretion. Where possible, users will be notified regarding the reason for removal. The Company may also moderate Open Chat, Private Chat, and Voice Talk usage, including issuing warnings, removing messages, suspending chat privileges, or terminating accounts for violations.</p>
 
         {/* 12. Copyright and DMCA */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">12. Copyright and DMCA</h2>
@@ -254,8 +276,8 @@ function TermsPageContent() {
 
         {/* 13. Third-Party Platforms */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">13. Third-Party Platforms</h2>
-        <p className="text-gray-300 mb-2">The Platform allows sharing to third-party services including: YouTube, TikTok, X (formerly Twitter), Facebook, LinkedIn, Reddit, WhatsApp.</p>
-        <p className="text-gray-300 mb-4">When sharing content to these services, users are subject to the terms and privacy policies of those platforms. AI Media Tank, LLC (AiM) is not affiliated with or endorsed by the companies operating these services.</p>
+        <p className="text-gray-300 mb-2">The Platform allows sharing to third-party services including: YouTube, TikTok, X (formerly Twitter), Facebook, LinkedIn, Reddit, WhatsApp, and KakaoTalk.</p>
+        <p className="text-gray-300 mb-4">The Platform is also available through native mobile applications distributed via the Apple App Store (TestFlight) and Google Play (internal testing), which are subject to the respective store terms. When sharing content to these services, users are subject to the terms and privacy policies of those platforms. AI Media Tank, LLC (AiM) is not affiliated with or endorsed by the companies operating these services.</p>
 
         {/* 14. Disclaimer */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">14. Disclaimer of Warranties</h2>

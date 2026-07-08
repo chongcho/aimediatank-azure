@@ -1,6 +1,6 @@
 # AI Media Tank (AiM) — Terms of Service
 
-**Effective:** December 20, 2024 · **Last Updated:** March 6, 2026
+**Effective:** December 20, 2024 · **Last Updated:** July 7, 2026
 
 ---
 
@@ -66,6 +66,22 @@ AI Media Tank, LLC (AiM) operates a global digital media marketplace and communi
 
 The Platform provides tools for creators to publish, distribute, and monetize their content.
 
+In addition to the marketplace, the Platform includes community and communications features, including but not limited to:
+
+- **Open Chat** — a public community chat room (TalkChat)
+- **Private Chat** — one-to-one and group messaging with media attachments
+- **Voice Talk** — real-time voice calls between members using WebRTC, with native lock-screen incoming-call UI on supported iOS (CallKit) and Android (ConnectionService) apps
+- **Celebration Cards** — digital greeting cards shareable with others
+- **Comments, ratings, bookmarks, and notifications**
+- **Built-in games** for community entertainment
+- **Social sharing** to external platforms (including LinkedIn, TikTok, X, Facebook, WhatsApp, Reddit, and KakaoTalk)
+- **Upload and crop tools** for images and other media
+- **Automatic machine translation** of user-facing text when enabled by platform settings
+- **Guest watermarked downloads** of free content; registered members may receive unwatermarked downloads according to plan and media settings
+- **Native mobile applications** (iOS and Android) in addition to the browser and Progressive Web App (PWA)
+
+Voice calls require microphone permission on your device. The Platform does not guarantee call quality, connectivity, or availability. Native mobile apps may use push notification services (including Apple Push Notification service and Firebase Cloud Messaging) to deliver incoming-call alerts.
+
 You acknowledge that AI-generated content technologies are evolving, and the legal framework surrounding authorship, copyright, and ownership may change over time. Use of such content is undertaken at your own risk.
 
 ---
@@ -123,6 +139,9 @@ Prohibited activities include:
 - manipulation of engagement metrics
 - doxxing or unauthorized disclosure of personal information
 - illegal surveillance or unauthorized recording
+- harassment, threats, or spam in Open Chat, Private Chat, or Voice Talk
+- recording voice calls without the consent of all participants where required by law
+- circumventing guest watermarks or download restrictions
 
 Violations may result in warnings, suspension, or permanent account termination.
 
@@ -206,10 +225,10 @@ The Platform may offer optional paid membership tiers.
 
 | Plan | Price | Features |
 |------|-------|----------|
-| Viewer | Free | Browse, purchase, limited uploads |
-| Basic | $2/month | 10 uploads, additional upload fees, selling access |
-| Advanced | $5/month | reduced upload cost, priority support |
-| Premium | $8/month | unlimited uploads, featured listings |
+| Viewer | Free | Browse, purchase, sell, 5 free uploads, community features |
+| Basic | $2/month | 5 free uploads/month, $1 per additional upload, yearly billing available |
+| Advanced | $5/month | 5 free uploads/month, $0.50 per additional upload, priority support |
+| Premium | $8/month | Unlimited free uploads, featured placement, premium badge |
 
 Membership fees are non-refundable except where required by law.
 
@@ -296,6 +315,14 @@ Buyers may not:
 - resell the media as a competing stock asset
 - use media for illegal or defamatory purposes
 
+### 10.9 Guest Downloads and Watermarks
+
+Visitors who are not logged in may download certain free media only with a burned-in watermark applied by the Platform.
+
+Registered members may receive unwatermarked downloads according to their membership plan, purchase status, and per-media download settings.
+
+Circumventing watermarks or technical download restrictions is prohibited.
+
 ---
 
 ## 11. Content Moderation
@@ -303,6 +330,8 @@ Buyers may not:
 AI Media Tank, LLC (AiM) reserves the right to remove or disable access to any content at its sole discretion.
 
 Where possible, users will be notified regarding the reason for removal.
+
+The Company may also moderate Open Chat, Private Chat, and Voice Talk usage, including issuing warnings, removing messages, suspending chat privileges, or terminating accounts for violations.
 
 ---
 
@@ -327,6 +356,9 @@ The Platform allows sharing to third-party services including:
 - LinkedIn
 - Reddit
 - WhatsApp
+- KakaoTalk
+
+The Platform is also available through native mobile applications distributed via the Apple App Store (TestFlight) and Google Play (internal testing), which are subject to the respective store terms.
 
 When sharing content to these services, users are subject to the terms and privacy policies of those platforms.
 

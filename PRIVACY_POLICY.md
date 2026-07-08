@@ -1,6 +1,6 @@
 # AI Media Tank (AiM) — Privacy Policy
 
-**Effective:** December 20, 2024 · **Last Updated:** March 6, 2026
+**Effective:** December 20, 2024 · **Last Updated:** July 7, 2026
 
 ---
 
@@ -90,6 +90,37 @@ We may collect information regarding how users interact with the Platform, inclu
 
 This information helps us improve functionality, usability, and recommendations.
 
+### 1.6 Communications, Messaging, and Voice Call Data
+
+When you use Open Chat, Private Chat, or Voice Talk, we may collect and store:
+
+- message content and timestamps
+- conversation membership and read status
+- media attachments shared in chat
+- voice call metadata (participants, start/end times, call status)
+- signaling data needed to establish WebRTC connections
+
+Voice calls are peer-to-peer where possible. We do not routinely record voice call audio unless required by law or explicitly disclosed.
+
+### 1.7 Push Notifications and Device Tokens
+
+If you enable notifications or install a native mobile app, we may collect:
+
+- web push subscription endpoints
+- VoIP push tokens (Apple Push Notification service or Firebase Cloud Messaging)
+- device platform and app version
+- notification delivery and interaction data
+
+You may disable notifications through your device or browser settings, though some alerts (such as incoming voice calls on native apps) require notification permission to function.
+
+### 1.8 Location and Language Preferences
+
+We may collect:
+
+- country or location information you provide at registration
+- UI language preferences derived from your profile location or guest geo-detection
+- locale settings used for automatic translation and date formatting
+
 ---
 
 ## 2. How We Use Information
@@ -106,6 +137,8 @@ We may use collected information for purposes including:
 - improving platform features and performance
 - detecting fraud, abuse, or security incidents
 - enforcing our Terms of Service
+- delivering chat messages, voice calls, and push notifications
+- providing machine-translated text when automatic translation is enabled
 - complying with legal obligations
 
 ---
@@ -119,6 +152,9 @@ AI Media Tank, LLC (AiM) may use automated systems and algorithms to process pla
 - recommendation systems
 - fraud detection
 - platform integrity and security monitoring
+- machine translation of user-facing text (titles, descriptions, comments, and chat copy) when automatic translation is enabled
+
+Machine-translated text is provided for convenience and may not be accurate. Third-party translation services (such as Azure Translator or MyMemory) may process the text sent for translation.
 
 AI Media Tank, LLC (AiM) does not use user-uploaded content to train artificial intelligence models without explicit permission from the content owner.
 
@@ -136,6 +172,9 @@ We may share information with trusted third-party vendors that help operate the 
 - cloud hosting
 - analytics services
 - email delivery
+- SMS delivery (verification and transactional messages)
+- push notification and VoIP push delivery (Apple, Firebase)
+- machine translation services
 - infrastructure and security
 - customer support tools
 

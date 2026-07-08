@@ -48,7 +48,7 @@ function PrivacyPageContent() {
 
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Privacy Policy</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: March 6, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: July 7, 2026</p>
 
         <p className="text-gray-300 mb-6">
           AI Media Tank, LLC (AiM) (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates the website and platform available at <strong>https://www.aimediatank.com</strong> (the &quot;Platform&quot;). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you access or use the Platform and related services.
@@ -115,6 +115,35 @@ function PrivacyPageContent() {
         </ul>
         <p className="text-gray-300 mb-4">This information helps us improve functionality, usability, and recommendations.</p>
 
+        <h3 className="text-lg font-semibold mt-6 mb-3">1.6 Communications, Messaging, and Voice Call Data</h3>
+        <p className="text-gray-300 mb-2">When you use Open Chat, Private Chat, or Voice Talk, we may collect and store:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li>message content and timestamps</li>
+          <li>conversation membership and read status</li>
+          <li>media attachments shared in chat</li>
+          <li>voice call metadata (participants, start/end times, call status)</li>
+          <li>signaling data needed to establish WebRTC connections</li>
+        </ul>
+        <p className="text-gray-300 mb-4">Voice calls are peer-to-peer where possible. We do not routinely record voice call audio unless required by law or explicitly disclosed.</p>
+
+        <h3 className="text-lg font-semibold mt-6 mb-3">1.7 Push Notifications and Device Tokens</h3>
+        <p className="text-gray-300 mb-2">If you enable notifications or install a native mobile app, we may collect:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li>web push subscription endpoints</li>
+          <li>VoIP push tokens (Apple Push Notification service or Firebase Cloud Messaging)</li>
+          <li>device platform and app version</li>
+          <li>notification delivery and interaction data</li>
+        </ul>
+        <p className="text-gray-300 mb-4">You may disable notifications through your device or browser settings, though some alerts (such as incoming voice calls on native apps) require notification permission to function.</p>
+
+        <h3 className="text-lg font-semibold mt-6 mb-3">1.8 Location and Language Preferences</h3>
+        <p className="text-gray-300 mb-2">We may collect:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li>country or location information you provide at registration</li>
+          <li>UI language preferences derived from your profile location or guest geo-detection</li>
+          <li>locale settings used for automatic translation and date formatting</li>
+        </ul>
+
         {/* 2. How We Use Information */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">2. How We Use Information</h2>
         <p className="text-gray-300 mb-2">We may use collected information for purposes including:</p>
@@ -129,6 +158,8 @@ function PrivacyPageContent() {
           <li>improving platform features and performance</li>
           <li>detecting fraud, abuse, or security incidents</li>
           <li>enforcing our <Link href={fromLogin ? '/terms?from=login' : fromRegister ? '/terms?from=register' : fromPolicy ? '/terms?from=policy' : '/terms'} className="text-tank-accent hover:underline">Terms of Service</Link></li>
+          <li>delivering chat messages, voice calls, and push notifications</li>
+          <li>providing machine-translated text when automatic translation is enabled</li>
           <li>complying with legal obligations</li>
         </ul>
 
@@ -141,7 +172,9 @@ function PrivacyPageContent() {
           <li>recommendation systems</li>
           <li>fraud detection</li>
           <li>platform integrity and security monitoring</li>
+          <li>machine translation of user-facing text (titles, descriptions, comments, and chat copy) when automatic translation is enabled</li>
         </ul>
+        <p className="text-gray-300 mb-4">Machine-translated text is provided for convenience and may not be accurate. Third-party translation services (such as Azure Translator or MyMemory) may process the text sent for translation.</p>
         <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) does not use user-uploaded content to train artificial intelligence models without explicit permission from the content owner.</p>
 
         {/* 4. How We Share Information */}
@@ -155,6 +188,9 @@ function PrivacyPageContent() {
           <li>cloud hosting</li>
           <li>analytics services</li>
           <li>email delivery</li>
+          <li>SMS delivery (verification and transactional messages)</li>
+          <li>push notification and VoIP push delivery (Apple, Firebase)</li>
+          <li>machine translation services</li>
           <li>infrastructure and security</li>
           <li>customer support tools</li>
         </ul>
