@@ -181,6 +181,8 @@ export default function CropToolPage() {
   const [cropInsets, setCropInsets] = useState({ top: 0, right: 0, bottom: 0, left: 0 })
   const [cropArea, setCropArea] = useState<Area | null>(null)
   const [cropRatio, setCropRatio] = useState<string>('free')
+  const [customRatioWidth, setCustomRatioWidth] = useState(16)
+  const [customRatioHeight, setCustomRatioHeight] = useState(9)
 
   const [videoDuration, setVideoDuration] = useState(0)
   const [trimStart, setTrimStart] = useState(0)
@@ -628,11 +630,9 @@ export default function CropToolPage() {
     }
   }, [mediaSize, cropArea, renderBox])
 
-  const applyRatio = (ratio: string) => {
-    if (!mediaSize || ratio === 'free') return
-    const [n, d] = ratio.split(':').map(Number)
-    if (!n || !d) return
-    const R = n / d
+  const applyRatioFromValues = (widthUnits: number, heightUnits: number) => {
+    if (!mediaSize || widthUnits <= 0 || heightUnits <= 0) return
+    const R = widthUnits / heightUnits
 
     let width = mediaSize.width
     let height = Math.round(width / R)
@@ -650,6 +650,17 @@ export default function CropToolPage() {
       top,
       bottom: mediaSize.height - height - top,
     })
+  }
+
+  const applyRatio = (ratio: string, customW = customRatioWidth, customH = customRatioHeight) => {
+    if (!mediaSize || ratio === 'free') return
+    if (ratio === 'custom') {
+      applyRatioFromValues(customW, customH)
+      return
+    }
+    const [n, d] = ratio.split(':').map(Number)
+    if (!n || !d) return
+    applyRatioFromValues(n, d)
   }
 
   const toggleTrimPreview = async () => {
@@ -1325,7 +1336,7 @@ export default function CropToolPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <label className="text-sm text-gray-300">Ratio</label>
                   <select
                     value={cropRatio}
@@ -1341,7 +1352,42 @@ export default function CropToolPage() {
                     <option value="9:16">9:16</option>
                     <option value="4:3">4:3</option>
                     <option value="1:1">1:1</option>
+                    <option value="custom">Custom</option>
                   </select>
+                  {cropRatio === 'custom' && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={customRatioWidth}
+                        onChange={(e) => {
+                          const nextW = Math.max(1, parseInt(e.target.value, 10) || 1)
+                          setCustomRatioWidth(nextW)
+                          applyRatio('custom', nextW, customRatioHeight)
+                        }}
+                        aria-label="Custom ratio horizontal pixels"
+                        placeholder="Horizontal"
+                        className="w-24 bg-tank-gray border border-tank-light px-3 py-2 text-white"
+                      />
+                      <span className="text-gray-400 text-sm">×</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={customRatioHeight}
+                        onChange={(e) => {
+                          const nextH = Math.max(1, parseInt(e.target.value, 10) || 1)
+                          setCustomRatioHeight(nextH)
+                          applyRatio('custom', customRatioWidth, nextH)
+                        }}
+                        aria-label="Custom ratio vertical pixels"
+                        placeholder="Vertical"
+                        className="w-24 bg-tank-gray border border-tank-light px-3 py-2 text-white"
+                      />
+                      <span className="text-xs text-gray-500">px ratio</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3">
