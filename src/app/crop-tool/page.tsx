@@ -47,6 +47,9 @@ type OriginalVideoInfo = {
 
 const minCropSize = 80
 const CANVAS_MAX_DIM = 8192
+const CROP_ZOOM_MIN = 1
+const CROP_ZOOM_MAX = 5
+const CROP_ZOOM_STEP = 0.1
 
 const IDB_DB_NAME = 'aimediatank-crop-tool'
 const IDB_STORE_NAME = 'outputs'
@@ -183,6 +186,8 @@ export default function CropToolPage() {
   const [cropRatio, setCropRatio] = useState<string>('free')
   const [customRatioWidth, setCustomRatioWidth] = useState(16)
   const [customRatioHeight, setCustomRatioHeight] = useState(9)
+  /** Digital zoom into the crop: 1 = largest frame at current aspect, higher = tighter crop. */
+  const [cropZoom, setCropZoom] = useState(CROP_ZOOM_MIN)
 
   const [videoDuration, setVideoDuration] = useState(0)
   const [trimStart, setTrimStart] = useState(0)
@@ -235,6 +240,8 @@ export default function CropToolPage() {
     startTop: number
     startLeft: number
   }>({ active: false, startX: 0, startY: 0, startTop: 0, startLeft: 0 })
+  /** Crop size at Zoom 1×; zoom shrinks from this frame toward its center. */
+  const zoomBaseCropRef = useRef<Area | null>(null)
 
   // Check navbar control toggle for crop tool.
   useEffect(() => {
@@ -410,13 +417,17 @@ export default function CropToolPage() {
     const top = Math.min(Math.max(0, cropInsets.top), Math.max(0, mediaSize.height - minCropSize - cropInsets.bottom))
     const bottom = Math.min(Math.max(0, cropInsets.bottom), Math.max(0, mediaSize.height - minCropSize - top))
 
-    setCropArea({
+    const nextArea = {
       x: left,
       y: top,
       width: Math.max(minCropSize, mediaSize.width - left - right),
       height: Math.max(minCropSize, mediaSize.height - top - bottom),
-    })
-  }, [cropInsets, mediaSize])
+    }
+    setCropArea(nextArea)
+    if (cropZoom <= CROP_ZOOM_MIN + 1e-6) {
+      zoomBaseCropRef.current = nextArea
+    }
+  }, [cropInsets, mediaSize, cropZoom])
 
   const updateRenderBox = () => {
     const container = containerRef.current
@@ -644,6 +655,8 @@ export default function CropToolPage() {
     const left = Math.round((mediaSize.width - width) / 2)
     const top = Math.round((mediaSize.height - height) / 2)
 
+    setCropZoom(CROP_ZOOM_MIN)
+    zoomBaseCropRef.current = { x: left, y: top, width, height }
     setCropInsets({
       left,
       right: mediaSize.width - width - left,
@@ -662,6 +675,39 @@ export default function CropToolPage() {
     if (!n || !d) return
     applyRatioFromValues(n, d)
   }
+
+  /**
+   * Zoom into the subject by shrinking the crop toward its center while keeping aspect.
+   * 1× = the current framed crop; higher values tighten that frame.
+   */
+  const applyCropZoom = useCallback(
+    (nextZoom: number) => {
+      if (!mediaSize || !cropArea) return
+      const zoom = clamp(Number(nextZoom.toFixed(1)), CROP_ZOOM_MIN, CROP_ZOOM_MAX)
+      const base = zoomBaseCropRef.current ?? cropArea
+      if (!base.width || !base.height) return
+
+      const aspect = base.width / base.height
+      const targetW = Math.max(minCropSize, Math.round(base.width / zoom))
+      const targetH = Math.max(minCropSize, Math.round(targetW / aspect))
+
+      const centerX = cropArea.x + cropArea.width / 2
+      const centerY = cropArea.y + cropArea.height / 2
+      let left = Math.round(centerX - targetW / 2)
+      let top = Math.round(centerY - targetH / 2)
+      left = clamp(left, 0, Math.max(0, mediaSize.width - targetW))
+      top = clamp(top, 0, Math.max(0, mediaSize.height - targetH))
+
+      setCropZoom(zoom)
+      setCropInsets({
+        left,
+        top,
+        right: mediaSize.width - targetW - left,
+        bottom: mediaSize.height - targetH - top,
+      })
+    },
+    [mediaSize, cropArea]
+  )
 
   const toggleTrimPreview = async () => {
     const v = previewVideoRef.current
@@ -718,6 +764,8 @@ export default function CropToolPage() {
     setCropArea(null)
     setCropInsets({ top: 0, right: 0, bottom: 0, left: 0 })
     setCropRatio('free')
+    setCropZoom(CROP_ZOOM_MIN)
+    zoomBaseCropRef.current = null
 
     // Reset preview state (native controls are off).
     try {
@@ -1656,14 +1704,64 @@ export default function CropToolPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {mediaSize && (
                     <>
+                      <div className="sm:col-span-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="text-sm text-gray-300" htmlFor="crop-zoom">
+                            Zoom
+                          </label>
+                          <span className="text-sm text-gray-400 tabular-nums">{cropZoom.toFixed(1)}×</span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <button
+                            type="button"
+                            aria-label="Zoom out"
+                            disabled={cropZoom <= CROP_ZOOM_MIN}
+                            onClick={() => applyCropZoom(cropZoom - CROP_ZOOM_STEP)}
+                            className="shrink-0 rounded border border-tank-light bg-tank-gray px-2 py-1 text-white disabled:opacity-40"
+                          >
+                            −
+                          </button>
+                          <input
+                            id="crop-zoom"
+                            type="range"
+                            min={CROP_ZOOM_MIN}
+                            max={CROP_ZOOM_MAX}
+                            step={CROP_ZOOM_STEP}
+                            value={cropZoom}
+                            onChange={(e) => applyCropZoom(Number(e.target.value))}
+                            className="min-w-0 flex-1 accent-emerald-500"
+                          />
+                          <button
+                            type="button"
+                            aria-label="Zoom in"
+                            disabled={cropZoom >= CROP_ZOOM_MAX}
+                            onClick={() => applyCropZoom(cropZoom + CROP_ZOOM_STEP)}
+                            className="shrink-0 rounded border border-tank-light bg-tank-gray px-2 py-1 text-white disabled:opacity-40"
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            disabled={cropZoom <= CROP_ZOOM_MIN}
+                            onClick={() => applyCropZoom(CROP_ZOOM_MIN)}
+                            className="shrink-0 rounded border border-tank-light bg-tank-gray px-2 py-1 text-xs text-gray-300 disabled:opacity-40"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          1× is your current frame. Higher zoom tightens the crop; drag the green box to pan.
+                        </p>
+                      </div>
                       <div>
                         <label className="text-sm text-gray-300">Top</label>
                         <input
                           type="number"
                           value={cropInsets.top}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setCropZoom(CROP_ZOOM_MIN)
                             setCropInsets((p) => ({ ...p, top: Number(e.target.value) || 0 }))
-                          }
+                          }}
                           className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
                         />
                       </div>
@@ -1672,9 +1770,10 @@ export default function CropToolPage() {
                         <input
                           type="number"
                           value={cropInsets.bottom}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setCropZoom(CROP_ZOOM_MIN)
                             setCropInsets((p) => ({ ...p, bottom: Number(e.target.value) || 0 }))
-                          }
+                          }}
                           className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
                         />
                       </div>
@@ -1683,9 +1782,10 @@ export default function CropToolPage() {
                         <input
                           type="number"
                           value={cropInsets.left}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setCropZoom(CROP_ZOOM_MIN)
                             setCropInsets((p) => ({ ...p, left: Number(e.target.value) || 0 }))
-                          }
+                          }}
                           className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
                         />
                       </div>
@@ -1694,9 +1794,10 @@ export default function CropToolPage() {
                         <input
                           type="number"
                           value={cropInsets.right}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setCropZoom(CROP_ZOOM_MIN)
                             setCropInsets((p) => ({ ...p, right: Number(e.target.value) || 0 }))
-                          }
+                          }}
                           className="mt-1 w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded"
                         />
                       </div>
