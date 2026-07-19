@@ -9,6 +9,11 @@ import LiveChat from '@/components/LiveChat'
 import MarketingPopup from '@/components/MarketingPopup'
 import { getHomeFeed, saveHomeFeed } from '@/lib/homePrefetchCache'
 import { getNativePlatform } from '@/lib/nativeShellBoot'
+import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
+import { useFeedGridAutoTranslation } from '@/hooks/useFeedGridAutoTranslation'
+import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
+import { useUiLocale } from '@/hooks/useUiLocale'
+import { homeHeroInterpolate, homeHeroT, type HomeHeroKey } from '@/messages/homeHero'
 
 interface Media {
   id: string
@@ -71,6 +76,24 @@ interface HomeScrollState {
 
 function HomeContent() {
   const searchParams = useSearchParams()
+  const { localeTag } = useUiLocale()
+  const feedAutoTranslation = useFeedGridAutoTranslation()
+  const { mode: feedCardTextMode } = useFeedCardTextMode()
+  const { bundledTag, guestLocal, ensureGuestGeoLoaded } =
+    useGuestFeedLocalTargets(feedAutoTranslation)
+  useEffect(() => {
+    if (guestLocal) void ensureGuestGeoLoaded()
+  }, [guestLocal, ensureGuestGeoLoaded])
+
+  const chromeLocaleTag = useMemo(() => {
+    if (!feedAutoTranslation) return localeTag
+    return feedCardTextMode === 'original' ? 'en' : bundledTag
+  }, [bundledTag, feedAutoTranslation, feedCardTextMode, localeTag])
+
+  const tHero = useCallback(
+    (key: HomeHeroKey) => homeHeroT(chromeLocaleTag, key),
+    [chromeLocaleTag]
+  )
 
 
   // Read cached feed synchronously so the very first render shows content (not skeleton).
@@ -902,7 +925,7 @@ function HomeContent() {
               <span className="text-gradient">AI Media Tank (AiM)</span>
             </h1>
             <p className="text-gray-300 text-[13px] md:text-sm italic">
-              Community for AI and Real Contents Creators and Digital Enthusiasts
+              {tHero('slogan')}
             </p>
           </div>
         </div>
@@ -917,7 +940,7 @@ function HomeContent() {
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
               onFocus={() => search.length >= 2 && setShowSuggestions(true)}
-              placeholder="Search media or @username..."
+              placeholder={tHero('searchPlaceholder')}
               className="w-full pl-4 pr-24 py-2.5 bg-tank-gray border border-tank-light rounded-lg focus:border-tank-accent"
               autoComplete="off"
             />
@@ -925,7 +948,7 @@ function HomeContent() {
               type="submit"
               className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-tank-accent text-tank-black font-semibold rounded-md text-sm"
             >
-              Search
+              {tHero('search')}
             </button>
           </form>
           
@@ -935,12 +958,12 @@ function HomeContent() {
               {loadingSuggestions ? (
                 <div className="px-4 py-3 text-gray-400 text-sm flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-gray-500 border-t-tank-accent rounded-full animate-spin" />
-                  Searching...
+                  {tHero('searching')}
                 </div>
               ) : userSuggestions.length > 0 ? (
                 /* User Suggestions for @username search */
                 <div className="max-h-80 overflow-y-auto">
-                  <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-tank-light">Users</div>
+                  <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-tank-light">{tHero('users')}</div>
                   {userSuggestions.map((user) => (
                     <button
                       key={user.id}
@@ -967,7 +990,7 @@ function HomeContent() {
                           <span className="text-xs text-gray-500">{user.name}</span>
                         )}
                       </div>
-                      <span className="text-xs text-gray-500">View profile →</span>
+                      <span className="text-xs text-gray-500">{tHero('viewProfile')}</span>
                     </button>
                   ))}
                 </div>
@@ -1012,7 +1035,7 @@ function HomeContent() {
                 </div>
               ) : (
                 <div className="px-4 py-3 text-gray-500 text-sm">
-                  No results found for &quot;{search}&quot;
+                  {homeHeroInterpolate(tHero('noResults'), { query: search })}
                 </div>
               )}
             </div>
@@ -1021,17 +1044,17 @@ function HomeContent() {
 
         {/* Right: Sort Options */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <label htmlFor="sort-select" className="text-sm text-gray-300 whitespace-nowrap">Sort by:</label>
+          <label htmlFor="sort-select" className="text-sm text-gray-300 whitespace-nowrap">{tHero('sortBy')}</label>
           <select
             id="sort-select"
             value={sort}
             onChange={(e) => handleSortChange(e.target.value)}
             className="bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-sm min-w-[130px]"
-            aria-label="Sort media by"
+            aria-label={tHero('sortAria')}
           >
-            <option value="popular">Most Popular</option>
-            <option value="recent">Most Recent</option>
-            <option value="random">Random</option>
+            <option value="popular">{tHero('mostPopular')}</option>
+            <option value="recent">{tHero('mostRecent')}</option>
+            <option value="random">{tHero('random')}</option>
           </select>
         </div>
       </div>
@@ -1040,7 +1063,7 @@ function HomeContent() {
       {search && (search.startsWith('#') || search.startsWith('@')) && (
         <div className="flex items-center gap-2 mb-4">
           <span className="text-gray-400">
-            {search.startsWith('@') ? 'Showing content from:' : 'Showing results for:'}
+            {search.startsWith('@') ? tHero('showingFrom') : tHero('showingResults')}
           </span>
           <span className={`px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2 ${
             search.startsWith('@') ? 'bg-yellow-500/20 text-yellow-400' : 'bg-cyan-500/20 text-cyan-400'
@@ -1052,7 +1075,7 @@ function HomeContent() {
                 window.history.pushState({}, '', '/')
               }}
               className="hover:text-white"
-              title="Clear search"
+              title={tHero('clearSearch')}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

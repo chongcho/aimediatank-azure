@@ -16,6 +16,8 @@ import { useUiLocale } from '@/hooks/useUiLocale'
 import { useAppUpdate } from '@/hooks/useAppUpdate'
 import { OPEN_TALK_CHAT_EVENT } from '@/lib/talkChatOpen'
 import { VoiceCallProvider } from '@/contexts/VoiceCallContext'
+import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
+import { navBarT, type NavBarKey } from '@/messages/navBar'
 
 // Dynamic import TalkChat to prevent SSR issues
 const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
@@ -51,11 +53,26 @@ function NavbarContent() {
   const router = useRouter()
   const { data: session, status, update: updateSession } = useSession()
   const [restoreLoading, setRestoreLoading] = useState(false)
-  const { tNavbar: t, tFeed } = useUiLocale()
+  const { localeTag, tNavbar: t } = useUiLocale()
   const { version, updateAvailable, isUpdating, applyUpdate, checkForUpdate } = useAppUpdate()
   const feedAutoTranslation = useFeedGridAutoTranslation()
   const { mode: feedCardTextMode, setMode: setFeedCardTextMode } = useFeedCardTextMode()
-  const { mtTag, ensureGuestGeoLoaded } = useGuestFeedLocalTargets(feedAutoTranslation)
+  const { bundledTag, mtTag, ensureGuestGeoLoaded } = useGuestFeedLocalTargets(feedAutoTranslation)
+
+  /** Filter links follow language mode; Talk/Chat/Post stay English via `t` (tNavbar). */
+  const chromeLocaleTag = useMemo(() => {
+    if (!feedAutoTranslation) return localeTag
+    return feedCardTextMode === 'original' ? 'en' : bundledTag
+  }, [bundledTag, feedAutoTranslation, feedCardTextMode, localeTag])
+
+  const tNavLink = useCallback(
+    (key: NavBarKey) => navBarT(chromeLocaleTag, key),
+    [chromeLocaleTag]
+  )
+  const tFeed = useCallback(
+    (key: FeedCardKey, vars?: Record<string, string>) => feedCardT(chromeLocaleTag, key, vars),
+    [chromeLocaleTag]
+  )
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isAlertsOpen, setIsAlertsOpen] = useState(false)
@@ -744,11 +761,11 @@ function NavbarContent() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
-            {isNavbarItemEnabled('all') && <NavLink href="/">{t('all')}</NavLink>}
-            {isNavbarItemEnabled('videos') && <NavLink href="/?type=VIDEO">{t('videos')}</NavLink>}
-            {isNavbarItemEnabled('images') && <NavLink href="/?type=IMAGE">{t('images')}</NavLink>}
-            {isNavbarItemEnabled('about') && <NavLink href="/about">{t('about')}</NavLink>}
-            {isNavbarItemEnabled('play') && <NavLink href="/game">{t('play')}</NavLink>}
+            {isNavbarItemEnabled('all') && <NavLink href="/">{tNavLink('all')}</NavLink>}
+            {isNavbarItemEnabled('videos') && <NavLink href="/?type=VIDEO">{tNavLink('videos')}</NavLink>}
+            {isNavbarItemEnabled('images') && <NavLink href="/?type=IMAGE">{tNavLink('images')}</NavLink>}
+            {isNavbarItemEnabled('about') && <NavLink href="/about">{tNavLink('about')}</NavLink>}
+            {isNavbarItemEnabled('play') && <NavLink href="/game">{tNavLink('play')}</NavLink>}
           </div>
 
           {/* Right Side */}
@@ -1083,19 +1100,19 @@ function NavbarContent() {
           <div ref={mobileMenuRef} className="md:hidden py-1 border-t border-tank-light">
             <div className="flex flex-col gap-[1px] items-end">
               {isNavbarItemEnabled('all') && (
-                <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>{t('all')}</MobileNavLink>
+                <MobileNavLink href="/" onClick={() => setIsMenuOpen(false)}>{tNavLink('all')}</MobileNavLink>
               )}
               {isNavbarItemEnabled('videos') && (
-                <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>{t('videos')}</MobileNavLink>
+                <MobileNavLink href="/?type=VIDEO" onClick={() => setIsMenuOpen(false)}>{tNavLink('videos')}</MobileNavLink>
               )}
               {isNavbarItemEnabled('images') && (
-                <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>{t('images')}</MobileNavLink>
+                <MobileNavLink href="/?type=IMAGE" onClick={() => setIsMenuOpen(false)}>{tNavLink('images')}</MobileNavLink>
               )}
               {isNavbarItemEnabled('about') && (
-                <MobileNavLink href="/about" onClick={() => setIsMenuOpen(false)}>{t('about')}</MobileNavLink>
+                <MobileNavLink href="/about" onClick={() => setIsMenuOpen(false)}>{tNavLink('about')}</MobileNavLink>
               )}
               {isNavbarItemEnabled('play') && (
-                <MobileNavLink href="/game" onClick={() => setIsMenuOpen(false)}>{t('play')}</MobileNavLink>
+                <MobileNavLink href="/game" onClick={() => setIsMenuOpen(false)}>{tNavLink('play')}</MobileNavLink>
               )}
             </div>
           </div>
