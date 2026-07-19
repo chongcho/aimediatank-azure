@@ -207,6 +207,44 @@ const RU: Pack = {
   clearSearch: 'Очистить поиск',
 }
 
+const AR: Pack = {
+  ...EN,
+  slogan: 'مجتمع لصنّاع محتوى الذكاء الاصطناعي والواقعي وعشاق الرقمي',
+  searchPlaceholder: 'ابحث عن وسائط أو @اسم_المستخدم...',
+  search: 'بحث',
+  searching: 'جارٍ البحث...',
+  users: 'المستخدمون',
+  viewProfile: 'عرض الملف →',
+  noResults: 'لا توجد نتائج لـ "{query}"',
+  sortBy: 'ترتيب حسب:',
+  sortAria: 'ترتيب الوسائط',
+  mostPopular: 'الأكثر شعبية',
+  mostRecent: 'الأحدث',
+  random: 'عشوائي',
+  showingFrom: 'عرض المحتوى من:',
+  showingResults: 'نتائج البحث عن:',
+  clearSearch: 'مسح البحث',
+}
+
+const HI: Pack = {
+  ...EN,
+  slogan: 'AI और वास्तविक सामग्री रचनाकारों तथा डिजिटल उत्साही लोगों का समुदाय',
+  searchPlaceholder: 'मीडिया या @उपयोगकर्ता खोजें...',
+  search: 'खोजें',
+  searching: 'खोज हो रही है...',
+  users: 'उपयोगकर्ता',
+  viewProfile: 'प्रोफ़ाइल देखें →',
+  noResults: '"{query}" के लिए कोई परिणाम नहीं',
+  sortBy: 'क्रमबद्ध करें:',
+  sortAria: 'मीडिया क्रमबद्ध करें',
+  mostPopular: 'सबसे लोकप्रिय',
+  mostRecent: 'सबसे हालिया',
+  random: 'रैंडम',
+  showingFrom: 'सामग्री इनसे:',
+  showingResults: 'परिणाम इसके लिए:',
+  clearSearch: 'खोज साफ़ करें',
+}
+
 const MESSAGES: Record<string, Pack> = {
   en: EN,
   ko: KO,
@@ -218,6 +256,8 @@ const MESSAGES: Record<string, Pack> = {
   pt: PT,
   it: IT,
   ru: RU,
+  ar: AR,
+  hi: HI,
 }
 
 export function homeHeroT(localeTag: string | undefined, key: HomeHeroKey): string {

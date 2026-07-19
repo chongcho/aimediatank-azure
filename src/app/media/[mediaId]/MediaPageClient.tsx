@@ -1089,7 +1089,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             <div className="mt-6 w-full border-t border-tank-light/20 pt-6 space-y-4">
               {displayDescriptionSource && (
                 <section className="space-y-2">
-                  <h3 className="text-sm font-semibold text-white/90">Description</h3>
+                  <h3 className="text-sm font-semibold text-white/90">{tMedia('description')}</h3>
                   <p className="text-gray-300 whitespace-pre-wrap break-words">
                     {displayDescriptionSource}
                   </p>
