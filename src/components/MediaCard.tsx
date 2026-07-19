@@ -1283,7 +1283,7 @@ export default function MediaCard({
                 {renderCommentNickname(c.username)}
                 <TranslatedPlaintext
                   text={c.content}
-                  translateEnabled={autoTranslationEffective}
+                  translateEnabled={thumbnailTranslateEnabled}
                   mtLocaleTagOverride={mtTag}
                 />
               </span>
@@ -1295,7 +1295,7 @@ export default function MediaCard({
                 <TranslatedPlaintext
                   as="span"
                   text={c.content}
-                  translateEnabled={autoTranslationEffective}
+                  translateEnabled={thumbnailTranslateEnabled}
                   mtLocaleTagOverride={mtTag}
                 />
               </span>

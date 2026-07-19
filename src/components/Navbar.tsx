@@ -339,11 +339,13 @@ function NavbarContent() {
   const displayName = userData?.username || session?.user?.username || 'User'
 
   const localeBadgeCode = useMemo(() => {
+    // Original mode mirrors feed chrome: show EN; Local shows the MT locale (e.g. KO).
+    if (feedCardTextMode === 'original') return 'EN'
     const raw = (mtTag || 'en').trim() || 'en'
     const base = raw.split(/[-_]/)[0] || raw
     const two = base.slice(0, 2).toUpperCase()
     return two.length === 2 ? two : 'EN'
-  }, [mtTag])
+  }, [feedCardTextMode, mtTag])
 
   const updateFeedTextMenuPosition = useCallback(() => {
     const el = feedTextTriggerRef.current

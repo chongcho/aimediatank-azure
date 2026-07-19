@@ -20,6 +20,7 @@ import {
   resetMediaDetailSettingsCache,
 } from '@/lib/mediaDetailSettingsClient'
 import { TranslatedPlaintext } from '@/components/TranslatedPlaintext'
+import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
@@ -80,6 +81,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const { data: session } = useSession()
   const { localeTag, tMedia } = useUiLocale()
   const autoTranslationEnabled = useAutoTranslationEnabled()
+  const { mode: feedCardTextMode } = useFeedCardTextMode()
+  const localTranslateEnabled = autoTranslationEnabled && feedCardTextMode === 'local'
   const { mtTag, guestLocal, ensureGuestGeoLoaded } = useGuestFeedLocalTargets(autoTranslationEnabled)
   useEffect(() => {
     if (guestLocal) void ensureGuestGeoLoaded()
@@ -177,8 +180,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   }, [router])
 
   // Optional machine translation for title + body (`/api/translate/text`; MyMemory by default).
+  // Same rules as feed cards: only when auto-translation is on and navbar mode is Local.
   useEffect(() => {
-    if (!autoTranslationEnabled) {
+    if (!localTranslateEnabled) {
       setI18nMedia(null)
       return
     }
@@ -223,7 +227,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     return () => {
       cancelled = true
     }
-  }, [autoTranslationEnabled, media?.id, media?.title, media?.description, mtTag])
+  }, [localTranslateEnabled, media?.id, media?.title, media?.description, mtTag])
 
   // Persist immediately so a fast Back still sees updated counts; merge is cheap (runs only when views/id change).
   useLayoutEffect(() => {
@@ -1090,7 +1094,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                           <TranslatedPlaintext
                             as="span"
                             text={c.content}
-                            translateEnabled={autoTranslationEnabled}
+                            translateEnabled={localTranslateEnabled}
                             mtLocaleTagOverride={mtTag}
                           />
                         </span>
