@@ -20,7 +20,7 @@ const plans = [
       'Sell contents',
       '5 free uploads',
     ],
-    buttonText: 'Buy Plan',
+                buttonText: 'Buy/Change Plan',
     isFree: true,
   },
   {
@@ -39,7 +39,7 @@ const plans = [
       '5 free uploads',
       '$1 per upload after',
     ],
-    buttonText: 'Buy Plan',
+    buttonText: 'Buy/Change Plan',
   },
   {
     id: 'advanced',
@@ -57,7 +57,7 @@ const plans = [
       '5 free uploads',
       '$0.5 per upload after',
     ],
-    buttonText: 'Buy Plan',
+    buttonText: 'Buy/Change Plan',
   },
   {
     id: 'premium',
@@ -74,7 +74,7 @@ const plans = [
       'Sell contents',
       'Unlimited free uploads',
     ],
-    buttonText: 'Buy Plan',
+    buttonText: 'Buy/Change Plan',
   },
 ]
 
@@ -421,7 +421,7 @@ function PricingPageContent() {
                 disabled={loading !== null || isCurrentPlan(plan.id) || plan.isFree}
                 className={`w-full py-3 rounded-xl font-semibold transition-all ${
                   isCurrentPlan(plan.id)
-                    ? 'bg-gradient-to-r from-tank-accent/20 to-emerald-500/20 text-tank-accent border-2 border-tank-accent cursor-not-allowed'
+                    ? 'bg-tank-gray border-2 border-tank-light text-tank-accent cursor-not-allowed'
                     : plan.isFree
                     ? 'bg-tank-gray border-2 border-tank-light text-gray-400 cursor-default'
                     : 'bg-tank-gray border-2 border-tank-light text-white hover:bg-tank-light hover:border-tank-accent/50'
@@ -440,7 +440,7 @@ function PricingPageContent() {
                     Current Plan
                   </span>
                 ) : (
-                  'Buy Plan'
+                  plan.buttonText
                 )}
               </button>
             </div>
