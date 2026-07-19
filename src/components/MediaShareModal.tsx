@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
+import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
+import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
+import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
-import { mediaPageInterpolate } from '@/messages/mediaPage'
+import { mediaPageInterpolate, mediaPageT, type MediaPageKey } from '@/messages/mediaPage'
 
 const KAKAO_SHARE_TEXT_MAX = 200
 /** Feed cards truncate description in KakaoTalk; use text template above this length. */
@@ -70,7 +73,18 @@ export default function MediaShareModal({
   onCopyStatusChange,
   className = 'z-[100]',
 }: MediaShareModalProps) {
-  const { tMedia } = useUiLocale()
+  const { localeTag } = useUiLocale()
+  const autoTranslationEnabled = useAutoTranslationEnabled()
+  const { mode: feedCardTextMode } = useFeedCardTextMode()
+  const { bundledTag } = useGuestFeedLocalTargets(autoTranslationEnabled)
+  const chromeLocaleTag = useMemo(() => {
+    if (!autoTranslationEnabled) return localeTag
+    return feedCardTextMode === 'original' ? 'en' : bundledTag
+  }, [autoTranslationEnabled, bundledTag, feedCardTextMode, localeTag])
+  const tMedia = useCallback(
+    (key: MediaPageKey) => mediaPageT(chromeLocaleTag, key),
+    [chromeLocaleTag]
+  )
   const kakaoJsKey = useKakaoJsKey()
   const [portalMounted, setPortalMounted] = useState(false)
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')

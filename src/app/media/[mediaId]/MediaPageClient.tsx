@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -25,7 +25,12 @@ import { useUiLocale } from '@/hooks/useUiLocale'
 import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useAdminContentElevation } from '@/hooks/useAdminContentElevation'
-import { formatMediaViewsLabel, mediaPageInterpolate } from '@/messages/mediaPage'
+import {
+  formatMediaViewsLabel,
+  mediaPageInterpolate,
+  mediaPageT,
+  type MediaPageKey,
+} from '@/messages/mediaPage'
 
 interface MediaDetail {
   id: string
@@ -79,14 +84,26 @@ interface MediaDetail {
 
 export default function MediaPageClient({ mediaId, intercepted = false }: { mediaId: string; intercepted?: boolean }) {
   const { data: session } = useSession()
-  const { localeTag, tMedia } = useUiLocale()
+  const { localeTag } = useUiLocale()
   const autoTranslationEnabled = useAutoTranslationEnabled()
   const { mode: feedCardTextMode } = useFeedCardTextMode()
   const localTranslateEnabled = autoTranslationEnabled && feedCardTextMode === 'local'
-  const { mtTag, guestLocal, ensureGuestGeoLoaded } = useGuestFeedLocalTargets(autoTranslationEnabled)
+  const { bundledTag, mtTag, guestLocal, ensureGuestGeoLoaded } =
+    useGuestFeedLocalTargets(autoTranslationEnabled)
   useEffect(() => {
     if (guestLocal) void ensureGuestGeoLoaded()
   }, [guestLocal, ensureGuestGeoLoaded])
+
+  /** Same as feed cards: Original → English chrome; Local → bundled UI locale. */
+  const chromeLocaleTag = useMemo(() => {
+    if (!autoTranslationEnabled) return localeTag
+    return feedCardTextMode === 'original' ? 'en' : bundledTag
+  }, [autoTranslationEnabled, bundledTag, feedCardTextMode, localeTag])
+
+  const tMedia = useCallback(
+    (key: MediaPageKey) => mediaPageT(chromeLocaleTag, key),
+    [chromeLocaleTag]
+  )
   const router = useRouter()
   const [media, setMedia] = useState<MediaDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -596,7 +613,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString(calendarLocaleFromUiTag(localeTag), {
+    return new Date(dateString).toLocaleDateString(calendarLocaleFromUiTag(chromeLocaleTag), {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -911,7 +928,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
-                  <span>{formatMediaViewsLabel(media.views, localeTag)}</span>
+                  <span>{formatMediaViewsLabel(media.views, chromeLocaleTag)}</span>
                 </div>
 
                 {/* Reactions (like only) — icon sizing matches MediaCard; count text matches views row */}
