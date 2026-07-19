@@ -15,7 +15,7 @@ const COUNTRY_TO_UI_TAG: Record<string, string> = {
   'New Zealand': 'en',
   Ireland: 'en',
   Singapore: 'en',
-  Philippines: 'en',
+  Philippines: 'fil',
   India: 'hi',
   Nigeria: 'en',
   'South Africa': 'en',
@@ -80,6 +80,7 @@ const SUPPORTED = new Set([
   'he',
   'ar',
   'hi',
+  'fil',
   'th',
   'vi',
   'id',
@@ -98,7 +99,9 @@ export function localeTagFromUserLocation(location: string | null | undefined): 
 /** Map navigator.language (e.g. fr-CA) to a supported UI tag for guests. */
 export function localeTagFromBrowserLang(browserLang: string | null | undefined): string {
   if (!browserLang) return 'en'
-  const primary = browserLang.split('-')[0]?.toLowerCase()
+  let primary = browserLang.split('-')[0]?.toLowerCase()
+  // Tagalog browsers often report `tl`; use Filipino UI pack.
+  if (primary === 'tl') primary = 'fil'
   if (primary && SUPPORTED.has(primary)) return primary
   return 'en'
 }
