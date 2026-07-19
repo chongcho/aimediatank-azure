@@ -378,7 +378,7 @@ function PricingPageContent() {
         {plans.map((plan) => (
           <div
             key={plan.id}
-            className="relative bg-tank-gray rounded-2xl border border-tank-light hover:border-tank-accent/50 transition-all"
+            className="relative bg-tank-gray rounded-2xl border-2 border-gray-500 hover:border-tank-accent/50 transition-all"
           >
             <div className="p-6 text-center">
               <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
