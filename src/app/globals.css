@@ -6,6 +6,10 @@
 
 :root {
   --font-outfit: 'Outfit', system-ui, sans-serif;
+  /* Navbar row height (h-16). Safe-area / Android status pad added per platform below. */
+  --app-navbar-height: 4rem;
+  --app-chrome-top: var(--app-navbar-height);
+  --talkchat-mobile-top: calc(4rem + env(safe-area-inset-top, 0px));
 }
 
 * {
@@ -39,8 +43,21 @@ body {
   text-size-adjust: 100%;
 }
 
+/*
+ * Soft-nav / intercepted routes use position:fixed full-viewport shells.
+ * Pad below system status + navbar so titles/forms are not hidden under chrome.
+ */
+.intercepted-page-shell {
+  padding-top: var(--app-chrome-top);
+  box-sizing: border-box;
+}
+
 /* PWA standalone mode - add black safe area padding */
 @media all and (display-mode: standalone) {
+  :root {
+    --app-chrome-top: calc(var(--app-navbar-height) + env(safe-area-inset-top, 0px));
+  }
+
   html {
     background: #000000;
   }
@@ -53,7 +70,7 @@ body {
     min-height: -webkit-fill-available;
   }
   
-  /* Black background for safe area at top - low z-index so popups work */
+  /* Black background for safe area at top — above page shells, below navbar */
   body::before {
     content: '';
     position: fixed;
@@ -62,11 +79,11 @@ body {
     right: 0;
     height: env(safe-area-inset-top, 0px);
     background: #000000;
-    z-index: 40;
+    z-index: 100005;
     pointer-events: none;
   }
   
-  /* Black background for safe area at bottom - low z-index so popups work */
+  /* Black background for safe area at bottom */
   body::after {
     content: '';
     position: fixed;
@@ -75,7 +92,7 @@ body {
     right: 0;
     height: env(safe-area-inset-bottom, 0px);
     background: #000000;
-    z-index: 40;
+    z-index: 100005;
     pointer-events: none;
   }
   
@@ -96,6 +113,9 @@ html.capacitor-native {
   --app-safe-top-fallback: env(safe-area-inset-top, 0px);
   --app-safe-bottom-fallback: env(safe-area-inset-bottom, 0px);
   --android-navbar-top-pad: 0px;
+  --app-chrome-top: calc(
+    var(--app-navbar-height) + var(--app-safe-top, var(--app-safe-top-fallback, 0px))
+  );
 }
 
 html.capacitor-native body {
@@ -113,7 +133,7 @@ html.capacitor-native body::before {
   right: 0;
   height: var(--app-safe-top, var(--app-safe-top-fallback));
   background: #000000;
-  z-index: 40;
+  z-index: 100005;
   pointer-events: none;
 }
 
@@ -125,7 +145,7 @@ html.capacitor-native body::after {
   right: 0;
   height: var(--app-safe-bottom, var(--app-safe-bottom-fallback));
   background: #000000;
-  z-index: 40;
+  z-index: 100005;
   pointer-events: none;
 }
 
@@ -133,6 +153,11 @@ html.capacitor-native .pwa-navbar {
   top: var(--app-safe-top, var(--app-safe-top-fallback)) !important;
   z-index: 100010 !important;
   pointer-events: auto;
+  /* Match Android: opaque black chrome under system icons / above content */
+  background-color: #000000 !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 html.capacitor-native main.pt-16 {
@@ -175,15 +200,12 @@ html.capacitor-native.android main.pt-16 {
 
 html.capacitor-native.android {
   --android-navbar-top-pad: 30px;
+  --app-chrome-top: calc(var(--app-navbar-height) + var(--android-navbar-top-pad, 30px));
   --talkchat-mobile-top: calc(4rem + var(--android-navbar-top-pad, 30px));
 }
 
 html.capacitor-native.ios {
   --talkchat-mobile-top: calc(4rem + var(--app-safe-top, var(--app-safe-top-fallback, 0px)));
-}
-
-:root {
-  --talkchat-mobile-top: calc(4rem + env(safe-area-inset-top, 0px));
 }
 
 /* Android native home screen layout */

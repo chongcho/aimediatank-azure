@@ -12,7 +12,7 @@ export default function InterceptedPageWrapper({ children }: { children: React.R
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-tank-black overflow-y-auto"
+      className="intercepted-page-shell fixed inset-0 z-[60] bg-black overflow-y-auto"
       data-initial-content
     >
       <Suspense>{children}</Suspense>
