@@ -375,10 +375,16 @@ function PricingPageContent() {
 
       {/* Pricing Cards */}
       <div className="grid md:grid-cols-4 gap-6">
-        {plans.map((plan) => (
+        {plans.map((plan) => {
+          const current = isCurrentPlan(plan.id)
+          return (
           <div
             key={plan.id}
-            className="relative bg-tank-gray rounded-2xl border-2 border-gray-500 hover:border-tank-accent/50 transition-all"
+            className={`relative bg-tank-gray rounded-2xl border-2 transition-all ${
+              current
+                ? 'border-tank-accent'
+                : 'border-gray-500 hover:border-gray-400'
+            }`}
           >
             <div className="p-6 text-center">
               <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
@@ -400,11 +406,9 @@ function PricingPageContent() {
               )}
               {plan.isFree && <p className="text-gray-500 text-sm mb-4">&nbsp;</p>}
 
-              {/* Upload cost highlight */}
+              {/* Upload cost */}
               <div className="mb-6 py-3 border-t border-b border-tank-light">
-                <span className={`text-sm font-semibold ${
-                  plan.id === 'premium' || plan.id === 'viewer' ? 'text-tank-accent' : 'text-white'
-                }`}>
+                <span className={`text-sm font-semibold ${current ? 'text-tank-accent' : 'text-white'}`}>
                   {plan.uploadCost}
                 </span>
               </div>
@@ -418,13 +422,13 @@ function PricingPageContent() {
               {/* Button */}
               <button
                 onClick={() => handleBuyPlanClick(plan)}
-                disabled={loading !== null || isCurrentPlan(plan.id) || plan.isFree}
+                disabled={loading !== null || current || plan.isFree}
                 className={`w-full py-3 rounded-xl font-semibold transition-all ${
-                  isCurrentPlan(plan.id)
-                    ? 'bg-tank-gray border-2 border-tank-light text-tank-accent cursor-not-allowed'
+                  current
+                    ? 'bg-tank-gray border-2 border-tank-accent text-tank-accent cursor-not-allowed'
                     : plan.isFree
                     ? 'bg-tank-gray border-2 border-tank-light text-gray-400 cursor-default'
-                    : 'bg-tank-gray border-2 border-tank-light text-white hover:bg-tank-light hover:border-tank-accent/50'
+                    : 'bg-tank-gray border-2 border-tank-light text-white hover:bg-tank-light hover:border-gray-400'
                 }`}
               >
                 {loading === plan.id ? (
@@ -432,7 +436,7 @@ function PricingPageContent() {
                     <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                     Processing...
                   </span>
-                ) : isCurrentPlan(plan.id) ? (
+                ) : current ? (
                   <span className="flex items-center justify-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -445,7 +449,8 @@ function PricingPageContent() {
               </button>
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Comparison Table */}
@@ -456,61 +461,67 @@ function PricingPageContent() {
             <thead>
               <tr className="border-b border-tank-light">
                 <th className="text-left py-4 px-4 font-semibold">Feature</th>
-                <th className="text-center py-4 px-4 font-semibold">Viewer</th>
-                <th className="text-center py-4 px-4 font-semibold">Basic</th>
-                <th className="text-center py-4 px-4 font-semibold">Advanced</th>
-                <th className="text-center py-4 px-4 font-semibold text-tank-accent">Premium</th>
+                {(['viewer', 'basic', 'advanced', 'premium'] as const).map((planId) => (
+                  <th
+                    key={planId}
+                    className={`text-center py-4 px-4 font-semibold capitalize ${
+                      isCurrentPlan(planId) ? 'text-tank-accent' : 'text-white'
+                    }`}
+                  >
+                    {planId === 'viewer' ? 'Viewer' : planId.charAt(0).toUpperCase() + planId.slice(1)}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">Monthly Price</td>
-                <td className="py-4 px-4 text-center">Free</td>
-                <td className="py-4 px-4 text-center">$2/month</td>
-                <td className="py-4 px-4 text-center">$5/month</td>
-                <td className="py-4 px-4 text-center">$8/month</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : ''}`}>Free</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>$2/month</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>$5/month</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>$8/month</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">Yearly Price</td>
-                <td className="py-4 px-4 text-center">Free</td>
-                <td className="py-4 px-4 text-center">$20/year</td>
-                <td className="py-4 px-4 text-center">$50/year</td>
-                <td className="py-4 px-4 text-center">$80/year</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : ''}`}>Free</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>$20/year</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>$50/year</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>$80/year</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">Free Uploads</td>
-                <td className="py-4 px-4 text-center">5 uploads</td>
-                <td className="py-4 px-4 text-center">5 uploads</td>
-                <td className="py-4 px-4 text-center">5 uploads</td>
-                <td className="py-4 px-4 text-center text-tank-accent">Unlimited</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : ''}`}>5 uploads</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>5 uploads</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>5 uploads</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>Unlimited</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">After Free Uploads</td>
-                <td className="py-4 px-4 text-center text-gray-500">—</td>
-                <td className="py-4 px-4 text-center">$1 per upload</td>
-                <td className="py-4 px-4 text-center">$0.5 per upload</td>
-                <td className="py-4 px-4 text-center text-tank-accent">Free</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : 'text-gray-500'}`}>—</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>$1 per upload</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>$0.5 per upload</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>Free</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">View Contents</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">Buy Contents</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">Sell Contents</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
-                <td className="py-4 px-4 text-center text-tank-accent">✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
+                <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
               </tr>
             </tbody>
           </table>

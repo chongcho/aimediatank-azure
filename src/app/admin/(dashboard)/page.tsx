@@ -8,6 +8,10 @@ import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
 import { parseIpDebugHeaders } from '@/lib/ipDebugHeaders'
 import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX } from '@/lib/uploadPlanConfig'
 import MarketingPopupView from '@/components/MarketingPopupView'
+import {
+  goToAdminReauth,
+  isAdminReauthRequiredResponse,
+} from '@/lib/adminPanelNav'
 const RUNTIME_RISK_FLAG_LABELS: Record<string, string> = {
   TRAFFIC_BURST_IP: 'High request burst from IP in last 10 minutes',
   TRAFFIC_BURST_IP_HIGH: 'Very high request burst from IP in last 10 minutes',
@@ -790,6 +794,41 @@ export default function AdminPage() {
     }
   }, [status, session, router])
 
+  // When Step 2 elevation expires (30 min), leave the client shell and force reauth.
+  // Soft navigations / silent 403s otherwise make Admin Panel feel "dead" (clicks do nothing).
+  useEffect(() => {
+    if (!isAppAdminRole(session?.user?.role)) return
+
+    let cancelled = false
+    const checkElevation = () => {
+      void fetch('/api/admin/verify-access', { credentials: 'include', cache: 'no-store' })
+        .then(async (res) => {
+          const data = (await res.json().catch(() => ({}))) as { panelElevated?: boolean }
+          if (cancelled) return
+          if (res.ok && data.panelElevated === false) {
+            goToAdminReauth()
+          }
+        })
+        .catch(() => {})
+    }
+
+    checkElevation()
+    const onFocus = () => checkElevation()
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') checkElevation()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+    const intervalId = window.setInterval(checkElevation, 60_000)
+
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.clearInterval(intervalId)
+    }
+  }, [session?.user?.role])
+
   // Debounce user search
   useEffect(() => {
     if (userSearchTimer.current) clearTimeout(userSearchTimer.current)
@@ -868,22 +907,35 @@ export default function AdminPage() {
     }
   }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsSearchDebounced, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter, alAbnormalOnly, alPrivateIpOnly, alIpDebugOnly])
 
+  const adminFetch = async (input: string, init?: RequestInit): Promise<Response> => {
+    const res = await fetch(input, init)
+    if (res.status === 403) {
+      const body = (await res.clone().json().catch(() => ({}))) as { error?: string; code?: string }
+      if (isAdminReauthRequiredResponse(res, body)) {
+        goToAdminReauth()
+        // Hang until unload so callers don't flash error alerts during redirect.
+        return new Promise(() => {})
+      }
+    }
+    return res
+  }
+
   const fetchData = async () => {
     setLoading(true)
     try {
       if (activeTab === 'dashboard') {
-        const res = await fetch('/api/admin')
+        const res = await adminFetch('/api/admin')
         const data = await res.json()
         setStats(data.stats)
       } else if (activeTab === 'analytics') {
-        const res = await fetch('/api/admin?action=analytics')
+        const res = await adminFetch('/api/admin?action=analytics')
         const data = await res.json()
         setAnalytics(data.analytics)
       } else if (activeTab === 'users') {
         const params = new URLSearchParams({ action: 'users' })
         if (userSearchDebounced) params.set('search', userSearchDebounced)
         if (userFilter !== 'all') params.set('filter', userFilter)
-        const res = await fetch(`/api/admin?${params}`)
+        const res = await adminFetch(`/api/admin?${params}`)
         const data = await res.json()
         setUsers(data.users || [])
       } else if (activeTab === 'media') {
@@ -891,7 +943,7 @@ export default function AdminPage() {
         if (mediaSearchDebounced) params.set('search', mediaSearchDebounced)
         if (mediaTypeFilter !== 'all') params.set('type', mediaTypeFilter)
         if (mediaStatusFilter !== 'all') params.set('status', mediaStatusFilter)
-        const res = await fetch(`/api/admin?${params}`)
+        const res = await adminFetch(`/api/admin?${params}`)
         const data = await res.json()
         setMedia(data.media || [])
         setMediaTotal(data.pagination?.total ?? data.media?.length ?? 0)
@@ -902,12 +954,12 @@ export default function AdminPage() {
         const params = new URLSearchParams({ action: 'chatMessages' })
         if (chatSearchDebounced) params.set('search', chatSearchDebounced)
         if (chatFilter !== 'all') params.set('filter', chatFilter)
-        const res = await fetch(`/api/admin?${params}`)
+        const res = await adminFetch(`/api/admin?${params}`)
         const data = await res.json()
         setChatMessages(data.messages || [])
       } else if (activeTab === 'membershipSales') {
         // Fetch users with membership for sales report
-        const res = await fetch('/api/admin?action=users&filter=members')
+        const res = await adminFetch('/api/admin?action=users&filter=members')
         const data = await res.json()
         setUsers(data.users || [])
       } else if (activeTab === 'accessLogs') {
@@ -928,8 +980,8 @@ export default function AdminPage() {
         if (effectiveFrom) dParams.set('from', effectiveFrom)
         if (effectiveTo) dParams.set('to', effectiveTo)
         const [res, dRes] = await Promise.all([
-          fetch(`/api/admin?${params}`),
-          fetch(`/api/admin?${dParams}`),
+          adminFetch(`/api/admin?${params}`),
+          adminFetch(`/api/admin?${dParams}`),
         ])
         const data = await res.json()
         const dData = await dRes.json()
@@ -939,35 +991,35 @@ export default function AdminPage() {
         setAccessLogsSummary(data.summary ?? null)
         setAlDistinct({ browsers: dData.browsers || [], oses: dData.oses || [], countries: dData.countries || [], methods: dData.methods || [] })
       } else if (activeTab === 'blockedIps') {
-        const res = await fetch('/api/admin?action=blockedIps')
+        const res = await adminFetch('/api/admin?action=blockedIps')
         const data = await res.json()
         setBlockedIps(data.blocked || [])
         setIpBlockingActive(!!data.blockingActive)
       } else if (activeTab === 'contentSales') {
-        const res = await fetch('/api/admin?action=contentSales')
+        const res = await adminFetch('/api/admin?action=contentSales')
         const data = await res.json()
         setContentSales(data.sales || [])
       } else if (activeTab === 'membership') {
-        const res = await fetch('/api/admin?action=membershipPlans')
+        const res = await adminFetch('/api/admin?action=membershipPlans')
         const data = await res.json()
         setMembershipPlans(data.plans || [])
       } else if (activeTab === 'promotions') {
-        const res = await fetch('/api/admin?action=promotions')
+        const res = await adminFetch('/api/admin?action=promotions')
         const data = await res.json()
         setPromotions(data.promotions || [])
       } else if (activeTab === 'games') {
-        const res = await fetch('/api/admin?action=gameSettings')
+        const res = await adminFetch('/api/admin?action=gameSettings')
         const data = await res.json()
         setGameSettings(data.games || [])
       } else if (activeTab === 'navbar') {
-        const res = await fetch('/api/admin?action=navbarSettings')
+        const res = await adminFetch('/api/admin?action=navbarSettings')
         const data = await res.json()
         const items = (Array.isArray(data.items) ? data.items : []) as NavbarMenuItem[]
         setNavbarMenuItems(items.filter((item) => item.itemKey !== 'cropTool'))
       } else if (activeTab === 'layout') {
         setHomeLayoutLoading(true)
         try {
-          const res = await fetch('/api/admin?action=homeLayoutSettings')
+          const res = await adminFetch('/api/admin?action=homeLayoutSettings')
           const data = await res.json()
           const layout = data.layout
           setHomeLayout(
@@ -985,7 +1037,7 @@ export default function AdminPage() {
       } else if (activeTab === 'mediaDetail') {
         setMediaDetailLoading(true)
         try {
-          const res = await fetch('/api/admin?action=mediaDetailSettings')
+          const res = await adminFetch('/api/admin?action=mediaDetailSettings')
           const data = await res.json()
           setMediaDetailDownload(data.downloadEnabled !== false)
           setMediaDetailShare(data.shareEnabled !== false)
@@ -1001,7 +1053,7 @@ export default function AdminPage() {
       } else if (activeTab === 'authentication') {
         setAuthenticationLoading(true)
         try {
-          const res = await fetch('/api/admin?action=authenticationSettings')
+          const res = await adminFetch('/api/admin?action=authenticationSettings')
           const data = await res.json()
           setEmailVerificationEnabled(data.emailVerificationEnabled !== false)
           setPhoneVerificationEnabled(data.phoneVerificationEnabled !== false)
@@ -1011,7 +1063,7 @@ export default function AdminPage() {
       } else if (activeTab === 'manageAccount') {
         setManageAccountLoading(true)
         try {
-          const res = await fetch('/api/admin?action=authenticationSettings')
+          const res = await adminFetch('/api/admin?action=authenticationSettings')
           const data = await res.json()
           setSelfServiceDeactivateAccountEnabled(data.selfServiceDeactivateAccountEnabled !== false)
         } finally {
@@ -1019,8 +1071,8 @@ export default function AdminPage() {
         }
       } else if (activeTab === 'badges') {
         const [resBadges, resHome] = await Promise.all([
-          fetch('/api/admin?action=badgeSettings'),
-          fetch('/api/admin?action=homeLayoutSettings'),
+          adminFetch('/api/admin?action=badgeSettings'),
+          adminFetch('/api/admin?action=homeLayoutSettings'),
         ])
         const data = await resBadges.json()
         setMediaBadgeItems(data.items || [])
@@ -1032,7 +1084,7 @@ export default function AdminPage() {
       } else if (activeTab === 'cropTool') {
         setCropToolLoading(true)
         try {
-          const res = await fetch('/api/admin?action=cropToolSettings')
+          const res = await adminFetch('/api/admin?action=cropToolSettings')
           const data = await res.json()
           if (data.settings) setCropToolSettings(data.settings)
         } finally {
@@ -1086,7 +1138,7 @@ export default function AdminPage() {
   const fetchFileSizeStatus = async () => {
     setFileSizeStatusLoading(true)
     try {
-      const res = await fetch('/api/admin/backfill-filesize', { method: 'GET' })
+      const res = await adminFetch('/api/admin/backfill-filesize', { method: 'GET' })
       const data = await res.json()
       if (res.ok) {
         setFileSizeStatus({ missing: data.missing ?? 0 })
@@ -1103,7 +1155,7 @@ export default function AdminPage() {
     setFileSizeBackfillRunning(true)
     setFileSizeBackfillResult(null)
     try {
-      const res = await fetch('/api/admin/backfill-filesize', { method: 'POST' })
+      const res = await adminFetch('/api/admin/backfill-filesize', { method: 'POST' })
       const data = await res.json()
       if (res.ok) {
         setFileSizeBackfillResult({ scanned: data.scanned, updated: data.updated, errors: data.errors })
@@ -1128,7 +1180,7 @@ export default function AdminPage() {
     setCleanupLegacyLoading(true)
     setCleanupLegacyResult(null)
     try {
-      const res = await fetch('/api/admin/cleanup-legacy-versions', { method: 'POST' })
+      const res = await adminFetch('/api/admin/cleanup-legacy-versions', { method: 'POST' })
       const data = await res.json()
       if (res.ok) {
         setCleanupLegacyResult({ versionsDeleted: data.versionsDeleted, blobsDeleted: data.blobsDeleted, errors: data.errors })
@@ -1148,7 +1200,7 @@ export default function AdminPage() {
   const updateMembershipPlan = async (planId: string, field: string, value: any) => {
     setMembershipLoading(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1159,7 +1211,7 @@ export default function AdminPage() {
       const data = await res.json()
       if (res.ok) {
         // Refresh plans
-        const refreshRes = await fetch('/api/admin?action=membershipPlans')
+        const refreshRes = await adminFetch('/api/admin?action=membershipPlans')
         const refreshData = await refreshRes.json()
         setMembershipPlans(refreshData.plans || [])
       } else {
@@ -1179,7 +1231,7 @@ export default function AdminPage() {
     
     setMembershipLoading(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'resetMembershipPlans' })
@@ -1255,7 +1307,7 @@ export default function AdminPage() {
     setPromotionsLoading(true)
     try {
       const action = editingPromotion ? 'updatePromotion' : 'createPromotion'
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1269,7 +1321,7 @@ export default function AdminPage() {
       if (res.ok) {
         setShowPromotionModal(false)
         // Refresh promotions
-        const refreshRes = await fetch('/api/admin?action=promotions')
+        const refreshRes = await adminFetch('/api/admin?action=promotions')
         const refreshData = await refreshRes.json()
         setPromotions(refreshData.promotions || [])
       } else {
@@ -1285,7 +1337,7 @@ export default function AdminPage() {
   
   const togglePromotion = async (promoId: string, isActive: boolean) => {
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1306,7 +1358,7 @@ export default function AdminPage() {
     if (!confirm('Are you sure you want to delete this promotion?')) return
     
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1326,7 +1378,7 @@ export default function AdminPage() {
   const toggleGame = async (gameId: string, isEnabled: boolean) => {
     setGamesLoading(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1347,7 +1399,7 @@ export default function AdminPage() {
   const toggleNavbarItem = async (itemKey: string, isEnabled: boolean) => {
     setNavbarLoading(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1370,7 +1422,7 @@ export default function AdminPage() {
   const toggleBadgeItem = async (itemKey: string, isEnabled: boolean) => {
     setMediaBadgeLoading(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1401,7 +1453,7 @@ export default function AdminPage() {
   }) => {
     setMediaDetailSaving(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1437,7 +1489,7 @@ export default function AdminPage() {
   }) => {
     setHomeLayoutSaving(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1475,7 +1527,7 @@ export default function AdminPage() {
   const toggleHomePreplaySound = async (next: boolean) => {
     setHomePreplaySoundSaving(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1506,7 +1558,7 @@ export default function AdminPage() {
   const toggleAutoTranslation = async (next: boolean) => {
     setAutoTranslationSaving(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1537,7 +1589,7 @@ export default function AdminPage() {
   const saveCropToolSettings = async (updates: Partial<CropToolSettings>) => {
     setCropToolSaving(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1559,7 +1611,7 @@ export default function AdminPage() {
   const saveAuthenticationSettings = async () => {
     setAuthenticationSaving(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1592,7 +1644,7 @@ export default function AdminPage() {
     setManageAccountSaving(true)
     setSelfServiceDeactivateAccountEnabled(next)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1632,7 +1684,7 @@ export default function AdminPage() {
     })
     
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'getWarningHistory', targetId: userId }),
@@ -1670,7 +1722,7 @@ export default function AdminPage() {
     })
     
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'getCreditHistory', targetId: userId }),
@@ -1730,7 +1782,7 @@ export default function AdminPage() {
     creditsSubmittingRef.current = true
     setCreditsSubmitting(true)
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1775,7 +1827,7 @@ export default function AdminPage() {
     if (confirmActions.includes(action) && !confirm('Are you sure?')) return
 
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, targetId, data }),
@@ -1793,7 +1845,7 @@ export default function AdminPage() {
   }
 
   const blockIpApi = async (ipAddress: string, note: string) => {
-    const res = await fetch('/api/admin', {
+    const res = await adminFetch('/api/admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -1828,7 +1880,7 @@ export default function AdminPage() {
   const handleUnblockIp = async (id: string) => {
     if (!confirm('Remove this IP from the blocklist?')) return
     try {
-      const res = await fetch('/api/admin', {
+      const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -4537,7 +4589,7 @@ export default function AdminPage() {
               <button
                 onClick={async () => {
                   try {
-                    const res = await fetch('/api/admin', {
+                    const res = await adminFetch('/api/admin', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -4868,7 +4920,7 @@ export default function AdminPage() {
               </button>
               <button
                 onClick={async () => {
-                  const res = await fetch('/api/admin', {
+                  const res = await adminFetch('/api/admin', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -5277,7 +5329,7 @@ export default function AdminPage() {
               <button
                 onClick={async () => {
                   if (warningUserReason.trim()) {
-                    const res = await fetch('/api/admin', {
+                    const res = await adminFetch('/api/admin', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ 
