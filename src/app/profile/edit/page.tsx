@@ -73,10 +73,28 @@ const EDIT_PROFILE_STRINGS = [
   'Basic Plan — $2/month',
   'Advanced Plan — $5/month',
   'Premium Plan — $8/month',
-  'Your current plan. Save keeps your profile; pick a different plan to continue on Pricing.',
-  'After saving, you will continue to Pricing to complete or change your paid plan.',
+  'Your current plan. Select another plan to subscribe or manage billing.',
+  'Choose monthly or yearly billing to continue to checkout.',
   'Membership plan',
+  'Choose Billing Period',
+  'You selected:',
+  'Monthly',
+  'Billed every month',
+  'Yearly',
+  'Billed annually',
+  '/month',
+  '/year',
+  'You can cancel anytime. Your subscription continues until the end of the billing period.',
 ] as const
+
+const MEMBERSHIP_PLANS: Record<
+  string,
+  { id: string; price: number; yearlyPrice: number; labelIndex: number }
+> = {
+  basic: { id: 'basic', price: 2, yearlyPrice: 20, labelIndex: 58 },
+  advanced: { id: 'advanced', price: 5, yearlyPrice: 50, labelIndex: 59 },
+  premium: { id: 'premium', price: 8, yearlyPrice: 80, labelIndex: 60 },
+}
 
 const E = {
   membershipHeading: 56,
@@ -87,6 +105,15 @@ const E = {
   membershipCurrentHint: 61,
   membershipChangeHint: 62,
   membershipPlanLabel: 63,
+  chooseBillingPeriod: 64,
+  youSelected: 65,
+  monthly: 66,
+  billedMonthly: 67,
+  yearly: 68,
+  billedAnnually: 69,
+  perMonth: 70,
+  perYear: 71,
+  billingCancelNote: 72,
 } as const
 
 const COUNTRY_NAMES = [
@@ -248,6 +275,11 @@ export default function EditProfilePage() {
   })
   const [selectedMembership, setSelectedMembership] = useState('viewer')
   const [originalMembership, setOriginalMembership] = useState('viewer')
+  const [showMembershipBillingModal, setShowMembershipBillingModal] = useState(false)
+  const [pendingMembershipPlan, setPendingMembershipPlan] = useState<
+    (typeof MEMBERSHIP_PLANS)[string] | null
+  >(null)
+  const [membershipCheckoutLoading, setMembershipCheckoutLoading] = useState<string | null>(null)
 
   const tr = useLanguageModeList(EDIT_PROFILE_STRINGS)
   const countryLabels = useLanguageModeList(COUNTRY_NAMES)
@@ -256,6 +288,70 @@ export default function EditProfilePage() {
   const localizedEmailVerificationError = useLanguageModeText(emailVerificationState.error)
   const localizedPhoneVerificationError = useLanguageModeText(phoneVerificationState.error)
   const localizedCancelRegError = useLanguageModeText(cancelRegError)
+
+  const closeMembershipBillingModal = () => {
+    setShowMembershipBillingModal(false)
+    setPendingMembershipPlan(null)
+    setSelectedMembership(originalMembership)
+  }
+
+  const handleMembershipSubscribe = async (billingPeriod: 'month' | 'year') => {
+    if (!pendingMembershipPlan) return
+    setShowMembershipBillingModal(false)
+    setMembershipCheckoutLoading(pendingMembershipPlan.id)
+    try {
+      const res = await fetch('/api/stripe/membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: pendingMembershipPlan.id, billingPeriod }),
+      })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+        return
+      }
+      setError(data.error || 'Failed to start checkout')
+      setSelectedMembership(originalMembership)
+    } catch {
+      setError('Failed to start checkout')
+      setSelectedMembership(originalMembership)
+    } finally {
+      setMembershipCheckoutLoading(null)
+      setPendingMembershipPlan(null)
+    }
+  }
+
+  const handleMembershipChange = async (newPlanId: string) => {
+    if (newPlanId === originalMembership) {
+      setSelectedMembership(newPlanId)
+      return
+    }
+
+    if (newPlanId === 'viewer') {
+      setSelectedMembership(originalMembership)
+      if (originalMembership !== 'viewer') {
+        try {
+          const res = await fetch('/api/stripe/portal', { method: 'POST' })
+          const data = await res.json()
+          if (data.url) {
+            window.location.href = data.url
+          } else {
+            setError(data.error || 'Failed to open billing portal')
+          }
+        } catch {
+          setError('Failed to open billing portal')
+        }
+      }
+      return
+    }
+
+    const plan = MEMBERSHIP_PLANS[newPlanId]
+    if (!plan) return
+
+    setSelectedMembership(newPlanId)
+    setPendingMembershipPlan(plan)
+    setShowMembershipBillingModal(true)
+  }
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -775,16 +871,7 @@ export default function EditProfilePage() {
         }
 
         // Hard navigation: intercepted @modal routes often keep the overlay when using router.push('/').
-        // If membership selection changed, continue on Pricing; otherwise go home.
-        if (selectedMembership !== originalMembership) {
-          const planQuery =
-            selectedMembership !== 'viewer'
-              ? `?plan=${encodeURIComponent(selectedMembership)}`
-              : ''
-          window.location.replace(`/pricing${planQuery}`)
-        } else {
-          window.location.replace('/')
-        }
+        window.location.replace('/')
       }
     } catch (error) {
       setError('Something went wrong')
@@ -1186,7 +1273,8 @@ export default function EditProfilePage() {
               <select
                 name="membership"
                 value={selectedMembership}
-                onChange={(e) => setSelectedMembership(e.target.value)}
+                onChange={(e) => void handleMembershipChange(e.target.value)}
+                disabled={Boolean(membershipCheckoutLoading)}
                 className="w-full"
                 aria-label={tr[E.membershipPlanLabel]}
                 title={tr[E.membershipPlanLabel]}
@@ -1239,6 +1327,84 @@ export default function EditProfilePage() {
           </div>
         </form>
       </div>
+
+      {showMembershipBillingModal && pendingMembershipPlan && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
+          onClick={closeMembershipBillingModal}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-gray-400 bg-gray-500 p-6"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="text-xl font-bold">{tr[E.chooseBillingPeriod]}</h3>
+              <button
+                type="button"
+                onClick={closeMembershipBillingModal}
+                className="rounded-lg p-2 transition-colors hover:bg-gray-400"
+                aria-label={tr[1]}
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="mb-6 text-center text-gray-200">
+              {tr[E.youSelected]}{' '}
+              <span className="font-bold text-tank-accent">
+                {tr[pendingMembershipPlan.labelIndex]}
+              </span>
+            </p>
+
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => void handleMembershipSubscribe('month')}
+                className="group h-20 w-full cursor-pointer rounded-xl border-2 border-gray-400 bg-gray-600 p-4 transition-all hover:border-tank-accent hover:bg-gray-500"
+              >
+                <div className="flex h-full items-center justify-between">
+                  <div className="text-left">
+                    <p className="text-lg font-semibold text-white transition-colors group-hover:text-tank-accent">
+                      {tr[E.monthly]}
+                    </p>
+                    <p className="text-sm text-gray-300">{tr[E.billedMonthly]}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">${pendingMembershipPlan.price}</p>
+                    <p className="text-sm text-gray-300">{tr[E.perMonth]}</p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleMembershipSubscribe('year')}
+                className="group h-20 w-full cursor-pointer rounded-xl border-2 border-gray-400 bg-gray-600 p-4 transition-all hover:border-tank-accent hover:bg-gray-500"
+              >
+                <div className="flex h-full items-center justify-between">
+                  <div className="text-left">
+                    <p className="text-lg font-semibold text-white transition-colors group-hover:text-tank-accent">
+                      {tr[E.yearly]}
+                    </p>
+                    <p className="text-sm text-gray-300">{tr[E.billedAnnually]}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">${pendingMembershipPlan.yearlyPrice}</p>
+                    <p className="text-sm text-gray-300">{tr[E.perYear]}</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <p className="mt-4 text-center text-xs text-gray-400">{tr[E.billingCancelNote]}</p>
+          </div>
+        </div>
+      )}
 
       {deactivateIntroOpen && (
         <div

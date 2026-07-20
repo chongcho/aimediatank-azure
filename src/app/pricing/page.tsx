@@ -83,8 +83,8 @@ const PRICING_STRINGS = [
   'Keep Subscription',
   'Changes take effect immediately. Your existing uploads will not be affected.',
   '← Back',
-  'You have {count} upload credit to post',
-  'You have {count} upload credits to post',
+  'You have {count} upload credit',
+  'You have {count} upload credits',
   '({freeCount} free + {creditCount} credits)',
 ] as const
 

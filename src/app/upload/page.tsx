@@ -1288,14 +1288,6 @@ function UploadPageContent() {
                 </p>
               )}
             </div>
-            {typeof uploadQuota.uploadsAvailable === 'number' &&
-              uploadQuota.uploadsAvailable > 0 && (
-              <div className="text-right sm:text-left shrink-0">
-                <p className="text-lg font-bold text-white tabular-nums">
-                  {uploadPageInterpolate(tr[U.countLeft], { count: uploadQuota.uploadsAvailable })}
-                </p>
-              </div>
-            )}
           </div>
           {uploadQuota.statusType === 'blocked' && (
             <div className="mt-4 text-center">
