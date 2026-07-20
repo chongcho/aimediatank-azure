@@ -1,6 +1,6 @@
 # AI Media Tank (AiM) — Terms of Service
 
-**Effective:** December 20, 2024 · **Last Updated:** July 7, 2026
+**Effective:** December 20, 2024 · **Last Updated:** July 19, 2026
 
 ---
 
@@ -238,17 +238,21 @@ Users may cancel at any time, but no partial refunds will be issued.
 
 ## 10. Marketplace Trade Terms
 
-### 10.1 Seller Pricing Rights
+### 10.1 No Returns on Purchased Media
 
-Sellers retain full control over pricing of their media ("Tag Price").
+All digital media purchases made through the AI Media Tank app are final. Due to the nature of digital assets, no returns, refunds, cancellations, or exchanges will be permitted once payment has been successfully processed.
+
+### 10.2 Media Pricing
+
+The price displayed for any media item on the AI Media Tank app represents the fee for downloading the media as a digital file. The Seller (Poster) may change the listed price of any media item at any time and for any reason prior to purchase.
 
 Prices may be modified at any time but will not affect completed transactions.
 
 AI Media Tank, LLC (AiM) does not verify or control seller pricing.
 
-### 10.2 Payment Processing
+### 10.3 Payment Processing
 
-Buyers pay the Tag Price plus applicable taxes through the Platform.
+Buyers pay the listed price plus applicable taxes through the Platform.
 
 Payments may be processed through third-party payment providers.
 
@@ -256,7 +260,7 @@ AI Media Tank, LLC (AiM) acts as a marketplace facilitator and payment intermedi
 
 Use of payment services may also be subject to the terms of the applicable payment processor.
 
-### 10.3 Platform Processing Fee
+### 10.4 Platform Processing Fee
 
 For each completed sale:
 
@@ -265,7 +269,7 @@ For each completed sale:
 
 Processing fees may be modified for future transactions at the Company's discretion.
 
-### 10.4 Seller Payouts
+### 10.5 Seller Payouts
 
 Seller earnings accumulate in their account.
 
@@ -278,12 +282,6 @@ If a seller withdraws below $50:
 
 Sellers are responsible for any applicable taxes and reporting obligations related to their earnings.
 
-### 10.5 No Refunds
-
-Due to the nature of digital media, all purchases are final.
-
-No refunds, returns, cancellations, or exchanges are permitted once the media has been downloaded.
-
 ### 10.6 Seller Representations
 
 Sellers represent and warrant that:
@@ -293,29 +291,35 @@ Sellers represent and warrant that:
 
 Sellers are solely responsible for copyright compliance.
 
-### 10.7 License to Buyers
+### 10.7 Copyright Ownership
 
-Upon lawful purchase and download, buyers receive a non-exclusive, perpetual, worldwide, royalty-free license to:
+Payment for downloading media does not transfer or assign any copyright, intellectual property rights, or ownership interests from the Seller (Poster) to the Buyer (Downloader). The Seller remains the original copyright owner of the media unless otherwise expressly agreed in writing.
 
-- use
-- reproduce
-- display
-- modify
-- distribute
+### 10.8 License Granted Upon Download
 
-the media for personal or commercial purposes, unless otherwise restricted.
+Upon the Seller's successful upload of the media to the AI Media Tank app and the Buyer's lawful purchase and download of the media, the media shall be deemed licensed on a license-free basis between the Seller and the Buyer. Both parties are granted a non-exclusive, perpetual, worldwide, royalty-free license to use the media.
 
-Ownership remains with the creator.
+### 10.9 Permitted Uses
 
-### 10.8 Prohibited Uses
+Subject to these Terms and Conditions:
 
-Buyers may not:
+- The Seller (Poster), as the original creator and copyright owner, retains the unrestricted right to use, reproduce, display, distribute, sell, and commercially exploit the media.
+- The Buyer (Downloader) is granted a non-exclusive, perpetual, royalty-free license to use, reproduce, display, modify, and distribute the downloaded media for both personal and commercial purposes without the obligation to pay additional royalties to the Seller.
+
+### 10.10 Restrictions
+
+The Buyer (Downloader) may not upload, post, list for sale, or otherwise make available the identical downloaded media file on the AI Media Tank app. Any media that is determined to be a duplicate or substantially identical copy of previously downloaded content may be removed by AI Media Tank at its sole discretion as a violation of platform policy.
+
+Buyers may also not:
 
 - claim authorship of the media
-- resell the media as a competing stock asset
 - use media for illegal or defamatory purposes
 
-### 10.9 Guest Downloads and Watermarks
+### 10.11 Platform Enforcement
+
+AI Media Tank reserves the right to remove duplicated media and take any appropriate enforcement actions against accounts that violate these policies, including content removal, suspension of posting privileges, or account termination where necessary.
+
+### 10.12 Guest Downloads and Watermarks
 
 Visitors who are not logged in may download certain free media only with a burned-in watermark applied by the Platform.
 

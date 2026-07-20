@@ -107,6 +107,11 @@ export async function POST(request: Request) {
       mode: 'payment',
       customer_email: session.user.email || undefined,
       line_items: lineItems,
+      custom_text: {
+        submit: {
+          message: '【No Returns】All digital media purchases are final once payment succeeds—no returns, refunds, cancellations, or exchanges. See Terms §10.1.\n\n【License & Usage】Payment does not transfer copyright. Media is license-free between Seller and Buyer (non-exclusive, perpetual, royalty-free) for personal/commercial use. Do not re-upload identical files. See Terms §§10.7–10.11.',
+        },
+      },
       metadata: {
         mediaIds: itemsToPurchase.map(m => m.id).join(','),
         buyerId: session.user.id,

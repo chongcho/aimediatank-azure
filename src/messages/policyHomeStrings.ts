@@ -7,7 +7,7 @@ export const POLICY_MAP = {
   privacyLinkText: 'Privacy Policy',
   agreementOn: 'on',
   pageTitle: 'Policy Home',
-  effectiveLine: 'Effective: December 20, 2024 · Last Updated: July 7, 2026',
+  effectiveLine: 'Effective: December 20, 2024 · Last Updated: July 19, 2026',
   downloadTerms: 'Download Terms',
   downloadPrivacy: 'Download Privacy',
   intro:
@@ -18,7 +18,7 @@ export const POLICY_MAP = {
   cardTermsBullet2: 'User accounts, conduct, and responsibilities',
   cardTermsBullet3: 'Content guidelines, AI disclosure, chat, voice calls, and celebration cards',
   cardTermsBullet4: 'Copyright, DMCA, guest watermarks, and intellectual property',
-  cardTermsBullet5: 'Payment, refund, creator payout, and membership policies',
+  cardTermsBullet5: 'Payment, no-return purchases, license/usage rights, and creator payouts',
   cardTermsBullet6: 'Third-party platforms, native mobile apps, and social sharing',
   cardTermsBullet7: 'Dispute resolution and governing law',
   cardTermsRead: 'Read Terms of Service →',

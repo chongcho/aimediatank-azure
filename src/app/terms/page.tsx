@@ -48,7 +48,7 @@ function TermsPageContent() {
 
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Terms of Service</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: July 7, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: July 19, 2026</p>
 
         {/* 1. Acceptance */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">1. Acceptance of Terms</h2>
@@ -247,23 +247,33 @@ function TermsPageContent() {
 
         {/* 10. Marketplace Trade Terms */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">10. Marketplace Trade Terms</h2>
-        <h3 className="text-lg font-semibold mt-6 mb-3">10.1 Seller Pricing Rights</h3>
-        <p className="text-gray-300 mb-4">Sellers retain full control over pricing of their media (&quot;Tag Price&quot;). Prices may be modified at any time but will not affect completed transactions. AI Media Tank, LLC (AiM) does not verify or control seller pricing.</p>
-        <h3 className="text-lg font-semibold mt-6 mb-3">10.2 Payment Processing</h3>
-        <p className="text-gray-300 mb-4">Buyers pay the Tag Price plus applicable taxes through the Platform. Payments may be processed through third-party payment providers. AI Media Tank, LLC (AiM) acts as a marketplace facilitator and payment intermediary. Use of payment services may also be subject to the terms of the applicable payment processor.</p>
-        <h3 className="text-lg font-semibold mt-6 mb-3">10.3 Platform Processing Fee</h3>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.1 No Returns on Purchased Media</h3>
+        <p className="text-gray-300 mb-4">All digital media purchases made through the AI Media Tank app are final. Due to the nature of digital assets, no returns, refunds, cancellations, or exchanges will be permitted once payment has been successfully processed.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.2 Media Pricing</h3>
+        <p className="text-gray-300 mb-4">The price displayed for any media item on the AI Media Tank app represents the fee for downloading the media as a digital file. The Seller (Poster) may change the listed price of any media item at any time and for any reason prior to purchase. Prices may be modified at any time but will not affect completed transactions. AI Media Tank, LLC (AiM) does not verify or control seller pricing.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.3 Payment Processing</h3>
+        <p className="text-gray-300 mb-4">Buyers pay the listed price plus applicable taxes through the Platform. Payments may be processed through third-party payment providers. AI Media Tank, LLC (AiM) acts as a marketplace facilitator and payment intermediary. Use of payment services may also be subject to the terms of the applicable payment processor.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.4 Platform Processing Fee</h3>
         <p className="text-gray-300 mb-4">For each completed sale: AI Media Tank, LLC (AiM) retains 30% Processing Fee; 70% is credited to the Seller. Processing fees may be modified for future transactions at the Company&apos;s discretion.</p>
-        <h3 className="text-lg font-semibold mt-6 mb-3">10.4 Seller Payouts</h3>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.5 Seller Payouts</h3>
         <p className="text-gray-300 mb-4">Seller earnings accumulate in their account. Withdrawals occur when the account balance reaches $50 USD or more. If a seller withdraws below $50: the seller is responsible for transaction fees; fees may be up to 10% depending on payment method. Sellers are responsible for any applicable taxes and reporting obligations related to their earnings.</p>
-        <h3 className="text-lg font-semibold mt-6 mb-3">10.5 No Refunds</h3>
-        <p className="text-gray-300 mb-4">Due to the nature of digital media, all purchases are final. No refunds, returns, cancellations, or exchanges are permitted once the media has been downloaded.</p>
         <h3 className="text-lg font-semibold mt-6 mb-3">10.6 Seller Representations</h3>
         <p className="text-gray-300 mb-4">Sellers represent and warrant that they are the original creator or they possess all rights necessary to distribute the media. Sellers are solely responsible for copyright compliance.</p>
-        <h3 className="text-lg font-semibold mt-6 mb-3">10.7 License to Buyers</h3>
-        <p className="text-gray-300 mb-4">Upon lawful purchase and download, buyers receive a non-exclusive, perpetual, worldwide, royalty-free license to use, reproduce, display, modify, and distribute the media for personal or commercial purposes, unless otherwise restricted. Ownership remains with the creator.</p>
-        <h3 className="text-lg font-semibold mt-6 mb-3">10.8 Prohibited Uses</h3>
-        <p className="text-gray-300 mb-4">Buyers may not: claim authorship of the media; resell the media as a competing stock asset; use media for illegal or defamatory purposes.</p>
-        <h3 className="text-lg font-semibold mt-6 mb-3">10.9 Guest Downloads and Watermarks</h3>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.7 Copyright Ownership</h3>
+        <p className="text-gray-300 mb-4">Payment for downloading media does not transfer or assign any copyright, intellectual property rights, or ownership interests from the Seller (Poster) to the Buyer (Downloader). The Seller remains the original copyright owner of the media unless otherwise expressly agreed in writing.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.8 License Granted Upon Download</h3>
+        <p className="text-gray-300 mb-4">Upon the Seller&apos;s successful upload of the media to the AI Media Tank app and the Buyer&apos;s lawful purchase and download of the media, the media shall be deemed licensed on a license-free basis between the Seller and the Buyer. Both parties are granted a non-exclusive, perpetual, worldwide, royalty-free license to use the media.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.9 Permitted Uses</h3>
+        <p className="text-gray-300 mb-2">Subject to these Terms and Conditions:</p>
+        <ul className="list-disc list-inside text-gray-300 mb-4 space-y-1">
+          <li>The Seller (Poster), as the original creator and copyright owner, retains the unrestricted right to use, reproduce, display, distribute, sell, and commercially exploit the media.</li>
+          <li>The Buyer (Downloader) is granted a non-exclusive, perpetual, royalty-free license to use, reproduce, display, modify, and distribute the downloaded media for both personal and commercial purposes without the obligation to pay additional royalties to the Seller.</li>
+        </ul>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.10 Restrictions</h3>
+        <p className="text-gray-300 mb-4">The Buyer (Downloader) may not upload, post, list for sale, or otherwise make available the identical downloaded media file on the AI Media Tank app. Any media that is determined to be a duplicate or substantially identical copy of previously downloaded content may be removed by AI Media Tank at its sole discretion as a violation of platform policy. Buyers may also not: claim authorship of the media; use media for illegal or defamatory purposes.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.11 Platform Enforcement</h3>
+        <p className="text-gray-300 mb-4">AI Media Tank reserves the right to remove duplicated media and take any appropriate enforcement actions against accounts that violate these policies, including content removal, suspension of posting privileges, or account termination where necessary.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.12 Guest Downloads and Watermarks</h3>
         <p className="text-gray-300 mb-4">Visitors who are not logged in may download certain free media only with a burned-in watermark applied by the Platform. Registered members may receive unwatermarked downloads according to their membership plan, purchase status, and per-media download settings. Circumventing watermarks or technical download restrictions is prohibited.</p>
 
         {/* 11. Content Moderation */}
@@ -411,7 +421,7 @@ function TermsPageFallback() {
       </div>
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Terms of Service</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 · Last Updated: March 6, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 · Last Updated: July 19, 2026</p>
         <p className="text-gray-400">Loading...</p>
       </div>
     </div>

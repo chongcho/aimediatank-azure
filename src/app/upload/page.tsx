@@ -2024,17 +2024,22 @@ function UploadPageContent() {
           <div className="rounded-xl border border-tank-light bg-tank-gray/40 p-4 text-sm text-gray-300">
             <div className="font-semibold text-white mb-1">No Returns on Purchased Media</div>
             <p className="mb-4">
-              All digital media purchases are final. Due to the nature of digital assets, returns,
-              refunds, cancellations, or exchanges are not permitted once payment has been
-              successfully processed.
+              All digital media purchases made through the AI Media Tank app are final. Due to the
+              nature of digital assets, no returns, refunds, cancellations, or exchanges will be
+              permitted once payment has been successfully processed.
             </p>
-            <div className="font-semibold text-white mb-1">License and Usage Rights</div>
+            <div className="font-semibold text-white mb-1">Price, License, and Usage Rights</div>
+            <p className="mb-2">
+              Payment does not transfer copyright; the Seller remains the copyright owner. Upon
+              lawful purchase and download, media is licensed on a license-free basis: both Seller
+              and Buyer receive a non-exclusive, perpetual, worldwide, royalty-free license to use
+              the media for personal and commercial purposes.
+            </p>
             <p>
-              Upon successful upload to aimediatank.com, the media shall be designated as
-              license-free between the Seller and the Buyer. The Seller, as the original creator,
-              and the Buyer, upon lawful download, are each granted a non-exclusive, perpetual,
-              royalty-free license to use, reproduce, display, and distribute the media for both
-              personal and commercial purposes.
+              Buyers may not re-upload, post, or list for sale the identical downloaded media file
+              on AI Media Tank. Duplicate or substantially identical copies may be removed, and
+              accounts that violate these policies may face enforcement actions including suspension
+              or termination.
             </p>
           </div>
 

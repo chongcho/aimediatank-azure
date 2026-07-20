@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       ],
       custom_text: {
         submit: {
-          message: '【No Returns on Purchased Media】\nAll digital media purchases are final. Due to the nature of digital assets, returns, refunds, cancellations, or exchanges are not permitted once payment has been successfully processed.\n\n【License and Usage Rights】\nUpon successful upload to aimediatank.com, the media shall be designated as license-free between the Seller and the Buyer. The Seller, as the original creator, and the Buyer, upon lawful download, are each granted a non-exclusive, perpetual, royalty-free license to use, reproduce, display, and distribute the media for both personal and commercial purposes.',
+          message: '【No Returns】All digital media purchases are final once payment succeeds—no returns, refunds, cancellations, or exchanges. See Terms §10.1.\n\n【License & Usage】Payment does not transfer copyright. Media is license-free between Seller and Buyer (non-exclusive, perpetual, royalty-free) for personal/commercial use. Do not re-upload identical files. See Terms §§10.7–10.11.',
         },
       },
       metadata: {
