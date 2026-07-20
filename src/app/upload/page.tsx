@@ -6,6 +6,8 @@ import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { compressMedia, type QualitySettings } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
+import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
+import { UPLOAD_PAGE_ORIGINALS, U, uploadPageInterpolate } from '@/messages/uploadPageStrings'
 
 type Area = { x: number; y: number; width: number; height: number }
 
@@ -31,6 +33,7 @@ function UploadPageContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const tr = useLanguageModeList(UPLOAD_PAGE_ORIGINALS)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -101,6 +104,8 @@ function UploadPageContent() {
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState('')
+  const displayError = useLanguageModeText(error)
+  const displayUploadStatus = useLanguageModeText(uploadStatus)
   const [uploadQuota, setUploadQuota] = useState<UploadQuota | null>(null)
   const [quotaLoading, setQuotaLoading] = useState(true)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -500,10 +505,10 @@ function UploadPageContent() {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center">
-          <h1 className="mb-2 text-2xl font-bold">Account deactivated</h1>
-          <p className="mb-4 text-gray-400">Uploads are not available while your account is deactivated.</p>
+          <h1 className="mb-2 text-2xl font-bold">{tr[U.accountDeactivatedTitle]}</h1>
+          <p className="mb-4 text-gray-400">{tr[U.accountDeactivatedBody]}</p>
           <button type="button" onClick={() => router.push('/')} className="btn-primary">
-            Go home
+            {tr[U.goHome]}
           </button>
         </div>
       </div>
@@ -514,13 +519,13 @@ function UploadPageContent() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
-          <p className="text-gray-400 mb-4">Only subscribers can upload media.</p>
+          <h1 className="text-2xl font-bold mb-2">{tr[U.accessDeniedTitle]}</h1>
+          <p className="text-gray-400 mb-4">{tr[U.accessDeniedBody]}</p>
           <button
             onClick={() => router.push('/register')}
             className="btn-primary"
           >
-            Become a Subscriber
+            {tr[U.becomeSubscriber]}
           </button>
         </div>
       </div>
@@ -1205,12 +1210,12 @@ function UploadPageContent() {
   return (
     <div className="max-w-3xl mx-auto p-0 m-0 pt-5 pb-[500px]">
       <div className="flex items-center justify-center relative mb-[30px]">
-        <h1 className="text-3xl font-bold">Upload Media</h1>
+        <h1 className="text-3xl font-bold">{tr[U.pageTitle]}</h1>
         <button
           type="button"
           onClick={() => router.back()}
           className="absolute right-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
-          aria-label="Close"
+          aria-label={tr[U.close]}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1222,23 +1227,23 @@ function UploadPageContent() {
       {showPaymentSuccess && (
         <div className="mb-6 p-6 bg-green-500/10 border border-green-500/30 rounded-xl text-center">
           <div className="text-5xl mb-4">🎉</div>
-          <h2 className="font-bold text-green-400 text-2xl mb-2">Payment received</h2>
+          <h2 className="font-bold text-green-400 text-2xl mb-2">{tr[U.paymentReceivedTitle]}</h2>
           <p className="text-gray-300 mb-4">
-            Your upload fee was processed. Videos finish encoding shortly; you will get an email and in-app notice when your media appears on the home feed.
+            {tr[U.paymentReceivedBody]}
           </p>
           <p className="text-gray-400 text-sm">
-            Redirecting to home page in 3 seconds...
+            {tr[U.redirectingHome]}
           </p>
           <button 
             onClick={() => router.push('/')}
             className="mt-4 px-6 py-2 bg-tank-accent text-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
           >
-            View Now →
+            {tr[U.viewNow]}
           </button>
         </div>
       )}
 
-      {/* Upload Quota Status Banner — clean design, credit includes free upload, no grid */}
+      {/* Upload Quota Status Banner — matches Profile/Membership credit wording */}
       {!quotaLoading && uploadQuota && (
         <div className={`mb-6 p-4 rounded-xl border ${
           uploadQuota.statusType === 'free' 
@@ -1248,33 +1253,46 @@ function UploadPageContent() {
             : 'bg-red-500/10 border-red-500/30'
         }`}>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-xl text-tank-accent" aria-hidden>✔</span>
-              <div>
-                <p className={`font-semibold ${
-                  uploadQuota.statusType === 'free' 
-                    ? 'text-tank-accent' 
-                    : uploadQuota.statusType === 'paid'
-                    ? 'text-yellow-400'
-                    : 'text-red-400'
-                }`}>
-                  {uploadQuota.uploadsAvailable === 'Unlimited' ||
-                  uploadQuota.freeUploadsRemaining === 'Unlimited'
-                    ? 'Unlimited upload credits available'
-                    : typeof uploadQuota.uploadsAvailable === 'number'
-                      ? `${uploadQuota.uploadsAvailable} upload${uploadQuota.uploadsAvailable !== 1 ? 's' : ''} available`
-                      : `${uploadQuota.totalCredits + uploadQuota.creditsUsed} upload credits available`}
+            <div className="min-w-0 flex-1">
+              {uploadQuota.uploadsAvailable === 'Unlimited' ||
+              uploadQuota.freeUploadsRemaining === 'Unlimited' ? (
+                <p className="font-semibold text-tank-accent">✨ {tr[U.unlimitedPremium]}</p>
+              ) : typeof uploadQuota.uploadsAvailable === 'number' &&
+                uploadQuota.uploadsAvailable > 0 ? (
+                <>
+                  <p className="font-semibold text-tank-accent">
+                    🎁{' '}
+                    {uploadPageInterpolate(
+                      uploadQuota.uploadsAvailable === 1
+                        ? tr[U.uploadCreditSingular]
+                        : tr[U.uploadCreditPlural],
+                      { count: uploadQuota.uploadsAvailable }
+                    )}
+                    {typeof uploadQuota.freeUploadsRemaining === 'number' &&
+                    uploadQuota.freeUploadsRemaining > 0 &&
+                    (uploadQuota.totalCredits || 0) > 0
+                      ? ` ${uploadPageInterpolate(tr[U.uploadCreditBreakdown], {
+                          freeCount: uploadQuota.freeUploadsRemaining,
+                          creditCount: uploadQuota.totalCredits || 0,
+                        })}`
+                      : ''}
+                  </p>
+                </>
+              ) : uploadQuota.statusType === 'paid' ? (
+                <p className="font-semibold text-yellow-400">
+                  💳 ${uploadQuota.costPerUpload.toFixed(2)}/upload
                 </p>
-                <p className="text-xs text-gray-400">Credit includes free upload</p>
-              </div>
+              ) : (
+                <p className="font-semibold text-red-400">
+                  ⚠️ {tr[U.uploadsExhausted]}
+                </p>
+              )}
             </div>
-            {uploadQuota.freeUploadsRemaining !== 'Unlimited' &&
-              uploadQuota.uploadsAvailable !== 'Unlimited' && (
-              <div className="text-right sm:text-left">
+            {typeof uploadQuota.uploadsAvailable === 'number' &&
+              uploadQuota.uploadsAvailable > 0 && (
+              <div className="text-right sm:text-left shrink-0">
                 <p className="text-lg font-bold text-white tabular-nums">
-                  {typeof uploadQuota.uploadsAvailable === 'number'
-                    ? `${uploadQuota.uploadsAvailable} left`
-                    : `${uploadQuota.creditsUsed} Used / ${uploadQuota.totalCredits + uploadQuota.creditsUsed} Credits`}
+                  {uploadPageInterpolate(tr[U.countLeft], { count: uploadQuota.uploadsAvailable })}
                 </p>
               </div>
             )}
@@ -1285,13 +1303,13 @@ function UploadPageContent() {
                 onClick={() => router.push('/pricing')}
                 className="px-6 py-2 bg-tank-accent text-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
               >
-                Upgrade Plan to Continue Uploading
+                {tr[U.upgradePlanContinue]}
               </button>
             </div>
           )}
           {uploadQuota.statusType === 'paid' && (
             <p className="mt-2 text-sm text-yellow-400/80 text-center">
-              💡 Upgrade to Premium for unlimited free uploads!
+              💡 {tr[U.upgradePremiumHint]}
             </p>
           )}
         </div>
@@ -1301,15 +1319,15 @@ function UploadPageContent() {
       {!quotaLoading && uploadQuota && !uploadQuota.canUpload ? (
         <div className="card text-center py-12">
           <div className="text-6xl mb-4">🔒</div>
-          <h2 className="text-xl font-bold mb-2">Upload Limit Reached</h2>
+          <h2 className="text-xl font-bold mb-2">{tr[U.limitReachedTitle]}</h2>
           <p className="text-gray-400 mb-6">
-            You've used all your free uploads. Upgrade your plan to continue uploading.
+            {tr[U.limitReachedBody]}
           </p>
           <button
             onClick={() => router.push('/pricing')}
             className="btn-primary"
           >
-            View Plans
+            {tr[U.viewPlans]}
           </button>
         </div>
       ) : (
@@ -1317,17 +1335,17 @@ function UploadPageContent() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
-              {error}
+              {displayError}
             </div>
           )}
 
           {/* Media Type — compact buttons, black bg, green border when selected */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Media Type *
+              {tr[U.mediaTypeLabel]}
             </label>
             <div className="flex gap-3">
-              {['IMAGE', 'VIDEO'].map((type) => (
+              {(['IMAGE', 'VIDEO'] as const).map((type) => (
                 <button
                   key={type}
                   type="button"
@@ -1345,7 +1363,7 @@ function UploadPageContent() {
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                     )}
                   </span>
-                  <span className="font-medium text-sm">{type}</span>
+                  <span className="font-medium text-sm">{type === 'IMAGE' ? tr[U.imageType] : tr[U.videoType]}</span>
                 </button>
               ))}
             </div>
@@ -1354,7 +1372,7 @@ function UploadPageContent() {
           {/* File Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              File *
+              {tr[U.fileLabel]}
             </label>
             <label
               htmlFor="file-input"
@@ -1393,11 +1411,11 @@ function UploadPageContent() {
                 <>
                   <div className="text-4xl mb-4">📁</div>
                   <p className="text-gray-400">
-                    Click to select or drag and drop your file
+                    {tr[U.fileDropHint]}
                   </p>
                   <p className="text-sm text-gray-500 mt-2">
-                    {formData.type === 'VIDEO' && 'MP4, WebM, MOV'}
-                    {formData.type === 'IMAGE' && 'JPG, PNG, GIF, WebP'}
+                    {formData.type === 'VIDEO' && tr[U.videoFormats]}
+                    {formData.type === 'IMAGE' && tr[U.imageFormats]}
                   </p>
                 </>
               )}
@@ -1435,14 +1453,14 @@ function UploadPageContent() {
               >
                 <div className="relative flex items-center mb-2 sm:mb-4">
                   <h3 className="text-lg sm:text-xl font-semibold text-white pr-12">
-                    Crop {cropMediaType === 'video' ? 'Video' : 'Image'}
+                    {cropMediaType === 'video' ? tr[U.cropVideo] : tr[U.cropImage]}
                   </h3>
                   <button
                     type="button"
                     onClick={() => setShowCropper(false)}
                     className="absolute right-0 top-0 w-10 h-10 bg-black/30 hover:bg-black/50 transition-colors flex items-center justify-center"
-                    aria-label="Close crop tool"
-                    title="Close"
+                    aria-label={tr[U.closeCropTool]}
+                    title={tr[U.close]}
                   >
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1516,7 +1534,7 @@ function UploadPageContent() {
                 {/* Aspect ratio preset (crop to common ratios) */}
                 {mediaSize && (
                   <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <label className="shrink-0 text-xs sm:text-sm font-medium text-gray-300">Ratio</label>
+                    <label className="shrink-0 text-xs sm:text-sm font-medium text-gray-300">{tr[U.ratioLabel]}</label>
                     <select
                       value={cropAspectRatio ?? 'free'}
                       onChange={(e) => {
@@ -1527,14 +1545,14 @@ function UploadPageContent() {
                       }}
                       className="min-w-0 flex-1 sm:max-w-xs bg-tank-gray border border-tank-light px-3 py-2 text-white text-sm"
                     >
-                      <option value="free">Free (no constraint)</option>
-                      <option value="16:9">Wide 16:9 — YouTube and streaming</option>
-                      <option value="9:16">Vertical 9:16 — Reels and TikTok</option>
-                      <option value="1:1">Square 1:1 — Instagram posts</option>
-                      <option value="4:3">Classic 4:3</option>
-                      <option value="4:5">Social 4:5</option>
-                      <option value="21:9">Cinema 21:9</option>
-                      <option value="2:3">Portrait 2:3</option>
+                      <option value="free">{tr[U.ratioFree]}</option>
+                      <option value="16:9">{tr[U.ratio169]}</option>
+                      <option value="9:16">{tr[U.ratio916]}</option>
+                      <option value="1:1">{tr[U.ratio11]}</option>
+                      <option value="4:3">{tr[U.ratio43]}</option>
+                      <option value="4:5">{tr[U.ratio45]}</option>
+                      <option value="21:9">{tr[U.ratio219]}</option>
+                      <option value="2:3">{tr[U.ratio23]}</option>
                     </select>
                   </div>
                 )}
@@ -1547,10 +1565,10 @@ function UploadPageContent() {
                     {/* Time labels above the bar */}
                     <div className="flex items-end justify-between mb-1.5 px-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm sm:text-base text-gray-400 font-medium">Start</span>
+                        <span className="text-sm sm:text-base text-gray-400 font-medium">{tr[U.trimStart]}</span>
                         <input
                           type="text"
-                          placeholder="mm:ss"
+                          placeholder={tr[U.trimTimePlaceholder]}
                           value={trimStartInput ?? formatTrimTime(videoTrimStart)}
                           onFocus={() => setTrimStartInput(formatTrimTime(videoTrimStart))}
                           onChange={(e) => setTrimStartInput(e.target.value)}
@@ -1570,7 +1588,7 @@ function UploadPageContent() {
                       <div className="flex items-center gap-1.5">
                         <input
                           type="text"
-                          placeholder="mm:ss"
+                          placeholder={tr[U.trimTimePlaceholder]}
                           value={trimEndInput ?? formatTrimTime(videoTrimEnd)}
                           onFocus={() => setTrimEndInput(formatTrimTime(videoTrimEnd))}
                           onChange={(e) => setTrimEndInput(e.target.value)}
@@ -1582,13 +1600,13 @@ function UploadPageContent() {
                           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                           className="w-[62px] sm:w-[72px] px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded text-white text-sm sm:text-base tabular-nums text-center focus:ring-1 focus:ring-tank-accent focus:outline-none"
                         />
-                        <span className="text-sm sm:text-base text-gray-400 font-medium">End</span>
+                        <span className="text-sm sm:text-base text-gray-400 font-medium">{tr[U.trimEnd]}</span>
                       </div>
                     </div>
 
                     {/* Trim label + timeline bar */}
                     <div className="flex items-center gap-2">
-                      <label className="shrink-0 text-xs sm:text-sm font-medium text-gray-300">Trim</label>
+                      <label className="shrink-0 text-xs sm:text-sm font-medium text-gray-300">{tr[U.trimLabel]}</label>
                       <div
                         ref={trimBarRef}
                         className="relative flex-1 h-3 bg-gray-700 rounded-sm select-none touch-none"
@@ -1668,7 +1686,7 @@ function UploadPageContent() {
                         </button>
                       </div>
                     </div>
-                    <p className="text-[10px] text-gray-500 mt-0.5 ml-0">Drag handles or use arrows. Only the selected segment is kept.</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5 ml-0">{tr[U.trimHelp]}</p>
                   </div>
                   )
                 })()}
@@ -1676,7 +1694,7 @@ function UploadPageContent() {
                   <div className="grid grid-cols-1 gap-2 sm:gap-3 mt-3 sm:mt-4 text-sm text-gray-300">
                     {/* Top */}
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">Top</span>
+                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">{tr[U.cropTop]}</span>
                       <input
                         type="number"
                         min={0}
@@ -1711,7 +1729,7 @@ function UploadPageContent() {
 
                     {/* Bottom */}
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">Bottom</span>
+                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">{tr[U.cropBottom]}</span>
                       <input
                         type="number"
                         min={0}
@@ -1746,7 +1764,7 @@ function UploadPageContent() {
 
                     {/* Left */}
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">Left</span>
+                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">{tr[U.cropLeft]}</span>
                       <input
                         type="number"
                         min={0}
@@ -1781,7 +1799,7 @@ function UploadPageContent() {
 
                     {/* Right */}
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">Right</span>
+                      <span className="w-16 sm:w-20 shrink-0 text-sm sm:text-base font-medium">{tr[U.cropRight]}</span>
                       <input
                         type="number"
                         min={0}
@@ -1817,7 +1835,7 @@ function UploadPageContent() {
                 )}
                 {cropMediaType === 'video' && (
                   <p className="text-xs text-gray-400 mt-2">
-                    Upload applies this crop to the uploaded video (re-encoded) and thumbnail.
+                    {tr[U.cropVideoNote]}
                   </p>
                 )}
                 <div className="flex flex-col sm:flex-row gap-3 justify-end mt-6">
@@ -1826,21 +1844,21 @@ function UploadPageContent() {
                     onClick={handleSaveEditedLocally}
                     className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-all"
                   >
-                    Save to Device
+                    {tr[U.saveToDevice]}
                   </button>
                   <button
                     type="button"
                     onClick={handleUseOriginal}
                     className="px-6 py-2 bg-tank-gray border border-tank-light text-white hover:bg-tank-light transition-all"
                   >
-                    Reset to Original
+                    {tr[U.resetOriginal]}
                   </button>
                   <button
                     type="button"
                     onClick={handleUseEdited}
                     className="px-6 py-2 bg-tank-accent text-black font-semibold hover:bg-tank-accent/90 transition-all"
                   >
-                    Upload
+                    {tr[U.cropUpload]}
                   </button>
                 </div>
               </div>
@@ -1852,7 +1870,7 @@ function UploadPageContent() {
           {formData.type === 'VIDEO' && (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Thumbnail {thumbnail ? '✓' : '(optional)'}
+                {thumbnail ? tr[U.thumbnailDone] : tr[U.thumbnailOptional]}
               </label>
               {thumbnail && (
                 <div className="mb-2 flex items-center gap-2">
@@ -1862,7 +1880,7 @@ function UploadPageContent() {
                     className="h-20 rounded-lg object-cover"
                   />
                   <span className="text-xs text-gray-400">
-                    {formData.type === 'VIDEO' ? 'Auto-generated from video' : 'Selected'}
+                    {tr[U.thumbnailAuto]}
                   </span>
                 </div>
               )}
@@ -1884,12 +1902,10 @@ function UploadPageContent() {
                   setThumbnail(next)
                 }}
                 className="text-sm"
-                aria-label="Upload a thumbnail image"
+                aria-label={tr[U.thumbnailAria]}
               />
               <p className="text-xs text-gray-500 mt-1">
-                {formData.type === 'VIDEO' 
-                  ? 'Thumbnail will be auto-generated from video if not provided' 
-                  : 'Upload a cover image for your music'}
+                {tr[U.thumbnailVideoHint]}
               </p>
             </div>
           )}
@@ -1897,7 +1913,7 @@ function UploadPageContent() {
           {/* Title */}
           <div>
             <label htmlFor="upload-title" className="block text-sm font-medium text-gray-300 mb-2">
-              Title *
+              {tr[U.titleLabel]}
             </label>
             <input
               type="text"
@@ -1907,7 +1923,7 @@ function UploadPageContent() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, title: e.target.value }))
               }
-              placeholder="Give your creation a title"
+              placeholder={tr[U.titlePlaceholder]}
               required
             />
           </div>
@@ -1915,7 +1931,7 @@ function UploadPageContent() {
           {/* Description */}
           <div>
             <label htmlFor="upload-description" className="block text-sm font-medium text-gray-300 mb-2">
-              Description
+              {tr[U.descriptionLabel]}
             </label>
             <textarea
               ref={descriptionRef}
@@ -1925,7 +1941,7 @@ function UploadPageContent() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, description: e.target.value }))
               }
-              placeholder="Describe your created media ..."
+              placeholder={tr[U.descriptionPlaceholder]}
               rows={3}
               className="resize-none overflow-hidden"
             />
@@ -1934,7 +1950,7 @@ function UploadPageContent() {
           {/* Price */}
           <div>
             <label htmlFor="upload-price" className="block text-sm font-medium text-gray-300 mb-2">
-              Download price (USD) — leave empty for free
+              {tr[U.priceLabel]}
             </label>
             <input
               type="number"
@@ -1946,18 +1962,17 @@ function UploadPageContent() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, price: e.target.value }))
               }
-              placeholder="e.g., 0.50 (leave empty for free)"
+              placeholder={tr[U.pricePlaceholder]}
             />
             <p className="text-xs text-gray-500 mt-1">
-              Fee for downloading this file. Purchases are final (Terms §10.1). You may change the
-              price anytime before purchase (Terms §10.2).
+              {tr[U.priceHint]}
             </p>
           </div>
 
           {/* AI Tool */}
           <div>
             <label htmlFor="upload-ai-tool" className="block text-sm font-medium text-gray-300 mb-2">
-              AI-generation Tool Used
+              {tr[U.aiToolLabel]}
             </label>
             <input
               type="text"
@@ -1967,14 +1982,14 @@ function UploadPageContent() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, aiTool: e.target.value }))
               }
-              placeholder="e.g., Veo, Nano Banana, Runway, Sora, DALL-E, ..."
+              placeholder={tr[U.aiToolPlaceholder]}
             />
           </div>
 
           {/* Real Media Device Used */}
           <div>
             <label htmlFor="upload-real-device" className="block text-sm font-medium text-gray-300 mb-2">
-              Real Media Device Used
+              {tr[U.deviceLabel]}
             </label>
             <input
               type="text"
@@ -1984,7 +1999,7 @@ function UploadPageContent() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, realDevice: e.target.value }))
               }
-              placeholder="e.g., iPhone 17 Pro, Galaxy S25 Ultra, Pixel 10 Pro, Canon EOS R5, Nikon Z6 III, ..."
+              placeholder={tr[U.devicePlaceholder]}
               className="w-full"
             />
           </div>
@@ -1992,7 +2007,7 @@ function UploadPageContent() {
           {/* Hashtags */}
           <div>
             <label htmlFor="upload-hashtags" className="block text-sm font-medium text-gray-300 mb-2">
-              #Hashtags
+              {tr[U.hashtagsLabel]}
             </label>
             <input
               type="text"
@@ -2002,11 +2017,11 @@ function UploadPageContent() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, hashtags: e.target.value }))
               }
-              placeholder="#AI #art #music #video (separate with spaces)"
+              placeholder={tr[U.hashtagsPlaceholder]}
               className="w-full"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Add hashtags to help others find your content. Start each with # and separate with spaces.
+              {tr[U.hashtagsHint]}
             </p>
           </div>
 
@@ -2020,22 +2035,20 @@ function UploadPageContent() {
                 />
               </div>
               <p className="text-sm text-center text-gray-400 mt-2">
-                {uploadStatus || `Uploading... ${uploadProgress}%`}
+                {displayUploadStatus ||
+                  uploadPageInterpolate(tr[U.uploadingPercent], { percent: uploadProgress })}
               </p>
             </div>
           )}
 
           <div className="rounded-xl border border-tank-light bg-tank-gray/40 p-4 text-sm text-gray-300">
-            <div className="font-semibold text-white mb-1">No Returns</div>
+            <div className="font-semibold text-white mb-1">{tr[U.noReturnsTitle]}</div>
             <p className="mb-4">
-              All digital media purchases are final once payment succeeds—no returns, refunds,
-              cancellations, or exchanges. See Terms §10.1.
+              {tr[U.noReturnsBody]}
             </p>
-            <div className="font-semibold text-white mb-1">License &amp; Usage</div>
+            <div className="font-semibold text-white mb-1">{tr[U.licenseTitle]}</div>
             <p>
-              Payment does not transfer copyright. Media is license-free between Seller and Buyer
-              (non-exclusive, perpetual, royalty-free) for personal/commercial use. Do not re-upload
-              identical files. See Terms §§10.7–10.11.
+              {tr[U.licenseBody]}
             </p>
           </div>
 
@@ -2045,19 +2058,19 @@ function UploadPageContent() {
               onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
               className="w-full sm:w-auto px-8 py-3 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all font-medium"
             >
-              Cancel
+              {tr[U.cancel]}
             </button>
             <button
               type="submit"
               disabled={loading || !file || !!(uploadQuota && !uploadQuota.canUpload)}
               className="w-full sm:w-auto px-8 py-3 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all"
             >
-              {loading ? 'Uploading...' : 
+              {loading ? tr[U.uploading] : 
                 uploadQuota?.statusType === 'paid' && !uploadPaid && !((uploadQuota?.paidUploadCredits ?? 0) > 0) 
-                  ? `Pay & Upload ($${uploadQuota.costPerUpload.toFixed(2)})` 
+                  ? uploadPageInterpolate(tr[U.payAndUpload], { price: `$${uploadQuota.costPerUpload.toFixed(2)}` })
                   : (uploadQuota?.paidUploadCredits ?? 0) > 0 
-                    ? `Upload (Using Paid Credit)` 
-                    : 'Upload Media'}
+                    ? tr[U.uploadPaidCredit]
+                    : tr[U.submitUpload]}
             </button>
           </div>
         </form>
@@ -2070,15 +2083,16 @@ function UploadPageContent() {
           <div className="bg-tank-dark border border-tank-light rounded-2xl max-w-md w-full p-6">
             <div className="text-center">
               <div className="text-5xl mb-4">💳</div>
-              <h3 className="text-xl font-bold mb-2">Payment Required</h3>
+              <h3 className="text-xl font-bold mb-2">{tr[U.paymentRequiredTitle]}</h3>
               <p className="text-gray-400 mb-6">
-                You have used all your free uploads. This upload will cost{' '}
-                <span className="text-tank-accent font-bold">${uploadQuota.costPerUpload.toFixed(2)}</span>.
+                {uploadPageInterpolate(tr[U.paymentRequiredBody], {
+                  price: `$${uploadQuota.costPerUpload.toFixed(2)}`,
+                })}
               </p>
 
               <div className="bg-tank-gray rounded-xl p-4 mb-6">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Upload Fee</span>
+                  <span className="text-gray-400">{tr[U.uploadFeeLabel]}</span>
                   <span className="font-bold">${uploadQuota.costPerUpload.toFixed(2)}</span>
                 </div>
               </div>
@@ -2092,14 +2106,16 @@ function UploadPageContent() {
                   {paymentLoading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                      Processing...
+                      {tr[U.processing]}
                     </>
                   ) : (
                     <>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
-                      Pay ${uploadQuota.costPerUpload.toFixed(2)} & Upload
+                      {uploadPageInterpolate(tr[U.payUploadButton], {
+                        price: `$${uploadQuota.costPerUpload.toFixed(2)}`,
+                      })}
                     </>
                   )}
                 </button>
@@ -2108,14 +2124,14 @@ function UploadPageContent() {
                   onClick={() => router.push('/pricing')}
                   className="w-full py-3 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all"
                 >
-                  Upgrade to Premium (Unlimited Free Uploads)
+                  {tr[U.upgradePremiumModal]}
                 </button>
 
                 <button
                   onClick={() => setShowPaymentModal(false)}
                   className="w-full py-3 text-gray-400 hover:text-white transition-all"
                 >
-                  Cancel
+                  {tr[U.cancel]}
                 </button>
               </div>
             </div>
@@ -2129,7 +2145,7 @@ function UploadPageContent() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
-          <span className="font-semibold">Payment successful! You can now upload.</span>
+          <span className="font-semibold">{tr[U.paymentSuccessToast]}</span>
           <button onClick={() => setUploadPaid(false)} className="ml-2 hover:opacity-70">✕</button>
         </div>
       )}

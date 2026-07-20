@@ -114,6 +114,12 @@ const DE: Pack = {
   policy: 'Richtlinien',
   adminPanel: 'Administration',
   closePanel: 'Schließen',
+  versionUpdate: 'Version/Update',
+  currentVersion: 'Aktuelle Version',
+  upToDate: 'Sie nutzen die neueste Version',
+  updateAvailable: 'Eine neue Version ist verfügbar',
+  updateNow: 'Aktualisieren',
+  updating: 'Wird aktualisiert…',
 }
 
 const FR: Pack = {
@@ -145,6 +151,12 @@ const FR: Pack = {
   policy: 'Politique',
   adminPanel: 'Administration',
   closePanel: 'Fermer',
+  versionUpdate: 'Version/Mise à jour',
+  currentVersion: 'Version actuelle',
+  upToDate: 'Vous utilisez la dernière version',
+  updateAvailable: 'Une nouvelle version est disponible',
+  updateNow: 'Mettre à jour',
+  updating: 'Mise à jour…',
 }
 
 const ES: Pack = {
@@ -176,6 +188,13 @@ const ES: Pack = {
   support: 'Soporte',
   policy: 'Política',
   adminPanel: 'Administración',
+  closePanel: 'Cerrar',
+  versionUpdate: 'Versión/Actualización',
+  currentVersion: 'Versión actual',
+  upToDate: 'Estás en la última versión',
+  updateAvailable: 'Hay una nueva versión disponible',
+  updateNow: 'Actualizar',
+  updating: 'Actualizando…',
 }
 
 const JA: Pack = {
@@ -209,6 +228,13 @@ const JA: Pack = {
   support: 'サポート',
   policy: 'ポリシー',
   adminPanel: '管理画面',
+  closePanel: '閉じる',
+  versionUpdate: 'バージョン/更新',
+  currentVersion: '現在のバージョン',
+  upToDate: '最新バージョンを使用しています',
+  updateAvailable: '新しいバージョンが利用可能です',
+  updateNow: '更新',
+  updating: '更新中…',
 }
 
 const KO: Pack = {
@@ -242,6 +268,13 @@ const KO: Pack = {
   support: '지원',
   policy: '정책',
   adminPanel: '관리자',
+  closePanel: '닫기',
+  versionUpdate: '버전/업데이트',
+  currentVersion: '현재 버전',
+  upToDate: '최신 버전을 사용 중입니다',
+  updateAvailable: '새 버전을 사용할 수 있습니다',
+  updateNow: '업데이트',
+  updating: '업데이트 중…',
 }
 
 const ZH: Pack = {
@@ -275,6 +308,13 @@ const ZH: Pack = {
   support: '支持',
   policy: '政策',
   adminPanel: '管理后台',
+  closePanel: '关闭',
+  versionUpdate: '版本/更新',
+  currentVersion: '当前版本',
+  upToDate: '您已是最新版本',
+  updateAvailable: '有新版本可用',
+  updateNow: '更新',
+  updating: '更新中…',
 }
 
 const PT: Pack = {
@@ -307,6 +347,13 @@ const PT: Pack = {
   support: 'Suporte',
   policy: 'Política',
   adminPanel: 'Administração',
+  closePanel: 'Fechar',
+  versionUpdate: 'Versão/Atualização',
+  currentVersion: 'Versão atual',
+  upToDate: 'Você está na versão mais recente',
+  updateAvailable: 'Uma nova versão está disponível',
+  updateNow: 'Atualizar',
+  updating: 'Atualizando…',
 }
 
 const IT: Pack = {
@@ -339,6 +386,13 @@ const IT: Pack = {
   support: 'Supporto',
   policy: 'Policy',
   adminPanel: 'Pannello admin',
+  closePanel: 'Chiudi',
+  versionUpdate: 'Versione/Aggiornamento',
+  currentVersion: 'Versione attuale',
+  upToDate: 'Stai usando l\'ultima versione',
+  updateAvailable: 'È disponibile una nuova versione',
+  updateNow: 'Aggiorna',
+  updating: 'Aggiornamento…',
 }
 
 const RU: Pack = {
@@ -371,6 +425,13 @@ const RU: Pack = {
   support: 'Поддержка',
   policy: 'Правила',
   adminPanel: 'Админ-панель',
+  closePanel: 'Закрыть',
+  versionUpdate: 'Версия/Обновление',
+  currentVersion: 'Текущая версия',
+  upToDate: 'У вас установлена последняя версия',
+  updateAvailable: 'Доступна новая версия',
+  updateNow: 'Обновить',
+  updating: 'Обновление…',
 }
 
 const AR: Pack = {

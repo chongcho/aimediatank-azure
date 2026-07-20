@@ -78,6 +78,17 @@ const EDIT_PROFILE_STRINGS = [
   'Membership plan',
 ] as const
 
+const E = {
+  membershipHeading: 56,
+  membershipViewer: 57,
+  membershipBasic: 58,
+  membershipAdvanced: 59,
+  membershipPremium: 60,
+  membershipCurrentHint: 61,
+  membershipChangeHint: 62,
+  membershipPlanLabel: 63,
+} as const
+
 const COUNTRY_NAMES = [
   'United States',
   'United Kingdom',
@@ -1170,27 +1181,27 @@ export default function EditProfilePage() {
 
           {/* Membership Selection */}
           <div className="border-t border-tank-light pt-6">
-            <h3 className="text-lg font-semibold mb-4">{tr[71]}</h3>
+            <h3 className="text-lg font-semibold mb-4">{tr[E.membershipHeading]}</h3>
             <div>
               <select
                 name="membership"
                 value={selectedMembership}
                 onChange={(e) => setSelectedMembership(e.target.value)}
                 className="w-full"
-                aria-label={tr[78]}
-                title={tr[78]}
+                aria-label={tr[E.membershipPlanLabel]}
+                title={tr[E.membershipPlanLabel]}
               >
-                <option value="viewer">{tr[72]}</option>
-                <option value="basic">{tr[73]}</option>
-                <option value="advanced">{tr[74]}</option>
-                <option value="premium">{tr[75]}</option>
+                <option value="viewer">{tr[E.membershipViewer]}</option>
+                <option value="basic">{tr[E.membershipBasic]}</option>
+                <option value="advanced">{tr[E.membershipAdvanced]}</option>
+                <option value="premium">{tr[E.membershipPremium]}</option>
               </select>
               <p className="text-xs text-gray-500 mt-2">
                 {selectedMembership === originalMembership
-                  ? tr[76]
+                  ? tr[E.membershipCurrentHint]
                   : selectedMembership === 'viewer'
-                    ? tr[76]
-                    : tr[77]}
+                    ? tr[E.membershipCurrentHint]
+                    : tr[E.membershipChangeHint]}
               </p>
             </div>
           </div>

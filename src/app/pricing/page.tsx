@@ -10,7 +10,7 @@ const PRICING_STRINGS = [
   'Your subscription is now active. Enjoy your new benefits!',
   'Close',
   'Choose Your Plan',
-  'Your current plan:',
+  'Your current',
   'Unlimited Free Uploads',
   'Upload',
   'Uploads',
@@ -83,6 +83,9 @@ const PRICING_STRINGS = [
   'Keep Subscription',
   'Changes take effect immediately. Your existing uploads will not be affected.',
   '← Back',
+  'You have {count} upload credit to post',
+  'You have {count} upload credits to post',
+  '({freeCount} free + {creditCount} credits)',
 ] as const
 
 const S = {
@@ -163,7 +166,17 @@ const S = {
   keepSubscription: 74,
   manageChangesNote: 75,
   back: 76,
+  uploadCreditsSingular: 77,
+  uploadCreditsPlural: 78,
+  uploadCreditsBreakdown: 79,
 } as const
+
+function fillPricingTemplate(template: string, vars: Record<string, string | number>): string {
+  return Object.entries(vars).reduce(
+    (s, [key, value]) => s.replaceAll(`{${key}}`, String(value)),
+    template
+  )
+}
 
 const plans = [
   {
@@ -480,7 +493,9 @@ function PricingPageContent() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
             <p className="text-tank-accent">
-              {tr[S.yourCurrentPlan]} <span className="font-bold">{currentMembership}</span>
+              {/* Keep PLAN in English — MT often mistranslates “Plan” (e.g. 계획) */}
+              {tr[S.yourCurrentPlan]} PLAN:{' '}
+              <span className="font-bold">{currentMembership}</span>
             </p>
               {uploadStatus ? (
                 <div className="flex items-center gap-2">
@@ -492,13 +507,20 @@ function PricingPageContent() {
                   ) : typeof uploadStatus.uploadsAvailable === 'number' &&
                     uploadStatus.uploadsAvailable > 0 ? (
                     <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
-                      {/* Keep English — MT mangled “uploads left” / counts */}
-                      🎁 You have {uploadStatus.uploadsAvailable} upload credit
-                      {uploadStatus.uploadsAvailable !== 1 ? 's' : ''} to post
+                      🎁{' '}
+                      {fillPricingTemplate(
+                        uploadStatus.uploadsAvailable === 1
+                          ? tr[S.uploadCreditsSingular]
+                          : tr[S.uploadCreditsPlural],
+                        { count: uploadStatus.uploadsAvailable }
+                      )}
                       {typeof uploadStatus.freeUploadsRemaining === 'number' &&
                       uploadStatus.freeUploadsRemaining > 0 &&
                       (uploadStatus.totalCredits || 0) > 0
-                        ? ` (${uploadStatus.freeUploadsRemaining} free + ${uploadStatus.totalCredits} credit${uploadStatus.totalCredits !== 1 ? 's' : ''})`
+                        ? ` ${fillPricingTemplate(tr[S.uploadCreditsBreakdown], {
+                            freeCount: uploadStatus.freeUploadsRemaining,
+                            creditCount: uploadStatus.totalCredits || 0,
+                          })}`
                         : ''}
                     </span>
                   ) : typeof uploadStatus.freeUploadsRemaining === 'number' &&
@@ -821,7 +843,9 @@ function PricingPageContent() {
             </div>
 
             <p className="text-gray-400 mb-6">
-              {tr[S.yourCurrentPlan]} <span className="text-tank-accent font-bold">{currentMembership}</span>
+              {/* Keep PLAN in English — MT often mistranslates “Plan” (e.g. 계획) */}
+              {tr[S.yourCurrentPlan]} PLAN:{' '}
+              <span className="text-tank-accent font-bold">{currentMembership}</span>
             </p>
 
             <div className="space-y-3">

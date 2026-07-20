@@ -14,6 +14,7 @@ import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { useFeedGridAutoTranslation } from '@/hooks/useFeedGridAutoTranslation'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
+import { useLanguageModeList } from '@/hooks/useLanguageModeText'
 import { useAppUpdate } from '@/hooks/useAppUpdate'
 import { OPEN_TALK_CHAT_EVENT } from '@/lib/talkChatOpen'
 import { VoiceCallProvider } from '@/contexts/VoiceCallContext'
@@ -22,6 +23,27 @@ import { navBarT, type NavBarKey } from '@/messages/navBar'
 import { localLanguageModeLabel } from '@/lib/localeFromLocation'
 import { calendarLocaleFromUiTag } from '@/lib/localeUi'
 import { LanguageModeTrans } from '@/components/LanguageModeTrans'
+
+/** Version panel — follows language mode (Local) like Membership/Pricing. */
+const VERSION_PANEL_STRINGS = [
+  'Version/Update',
+  'Current version',
+  'You are on the latest version',
+  'A new version is available',
+  'Update',
+  'Updating…',
+  'Close',
+] as const
+
+const V = {
+  title: 0,
+  currentVersion: 1,
+  upToDate: 2,
+  updateAvailable: 3,
+  updateNow: 4,
+  updating: 5,
+  close: 6,
+} as const
 
 // Dynamic import TalkChat to prevent SSR issues
 const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
@@ -58,6 +80,7 @@ function NavbarContent() {
   const { data: session, status, update: updateSession } = useSession()
   const [restoreLoading, setRestoreLoading] = useState(false)
   const { localeTag, tNavbar: t } = useUiLocale()
+  const trVersion = useLanguageModeList(VERSION_PANEL_STRINGS)
   const { version, updateAvailable, isUpdating, applyUpdate, checkForUpdate } = useAppUpdate()
   const feedAutoTranslation = useFeedGridAutoTranslation()
   const { mode: feedCardTextMode, setMode: setFeedCardTextMode } = useFeedCardTextMode()
@@ -973,7 +996,7 @@ function NavbarContent() {
                                 <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-tank-accent" aria-hidden />
                               )}
                             </div>
-                            <span className="flex-1 text-left">{tNavLink('versionUpdate')}</span>
+                            <span className="flex-1 text-left">{trVersion[V.title]}</span>
                           </button>
                           <Link
                             href="/profile/edit"
@@ -1378,7 +1401,7 @@ function NavbarContent() {
             <button
               type="button"
               className="absolute inset-0 cursor-default"
-              aria-label={tNavLink('closePanel')}
+              aria-label={trVersion[V.close]}
               onClick={closeVersionPanel}
             />
             <div
@@ -1387,7 +1410,7 @@ function NavbarContent() {
             >
               <div className="flex items-center justify-between gap-2 border-b border-tank-light bg-tank-dark px-3 py-2">
                 <h2 id="navbar-version-title" className="truncate text-sm font-semibold text-white">
-                  {tNavLink('versionUpdate')}
+                  {trVersion[V.title]}
                 </h2>
                 <button
                   type="button"
@@ -1396,7 +1419,7 @@ function NavbarContent() {
                     closeVersionPanel()
                   }}
                   className="rounded p-1 text-gray-400 hover:bg-tank-light/40 hover:text-white"
-                  aria-label={tNavLink('closePanel')}
+                  aria-label={trVersion[V.close]}
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1405,11 +1428,11 @@ function NavbarContent() {
               </div>
               <div className="space-y-4 px-4 py-6">
                 <div>
-                  <p className="text-xs text-gray-400">{tNavLink('currentVersion')}</p>
+                  <p className="text-xs text-gray-400">{trVersion[V.currentVersion]}</p>
                   <p className="mt-1 font-mono text-lg font-semibold text-white">{version}</p>
                 </div>
                 <p className={`text-sm ${updateAvailable ? 'text-tank-accent' : 'text-gray-400'}`}>
-                  {updateAvailable ? tNavLink('updateAvailable') : tNavLink('upToDate')}
+                  {updateAvailable ? trVersion[V.updateAvailable] : trVersion[V.upToDate]}
                 </p>
                 <button
                   type="button"
@@ -1421,7 +1444,7 @@ function NavbarContent() {
                       : 'cursor-not-allowed bg-tank-light/30 text-gray-500'
                   } disabled:cursor-wait disabled:opacity-60`}
                 >
-                  {isUpdating ? tNavLink('updating') : tNavLink('updateNow')}
+                  {isUpdating ? trVersion[V.updating] : trVersion[V.updateNow]}
                 </button>
               </div>
             </div>
