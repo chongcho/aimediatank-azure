@@ -973,7 +973,7 @@ function NavbarContent() {
                                 <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-tank-accent" aria-hidden />
                               )}
                             </div>
-                            <span className="flex-1 text-left">{t('versionUpdate')}</span>
+                            <span className="flex-1 text-left">{tNavLink('versionUpdate')}</span>
                           </button>
                           <Link
                             href="/profile/edit"
@@ -1378,7 +1378,7 @@ function NavbarContent() {
             <button
               type="button"
               className="absolute inset-0 cursor-default"
-              aria-label={t('closePanel')}
+              aria-label={tNavLink('closePanel')}
               onClick={closeVersionPanel}
             />
             <div
@@ -1387,7 +1387,7 @@ function NavbarContent() {
             >
               <div className="flex items-center justify-between gap-2 border-b border-tank-light bg-tank-dark px-3 py-2">
                 <h2 id="navbar-version-title" className="truncate text-sm font-semibold text-white">
-                  {t('versionUpdate')}
+                  {tNavLink('versionUpdate')}
                 </h2>
                 <button
                   type="button"
@@ -1396,7 +1396,7 @@ function NavbarContent() {
                     closeVersionPanel()
                   }}
                   className="rounded p-1 text-gray-400 hover:bg-tank-light/40 hover:text-white"
-                  aria-label={t('closePanel')}
+                  aria-label={tNavLink('closePanel')}
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1405,11 +1405,11 @@ function NavbarContent() {
               </div>
               <div className="space-y-4 px-4 py-6">
                 <div>
-                  <p className="text-xs text-gray-400">{t('currentVersion')}</p>
+                  <p className="text-xs text-gray-400">{tNavLink('currentVersion')}</p>
                   <p className="mt-1 font-mono text-lg font-semibold text-white">{version}</p>
                 </div>
                 <p className={`text-sm ${updateAvailable ? 'text-tank-accent' : 'text-gray-400'}`}>
-                  {updateAvailable ? t('updateAvailable') : t('upToDate')}
+                  {updateAvailable ? tNavLink('updateAvailable') : tNavLink('upToDate')}
                 </p>
                 <button
                   type="button"
@@ -1421,7 +1421,7 @@ function NavbarContent() {
                       : 'cursor-not-allowed bg-tank-light/30 text-gray-500'
                   } disabled:cursor-wait disabled:opacity-60`}
                 >
-                  {isUpdating ? t('updating') : t('updateNow')}
+                  {isUpdating ? tNavLink('updating') : tNavLink('updateNow')}
                 </button>
               </div>
             </div>

@@ -68,6 +68,14 @@ const EDIT_PROFILE_STRINGS = [
   'Verify',
   "Didn't receive the code?",
   'Resend',
+  'Membership',
+  'Free Viewer Plan',
+  'Basic Plan — $2/month',
+  'Advanced Plan — $5/month',
+  'Premium Plan — $8/month',
+  'Your current plan. Save keeps your profile; pick a different plan to continue on Pricing.',
+  'After saving, you will continue to Pricing to complete or change your paid plan.',
+  'Membership plan',
 ] as const
 
 const COUNTRY_NAMES = [
@@ -227,6 +235,8 @@ export default function EditProfilePage() {
     phoneVerificationEnabled: true,
     selfServiceDeactivateAccountEnabled: true,
   })
+  const [selectedMembership, setSelectedMembership] = useState('viewer')
+  const [originalMembership, setOriginalMembership] = useState('viewer')
 
   const tr = useLanguageModeList(EDIT_PROFILE_STRINGS)
   const countryLabels = useLanguageModeList(COUNTRY_NAMES)
@@ -313,6 +323,14 @@ export default function EditProfilePage() {
         setOriginalEmail(data.user.email || '')
         setOriginalUsername(data.user.username || '')
         setOriginalPhone(data.user.phone || '')
+        const membership = String(data.user.membershipType || 'VIEWER')
+          .trim()
+          .toLowerCase()
+        const membershipId = ['viewer', 'basic', 'advanced', 'premium'].includes(membership)
+          ? membership
+          : 'viewer'
+        setSelectedMembership(membershipId)
+        setOriginalMembership(membershipId)
         if (data.user.avatar) {
           setAvatarPreview(data.user.avatar)
         }
@@ -746,8 +764,16 @@ export default function EditProfilePage() {
         }
 
         // Hard navigation: intercepted @modal routes often keep the overlay when using router.push('/').
-        // No success flash — go straight home after save.
-        window.location.replace('/')
+        // If membership selection changed, continue on Pricing; otherwise go home.
+        if (selectedMembership !== originalMembership) {
+          const planQuery =
+            selectedMembership !== 'viewer'
+              ? `?plan=${encodeURIComponent(selectedMembership)}`
+              : ''
+          window.location.replace(`/pricing${planQuery}`)
+        } else {
+          window.location.replace('/')
+        }
       }
     } catch (error) {
       setError('Something went wrong')
@@ -1139,6 +1165,33 @@ export default function EditProfilePage() {
                   </p>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Membership Selection */}
+          <div className="border-t border-tank-light pt-6">
+            <h3 className="text-lg font-semibold mb-4">{tr[71]}</h3>
+            <div>
+              <select
+                name="membership"
+                value={selectedMembership}
+                onChange={(e) => setSelectedMembership(e.target.value)}
+                className="w-full"
+                aria-label={tr[78]}
+                title={tr[78]}
+              >
+                <option value="viewer">{tr[72]}</option>
+                <option value="basic">{tr[73]}</option>
+                <option value="advanced">{tr[74]}</option>
+                <option value="premium">{tr[75]}</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-2">
+                {selectedMembership === originalMembership
+                  ? tr[76]
+                  : selectedMembership === 'viewer'
+                    ? tr[76]
+                    : tr[77]}
+              </p>
             </div>
           </div>
 
