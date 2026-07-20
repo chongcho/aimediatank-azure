@@ -75,7 +75,12 @@ function LoginContent() {
     setForgotEmailResult(null)
   }
 
-  const callbackUrl = searchParams.get('callbackUrl') || '/'
+  const planParam = searchParams.get('plan')
+  const paidPlanCallback =
+    planParam && ['basic', 'advanced', 'premium'].includes(planParam)
+      ? `/pricing?plan=${encodeURIComponent(planParam)}`
+      : null
+  const callbackUrl = searchParams.get('callbackUrl') || paidPlanCallback || '/'
   const safeCallbackUrl = callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : '/'
   const returningToAdmin =
     safeCallbackUrl === '/admin' || safeCallbackUrl.startsWith('/admin?')

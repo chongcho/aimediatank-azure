@@ -143,7 +143,7 @@ export default function AboutPage() {
               {plans.map((plan, i) => (
                 <div
                   key={i}
-                  className="relative bg-tank-dark rounded-2xl p-6 text-center transition-all hover:shadow-lg"
+                  className="group relative bg-tank-dark rounded-2xl p-6 text-center border border-transparent transition-all hover:border-tank-accent hover:shadow-lg"
                 >
                   <h3 className="text-xl font-bold mb-1">
                     <AboutTrans text={plan.name} />
@@ -163,8 +163,8 @@ export default function AboutPage() {
                     ))}
                   </ul>
                   <Link
-                    href="/pricing"
-                    className="block w-full py-3 rounded-lg font-semibold transition-all text-sm bg-tank-accent text-tank-black hover:bg-tank-accent/90 hover:scale-105 hover:shadow-lg hover:shadow-tank-accent/20"
+                    href="/register"
+                    className="block w-full py-3 rounded-lg font-semibold transition-all text-sm border border-gray-600 bg-transparent text-gray-300 group-hover:border-tank-accent group-hover:bg-tank-accent group-hover:text-tank-black group-hover:shadow-lg group-hover:shadow-tank-accent/20"
                   >
                     <AboutTrans text="Get Started" />
                   </Link>
@@ -173,7 +173,7 @@ export default function AboutPage() {
             </div>
           </div>
 
-          <p className="text-base text-gray-500 max-w-2xl mx-auto mb-12">
+          <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-12 leading-relaxed">
             <AboutTrans text="Built by creators, for creators. Powered entirely by Microsoft Azure cloud infrastructure, engineered with Cursor AI-assisted development, and designed for the professionals shaping the future of media." />
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

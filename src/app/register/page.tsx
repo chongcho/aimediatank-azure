@@ -81,6 +81,7 @@ export default function RegisterPage() {
   const [generatedCode, setGeneratedCode] = useState('')
   const [policyAgreed, setPolicyAgreed] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
+  const [selectedMembership, setSelectedMembership] = useState('viewer')
 
   // Phone verification state (two-step verification when phone is provided)
   const [phoneVerificationState, setPhoneVerificationState] = useState<{
@@ -522,9 +523,12 @@ export default function RegisterPage() {
       if (!res.ok) {
         setError(data.error || 'Registration failed')
       } else {
-        // Redirect to login on success
-        // Note: Avatar can be set after login in profile edit
-        router.push('/login?registered=true')
+        // Redirect to login on success; paid plans continue on Pricing after login
+        const planQuery =
+          selectedMembership && selectedMembership !== 'viewer'
+            ? `&plan=${encodeURIComponent(selectedMembership)}`
+            : ''
+        router.push(`/login?registered=true${planQuery}`)
       }
     } catch (err) {
       setError('Something went wrong')
@@ -989,6 +993,35 @@ export default function RegisterPage() {
                     </p>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Membership Selection */}
+            <div className="border-t border-tank-light pt-6">
+              <h3 className="text-lg font-semibold mb-4">Membership</h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Membership Plan *
+                </label>
+                <select
+                  name="membership"
+                  value={selectedMembership}
+                  onChange={(e) => setSelectedMembership(e.target.value)}
+                  required
+                  className="w-full"
+                  aria-label="Select membership plan"
+                  title="Select membership plan"
+                >
+                  <option value="viewer">Free Viewer Plan</option>
+                  <option value="basic">Basic Plan — $2/month</option>
+                  <option value="advanced">Advanced Plan — $5/month</option>
+                  <option value="premium">Premium Plan — $8/month</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-2">
+                  {selectedMembership === 'viewer'
+                    ? 'Start free. You can upgrade anytime from Pricing.'
+                    : 'After creating your account, sign in to complete your paid plan checkout.'}
+                </p>
               </div>
             </div>
 
