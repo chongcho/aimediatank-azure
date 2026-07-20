@@ -44,7 +44,7 @@ const PRICING_STRINGS = [
   '/year',
   'View contents',
   'Buy contents',
-  'Plan Comparison',
+  'Comparison',
   'Feature',
   'Viewer',
   'Basic',
@@ -492,13 +492,13 @@ function PricingPageContent() {
                   ) : typeof uploadStatus.uploadsAvailable === 'number' &&
                     uploadStatus.uploadsAvailable > 0 ? (
                     <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
-                      🎁 {uploadStatus.uploadsAvailable}{' '}
-                      {uploadStatus.uploadsAvailable !== 1 ? tr[S.uploadPlural] : tr[S.uploadSingular]}{' '}
-                      {tr[S.left]}
+                      {/* Keep English — MT mangled “uploads left” / counts */}
+                      🎁 You have {uploadStatus.uploadsAvailable} upload credit
+                      {uploadStatus.uploadsAvailable !== 1 ? 's' : ''} to post
                       {typeof uploadStatus.freeUploadsRemaining === 'number' &&
                       uploadStatus.freeUploadsRemaining > 0 &&
                       (uploadStatus.totalCredits || 0) > 0
-                        ? ` (${uploadStatus.freeUploadsRemaining} ${tr[S.freeWord]} + ${uploadStatus.totalCredits} ${tr[S.creditsWord]})`
+                        ? ` (${uploadStatus.freeUploadsRemaining} free + ${uploadStatus.totalCredits} credit${uploadStatus.totalCredits !== 1 ? 's' : ''})`
                         : ''}
                     </span>
                   ) : typeof uploadStatus.freeUploadsRemaining === 'number' &&
@@ -516,7 +516,7 @@ function PricingPageContent() {
                 </div>
               ) : (
                 <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
-                  {tr[getPlanByMembership(currentMembership).strings.uploadCostShort]}
+                  {PRICING_STRINGS[getPlanByMembership(currentMembership).strings.uploadCostShort]}
                 </span>
               )}
             </div>
@@ -580,10 +580,10 @@ function PricingPageContent() {
               )}
               {plan.isFree && <p className="text-gray-500 text-sm mb-4">&nbsp;</p>}
 
-              {/* Upload cost + features follow language mode */}
+              {/* Upload cost stays English — MT can corrupt prices (e.g. $0.5 → $5) */}
               <div className="mb-6 py-3">
                 <span className={`text-sm font-semibold ${current ? 'text-tank-accent' : 'text-white'}`}>
-                  {tr[plan.strings.uploadCost]}
+                  {PRICING_STRINGS[plan.strings.uploadCost]}
                 </span>
               </div>
 
@@ -628,7 +628,10 @@ function PricingPageContent() {
 
       {/* Comparison Table — values stay English; title + feature labels follow language mode */}
       <div className="mt-16">
-        <h2 className="text-2xl font-bold text-center mb-8">{tr[S.planComparison]}</h2>
+        <h2 className="text-2xl font-bold text-center mb-8">
+          {/* Keep PLAN in English — MT often mistranslates “Plan” */}
+          PLAN {tr[S.planComparison]}
+        </h2>
         <div className="overflow-x-auto">
           <table className="w-full max-w-4xl mx-auto">
             <thead>

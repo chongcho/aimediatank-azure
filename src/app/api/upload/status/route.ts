@@ -76,8 +76,8 @@ export async function GET() {
       }
       statusMessage =
         parts.length > 1
-          ? `🎁 ${uploadsAvailable} uploads left (${parts.join(' + ')})`
-          : `🎁 ${uploadsAvailable} upload${uploadsAvailable !== 1 ? 's' : ''} left`
+          ? `🎁 You have ${uploadsAvailable} upload credits to post (${parts.join(' + ')})`
+          : `🎁 You have ${uploadsAvailable} upload credit${uploadsAvailable !== 1 ? 's' : ''} to post`
       statusType = 'free'
     } else if (config.canUploadAfterFree) {
       statusMessage = `💳 Each upload costs $${config.costPerUpload.toFixed(2)}`
