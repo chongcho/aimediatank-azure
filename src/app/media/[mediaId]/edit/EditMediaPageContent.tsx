@@ -347,7 +347,7 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">Price (USD)</label>
+          <label className="block text-sm font-medium mb-2">Download price (USD) — leave empty for free</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
             <input
@@ -361,7 +361,8 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
             />
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Leave empty or set to 0 for free content
+            Fee for downloading this file. Purchases are final (Terms §10.1). You may change the
+            price anytime before purchase (Terms §10.2).
           </p>
         </div>
 
@@ -401,6 +402,20 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
           </div>
           <p className="text-xs text-gray-500 mt-1">
             Private media is only visible to you
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-tank-light bg-tank-gray/40 p-4 text-sm text-gray-300">
+          <div className="font-semibold text-white mb-1">No Returns</div>
+          <p className="mb-4">
+            All digital media purchases are final once payment succeeds—no returns, refunds,
+            cancellations, or exchanges. See Terms §10.1.
+          </p>
+          <div className="font-semibold text-white mb-1">License &amp; Usage</div>
+          <p>
+            Payment does not transfer copyright. Media is license-free between Seller and Buyer
+            (non-exclusive, perpetual, royalty-free) for personal/commercial use. Do not re-upload
+            identical files. See Terms §§10.7–10.11.
           </p>
         </div>
 

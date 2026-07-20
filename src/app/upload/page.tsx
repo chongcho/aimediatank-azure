@@ -1934,7 +1934,7 @@ function UploadPageContent() {
           {/* Price */}
           <div>
             <label htmlFor="upload-price" className="block text-sm font-medium text-gray-300 mb-2">
-              Price (USD) - Leave empty for free
+              Download price (USD) — leave empty for free
             </label>
             <input
               type="number"
@@ -1946,8 +1946,12 @@ function UploadPageContent() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, price: e.target.value }))
               }
-              placeholder="e.g., 0.5 or higher (leave empty for free)"
+              placeholder="e.g., 0.50 (leave empty for free)"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Fee for downloading this file. Purchases are final (Terms §10.1). You may change the
+              price anytime before purchase (Terms §10.2).
+            </p>
           </div>
 
           {/* AI Tool */}
@@ -2022,24 +2026,16 @@ function UploadPageContent() {
           )}
 
           <div className="rounded-xl border border-tank-light bg-tank-gray/40 p-4 text-sm text-gray-300">
-            <div className="font-semibold text-white mb-1">No Returns on Purchased Media</div>
+            <div className="font-semibold text-white mb-1">No Returns</div>
             <p className="mb-4">
-              All digital media purchases made through the AI Media Tank app are final. Due to the
-              nature of digital assets, no returns, refunds, cancellations, or exchanges will be
-              permitted once payment has been successfully processed.
+              All digital media purchases are final once payment succeeds—no returns, refunds,
+              cancellations, or exchanges. See Terms §10.1.
             </p>
-            <div className="font-semibold text-white mb-1">Price, License, and Usage Rights</div>
-            <p className="mb-2">
-              Payment does not transfer copyright; the Seller remains the copyright owner. Upon
-              lawful purchase and download, media is licensed on a license-free basis: both Seller
-              and Buyer receive a non-exclusive, perpetual, worldwide, royalty-free license to use
-              the media for personal and commercial purposes.
-            </p>
+            <div className="font-semibold text-white mb-1">License &amp; Usage</div>
             <p>
-              Buyers may not re-upload, post, or list for sale the identical downloaded media file
-              on AI Media Tank. Duplicate or substantially identical copies may be removed, and
-              accounts that violate these policies may face enforcement actions including suspension
-              or termination.
+              Payment does not transfer copyright. Media is license-free between Seller and Buyer
+              (non-exclusive, perpetual, royalty-free) for personal/commercial use. Do not re-upload
+              identical files. See Terms §§10.7–10.11.
             </p>
           </div>
 
