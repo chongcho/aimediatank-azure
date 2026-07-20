@@ -419,34 +419,34 @@ function PricingPageContent() {
                 <p className="text-gray-300">Buy contents</p>
               </div>
 
-              {/* Button */}
-              <button
-                onClick={() => handleBuyPlanClick(plan)}
-                disabled={loading !== null || current || plan.isFree}
-                className={`w-full py-3 rounded-xl font-semibold transition-all ${
-                  current
-                    ? 'bg-tank-gray border-2 border-tank-accent text-tank-accent cursor-not-allowed'
-                    : plan.isFree
-                    ? 'bg-tank-gray border-2 border-tank-light text-gray-400 cursor-default'
-                    : 'bg-tank-gray border-2 border-tank-light text-white hover:bg-tank-light hover:border-gray-400'
-                }`}
-              >
-                {loading === plan.id ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                    Processing...
-                  </span>
-                ) : current ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Current Plan
-                  </span>
-                ) : (
-                  plan.buttonText
-                )}
-              </button>
+              {/* Button: hide Buy/Change on free Viewer; always show Current Plan when selected */}
+              {(current || !plan.isFree) && (
+                <button
+                  onClick={() => handleBuyPlanClick(plan)}
+                  disabled={loading !== null || current}
+                  className={`w-full py-3 rounded-xl font-semibold transition-all ${
+                    current
+                      ? 'bg-tank-gray border-2 border-tank-accent text-tank-accent cursor-not-allowed'
+                      : 'bg-tank-gray border-2 border-tank-light text-white hover:bg-tank-light hover:border-gray-400'
+                  }`}
+                >
+                  {loading === plan.id ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                      Processing...
+                    </span>
+                  ) : current ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Current Plan
+                    </span>
+                  ) : (
+                    plan.buttonText
+                  )}
+                </button>
+              )}
             </div>
           </div>
           )
