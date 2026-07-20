@@ -14,6 +14,17 @@ const STORAGE_KEY = 'homeFeedCardTextMode'
 
 export type FeedCardTextMode = 'original' | 'local'
 
+/** Persist language mode before hard navigations (e.g. profile save → home). */
+export function persistFeedCardTextMode(mode: FeedCardTextMode) {
+  try {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(STORAGE_KEY, mode)
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 type FeedCardTextModeContextValue = {
   mode: FeedCardTextMode
   setMode: (mode: FeedCardTextMode) => void
@@ -40,11 +51,7 @@ export function FeedCardTextModeProvider({ children }: { children: ReactNode }) 
 
   const setMode = useCallback((next: FeedCardTextMode) => {
     setModeState(next)
-    try {
-      window.sessionStorage.setItem(STORAGE_KEY, next)
-    } catch {
-      /* ignore */
-    }
+    persistFeedCardTextMode(next)
   }, [])
 
   const value = useMemo(() => ({ mode, setMode }), [mode, setMode])

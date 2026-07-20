@@ -41,15 +41,19 @@ export default function SessionLocaleFromProfileSync() {
 
   useEffect(() => {
     void syncLocaleFromDb()
-  }, [status, session?.user?.id, session?.user?.locale, syncLocaleFromDb])
+  }, [status, session?.user?.id, syncLocaleFromDb])
 
   useEffect(() => {
     const onProfile = () => {
       void syncLocaleFromDb()
     }
     window.addEventListener('profileUpdated', onProfile)
+    // After hard navigation from profile save, re-sync once the session is ready.
+    if (status === 'authenticated') {
+      void syncLocaleFromDb()
+    }
     return () => window.removeEventListener('profileUpdated', onProfile)
-  }, [syncLocaleFromDb])
+  }, [status, syncLocaleFromDb])
 
   return null
 }

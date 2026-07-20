@@ -184,7 +184,10 @@ export async function PUT(request: Request) {
       },
     })
 
-    return NextResponse.json({ user })
+    return NextResponse.json({
+      user,
+      localeFromProfileLocation: localeTagFromUserLocation(user.location),
+    })
   } catch (error) {
     console.error('Error updating profile:', error)
     return NextResponse.json(

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
+import { persistFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
 import PasswordField from '@/components/PasswordField'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
@@ -722,18 +723,27 @@ export default function EditProfilePage() {
 
         window.dispatchEvent(new Event('profileUpdated'))
 
+        const nextLocale =
+          typeof data.localeFromProfileLocation === 'string' && data.localeFromProfileLocation.trim()
+            ? data.localeFromProfileLocation.trim()
+            : localeTagFromUserLocation(data.user.location)
+        // Local mode so chrome/MT follow the new Location (Original stays English).
+        persistFeedCardTextMode('local')
+
         const sessionPayload = {
           ...session,
           user: {
             ...session?.user,
             username: data.user.username,
             name: data.user.name,
-            locale: localeTagFromUserLocation(data.user.location),
+            locale: nextLocale,
           },
         }
-        void updateSession(sessionPayload).catch((err) =>
+        try {
+          await updateSession(sessionPayload)
+        } catch (err) {
           console.error('profile edit: session update failed', err)
-        )
+        }
 
         // Hard navigation: intercepted @modal routes often keep the overlay when using router.push('/').
         // No success flash — go straight home after save.

@@ -560,11 +560,11 @@ function PricingPageContent() {
             }`}
           >
             <div className="p-6 text-center">
-              {/* Plan catalog stays English regardless of language mode */}
+              {/* Plan names stay English; descriptions follow language mode */}
               <h3 className="text-xl font-bold mb-2">{PRICING_STRINGS[plan.strings.name]}</h3>
-              <p className="text-gray-400 text-sm italic mb-6">{PRICING_STRINGS[plan.strings.description]}</p>
+              <p className="text-gray-400 text-sm italic mb-6">{tr[plan.strings.description]}</p>
 
-              {/* Pricing */}
+              {/* Pricing — stay English */}
               <div className="mb-2">
                 {plan.isFree ? (
                   <span className="text-4xl font-bold">{PRICING_STRINGS[S.free]}</span>
@@ -580,17 +580,16 @@ function PricingPageContent() {
               )}
               {plan.isFree && <p className="text-gray-500 text-sm mb-4">&nbsp;</p>}
 
-              {/* Upload cost */}
-              <div className="mb-6 py-3 border-t border-b border-tank-light">
+              {/* Upload cost + features follow language mode */}
+              <div className="mb-6 py-3">
                 <span className={`text-sm font-semibold ${current ? 'text-tank-accent' : 'text-white'}`}>
-                  {PRICING_STRINGS[plan.strings.uploadCost]}
+                  {tr[plan.strings.uploadCost]}
                 </span>
               </div>
 
-              {/* Features */}
               <div className="space-y-2 mb-8">
-                <p className="text-gray-300">{PRICING_STRINGS[S.viewContents]}</p>
-                <p className="text-gray-300">{PRICING_STRINGS[S.buyContents]}</p>
+                <p className="text-gray-300">{tr[S.viewContents]}</p>
+                <p className="text-gray-300">{tr[S.buyContents]}</p>
               </div>
 
               {/* Button: hide Buy/Change on free Viewer; always show Current Plan when selected */}
@@ -627,14 +626,14 @@ function PricingPageContent() {
         })}
       </div>
 
-      {/* Comparison Table — stays English regardless of language mode */}
+      {/* Comparison Table — values stay English; title + feature labels follow language mode */}
       <div className="mt-16">
-        <h2 className="text-2xl font-bold text-center mb-8">{PRICING_STRINGS[S.planComparison]}</h2>
+        <h2 className="text-2xl font-bold text-center mb-8">{tr[S.planComparison]}</h2>
         <div className="overflow-x-auto">
           <table className="w-full max-w-4xl mx-auto">
             <thead>
               <tr className="border-b border-tank-light">
-                <th className="text-left py-4 px-4 font-semibold">{PRICING_STRINGS[S.feature]}</th>
+                <th className="text-left py-4 px-4 font-semibold">{tr[S.feature]}</th>
                 {(['viewer', 'basic', 'advanced', 'premium'] as const).map((planId) => (
                   <th
                     key={planId}
@@ -649,49 +648,49 @@ function PricingPageContent() {
             </thead>
             <tbody>
               <tr className="border-b border-tank-light/50">
-                <td className="py-4 px-4 text-gray-300">{PRICING_STRINGS[S.monthlyPrice]}</td>
+                <td className="py-4 px-4 text-gray-300">{tr[S.monthlyPrice]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.free]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>$2{PRICING_STRINGS[S.perMonth]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>$5{PRICING_STRINGS[S.perMonth]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>$8{PRICING_STRINGS[S.perMonth]}</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-4 px-4 text-gray-300">{PRICING_STRINGS[S.yearlyPrice]}</td>
+                <td className="py-4 px-4 text-gray-300">{tr[S.yearlyPrice]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.free]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>$20{PRICING_STRINGS[S.perYear]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>$50{PRICING_STRINGS[S.perYear]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>$80{PRICING_STRINGS[S.perYear]}</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-4 px-4 text-gray-300">{PRICING_STRINGS[S.freeUploads]}</td>
+                <td className="py-4 px-4 text-gray-300">{tr[S.freeUploads]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.fiveUploads]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.fiveUploads]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.fiveUploads]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.unlimited]}</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-4 px-4 text-gray-300">{PRICING_STRINGS[S.afterFreeUploads]}</td>
+                <td className="py-4 px-4 text-gray-300">{tr[S.afterFreeUploads]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : 'text-gray-500'}`}>{PRICING_STRINGS[S.emDash]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.onePerUpload]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.halfPerUpload]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.free]}</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-4 px-4 text-gray-300">{PRICING_STRINGS[S.viewContentsTitle]}</td>
+                <td className="py-4 px-4 text-gray-300">{tr[S.viewContentsTitle]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-4 px-4 text-gray-300">{PRICING_STRINGS[S.buyContentsTitle]}</td>
+                <td className="py-4 px-4 text-gray-300">{tr[S.buyContentsTitle]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
               </tr>
               <tr className="border-b border-tank-light/50">
-                <td className="py-4 px-4 text-gray-300">{PRICING_STRINGS[S.sellContentsTitle]}</td>
+                <td className="py-4 px-4 text-gray-300">{tr[S.sellContentsTitle]}</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : 'text-white'}`}>✓</td>
                 <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : 'text-white'}`}>✓</td>

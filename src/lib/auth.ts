@@ -335,7 +335,7 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      // Handle session updates (e.g., when username is changed)
+      // Handle session updates (e.g., when username / location is changed)
       if (trigger === 'update' && session?.user) {
         const su = session.user as { accountDeactivated?: boolean }
         if (su.accountDeactivated === true) {
@@ -354,6 +354,16 @@ export const authOptions: NextAuthOptions = {
         if (session.user.role) token.role = session.user.role
         if (session.user.locale !== undefined && session.user.locale !== null) {
           token.locale = session.user.locale
+        }
+        // Always re-read location → locale from DB so profile Location saves stick after refresh.
+        if (token.id) {
+          const u = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { location: true },
+          })
+          if (u) {
+            token.locale = localeTagFromUserLocation(u.location)
+          }
         }
       }
 
