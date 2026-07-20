@@ -996,21 +996,17 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Membership Selection */}
+            {/* Membership Selection — optional; defaults to Free Viewer */}
             <div className="border-t border-tank-light pt-6">
               <h3 className="text-lg font-semibold mb-4">Membership</h3>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Membership Plan *
-                </label>
                 <select
                   name="membership"
                   value={selectedMembership}
                   onChange={(e) => setSelectedMembership(e.target.value)}
-                  required
                   className="w-full"
-                  aria-label="Select membership plan"
-                  title="Select membership plan"
+                  aria-label="Membership plan (optional)"
+                  title="Membership plan (optional)"
                 >
                   <option value="viewer">Free Viewer Plan</option>
                   <option value="basic">Basic Plan — $2/month</option>
