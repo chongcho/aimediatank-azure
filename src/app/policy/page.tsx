@@ -69,12 +69,24 @@ function PolicyPageContent() {
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-        <div>
+      <div className="relative mb-8">
+        <div className="pr-12">
           <h1 className="text-3xl font-bold mb-2">{tr[I.pageTitle]}</h1>
           <p className="text-gray-400">{tr[I.effectiveLine]}</p>
         </div>
-        <div className="flex items-center gap-2 self-start md:self-auto">
+        <button
+          type="button"
+          onClick={() => {
+            window.location.href = '/'
+          }}
+          className="absolute right-0 top-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
+          aria-label={tr[I.closeAria]}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <div className="flex flex-wrap items-center gap-2 mt-4">
           <a
             href="/terms?from=policy"
             target="_blank"
@@ -98,18 +110,6 @@ function PolicyPageContent() {
             {tr[I.downloadPrivacy]}
           </a>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            window.location.href = '/'
-          }}
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors self-start md:self-auto"
-          aria-label={tr[I.closeAria]}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
       </div>
 
       <p className="text-gray-300 mb-8">{tr[I.intro]}</p>
@@ -329,8 +329,8 @@ function PolicyPageContent() {
 function PolicyPageFallback() {
   return (
     <div className="max-w-4xl mx-auto p-0 m-0 pb-[500px]">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-        <div>
+      <div className="relative mb-8">
+        <div className="pr-12">
           <h1 className="text-3xl font-bold mb-2">Policy Home</h1>
           <p className="text-gray-400">Effective: December 20, 2024 &middot; Last Updated: July 7, 2026</p>
         </div>

@@ -97,10 +97,10 @@ const features = [
 ]
 
 const plans = [
-  { name: 'Viewer', price: 'Free', period: 'Forever', features: ['Browse all content', 'Purchase media', '5 free uploads', 'Sell content', 'Open Chat, Private Chat & Voice Talk'], popular: false },
-  { name: 'Basic', price: '$2', period: '/month', features: ['Everything in Viewer', '5 free uploads/month', '$1 per additional upload', 'Unwatermarked downloads', 'Yearly billing available'], popular: false },
-  { name: 'Advanced', price: '$5', period: '/month', features: ['Everything in Basic', '5 free uploads/month', '$0.50 per additional upload', 'Priority support', 'Yearly billing available'], popular: true },
-  { name: 'Premium', price: '$8', period: '/month', features: ['Everything in Advanced', 'Unlimited free uploads', 'Featured placement', 'Premium creator badge', 'Yearly billing available'], popular: false },
+  { name: 'Viewer', price: 'Free', period: 'Forever', features: ['Browse all content', 'Purchase media', '5 free uploads', 'Sell content', 'Open Chat, Private Chat & Voice Talk'] },
+  { name: 'Basic', price: '$2', period: '/month', features: ['Everything in Viewer', '5 free uploads/month', '$1 per additional upload', 'Unwatermarked downloads', 'Yearly billing available'] },
+  { name: 'Advanced', price: '$5', period: '/month', features: ['Everything in Basic', '5 free uploads/month', '$0.50 per additional upload', 'Priority support', 'Yearly billing available'] },
+  { name: 'Premium', price: '$8', period: '/month', features: ['Everything in Advanced', 'Unlimited free uploads', 'Featured placement', 'Premium creator badge', 'Yearly billing available'] },
 ]
 
 export default function AboutPage() {
@@ -115,7 +115,7 @@ export default function AboutPage() {
       <section className="relative py-24 md:py-32 px-4 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-tank-accent/10 via-transparent to-purple-600/10" />
         <div className="absolute inset-0 grid-pattern opacity-40" />
-        <div className="max-w-5xl mx-auto text-center relative z-10">
+        <div className="max-w-6xl mx-auto text-center relative z-10">
           <span className="inline-block px-5 py-2 bg-tank-accent/10 border border-tank-accent/30 rounded-full text-tank-accent text-sm font-semibold mb-8 tracking-wide">
             <AboutTrans text="Where AI Creativity Meets Professional Community" />
           </span>
@@ -124,9 +124,55 @@ export default function AboutPage() {
               <AboutTrans text="AI Media Tank (AiM)" />
             </span>
           </h1>
-          <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-6 leading-relaxed">
+          <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-10 leading-relaxed">
             <AboutTrans text="The premier platform for artists, producers, technologists, and creators to publish, discover, and monetize AI-generated and real-world media — video, images, and music — in one unified, professional ecosystem." />
           </p>
+
+          {/* Membership plans — directly under hero lead */}
+          <div className="max-w-6xl mx-auto mb-12 text-center">
+            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
+              <AboutTrans text="Membership Plans" />
+            </span>
+            <h2 className="text-2xl md:text-3xl font-bold mt-2">
+              <AboutTrans text="Transparent, Flexible Pricing" />
+            </h2>
+            <p className="text-gray-400 mt-3 max-w-2xl mx-auto mb-8">
+              <AboutTrans text="Start for free and scale as you grow. Every plan includes access to the full community, marketplace, and discovery features." />
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+              {plans.map((plan, i) => (
+                <div
+                  key={i}
+                  className="relative bg-tank-dark rounded-2xl p-6 text-center transition-all hover:shadow-lg"
+                >
+                  <h3 className="text-xl font-bold mb-1">
+                    <AboutTrans text={plan.name} />
+                  </h3>
+                  <div className="text-3xl font-extrabold text-tank-accent mb-0.5">
+                    <AboutTrans text={plan.price} />
+                  </div>
+                  <div className="text-gray-500 text-sm mb-5">
+                    <AboutTrans text={plan.period} />
+                  </div>
+                  <ul className="text-left space-y-2 mb-6">
+                    {plan.features.map((feature, j) => (
+                      <li key={j} className="text-gray-400 text-sm flex items-start gap-2">
+                        <span className="text-tank-accent mt-0.5 flex-shrink-0">✓</span>
+                        <AboutTrans text={feature} />
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href="/pricing"
+                    className="block w-full py-3 rounded-lg font-semibold transition-all text-sm bg-tank-accent text-tank-black hover:bg-tank-accent/90 hover:scale-105 hover:shadow-lg hover:shadow-tank-accent/20"
+                  >
+                    <AboutTrans text="Get Started" />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <p className="text-base text-gray-500 max-w-2xl mx-auto mb-12">
             <AboutTrans text="Built by creators, for creators. Powered entirely by Microsoft Azure cloud infrastructure, engineered with Cursor AI-assisted development, and designed for the professionals shaping the future of media." />
           </p>
@@ -822,66 +868,12 @@ export default function AboutPage() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
-          PRICING
+          PRESS RELEASE (membership plans live in the hero above)
       ══════════════════════════════════════════════════════════════════ */}
       <section className="py-20 px-4 bg-tank-gray/30">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-14">
-            <span className="text-tank-accent text-sm font-semibold tracking-widest uppercase">
-              <AboutTrans text="Membership Plans" />
-            </span>
-            <h2 className="text-3xl md:text-4xl font-bold mt-2">
-              <AboutTrans text="Transparent, Flexible Pricing" />
-            </h2>
-            <p className="text-gray-400 mt-3 max-w-2xl mx-auto">
-              <AboutTrans text="Start for free and scale as you grow. Every plan includes access to the full community, marketplace, and discovery features." />
-            </p>
-          </div>
-          <div className="grid md:grid-cols-4 gap-6">
-            {plans.map((plan, i) => (
-              <div key={i} className={`relative bg-tank-dark border rounded-2xl p-6 text-center transition-all hover:shadow-lg ${
-                plan.popular 
-                  ? 'border-tank-accent hover:shadow-tank-accent/10' 
-                  : 'border-tank-light hover:border-tank-accent/40'
-              }`}>
-                {plan.popular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-tank-accent text-tank-black text-xs font-bold rounded-full whitespace-nowrap">
-                    <AboutTrans text="Most Popular" />
-                  </span>
-                )}
-                <h3 className="text-xl font-bold mb-1">
-                  <AboutTrans text={plan.name} />
-                </h3>
-                <div className="text-3xl font-extrabold text-tank-accent mb-0.5">
-                  <AboutTrans text={plan.price} />
-                </div>
-                <div className="text-gray-500 text-sm mb-5">
-                  <AboutTrans text={plan.period} />
-                </div>
-                <ul className="text-left space-y-2 mb-6">
-                  {plan.features.map((feature, j) => (
-                    <li key={j} className="text-gray-400 text-sm flex items-start gap-2">
-                      <span className="text-tank-accent mt-0.5 flex-shrink-0">✓</span>
-                      <AboutTrans text={feature} />
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="/pricing"
-                  className={`block w-full py-2.5 rounded-lg font-semibold transition-all text-sm ${
-                    plan.popular
-                      ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
-                      : 'bg-tank-light text-white hover:bg-tank-accent hover:text-tank-black'
-                  }`}
-                >
-                  <AboutTrans text="Get Started" />
-                </Link>
-              </div>
-            ))}
-          </div>
-
           <article
-            className="mt-16 pt-16 border-t border-tank-light w-full text-left space-y-5 text-gray-300 leading-relaxed"
+            className="w-full text-left space-y-5 text-gray-300 leading-relaxed"
             aria-labelledby="about-press-release-title"
           >
             <header className="mb-10 space-y-2 text-left">
