@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
 import { parseIpDebugHeaders } from '@/lib/ipDebugHeaders'
-import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX } from '@/lib/uploadPlanConfig'
+import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX, getUploadsAvailable } from '@/lib/uploadPlanConfig'
 import MarketingPopupView from '@/components/MarketingPopupView'
 import {
   goToAdminReauth,
@@ -78,6 +78,7 @@ interface User {
   lastWarningReason: string | null
   bonusCredits: number
   paidUploadCredits: number
+  freeUploadsUsed: number
   adminNotes: string | null
   createdAt: string
   _count: { media: number; chatMessages: number }
@@ -2737,11 +2738,27 @@ export default function AdminPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              fetchCreditHistory(user.id, user.username, user.bonusCredits + user.paidUploadCredits)
+                              const total = getUploadsAvailable(
+                                user.membershipType,
+                                user.freeUploadsUsed,
+                                user.bonusCredits,
+                                user.paidUploadCredits
+                              )
+                              fetchCreditHistory(
+                                user.id,
+                                user.username,
+                                typeof total === 'number' ? total : user.bonusCredits + user.paidUploadCredits
+                              )
                             }}
                             className="text-tank-accent hover:text-tank-accent/80 hover:underline transition-colors font-medium"
+                            title={`Free left + bonus/paid credits (same as Profile/Membership)`}
                           >
-                            {user.bonusCredits + user.paidUploadCredits}
+                            {getUploadsAvailable(
+                              user.membershipType,
+                              user.freeUploadsUsed,
+                              user.bonusCredits,
+                              user.paidUploadCredits
+                            )}
                           </button>
                         </td>
                         <td className="p-3">

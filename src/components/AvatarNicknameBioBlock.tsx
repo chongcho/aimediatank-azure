@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
 
 export type UsernameAvailabilityState = {
   checking: boolean
@@ -28,8 +29,23 @@ type Props = {
   resetFileInputsSignal?: number
 }
 
-const NICKNAME_PLACEHOLDER = 'Type unique name to show up this platform'
-const BIO_PLACEHOLDER = 'Tell others about yourself ...'
+const AVATAR_BLOCK_STRINGS = [
+  'Choose avatar image from files',
+  'Avatar preview',
+  'Choose from file',
+  'Take photo',
+  'Nickname',
+  'Type unique name to show up this platform',
+  'Bio',
+  'Tell others about yourself ...',
+  'Cancel',
+  'Use photo',
+  'Camera is not supported in this browser. Use "Choose from file".',
+  'Camera access was denied. Allow camera for this site in your browser address bar or site settings, or use "Choose from file".',
+  'No usable camera was found. Use "Choose from file".',
+  'The browser blocked camera access (use HTTPS / localhost, or the site may restrict camera). Use "Choose from file".',
+  'Could not open the camera. Check permissions or use "Choose from file".',
+] as const
 
 function usernameInputClass(
   mode: StatusHighlightMode,
@@ -50,15 +66,15 @@ function usernameInputClass(
 function cameraFailureMessage(err: unknown): string {
   const name = err && typeof err === 'object' && 'name' in err ? String((err as DOMException).name) : ''
   if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-    return 'Camera access was denied. Allow camera for this site in your browser address bar or site settings, or use “Choose from file”.'
+    return AVATAR_BLOCK_STRINGS[11]
   }
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-    return 'No usable camera was found. Use “Choose from file”.'
+    return AVATAR_BLOCK_STRINGS[12]
   }
   if (name === 'SecurityError' || name === 'NotSupportedError') {
-    return 'The browser blocked camera access (use HTTPS / localhost, or the site may restrict camera). Use “Choose from file”.'
+    return AVATAR_BLOCK_STRINGS[13]
   }
-  return 'Could not open the camera. Check permissions or use “Choose from file”.'
+  return AVATAR_BLOCK_STRINGS[14]
 }
 
 async function openCameraStream(): Promise<MediaStream> {
@@ -92,9 +108,12 @@ export default function AvatarNicknameBioBlock({
   uploadingAvatar = false,
   resetFileInputsSignal = 0,
 }: Props) {
+  const tr = useLanguageModeList(AVATAR_BLOCK_STRINGS)
   const [menuOpen, setMenuOpen] = useState(false)
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraError, setCameraError] = useState('')
+  const translatedUsernameMessage = useLanguageModeText(usernameStatus.message)
+  const translatedCameraError = useLanguageModeText(cameraError)
   const [cameraSession, setCameraSession] = useState<MediaStream | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
@@ -172,7 +191,7 @@ export default function AvatarNicknameBioBlock({
     closeMenu()
     setCameraError('')
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      setCameraError('Camera is not supported in this browser. Use “Choose from file”.')
+      setCameraError(AVATAR_BLOCK_STRINGS[10])
       setCameraOpen(true)
       return
     }
@@ -250,7 +269,7 @@ export default function AvatarNicknameBioBlock({
             type="file"
             accept="image/*"
             className="hidden"
-            aria-label="Choose avatar image from files"
+            aria-label={tr[0]}
             onChange={onGalleryChange}
           />
 
@@ -265,7 +284,7 @@ export default function AvatarNicknameBioBlock({
               <>
                 <img
                   src={avatarPreviewUrl}
-                  alt="Avatar preview"
+                  alt={tr[1]}
                   className="absolute inset-0 h-full w-full object-cover"
                 />
                 <span className="absolute inset-0 flex items-center justify-center bg-black/35">
@@ -298,10 +317,10 @@ export default function AvatarNicknameBioBlock({
                   window.requestAnimationFrame(() => galleryInputRef.current?.click())
                 }}
               >
-                Choose from file
+                {tr[2]}
               </button>
               <button type="button" role="menuitem" className="block w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-tank-light/60" onClick={startTakePhoto}>
-                Take photo
+                {tr[3]}
               </button>
             </div>
           )}
@@ -311,7 +330,7 @@ export default function AvatarNicknameBioBlock({
           {/* One grid so the label column width matches — Bio field lines up with Nickname input */}
           <div className="grid grid-cols-[minmax(8.25rem,max-content)_1fr] items-start gap-x-3 gap-y-3">
             <label htmlFor="avatar-nickname" className="self-center text-sm font-medium text-gray-300 whitespace-nowrap">
-              Nickname <span className="text-gray-400">*</span>
+              {tr[4]} <span className="text-gray-400">*</span>
             </label>
             <div className="relative min-w-0 self-center">
               <input
@@ -320,7 +339,7 @@ export default function AvatarNicknameBioBlock({
                 name="username"
                 value={username}
                 onChange={(e) => onUsernameChange(e.target.value)}
-                placeholder={NICKNAME_PLACEHOLDER}
+                placeholder={tr[5]}
                 required
                 autoComplete="username"
                 className={usernameInputClass(statusHighlightMode, usernameEdited, usernameStatus)}
@@ -357,20 +376,20 @@ export default function AvatarNicknameBioBlock({
                     usernameStatus.valid && usernameStatus.available ? 'text-green-400' : 'text-red-400'
                   }`}
                 >
-                  {usernameStatus.message}
+                  {translatedUsernameMessage}
                 </p>
               )}
             </div>
 
             <label htmlFor="avatar-bio" className="self-start pt-2 text-sm font-medium text-gray-300 whitespace-nowrap">
-              Bio
+              {tr[6]}
             </label>
             <textarea
               id="avatar-bio"
               name="bio"
               value={bio}
               onChange={(e) => onBioChange(e.target.value)}
-              placeholder={BIO_PLACEHOLDER}
+              placeholder={tr[7]}
               rows={2}
               className="min-w-0 w-full resize-none"
             />
@@ -392,12 +411,12 @@ export default function AvatarNicknameBioBlock({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="avatar-camera-title" className="mb-3 text-center text-lg font-semibold text-white">
-              Take photo
+              {tr[3]}
             </h3>
             {cameraSession ? (
               <video ref={videoRef} className="mx-auto mb-4 aspect-video w-full max-h-[50vh] rounded-lg bg-black object-cover" playsInline muted />
             ) : (
-              <p className="mb-4 text-center text-sm text-gray-400">{cameraError}</p>
+              <p className="mb-4 text-center text-sm text-gray-400">{translatedCameraError}</p>
             )}
             <div className="flex justify-center gap-3">
               <button
@@ -405,7 +424,7 @@ export default function AvatarNicknameBioBlock({
                 onClick={closeCameraModal}
                 className="rounded-xl border border-tank-light bg-tank-dark px-4 py-2.5 text-sm font-medium text-gray-200 hover:bg-tank-light/30"
               >
-                Cancel
+                {tr[8]}
               </button>
               {cameraSession && (
                 <button
@@ -413,7 +432,7 @@ export default function AvatarNicknameBioBlock({
                   onClick={capturePhoto}
                   className="rounded-xl bg-tank-accent px-4 py-2.5 text-sm font-semibold text-tank-black hover:bg-tank-accent/90"
                 >
-                  Use photo
+                  {tr[9]}
                 </button>
               )}
             </div>

@@ -138,6 +138,7 @@ export async function GET(request: Request) {
           lastWarningReason: true,
           bonusCredits: true,
           paidUploadCredits: true,
+          freeUploadsUsed: true,
           adminNotes: true,
           createdAt: true,
           _count: {

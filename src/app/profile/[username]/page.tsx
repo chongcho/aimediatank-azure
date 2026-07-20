@@ -6,6 +6,50 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 import { formatViewCount } from '@/lib/formatViewCount'
+import { useLanguageModeList } from '@/hooks/useLanguageModeText'
+
+const PROFILE_STRINGS = [
+  'Close',
+  'This account is deactivated. Public uploads are hidden and this username does not appear in search.',
+  'My Contents Summary',
+  'Uploads',
+  'Total Views',
+  'Videos',
+  'Images',
+  'Purchased',
+  'Saved',
+  'All',
+  'No content yet',
+  "You haven't uploaded any content yet.",
+  "This user hasn't uploaded any content yet.",
+  'Upload Your First Media',
+  'PURCHASED',
+  'days left',
+  'By',
+  'Unknown',
+  'Paid',
+  'Download',
+  'No purchases yet',
+  "You haven't purchased any content yet.",
+  'Browse Content',
+  'Deselect All',
+  'Select All',
+  'selected',
+  'Unsave',
+  'Processing...',
+  'Checkout',
+  'SAVED',
+  'views',
+  'No saved content',
+  "You haven't saved any content yet. Click the Save button on any media to bookmark it.",
+  '← Back',
+  'User Not Found',
+  "This user doesn't exist or hasn't uploaded any content.",
+  'Go Home',
+  'Failed to unsave some items',
+  'No paid items selected. Select items with a price to checkout.',
+  'Failed to start checkout. Please try again.',
+] as const
 
 interface UserProfile {
   id: string
@@ -81,6 +125,8 @@ export default function ProfilePage() {
   const [selectedSaved, setSelectedSaved] = useState<Set<string>>(new Set())
   const [unsaving, setUnsaving] = useState(false)
   const [columns, setColumns] = useState(1)
+
+  const tr = useLanguageModeList(PROFILE_STRINGS)
 
   useEffect(() => {
     const getColumns = () => {
@@ -288,7 +334,7 @@ export default function ProfilePage() {
       setSelectedSaved(new Set())
     } catch (error) {
       console.error('Error unsaving items:', error)
-      alert('Failed to unsave some items')
+      alert(tr[37])
     } finally {
       setUnsaving(false)
     }
@@ -306,7 +352,7 @@ export default function ProfilePage() {
     )
     
     if (itemsToCheckout.length === 0) {
-      alert('No paid items selected. Select items with a price to checkout.')
+      alert(tr[38])
       return
     }
 
@@ -333,7 +379,7 @@ export default function ProfilePage() {
       }
     } catch (error: any) {
       console.error('Checkout error:', error)
-      alert(error.message || 'Failed to start checkout. Please try again.')
+      alert(error.message || tr[39])
     } finally {
       setCheckingOut(false)
     }
@@ -377,10 +423,10 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">User Not Found</h1>
-          <p className="text-gray-400 mb-4">This user doesn&apos;t exist or hasn&apos;t uploaded any content.</p>
+          <h1 className="text-2xl font-bold mb-2">{tr[34]}</h1>
+          <p className="text-gray-400 mb-4">{tr[35]}</p>
           <Link href="/" className="btn-primary">
-            Go Home
+            {tr[36]}
           </Link>
         </div>
       </div>
@@ -405,7 +451,7 @@ export default function ProfilePage() {
           type="button"
           onClick={() => router.back()}
           className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors z-10"
-          aria-label="Close"
+          aria-label={tr[0]}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -433,11 +479,11 @@ export default function ProfilePage() {
 
             {profile.accountDeactivatedAt && (
               <p className="mb-4 rounded-lg border border-gray-600/60 bg-gray-800/50 px-3 py-2 text-sm text-gray-300">
-                This account is deactivated. Public uploads are hidden and this username does not appear in search.
+                {tr[1]}
               </p>
             )}
             
-            <p className="text-xl text-gray-300 mb-4">My Contents Summary</p>
+            <p className="text-xl text-gray-300 mb-4">{tr[2]}</p>
 
             {/* Stats */}
             <div className="flex flex-wrap justify-center md:justify-start gap-6 text-center">
@@ -445,21 +491,21 @@ export default function ProfilePage() {
                 <div className="text-2xl font-bold text-tank-accent">
                   {profile._count.media}
                 </div>
-                <div className="text-sm text-gray-500">Uploads</div>
+                <div className="text-sm text-gray-500">{tr[3]}</div>
               </div>
               <div>
                 <div className="text-2xl font-bold">
                   {formatViewCount(stats.totalViews)}
                 </div>
-                <div className="text-sm text-gray-500">Total Views</div>
+                <div className="text-sm text-gray-500">{tr[4]}</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-red-400">{stats.videos}</div>
-                <div className="text-sm text-gray-500">Videos</div>
+                <div className="text-sm text-gray-500">{tr[5]}</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-blue-400">{stats.images}</div>
-                <div className="text-sm text-gray-500">Images</div>
+                <div className="text-sm text-gray-500">{tr[6]}</div>
               </div>
             </div>
           </div>
@@ -478,7 +524,7 @@ export default function ProfilePage() {
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
             }`}
           >
-              Uploads ({profile._count.media})
+              {tr[3]} ({profile._count.media})
           </button>
           <button
             onClick={() => setMainSection('purchased')}
@@ -488,7 +534,7 @@ export default function ProfilePage() {
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
             }`}
           >
-              Purchased ({purchases.length})
+              {tr[7]} ({purchases.length})
           </button>
           <button
             onClick={() => setMainSection('saved')}
@@ -498,7 +544,7 @@ export default function ProfilePage() {
                 : 'bg-tank-gray text-gray-400 hover:text-white hover:bg-tank-light'
             }`}
           >
-              Saved ({savedMedia.length})
+              {tr[8]} ({savedMedia.length})
           </button>
         </div>
       )}
@@ -516,7 +562,7 @@ export default function ProfilePage() {
                   : 'bg-tank-gray text-gray-400 hover:text-white'
               }`}
             >
-              All ({profile._count.media})
+              {tr[9]} ({profile._count.media})
             </button>
             <button
               onClick={() => setActiveTab('VIDEO')}
@@ -526,7 +572,7 @@ export default function ProfilePage() {
                   : 'bg-tank-gray text-gray-400 hover:text-white'
               }`}
             >
-              Videos ({stats.videos})
+              {tr[5]} ({stats.videos})
             </button>
             <button
               onClick={() => setActiveTab('IMAGE')}
@@ -536,7 +582,7 @@ export default function ProfilePage() {
                   : 'bg-tank-gray text-gray-400 hover:text-white'
               }`}
             >
-              Images ({stats.images})
+              {tr[6]} ({stats.images})
             </button>
           </div>
 
@@ -550,15 +596,15 @@ export default function ProfilePage() {
           ) : (
             <div className="text-center py-20">
               <div className="text-6xl mb-4">📭</div>
-              <h2 className="text-2xl font-semibold mb-2">No content yet</h2>
+              <h2 className="text-2xl font-semibold mb-2">{tr[10]}</h2>
               <p className="text-gray-400">
                 {isOwnProfile
-                  ? "You haven't uploaded any content yet."
-                  : "This user hasn't uploaded any content yet."}
+                  ? tr[11]
+                  : tr[12]}
               </p>
               {isOwnProfile && (
                 <Link href="/upload" className="btn-primary mt-4 inline-block">
-                  Upload Your First Media
+                  {tr[13]}
                 </Link>
               )}
             </div>
@@ -579,13 +625,13 @@ export default function ProfilePage() {
                 <div key={purchase.id} className="card group relative overflow-hidden">
                   {/* Purchased Badge */}
                   <div className="absolute top-3 left-3 z-10 px-2 py-1 bg-gradient-to-r from-tank-accent to-purple-500 rounded-lg text-xs font-bold text-tank-black">
-                    PURCHASED
+                    {tr[14]}
                   </div>
                   
                   {/* Days Remaining Badge */}
                   {purchase.media.deleteAfter && (
                     <div className="absolute top-3 right-3 z-10 px-2 py-1 bg-red-500/80 rounded-lg text-xs font-bold text-white">
-                      {getDaysRemaining(purchase.media.deleteAfter)} days left
+                      {getDaysRemaining(purchase.media.deleteAfter)} {tr[15]}
                     </div>
                   )}
 
@@ -623,10 +669,10 @@ export default function ProfilePage() {
                   {/* Info */}
                   <h3 className="font-semibold text-white mb-1 truncate">{purchase.media.title}</h3>
                   <p className="text-sm text-gray-400 mb-2">
-                    By {purchase.media.user?.name || purchase.media.user?.username || 'Unknown'}
+                    {tr[16]} {purchase.media.user?.name || purchase.media.user?.username || tr[17]}
                   </p>
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>Paid ${purchase.amount.toFixed(2)}</span>
+                    <span>{tr[18]} ${purchase.amount.toFixed(2)}</span>
                     <span>{new Date(purchase.createdAt).toLocaleDateString()}</span>
                   </div>
 
@@ -639,7 +685,7 @@ export default function ProfilePage() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
-                      Download
+                      {tr[19]}
                     </span>
                   </a>
                 </div>
@@ -648,12 +694,12 @@ export default function ProfilePage() {
           ) : (
             <div className="text-center py-20">
               <div className="text-6xl mb-4">🛒</div>
-              <h2 className="text-2xl font-semibold mb-2">No purchases yet</h2>
+              <h2 className="text-2xl font-semibold mb-2">{tr[20]}</h2>
               <p className="text-gray-400 mb-4">
-                You haven&apos;t purchased any content yet.
+                {tr[21]}
               </p>
               <Link href="/" className="btn-primary inline-block">
-                Browse Content
+                {tr[22]}
               </Link>
             </div>
           )}
@@ -682,7 +728,7 @@ export default function ProfilePage() {
                     className="w-5 h-5 rounded border-tank-light bg-tank-dark text-tank-accent focus:ring-tank-accent cursor-pointer"
                   />
                   <span className="text-sm text-gray-300">
-                    {selectedSaved.size === savedMedia.length ? 'Deselect All' : 'Select All'}
+                    {selectedSaved.size === savedMedia.length ? tr[23] : tr[24]}
                   </span>
                 </label>
 
@@ -690,7 +736,7 @@ export default function ProfilePage() {
 
                 {/* Selected Count */}
                 <span className="text-sm text-gray-400">
-                  {selectedSaved.size} selected
+                  {selectedSaved.size} {tr[25]}
                 </span>
 
                 <div className="flex-1" />
@@ -708,7 +754,7 @@ export default function ProfilePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                   )}
-                  Unsave
+                  {tr[26]}
                 </button>
 
                 <button
@@ -723,7 +769,7 @@ export default function ProfilePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   )}
-                  {checkingOut ? 'Processing...' : 'Checkout'}
+                  {checkingOut ? tr[27] : tr[28]}
                 </button>
               </div>
 
@@ -751,7 +797,7 @@ export default function ProfilePage() {
 
                     {/* Saved Badge */}
                     <div className="absolute top-3 left-3 z-10 px-2 py-1 bg-blue-500 rounded-lg text-xs font-bold text-white">
-                      SAVED
+                      {tr[29]}
                     </div>
 
                     {/* Price Badge */}
@@ -799,11 +845,11 @@ export default function ProfilePage() {
                     {/* Info */}
                     <h3 className="font-semibold text-white mb-1 truncate">{item.media.title}</h3>
                     <p className="text-sm text-gray-400 mb-2">
-                      By {item.media.user?.name || item.media.user?.username || 'Unknown'}
+                      {tr[16]} {item.media.user?.name || item.media.user?.username || tr[17]}
                     </p>
                     <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>{formatViewCount(item.media.views)} views</span>
-                      <span>Saved {new Date(item.createdAt).toLocaleDateString()}</span>
+                      <span>{formatViewCount(item.media.views)} {tr[30]}</span>
+                      <span>{tr[8]} {new Date(item.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
                 ))}
@@ -812,12 +858,12 @@ export default function ProfilePage() {
           ) : (
             <div className="text-center py-20">
               <div className="text-6xl mb-4">🔖</div>
-              <h2 className="text-2xl font-semibold mb-2">No saved content</h2>
+              <h2 className="text-2xl font-semibold mb-2">{tr[31]}</h2>
               <p className="text-gray-400 mb-4">
-                You haven&apos;t saved any content yet. Click the Save button on any media to bookmark it.
+                {tr[32]}
               </p>
               <Link href="/" className="btn-primary inline-block">
-                Browse Content
+                {tr[22]}
               </Link>
             </div>
           )}
@@ -831,7 +877,7 @@ export default function ProfilePage() {
           onClick={() => router.back()}
           className="flex shrink-0 items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
         >
-          ← Back
+          {tr[33]}
         </button>
       </div>
     </div>

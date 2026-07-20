@@ -2,41 +2,15 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import {
+  UPLOAD_CONFIG,
+  getCreditPool,
+  getFreeUploadsRemaining,
+  getUploadsAvailable,
+  normalizeMembershipType,
+} from '@/lib/uploadPlanConfig'
 
 export const dynamic = 'force-dynamic'
-
-// Upload limits and costs per plan
-const UPLOAD_CONFIG: Record<string, { 
-  freeUploads: number; 
-  costPerUpload: number; 
-  canUploadAfterFree: boolean;
-  description: string;
-}> = {
-  VIEWER: { 
-    freeUploads: 5, 
-    costPerUpload: 0, 
-    canUploadAfterFree: false,
-    description: '5 Free Uploads (upgrade to continue uploading)'
-  },
-  BASIC: { 
-    freeUploads: 5, 
-    costPerUpload: 1.00, 
-    canUploadAfterFree: true,
-    description: '5 Free Uploads, then $1.00 per upload'
-  },
-  ADVANCED: { 
-    freeUploads: 5, 
-    costPerUpload: 0.50, 
-    canUploadAfterFree: true,
-    description: '5 Free Uploads, then $0.50 per upload'
-  },
-  PREMIUM: { 
-    freeUploads: Infinity, 
-    costPerUpload: 0, 
-    canUploadAfterFree: true,
-    description: 'Unlimited Free Uploads'
-  },
-}
 
 export async function GET() {
   try {
@@ -65,17 +39,22 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const config = UPLOAD_CONFIG[user.membershipType] || UPLOAD_CONFIG.VIEWER
+    const membershipType = normalizeMembershipType(user.membershipType)
+    const config = UPLOAD_CONFIG[membershipType] || UPLOAD_CONFIG.VIEWER
     const freeUploadsUsed = user.freeUploadsUsed || 0
     const paidUploadCredits = user.paidUploadCredits || 0
     const bonusCredits = user.bonusCredits || 0
     const creditsUsed = user.creditsUsed || 0
-    const totalCredits = paidUploadCredits + bonusCredits // Remaining credits
-    const freeUploadsRemaining = user.membershipType === 'PREMIUM' 
-      ? Infinity 
-      : Math.max(0, config.freeUploads - freeUploadsUsed)
+    const totalCredits = getCreditPool(bonusCredits, paidUploadCredits)
+    const freeUploadsRemaining = getFreeUploadsRemaining(membershipType, freeUploadsUsed)
+    const uploadsAvailable = getUploadsAvailable(
+      membershipType,
+      freeUploadsUsed,
+      bonusCredits,
+      paidUploadCredits
+    )
     
-    const isWithinFreeLimit = freeUploadsRemaining > 0 || user.membershipType === 'PREMIUM'
+    const isWithinFreeLimit = freeUploadsRemaining > 0 || membershipType === 'PREMIUM'
     const hasPaidCredits = totalCredits > 0
     const canUpload = isWithinFreeLimit || hasPaidCredits || config.canUploadAfterFree
     const nextUploadCost = isWithinFreeLimit || hasPaidCredits ? 0 : config.costPerUpload
@@ -84,15 +63,22 @@ export async function GET() {
     let statusMessage = ''
     let statusType: 'free' | 'paid' | 'blocked' = 'free'
     
-    if (user.membershipType === 'PREMIUM') {
+    if (membershipType === 'PREMIUM') {
       statusMessage = '✨ Unlimited free uploads with Premium!'
       statusType = 'free'
-    } else if (freeUploadsRemaining > 0) {
-      statusMessage = `🎁 ${freeUploadsRemaining} free upload${freeUploadsRemaining !== 1 ? 's' : ''} remaining`
+    } else if (typeof uploadsAvailable === 'number' && uploadsAvailable > 0) {
+      const parts: string[] = []
+      if (freeUploadsRemaining > 0) {
+        parts.push(`${freeUploadsRemaining} free`)
+      }
+      if (totalCredits > 0) {
+        parts.push(`${totalCredits} credit${totalCredits !== 1 ? 's' : ''}`)
+      }
+      statusMessage =
+        parts.length > 1
+          ? `🎁 ${uploadsAvailable} uploads left (${parts.join(' + ')})`
+          : `🎁 ${uploadsAvailable} upload${uploadsAvailable !== 1 ? 's' : ''} left`
       statusType = 'free'
-    } else if (hasPaidCredits) {
-      statusMessage = `✅ ${totalCredits} upload credit${totalCredits !== 1 ? 's' : ''} available`
-      statusType = 'free' // Treat paid credits as "free" since payment is already done
     } else if (config.canUploadAfterFree) {
       statusMessage = `💳 Each upload costs $${config.costPerUpload.toFixed(2)}`
       statusType = 'paid'
@@ -102,7 +88,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      membershipType: user.membershipType,
+      membershipType,
       totalUploads: user._count?.media || 0,
       freeUploads: config.freeUploads === Infinity ? 'Unlimited' : config.freeUploads,
       freeUploadsUsed,
@@ -110,13 +96,21 @@ export async function GET() {
       paidUploadCredits,
       bonusCredits,
       totalCredits,
+      uploadsAvailable,
       creditsUsed,
       costPerUpload: config.costPerUpload,
       nextUploadCost,
       canUpload,
       statusMessage,
       statusType,
-      planDescription: config.description,
+      planDescription:
+        membershipType === 'PREMIUM'
+          ? 'Unlimited Free Uploads'
+          : membershipType === 'VIEWER'
+            ? '5 Free Uploads (upgrade to continue uploading)'
+            : membershipType === 'ADVANCED'
+              ? '5 Free Uploads, then $0.50 per upload'
+              : '5 Free Uploads, then $1.00 per upload',
     })
   } catch (error) {
     console.error('Error getting upload status:', error)
@@ -126,4 +120,3 @@ export async function GET() {
     )
   }
 }
-

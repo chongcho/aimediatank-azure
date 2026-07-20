@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { getStripe, isStripeConfigured } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/email'
+import { buildMembershipPlanChangeCreditUpdate } from '@/lib/uploadPlanConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
         stripeCustomerId: true, 
         stripeSubscriptionId: true,
         membershipType: true,
+        freeUploadsUsed: true,
         email: true,
         name: true,
         username: true,
@@ -92,12 +94,18 @@ export async function POST(request: Request) {
     // Handle actions first
     if (action === 'cancel') {
       const previousPlan = user?.membershipType || 'BASIC'
+      const creditUpdate = buildMembershipPlanChangeCreditUpdate(
+        previousPlan,
+        user?.freeUploadsUsed,
+        'VIEWER'
+      )
       
       await prisma.user.update({
         where: { id: session.user.id },
         data: {
           membershipType: 'VIEWER',
           stripeSubscriptionId: null,
+          ...creditUpdate,
         },
       })
 
@@ -118,10 +126,16 @@ export async function POST(request: Request) {
     }
 
     if (action === 'downgrade') {
+      const creditUpdate = buildMembershipPlanChangeCreditUpdate(
+        user?.membershipType,
+        user?.freeUploadsUsed,
+        'BASIC'
+      )
       await prisma.user.update({
         where: { id: session.user.id },
         data: {
           membershipType: 'BASIC',
+          ...creditUpdate,
         },
       })
       return NextResponse.json({ 
@@ -131,10 +145,16 @@ export async function POST(request: Request) {
     }
 
     if (action === 'upgrade') {
+      const creditUpdate = buildMembershipPlanChangeCreditUpdate(
+        user?.membershipType,
+        user?.freeUploadsUsed,
+        'PREMIUM'
+      )
       await prisma.user.update({
         where: { id: session.user.id },
         data: {
           membershipType: 'PREMIUM',
+          ...creditUpdate,
         },
       })
       return NextResponse.json({ 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { uploadBlobExceedsLimitMessage } from '@/lib/uploadBlobByteLength'
+import { buildMembershipPlanChangeCreditUpdate } from '@/lib/uploadPlanConfig'
 import Stripe from 'stripe'
 import { sendEmail, generatePurchaseEmail, generateMembershipPurchaseEmail } from '@/lib/email'
 // Video processing is now handled by Azure Function cron (process-videos)
@@ -65,8 +66,18 @@ export async function POST(request: Request) {
           } else {
             periodEnd.setMonth(periodEnd.getMonth() + 1)
           }
+
+          const existing = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { membershipType: true, freeUploadsUsed: true },
+          })
+          const creditUpdate = buildMembershipPlanChangeCreditUpdate(
+            existing?.membershipType,
+            existing?.freeUploadsUsed,
+            membershipType
+          )
           
-          // Update user membership
+          // Update user membership; unused free uploads carry into bonusCredits on plan change
           const updatedUser = await prisma.user.update({
             where: { id: userId },
             data: {
@@ -75,12 +86,15 @@ export async function POST(request: Request) {
               stripeCustomerId: customerId,
               stripeSubscriptionId: subscriptionId,
               role: 'SUBSCRIBER',
-              freeUploadsUsed: 0,
               freeUploadsResetAt: periodEnd,
+              ...creditUpdate,
             },
           })
           
-          console.log(`Updated user ${userId} to ${membershipType} membership, expires: ${periodEnd}`)
+          console.log(
+            `Updated user ${userId} to ${membershipType} membership, expires: ${periodEnd}`,
+            creditUpdate
+          )
           
           // Send membership confirmation email
           const priceAmount = planId === 'basic' ? 2 : planId === 'advanced' ? 5 : 8
@@ -378,6 +392,13 @@ export async function POST(request: Request) {
         
         // Calculate expiration date
         const periodEnd = new Date(subscription.current_period_end * 1000)
+
+        // Only mutate free/bonus credits when the plan actually changes (not renewals / duplicate events)
+        const creditUpdate = buildMembershipPlanChangeCreditUpdate(
+          user.membershipType,
+          user.freeUploadsUsed,
+          membershipType
+        )
         
         // Update user membership
         await prisma.user.update({
@@ -387,9 +408,8 @@ export async function POST(request: Request) {
             membershipExpiresAt: periodEnd,
             stripeSubscriptionId: subscription.id,
             role: 'SUBSCRIBER',
-            // Reset free uploads when subscription changes
-            freeUploadsUsed: 0,
             freeUploadsResetAt: periodEnd,
+            ...creditUpdate,
           },
         })
         

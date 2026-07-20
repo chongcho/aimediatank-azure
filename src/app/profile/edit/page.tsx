@@ -8,6 +8,117 @@ import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
 import PasswordField from '@/components/PasswordField'
+import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
+
+const EDIT_PROFILE_STRINGS = [
+  'Edit Profile',
+  'Close',
+  'Update your account information',
+  'Name *',
+  'First',
+  'Middle',
+  'Last',
+  'Birthday *',
+  'Email *',
+  'your@email.com',
+  'Sending...',
+  'Resend Code',
+  'Verify Email',
+  'Verified',
+  'Verification OFF',
+  'Email changed - verification required',
+  'Mobile',
+  '+1 (555) 000-0000',
+  'Verify this number to save. A code will be sent via SMS (Azure ACS).',
+  'Send verification code',
+  'SMS not configured or not delivered. Use the code below if you have it.',
+  'Enter 6-digit code:',
+  '000000',
+  'Resend code',
+  'Location *',
+  'Select country',
+  'Change Password',
+  'Leave blank to keep current password',
+  'New Password',
+  'Confirm New Password',
+  'Password must be at least 6 characters',
+  'Passwords match',
+  'Passwords do not match',
+  'Deactivate',
+  'Account',
+  'Cancel',
+  'Saving...',
+  'Save Changes',
+  'Account deactivation',
+  'This hides your uploads from the home feed and your profile, removes your username from search, and limits what you can do while signed in. You can turn the account back on anytime from the profile menu (green Restore Account). Active subscriptions are cancelled when you confirm.',
+  'Continue',
+  'Confirm account deactivation',
+  'Type your username and password (if you use one) to confirm. This cannot be undone without contacting support.',
+  'Type your username',
+  'to confirm',
+  'Account password (leave blank if you only use social sign-in)',
+  'Keep account',
+  'Deactivating…',
+  'Verify Your New Email',
+  "We've sent a 6-digit verification code to",
+  '🔧 Dev Mode - Your code:',
+  'Enter Verification Code',
+  'Verifying...',
+  'Verify',
+  "Didn't receive the code?",
+  'Resend',
+] as const
+
+const COUNTRY_NAMES = [
+  'United States',
+  'United Kingdom',
+  'Canada',
+  'Australia',
+  'Germany',
+  'France',
+  'Japan',
+  'South Korea',
+  'China',
+  'India',
+  'Brazil',
+  'Mexico',
+  'Spain',
+  'Italy',
+  'Netherlands',
+  'Sweden',
+  'Norway',
+  'Denmark',
+  'Finland',
+  'Switzerland',
+  'Austria',
+  'Belgium',
+  'Poland',
+  'Ireland',
+  'Portugal',
+  'New Zealand',
+  'Singapore',
+  'Hong Kong',
+  'Taiwan',
+  'Thailand',
+  'Vietnam',
+  'Philippines',
+  'Indonesia',
+  'Malaysia',
+  'Russia',
+  'Ukraine',
+  'Turkey',
+  'Israel',
+  'United Arab Emirates',
+  'Saudi Arabia',
+  'South Africa',
+  'Egypt',
+  'Nigeria',
+  'Argentina',
+  'Chile',
+  'Colombia',
+  'Peru',
+  'Other',
+] as const
 
 interface ProfileData {
   name: string
@@ -115,6 +226,14 @@ export default function EditProfilePage() {
     phoneVerificationEnabled: true,
     selfServiceDeactivateAccountEnabled: true,
   })
+
+  const tr = useLanguageModeList(EDIT_PROFILE_STRINGS)
+  const countryLabels = useLanguageModeList(COUNTRY_NAMES)
+  const localizedError = useLanguageModeText(error)
+  const localizedSuccess = useLanguageModeText(success)
+  const localizedEmailVerificationError = useLanguageModeText(emailVerificationState.error)
+  const localizedPhoneVerificationError = useLanguageModeText(phoneVerificationState.error)
+  const localizedCancelRegError = useLanguageModeText(cancelRegError)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -685,32 +804,32 @@ export default function EditProfilePage() {
     <div className="max-w-2xl mx-auto p-0 m-0 pb-[500px] pt-[10px]">
       <div className="py-[20px]">
         <div className="flex items-center justify-center relative">
-          <h1 className="text-[18px] font-bold">Edit Profile</h1>
+          <h1 className="text-[18px] font-bold">{tr[0]}</h1>
           <button
             type="button"
             onClick={() => router.back()}
             className="absolute right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
-            aria-label="Close"
+            aria-label={tr[1]}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <p className="text-gray-400 text-xs text-center">Update your account information</p>
+        <p className="text-gray-400 text-xs text-center">{tr[2]}</p>
       </div>
 
       <div className="card">
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
-              {error}
+              {localizedError}
             </div>
           )}
 
           {success && (
             <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-sm">
-              {success}
+              {localizedSuccess}
             </div>
           )}
 
@@ -732,7 +851,7 @@ export default function EditProfilePage() {
           {/* Name (First, Middle, Last) */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Name *
+              {tr[3]}
             </label>
             <div className="grid grid-cols-3 gap-2">
               <input
@@ -742,7 +861,7 @@ export default function EditProfilePage() {
                   setFirstName(e.target.value)
                   setFormData((prev) => ({ ...prev, legalName: [e.target.value, middleName, lastName].filter(Boolean).join(' ').trim() }))
                 }}
-                placeholder="First"
+                placeholder={tr[4]}
                 required
                 className="w-full"
               />
@@ -753,7 +872,7 @@ export default function EditProfilePage() {
                   setMiddleName(e.target.value)
                   setFormData((prev) => ({ ...prev, legalName: [firstName, e.target.value, lastName].filter(Boolean).join(' ').trim() }))
                 }}
-                placeholder="Middle"
+                placeholder={tr[5]}
                 className="w-full"
               />
               <input
@@ -763,7 +882,7 @@ export default function EditProfilePage() {
                   setLastName(e.target.value)
                   setFormData((prev) => ({ ...prev, legalName: [firstName, middleName, e.target.value].filter(Boolean).join(' ').trim() }))
                 }}
-                placeholder="Last"
+                placeholder={tr[6]}
                 required
                 className="w-full"
               />
@@ -773,7 +892,7 @@ export default function EditProfilePage() {
           {/* Birthday */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Birthday *
+              {tr[7]}
             </label>
             <input
               type="date"
@@ -787,7 +906,7 @@ export default function EditProfilePage() {
           {/* Email with inline verification */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Email *
+              {tr[8]}
             </label>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -795,7 +914,7 @@ export default function EditProfilePage() {
               type="email"
               value={formData.email}
                   onChange={(e) => handleEmailChange(e.target.value)}
-              placeholder="your@email.com"
+              placeholder={tr[9]}
                   className={`w-full ${
                     emailChanged && emailVerificationState.codeVerified
                       ? 'border-green-500 bg-green-500/10'
@@ -820,12 +939,12 @@ export default function EditProfilePage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Sending...
+                      {tr[10]}
                     </span>
                   ) : emailVerificationState.codeSent ? (
-                    'Resend Code'
+                    tr[11]
                   ) : (
-                    'Verify Email'
+                    tr[12]
                   )}
                 </button>
               ) : authSettings.emailVerificationEnabled && emailChanged && emailVerificationState.codeVerified ? (
@@ -833,35 +952,35 @@ export default function EditProfilePage() {
                   <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  Verified
+                  {tr[13]}
                 </div>
               ) : authSettings.emailVerificationEnabled && formData.emailVerified ? (
                 <div className="flex items-center px-3 py-2 text-green-400 text-sm">
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  Verified
+                  {tr[13]}
                 </div>
               ) : !authSettings.emailVerificationEnabled ? (
                 <div className="flex items-center px-3 py-2 text-gray-400 text-sm whitespace-nowrap">
-                  Verification OFF
+                  {tr[14]}
                 </div>
               ) : null}
             </div>
             {authSettings.emailVerificationEnabled && emailChanged && !emailVerificationState.codeVerified && (
               <p className="text-xs text-yellow-400 mt-1">
-                Email changed - verification required
+                {tr[15]}
               </p>
             )}
             {emailVerificationState.error && (
-              <p className="text-xs text-red-400 mt-1">{emailVerificationState.error}</p>
+              <p className="text-xs text-red-400 mt-1">{localizedEmailVerificationError}</p>
             )}
           </div>
 
           {/* Phone — verify when subscriber adds or changes number (Azure ACS) */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Mobile
+              {tr[16]}
             </label>
             <input
               type="tel"
@@ -870,12 +989,12 @@ export default function EditProfilePage() {
                 setFormData({ ...formData, phone: e.target.value })
                 setPhoneVerificationState((prev) => ({ ...prev, codeSent: false, code: '', error: '', codeInMessage: false }))
               }}
-              placeholder="+1 (555) 000-0000"
+              placeholder={tr[17]}
               className="w-full"
             />
             {authSettings.phoneVerificationEnabled && phoneChangedAndValid && (
               <div className="mt-2 space-y-1">
-                <p className="text-xs text-yellow-400">Verify this number to save. A code will be sent via SMS (Azure ACS).</p>
+                <p className="text-xs text-yellow-400">{tr[18]}</p>
                 {!phoneVerificationState.codeSent ? (
                   <button
                     type="button"
@@ -883,20 +1002,20 @@ export default function EditProfilePage() {
                     disabled={phoneVerificationState.sending}
                     className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent/20 text-tank-accent hover:bg-tank-accent/30 border border-tank-accent/50"
                   >
-                    {phoneVerificationState.sending ? 'Sending...' : 'Send verification code'}
+                    {phoneVerificationState.sending ? tr[10] : tr[19]}
                   </button>
                 ) : (
                   <div className="space-y-1">
                     {phoneVerificationState.codeInMessage && (
-                      <p className="text-xs text-yellow-400">SMS not configured or not delivered. Use the code below if you have it.</p>
+                      <p className="text-xs text-yellow-400">{tr[20]}</p>
                     )}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-gray-400">Enter 6-digit code:</span>
+                      <span className="text-xs text-gray-400">{tr[21]}</span>
                       <input
                       type="text"
                       inputMode="numeric"
                       maxLength={6}
-                      placeholder="000000"
+                      placeholder={tr[22]}
                       value={phoneVerificationState.code}
                       onChange={(e) =>
                         setPhoneVerificationState((prev) => ({
@@ -912,13 +1031,13 @@ export default function EditProfilePage() {
                       disabled={phoneVerificationState.sending}
                       className="text-sm text-gray-400 hover:text-tank-accent"
                     >
-                      Resend code
+                      {tr[23]}
                     </button>
                     </div>
                   </div>
                 )}
                 {phoneVerificationState.error && (
-                  <p className="text-xs text-red-400">{phoneVerificationState.error}</p>
+                  <p className="text-xs text-red-400">{localizedPhoneVerificationError}</p>
                 )}
               </div>
             )}
@@ -927,7 +1046,7 @@ export default function EditProfilePage() {
           {/* Location */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Location *
+              {tr[24]}
             </label>
             <select
               value={formData.location}
@@ -935,67 +1054,24 @@ export default function EditProfilePage() {
               required
               className="w-full"
             >
-              <option value="">Select country</option>
-              <option value="United States">United States</option>
-              <option value="United Kingdom">United Kingdom</option>
-              <option value="Canada">Canada</option>
-              <option value="Australia">Australia</option>
-              <option value="Germany">Germany</option>
-              <option value="France">France</option>
-              <option value="Japan">Japan</option>
-              <option value="South Korea">South Korea</option>
-              <option value="China">China</option>
-              <option value="India">India</option>
-              <option value="Brazil">Brazil</option>
-              <option value="Mexico">Mexico</option>
-              <option value="Spain">Spain</option>
-              <option value="Italy">Italy</option>
-              <option value="Netherlands">Netherlands</option>
-              <option value="Sweden">Sweden</option>
-              <option value="Norway">Norway</option>
-              <option value="Denmark">Denmark</option>
-              <option value="Finland">Finland</option>
-              <option value="Switzerland">Switzerland</option>
-              <option value="Austria">Austria</option>
-              <option value="Belgium">Belgium</option>
-              <option value="Poland">Poland</option>
-              <option value="Ireland">Ireland</option>
-              <option value="Portugal">Portugal</option>
-              <option value="New Zealand">New Zealand</option>
-              <option value="Singapore">Singapore</option>
-              <option value="Hong Kong">Hong Kong</option>
-              <option value="Taiwan">Taiwan</option>
-              <option value="Thailand">Thailand</option>
-              <option value="Vietnam">Vietnam</option>
-              <option value="Philippines">Philippines</option>
-              <option value="Indonesia">Indonesia</option>
-              <option value="Malaysia">Malaysia</option>
-              <option value="Russia">Russia</option>
-              <option value="Ukraine">Ukraine</option>
-              <option value="Turkey">Turkey</option>
-              <option value="Israel">Israel</option>
-              <option value="United Arab Emirates">United Arab Emirates</option>
-              <option value="Saudi Arabia">Saudi Arabia</option>
-              <option value="South Africa">South Africa</option>
-              <option value="Egypt">Egypt</option>
-              <option value="Nigeria">Nigeria</option>
-              <option value="Argentina">Argentina</option>
-              <option value="Chile">Chile</option>
-              <option value="Colombia">Colombia</option>
-              <option value="Peru">Peru</option>
-              <option value="Other">Other</option>
+              <option value="">{tr[25]}</option>
+              {COUNTRY_NAMES.map((value, index) => (
+                <option key={value} value={value}>
+                  {countryLabels[index]}
+                </option>
+              ))}
             </select>
           </div>
 
           {/* Password Section */}
           <div className="border-t border-tank-light pt-4">
-            <h3 className="text-lg font-semibold mb-0">Change Password</h3>
-            <p className="text-sm text-gray-400 mb-2">Leave blank to keep current password</p>
+            <h3 className="text-lg font-semibold mb-0">{tr[26]}</h3>
+            <p className="text-sm text-gray-400 mb-2">{tr[27]}</p>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  New Password
+                  {tr[28]}
                 </label>
                 <PasswordField
                   value={formData.password}
@@ -1010,13 +1086,13 @@ export default function EditProfilePage() {
                   }`}
                 />
                 {formData.password.length > 0 && formData.password.length < 6 && (
-                  <p className="text-xs text-yellow-400 mt-1">Password must be at least 6 characters</p>
+                  <p className="text-xs text-yellow-400 mt-1">{tr[30]}</p>
                 )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Confirm New Password
+                  {tr[29]}
                 </label>
                 <PasswordField
                   value={formData.confirmPassword}
@@ -1040,14 +1116,14 @@ export default function EditProfilePage() {
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        Passwords match
+                        {tr[31]}
                       </>
                     ) : (
                       <>
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
-                        Passwords do not match
+                        {tr[32]}
                       </>
                     )}
                   </p>
@@ -1066,8 +1142,8 @@ export default function EditProfilePage() {
                 }}
                 className="inline-flex w-[5.5rem] shrink-0 flex-col items-center justify-center gap-0 rounded-[0.225rem] border border-red-500/80 bg-red-600/90 p-0 text-center text-xs font-semibold leading-tight text-white transition-colors hover:bg-red-600"
               >
-                <span className="block w-full leading-tight">Deactivate</span>
-                <span className="block w-full leading-tight">Account</span>
+                <span className="block w-full leading-tight">{tr[33]}</span>
+                <span className="block w-full leading-tight">{tr[34]}</span>
               </button>
             )}
             <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-4 sm:gap-6">
@@ -1076,14 +1152,14 @@ export default function EditProfilePage() {
                 onClick={() => router.back()}
                 className="inline-flex min-h-[2.5rem] items-center justify-center rounded-[0.225rem] border border-tank-light bg-tank-dark px-3 py-2 text-sm font-semibold leading-none text-white transition-colors hover:bg-tank-light"
               >
-                Cancel
+                {tr[35]}
               </button>
               <button
                 type="submit"
                 disabled={saving}
                 className="inline-flex min-h-[2.5rem] items-center justify-center rounded-[0.225rem] bg-tank-accent px-3 py-2 text-sm font-semibold leading-none text-tank-black transition-colors hover:bg-tank-accent/90 hover:shadow-lg hover:shadow-tank-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? tr[36] : tr[37]}
               </button>
             </div>
           </div>
@@ -1104,12 +1180,10 @@ export default function EditProfilePage() {
             aria-labelledby="deactivate-intro-title"
           >
             <h3 id="deactivate-intro-title" className="mb-2 text-xl font-bold text-red-400">
-              Account deactivation
+              {tr[38]}
             </h3>
             <p className="mb-4 text-sm text-gray-400">
-              This hides your uploads from the home feed and your profile, removes your username from search, and
-              limits what you can do while signed in. You can turn the account back on anytime from the profile menu
-              (green Restore Account). Active subscriptions are cancelled when you confirm.
+              {tr[39]}
             </p>
             <div className="flex justify-end gap-3">
               <button
@@ -1117,7 +1191,7 @@ export default function EditProfilePage() {
                 onClick={() => setDeactivateIntroOpen(false)}
                 className="rounded-lg bg-tank-gray px-4 py-2 text-gray-300 transition-colors hover:bg-tank-light"
               >
-                Cancel
+                {tr[35]}
               </button>
               <button
                 type="button"
@@ -1130,7 +1204,7 @@ export default function EditProfilePage() {
                 }}
                 className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-500"
               >
-                Continue
+                {tr[40]}
               </button>
             </div>
           </div>
@@ -1156,15 +1230,14 @@ export default function EditProfilePage() {
             aria-labelledby="cancel-reg-edit-title"
           >
             <h3 id="cancel-reg-edit-title" className="mb-2 text-xl font-bold text-red-400">
-              Confirm account deactivation
+              {tr[41]}
             </h3>
             <p className="mb-4 text-sm text-gray-400">
-              Type your username and password (if you use one) to confirm. This cannot be undone without contacting
-              support.
+              {tr[42]}
             </p>
             <label className="mb-1 block text-sm text-gray-300" htmlFor="cancel-reg-edit-username">
-              Type your username{' '}
-              <span className="font-mono text-tank-accent">@{accountUsernameForDelete}</span> to confirm
+              {tr[43]}{' '}
+              <span className="font-mono text-tank-accent">@{accountUsernameForDelete}</span> {tr[44]}
             </label>
             <input
               id="cancel-reg-edit-username"
@@ -1180,7 +1253,7 @@ export default function EditProfilePage() {
               disabled={cancelRegLoading}
             />
             <label className="mb-1 block text-sm text-gray-300" htmlFor="cancel-reg-edit-password">
-              Account password (leave blank if you only use social sign-in)
+              {tr[45]}
             </label>
             <div className="mb-4">
               <PasswordField
@@ -1204,7 +1277,7 @@ export default function EditProfilePage() {
                 role="alert"
                 className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400"
               >
-                {cancelRegError}
+                {localizedCancelRegError}
               </div>
             )}
             <div className="flex justify-end gap-3">
@@ -1217,7 +1290,7 @@ export default function EditProfilePage() {
                 }}
                 className="rounded-lg bg-tank-gray px-4 py-2 text-gray-300 transition-colors hover:bg-tank-light"
               >
-                Keep account
+                {tr[46]}
               </button>
               <button
                 type="button"
@@ -1225,7 +1298,7 @@ export default function EditProfilePage() {
                 onClick={() => void handleConfirmAccountDeactivation()}
                 className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {cancelRegLoading ? 'Deactivating…' : 'Deactivate'}
+                {cancelRegLoading ? tr[47] : tr[33]}
               </button>
             </div>
           </div>
@@ -1242,9 +1315,9 @@ export default function EditProfilePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold mb-2">Verify Your New Email</h3>
+              <h3 className="text-xl font-bold mb-2">{tr[48]}</h3>
               <p className="text-gray-400 text-sm">
-                We've sent a 6-digit verification code to<br />
+                {tr[49]}<br />
                 <strong className="text-white">{formData.email}</strong>
               </p>
             </div>
@@ -1252,14 +1325,14 @@ export default function EditProfilePage() {
             {/* Dev mode: show code */}
             {generatedCode && (
               <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-                <p className="text-yellow-400 text-xs font-semibold mb-1">🔧 Dev Mode - Your code:</p>
+                <p className="text-yellow-400 text-xs font-semibold mb-1">{tr[50]}</p>
                 <p className="text-2xl font-mono font-bold text-center text-yellow-400">{generatedCode}</p>
               </div>
             )}
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Enter Verification Code
+                {tr[51]}
               </label>
               <input
                 type="text"
@@ -1269,14 +1342,14 @@ export default function EditProfilePage() {
                   code: e.target.value.replace(/\D/g, '').slice(0, 6),
                   error: '',
                 }))}
-                placeholder="000000"
+                placeholder={tr[22]}
                 maxLength={6}
                 className="text-center text-2xl font-mono tracking-widest"
               />
             </div>
 
             {emailVerificationState.error && (
-              <p className="text-red-400 text-sm text-center mb-4">{emailVerificationState.error}</p>
+              <p className="text-red-400 text-sm text-center mb-4">{localizedEmailVerificationError}</p>
             )}
 
             <div className="flex gap-3">
@@ -1285,7 +1358,7 @@ export default function EditProfilePage() {
                 onClick={() => setShowVerifyModal(false)}
                 className="flex-1 px-4 py-3 bg-tank-gray text-white rounded-xl font-medium hover:bg-tank-gray/80 transition-colors"
               >
-                Cancel
+                {tr[35]}
               </button>
               <button
                 type="button"
@@ -1299,23 +1372,23 @@ export default function EditProfilePage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Verifying...
+                    {tr[52]}
                   </span>
                 ) : (
-                  'Verify'
+                  tr[53]
                 )}
               </button>
             </div>
 
             <p className="text-center text-gray-500 text-xs mt-4">
-              Didn't receive the code?{' '}
+              {tr[54]}{' '}
               <button
                 type="button"
                 onClick={sendVerificationCode}
                 disabled={emailVerificationState.sending}
                 className="text-tank-accent hover:underline"
               >
-                Resend
+                {tr[55]}
               </button>
             </p>
           </div>

@@ -17,6 +17,7 @@ interface UploadQuota {
   paidUploadCredits: number
   bonusCredits: number
   totalCredits: number
+  uploadsAvailable?: number | string
   creditsUsed: number
   costPerUpload: number
   nextUploadCost: number
@@ -1257,17 +1258,23 @@ function UploadPageContent() {
                     ? 'text-yellow-400'
                     : 'text-red-400'
                 }`}>
-                  {uploadQuota.statusType === 'free' && uploadQuota.freeUploadsRemaining === 'Unlimited'
+                  {uploadQuota.uploadsAvailable === 'Unlimited' ||
+                  uploadQuota.freeUploadsRemaining === 'Unlimited'
                     ? 'Unlimited upload credits available'
-                    : `${uploadQuota.totalCredits + uploadQuota.creditsUsed} upload credits available`}
+                    : typeof uploadQuota.uploadsAvailable === 'number'
+                      ? `${uploadQuota.uploadsAvailable} upload${uploadQuota.uploadsAvailable !== 1 ? 's' : ''} available`
+                      : `${uploadQuota.totalCredits + uploadQuota.creditsUsed} upload credits available`}
                 </p>
                 <p className="text-xs text-gray-400">Credit includes free upload</p>
               </div>
             </div>
-            {uploadQuota.freeUploadsRemaining !== 'Unlimited' && (
+            {uploadQuota.freeUploadsRemaining !== 'Unlimited' &&
+              uploadQuota.uploadsAvailable !== 'Unlimited' && (
               <div className="text-right sm:text-left">
                 <p className="text-lg font-bold text-white tabular-nums">
-                  {uploadQuota.creditsUsed} Used <span className="text-gray-500 font-normal">/</span> {uploadQuota.totalCredits + uploadQuota.creditsUsed} Credits
+                  {typeof uploadQuota.uploadsAvailable === 'number'
+                    ? `${uploadQuota.uploadsAvailable} left`
+                    : `${uploadQuota.creditsUsed} Used / ${uploadQuota.totalCredits + uploadQuota.creditsUsed} Credits`}
                 </p>
               </div>
             )}

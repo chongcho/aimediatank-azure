@@ -8,9 +8,139 @@ import PasswordField from '@/components/PasswordField'
 import { SocialSignIn } from '@/components/SocialSignIn'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
 import { compressImage } from '@/lib/mediaCompression'
+import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
+import { LanguageModeTrans } from '@/components/LanguageModeTrans'
+
+const COUNTRY_VALUES = [
+  'United States',
+  'United Kingdom',
+  'Canada',
+  'Australia',
+  'Germany',
+  'France',
+  'Japan',
+  'South Korea',
+  'China',
+  'India',
+  'Brazil',
+  'Mexico',
+  'Spain',
+  'Italy',
+  'Netherlands',
+  'Sweden',
+  'Norway',
+  'Denmark',
+  'Finland',
+  'Switzerland',
+  'Austria',
+  'Belgium',
+  'Poland',
+  'Ireland',
+  'Portugal',
+  'New Zealand',
+  'Singapore',
+  'Hong Kong',
+  'Taiwan',
+  'Thailand',
+  'Vietnam',
+  'Philippines',
+  'Indonesia',
+  'Malaysia',
+  'Russia',
+  'Ukraine',
+  'Turkey',
+  'Israel',
+  'United Arab Emirates',
+  'Saudi Arabia',
+  'South Africa',
+  'Egypt',
+  'Nigeria',
+  'Argentina',
+  'Chile',
+  'Colombia',
+  'Peru',
+  'Other',
+] as const
+
+const COUNTRY_LABELS = [...COUNTRY_VALUES] as const
+
+const REGISTER_STRINGS = [
+  'Create Account',
+  'Close',
+  'Or',
+  'Join with Email',
+  'Name *',
+  'First',
+  'Middle',
+  'Last',
+  'Birthday *',
+  'Email *',
+  'your@email.com',
+  'Email Verified',
+  'Sending...',
+  'Resend Code',
+  'Verify Email',
+  'Verification OFF',
+  'Mobile',
+  '+1 (555) 000-0000',
+  'Send verification code',
+  'Enter the 6-digit code sent to your phone.',
+  '000000',
+  'Verifying...',
+  'Verify',
+  'Resend code',
+  'Phone verified',
+  'Location *',
+  'Select country',
+  'Select your country',
+  'Set Password',
+  'Password *',
+  'Confirm Password *',
+  'Password must be at least 6 characters',
+  'Passwords match',
+  'Passwords do not match',
+  'Membership',
+  'Free Viewer Plan',
+  'Basic Plan — $2/month',
+  'Advanced Plan — $5/month',
+  'Premium Plan — $8/month',
+  'Start free. You can upgrade anytime from Pricing.',
+  'After creating your account, sign in to complete your paid plan checkout.',
+  'Membership plan (optional)',
+  'Terms & Policy Agreement',
+  'By creating an account, you agree to the AI Media Tank (AiM)',
+  'Terms of Service',
+  'and',
+  'Privacy Policy',
+  'and acknowledge that you have read and accepted all applicable rules and regulations.',
+  'You must agree to the policy to create an account',
+  'Cancel',
+  'Creating account...',
+  'Already have an account?',
+  'Log in',
+  'Check Your Email!',
+  'We\'ve sent a verification link to',
+  'Please click the link to verify your account.',
+  'Didn\'t receive the email?',
+  'Check your spam or junk folder',
+  'Make sure the email address is correct',
+  'Wait a few minutes and check again',
+  'Development Mode',
+  'Click to verify:',
+  'Go to Login',
+  'Resend Verification Email',
+  'Verify Your Email',
+  'We\'ve sent a 6-digit verification code to',
+  'Dev Mode - Your code:',
+  'Enter Verification Code',
+  'Didn\'t receive the code?',
+  'Resend',
+] as const
 
 export default function RegisterPage() {
   const router = useRouter()
+  const tr = useLanguageModeList(REGISTER_STRINGS)
+  const countryLabels = useLanguageModeList(COUNTRY_LABELS)
   const [formData, setFormData] = useState({
     email: '',
     username: '',
@@ -103,6 +233,11 @@ export default function RegisterPage() {
     emailVerificationEnabled: true,
     phoneVerificationEnabled: true,
   })
+
+  const translatedError = useLanguageModeText(error)
+  const translatedEmailStatusMessage = useLanguageModeText(emailStatus.message)
+  const translatedVerificationError = useLanguageModeText(verificationState.error)
+  const translatedPhoneVerificationError = useLanguageModeText(phoneVerificationState.error)
 
   // Debounced email check
   const checkEmail = useCallback(async (email: string) => {
@@ -547,18 +682,19 @@ export default function RegisterPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold mb-2">Check Your Email!</h1>
+            <h1 className="text-2xl font-bold mb-2">{tr[53]}</h1>
             <p className="text-gray-400 mb-6">
-              We've sent a verification link to <strong className="text-white">{formData.email}</strong>. 
-              Please click the link to verify your account.
+              {tr[54]}{' '}
+              <strong className="text-white">{formData.email}</strong>.{' '}
+              {tr[55]}
             </p>
             
             <div className="p-4 bg-tank-gray rounded-xl text-left mb-6">
-              <p className="text-sm text-gray-400 mb-2">Didn't receive the email?</p>
+              <p className="text-sm text-gray-400 mb-2">{tr[56]}</p>
               <ul className="text-sm text-gray-500 list-disc list-inside space-y-1">
-                <li>Check your spam or junk folder</li>
-                <li>Make sure the email address is correct</li>
-                <li>Wait a few minutes and check again</li>
+                <li>{tr[57]}</li>
+                <li>{tr[58]}</li>
+                <li>{tr[59]}</li>
               </ul>
             </div>
 
@@ -566,9 +702,9 @@ export default function RegisterPage() {
             {verificationUrl && (
               <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-left mb-6">
                 <p className="text-yellow-400 text-sm font-semibold mb-2">
-                  🔧 Development Mode
+                  🔧 {tr[60]}
                 </p>
-                <p className="text-xs text-gray-400 mb-2">Click to verify:</p>
+                <p className="text-xs text-gray-400 mb-2">{tr[61]}</p>
                 <a 
                   href={verificationUrl} 
                   className="text-xs text-tank-accent break-all hover:underline"
@@ -580,10 +716,10 @@ export default function RegisterPage() {
 
             <div className="space-y-3">
               <Link href="/login" className="btn-primary block">
-                Go to Login
+                {tr[62]}
               </Link>
               <Link href="/resend-verification" className="block text-tank-accent hover:underline text-sm">
-                Resend Verification Email
+                {tr[63]}
               </Link>
             </div>
           </div>
@@ -595,12 +731,12 @@ export default function RegisterPage() {
     <div className="max-w-2xl mx-auto p-0 m-0 pb-[500px] pt-[10px]">
         <div className="py-[20px]">
           <div className="flex items-center justify-center relative">
-            <h1 className="text-3xl font-bold">Create Account</h1>
+            <h1 className="text-3xl font-bold">{tr[0]}</h1>
             <button
               type="button"
               onClick={() => { window.location.href = '/' }}
               className="absolute right-2 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
-              aria-label="Close"
+              aria-label={tr[1]}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -612,7 +748,7 @@ export default function RegisterPage() {
         <div className="card">
           {error && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
-              {error}
+              {translatedError}
             </div>
           )}
 
@@ -625,7 +761,7 @@ export default function RegisterPage() {
                   <div className="w-full border-t border-tank-light" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="bg-tank-gray px-3 text-gray-400">Or</span>
+                  <span className="bg-tank-gray px-3 text-gray-400">{tr[2]}</span>
                 </div>
               </div>
 
@@ -634,7 +770,7 @@ export default function RegisterPage() {
                 onClick={() => setShowEmailForm(true)}
                 className="mt-6 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-gray-200"
               >
-                Join with Email
+                {tr[3]}
               </button>
             </>
           ) : (
@@ -655,7 +791,7 @@ export default function RegisterPage() {
             {/* Name (First, Middle, Last) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Name *
+                {tr[4]}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <input
@@ -663,7 +799,7 @@ export default function RegisterPage() {
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
-                  placeholder="First"
+                  placeholder={tr[5]}
                   required
                   className="w-full"
                 />
@@ -672,7 +808,7 @@ export default function RegisterPage() {
                   name="middleName"
                   value={formData.middleName}
                   onChange={handleChange}
-                  placeholder="Middle"
+                  placeholder={tr[6]}
                   className="w-full"
                 />
                 <input
@@ -680,7 +816,7 @@ export default function RegisterPage() {
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
-                  placeholder="Last"
+                  placeholder={tr[7]}
                   required
                   className="w-full"
                 />
@@ -690,7 +826,7 @@ export default function RegisterPage() {
             {/* Birthday — same as Edit Profile (`type="date"`) */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Birthday *
+                {tr[8]}
               </label>
               <input
                 type="date"
@@ -705,7 +841,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Email *
+                {tr[9]}
               </label>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -714,7 +850,7 @@ export default function RegisterPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                placeholder="your@email.com"
+                placeholder={tr[10]}
                 required
                     disabled={verificationState.codeVerified}
                     className={`w-full ${
@@ -734,7 +870,7 @@ export default function RegisterPage() {
                     <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    Email Verified
+                    {tr[11]}
                   </div>
                 ) : authSettings.emailVerificationEnabled ? (
                   <button
@@ -749,17 +885,17 @@ export default function RegisterPage() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Sending...
+                        {tr[12]}
                       </span>
                     ) : verificationState.codeSent ? (
-                      'Resend Code'
+                      tr[13]
                     ) : (
-                      'Verify Email'
+                      tr[14]
                     )}
                   </button>
                 ) : (
                   <div className="flex items-center px-3 py-2 text-gray-400 text-sm whitespace-nowrap">
-                    Verification OFF
+                    {tr[15]}
                   </div>
                 )}
               </div>
@@ -768,25 +904,25 @@ export default function RegisterPage() {
                 <p className={`text-xs mt-1 ${
                   emailStatus.valid && emailStatus.available ? 'text-tank-accent' : 'text-red-400'
                 }`}>
-                  {emailStatus.message}
+                  {translatedEmailStatusMessage}
                 </p>
               )}
               {verificationState.error && (
-                <p className="text-xs mt-1 text-red-400">{verificationState.error}</p>
+                <p className="text-xs mt-1 text-red-400">{translatedVerificationError}</p>
               )}
             </div>
 
             {/* Mobile (optional) – two-step verification when provided */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Mobile
+                {tr[16]}
               </label>
               <input
                 type="tel"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                placeholder="+1 (555) 000-0000"
+                placeholder={tr[17]}
                 className="w-full"
                 disabled={phoneVerificationState.codeVerified}
               />
@@ -801,19 +937,19 @@ export default function RegisterPage() {
                           disabled={phoneVerificationState.sending}
                           className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent/20 text-tank-accent hover:bg-tank-accent/30 border border-tank-accent/50"
                         >
-                          {phoneVerificationState.sending ? 'Sending...' : 'Send verification code'}
+                          {phoneVerificationState.sending ? tr[12] : tr[18]}
                         </button>
                       ) : (
                         <div className="mt-2 space-y-1">
                           <p className="text-xs text-gray-400">
-                            Enter the 6-digit code sent to your phone.
+                            {tr[19]}
                           </p>
                           <div className="flex items-center gap-2 flex-wrap">
                             <input
                               type="text"
                               inputMode="numeric"
                               maxLength={6}
-                              placeholder="000000"
+                              placeholder={tr[20]}
                               value={phoneVerificationState.code}
                               onChange={(e) =>
                                 setPhoneVerificationState((prev) => ({
@@ -829,7 +965,7 @@ export default function RegisterPage() {
                               disabled={phoneVerificationState.code.length !== 6 || phoneVerificationState.verifying}
                               className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent text-tank-black font-medium disabled:opacity-50"
                             >
-                              {phoneVerificationState.verifying ? 'Verifying...' : 'Verify'}
+                              {phoneVerificationState.verifying ? tr[21] : tr[22]}
                             </button>
                             <button
                               type="button"
@@ -837,13 +973,13 @@ export default function RegisterPage() {
                               disabled={phoneVerificationState.sending}
                               className="text-sm text-gray-400 hover:text-tank-accent"
                             >
-                              Resend code
+                              {tr[23]}
                             </button>
                           </div>
                         </div>
                       )}
                       {phoneVerificationState.error && (
-                        <p className="text-xs text-red-400">{phoneVerificationState.error}</p>
+                        <p className="text-xs text-red-400">{translatedPhoneVerificationError}</p>
                       )}
                     </>
                   ) : (
@@ -851,7 +987,7 @@ export default function RegisterPage() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      Phone verified
+                      {tr[24]}
                     </p>
                   )}
                 </div>
@@ -861,7 +997,7 @@ export default function RegisterPage() {
             {/* Location */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Location *
+                {tr[25]}
               </label>
               <select
                 name="location"
@@ -869,69 +1005,26 @@ export default function RegisterPage() {
                 onChange={handleChange}
                 required
                 className="w-full"
-                aria-label="Select your country"
-                title="Select your country"
+                aria-label={tr[27]}
+                title={tr[27]}
               >
-                <option value="">Select country</option>
-                <option value="United States">United States</option>
-                <option value="United Kingdom">United Kingdom</option>
-                <option value="Canada">Canada</option>
-                <option value="Australia">Australia</option>
-                <option value="Germany">Germany</option>
-                <option value="France">France</option>
-                <option value="Japan">Japan</option>
-                <option value="South Korea">South Korea</option>
-                <option value="China">China</option>
-                <option value="India">India</option>
-                <option value="Brazil">Brazil</option>
-                <option value="Mexico">Mexico</option>
-                <option value="Spain">Spain</option>
-                <option value="Italy">Italy</option>
-                <option value="Netherlands">Netherlands</option>
-                <option value="Sweden">Sweden</option>
-                <option value="Norway">Norway</option>
-                <option value="Denmark">Denmark</option>
-                <option value="Finland">Finland</option>
-                <option value="Switzerland">Switzerland</option>
-                <option value="Austria">Austria</option>
-                <option value="Belgium">Belgium</option>
-                <option value="Poland">Poland</option>
-                <option value="Ireland">Ireland</option>
-                <option value="Portugal">Portugal</option>
-                <option value="New Zealand">New Zealand</option>
-                <option value="Singapore">Singapore</option>
-                <option value="Hong Kong">Hong Kong</option>
-                <option value="Taiwan">Taiwan</option>
-                <option value="Thailand">Thailand</option>
-                <option value="Vietnam">Vietnam</option>
-                <option value="Philippines">Philippines</option>
-                <option value="Indonesia">Indonesia</option>
-                <option value="Malaysia">Malaysia</option>
-                <option value="Russia">Russia</option>
-                <option value="Ukraine">Ukraine</option>
-                <option value="Turkey">Turkey</option>
-                <option value="Israel">Israel</option>
-                <option value="United Arab Emirates">United Arab Emirates</option>
-                <option value="Saudi Arabia">Saudi Arabia</option>
-                <option value="South Africa">South Africa</option>
-                <option value="Egypt">Egypt</option>
-                <option value="Nigeria">Nigeria</option>
-                <option value="Argentina">Argentina</option>
-                <option value="Chile">Chile</option>
-                <option value="Colombia">Colombia</option>
-                <option value="Peru">Peru</option>
-                <option value="Other">Other</option>
+                <option value="">{tr[26]}</option>
+                {COUNTRY_VALUES.map((value, index) => (
+                  <option key={value} value={value}>
+                    {countryLabels[index]}
+                  </option>
+                ))}
               </select>
             </div>
 
             {/* Password Section */}
             <div className="border-t border-tank-light pt-6">
-              <h3 className="text-lg font-semibold mb-4">Set Password</h3>
+              <h3 className="text-lg font-semibold mb-4">{tr[28]}</h3>
 
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Password *
+                    {tr[29]}
                   </label>
                   <PasswordField
                     name="password"
@@ -948,13 +1041,13 @@ export default function RegisterPage() {
                     }`}
                   />
                   {formData.password.length > 0 && formData.password.length < 6 && (
-                    <p className="text-xs text-yellow-400 mt-1">Password must be at least 6 characters</p>
+                    <p className="text-xs text-yellow-400 mt-1">{tr[31]}</p>
                   )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Confirm Password *
+                    {tr[30]}
                   </label>
                   <PasswordField
                     name="confirmPassword"
@@ -980,14 +1073,14 @@ export default function RegisterPage() {
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
-                          Passwords match
+                          {tr[32]}
                         </>
                       ) : (
                         <>
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
-                          Passwords do not match
+                          {tr[33]}
                         </>
                       )}
                     </p>
@@ -998,25 +1091,25 @@ export default function RegisterPage() {
 
             {/* Membership Selection — optional; defaults to Free Viewer */}
             <div className="border-t border-tank-light pt-6">
-              <h3 className="text-lg font-semibold mb-4">Membership</h3>
+              <h3 className="text-lg font-semibold mb-4">{tr[34]}</h3>
               <div>
                 <select
                   name="membership"
                   value={selectedMembership}
                   onChange={(e) => setSelectedMembership(e.target.value)}
                   className="w-full"
-                  aria-label="Membership plan (optional)"
-                  title="Membership plan (optional)"
+                  aria-label={tr[41]}
+                  title={tr[41]}
                 >
-                  <option value="viewer">Free Viewer Plan</option>
-                  <option value="basic">Basic Plan — $2/month</option>
-                  <option value="advanced">Advanced Plan — $5/month</option>
-                  <option value="premium">Premium Plan — $8/month</option>
+                  <option value="viewer">{tr[35]}</option>
+                  <option value="basic">{tr[36]}</option>
+                  <option value="advanced">{tr[37]}</option>
+                  <option value="premium">{tr[38]}</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-2">
                   {selectedMembership === 'viewer'
-                    ? 'Start free. You can upgrade anytime from Pricing.'
-                    : 'After creating your account, sign in to complete your paid plan checkout.'}
+                    ? tr[39]
+                    : tr[40]}
                 </p>
               </div>
             </div>
@@ -1027,7 +1120,7 @@ export default function RegisterPage() {
                 <svg className="w-5 h-5 text-tank-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Terms & Policy Agreement
+                {tr[42]}
               </h3>
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
@@ -1037,15 +1130,15 @@ export default function RegisterPage() {
                   className="mt-1 w-5 h-5 rounded border-tank-light bg-tank-dark text-tank-accent focus:ring-tank-accent focus:ring-offset-0 cursor-pointer"
                 />
                 <span className="text-sm text-gray-300">
-                  By creating an account, you agree to the AI Media Tank (AiM){' '}
+                  <LanguageModeTrans text={REGISTER_STRINGS[43]} />{' '}
                   <Link href="/terms?from=register" target="_blank" className="text-tank-accent hover:underline font-medium">
-                    Terms of Service
+                    {tr[44]}
                   </Link>
-                  {' '}and{' '}
+                  {' '}<LanguageModeTrans text={REGISTER_STRINGS[45]} />{' '}
                   <Link href="/privacy?from=register" target="_blank" className="text-tank-accent hover:underline font-medium">
-                    Privacy Policy
+                    {tr[46]}
                   </Link>
-                  {' '}and acknowledge that you have read and accepted all applicable rules and regulations.
+                  {' '}<LanguageModeTrans text={REGISTER_STRINGS[47]} />
                 </span>
               </label>
               {!policyAgreed && (
@@ -1053,7 +1146,7 @@ export default function RegisterPage() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                  You must agree to the policy to create an account
+                  {tr[48]}
                 </p>
               )}
             </div>
@@ -1064,7 +1157,7 @@ export default function RegisterPage() {
                 onClick={() => router.back()}
                 className="flex-1 py-3 rounded-xl font-semibold bg-tank-gray border border-tank-light text-white hover:bg-tank-light transition-all"
               >
-                Cancel
+                {tr[49]}
               </button>
               <button
                 type="submit"
@@ -1083,10 +1176,10 @@ export default function RegisterPage() {
                 {loading ? (
                   <>
                     <span className="spinner" />
-                    Creating account...
+                    {tr[50]}
                   </>
                 ) : (
-                  'Create Account'
+                  tr[0]
                 )}
               </button>
             </div>
@@ -1094,22 +1187,22 @@ export default function RegisterPage() {
           )}
 
           <p className="mt-6 text-center text-sm text-gray-400">
-            By creating an account, you agree to the AI Media Tank (AiM){' '}
+            <LanguageModeTrans text={REGISTER_STRINGS[43]} />{' '}
 <Link href="/terms?from=register" className="text-tank-accent hover:underline font-medium">
-            Terms of Service
+            {tr[44]}
           </Link>
-          {' '}and{' '}
+          {' '}<LanguageModeTrans text={REGISTER_STRINGS[45]} />{' '}
           <Link href="/privacy?from=register" className="text-tank-accent hover:underline font-medium">
-            Privacy Policy
+            {tr[46]}
           </Link>
-            {' '}and acknowledge that you have read and accepted all applicable rules and regulations.
+            {' '}<LanguageModeTrans text={REGISTER_STRINGS[47]} />
           </p>
         </div>
 
         <p className="text-center mt-6 text-gray-400">
-          Already have an account?{' '}
+          {tr[51]}{' '}
           <Link href="/login" className="text-tank-accent hover:underline">
-            Log in
+            {tr[52]}
           </Link>
         </p>
 
@@ -1123,9 +1216,9 @@ export default function RegisterPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold mb-2">Verify Your Email</h3>
+              <h3 className="text-xl font-bold mb-2">{tr[64]}</h3>
               <p className="text-gray-400 text-sm">
-                We've sent a 6-digit verification code to<br />
+                {tr[65]}<br />
                 <strong className="text-white">{formData.email}</strong>
               </p>
             </div>
@@ -1133,14 +1226,14 @@ export default function RegisterPage() {
             {/* Dev mode: show code */}
             {generatedCode && (
               <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-                <p className="text-yellow-400 text-xs font-semibold mb-1">🔧 Dev Mode - Your code:</p>
+                <p className="text-yellow-400 text-xs font-semibold mb-1">🔧 {tr[66]}</p>
                 <p className="text-2xl font-mono font-bold text-center text-yellow-400">{generatedCode}</p>
               </div>
             )}
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Enter Verification Code
+                {tr[67]}
               </label>
               <input
                 type="text"
@@ -1150,14 +1243,14 @@ export default function RegisterPage() {
                   code: e.target.value.replace(/\D/g, '').slice(0, 6),
                   error: '',
                 }))}
-                placeholder="000000"
+                placeholder={tr[20]}
                 maxLength={6}
                 className="text-center text-2xl font-mono tracking-widest"
               />
             </div>
 
             {verificationState.error && (
-              <p className="text-red-400 text-sm text-center mb-4">{verificationState.error}</p>
+              <p className="text-red-400 text-sm text-center mb-4">{translatedVerificationError}</p>
             )}
 
             <div className="flex gap-3">
@@ -1166,7 +1259,7 @@ export default function RegisterPage() {
                 onClick={() => setShowVerifyModal(false)}
                 className="flex-1 px-4 py-3 bg-tank-gray text-white rounded-xl font-medium hover:bg-tank-gray/80 transition-colors"
               >
-                Cancel
+                {tr[49]}
               </button>
               <button
                 type="button"
@@ -1180,23 +1273,23 @@ export default function RegisterPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Verifying...
+                    {tr[21]}
                   </span>
                 ) : (
-                  'Verify'
+                  tr[22]
                 )}
               </button>
             </div>
 
             <p className="text-center text-gray-500 text-xs mt-4">
-              Didn't receive the code?{' '}
+              {tr[68]}{' '}
               <button
                 type="button"
                 onClick={sendVerificationCode}
                 disabled={verificationState.sending}
                 className="text-tank-accent hover:underline"
               >
-                Resend
+                {tr[69]}
               </button>
             </p>
           </div>
