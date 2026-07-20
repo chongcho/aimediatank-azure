@@ -1,9 +1,10 @@
 name: Sync main from staging
 
-# Release pipeline (one push to staging):
-#   1. This workflow — merge staging → main
-#   2. Trigger Deploy to Azure Staging + Deploy to Azure Production (same SHA)
-# Android Internal Testing remains manual workflow_dispatch only.
+# Release pipeline (push to staging):
+#   1. azure-deploy-staging.yml — deploy staging Azure app
+#   2. This workflow — merge staging → main, then trigger production
+#   3. azure-deploy.yml — deploy production (aimediatank.com)
+#   4. android-internal.yml — manual workflow_dispatch only (skipped during iOS TestFlight testing)
 
 on:
   push:
@@ -20,7 +21,7 @@ jobs:
     # Prevent infinite loop: when this workflow pushes, actor is github-actions[bot]
     if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -49,39 +50,32 @@ jobs:
           echo "Synced main to $(git rev-parse --short HEAD)"
 
       # GITHUB_TOKEN pushes do not fire `on: push` workflows (GitHub loop guard).
-      # After sync, explicitly dispatch staging + production so both deploy the same tip.
+      # Trigger production only after main contains the staging tip — avoids deploying
+      # an older manual workflow_dispatch SHA while sync is still in flight.
       # Retries: GitHub Actions API occasionally returns transient HTTP 503.
-      - name: Trigger staging and production deploys
+      - name: Trigger production deploy
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          echo "Triggering Deploy to Azure Production for main @ ${SYNCED_SHA:0:7}"
+          attempt=1
+          max_attempts=8
+          sleep_secs=15
+          while true; do
+            if gh workflow run "Deploy to Azure Production" --ref main; then
+              echo "Production deploy workflow triggered (attempt ${attempt})."
+              exit 0
+            fi
+            exit_code=$?
+            if [ "${attempt}" -ge "${max_attempts}" ]; then
+              echo "Failed to trigger production deploy after ${max_attempts} attempts (last exit ${exit_code})."
+              echo "Main is already synced to ${SYNCED_SHA:0:7} — re-run 'Deploy to Azure Production' manually if needed."
+              exit "${exit_code}"
+            fi
+            echo "Attempt ${attempt}/${max_attempts} failed (exit ${exit_code}); retrying in ${sleep_secs}s..."
+            attempt=$((attempt + 1))
+            sleep "${sleep_secs}"
+            sleep_secs=$((sleep_secs + 10))
+          done
 
-          trigger_with_retry() {
-            local workflow_name="$1"
-            local ref="$2"
-            local attempt=1
-            local max_attempts=8
-            local sleep_secs=15
-            echo "Triggering ${workflow_name} for ${ref} @ ${SYNCED_SHA:0:7}"
-            while true; do
-              if gh workflow run "${workflow_name}" --ref "${ref}"; then
-                echo "${workflow_name} triggered (attempt ${attempt})."
-                return 0
-              fi
-              local exit_code=$?
-              if [ "${attempt}" -ge "${max_attempts}" ]; then
-                echo "Failed to trigger ${workflow_name} after ${max_attempts} attempts (last exit ${exit_code})."
-                return "${exit_code}"
-              fi
-              echo "Attempt ${attempt}/${max_attempts} for ${workflow_name} failed (exit ${exit_code}); retrying in ${sleep_secs}s..."
-              attempt=$((attempt + 1))
-              sleep "${sleep_secs}"
-              sleep_secs=$((sleep_secs + 10))
-            done
-          }
-
-          # Order: sync already done; deploy staging then production (same synced tip).
-          trigger_with_retry "Deploy to Azure Staging" staging
-          trigger_with_retry "Deploy to Azure Production" main
-          echo "Both deploy workflows dispatched for ${SYNCED_SHA:0:7}."
