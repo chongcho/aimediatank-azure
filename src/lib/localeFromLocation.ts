@@ -109,3 +109,42 @@ export function localeTagFromBrowserLang(browserLang: string | null | undefined)
 export function isSupportedUiLocale(tag: string): boolean {
   return SUPPORTED.has(tag)
 }
+
+/**
+ * Navbar language-mode menu #2 label: native country/region short name for the Local locale
+ * (e.g. ja → 日本, ko → 한국). Not the word "Local".
+ */
+const LOCAL_MODE_LABEL_BY_TAG: Record<string, string> = {
+  en: 'English',
+  ja: '日本',
+  ko: '한국',
+  zh: '中国',
+  de: 'Deutschland',
+  fr: 'France',
+  es: 'España',
+  pt: 'Brasil',
+  it: 'Italia',
+  ru: 'Россия',
+  ar: 'العربية',
+  hi: 'भारत',
+  tr: 'Türkiye',
+  fil: 'Pilipinas',
+  vi: 'Việt Nam',
+  id: 'Indonesia',
+  th: 'ไทย',
+  ms: 'Malaysia',
+  nl: 'Nederland',
+  sv: 'Sverige',
+  no: 'Norge',
+  da: 'Danmark',
+  fi: 'Suomi',
+  pl: 'Polska',
+  uk: 'Україна',
+  he: 'ישראל',
+}
+
+export function localLanguageModeLabel(localeTag: string | null | undefined): string {
+  const primary = (localeTag || 'en').toLowerCase().split(/[-_]/)[0] || 'en'
+  return LOCAL_MODE_LABEL_BY_TAG[primary] || LOCAL_MODE_LABEL_BY_TAG.en
+}
+

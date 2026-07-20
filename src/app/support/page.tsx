@@ -8,7 +8,7 @@ const SUPPORT_STRINGS = [
   'Support',
   'Close',
   'USER SUPPORT SERVICE',
-  'Email Support',
+  'Customer Support',
   "We're here to help!",
   'Hello',
   'Have a question or need assistance? Send us an email and we\'ll get back to you as soon as possible.',

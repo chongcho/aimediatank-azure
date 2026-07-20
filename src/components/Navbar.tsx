@@ -19,6 +19,9 @@ import { OPEN_TALK_CHAT_EVENT } from '@/lib/talkChatOpen'
 import { VoiceCallProvider } from '@/contexts/VoiceCallContext'
 import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
 import { navBarT, type NavBarKey } from '@/messages/navBar'
+import { localLanguageModeLabel } from '@/lib/localeFromLocation'
+import { calendarLocaleFromUiTag } from '@/lib/localeUi'
+import { LanguageModeTrans } from '@/components/LanguageModeTrans'
 
 // Dynamic import TalkChat to prevent SSR issues
 const TalkChat = dynamic(() => import('./TalkChat'), { ssr: false })
@@ -364,6 +367,12 @@ function NavbarContent() {
     const two = base.slice(0, 2).toUpperCase()
     return two.length === 2 ? two : 'EN'
   }, [feedCardTextMode, mtTag])
+
+  /** Menu #2: native local name (e.g. 日本), not the word "Local". */
+  const localModeMenuLabel = useMemo(
+    () => localLanguageModeLabel(mtTag || bundledTag),
+    [bundledTag, mtTag]
+  )
 
   const updateFeedTextMenuPosition = useCallback(() => {
     const el = feedTextTriggerRef.current
@@ -939,7 +948,7 @@ function NavbarContent() {
                                   </span>
                                 )}
                               </div>
-                              <span className="flex-1 text-left">{t('notifications')}</span>
+                              <span className="flex-1 text-left">{tNavLink('notifications')}</span>
                             </button>
                           )}
                           <button
@@ -1148,7 +1157,7 @@ function NavbarContent() {
                 closeFeedTextMenu()
               }}
             >
-              {tFeed('cardTextOriginal')}
+              English
             </button>
             <button
               type="button"
@@ -1162,7 +1171,7 @@ function NavbarContent() {
                 closeFeedTextMenu()
               }}
             >
-              {tFeed('cardTextLocal')}
+              {localModeMenuLabel}
             </button>
           </div>,
           document.body
@@ -1183,7 +1192,7 @@ function NavbarContent() {
             <button
               type="button"
               className="absolute inset-0 cursor-default"
-              aria-label={t('closePanel')}
+              aria-label={tNavLink('closePanel')}
               onClick={closeAlertsPanel}
             />
             <div
@@ -1193,7 +1202,7 @@ function NavbarContent() {
               <div className="flex items-center justify-between gap-2 border-b border-tank-light bg-tank-dark px-3 py-2">
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <h2 id="navbar-notifications-title" className="truncate text-sm font-semibold text-white">
-                    {t('notifications')}
+                    {tNavLink('notifications')}
                   </h2>
                   <button
                     type="button"
@@ -1202,9 +1211,9 @@ function NavbarContent() {
                       toggleNotificationsOn()
                     }}
                     className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded ${notificationsOn ? 'bg-tank-accent text-black' : 'bg-tank-light/30 text-gray-400'}`}
-                    aria-label={notificationsOn ? t('turnNotifOff') : t('turnNotifOn')}
+                    aria-label={notificationsOn ? tNavLink('turnNotifOff') : tNavLink('turnNotifOn')}
                   >
-                    {notificationsOn ? t('on') : t('off')}
+                    {notificationsOn ? tNavLink('on') : tNavLink('off')}
                   </button>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -1223,7 +1232,9 @@ function NavbarContent() {
                         }}
                         className="text-xs text-gray-400 hover:text-white"
                       >
-                        {selectedIds.size === notifications.slice(0, 5).length ? t('deselectAll') : t('selectAll')}
+                        {selectedIds.size === notifications.slice(0, 5).length
+                          ? tNavLink('deselectAll')
+                          : tNavLink('selectAll')}
                       </button>
                       {selectedIds.size > 0 && (
                         <button
@@ -1234,7 +1245,7 @@ function NavbarContent() {
                           }}
                           className="text-xs font-medium px-2 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white"
                         >
-                          {t('delete')} ({selectedIds.size})
+                          {tNavLink('delete')} ({selectedIds.size})
                         </button>
                       )}
                       <button
@@ -1246,7 +1257,7 @@ function NavbarContent() {
                         }}
                         className="text-xs text-gray-400 hover:text-white"
                       >
-                        {t('cancel')}
+                        {tNavLink('cancel')}
                       </button>
                     </>
                   ) : (
@@ -1261,7 +1272,7 @@ function NavbarContent() {
                           }}
                           className="text-xs text-gray-400 hover:text-white"
                         >
-                          {t('delete')}
+                          {tNavLink('delete')}
                         </button>
                       )}
                       {unreadCount > 0 && (
@@ -1273,7 +1284,7 @@ function NavbarContent() {
                           }}
                           className="text-xs text-tank-accent hover:underline"
                         >
-                          {t('markAllRead')}
+                          {tNavLink('markAllRead')}
                         </button>
                       )}
                     </>
@@ -1285,7 +1296,7 @@ function NavbarContent() {
                       closeAlertsPanel()
                     }}
                     className="rounded p-1 text-gray-400 hover:bg-tank-light/40 hover:text-white"
-                    aria-label={t('closePanel')}
+                    aria-label={tNavLink('closePanel')}
                   >
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1295,7 +1306,7 @@ function NavbarContent() {
               </div>
               <div className="max-h-[min(60vh,420px)] overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <p className="px-3 py-8 text-center text-xs text-gray-500">{t('noNotifications')}</p>
+                  <p className="px-3 py-8 text-center text-xs text-gray-500">{tNavLink('noNotifications')}</p>
                 ) : (
                   notifications.slice(0, 5).map((notification) => {
                     const isExpanded = expandedNotificationId === notification.id
@@ -1329,14 +1340,16 @@ function NavbarContent() {
                           )}
                           <div className="min-w-0 flex-1">
                             <p className={`text-xs font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
-                              {notification.title}
+                              <LanguageModeTrans text={notification.title} />
                             </p>
                             <p className={`mt-0.5 text-[12px] text-gray-300 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-1'}`}>
-                              {notification.message}
+                              <LanguageModeTrans text={notification.message} />
                             </p>
                             {!isSelectMode && (
                               <p className="mt-1 text-[12px] text-gray-300">
-                                {new Date(notification.createdAt).toLocaleString()}
+                                {new Date(notification.createdAt).toLocaleString(
+                                  calendarLocaleFromUiTag(chromeLocaleTag)
+                                )}
                               </p>
                             )}
                           </div>
