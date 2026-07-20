@@ -76,6 +76,7 @@ function LoginContent() {
   }
 
   const planParam = searchParams.get('plan')
+  const billingParam = searchParams.get('billing')
   const paidPlanCallback =
     planParam && ['basic', 'advanced', 'premium'].includes(planParam)
       ? `/pricing?plan=${encodeURIComponent(planParam)}`
@@ -90,7 +91,35 @@ function LoginContent() {
   const showDeactivateActivateCta =
     Boolean(error && error.toLowerCase().includes('deactivated') && showCredentialsForm)
 
+  const tryMembershipCheckoutAfterLogin = async (): Promise<boolean> => {
+    if (
+      !planParam ||
+      !['basic', 'advanced', 'premium'].includes(planParam) ||
+      !billingParam ||
+      !['month', 'year'].includes(billingParam)
+    ) {
+      return false
+    }
+    try {
+      const res = await fetch('/api/stripe/membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: planParam, billingPeriod: billingParam }),
+      })
+      const data = await res.json()
+      if (data.url) {
+        window.location.replace(data.url)
+        return true
+      }
+    } catch {
+      /* fall through to normal redirect */
+    }
+    return false
+  }
+
   const finishLoginAfterCredentialsOk = async () => {
+    if (await tryMembershipCheckoutAfterLogin()) return
+
     let dest = safeCallbackUrl
     if (safeCallbackUrl === '/admin' || safeCallbackUrl.startsWith('/admin?')) {
       dest = appendAdminFreshStep2Param(safeCallbackUrl)

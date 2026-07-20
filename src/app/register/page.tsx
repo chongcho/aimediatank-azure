@@ -104,8 +104,8 @@ const REGISTER_STRINGS = [
   'Basic Plan — $2/month',
   'Advanced Plan — $5/month',
   'Premium Plan — $8/month',
-  'Start free. You can upgrade anytime from Pricing.',
-  'After creating your account, sign in to complete your paid plan checkout.',
+  'Start free. Select a paid plan to subscribe.',
+  'Choose monthly or yearly billing to continue to checkout.',
   'Membership plan (optional)',
   'Terms & Policy Agreement',
   'By creating an account, you agree to the AI Media Tank (AiM)',
@@ -135,7 +135,47 @@ const REGISTER_STRINGS = [
   'Enter Verification Code',
   'Didn\'t receive the code?',
   'Resend',
+  'Create your account and sign in to complete checkout.',
+  'Choose Billing Period',
+  'You selected:',
+  'Monthly',
+  'Billed every month',
+  'Yearly',
+  'Billed annually',
+  '/month',
+  '/year',
+  'You can cancel anytime. Your subscription continues until the end of the billing period.',
 ] as const
+
+const MEMBERSHIP_PLANS: Record<
+  string,
+  { id: string; price: number; yearlyPrice: number; labelIndex: number }
+> = {
+  basic: { id: 'basic', price: 2, yearlyPrice: 20, labelIndex: 36 },
+  advanced: { id: 'advanced', price: 5, yearlyPrice: 50, labelIndex: 37 },
+  premium: { id: 'premium', price: 8, yearlyPrice: 80, labelIndex: 38 },
+}
+
+const R = {
+  membershipHeading: 34,
+  membershipViewer: 35,
+  membershipBasic: 36,
+  membershipAdvanced: 37,
+  membershipPremium: 38,
+  membershipFreeHint: 39,
+  membershipChangeHint: 40,
+  membershipPlanLabel: 41,
+  membershipCheckoutHint: 78,
+  chooseBillingPeriod: 79,
+  youSelected: 80,
+  monthly: 81,
+  billedMonthly: 82,
+  yearly: 83,
+  billedAnnually: 84,
+  perMonth: 85,
+  perYear: 86,
+  billingCancelNote: 87,
+} as const
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -212,6 +252,42 @@ export default function RegisterPage() {
   const [policyAgreed, setPolicyAgreed] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [selectedMembership, setSelectedMembership] = useState('viewer')
+  const [showMembershipBillingModal, setShowMembershipBillingModal] = useState(false)
+  const [pendingMembershipPlan, setPendingMembershipPlan] = useState<
+    (typeof MEMBERSHIP_PLANS)[string] | null
+  >(null)
+  const [pendingBillingPeriod, setPendingBillingPeriod] = useState<'month' | 'year' | null>(null)
+
+  const closeMembershipBillingModal = () => {
+    setShowMembershipBillingModal(false)
+    setPendingMembershipPlan(null)
+    setSelectedMembership('viewer')
+    setPendingBillingPeriod(null)
+  }
+
+  const handleMembershipBillingChoice = (billingPeriod: 'month' | 'year') => {
+    setPendingBillingPeriod(billingPeriod)
+    setShowMembershipBillingModal(false)
+    setPendingMembershipPlan(null)
+  }
+
+  const handleMembershipChange = (newPlanId: string) => {
+    if (newPlanId === 'viewer') {
+      setSelectedMembership('viewer')
+      setPendingBillingPeriod(null)
+      setPendingMembershipPlan(null)
+      setShowMembershipBillingModal(false)
+      return
+    }
+
+    const plan = MEMBERSHIP_PLANS[newPlanId]
+    if (!plan) return
+
+    setSelectedMembership(newPlanId)
+    setPendingBillingPeriod(null)
+    setPendingMembershipPlan(plan)
+    setShowMembershipBillingModal(true)
+  }
 
   // Phone verification state (two-step verification when phone is provided)
   const [phoneVerificationState, setPhoneVerificationState] = useState<{
@@ -658,10 +734,11 @@ export default function RegisterPage() {
       if (!res.ok) {
         setError(data.error || 'Registration failed')
       } else {
-        // Redirect to login on success; paid plans continue on Pricing after login
         const planQuery =
           selectedMembership && selectedMembership !== 'viewer'
-            ? `&plan=${encodeURIComponent(selectedMembership)}`
+            ? pendingBillingPeriod
+              ? `&plan=${encodeURIComponent(selectedMembership)}&billing=${encodeURIComponent(pendingBillingPeriod)}`
+              : `&plan=${encodeURIComponent(selectedMembership)}`
             : ''
         router.push(`/login?registered=true${planQuery}`)
       }
@@ -1091,25 +1168,27 @@ export default function RegisterPage() {
 
             {/* Membership Selection — optional; defaults to Free Viewer */}
             <div className="border-t border-tank-light pt-6">
-              <h3 className="text-lg font-semibold mb-4">{tr[34]}</h3>
+              <h3 className="text-lg font-semibold mb-4">{tr[R.membershipHeading]}</h3>
               <div>
                 <select
                   name="membership"
                   value={selectedMembership}
-                  onChange={(e) => setSelectedMembership(e.target.value)}
+                  onChange={(e) => handleMembershipChange(e.target.value)}
                   className="w-full"
-                  aria-label={tr[41]}
-                  title={tr[41]}
+                  aria-label={tr[R.membershipPlanLabel]}
+                  title={tr[R.membershipPlanLabel]}
                 >
-                  <option value="viewer">{tr[35]}</option>
-                  <option value="basic">{tr[36]}</option>
-                  <option value="advanced">{tr[37]}</option>
-                  <option value="premium">{tr[38]}</option>
+                  <option value="viewer">{tr[R.membershipViewer]}</option>
+                  <option value="basic">{tr[R.membershipBasic]}</option>
+                  <option value="advanced">{tr[R.membershipAdvanced]}</option>
+                  <option value="premium">{tr[R.membershipPremium]}</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-2">
                   {selectedMembership === 'viewer'
-                    ? tr[39]
-                    : tr[40]}
+                    ? tr[R.membershipFreeHint]
+                    : pendingBillingPeriod
+                      ? tr[R.membershipCheckoutHint]
+                      : tr[R.membershipChangeHint]}
                 </p>
               </div>
             </div>
@@ -1205,6 +1284,84 @@ export default function RegisterPage() {
             {tr[52]}
           </Link>
         </p>
+
+      {showMembershipBillingModal && pendingMembershipPlan && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
+          onClick={closeMembershipBillingModal}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-gray-400 bg-gray-500 p-6"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="text-xl font-bold">{tr[R.chooseBillingPeriod]}</h3>
+              <button
+                type="button"
+                onClick={closeMembershipBillingModal}
+                className="rounded-lg p-2 transition-colors hover:bg-gray-400"
+                aria-label={tr[1]}
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="mb-6 text-center text-gray-200">
+              {tr[R.youSelected]}{' '}
+              <span className="font-bold text-tank-accent">
+                {tr[pendingMembershipPlan.labelIndex]}
+              </span>
+            </p>
+
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => handleMembershipBillingChoice('month')}
+                className="group h-20 w-full cursor-pointer rounded-xl border-2 border-gray-400 bg-gray-600 p-4 transition-all hover:border-tank-accent hover:bg-gray-500"
+              >
+                <div className="flex h-full items-center justify-between">
+                  <div className="text-left">
+                    <p className="text-lg font-semibold text-white transition-colors group-hover:text-tank-accent">
+                      {tr[R.monthly]}
+                    </p>
+                    <p className="text-sm text-gray-300">{tr[R.billedMonthly]}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">${pendingMembershipPlan.price}</p>
+                    <p className="text-sm text-gray-300">{tr[R.perMonth]}</p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleMembershipBillingChoice('year')}
+                className="group h-20 w-full cursor-pointer rounded-xl border-2 border-gray-400 bg-gray-600 p-4 transition-all hover:border-tank-accent hover:bg-gray-500"
+              >
+                <div className="flex h-full items-center justify-between">
+                  <div className="text-left">
+                    <p className="text-lg font-semibold text-white transition-colors group-hover:text-tank-accent">
+                      {tr[R.yearly]}
+                    </p>
+                    <p className="text-sm text-gray-300">{tr[R.billedAnnually]}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">${pendingMembershipPlan.yearlyPrice}</p>
+                    <p className="text-sm text-gray-300">{tr[R.perYear]}</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <p className="mt-4 text-center text-xs text-gray-400">{tr[R.billingCancelNote]}</p>
+          </div>
+        </div>
+      )}
 
       {/* Verification Code Modal */}
       {showVerifyModal && (
