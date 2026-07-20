@@ -1,9 +1,9 @@
 name: Deploy to Azure Staging
 
+# Triggered after sync-branches.yml merges staging → main (workflow_dispatch).
+# Do not run on staging push alone — that would race ahead of the sync step.
 on:
-  push:
-    branches: [staging]  # Deploy to staging on staging branch
-  workflow_dispatch:  # Manual trigger option
+  workflow_dispatch:  # Manual trigger / release-pipeline dispatch
 
 concurrency:
   group: deploy-staging

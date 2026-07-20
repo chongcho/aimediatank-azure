@@ -8,13 +8,14 @@ alwaysApply: true
 ## Standard release (one push to `staging`)
 
 1. **Commit** on `staging` and `git push origin staging`.
-2. **Sync branches** — `sync-branches.yml` merges `staging` → `main` and pushes `main`.
-3. **Deploy everywhere** (automatic):
-   - **Staging** — `azure-deploy-staging.yml` on `staging` push → `aimediatank-staging`
-   - **Production** — `sync-branches.yml` triggers `azure-deploy.yml` on `main` after sync → `aimediatank.com`
-   - **Android Internal Testing** — `android-internal.yml` runs after production succeeds → Play Console internal track
+2. **Sync first** — `sync-branches.yml` merges `staging` → `main` and pushes `main`.
+3. **Then deploy both** (dispatched by sync, same tip SHA):
+   - **Staging** — `azure-deploy-staging.yml` via `workflow_dispatch` → `aimediatank-staging`
+   - **Production** — `azure-deploy.yml` via `workflow_dispatch` → `aimediatank.com`
 
-Do **not** manually trigger production or Android immediately after pushing `staging`; wait for the chain above. Manual `workflow_dispatch` before sync finishes can deploy a stale SHA (GITHUB_TOKEN pushes do not fire `on: push` workflows).
+Staging deploy is **not** triggered by the staging push alone (avoids racing ahead of sync). Production is also dispatched after sync because GITHUB_TOKEN pushes to `main` do not fire `on: push` workflows.
+
+Do **not** manually trigger staging or production immediately after pushing `staging`; wait for the sync workflow to dispatch both. Manual `workflow_dispatch` before sync finishes can deploy a stale SHA.
 
 ## Branches
 
@@ -24,5 +25,6 @@ Do **not** manually trigger production or Android immediately after pushing `sta
 ## Manual-only (optional)
 
 - **iOS TestFlight** — `ios-testflight.yml` (not part of the default staging push chain).
+- **Android Internal Testing** — `android-internal.yml` (manual `workflow_dispatch`).
 - **Sync main from staging** alone — `workflow_dispatch` on `sync-branches.yml` (rare; normal releases already sync).
-- **Android / Production** — `workflow_dispatch` still available for retries; use `--ref main` after sync when retrying.
+- **Staging / Production** — `workflow_dispatch` still available for retries; use current tip after sync when retrying.

@@ -1,9 +1,11 @@
 name: Deploy to Azure Production
 
+# Primary path: sync-branches.yml dispatches this after merging staging → main.
+# `on: push` to main covers rare human pushes; GITHUB_TOKEN sync pushes do not fire it.
 on:
   push:
-    branches: [main]  # Deploy to production on main
-  workflow_dispatch:  # Manual trigger option
+    branches: [main]
+  workflow_dispatch:  # Manual trigger / release-pipeline dispatch
 
 concurrency:
   group: deploy-production
