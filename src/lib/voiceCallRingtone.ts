@@ -285,20 +285,88 @@ function playSpeechLoop(text: string, lang: string | undefined, generation: numb
   if (typeof window === 'undefined' || !window.speechSynthesis) return false
 
   usingSpeechSynthesis = true
+  const SPEECH_STALL_MS = 8000
+
+  const abandonSpeechAndFallback = () => {
+    if (generation !== loopGeneration) return
+    // Clear speech state without bumping loopGeneration so WAV can start for this ring.
+    if (speechLoopTimer) {
+      clearTimeout(speechLoopTimer)
+      speechLoopTimer = null
+    }
+    usingSpeechSynthesis = false
+    try {
+      window.speechSynthesis.cancel()
+    } catch {
+      // ignore
+    }
+    void fallbackRingToWav(generation)
+  }
+
   const speakOnce = () => {
     if (generation !== loopGeneration || !usingSpeechSynthesis || !activeRingKind) return
     const utterance = new SpeechSynthesisUtterance(text)
     const speechLang = normalizeSpeechLang(lang)
     if (speechLang) utterance.lang = speechLang
+
+    let settled = false
+    const stallTimer = globalThis.setTimeout(() => {
+      if (settled || generation !== loopGeneration) return
+      // iOS often fails silently (no onend/onerror) when speech is blocked.
+      markSettled()
+      abandonSpeechAndFallback()
+    }, SPEECH_STALL_MS)
+
+    const markSettled = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(stallTimer)
+    }
+
     utterance.onend = () => {
+      markSettled()
       if (generation !== loopGeneration || !usingSpeechSynthesis) return
       speechLoopTimer = globalThis.setTimeout(speakOnce, ANNOUNCEMENT_LOOP_GAP_MS)
+    }
+    // Spec: error and end are mutually exclusive — without onerror the loop stalls forever.
+    utterance.onerror = () => {
+      markSettled()
+      abandonSpeechAndFallback()
     }
     window.speechSynthesis.speak(utterance)
   }
 
   speakOnce()
   return true
+}
+
+/** When speech synthesis fails or stalls, keep ringing with classic WAV. */
+async function fallbackRingToWav(generation: number) {
+  if (generation !== loopGeneration || !activeRingKind) return
+  const kind = activeRingKind
+  const playbackKind = resolveRingKind(kind)
+
+  if (useNativeAndroidRing()) {
+    nativeRingActive = true
+    try {
+      await startNativeCallRing(absoluteRingUrl(RING_URLS[playbackKind]), {
+        incoming: kind === 'incoming',
+      })
+      void setNativeCallRingVolume(getVoiceCallRingVolume())
+      return
+    } catch {
+      nativeRingActive = false
+      void stopNativeCallRing()
+    }
+  }
+
+  const buffer = await getRingBuffer(RING_URLS[playbackKind])
+  if (generation !== loopGeneration || !activeRingKind) return
+  if (!buffer) {
+    console.warn(`Voice call ring WAV fallback failed: ${RING_URLS[kind]}`)
+    return
+  }
+  await beginAudioPlayback(kind, generation, () => playRingLoop(buffer, generation, true))
 }
 
 function flushPendingRing() {
@@ -344,7 +412,9 @@ async function onUserGesture() {
     flushPendingRing()
     return
   }
-  if (activeRingKind && isIosDevice() && !ringActiveSource && !usingSpeechSynthesis && pendingRingStart === null) {
+  // Allow gesture retry even when speech was "active" but silent/stalled
+  // (usingSpeechSynthesis true with no Web Audio source).
+  if (activeRingKind && isIosDevice() && !ringActiveSource && pendingRingStart === null) {
     retryVoiceCallRingtone()
   }
 }
