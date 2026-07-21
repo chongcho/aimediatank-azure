@@ -38,19 +38,35 @@ proguard/
 # Android Studio captures folder
 captures/
 
-# IntelliJ
+# IntelliJ / Android Studio — keep local IDE settings out of git
 *.iml
+.idea/*
+# Uncomment if the team shares code style / run configs intentionally:
+# !.idea/codeStyles/
+# !.idea/runConfigurations/
+# Legacy explicit ignores (covered by .idea/* above; kept for clarity)
 .idea/workspace.xml
 .idea/tasks.xml
 .idea/gradle.xml
 .idea/assetWizardSettings.xml
 .idea/dictionaries
 .idea/libraries
-# Android Studio 3 in .gitignore file.
 .idea/caches
 .idea/modules.xml
-# Comment next line if keeping position of elements in Navigation Editor is relevant for you
 .idea/navEditor.xml
+.idea/deploymentTargetSelector.xml
+.idea/studiobot.xml
+.idea/migrations.xml
+.idea/compiler.xml
+.idea/AndroidProjectSystem.xml
+.idea/misc.xml
+.idea/runConfigurations.xml
+.idea/deploymentTargetDropDown.xml
+.idea/deviceManager.xml
+.idea/appInsightsSettings.xml
+.idea/kotlinc.xml
+.idea/other.xml
+.idea/.name
 
 # Keystore files
 # Uncomment the following lines if you do not want to check your keystore files in.

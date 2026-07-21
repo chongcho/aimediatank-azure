@@ -45,11 +45,11 @@ const EDIT_PROFILE_STRINGS = [
   'Password must be at least 6 characters',
   'Passwords match',
   'Passwords do not match',
-  'Deactivate',
   'Account',
+  'Deactivate',
   'Cancel',
   'Saving...',
-  'Save Changes',
+  'Save',
   'Account deactivation',
   'This hides your uploads from the home feed and your profile, removes your username from search, and limits what you can do while signed in. You can turn the account back on anytime from the profile menu (green Restore Account). Active subscriptions are cancelled when you confirm.',
   'Continue',
@@ -1304,22 +1304,23 @@ export default function EditProfilePage() {
                 }}
                 className="inline-flex w-[5.5rem] shrink-0 flex-col items-center justify-center gap-0 rounded-[0.225rem] border border-red-500/80 bg-red-600/90 p-0 text-center text-xs font-semibold leading-tight text-white transition-colors hover:bg-red-600"
               >
-                <span className="block w-full leading-tight">{tr[33]}</span>
-                <span className="block w-full leading-tight">{tr[34]}</span>
+                {/* Keep English — matches Profile menu chrome */}
+                <span className="block w-full leading-tight">{EDIT_PROFILE_STRINGS[33]}</span>
+                <span className="block w-full leading-tight">{EDIT_PROFILE_STRINGS[34]}</span>
               </button>
             )}
             <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-4 sm:gap-6">
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="inline-flex min-h-[2.5rem] items-center justify-center rounded-[0.225rem] border border-tank-light bg-tank-dark px-3 py-2 text-sm font-semibold leading-none text-white transition-colors hover:bg-tank-light"
+                className="box-border inline-flex h-10 items-center justify-center rounded-[0.225rem] border border-tank-light bg-tank-dark px-3 text-sm font-semibold leading-none text-white transition-colors hover:bg-tank-light"
               >
                 {tr[35]}
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex min-h-[2.5rem] items-center justify-center rounded-[0.225rem] bg-tank-accent px-3 py-2 text-sm font-semibold leading-none text-tank-black transition-colors hover:bg-tank-accent/90 hover:shadow-lg hover:shadow-tank-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="box-border inline-flex h-10 items-center justify-center rounded-[0.225rem] border border-transparent bg-tank-accent px-3 text-sm font-semibold leading-none text-tank-black transition-colors hover:bg-tank-accent/90 hover:shadow-lg hover:shadow-tank-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? tr[36] : tr[37]}
               </button>
@@ -1538,7 +1539,7 @@ export default function EditProfilePage() {
                 onClick={() => void handleConfirmAccountDeactivation()}
                 className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {cancelRegLoading ? tr[47] : tr[33]}
+                {cancelRegLoading ? tr[47] : tr[34]}
               </button>
             </div>
           </div>

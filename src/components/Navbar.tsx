@@ -971,7 +971,7 @@ function NavbarContent() {
                                   </span>
                                 )}
                               </div>
-                              <span className="flex-1 text-left">{tNavLink('notifications')}</span>
+                              <span className="flex-1 text-left">{t('notifications')}</span>
                             </button>
                           )}
                           <button
@@ -996,7 +996,7 @@ function NavbarContent() {
                                 <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-tank-accent" aria-hidden />
                               )}
                             </div>
-                            <span className="flex-1 text-left">{trVersion[V.title]}</span>
+                            <span className="flex-1 text-left">{t('versionUpdate')}</span>
                           </button>
                           <Link
                             href="/profile/edit"
