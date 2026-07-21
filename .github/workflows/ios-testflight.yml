@@ -295,18 +295,40 @@ jobs:
           trap 'rm -rf "$PRIVATE_KEYS_DIR"' EXIT
           UPLOAD_LOG="$(mktemp)"
           set +e
+          # Xcode 26+ altool often fails with:
+          # "Cannot determine the Apple ID from Bundle ID ... (19)"
+          # --use-old-altool is the known workaround (same as Fastlane DELIVER_ALTOOL_ADDITIONAL_UPLOAD_PARAMETERS).
           xcrun altool --output-format xml \
             --upload-app \
             --file "$IPA_PATH" \
             --type ios \
             --apiKey "$APPSTORE_KEY_ID" \
-            --apiIssuer "$APPSTORE_ISSUER_ID" >"$UPLOAD_LOG" 2>&1
+            --apiIssuer "$APPSTORE_ISSUER_ID" \
+            --use-old-altool >"$UPLOAD_LOG" 2>&1
           UPLOAD_EXIT=$?
           set -e
           cat "$UPLOAD_LOG"
           if [ "$UPLOAD_EXIT" -eq 0 ]; then
             echo "TestFlight upload succeeded."
             exit 0
+          fi
+          # Retry once without the flag in case Apple removes old-altool later.
+          if grep -qE 'use-old-altool|unrecognized|unknown option' "$UPLOAD_LOG"; then
+            echo "::warning::--use-old-altool unsupported; retrying with default altool."
+            set +e
+            xcrun altool --output-format xml \
+              --upload-app \
+              --file "$IPA_PATH" \
+              --type ios \
+              --apiKey "$APPSTORE_KEY_ID" \
+              --apiIssuer "$APPSTORE_ISSUER_ID" >"$UPLOAD_LOG" 2>&1
+            UPLOAD_EXIT=$?
+            set -e
+            cat "$UPLOAD_LOG"
+            if [ "$UPLOAD_EXIT" -eq 0 ]; then
+              echo "TestFlight upload succeeded."
+              exit 0
+            fi
           fi
           if grep -qE '90382|Upload limit reached' "$UPLOAD_LOG"; then
             echo "::warning::Apple daily upload limit (90382). IPA is in workflow artifacts — re-run tomorrow or upload manually via Transporter."

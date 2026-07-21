@@ -223,5 +223,6 @@ Web-only deploy is **not enough** for sleep-mode ring; ship a new TestFlight bui
 | `No podspec found for KapsulaChatCapacitorPushCalls` | Run `node scripts/ensure-voip-plugin-podspec.js`, then `npx cap sync ios` and `cd ios/App && pod install` |
 | Provisioning profile mismatch | `IOS_PROVISIONING_PROFILE_NAME` must match portal exactly; profile must be for `com.aimediatank.apple` |
 | Upload rejected | App record in App Store Connect must use same bundle ID |
+| `Cannot determine the Apple ID from Bundle ID` (altool 19) | Xcode 26+ `altool` bug. Workflow uses `--use-old-altool`. Or download the IPA artifact and upload with **Transporter**. Confirm `APPSTORE_*` secrets match a Team API key that can see `com.aimediatank.apple`. |
 | API key upload error | Re-save `APPSTORE_PRIVATE_KEY` with PEM headers/newlines, or use `APPSTORE_PRIVATE_KEY_BASE64`; `APPSTORE_KEY_ID` must match `AuthKey_<ID>.p8`; key needs App Manager+ role |
 | Runner service stops after logout | Re-log into MacinCloud and run `./svc.sh start`; keep session active |
