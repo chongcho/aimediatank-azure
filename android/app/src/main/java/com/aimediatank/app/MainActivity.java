@@ -37,6 +37,8 @@ public class MainActivity extends BridgeActivity {
         setTheme(R.style.AppTheme_NoActionBar);
         applySystemBars();
         syncIncomingCallPresentation(getIntent());
+        // Required for ConnectionService lock-screen / incoming-call UI (do not remove).
+        registerVoipPhoneAccountSafely();
         AppSystemEffectsGuard.install(getApplicationContext());
         getWindow().getDecorView().post(this::applySystemBars);
     }

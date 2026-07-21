@@ -10,13 +10,15 @@ AiMediaTank voice calls must **never leak global side effects** into PSTN/cellul
 - `LoudnessEnhancer(0)` or other global (session 0) audio effects
 - `FLAG_KEEP_SCREEN_ON` / `setShowWhenLocked` without clearing after call
 - Orphan Telecom `VoipConnection` entries (phone appears busy → voicemail)
+- **Purging ringing ConnectionService calls** when WebRTC is not yet active (breaks incoming UI)
+- Stripping `voiceIncoming` deep-link params during containment (hides incoming call screen)
 
 ## Required patterns
 
 1. **AppSystemEffectsGuard** — single enforcement path; never touch global audio without an active session (`hasActiveAppCallSession()`).
 2. **Always release on call end** — JS `resetCall` → deactivate audio → clear screen → end WebRTC → `enforceSystemEffectsContainment`.
 3. **Lifecycle safety nets** — `MainActivity` pause/stop, plugin pause/destroy, 15s watchdog, **`yieldToPstn`** on cellular ring/answer.
-4. **Self-managed VoIP only** — ConnectionService must not register as default dialer; connections must be destroyed when calls end.
+4. **Self-managed VoIP only** — ConnectionService must not register as default dialer; connections must be destroyed when calls end. **`MainActivity.onCreate` must call `registerVoipPhoneAccountSafely()`** — without it, FCM succeeds but no incoming-call UI (regressed in 1.0.66).
 5. **Patches live in** `scripts/patch-android-fcm.js` — run on `npm install`; do not edit `node_modules` directly.
 
 ## Before merging Android voice/audio changes

@@ -1986,6 +1986,7 @@ const callScreenPresentationMarker = 'AiMediaTank CallScreenPresentation'
 const callScreenPresentationV2Marker = 'keep-screen-on flags only'
 const callScreenPresentationMainThreadMarker = 'main looper for window flags'
 const callScreenPresentationSleepUnlockMarker = 'reset show-when-locked on clear'
+const callScreenPresentationFlagsOnlyMarker = 'clearWindowFlagsOnly'
 const callScreenPresentationSource = `package com.capacitor.voipcalls
 
 import android.app.Activity
@@ -2002,6 +2003,7 @@ object CallScreenPresentation {
     // ${callScreenPresentationV2Marker}
     // ${callScreenPresentationMainThreadMarker}
     // ${callScreenPresentationSleepUnlockMarker}
+    // ${callScreenPresentationFlagsOnlyMarker}
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -2014,16 +2016,28 @@ object CallScreenPresentation {
     @JvmStatic
     fun clear(activity: Activity) {
         runOnMain {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-                activity.setShowWhenLocked(false)
-                activity.setTurnScreenOn(false)
-            }
-            activity.window.clearFlags(
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                    or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
-            )
+            clearWindowFlags(activity)
             clearStaleVoiceIncomingIntent(activity)
         }
+    }
+
+    /** Release keep-screen-on without stripping incoming-call deep link params. */
+    @JvmStatic
+    fun clearWindowFlagsOnly(activity: Activity) {
+        runOnMain {
+            clearWindowFlags(activity)
+        }
+    }
+
+    private fun clearWindowFlags(activity: Activity) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            activity.setShowWhenLocked(false)
+            activity.setTurnScreenOn(false)
+        }
+        activity.window.clearFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+        )
     }
 
     private fun runOnMain(block: () -> Unit) {
@@ -2051,6 +2065,13 @@ object CallScreenPresentation {
 if (fs.existsSync(callScreenPresentationPath)) {
   const existingPresentation = fs.readFileSync(callScreenPresentationPath, 'utf8')
   if (
+    !existingPresentation.includes(callScreenPresentationFlagsOnlyMarker) &&
+    existingPresentation.includes('fun clear(activity: Activity) {')
+  ) {
+    fs.writeFileSync(callScreenPresentationPath, callScreenPresentationSource)
+    changed = true
+    console.log('[patch-android-fcm] CallScreenPresentation.kt (clearWindowFlagsOnly)')
+  } else if (
     !existingPresentation.includes(callScreenPresentationSleepUnlockMarker) &&
     existingPresentation.includes('fun clear(activity: Activity) {')
   ) {
@@ -3473,12 +3494,14 @@ if (fs.existsSync(callManagerPath)) {
 }
 
 const purgeOrphanTelecomMarker = 'purge orphan telecom for PSTN'
+const neverPurgeRingingMarker = 'never purge ringing telecom'
 if (fs.existsSync(callManagerPath)) {
   let callManager = fs.readFileSync(callManagerPath, 'utf8')
   if (
     callManager.includes('fun releaseIfStale()') &&
-    !callManager.includes(purgeOrphanTelecomMarker)
+    !callManager.includes(neverPurgeRingingMarker)
   ) {
+    const before = callManager
     callManager = callManager.replace(
       `    fun releaseIfStale() {
         if (activeCalls.isEmpty() && !IncomingRingAudioHelper.isActive() && voiceCallAudioActive) {
@@ -3486,26 +3509,34 @@ if (fs.existsSync(callManagerPath)) {
         }
     }`,
       `    fun releaseIfStale() {
+        // ${neverPurgeRingingMarker} — ConnectionService rings before WebRTC starts
         if (IncomingRingAudioHelper.isActive()) return
-        val webRtcActive = try {
-            NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl()) { _, _ -> }.isActive()
-        } catch (_: Exception) {
-            false
-        }
-        if (!webRtcActive && activeCalls.isNotEmpty()) {
-            // ${purgeOrphanTelecomMarker}
-            for (callId in activeCalls.keys.toList()) {
-                endCall(callId)
-            }
-        }
-        if (activeCalls.isEmpty() && !IncomingRingAudioHelper.isActive() && voiceCallAudioActive) {
+        if (activeCalls.isNotEmpty()) return
+        if (voiceCallAudioActive) {
             setVoiceCallAudioActive(false)
         }
     }`,
     )
-    fs.writeFileSync(callManagerPath, callManager)
-    changed = true
-    console.log('[patch-android-fcm] CallManager purge orphan telecom connections')
+    if (callManager.includes(purgeOrphanTelecomMarker)) {
+      callManager = callManager.replace(
+        /    fun releaseIfStale\(\) \{[\s\S]*?\n    \}\n\n    fun releaseGlobalAudioSideEffects/,
+        `    fun releaseIfStale() {
+        // ${neverPurgeRingingMarker} — ConnectionService rings before WebRTC starts
+        if (IncomingRingAudioHelper.isActive()) return
+        if (activeCalls.isNotEmpty()) return
+        if (voiceCallAudioActive) {
+            setVoiceCallAudioActive(false)
+        }
+    }
+
+    fun releaseGlobalAudioSideEffects`,
+      )
+    }
+    if (callManager !== before && callManager.includes(neverPurgeRingingMarker)) {
+      fs.writeFileSync(callManagerPath, callManager)
+      changed = true
+      console.log('[patch-android-fcm] CallManager never purge ringing telecom')
+    }
   }
 }
 
@@ -4175,5 +4206,41 @@ if (fs.existsSync(nativeWebRtcEngineDestPath)) {
     fs.writeFileSync(nativeWebRtcEngineDestPath, engine)
     changed = true
     console.log('[patch-android-fcm] NativeVoiceWebRtcEngine peek helpers')
+  }
+}
+
+const incomingSafeContainmentMarker = 'incoming-safe containment v2'
+const appSystemEffectsGuardSourcePath = path.join(__dirname, 'android-native', 'AppSystemEffectsGuard.kt')
+if (fs.existsSync(appSystemEffectsGuardSourcePath)) {
+  const guardSource = fs.readFileSync(appSystemEffectsGuardSourcePath, 'utf8')
+  if (
+    !fs.existsSync(appSystemEffectsGuardPath) ||
+    !fs.readFileSync(appSystemEffectsGuardPath, 'utf8').includes(incomingSafeContainmentMarker)
+  ) {
+    fs.writeFileSync(appSystemEffectsGuardPath, guardSource)
+    changed = true
+    console.log('[patch-android-fcm] AppSystemEffectsGuard.kt (incoming-safe containment v2)')
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (callManager.includes(purgeOrphanTelecomMarker) && !callManager.includes('never purge ringing telecom')) {
+    callManager = callManager.replace(
+      /    fun releaseIfStale\(\) \{[\s\S]*?\n    \}\n\n    fun releaseGlobalAudioSideEffects/,
+      `    fun releaseIfStale() {
+        // never purge ringing telecom — ConnectionService rings before WebRTC starts
+        if (IncomingRingAudioHelper.isActive()) return
+        if (activeCalls.isNotEmpty()) return
+        if (voiceCallAudioActive) {
+            setVoiceCallAudioActive(false)
+        }
+    }
+
+    fun releaseGlobalAudioSideEffects`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager never purge ringing telecom')
   }
 }

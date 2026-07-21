@@ -88,12 +88,44 @@ if (fs.existsSync(mainActivityApple)) {
 }
 
 const current = fs.existsSync(mainActivityApp) ? fs.readFileSync(mainActivityApp, 'utf8') : ''
-if (!current.includes('registerVoipPhoneAccountSafely')) {
+const hasPhoneAccountMethod = current.includes('registerVoipPhoneAccountSafely')
+// Method alone is not enough — 1.0.66 kept the helper but dropped the onCreate call,
+// which broke ConnectionService incoming-call UI.
+const phoneAccountRegisteredOnCreate =
+  /void\s+onCreate\s*\([^)]*\)\s*\{[\s\S]*?registerVoipPhoneAccountSafely\s*\(\s*\)/.test(current)
+if (!hasPhoneAccountMethod) {
   fs.writeFileSync(mainActivityApp, mainActivitySource)
   console.log('[setup-android-native] patched MainActivity at com.aimediatank.app')
 } else if (current.includes('package com.aimediatank.apple')) {
   fs.writeFileSync(mainActivityApp, mainActivitySource)
   console.log('[setup-android-native] fixed MainActivity package com.aimediatank.app')
+} else if (!phoneAccountRegisteredOnCreate) {
+  let fixed = current
+  if (
+    fixed.includes('syncIncomingCallPresentation(getIntent());') &&
+    !fixed.includes('registerVoipPhoneAccountSafely();')
+  ) {
+    fixed = fixed.replace(
+      'syncIncomingCallPresentation(getIntent());',
+      'syncIncomingCallPresentation(getIntent());\n        registerVoipPhoneAccountSafely();',
+    )
+  } else if (
+    fixed.includes('super.onCreate(savedInstanceState);') &&
+    !/registerVoipPhoneAccountSafely\s*\(\s*\)\s*;/.test(fixed)
+  ) {
+    fixed = fixed.replace(
+      'super.onCreate(savedInstanceState);',
+      'super.onCreate(savedInstanceState);\n        registerVoipPhoneAccountSafely();',
+    )
+  }
+  if (fixed !== current && /registerVoipPhoneAccountSafely\s*\(\s*\)\s*;/.test(fixed)) {
+    fs.writeFileSync(mainActivityApp, fixed)
+    console.log('[setup-android-native] restored registerVoipPhoneAccountSafely() in onCreate')
+  } else {
+    console.warn(
+      '[setup-android-native] MainActivity missing registerVoipPhoneAccountSafely() in onCreate — incoming call UI will fail',
+    )
+  }
 } else if (!current.includes('applySystemBars')) {
   console.warn(
     '[setup-android-native] MainActivity missing applySystemBars() — status bar may be hidden; update MainActivity.java',
