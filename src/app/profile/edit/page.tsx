@@ -1304,9 +1304,8 @@ export default function EditProfilePage() {
                 }}
                 className="inline-flex w-[5.5rem] shrink-0 flex-col items-center justify-center gap-0 rounded-[0.225rem] border border-red-500/80 bg-red-600/90 p-0 text-center text-xs font-semibold leading-tight text-white transition-colors hover:bg-red-600"
               >
-                {/* Keep English — matches Profile menu chrome */}
-                <span className="block w-full leading-tight">{EDIT_PROFILE_STRINGS[33]}</span>
-                <span className="block w-full leading-tight">{EDIT_PROFILE_STRINGS[34]}</span>
+                <span className="block w-full leading-tight">{tr[33]}</span>
+                <span className="block w-full leading-tight">{tr[34]}</span>
               </button>
             )}
             <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-4 sm:gap-6">
