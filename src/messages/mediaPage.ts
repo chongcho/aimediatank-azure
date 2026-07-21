@@ -150,7 +150,7 @@ const EN: Pack = {
     'Are you sure you want to delete "{title}"? This will permanently remove the media file and all associated comments and ratings.',
   deleting: 'Deleting...',
   delete: 'Delete',
-  back: '← Back',
+  back: '← Previous',
   invalidEmail: 'Please enter a valid email address.',
   enterPhone: 'Please enter a phone number.',
   phoneNotAvailable: 'Phone delivery is not yet available.',

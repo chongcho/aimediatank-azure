@@ -281,7 +281,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
                   marginBottom: '20px',
                 }}
               >
-                ← Back to Log in
+                ← Previous to Log in
               </button>
             </form>
           </div>
@@ -354,7 +354,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
                 marginBottom: '16px',
               }}
             >
-              ← Back
+              ← Previous
             </button>
             <div style={{ marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>

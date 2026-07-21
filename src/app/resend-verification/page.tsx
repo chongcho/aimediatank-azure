@@ -84,7 +84,7 @@ export default function ResendVerificationPage() {
               )}
 
               <Link href="/login" className="btn-primary inline-block mt-4">
-                Back to Login
+                Previous to Login
               </Link>
             </div>
           ) : (

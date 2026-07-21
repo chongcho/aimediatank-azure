@@ -260,7 +260,7 @@ export default function PlayPage() {
             href="/"
             className="text-gray-500 hover:text-gray-300 transition-colors text-sm"
           >
-            ← Back to Home
+            ← Previous to Home
           </Link>
         </div>
       </div>

@@ -339,7 +339,7 @@ export default function MinesweeperPage() {
             href="/game"
             className="text-gray-400 hover:text-white transition-colors text-sm"
           >
-            ← Back to Games
+            ← Previous to Games
           </Link>
         </div>
       </div>

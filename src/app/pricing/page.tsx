@@ -82,7 +82,7 @@ const PRICING_STRINGS = [
   'Downgrade to Basic ($5/month)',
   'Keep Subscription',
   'Changes take effect immediately. Your existing uploads will not be affected.',
-  '← Back',
+  '← Previous',
   'You have {count} upload credit',
   'You have {count} upload credits',
   '({freeCount} free + {creditCount} credits)',

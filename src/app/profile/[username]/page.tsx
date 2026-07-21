@@ -42,7 +42,7 @@ const PROFILE_STRINGS = [
   'views',
   'No saved content',
   "You haven't saved any content yet. Click the Save button on any media to bookmark it.",
-  '← Back',
+  '← Previous',
   'User Not Found',
   "This user doesn't exist or hasn't uploaded any content.",
   'Go Home',
@@ -870,7 +870,7 @@ export default function ProfilePage() {
         </>
       )}
 
-      {/* Bottom bar: ← Back (left), per layout spec — account deletion lives on Edit Profile */}
+      {/* Bottom bar: ← Previous (left), per layout spec — account deletion lives on Edit Profile */}
       <div className="mt-8 flex w-full justify-start px-[10px]">
         <button
           type="button"

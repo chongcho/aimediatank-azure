@@ -15,7 +15,7 @@ const SUPPORT_STRINGS = [
   'Contact Email',
   'Typical response time: within 24 hours',
   'Send Email',
-  '← Back',
+  '← Previous',
 ] as const
 
 export default function SupportPage() {

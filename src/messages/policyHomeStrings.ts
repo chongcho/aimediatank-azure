@@ -76,7 +76,7 @@ export const POLICY_MAP = {
   footerCopyright: '© 2025–2026 AI Media Tank, LLC (AiM). All rights reserved.',
   footerDisclaimer:
     'These documents should be reviewed by qualified legal counsel. They do not constitute legal advice.',
-  backButton: 'Back',
+  backButton: 'Previous',
   closeAria: 'Close',
 } as const
 

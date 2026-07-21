@@ -56,7 +56,7 @@ export default function NotificationsPage() {
     <div className="min-h-screen p-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-white">Notifications</h1>
-        <Link href="/" className="text-tank-accent hover:underline text-sm">Back to Home</Link>
+        <Link href="/" className="text-tank-accent hover:underline text-sm">Previous to Home</Link>
       </div>
       {loading ? (
         <div className="flex justify-center py-12"><div className="spinner" /></div>

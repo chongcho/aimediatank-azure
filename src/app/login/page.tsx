@@ -314,7 +314,7 @@ function LoginContent() {
                 onClick={closeForgotEmail}
                 className="w-full text-center text-sm text-gray-400 hover:text-gray-200 transition-colors py-2"
               >
-                ← Back to Log in
+                ← Previous to Log in
               </button>
             </form>
           ) : !showCredentialsForm ? (
@@ -349,7 +349,7 @@ function LoginContent() {
                   }}
                   className="text-sm text-gray-400 hover:text-gray-200 transition-colors -mb-2"
                 >
-                  ← Back
+                  ← Previous
                 </button>
               )}
 
