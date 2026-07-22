@@ -790,7 +790,7 @@ export async function startNativeCallRingAnnouncement(
   text: string,
   lang?: string,
 ): Promise<void> {
-  if (!isNativeAndroidCallApp()) return
+  if (!isNativeVoiceCallApp()) return
   const spoken = text.trim()
   if (!spoken) return
   try {
@@ -807,7 +807,7 @@ export async function startNativeCallRingAnnouncement(
 }
 
 export async function stopNativeCallRing(): Promise<void> {
-  if (!isNativeAndroidCallApp()) return
+  if (!isNativeVoiceCallApp()) return
   try {
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin

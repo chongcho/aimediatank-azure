@@ -4,12 +4,19 @@
  * Speaks "Call from {name}" (incoming / callee) or "Calling {name}" (outgoing / caller)
  * via Azure TTS when configured, else browser speechSynthesis, else WAV fallback.
  *
- * iOS native incoming on lock screen: CallKit ring + caller name (system UI).
+ * iOS native: AVSpeech via App CallKit bridge (incoming lock screen + in-app outgoing).
  * Android native: system TextToSpeech announcement; classic WAV only if TTS fails.
  */
 
 import { getNativePlatform } from '@/lib/nativeShellBoot'
-import { isNativeAndroidCallApp, startNativeCallRing, startNativeCallRingAnnouncement, stopNativeCallRing, setNativeCallRingVolume } from '@/lib/nativeCallBridge'
+import {
+  isNativeAndroidCallApp,
+  isNativeIosCallApp,
+  startNativeCallRing,
+  startNativeCallRingAnnouncement,
+  stopNativeCallRing,
+  setNativeCallRingVolume,
+} from '@/lib/nativeCallBridge'
 import { RING_ASSET_VERSION } from '@/lib/ringAssetVersion'
 import {
   getVoiceCallRingVolume,
@@ -34,7 +41,11 @@ type RingKind = keyof typeof RING_URLS
 
 let nativeRingActive = false
 
-function useNativeAndroidRing(): boolean {
+function useNativeSpokenRing(): boolean {
+  return isNativeAndroidCallApp() || isNativeIosCallApp()
+}
+
+function useNativeAndroidWavRing(): boolean {
   return isNativeAndroidCallApp()
 }
 
@@ -371,10 +382,15 @@ function playSpeechLoop(text: string, lang: string | undefined, generation: numb
 /** When speech synthesis fails or stalls, keep ringing with classic WAV. */
 async function fallbackRingToWav(generation: number) {
   if (generation !== loopGeneration || !activeRingKind) return
+  // Native iOS: never fall back to classic WAV after a spoken announcement.
+  if (isNativeIosCallApp() && lastAnnouncement) {
+    if (playSpeechLoop(lastAnnouncement, lastLang, generation)) return
+    return
+  }
   const kind = activeRingKind
   const playbackKind = resolveRingKind(kind)
 
-  if (useNativeAndroidRing()) {
+  if (useNativeAndroidWavRing()) {
     nativeRingActive = true
     try {
       await startNativeCallRing(absoluteRingUrl(RING_URLS[playbackKind]), {
@@ -587,12 +603,14 @@ async function startRing(kind: RingKind, announcement?: string, lang?: string) {
 
   // Prefer spoken "Call from {name}" / "Calling {name}" when provided.
   if (spoken) {
-    // Android native: system TextToSpeech — reliable without WebView speechSynthesis / Azure.
-    if (useNativeAndroidRing()) {
+    // Native mobile: system/AVSpeech — reliable without WebView speechSynthesis.
+    if (useNativeSpokenRing()) {
       nativeRingActive = true
       try {
         await startNativeCallRingAnnouncement(spoken, lang)
-        void setNativeCallRingVolume(getVoiceCallRingVolume())
+        if (isNativeAndroidCallApp()) {
+          void setNativeCallRingVolume(getVoiceCallRingVolume())
+        }
         return
       } catch {
         nativeRingActive = false
@@ -610,11 +628,15 @@ async function startRing(kind: RingKind, announcement?: string, lang?: string) {
       await unlockVoiceCallAudio()
       return
     }
+    // iOS native: do not fall through to classic WAV after spoken-ring failure.
+    if (isNativeIosCallApp()) {
+      return
+    }
   }
 
   const playbackKind = resolveRingKind(kind)
 
-  if (useNativeAndroidRing()) {
+  if (useNativeAndroidWavRing()) {
     nativeRingActive = true
     try {
       await startNativeCallRing(absoluteRingUrl(RING_URLS[playbackKind]), {
@@ -626,6 +648,11 @@ async function startRing(kind: RingKind, announcement?: string, lang?: string) {
       nativeRingActive = false
       void stopNativeCallRing()
     }
+  }
+
+  // iOS native: skip classic WAV ring (spoken announcement owns the ring).
+  if (isNativeIosCallApp()) {
+    return
   }
 
   const buffer = await getRingBuffer(RING_URLS[playbackKind])

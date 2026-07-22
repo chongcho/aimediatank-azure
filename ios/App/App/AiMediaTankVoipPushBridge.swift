@@ -12,6 +12,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     static let shared = AiMediaTankVoipPushBridge()
 
     static let incomingPushNotification = Notification.Name("AiMediaTankVoipIncomingPush")
+    static let startRingAnnouncementNotification = Notification.Name("AiMediaTankStartRingAnnouncement")
+    static let stopRingAnnouncementNotification = Notification.Name("AiMediaTankStopRingAnnouncement")
     static let incomingPushDoneNotification = Notification.Name("AiMediaTankVoipIncomingPushDone")
     static let cancelPushNotification = Notification.Name("AiMediaTankVoipCancelPush")
     static let voipTokenNotification = Notification.Name("AiMediaTankVoipPushToken")
@@ -165,6 +167,28 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         ringSpeech.delegate = self
         NativeVoiceCallEngine.shared.delegate = self
         RTCAudioSession.sharedInstance().useManualAudio = true
+        installInAppRingAnnouncementObservers()
+    }
+
+    private func installInAppRingAnnouncementObservers() {
+        NotificationCenter.default.addObserver(
+            forName: Self.startRingAnnouncementNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self else { return }
+            let text = (notification.userInfo?["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !text.isEmpty else { return }
+            let lang = notification.userInfo?["lang"] as? String
+            self.startInAppRingAnnouncement(text: text, lang: lang)
+        }
+        NotificationCenter.default.addObserver(
+            forName: Self.stopRingAnnouncementNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.stopCallKitRingAnnouncement()
+        }
     }
 
     /// Configure category/mode only. CallKit owns activation via didActivate — never call setActive(true) here.
@@ -957,13 +981,20 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             default: return "Call from \(who)"
             }
         }()
+        startInAppRingAnnouncement(text: spoken, lang: lang)
+    }
+
+    /// In-app / outgoing spoken ring (JS → plugin → notification). Same AVSpeech loop as CallKit.
+    private func startInAppRingAnnouncement(text: String, lang: String?) {
+        let spoken = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !spoken.isEmpty else { return }
         stopCallKitRingAnnouncement()
         ringAnnouncementGeneration += 1
         let generation = ringAnnouncementGeneration
         ringAnnouncementActive = true
         ringAnnouncementText = spoken
         ringAnnouncementLang = lang?.trimmingCharacters(in: .whitespacesAndNewlines)
-        print("[AiMediaTankVoipPushBridge] start spoken CallKit ring: \(spoken)")
+        print("[AiMediaTankVoipPushBridge] start spoken ring: \(spoken) lang=\(ringAnnouncementLang ?? "nil")")
         // CallKit may claim audio briefly after report — delay first speak slightly.
         let work = DispatchWorkItem { [weak self] in
             self?.speakCallKitRingAnnouncementNow(generation: generation)

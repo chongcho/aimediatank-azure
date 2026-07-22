@@ -8,6 +8,10 @@ import {
   recordFcmNotConfigured,
   recordFcmPushSend,
 } from '@/lib/fcmPushTrace'
+import {
+  formatVoiceCallAnnouncementText,
+  resolveUserUiLocale,
+} from '@/lib/voiceCallAnnouncement'
 import type { VoipCallPushPayload } from '@/lib/voipPush'
 
 let firebaseReady = false
@@ -163,6 +167,8 @@ export async function sendAndroidCallPushToUser(
   if (!callId) return
 
   const declineToken = createVoiceCallDeclineToken(callId)
+  const lang = await resolveUserUiLocale(userId)
+  const announcement = formatVoiceCallAnnouncementText('incoming', lang, payload.displayName)
   const data: Record<string, string> = {
     type: 'call',
     callId,
@@ -170,6 +176,8 @@ export async function sendAndroidCallPushToUser(
     displayName: payload.displayName,
     handleType: 'generic',
     video: 'false',
+    announcement,
+    lang,
     callerId: payload.caller.id,
     callerUsername: payload.caller.username,
     callerLegalName: payload.caller.legalName ?? '',

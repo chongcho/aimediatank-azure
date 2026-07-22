@@ -1,6 +1,10 @@
 import fs from 'fs'
 import { createVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
+import {
+  formatVoiceCallAnnouncementText,
+  resolveUserUiLocale,
+} from '@/lib/voiceCallAnnouncement'
 import { ApnsClient, ApnsError, Notification, Priority, PushType } from 'apns2'
 import { prisma } from '@/lib/prisma'
 
@@ -323,6 +327,9 @@ export async function sendVoipCallPushToUser(
   const logLabel = burstAttempt
     ? `incoming push #${burstAttempt.index}/${burstAttempt.total} for call ${callId}`
     : `incoming push for call ${callId}`
+  // Callee language mode (profile location) — not English hardcode / not caller locale.
+  const lang = await resolveUserUiLocale(userId)
+  const announcement = formatVoiceCallAnnouncementText('incoming', lang, payload.displayName)
   await sendVoipDataPushToUser(
     userId,
     {
@@ -331,7 +338,8 @@ export async function sendVoipCallPushToUser(
       displayName: payload.displayName,
       handleType: 'generic',
       video: false,
-      announcement: `Call from ${payload.displayName}`,
+      announcement,
+      lang,
       ...(declineToken ? { declineToken } : {}),
       metadata: {
         callerId: payload.caller.id,

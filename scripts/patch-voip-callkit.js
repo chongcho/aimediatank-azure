@@ -1942,3 +1942,70 @@ if (pluginSwift && !pluginSwift.includes(STORE_NATIVE_PUSH_CREDS)) {
   fs.writeFileSync(pluginSwiftPath, pluginSwift)
   console.log('[patch-voip-callkit] add storeNativePushCredentials for native PushKit token sync')
 }
+
+const RING_ANNOUNCE_MARKER = 'AiMediaTankStartRingAnnouncement'
+if (pluginSwift && !pluginSwift.includes(RING_ANNOUNCE_MARKER)) {
+  pluginSwift = fs.readFileSync(pluginSwiftPath, 'utf8')
+  if (!pluginSwift.includes('CAPPluginMethod(name: "startCallRingAnnouncement"')) {
+    pluginSwift = pluginSwift.replace(
+      'CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),',
+      `CAPPluginMethod(name: "startCallRingAnnouncement", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopCallRing", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),`,
+    )
+  }
+  if (!pluginSwift.includes('@objc func startCallRingAnnouncement')) {
+    const insertBefore = '    @objc func isSupported(_ call: CAPPluginCall) {'
+    if (pluginSwift.includes(insertBefore)) {
+      pluginSwift = pluginSwift.replace(
+        insertBefore,
+        `    @objc func startCallRingAnnouncement(_ call: CAPPluginCall) {
+        guard let text = call.getString("text")?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty else {
+            call.reject("Missing text")
+            return
+        }
+        var info: [String: Any] = ["text": text]
+        if let lang = call.getString("lang"), !lang.isEmpty {
+            info["lang"] = lang
+        }
+        // ${RING_ANNOUNCE_MARKER}
+        NotificationCenter.default.post(
+            name: NSNotification.Name("${RING_ANNOUNCE_MARKER}"),
+            object: nil,
+            userInfo: info
+        )
+        call.resolve()
+    }
+
+    @objc func stopCallRing(_ call: CAPPluginCall) {
+        NotificationCenter.default.post(
+            name: NSNotification.Name("AiMediaTankStopRingAnnouncement"),
+            object: nil
+        )
+        call.resolve()
+    }
+
+` + insertBefore,
+      )
+    }
+  }
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+
+  const pluginM = path.join(pluginDir, 'Plugin.m')
+  if (fs.existsSync(pluginM)) {
+    let pluginMContent = fs.readFileSync(pluginM, 'utf8')
+    if (!pluginMContent.includes('startCallRingAnnouncement')) {
+      pluginMContent = pluginMContent.replace(
+        'CAP_PLUGIN_METHOD(isSupported, CAPPluginReturnPromise);',
+        `CAP_PLUGIN_METHOD(startCallRingAnnouncement, CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(stopCallRing, CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(isSupported, CAPPluginReturnPromise);`,
+      )
+      fs.writeFileSync(pluginM, pluginMContent)
+    }
+  }
+  console.log('[patch-voip-callkit] iOS startCallRingAnnouncement → App bridge AVSpeech')
+}
+
+console.log('[patch-voip-callkit] done')
