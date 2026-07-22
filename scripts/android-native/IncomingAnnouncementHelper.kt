@@ -71,6 +71,8 @@ object IncomingAnnouncementHelper {
                 }
                 applyAudioAttributes(engine)
                 applyLanguage(engine)
+                // Match iOS AVSpeech pitchMultiplier 0.85 for a slightly lower spoken ring.
+                engine.setPitch(0.85f)
                 engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {}
                     override fun onDone(utteranceId: String?) {
