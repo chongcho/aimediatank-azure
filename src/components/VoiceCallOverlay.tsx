@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
 import { voiceCallNickname } from '@/hooks/useVoiceCall'
@@ -12,6 +12,15 @@ const CALL_POPUP_Z_INDEX = 100050
 /** Above navbar (100010) and TalkChat so the call UI covers the screen on mobile. */
 const FULLSCREEN_CALL_Z_INDEX = 100050
 const MINIMIZED_CALL_Z_INDEX = 100050
+
+/** Matches CallBackdrop so portal mount delay never flashes the home feed. */
+const CALL_UI_VEIL_STYLE: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: FULLSCREEN_CALL_Z_INDEX,
+  background: 'linear-gradient(180deg, #3d2914 0%, #1a1208 45%, #0d0906 100%)',
+  pointerEvents: 'none',
+}
 
 interface VoiceCallOverlayProps {
   callState: VoiceCallState
@@ -621,7 +630,9 @@ function FullscreenShell({
     setMounted(true)
   }, [])
 
-  if (!mounted) return null
+  if (!mounted) {
+    return <div style={CALL_UI_VEIL_STYLE} aria-hidden />
+  }
 
   return createPortal(
     <div

@@ -108,6 +108,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var ringAnnouncementText = ""
     private var ringAnnouncementLang: String?
     private var ringAnnouncementLoopWork: DispatchWorkItem?
+    /// Brief veil over the WebView between CallKit Accept and in-app call UI (never a new UIWindow).
+    private weak var acceptTransitionCover: UIView?
+    private var acceptTransitionHideWork: DispatchWorkItem?
 
     private static func isForegroundActive() -> Bool {
         guard UIApplication.shared.applicationState == .active else { return false }
@@ -147,6 +150,58 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         if let window = scene.windows.first(where: { $0.isKeyWindow }) {
             window.makeKeyAndVisible()
+        }
+    }
+
+    /// Cover home feed while CallKit Accept hands off to the in-app call UI.
+    /// UIView on the existing window only — new UIWindow/makeKeyAndVisible crashes CallKit.
+    /// Always auto-clears within 1.2s so it cannot stick as a black screen.
+    private func showAcceptTransitionCover() {
+        let show = { [weak self] in
+            guard let self else { return }
+            if self.acceptTransitionCover != nil { return }
+            guard let host = Self.findBridgeViewController()?.view.window ??
+                UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .flatMap(\.windows)
+                .first(where: { $0.isKeyWindow })
+            else { return }
+            let cover = UIView(frame: host.bounds)
+            cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            // Match VoiceCallOverlay CallBackdrop tones.
+            cover.backgroundColor = UIColor(red: 0.10, green: 0.07, blue: 0.04, alpha: 1)
+            cover.isUserInteractionEnabled = false
+            host.addSubview(cover)
+            self.acceptTransitionCover = cover
+            self.acceptTransitionHideWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                self?.hideAcceptTransitionCover(reason: "timeout")
+            }
+            self.acceptTransitionHideWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
+            print("[AiMediaTankVoipPushBridge] show accept transition cover")
+        }
+        if Thread.isMainThread {
+            show()
+        } else {
+            DispatchQueue.main.async(execute: show)
+        }
+    }
+
+    private func hideAcceptTransitionCover(reason: String) {
+        let hide = { [weak self] in
+            guard let self else { return }
+            self.acceptTransitionHideWork?.cancel()
+            self.acceptTransitionHideWork = nil
+            guard let cover = self.acceptTransitionCover else { return }
+            cover.removeFromSuperview()
+            self.acceptTransitionCover = nil
+            print("[AiMediaTankVoipPushBridge] hide accept transition cover (\(reason))")
+        }
+        if Thread.isMainThread {
+            hide()
+        } else {
+            DispatchQueue.main.async(execute: hide)
         }
     }
 
@@ -769,6 +824,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let end = { [weak self] in
             guard let self = self else { return }
             self.stopCallKitRingAnnouncement()
+            self.hideAcceptTransitionCover(reason: "call_ended")
             let observer = CXCallObserver()
             let stillOnCallKit = observer.calls.contains { $0.uuid == uuid && !$0.hasEnded }
             let alreadyMarked = self.endedCallKitCallIds.contains(callId)
@@ -1757,6 +1813,19 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let js = """
         (function(){
           try {
+            var id = 'aimediatank-accept-shell';
+            if (!document.getElementById(id)) {
+              var el = document.createElement('div');
+              el.id = id;
+              el.setAttribute('aria-hidden', 'true');
+              el.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:linear-gradient(180deg,#3d2914 0%,#1a1208 45%,#0d0906 100%);pointer-events:none;';
+              (document.documentElement || document.body).appendChild(el);
+              setTimeout(function(){ var n = document.getElementById(id); if (n) n.remove(); }, 2000);
+            }
+            window.addEventListener('aimediatank-native-call-connected', function once() {
+              window.removeEventListener('aimediatank-native-call-connected', once);
+              var n = document.getElementById(id); if (n) n.remove();
+            });
             window.dispatchEvent(new CustomEvent('aimediatank-callkit-answer', {
               detail: { callId: '\(callId)'\(tokenJs)\(sessionJs)\(nativeJs) }
             }));
@@ -1764,11 +1833,15 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         })();
         """
         let inject = {
-            webView.evaluateJavaScript(js) { _, error in
+            webView.evaluateJavaScript(js) { [weak self] _, error in
                 if let error {
                     print("[AiMediaTankVoipPushBridge] WebView inject failed \(callId): \(error.localizedDescription)")
                 } else {
                     print("[AiMediaTankVoipPushBridge] WebView inject ok \(callId)")
+                }
+                // Let React paint connecting UI, then drop the native veil.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    self?.hideAcceptTransitionCover(reason: "webview_inject")
                 }
             }
         }
@@ -1861,6 +1934,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         stopCallKitRingAnnouncement()
+        // Cover feed before CallKit dismisses into the app (auto-clears ≤1.2s).
+        showAcceptTransitionCover()
         configureAudioSession()
         cancelDismissRetries(callId: callId)
         markPendingCallKitAnswer(callId: callId)
@@ -1926,6 +2001,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         stopCallKitRingAnnouncement()
         audioActivationFallbackGeneration = nil
         Self.clearLockScreenNativeAnswer(callId: callId)
+        hideAcceptTransitionCover(reason: "user_end")
         let alreadyHandled = endedCallKitCallIds.contains(callId)
         if !alreadyHandled {
             endedCallKitCallIds.insert(callId)
@@ -1994,6 +2070,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 extension AiMediaTankVoipPushBridge: NativeVoiceCallEngineDelegate {
     func nativeVoiceCallEngineDidConnect(callId: String, caller: [String: Any]?) {
         print("[AiMediaTankVoipPushBridge] native WebRTC connected \(callId)")
+        hideAcceptTransitionCover(reason: "native_connected")
         reportCallConnected(callId: callId)
     }
 
