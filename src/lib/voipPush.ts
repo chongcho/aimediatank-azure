@@ -331,6 +331,7 @@ export async function sendVoipCallPushToUser(
       displayName: payload.displayName,
       handleType: 'generic',
       video: false,
+      announcement: `Call from ${payload.displayName}`,
       ...(declineToken ? { declineToken } : {}),
       metadata: {
         callerId: payload.caller.id,

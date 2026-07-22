@@ -274,13 +274,9 @@ export function VoiceCallProvider({
       return
     }
 
-    // iOS CallKit owns lock-screen ring; in-app WAV when the WebView is visible (CallKit UI is dismissed).
-    if (
-      isNativeIosCallApp() &&
-      state === 'incoming' &&
-      typeof document !== 'undefined' &&
-      document.hidden
-    ) {
+    // iOS CallKit + native AVSpeech owns incoming ring (spoken "Call from {name}").
+    // Do not also start WebView WAV/speech — that caused one spoken play then classic ring.
+    if (isNativeIosCallApp() && state === 'incoming') {
       return
     }
     const announcement =
@@ -314,7 +310,7 @@ export function VoiceCallProvider({
       primeVoiceCallAfterNotificationOpen()
       const state = callStateRef.current
       // iOS incoming on lock screen uses CallKit; retry outgoing (and foreground incoming) ring.
-      if (isNativeIosCallApp() && state === 'incoming' && document.hidden) return
+      if (isNativeIosCallApp() && state === 'incoming') return
       if (state === 'incoming' || state === 'outgoing') {
         retryVoiceCallRingtone()
       }

@@ -8,7 +8,7 @@ import WebRTC
 
 /// App-target VoIP + CallKit handler. Single CXProvider for all incoming rings (PushKit + JS fallback).
 /// PushKit, reportNewIncomingCall, answer/decline/cancel, and audio session live here only.
-final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProviderDelegate {
+final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProviderDelegate, AVSpeechSynthesizerDelegate {
     static let shared = AiMediaTankVoipPushBridge()
 
     static let incomingPushNotification = Notification.Name("AiMediaTankVoipIncomingPush")
@@ -92,6 +92,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var audioActivationFallbackGeneration: UUID?
     /// Prevents duplicate reportCall/CXEndCallAction when JS echoes end back into the plugin.
     private var endedCallKitCallIds = Set<String>()
+    /// Lock-screen spoken ring ("Call from Name") — CallKit ringtoneSound is silent.wav.
+    private let ringSpeech = AVSpeechSynthesizer()
+    private var ringAnnouncementActive = false
+    private var ringAnnouncementText = ""
+    private var ringAnnouncementLang: String?
+    private var ringAnnouncementLoopWork: DispatchWorkItem?
 
     private static func isForegroundActive() -> Bool {
         guard UIApplication.shared.applicationState == .active else { return false }
@@ -142,11 +148,13 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         configuration.maximumCallsPerCallGroup = 1
         configuration.supportedHandleTypes = [.generic, .phoneNumber, .emailAddress]
         configuration.includesCallsInRecents = true
-        configuration.ringtoneSound = "incoming-ring.wav"
+        // Silent CallKit tone — spoken "Call from {name}" is played by AVSpeechSynthesizer.
+        configuration.ringtoneSound = "silent.wav"
         // Do not set iconTemplateImageData here — a full-size AppIcon PNG can crash CallKit.
         provider = CXProvider(configuration: configuration)
         super.init()
         provider.setDelegate(self, queue: nil)
+        ringSpeech.delegate = self
         NativeVoiceCallEngine.shared.delegate = self
         RTCAudioSession.sharedInstance().useManualAudio = true
     }
@@ -728,6 +736,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let callId = uuid.uuidString.lowercased()
         let end = { [weak self] in
             guard let self = self else { return }
+            self.stopCallKitRingAnnouncement()
             let alreadyEnded = self.endedCallKitCallIds.contains(callId)
             if !alreadyEnded {
                 self.endedCallKitCallIds.insert(callId)
@@ -923,6 +932,72 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
     }
 
+    /// Spoken lock-screen ring while CallKit UI is up (replaces classic WAV ringtoneSound).
+    private func startCallKitRingAnnouncement(displayName: String, announcement: String?, lang: String?) {
+        let spoken: String = {
+            let trimmed = announcement?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !trimmed.isEmpty { return trimmed }
+            let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let who = name.isEmpty ? "AiMediaTank" : name
+            let code = (lang?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                ? String(lang!.prefix(2)).lowercased()
+                : (Locale.current.languageCode?.lowercased() ?? "en"))
+            switch code {
+            case "ko": return "\(who)님으로부터 전화"
+            case "ja": return "\(who)からの電話"
+            case "zh": return "来自\(who)的电话"
+            default: return "Call from \(who)"
+            }
+        }()
+        stopCallKitRingAnnouncement()
+        ringAnnouncementActive = true
+        ringAnnouncementText = spoken
+        ringAnnouncementLang = lang?.trimmingCharacters(in: .whitespacesAndNewlines)
+        print("[AiMediaTankVoipPushBridge] start spoken CallKit ring: \(spoken)")
+        speakCallKitRingAnnouncementNow()
+    }
+
+    private func stopCallKitRingAnnouncement() {
+        ringAnnouncementActive = false
+        ringAnnouncementLoopWork?.cancel()
+        ringAnnouncementLoopWork = nil
+        ringAnnouncementText = ""
+        ringAnnouncementLang = nil
+        if ringSpeech.isSpeaking {
+            ringSpeech.stopSpeaking(at: .immediate)
+        }
+    }
+
+    private func speakCallKitRingAnnouncementNow() {
+        guard ringAnnouncementActive else { return }
+        let text = ringAnnouncementText
+        guard !text.isEmpty else { return }
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        if let tag = ringAnnouncementLang, !tag.isEmpty {
+            utterance.voice = AVSpeechSynthesisVoice(language: tag.replacingOccurrences(of: "_", with: "-"))
+                ?? AVSpeechSynthesisVoice(language: String(tag.prefix(2)))
+        }
+        if utterance.voice == nil {
+            utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.identifier)
+                ?? AVSpeechSynthesisVoice(language: "en-US")
+        }
+        ringSpeech.speak(utterance)
+    }
+
+    public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        guard ringAnnouncementActive, synthesizer === ringSpeech else { return }
+        let work = DispatchWorkItem { [weak self] in
+            self?.speakCallKitRingAnnouncementNow()
+        }
+        ringAnnouncementLoopWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9, execute: work)
+    }
+
+    public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        // stopCallKitRingAnnouncement cancels actively — do not reschedule.
+    }
+
     private func performCancelDismiss(callId: String, source: String) {
         let normalized = callId.lowercased()
         if (source == "status_poll" || source == "bridge_dismiss_request"),
@@ -940,6 +1015,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         postVoiceTrace(callId: normalized, event: "callkit_dismiss", detail: ["source": source])
         Self.markCallCancelled(normalized)
         clearPendingCallKitAnswer()
+        stopCallKitRingAnnouncement()
         if let uuid = UUID(uuidString: normalized) {
             endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: true)
         }
@@ -1061,6 +1137,13 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         ) { [weak self] reported in
             if reported {
                 Self.noteIncomingCallReported(callIdString)
+                let announcement = userInfo["announcement"] as? String
+                let lang = userInfo["lang"] as? String
+                self?.startCallKitRingAnnouncement(
+                    displayName: displayName,
+                    announcement: announcement,
+                    lang: lang
+                )
                 NotificationCenter.default.post(
                     name: Notification.Name("AiMediaTankNoteIncomingCall"),
                     object: nil,
@@ -1391,6 +1474,13 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             }
             if reported {
                 self.postVoiceTrace(callId: normalizedCallId, event: "callkit_report_ok")
+                let announcement = self.payloadString(payloadDict, key: "announcement")
+                let lang = self.payloadString(payloadDict, key: "lang")
+                self.startCallKitRingAnnouncement(
+                    displayName: displayName,
+                    announcement: announcement,
+                    lang: lang
+                )
                 completeOnce()
             } else {
                 self.postVoiceTrace(callId: normalizedCallId, event: "callkit_report_fail")
@@ -1416,6 +1506,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func providerDidReset(_ provider: CXProvider) {
         print("[AiMediaTankVoipPushBridge] providerDidReset — clearing stale VoIP call state")
+        stopCallKitRingAnnouncement()
         statusWatchGeneration.keys.forEach { stopCallStatusWatch(callId: $0) }
         dismissRetryGeneration.removeAll()
         clearPendingCallKitAnswer()
@@ -1642,6 +1733,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
+        stopCallKitRingAnnouncement()
         configureAudioSession()
         cancelDismissRetries(callId: callId)
         markPendingCallKitAnswer(callId: callId)
@@ -1704,6 +1796,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
+        stopCallKitRingAnnouncement()
         audioActivationFallbackGeneration = nil
         Self.clearLockScreenNativeAnswer(callId: callId)
         let alreadyHandled = endedCallKitCallIds.contains(callId)
