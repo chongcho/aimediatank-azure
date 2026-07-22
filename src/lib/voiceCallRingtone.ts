@@ -335,6 +335,7 @@ function playSpeechLoop(text: string, lang: string | undefined, generation: numb
     const utterance = new SpeechSynthesisUtterance(text)
     const speechLang = normalizeSpeechLang(lang)
     if (speechLang) utterance.lang = speechLang
+    utterance.pitch = 0.85
 
     let settled = false
     const stallTimer = globalThis.setTimeout(() => {

@@ -1168,6 +1168,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         guard !text.isEmpty else { return }
         let utterance = AVSpeechUtterance(string: text)
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        // Slightly lower than default (1.0) for a warmer ring announcement.
+        utterance.pitchMultiplier = 0.85
         if let tag = ringAnnouncementLang, !tag.isEmpty {
             utterance.voice = AVSpeechSynthesisVoice(language: tag.replacingOccurrences(of: "_", with: "-"))
                 ?? AVSpeechSynthesisVoice(language: String(tag.prefix(2)))
