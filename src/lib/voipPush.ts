@@ -233,11 +233,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/** Gaps between cancel VoIP pushes (ms). Keep short — each VoIP wake must hit CallKit. */
-const CANCEL_PUSH_RETRY_GAPS_MS = [500, 1500, 4000] as const
+/** Gaps between cancel VoIP pushes (ms). Keep few — each extra cancel can flash CallKit. */
+const CANCEL_PUSH_RETRY_GAPS_MS = [2000] as const
 
 /** Retries awaited before the HTTP handler returns. */
-const CANCEL_PUSH_AWAITED_RETRIES = 2
+const CANCEL_PUSH_AWAITED_RETRIES = 1
 
 /** Total cancel VoIP pushes per caller hangup (1 immediate + all retry gaps). */
 export function plannedVoipCancelPushAttempts(): number {
