@@ -3511,6 +3511,7 @@ if (fs.existsSync(callManagerPath)) {
       `    fun releaseIfStale() {
         // ${neverPurgeRingingMarker} — ConnectionService rings before WebRTC starts
         if (IncomingRingAudioHelper.isActive()) return
+        if (IncomingAnnouncementHelper.isActive()) return
         if (activeCalls.isNotEmpty()) return
         if (voiceCallAudioActive) {
             setVoiceCallAudioActive(false)
@@ -3523,6 +3524,7 @@ if (fs.existsSync(callManagerPath)) {
         `    fun releaseIfStale() {
         // ${neverPurgeRingingMarker} — ConnectionService rings before WebRTC starts
         if (IncomingRingAudioHelper.isActive()) return
+        if (IncomingAnnouncementHelper.isActive()) return
         if (activeCalls.isNotEmpty()) return
         if (voiceCallAudioActive) {
             setVoiceCallAudioActive(false)
@@ -3866,6 +3868,7 @@ if (fs.existsSync(callManagerPath)) {
       `    fun hasActiveAppCallSession(): Boolean {
         // ${callManagerContainmentMarker}
         if (IncomingRingAudioHelper.isActive()) return true
+        if (IncomingAnnouncementHelper.isActive()) return true
         if (activeCalls.isNotEmpty()) return true
         return try {
             NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl()) { _, _ -> }.isActive()
@@ -4209,7 +4212,88 @@ if (fs.existsSync(nativeWebRtcEngineDestPath)) {
   }
 }
 
-const incomingSafeContainmentMarker = 'incoming-safe containment v2'
+const incomingAnnouncementHelperSourcePath = path.join(__dirname, 'android-native', 'IncomingAnnouncementHelper.kt')
+const incomingAnnouncementHelperDestPath = path.join(pluginDir, 'IncomingAnnouncementHelper.kt')
+const incomingAnnouncementMarker = 'IncomingAnnouncementHelper'
+if (fs.existsSync(incomingAnnouncementHelperSourcePath)) {
+  const announceSource = fs.readFileSync(incomingAnnouncementHelperSourcePath, 'utf8')
+  if (
+    !fs.existsSync(incomingAnnouncementHelperDestPath) ||
+    fs.readFileSync(incomingAnnouncementHelperDestPath, 'utf8') !== announceSource
+  ) {
+    fs.writeFileSync(incomingAnnouncementHelperDestPath, announceSource)
+    changed = true
+    console.log('[patch-android-fcm] IncomingAnnouncementHelper.kt')
+  }
+}
+
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  const announceMethodAsync = `    @PluginMethod
+    fun startCallRingAnnouncement(call: PluginCall) {
+        val text = call.getString("text")?.trim().orEmpty()
+        if (text.isEmpty()) {
+            call.reject("Missing text parameter")
+            return
+        }
+        IncomingRingAudioHelper.stop(context)
+        IncomingAnnouncementHelper.start(context, text, call.getString("lang")) { ok ->
+            if (ok) call.resolve() else call.reject("TextToSpeech unavailable")
+        }
+    }`
+  if (!pluginSource.includes('fun startCallRingAnnouncement')) {
+    const stopRingBlock = `    @PluginMethod
+    fun stopCallRing(call: PluginCall) {
+        IncomingRingAudioHelper.stop(context)
+        call.resolve()
+    }`
+    const stopRingWithAnnounce = `    @PluginMethod
+    fun stopCallRing(call: PluginCall) {
+        IncomingAnnouncementHelper.stop(context)
+        IncomingRingAudioHelper.stop(context)
+        call.resolve()
+    }
+
+${announceMethodAsync}`
+    if (pluginSource.includes(stopRingBlock)) {
+      pluginSource = pluginSource.replace(stopRingBlock, stopRingWithAnnounce)
+    } else if (pluginSource.includes('IncomingRingAudioHelper.stop(context)\n        call.resolve()')) {
+      pluginSource = pluginSource.replace(
+        `    fun stopCallRing(call: PluginCall) {
+        IncomingRingAudioHelper.stop(context)
+        call.resolve()
+    }`,
+        `    fun stopCallRing(call: PluginCall) {
+        IncomingAnnouncementHelper.stop(context)
+        IncomingRingAudioHelper.stop(context)
+        call.resolve()
+    }
+
+${announceMethodAsync}`,
+      )
+    }
+    if (pluginSource.includes('fun startCallRingAnnouncement')) {
+      fs.writeFileSync(pluginPath, pluginSource)
+      changed = true
+      console.log('[patch-android-fcm] startCallRingAnnouncement plugin method')
+    }
+  } else if (
+    pluginSource.includes('IncomingAnnouncementHelper.start(context, text, call.getString("lang"))') &&
+    !pluginSource.includes('TextToSpeech unavailable')
+  ) {
+    pluginSource = pluginSource.replace(
+      /    @PluginMethod\n    fun startCallRingAnnouncement\(call: PluginCall\) \{[\s\S]*?\n    \}/,
+      announceMethodAsync,
+    )
+    if (pluginSource.includes('TextToSpeech unavailable')) {
+      fs.writeFileSync(pluginPath, pluginSource)
+      changed = true
+      console.log('[patch-android-fcm] startCallRingAnnouncement awaits TTS ready')
+    }
+  }
+}
+
+const incomingSafeContainmentMarker = 'incoming-safe containment v3'
 const appSystemEffectsGuardSourcePath = path.join(__dirname, 'android-native', 'AppSystemEffectsGuard.kt')
 if (fs.existsSync(appSystemEffectsGuardSourcePath)) {
   const guardSource = fs.readFileSync(appSystemEffectsGuardSourcePath, 'utf8')
@@ -4219,18 +4303,58 @@ if (fs.existsSync(appSystemEffectsGuardSourcePath)) {
   ) {
     fs.writeFileSync(appSystemEffectsGuardPath, guardSource)
     changed = true
-    console.log('[patch-android-fcm] AppSystemEffectsGuard.kt (incoming-safe containment v2)')
+    console.log('[patch-android-fcm] AppSystemEffectsGuard.kt (incoming-safe containment v3)')
   }
 }
 
 if (fs.existsSync(callManagerPath)) {
   let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  let callManagerChanged = false
+  if (
+    callManager.includes('fun hasActiveAppCallSession()') &&
+    callManager.includes('IncomingRingAudioHelper.isActive()') &&
+    !callManager.includes('IncomingAnnouncementHelper.isActive()')
+  ) {
+    callManager = callManager.replace(
+      `    fun hasActiveAppCallSession(): Boolean {
+        // hasActiveAppCallSession
+        if (IncomingRingAudioHelper.isActive()) return true
+        if (activeCalls.isNotEmpty()) return true`,
+      `    fun hasActiveAppCallSession(): Boolean {
+        // hasActiveAppCallSession
+        if (IncomingRingAudioHelper.isActive()) return true
+        if (IncomingAnnouncementHelper.isActive()) return true
+        if (activeCalls.isNotEmpty()) return true`,
+    )
+    callManagerChanged = callManager.includes('IncomingAnnouncementHelper.isActive()')
+  }
+  if (
+    callManager.includes('never purge ringing telecom') &&
+    callManager.includes('if (IncomingRingAudioHelper.isActive()) return') &&
+    !callManager.match(
+      /fun releaseIfStale\(\) \{[\s\S]*?IncomingAnnouncementHelper\.isActive\(\)[\s\S]*?fun releaseGlobalAudioSideEffects/,
+    )
+  ) {
+    callManager = callManager.replace(
+      `    fun releaseIfStale() {
+        // never purge ringing telecom — ConnectionService rings before WebRTC starts
+        if (IncomingRingAudioHelper.isActive()) return
+        if (activeCalls.isNotEmpty()) return`,
+      `    fun releaseIfStale() {
+        // never purge ringing telecom — ConnectionService rings before WebRTC starts
+        if (IncomingRingAudioHelper.isActive()) return
+        if (IncomingAnnouncementHelper.isActive()) return
+        if (activeCalls.isNotEmpty()) return`,
+    )
+    callManagerChanged = true
+  }
   if (callManager.includes(purgeOrphanTelecomMarker) && !callManager.includes('never purge ringing telecom')) {
     callManager = callManager.replace(
       /    fun releaseIfStale\(\) \{[\s\S]*?\n    \}\n\n    fun releaseGlobalAudioSideEffects/,
       `    fun releaseIfStale() {
         // never purge ringing telecom — ConnectionService rings before WebRTC starts
         if (IncomingRingAudioHelper.isActive()) return
+        if (IncomingAnnouncementHelper.isActive()) return
         if (activeCalls.isNotEmpty()) return
         if (voiceCallAudioActive) {
             setVoiceCallAudioActive(false)
@@ -4239,8 +4363,13 @@ if (fs.existsSync(callManagerPath)) {
 
     fun releaseGlobalAudioSideEffects`,
     )
-    fs.writeFileSync(callManagerPath, callManager)
-    changed = true
+    callManagerChanged = true
     console.log('[patch-android-fcm] CallManager never purge ringing telecom')
   }
+  if (callManagerChanged) {
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager announcement session checks')
+  }
 }
+

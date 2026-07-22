@@ -22,7 +22,7 @@ import androidx.core.content.ContextCompat
  */
 object AppSystemEffectsGuard {
     // AiMediaTank system effects containment
-    // incoming-safe containment v2
+    // incoming-safe containment v3
     private const val TAG = "AppSystemEffectsGuard"
     private const val WATCHDOG_MS = 15_000L
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -32,6 +32,7 @@ object AppSystemEffectsGuard {
     @JvmStatic
     fun isAppCallSessionActive(context: Context): Boolean {
         if (IncomingRingAudioHelper.isActive()) return true
+        if (IncomingAnnouncementHelper.isActive()) return true
         if (hasVoiceIncomingIntent()) return true
         try {
             val manager = CapacitorVoipCallsPlugin.getInstance()?.callManager

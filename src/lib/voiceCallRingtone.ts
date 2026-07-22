@@ -5,11 +5,11 @@
  * via Azure TTS when configured, else browser speechSynthesis, else WAV fallback.
  *
  * iOS native incoming on lock screen: CallKit ring + caller name (system UI).
- * Android: prefer spoken announcement in WebView; native WAV if announcement fails.
+ * Android native: system TextToSpeech announcement; classic WAV only if TTS fails.
  */
 
 import { getNativePlatform } from '@/lib/nativeShellBoot'
-import { isNativeAndroidCallApp, startNativeCallRing, stopNativeCallRing, setNativeCallRingVolume } from '@/lib/nativeCallBridge'
+import { isNativeAndroidCallApp, startNativeCallRing, startNativeCallRingAnnouncement, stopNativeCallRing, setNativeCallRingVolume } from '@/lib/nativeCallBridge'
 import { RING_ASSET_VERSION } from '@/lib/ringAssetVersion'
 import {
   getVoiceCallRingVolume,
@@ -554,6 +554,19 @@ async function startRing(kind: RingKind, announcement?: string, lang?: string) {
 
   // Prefer spoken "Call from {name}" / "Calling {name}" when provided.
   if (spoken) {
+    // Android native: system TextToSpeech — reliable without WebView speechSynthesis / Azure.
+    if (useNativeAndroidRing()) {
+      nativeRingActive = true
+      try {
+        await startNativeCallRingAnnouncement(spoken, lang)
+        void setNativeCallRingVolume(getVoiceCallRingVolume())
+        return
+      } catch {
+        nativeRingActive = false
+        void stopNativeCallRing()
+      }
+    }
+
     const ttsBuffer = await fetchTtsBuffer(spoken, lang)
     if (generation !== loopGeneration) return
     if (ttsBuffer) {

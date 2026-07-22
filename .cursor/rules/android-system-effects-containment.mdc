@@ -19,7 +19,8 @@ AiMediaTank voice calls must **never leak global side effects** into PSTN/cellul
 2. **Always release on call end** — JS `resetCall` → deactivate audio → clear screen → end WebRTC → `enforceSystemEffectsContainment`.
 3. **Lifecycle safety nets** — `MainActivity` pause/stop, plugin pause/destroy, 15s watchdog, **`yieldToPstn`** on cellular ring/answer.
 4. **Self-managed VoIP only** — ConnectionService must not register as default dialer; connections must be destroyed when calls end. **`MainActivity.onCreate` must call `registerVoipPhoneAccountSafely()`** — without it, FCM succeeds but no incoming-call UI (regressed in 1.0.66).
-5. **Patches live in** `scripts/patch-android-fcm.js` — run on `npm install`; do not edit `node_modules` directly.
+5. **Spoken ring on Android** — use native `IncomingAnnouncementHelper` (TextToSpeech) via `startCallRingAnnouncement`; do not rely on WebView speechSynthesis for the ring. Classic WAV is fallback only.
+6. **Patches live in** `scripts/patch-android-fcm.js` — run on `npm install`; do not edit `node_modules` directly.
 
 ## Before merging Android voice/audio changes
 

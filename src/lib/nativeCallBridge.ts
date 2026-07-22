@@ -635,6 +635,7 @@ type NativeVoiceCallAudioPlugin = {
   clearCallScreenPresentation?: () => Promise<void>
   enforceSystemEffectsContainment?: () => Promise<void>
   startCallRing?: (options: { url: string; incoming?: boolean }) => Promise<void>
+  startCallRingAnnouncement?: (options: { text: string; lang?: string }) => Promise<void>
   stopCallRing?: () => Promise<void>
   setCallRingVolume?: (options: { level: number }) => Promise<void>
   setVoiceCallMediaVolume?: (options: { level: number }) => Promise<void>
@@ -780,6 +781,27 @@ export async function startNativeCallRing(
     await plugin.startCallRing({ url, incoming: options?.incoming ?? false })
   } catch (error) {
     console.error('[NativeCall] startCallRing failed:', error)
+    throw error
+  }
+}
+
+/** Android: spoken ring announcement via native TextToSpeech ("Call from Name"). */
+export async function startNativeCallRingAnnouncement(
+  text: string,
+  lang?: string,
+): Promise<void> {
+  if (!isNativeAndroidCallApp()) return
+  const spoken = text.trim()
+  if (!spoken) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
+    if (typeof plugin.startCallRingAnnouncement !== 'function') {
+      throw new Error('startCallRingAnnouncement not available in native plugin')
+    }
+    await plugin.startCallRingAnnouncement({ text: spoken, lang })
+  } catch (error) {
+    console.error('[NativeCall] startCallRingAnnouncement failed:', error)
     throw error
   }
 }
