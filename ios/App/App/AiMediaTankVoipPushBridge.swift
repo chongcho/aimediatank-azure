@@ -769,21 +769,25 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let end = { [weak self] in
             guard let self = self else { return }
             self.stopCallKitRingAnnouncement()
-            let alreadyEnded = self.endedCallKitCallIds.contains(callId)
-            if !alreadyEnded {
+            let observer = CXCallObserver()
+            let stillOnCallKit = observer.calls.contains { $0.uuid == uuid && !$0.hasEnded }
+            let alreadyMarked = self.endedCallKitCallIds.contains(callId)
+
+            // Critical: if CallKit still shows the call, always re-end — do not skip because we
+            // already marked it. Prior CXEndCallAction-only attempts could fail once and then
+            // scheduleDismissRetries became no-ops (stuck lock-screen UI after caller hangup).
+            if stillOnCallKit || !alreadyMarked {
                 self.endedCallKitCallIds.insert(callId)
                 if NativeVoiceCallEngine.shared.activeCallId == callId {
                     NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
                 }
-                // Use CXEndCallAction only — reportCall + action together can trigger providerDidReset.
-                let endCallAction = CXEndCallAction(call: uuid)
-                self.callController.request(CXTransaction(action: endCallAction)) { error in
-                    if let error {
-                        print("[AiMediaTankVoipPushBridge] CXEndCallAction failed for \(uuid): \(error.localizedDescription)")
-                    }
-                }
+                // Remote hangup / cancel: reportCall is the correct provider API.
+                // CXEndCallAction alone often fails to clear lock-screen UI from a PushKit wake.
+                self.provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
+                print("[AiMediaTankVoipPushBridge] reportCall ended \(callId) reason=\(reason.rawValue) stillOnCallKit=\(stillOnCallKit)")
             }
-            if notifyJs, !alreadyEnded {
+
+            if notifyJs, !alreadyMarked {
                 NotificationCenter.default.post(
                     name: Self.callKitEndNotification,
                     object: nil,
@@ -794,7 +798,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             if UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased() == callId {
                 self.clearPendingCallKitAnswer()
             }
-            self.cancelDismissRetries(callId: callId)
+            // Only stop dismiss retries once CallKit no longer shows the call — otherwise
+            // the first end attempt would cancel scheduleDismissRetries and leave UI stuck.
+            let stillVisible = CXCallObserver().calls.contains { $0.uuid == uuid && !$0.hasEnded }
+            if !stillVisible {
+                self.cancelDismissRetries(callId: callId)
+            }
             self.stopCallStatusWatch(callId: callId)
             // Audio session is released in provider(_:didDeactivate:) — do not setActive(false) here.
         }
@@ -843,7 +852,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 guard let self = self,
                       self.dismissRetryGeneration[normalized] == generation,
                       let uuid = UUID(uuidString: normalized) else { return }
-                self.endCallKitCall(uuid: uuid, reason: .remoteEnded)
+                let stillOnCallKit = CXCallObserver().calls.contains { $0.uuid == uuid && !$0.hasEnded }
+                guard stillOnCallKit else { return }
+                print("[AiMediaTankVoipPushBridge] dismiss retry — CallKit still showing \(normalized)")
+                // Allow endCallKitCall to re-report even if previously marked.
+                self.endedCallKitCallIds.remove(normalized)
+                self.endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: false)
             }
         }
     }
@@ -1540,6 +1554,15 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 return
             }
             if reported {
+                // Cancel may have arrived while reportNewIncomingCall was in flight.
+                if Self.isCallCancelled(normalizedCallId) {
+                    print("[AiMediaTankVoipPushBridge] incoming reported but already cancelled — ending \(normalizedCallId)")
+                    self.endCallKitCall(uuid: callId, reason: .remoteEnded, notifyJs: true)
+                    self.stopCallKitRingAnnouncement()
+                    completeOnce()
+                    forwardToPlugin(reportedToCallKit: true)
+                    return
+                }
                 self.postVoiceTrace(callId: normalizedCallId, event: "callkit_report_ok")
                 let announcement = self.payloadString(payloadDict, key: "announcement")
                 let lang = self.payloadString(payloadDict, key: "lang")
