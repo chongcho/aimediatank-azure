@@ -1948,7 +1948,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
         audioActivationFallbackGeneration = nil
-        configureAudioSession()
+        // Do not setCategory here — CallKit already activated the session; reconfiguring
+        // after activate can leave capture working but remote playback silent.
+        stopCallKitRingAnnouncement()
         NativeVoiceCallEngine.shared.audioSessionActivated()
         if let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey) {
             postVoiceTrace(callId: callId, event: "callkit_audio_activated")

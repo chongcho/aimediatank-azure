@@ -93,20 +93,48 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     func audioSessionActivated() {
         audioSessionReady = true
-        let rtc = RTCAudioSession.sharedInstance()
-        rtc.lockForConfiguration()
-        defer { rtc.unlockForConfiguration() }
-        rtc.audioSessionDidActivate(AVAudioSession.sharedInstance())
-        rtc.isAudioEnabled = true
+        applyWebRtcAudioSession(activated: true)
         beginAnswerIfNeeded()
     }
 
     private func ensureWebRtcAudioEnabled() {
         guard audioSessionReady else { return }
+        applyWebRtcAudioSession(activated: false)
+    }
+
+    /// Keep WebRTC VoiceProcessing IO able to play remote audio (mic alone is not enough).
+    private func applyWebRtcAudioSession(activated: Bool) {
         let rtc = RTCAudioSession.sharedInstance()
         rtc.lockForConfiguration()
         defer { rtc.unlockForConfiguration() }
+
+        let config = RTCAudioSessionConfiguration.webRTCConfiguration()
+        config.category = AVAudioSession.Category.playAndRecord.rawValue
+        config.mode = AVAudioSession.Mode.voiceChat.rawValue
+        config.categoryOptions = [
+            .allowBluetooth,
+            .allowBluetoothA2DP,
+            .defaultToSpeaker,
+        ]
+        do {
+            // CallKit already activated the session — do not setActive here.
+            try rtc.setConfiguration(config)
+        } catch {
+            print("[NativeVoiceCallEngine] RTCAudioSession setConfiguration failed: \(error.localizedDescription)")
+        }
+        if activated {
+            rtc.audioSessionDidActivate(AVAudioSession.sharedInstance())
+        }
         rtc.isAudioEnabled = true
+        forceLoudspeakerOutput()
+    }
+
+    private func forceLoudspeakerOutput() {
+        do {
+            try AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
+        } catch {
+            print("[NativeVoiceCallEngine] speaker override failed: \(error.localizedDescription)")
+        }
     }
 
     func audioSessionDeactivated() {
@@ -340,6 +368,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         pendingStart = false
         bootstrapGeneration = nil
         stopIcePoll()
+        ensureWebRtcAudioEnabled()
         print("[NativeVoiceCallEngine] connected \(callId)")
         ensureWebRtcAudioEnabled()
         postTrace(callId: callId, token: token ?? "", event: "native_webrtc_connected")
@@ -495,10 +524,28 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     // MARK: - RTCPeerConnectionDelegate
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {
+        for track in stream.audioTracks {
+            track.isEnabled = true
+            print("[NativeVoiceCallEngine] remote stream audio track enabled")
+        }
+        ensureWebRtcAudioEnabled()
+    }
+
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
     func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
 
+    func peerConnection(
+        _ peerConnection: RTCPeerConnection,
+        didAdd rtpReceiver: RTCRtpReceiver,
+        streams mediaStreams: [RTCMediaStream]
+    ) {
+        if let track = rtpReceiver.track as? RTCAudioTrack {
+            track.isEnabled = true
+            print("[NativeVoiceCallEngine] remote RTP audio track enabled")
+            ensureWebRtcAudioEnabled()
+        }
+    }
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
         guard let callId, !isShuttingDownPeerConnection else { return }
         print("[NativeVoiceCallEngine] ice state \(callId): \(newState.rawValue)")

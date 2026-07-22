@@ -314,6 +314,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         await setNativeVoiceCallAudioActive(true)
         await setNativeAudioRoute('speaker')
         await setNativeVoiceCallMediaVolume(getVoiceCallVoiceVolume())
+      } else if (isNativeIosCallApp()) {
+        await setNativeAudioRoute('speaker')
       }
       if (audio.srcObject !== stream) {
         audio.srcObject = stream
