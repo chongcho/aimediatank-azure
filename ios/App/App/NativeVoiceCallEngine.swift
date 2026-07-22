@@ -108,11 +108,11 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         rtc.lockForConfiguration()
         defer { rtc.unlockForConfiguration() }
 
-        let config = RTCAudioSessionConfiguration.webRTCConfiguration()
+        let config = RTCAudioSessionConfiguration.webRTC()
         config.category = AVAudioSession.Category.playAndRecord.rawValue
         config.mode = AVAudioSession.Mode.voiceChat.rawValue
         config.categoryOptions = [
-            .allowBluetooth,
+            .allowBluetoothHFP,
             .allowBluetoothA2DP,
             .defaultToSpeaker,
         ]
