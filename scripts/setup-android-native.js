@@ -91,8 +91,10 @@ const current = fs.existsSync(mainActivityApp) ? fs.readFileSync(mainActivityApp
 const hasPhoneAccountMethod = current.includes('registerVoipPhoneAccountSafely')
 // Method alone is not enough — 1.0.66 kept the helper but dropped the onCreate call,
 // which broke ConnectionService incoming-call UI.
+// Require trailing `;` so we match a call site, not the method definition
+// (`private void registerVoipPhoneAccountSafely() {`) later in the file.
 const phoneAccountRegisteredOnCreate =
-  /void\s+onCreate\s*\([^)]*\)\s*\{[\s\S]*?registerVoipPhoneAccountSafely\s*\(\s*\)/.test(current)
+  /void\s+onCreate\s*\([^)]*\)\s*\{[\s\S]*?registerVoipPhoneAccountSafely\s*\(\s*\)\s*;/.test(current)
 if (!hasPhoneAccountMethod) {
   fs.writeFileSync(mainActivityApp, mainActivitySource)
   console.log('[setup-android-native] patched MainActivity at com.aimediatank.app')
