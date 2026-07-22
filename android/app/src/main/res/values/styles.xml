@@ -1,15 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
-        <!-- Customize your theme here. -->
+    <!--
+      Always-dark app theme (not DayNight / Light).
+      WebView <select> and date pickers use native AlertDialogs that inherit this theme.
+      A Light/DayNight mix caused black text on a black dialog on Android phones.
+    -->
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:textColorPrimary">@color/dialogTextPrimary</item>
+        <item name="android:textColorAlertDialogListItem">@color/dialogTextPrimary</item>
+        <item name="textColorAlertDialogListItem">@color/dialogTextPrimary</item>
+        <item name="android:alertDialogTheme">@style/AiMediaTankAlertDialog</item>
+        <item name="alertDialogTheme">@style/AiMediaTankAlertDialog</item>
+        <item name="android:datePickerDialogTheme">@style/AiMediaTankDatePicker</item>
     </style>
 
-    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@color/appBackground</item>
@@ -20,8 +29,36 @@
         <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:enforceStatusBarContrast">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:textColorPrimary">@color/dialogTextPrimary</item>
+        <item name="android:textColorAlertDialogListItem">@color/dialogTextPrimary</item>
+        <item name="textColorAlertDialogListItem">@color/dialogTextPrimary</item>
+        <item name="android:alertDialogTheme">@style/AiMediaTankAlertDialog</item>
+        <item name="alertDialogTheme">@style/AiMediaTankAlertDialog</item>
+        <item name="android:datePickerDialogTheme">@style/AiMediaTankDatePicker</item>
     </style>
 
+    <!-- Native WebView <select> option list -->
+    <style name="AiMediaTankAlertDialog" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="android:background">@color/dialogBackground</item>
+        <item name="android:windowBackground">@color/dialogBackground</item>
+        <item name="android:textColorPrimary">@color/dialogTextPrimary</item>
+        <item name="android:textColor">@color/dialogTextPrimary</item>
+        <item name="android:textColorAlertDialogListItem">@color/dialogTextPrimary</item>
+        <item name="textColorAlertDialogListItem">@color/dialogTextPrimary</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <!-- Native WebView <input type="date"> picker -->
+    <style name="AiMediaTankDatePicker" parent="Theme.AppCompat.Dialog">
+        <item name="android:background">@color/dialogBackground</item>
+        <item name="android:windowBackground">@color/dialogBackground</item>
+        <item name="android:textColorPrimary">@color/dialogTextPrimary</item>
+        <item name="android:textColorSecondary">@color/dialogTextSecondary</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>

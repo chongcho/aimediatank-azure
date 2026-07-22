@@ -525,17 +525,14 @@ select {
 }
 
 /*
- * Android WebView: native date/select pickers can render black-on-black.
- * Keep dark popup chrome; force white option text for readability.
+ * Android WebView <select> / date pickers use native AlertDialogs — CSS cannot
+ * recolor their text. White-on-dark is set in android/.../styles.xml
+ * (AiMediaTankAlertDialog / AiMediaTankDatePicker). Keep color-scheme dark so
+ * the closed fields stay aligned with the app chrome.
  */
 html.capacitor-native.android input[type="date"],
 html.capacitor-native.android select {
   color-scheme: dark;
-}
-
-html.capacitor-native.android select option {
-  background-color: #1a1a1f;
-  color: #ffffff;
 }
 
 /* Date input value visibility (browser often uses separate inner elements) */

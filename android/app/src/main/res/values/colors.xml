@@ -4,4 +4,8 @@
     <color name="colorPrimaryDark">#303F9F</color>
     <color name="colorAccent">#FF4081</color>
     <color name="appBackground">#000000</color>
+    <!-- Native WebView select / date dialogs (CSS cannot style these) -->
+    <color name="dialogBackground">#1A1A1F</color>
+    <color name="dialogTextPrimary">#FFFFFF</color>
+    <color name="dialogTextSecondary">#CCCCCC</color>
 </resources>
