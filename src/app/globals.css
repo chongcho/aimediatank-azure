@@ -524,6 +524,22 @@ select {
          transition-all duration-200;
 }
 
+/*
+ * Android WebView native pickers (date / select) inherit the page’s dark theme and
+ * often render black text on a black dialog. Force a light scheme so Birthday,
+ * Location, Membership, etc. show a light-gray popup with readable dark text.
+ * Closed-field colors above still apply via explicit background/color.
+ */
+input[type="date"],
+select {
+  color-scheme: light;
+}
+
+select option {
+  background-color: #e5e5e5;
+  color: #111827;
+}
+
 /* Date input value visibility (browser often uses separate inner elements) */
 input[type="date"]::-webkit-datetime-edit,
 input[type="date"]::-webkit-datetime-edit-text,
