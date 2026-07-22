@@ -347,7 +347,7 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">Download price (USD) — leave empty for free download</label>
+          <label className="block text-sm font-medium mb-2">Download price (USD) — empty for free download</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
             <input
