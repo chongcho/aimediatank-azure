@@ -108,9 +108,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var ringAnnouncementText = ""
     private var ringAnnouncementLang: String?
     private var ringAnnouncementLoopWork: DispatchWorkItem?
-    /// Full-screen UIView on the existing app window (never a new UIWindow — that crashes CallKit Accept).
-    private weak var callUiCoverView: UIView?
-    private var callUiCoverHideWork: DispatchWorkItem?
 
     private static func isForegroundActive() -> Bool {
         guard UIApplication.shared.applicationState == .active else { return false }
@@ -150,64 +147,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         if let window = scene.windows.first(where: { $0.isKeyWindow }) {
             window.makeKeyAndVisible()
-        }
-    }
-
-    /// Cover feed/chat while CallKit Accept returns to the app.
-    /// Must NOT create a new UIWindow / makeKeyAndVisible — that crashes during CallKit transitions.
-    private func showInAppCallUiCover() {
-        let show = { [weak self] in
-            guard let self else { return }
-            guard Self.canDeliverToWebView() else {
-                print("[AiMediaTankVoipPushBridge] skip call UI cover — WebView not ready")
-                return
-            }
-            if self.callUiCoverView != nil { return }
-            guard let host = Self.findBridgeViewController()?.view.window ??
-                UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .flatMap(\.windows)
-                .first(where: { $0.isKeyWindow })
-            else {
-                print("[AiMediaTankVoipPushBridge] skip call UI cover — no host window")
-                return
-            }
-            let cover = UIView(frame: host.bounds)
-            cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            cover.backgroundColor = UIColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1)
-            cover.isUserInteractionEnabled = false
-            cover.tag = 0xA11D_CA11
-            host.addSubview(cover)
-            self.callUiCoverView = cover
-            self.callUiCoverHideWork?.cancel()
-            let work = DispatchWorkItem { [weak self] in
-                self?.hideInAppCallUiCover(reason: "timeout")
-            }
-            self.callUiCoverHideWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 4, execute: work)
-            print("[AiMediaTankVoipPushBridge] show in-app call UI cover (host window)")
-        }
-        if Thread.isMainThread {
-            show()
-        } else {
-            DispatchQueue.main.async(execute: show)
-        }
-    }
-
-    private func hideInAppCallUiCover(reason: String) {
-        let hide = { [weak self] in
-            guard let self else { return }
-            self.callUiCoverHideWork?.cancel()
-            self.callUiCoverHideWork = nil
-            guard let cover = self.callUiCoverView else { return }
-            cover.removeFromSuperview()
-            self.callUiCoverView = nil
-            print("[AiMediaTankVoipPushBridge] hide in-app call UI cover (\(reason))")
-        }
-        if Thread.isMainThread {
-            hide()
-        } else {
-            DispatchQueue.main.async(execute: hide)
         }
     }
 
@@ -830,7 +769,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let end = { [weak self] in
             guard let self = self else { return }
             self.stopCallKitRingAnnouncement()
-            self.hideInAppCallUiCover(reason: "call_ended")
             let observer = CXCallObserver()
             let stillOnCallKit = observer.calls.contains { $0.uuid == uuid && !$0.hasEnded }
             let alreadyMarked = self.endedCallKitCallIds.contains(callId)
@@ -993,25 +931,45 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Apple kills the process (and eventually stops VoIP delivery) if a VoIP push completes
     /// without `reportNewIncomingCall` or an existing CallKit call.
     ///
-    /// - Cancel while that call UUID is still on CallKit: end **that** UUID only.
-    /// - Otherwise: synthetic report+end (required). Never `reportCall(ended)` alone on a
-    ///   never-reported UUID — that fails PushKit and broke incoming rings after 1.0.69.
+    /// - Cancel while that call UUID is on CallKit: end **that** UUID only.
+    /// - Otherwise wait briefly for an in-flight incoming report, then end it or use synthetic.
+    ///   Immediate synthetic while incoming is reporting caused redundant CallKit flashes.
     private func fulfillVoipPushReportingRequirement(
         endingCallId: UUID? = nil,
         completion: @escaping () -> Void
     ) {
         if let endingCallId {
             let normalized = endingCallId.uuidString.lowercased()
-            let onCallKit = CXCallObserver().calls.contains { $0.uuid == endingCallId && !$0.hasEnded }
-            if onCallKit {
-                print("[AiMediaTankVoipPushBridge] fulfill VoIP push via existing CallKit call \(normalized)")
-                endCallKitCall(uuid: endingCallId, reason: .remoteEnded, notifyJs: false)
-                completion()
+            let endExistingOrSynthetic = { [weak self] in
+                guard let self else {
+                    completion()
+                    return
+                }
+                let onCallKit = CXCallObserver().calls.contains { $0.uuid == endingCallId && !$0.hasEnded }
+                if onCallKit {
+                    print("[AiMediaTankVoipPushBridge] fulfill VoIP push via existing CallKit call \(normalized)")
+                    self.endCallKitCall(uuid: endingCallId, reason: .remoteEnded, notifyJs: false)
+                    completion()
+                    return
+                }
+                print("[AiMediaTankVoipPushBridge] fulfill VoIP push — \(normalized) not on CallKit, using synthetic")
+                self.reportSyntheticCallKitFulfill(completion: completion)
+            }
+
+            if CXCallObserver().calls.contains(where: { $0.uuid == endingCallId && !$0.hasEnded }) {
+                endExistingOrSynthetic()
                 return
             }
-            print("[AiMediaTankVoipPushBridge] fulfill VoIP push — \(normalized) not on CallKit, using synthetic")
+
+            // Incoming reportNewIncomingCall may still be in flight — wait before synthetic.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: endExistingOrSynthetic)
+            return
         }
 
+        reportSyntheticCallKitFulfill(completion: completion)
+    }
+
+    private func reportSyntheticCallKitFulfill(completion: @escaping () -> Void) {
         let fulfillId = UUID()
         let fulfillNormalized = fulfillId.uuidString.lowercased()
         let update = CXCallUpdate()
@@ -1799,15 +1757,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let js = """
         (function(){
           try {
-            var id = 'aimediatank-call-ui-cover';
-            if (!document.getElementById(id)) {
-              var el = document.createElement('div');
-              el.id = id;
-              el.setAttribute('aria-hidden', 'true');
-              el.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#111214;pointer-events:none;';
-              (document.documentElement || document.body).appendChild(el);
-            }
-            document.documentElement.setAttribute('data-amt-call-ui', '1');
             window.dispatchEvent(new CustomEvent('aimediatank-callkit-answer', {
               detail: { callId: '\(callId)'\(tokenJs)\(sessionJs)\(nativeJs) }
             }));
@@ -1815,15 +1764,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         })();
         """
         let inject = {
-            webView.evaluateJavaScript(js) { [weak self] _, error in
+            webView.evaluateJavaScript(js) { _, error in
                 if let error {
                     print("[AiMediaTankVoipPushBridge] WebView inject failed \(callId): \(error.localizedDescription)")
                 } else {
                     print("[AiMediaTankVoipPushBridge] WebView inject ok \(callId)")
-                }
-                // JS cover is in place — drop native cover so React call UI can show.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    self?.hideInAppCallUiCover(reason: "webview_inject")
                 }
             }
         }
@@ -1945,10 +1890,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         // Fulfill after audio session is configured — CallKit then calls didActivate for WebRTC.
         action.fulfill()
-        // Cover only after fulfill — UI during CXAnswerCallAction (esp. new UIWindow) crashes.
-        DispatchQueue.main.async { [weak self] in
-            self?.showInAppCallUiCover()
-        }
     }
 
     /// Unlock → retry JS WebRTC if CallKit answer is still pending; otherwise native on lock screen.
@@ -2053,7 +1994,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 extension AiMediaTankVoipPushBridge: NativeVoiceCallEngineDelegate {
     func nativeVoiceCallEngineDidConnect(callId: String, caller: [String: Any]?) {
         print("[AiMediaTankVoipPushBridge] native WebRTC connected \(callId)")
-        hideInAppCallUiCover(reason: "native_connected")
         reportCallConnected(callId: callId)
     }
 

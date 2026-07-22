@@ -383,7 +383,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private func scheduleConnectedUiSync(callId: String, caller: [String: Any]?) {
         let normalized = callId.lowercased()
         let generation = uiSyncGeneration
-        let delays: [TimeInterval] = [0, 2]
+        let delays: [TimeInterval] = [0, 0.4, 1.5]
         for delay in delays {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 guard let self, generation == self.uiSyncGeneration else { return }

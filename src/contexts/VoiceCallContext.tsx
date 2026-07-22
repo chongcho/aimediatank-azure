@@ -160,13 +160,6 @@ export function VoiceCallOverlayPanel({
   const canHideCall = isActiveCall
   const nativeVoiceCall = isNativeVoiceCallApp()
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return
-    if (!showCallControls) return
-    document.getElementById('aimediatank-call-ui-cover')?.remove()
-    document.documentElement.removeAttribute('data-amt-call-ui')
-  }, [showCallControls, ctx.callState])
-
   if (placement === 'embedded' && isDesktop) return null
 
   return (
