@@ -146,7 +146,6 @@ export function VoiceCallOverlayPanel({
   if (!session?.user || !ctx) return null
 
   const isActiveCall = ctx.callState !== 'idle' && ctx.callState !== 'ended'
-  if (placement === 'embedded' && isDesktop) return null
 
   // iOS: CallKit owns incoming Accept/Decline (#2) — never show in-app incoming screen (#1).
   const iosCallKitIncoming =
@@ -160,6 +159,15 @@ export function VoiceCallOverlayPanel({
   const showCallControls = popupCallUi || fullscreenCallUi
   const canHideCall = isActiveCall
   const nativeVoiceCall = isNativeVoiceCallApp()
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    if (!showCallControls) return
+    document.getElementById('aimediatank-call-ui-cover')?.remove()
+    document.documentElement.removeAttribute('data-amt-call-ui')
+  }, [showCallControls, ctx.callState])
+
+  if (placement === 'embedded' && isDesktop) return null
 
   return (
     <VoiceCallOverlay

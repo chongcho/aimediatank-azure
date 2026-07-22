@@ -108,6 +108,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var ringAnnouncementText = ""
     private var ringAnnouncementLang: String?
     private var ringAnnouncementLoopWork: DispatchWorkItem?
+    /// Covers feed/chat while CallKit dismisses and in-app call UI mounts (avoids content flash).
+    private var callUiCoverWindow: UIWindow?
+    private var callUiCoverHideWork: DispatchWorkItem?
 
     private static func isForegroundActive() -> Bool {
         guard UIApplication.shared.applicationState == .active else { return false }
@@ -147,6 +150,57 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         if let window = scene.windows.first(where: { $0.isKeyWindow }) {
             window.makeKeyAndVisible()
+        }
+    }
+
+    /// Solid cover over WKWebView so Accept does not flash feed/chat before call UI mounts.
+    private func showInAppCallUiCover() {
+        let show = { [weak self] in
+            guard let self else { return }
+            if self.callUiCoverWindow != nil { return }
+            guard let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: {
+                    $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive
+                }) else { return }
+            let window = UIWindow(windowScene: scene)
+            window.windowLevel = .alert + 2
+            window.backgroundColor = UIColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1)
+            let root = UIViewController()
+            root.view.backgroundColor = window.backgroundColor
+            window.rootViewController = root
+            window.isHidden = false
+            window.makeKeyAndVisible()
+            self.callUiCoverWindow = window
+            self.callUiCoverHideWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                self?.hideInAppCallUiCover(reason: "timeout")
+            }
+            self.callUiCoverHideWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: work)
+            print("[AiMediaTankVoipPushBridge] show in-app call UI cover")
+        }
+        if Thread.isMainThread {
+            show()
+        } else {
+            DispatchQueue.main.async(execute: show)
+        }
+    }
+
+    private func hideInAppCallUiCover(reason: String) {
+        let hide = { [weak self] in
+            guard let self else { return }
+            self.callUiCoverHideWork?.cancel()
+            self.callUiCoverHideWork = nil
+            guard self.callUiCoverWindow != nil else { return }
+            self.callUiCoverWindow?.isHidden = true
+            self.callUiCoverWindow = nil
+            print("[AiMediaTankVoipPushBridge] hide in-app call UI cover (\(reason))")
+        }
+        if Thread.isMainThread {
+            hide()
+        } else {
+            DispatchQueue.main.async(execute: hide)
         }
     }
 
@@ -769,6 +823,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let end = { [weak self] in
             guard let self = self else { return }
             self.stopCallKitRingAnnouncement()
+            self.hideInAppCallUiCover(reason: "call_ended")
             let observer = CXCallObserver()
             let stillOnCallKit = observer.calls.contains { $0.uuid == uuid && !$0.hasEnded }
             let alreadyMarked = self.endedCallKitCallIds.contains(callId)
@@ -1740,6 +1795,15 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let js = """
         (function(){
           try {
+            var id = 'aimediatank-call-ui-cover';
+            if (!document.getElementById(id)) {
+              var el = document.createElement('div');
+              el.id = id;
+              el.setAttribute('aria-hidden', 'true');
+              el.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#111214;pointer-events:none;';
+              (document.documentElement || document.body).appendChild(el);
+            }
+            document.documentElement.setAttribute('data-amt-call-ui', '1');
             window.dispatchEvent(new CustomEvent('aimediatank-callkit-answer', {
               detail: { callId: '\(callId)'\(tokenJs)\(sessionJs)\(nativeJs) }
             }));
@@ -1747,11 +1811,15 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         })();
         """
         let inject = {
-            webView.evaluateJavaScript(js) { _, error in
+            webView.evaluateJavaScript(js) { [weak self] _, error in
                 if let error {
                     print("[AiMediaTankVoipPushBridge] WebView inject failed \(callId): \(error.localizedDescription)")
                 } else {
                     print("[AiMediaTankVoipPushBridge] WebView inject ok \(callId)")
+                }
+                // JS cover is in place — drop native cover so React call UI can show.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    self?.hideInAppCallUiCover(reason: "webview_inject")
                 }
             }
         }
@@ -1844,6 +1912,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         stopCallKitRingAnnouncement()
+        // Cover feed/chat the instant CallKit Accept returns to the app.
+        showInAppCallUiCover()
         configureAudioSession()
         cancelDismissRetries(callId: callId)
         markPendingCallKitAnswer(callId: callId)
@@ -1977,6 +2047,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 extension AiMediaTankVoipPushBridge: NativeVoiceCallEngineDelegate {
     func nativeVoiceCallEngineDidConnect(callId: String, caller: [String: Any]?) {
         print("[AiMediaTankVoipPushBridge] native WebRTC connected \(callId)")
+        hideInAppCallUiCover(reason: "native_connected")
         reportCallConnected(callId: callId)
     }
 
