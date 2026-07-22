@@ -624,7 +624,8 @@ function FullscreenShell({
   remoteUser: VoiceCallUser | null
   children: ReactNode
 }) {
-  const [mounted, setMounted] = useState(false)
+  // Capacitor is always client — mount portal immediately (no null/veil frame → home flash).
+  const [mounted, setMounted] = useState(() => typeof document !== 'undefined')
 
   useEffect(() => {
     setMounted(true)

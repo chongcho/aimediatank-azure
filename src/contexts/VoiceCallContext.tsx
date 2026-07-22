@@ -162,8 +162,12 @@ export function VoiceCallOverlayPanel({
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    if (!showCallControls) return
-    document.getElementById('aimediatank-accept-shell')?.remove()
+    if (showCallControls) {
+      document.documentElement.setAttribute('data-amt-call-active', '1')
+      document.getElementById('aimediatank-accept-shell')?.remove()
+    } else {
+      document.documentElement.removeAttribute('data-amt-call-active')
+    }
   }, [showCallControls, ctx.callState])
 
   if (placement === 'embedded' && isDesktop) return null
