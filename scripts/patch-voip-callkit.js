@@ -22,7 +22,8 @@ let pluginSwift = fs.existsSync(pluginSwiftPath) ? fs.readFileSync(pluginSwiftPa
 const REQUEST_BRIDGE_DISMISS = 'AiMediaTankRequestBridgeDismiss'
 const DISMISS_FINAL = 'skip bridge dismiss when already cancelled'
 
-const RINGTONE_MARKER = 'configuration.ringtoneSound = "incoming-ring.wav"'
+const RINGTONE_SILENT = 'configuration.ringtoneSound = "silent.wav"'
+const RINGTONE_CLASSIC = 'configuration.ringtoneSound = "incoming-ring.wav"'
 const AUDIO_ONLY_MARKER = 'AiMediaTank audio-only CallKit'
 if (!callManager.includes(AUDIO_ONLY_MARKER)) {
   if (callManager.includes('configuration.supportsVideo = true')) {
@@ -34,15 +35,19 @@ if (!callManager.includes(AUDIO_ONLY_MARKER)) {
   }
 }
 
-if (!callManager.includes(RINGTONE_MARKER)) {
+// Spoken ring owns audio; CallKit must not loop classic WAV (or system default if silent is missing).
+if (callManager.includes(RINGTONE_CLASSIC)) {
+  callManager = callManager.replace(RINGTONE_CLASSIC, RINGTONE_SILENT)
+  console.log('[patch-voip-callkit] set CallKit ringtoneSound to silent.wav')
+} else if (!callManager.includes(RINGTONE_SILENT)) {
   const anchor = 'configuration.includesCallsInRecents = true'
   if (callManager.includes(anchor)) {
     callManager = callManager.replace(
       anchor,
       `${anchor}
-        configuration.ringtoneSound = "incoming-ring.wav"`,
+        ${RINGTONE_SILENT}`,
     )
-    console.log('[patch-voip-callkit] set CallKit ringtoneSound to incoming-ring.wav')
+    console.log('[patch-voip-callkit] set CallKit ringtoneSound to silent.wav')
   }
 }
 

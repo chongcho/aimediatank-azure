@@ -93,8 +93,16 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Prevents duplicate reportCall/CXEndCallAction when JS echoes end back into the plugin.
     private var endedCallKitCallIds = Set<String>()
     /// Lock-screen spoken ring ("Call from Name") — CallKit ringtoneSound is silent.wav.
-    private let ringSpeech = AVSpeechSynthesizer()
+    private let ringSpeech: AVSpeechSynthesizer = {
+        let synth = AVSpeechSynthesizer()
+        // Keep TTS off CallKit's shared session so CallKit ringtone does not kill the loop after one play.
+        if #available(iOS 13.0, *) {
+            synth.usesApplicationAudioSession = false
+        }
+        return synth
+    }()
     private var ringAnnouncementActive = false
+    private var ringAnnouncementGeneration = 0
     private var ringAnnouncementText = ""
     private var ringAnnouncementLang: String?
     private var ringAnnouncementLoopWork: DispatchWorkItem?
@@ -950,14 +958,23 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             }
         }()
         stopCallKitRingAnnouncement()
+        ringAnnouncementGeneration += 1
+        let generation = ringAnnouncementGeneration
         ringAnnouncementActive = true
         ringAnnouncementText = spoken
         ringAnnouncementLang = lang?.trimmingCharacters(in: .whitespacesAndNewlines)
         print("[AiMediaTankVoipPushBridge] start spoken CallKit ring: \(spoken)")
-        speakCallKitRingAnnouncementNow()
+        // CallKit may claim audio briefly after report — delay first speak slightly.
+        let work = DispatchWorkItem { [weak self] in
+            self?.speakCallKitRingAnnouncementNow(generation: generation)
+            self?.armCallKitRingWatchdog(generation: generation)
+        }
+        ringAnnouncementLoopWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
     }
 
     private func stopCallKitRingAnnouncement() {
+        ringAnnouncementGeneration += 1
         ringAnnouncementActive = false
         ringAnnouncementLoopWork?.cancel()
         ringAnnouncementLoopWork = nil
@@ -968,8 +985,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
     }
 
-    private func speakCallKitRingAnnouncementNow() {
-        guard ringAnnouncementActive else { return }
+    private func speakCallKitRingAnnouncementNow(generation: Int) {
+        guard ringAnnouncementActive, generation == ringAnnouncementGeneration else { return }
         let text = ringAnnouncementText
         guard !text.isEmpty else { return }
         let utterance = AVSpeechUtterance(string: text)
@@ -985,17 +1002,36 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         ringSpeech.speak(utterance)
     }
 
+    /// Restarts speech if CallKit interrupted TTS without a clean didFinish (avoids didCancel race on stop).
+    private func armCallKitRingWatchdog(generation: Int) {
+        guard ringAnnouncementActive, generation == ringAnnouncementGeneration else { return }
+        ringAnnouncementLoopWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard self.ringAnnouncementActive, generation == self.ringAnnouncementGeneration else { return }
+            if !self.ringSpeech.isSpeaking {
+                self.speakCallKitRingAnnouncementNow(generation: generation)
+            }
+            self.armCallKitRingWatchdog(generation: generation)
+        }
+        ringAnnouncementLoopWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2, execute: work)
+    }
+
     public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         guard ringAnnouncementActive, synthesizer === ringSpeech else { return }
+        let generation = ringAnnouncementGeneration
+        ringAnnouncementLoopWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
-            self?.speakCallKitRingAnnouncementNow()
+            self?.speakCallKitRingAnnouncementNow(generation: generation)
+            self?.armCallKitRingWatchdog(generation: generation)
         }
         ringAnnouncementLoopWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9, execute: work)
     }
 
     public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        // stopCallKitRingAnnouncement cancels actively — do not reschedule.
+        // Intentional stop or CallKit interrupt — watchdog restarts if still ringing.
     }
 
     private func performCancelDismiss(callId: String, source: String) {
