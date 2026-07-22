@@ -874,50 +874,51 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     }
 
     /// Apple kills the process if a VoIP push completes without associating a CallKit call.
-    /// Cancel / ignore / duplicate-after-end pushes must still report, then end immediately.
-    private func fulfillVoipPushWithCallKitThenEnd(
-        callId: UUID,
-        handle: String = "aimediatank",
-        displayName: String = "AiMediaTank",
+    ///
+    /// - For cancel: if `endingCallId` is already on CallKit, end that call (fulfills the wake).
+    /// - Otherwise report a **fresh synthetic UUID** then end it immediately.
+    ///   Never report+end the real call UUID — that races with in-flight incoming
+    ///   `reportNewIncomingCall` and silently kills the lock-screen UI (1.0.63 regression).
+    private func fulfillVoipPushReportingRequirement(
+        endingCallId: UUID? = nil,
         completion: @escaping () -> Void
     ) {
+        if let endingCallId {
+            let normalized = endingCallId.uuidString.lowercased()
+            let observer = CXCallObserver()
+            if observer.calls.contains(where: { $0.uuid == endingCallId && !$0.hasEnded }) {
+                print("[AiMediaTankVoipPushBridge] fulfill VoIP push via existing CallKit call \(normalized)")
+                endCallKitCall(uuid: endingCallId, reason: .remoteEnded, notifyJs: false)
+                completion()
+                return
+            }
+        }
+
+        let fulfillId = UUID()
+        let fulfillNormalized = fulfillId.uuidString.lowercased()
         let update = CXCallUpdate()
-        update.remoteHandle = CXHandle(type: .generic, value: handle)
-        update.localizedCallerName = displayName
+        update.remoteHandle = CXHandle(type: .generic, value: "aimediatank")
+        update.localizedCallerName = "AiMediaTank"
         update.hasVideo = false
         update.supportsDTMF = false
         update.supportsHolding = false
         update.supportsGrouping = false
         update.supportsUngrouping = false
 
-        let normalized = callId.uuidString.lowercased()
-        let observer = CXCallObserver()
-        if observer.calls.contains(where: { $0.uuid == callId && !$0.hasEnded }) {
-            // UUID already on CallKit from a prior push — ending fulfills this wake.
-            print("[AiMediaTankVoipPushBridge] fulfill VoIP push via existing CallKit call \(normalized)")
-            endCallKitCall(uuid: callId, reason: .remoteEnded, notifyJs: false)
-            completion()
-            return
-        }
-
-        provider.reportNewIncomingCall(with: callId, update: update) { [weak self] error in
+        provider.reportNewIncomingCall(with: fulfillId, update: update) { [weak self] error in
             guard let self else {
                 completion()
                 return
             }
             if let error {
-                print("[AiMediaTankVoipPushBridge] fulfill reportNewIncomingCall failed \(normalized): \(error.localizedDescription)")
-                // callUUIDAlreadyExists or filtered — still try to clear any remnant.
-                self.endCallKitCall(uuid: callId, reason: .remoteEnded, notifyJs: false)
+                print("[AiMediaTankVoipPushBridge] synthetic fulfill reportNewIncomingCall failed \(fulfillNormalized): \(error.localizedDescription)")
                 completion()
                 return
             }
-            // Just reported for PushKit compliance — end immediately without CXEndCallAction
-            // (reportCall + action together can trigger providerDidReset).
-            self.endedCallKitCallIds.insert(normalized)
-            self.provider.reportCall(with: callId, endedAt: Date(), reason: .remoteEnded)
-            Self.noteCallDismissed(normalized)
-            print("[AiMediaTankVoipPushBridge] fulfill VoIP push reported+ended \(normalized)")
+            // Synthetic UUID only — do not CXEndCallAction (can trigger providerDidReset).
+            self.endedCallKitCallIds.insert(fulfillNormalized)
+            self.provider.reportCall(with: fulfillId, endedAt: Date(), reason: .failed)
+            print("[AiMediaTankVoipPushBridge] fulfill VoIP push synthetic reported+ended \(fulfillNormalized)")
             completion()
         }
     }
@@ -1261,14 +1262,14 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             if let cancelCallId = payloadString(payloadDict, key: "callId") {
                 let normalizedCallId = cancelCallId.lowercased()
                 print("[AiMediaTankVoipPushBridge] cancel push RECEIVED for call \(normalizedCallId) payloadKeys=\(payloadDict.keys.map { String(describing: $0) }.joined(separator: ","))")
-                let uuid = UUID(uuidString: normalizedCallId) ?? UUID()
-                fulfillVoipPushWithCallKitThenEnd(callId: uuid, handle: "cancel", displayName: "AiMediaTank") {
+                let uuid = UUID(uuidString: normalizedCallId)
+                fulfillVoipPushReportingRequirement(endingCallId: uuid) {
                     self.performCancelDismiss(callId: normalizedCallId, source: "voip_cancel_push")
                     completeOnce()
                 }
             } else {
                 print("[AiMediaTankVoipPushBridge] cancel push MISSING callId payloadKeys=\(payloadDict.keys.map { String(describing: $0) }.joined(separator: ","))")
-                fulfillVoipPushWithCallKitThenEnd(callId: UUID(), handle: "cancel", displayName: "AiMediaTank") {
+                fulfillVoipPushReportingRequirement {
                     completeOnce()
                 }
             }
@@ -1279,14 +1280,14 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
               let handle = payloadString(payloadDict, key: "handle"),
               let displayName = payloadString(payloadDict, key: "displayName") else {
             print("[AiMediaTankVoipPushBridge] ignored VoIP push (not cancel/incoming) keys=\(payloadDict.keys.map { String(describing: $0) }.joined(separator: ","))")
-            fulfillVoipPushWithCallKitThenEnd(callId: UUID(), handle: "ignored", displayName: "AiMediaTank") {
+            fulfillVoipPushReportingRequirement {
                 completeOnce()
             }
             return
         }
         guard let callId = UUID(uuidString: callIdString.lowercased()) else {
             print("[AiMediaTankVoipPushBridge] ignored VoIP push — invalid callId UUID \(callIdString)")
-            fulfillVoipPushWithCallKitThenEnd(callId: UUID(), handle: handle, displayName: displayName) {
+            fulfillVoipPushReportingRequirement {
                 completeOnce()
             }
             return
@@ -1301,7 +1302,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
         if Self.isCallCancelled(callIdString) {
             print("[AiMediaTankVoipPushBridge] ignored incoming push — call already cancelled \(normalizedCallId)")
-            fulfillVoipPushWithCallKitThenEnd(callId: callId, handle: handle, displayName: displayName) {
+            // Synthetic UUID only — never report+end the real callId (races a retry incoming).
+            fulfillVoipPushReportingRequirement {
                 completeOnce()
             }
             return
@@ -1310,7 +1312,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         if isIncomingCallAlreadyHandled(callId: normalizedCallId) {
             print("[AiMediaTankVoipPushBridge] ignored incoming push — call already answered \(normalizedCallId)")
             postVoiceTrace(callId: normalizedCallId, event: "grace_skip_answered")
-            fulfillVoipPushWithCallKitThenEnd(callId: callId, handle: handle, displayName: displayName) {
+            // Do not end the active CallKit call — only fulfill PushKit with a synthetic UUID.
+            fulfillVoipPushReportingRequirement {
                 completeOnce()
             }
             return
