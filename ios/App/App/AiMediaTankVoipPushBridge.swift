@@ -108,8 +108,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var ringAnnouncementText = ""
     private var ringAnnouncementLang: String?
     private var ringAnnouncementLoopWork: DispatchWorkItem?
-    /// Covers feed/chat while CallKit dismisses and in-app call UI mounts (avoids content flash).
-    private var callUiCoverWindow: UIWindow?
+    /// Full-screen UIView on the existing app window (never a new UIWindow — that crashes CallKit Accept).
+    private weak var callUiCoverView: UIView?
     private var callUiCoverHideWork: DispatchWorkItem?
 
     private static func isForegroundActive() -> Bool {
@@ -153,32 +153,39 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
     }
 
-    /// Solid cover over WKWebView so Accept does not flash feed/chat before call UI mounts.
+    /// Cover feed/chat while CallKit Accept returns to the app.
+    /// Must NOT create a new UIWindow / makeKeyAndVisible — that crashes during CallKit transitions.
     private func showInAppCallUiCover() {
         let show = { [weak self] in
             guard let self else { return }
-            if self.callUiCoverWindow != nil { return }
-            guard let scene = UIApplication.shared.connectedScenes
+            guard Self.canDeliverToWebView() else {
+                print("[AiMediaTankVoipPushBridge] skip call UI cover — WebView not ready")
+                return
+            }
+            if self.callUiCoverView != nil { return }
+            guard let host = Self.findBridgeViewController()?.view.window ??
+                UIApplication.shared.connectedScenes
                 .compactMap({ $0 as? UIWindowScene })
-                .first(where: {
-                    $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive
-                }) else { return }
-            let window = UIWindow(windowScene: scene)
-            window.windowLevel = .alert + 2
-            window.backgroundColor = UIColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1)
-            let root = UIViewController()
-            root.view.backgroundColor = window.backgroundColor
-            window.rootViewController = root
-            window.isHidden = false
-            window.makeKeyAndVisible()
-            self.callUiCoverWindow = window
+                .flatMap(\.windows)
+                .first(where: { $0.isKeyWindow })
+            else {
+                print("[AiMediaTankVoipPushBridge] skip call UI cover — no host window")
+                return
+            }
+            let cover = UIView(frame: host.bounds)
+            cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            cover.backgroundColor = UIColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1)
+            cover.isUserInteractionEnabled = false
+            cover.tag = 0xA11D_CA11
+            host.addSubview(cover)
+            self.callUiCoverView = cover
             self.callUiCoverHideWork?.cancel()
             let work = DispatchWorkItem { [weak self] in
                 self?.hideInAppCallUiCover(reason: "timeout")
             }
             self.callUiCoverHideWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: work)
-            print("[AiMediaTankVoipPushBridge] show in-app call UI cover")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4, execute: work)
+            print("[AiMediaTankVoipPushBridge] show in-app call UI cover (host window)")
         }
         if Thread.isMainThread {
             show()
@@ -192,9 +199,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             guard let self else { return }
             self.callUiCoverHideWork?.cancel()
             self.callUiCoverHideWork = nil
-            guard self.callUiCoverWindow != nil else { return }
-            self.callUiCoverWindow?.isHidden = true
-            self.callUiCoverWindow = nil
+            guard let cover = self.callUiCoverView else { return }
+            cover.removeFromSuperview()
+            self.callUiCoverView = nil
             print("[AiMediaTankVoipPushBridge] hide in-app call UI cover (\(reason))")
         }
         if Thread.isMainThread {
@@ -1912,8 +1919,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         stopCallKitRingAnnouncement()
-        // Cover feed/chat the instant CallKit Accept returns to the app.
-        showInAppCallUiCover()
         configureAudioSession()
         cancelDismissRetries(callId: callId)
         markPendingCallKitAnswer(callId: callId)
@@ -1943,6 +1948,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         // Fulfill after audio session is configured — CallKit then calls didActivate for WebRTC.
         action.fulfill()
+        // Cover only after fulfill — UI during CXAnswerCallAction (esp. new UIWindow) crashes.
+        DispatchQueue.main.async { [weak self] in
+            self?.showInAppCallUiCover()
+        }
     }
 
     /// Unlock → retry JS WebRTC if CallKit answer is still pending; otherwise native on lock screen.
