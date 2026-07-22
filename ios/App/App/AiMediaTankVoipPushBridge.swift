@@ -990,11 +990,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         attemptReport(retryAfterCleanup: false)
     }
 
-    /// Apple kills the process if a VoIP push completes without associating a CallKit call.
+    /// Apple kills the process (and eventually stops VoIP delivery) if a VoIP push completes
+    /// without `reportNewIncomingCall` or an existing CallKit call.
     ///
-    /// - Cancel with a known call UUID: end **that** UUID only — never flash a synthetic
-    ///   second CallKit screen (cancel-burst synthetics caused 2–3 UI flashes).
-    /// - Synthetic report+end only when there is no call UUID at all.
+    /// - Cancel while that call UUID is still on CallKit: end **that** UUID only.
+    /// - Otherwise: synthetic report+end (required). Never `reportCall(ended)` alone on a
+    ///   never-reported UUID — that fails PushKit and broke incoming rings after 1.0.69.
     private func fulfillVoipPushReportingRequirement(
         endingCallId: UUID? = nil,
         completion: @escaping () -> Void
@@ -1008,15 +1009,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 completion()
                 return
             }
-
-            // Call already gone / not yet on observer: associate this PushKit wake with the
-            // real call UUID via reportCall(ended) — do NOT reportNewIncomingCall a fake UI.
-            print("[AiMediaTankVoipPushBridge] fulfill VoIP push via reportCall end \(normalized) (no synthetic UI)")
-            endedCallKitCallIds.insert(normalized)
-            stopCallKitRingAnnouncement()
-            provider.reportCall(with: endingCallId, endedAt: Date(), reason: .remoteEnded)
-            completion()
-            return
+            print("[AiMediaTankVoipPushBridge] fulfill VoIP push — \(normalized) not on CallKit, using synthetic")
         }
 
         let fulfillId = UUID()
@@ -1502,9 +1495,13 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 let normalizedCallId = cancelCallId.lowercased()
                 print("[AiMediaTankVoipPushBridge] cancel push RECEIVED for call \(normalizedCallId) payloadKeys=\(payloadDict.keys.map { String(describing: $0) }.joined(separator: ","))")
                 let uuid = UUID(uuidString: normalizedCallId)
-                // Duplicate cancel burst: fulfill PushKit without re-running dismiss cascade / new UIs.
+                // Duplicate cancel: if CallKit still shows the call, end it; else synthetic only
+                // (must not reportCall(ended) on a never-reported UUID — breaks PushKit).
                 if Self.isCallCancelled(normalizedCallId) {
-                    fulfillVoipPushReportingRequirement(endingCallId: uuid) {
+                    let stillRinging = uuid.map { id in
+                        CXCallObserver().calls.contains { $0.uuid == id && !$0.hasEnded }
+                    } ?? false
+                    fulfillVoipPushReportingRequirement(endingCallId: stillRinging ? uuid : nil) {
                         completeOnce()
                     }
                     return
