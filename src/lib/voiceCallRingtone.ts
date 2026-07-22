@@ -256,6 +256,7 @@ function playRingLoop(buffer: AudioBuffer, generation: number, seamless = true) 
   const playOnce = () => {
     if (generation !== loopGeneration || !activeRingKind) return
     try {
+      void ctx.resume?.().catch(() => {})
       stopRingPlayback()
       const source = ctx.createBufferSource()
       source.buffer = buffer
@@ -274,7 +275,10 @@ function playRingLoop(buffer: AudioBuffer, generation: number, seamless = true) 
       ringActiveSource = source
       ringActiveGainNode = gainNode
     } catch {
-      // ignore transient playback errors
+      // Transient Web Audio errors — retry announcement loop instead of going silent.
+      if (!seamless && generation === loopGeneration) {
+        speechLoopTimer = globalThis.setTimeout(playOnce, ANNOUNCEMENT_LOOP_GAP_MS)
+      }
     }
   }
 
@@ -286,10 +290,12 @@ function playSpeechLoop(text: string, lang: string | undefined, generation: numb
 
   usingSpeechSynthesis = true
   const SPEECH_STALL_MS = 8000
+  // Each speakOnce gets an id so a late interrupted/canceled from the previous
+  // utterance cannot kill the loop and fall back to classic WAV after one play.
+  let speakId = 0
 
   const abandonSpeechAndFallback = () => {
     if (generation !== loopGeneration) return
-    // Clear speech state without bumping loopGeneration so WAV can start for this ring.
     if (speechLoopTimer) {
       clearTimeout(speechLoopTimer)
       speechLoopTimer = null
@@ -303,15 +309,25 @@ function playSpeechLoop(text: string, lang: string | undefined, generation: numb
     void fallbackRingToWav(generation)
   }
 
+  const scheduleSpeak = (delayMs: number) => {
+    if (generation !== loopGeneration || !usingSpeechSynthesis) return
+    if (speechLoopTimer) {
+      clearTimeout(speechLoopTimer)
+      speechLoopTimer = null
+    }
+    speechLoopTimer = globalThis.setTimeout(speakOnce, delayMs)
+  }
+
   const speakOnce = () => {
     if (generation !== loopGeneration || !usingSpeechSynthesis || !activeRingKind) return
+    const thisSpeakId = ++speakId
     const utterance = new SpeechSynthesisUtterance(text)
     const speechLang = normalizeSpeechLang(lang)
     if (speechLang) utterance.lang = speechLang
 
     let settled = false
     const stallTimer = globalThis.setTimeout(() => {
-      if (settled || generation !== loopGeneration) return
+      if (settled || generation !== loopGeneration || thisSpeakId !== speakId) return
       // iOS often fails silently (no onend/onerror) when speech is blocked.
       markSettled()
       abandonSpeechAndFallback()
@@ -325,15 +341,27 @@ function playSpeechLoop(text: string, lang: string | undefined, generation: numb
 
     utterance.onend = () => {
       markSettled()
-      if (generation !== loopGeneration || !usingSpeechSynthesis) return
-      speechLoopTimer = globalThis.setTimeout(speakOnce, ANNOUNCEMENT_LOOP_GAP_MS)
+      if (generation !== loopGeneration || !usingSpeechSynthesis || thisSpeakId !== speakId) return
+      scheduleSpeak(ANNOUNCEMENT_LOOP_GAP_MS)
     }
-    // Spec: error and end are mutually exclusive — without onerror the loop stalls forever.
-    utterance.onerror = () => {
+    utterance.onerror = (event) => {
+      markSettled()
+      if (generation !== loopGeneration || !usingSpeechSynthesis || thisSpeakId !== speakId) return
+      const err = (event as SpeechSynthesisErrorEvent).error
+      // Starting the next utterance commonly interrupts/cancels the previous one on iOS —
+      // keep speaking instead of switching to classic WAV after the first "Call from …".
+      if (err === 'interrupted' || err === 'canceled') {
+        scheduleSpeak(ANNOUNCEMENT_LOOP_GAP_MS)
+        return
+      }
+      abandonSpeechAndFallback()
+    }
+    try {
+      window.speechSynthesis.speak(utterance)
+    } catch {
       markSettled()
       abandonSpeechAndFallback()
     }
-    window.speechSynthesis.speak(utterance)
   }
 
   speakOnce()
@@ -412,9 +440,14 @@ async function onUserGesture() {
     flushPendingRing()
     return
   }
-  // Allow gesture retry even when speech was "active" but silent/stalled
-  // (usingSpeechSynthesis true with no Web Audio source).
-  if (activeRingKind && isIosDevice() && !ringActiveSource && pendingRingStart === null) {
+  // Retry stalled iOS rings (no Web Audio and speech not actively looping).
+  if (
+    activeRingKind &&
+    isIosDevice() &&
+    !ringActiveSource &&
+    !usingSpeechSynthesis &&
+    pendingRingStart === null
+  ) {
     retryVoiceCallRingtone()
   }
 }
