@@ -1023,14 +1023,15 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     ///
     /// - Cancel while that call UUID is on CallKit: end **that** UUID only.
     /// - Otherwise wait briefly for an in-flight incoming report, then end it or use synthetic.
-    ///   Immediate synthetic while incoming is reporting caused redundant CallKit flashes.
+    /// - Never invent a *new* UUID while another CallKit call is live — that flashes
+    ///   Decline / End & Accept over the answered call (lock-screen Accept regression).
     private func fulfillVoipPushReportingRequirement(
         endingCallId: UUID? = nil,
         completion: @escaping () -> Void
     ) {
         if let endingCallId {
             let normalized = endingCallId.uuidString.lowercased()
-            let endExistingOrSynthetic = { [weak self] in
+            let endExistingOrFulfill = { [weak self] in
                 guard let self else {
                     completion()
                     return
@@ -1042,24 +1043,80 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                     completion()
                     return
                 }
-                print("[AiMediaTankVoipPushBridge] fulfill VoIP push — \(normalized) not on CallKit, using synthetic")
-                self.reportSyntheticCallKitFulfill(completion: completion)
+                print("[AiMediaTankVoipPushBridge] fulfill VoIP push — \(normalized) not on CallKit")
+                self.reportPushKitCompliantIncoming(preferredExistingUUID: nil, completion: completion)
             }
 
             if CXCallObserver().calls.contains(where: { $0.uuid == endingCallId && !$0.hasEnded }) {
-                endExistingOrSynthetic()
+                endExistingOrFulfill()
                 return
             }
 
             // Incoming reportNewIncomingCall may still be in flight — wait before synthetic.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: endExistingOrSynthetic)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: endExistingOrFulfill)
             return
         }
 
+        reportPushKitCompliantIncoming(preferredExistingUUID: nil, completion: completion)
+    }
+
+    /// Satisfy PushKit without flashing End & Accept: reuse a live CallKit UUID when possible.
+    private func reportPushKitCompliantIncoming(
+        preferredExistingUUID: UUID?,
+        completion: @escaping () -> Void
+    ) {
+        let observer = CXCallObserver()
+        let liveUUID =
+            preferredExistingUUID
+            ?? observer.calls.first(where: { !$0.hasEnded })?.uuid
+            ?? UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey).flatMap { UUID(uuidString: $0) }
+
+        if let liveUUID {
+            reportIncomingUsingExistingCallUUID(liveUUID, completion: completion)
+            return
+        }
         reportSyntheticCallKitFulfill(completion: completion)
     }
 
+    /// Report the already-active/ringing UUID. CallKit returns `callUUIDAlreadyExists` — no second UI.
+    private func reportIncomingUsingExistingCallUUID(_ uuid: UUID, completion: @escaping () -> Void) {
+        let normalized = uuid.uuidString.lowercased()
+        let update = CXCallUpdate()
+        update.remoteHandle = CXHandle(type: .generic, value: "aimediatank")
+        update.localizedCallerName = "AiMediaTank"
+        update.hasVideo = false
+        update.supportsDTMF = false
+        update.supportsHolding = false
+        update.supportsGrouping = false
+        update.supportsUngrouping = false
+
+        provider.reportNewIncomingCall(with: uuid, update: update) { [weak self] error in
+            if let error {
+                // Expected when the call is already on CallKit — PushKit is satisfied.
+                print("[AiMediaTankVoipPushBridge] PushKit fulfill via existing UUID \(normalized): \(error.localizedDescription)")
+                completion()
+                return
+            }
+            // Race: UUID was not on CallKit. Only end if it is still not our live answered call.
+            let pending = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased()
+            let live = CXCallObserver().calls.contains { $0.uuid == uuid && !$0.hasEnded }
+            if live || pending == normalized {
+                print("[AiMediaTankVoipPushBridge] PushKit fulfill reported live UUID \(normalized) — leaving call")
+                completion()
+                return
+            }
+            print("[AiMediaTankVoipPushBridge] PushKit fulfill re-created \(normalized) — ending historically")
+            self?.provider.reportCall(
+                with: uuid,
+                endedAt: Date(timeIntervalSinceNow: -3600),
+                reason: .answeredElsewhere
+            )
+            completion()
+        }
+    }
+
     private func reportSyntheticCallKitFulfill(completion: @escaping () -> Void) {
+        // Last resort when no CallKit call exists. Historical end avoids a visible ring flash.
         let fulfillId = UUID()
         let fulfillNormalized = fulfillId.uuidString.lowercased()
         let update = CXCallUpdate()
@@ -1082,7 +1139,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 return
             }
             self.endedCallKitCallIds.insert(fulfillNormalized)
-            self.provider.reportCall(with: fulfillId, endedAt: Date(), reason: .failed)
+            self.provider.reportCall(
+                with: fulfillId,
+                endedAt: Date(timeIntervalSinceNow: -3600),
+                reason: .answeredElsewhere
+            )
             print("[AiMediaTankVoipPushBridge] fulfill VoIP push synthetic reported+ended \(fulfillNormalized)")
             completion()
         }
@@ -1595,8 +1656,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
         if Self.isCallCancelled(callIdString) {
             print("[AiMediaTankVoipPushBridge] ignored incoming push — call already cancelled \(normalizedCallId)")
-            // Synthetic UUID only — never report+end the real callId (races a retry incoming).
-            fulfillVoipPushReportingRequirement {
+            // Prefer live CallKit UUID if any; never flash a second End & Accept over an answered call.
+            reportPushKitCompliantIncoming(preferredExistingUUID: nil) {
                 completeOnce()
             }
             return
@@ -1605,8 +1666,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         if isIncomingCallAlreadyHandled(callId: normalizedCallId) {
             print("[AiMediaTankVoipPushBridge] ignored incoming push — call already answered \(normalizedCallId)")
             postVoiceTrace(callId: normalizedCallId, event: "grace_skip_answered")
-            // Do not end the active CallKit call — only fulfill PushKit with a synthetic UUID.
-            fulfillVoipPushReportingRequirement {
+            // Re-report the answered UUID (callUUIDAlreadyExists) — never a new synthetic
+            // UUID, which flashes Decline / End & Accept over the live call.
+            reportPushKitCompliantIncoming(preferredExistingUUID: callId) {
                 completeOnce()
             }
             return
