@@ -109,16 +109,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var ringAnnouncementText = ""
     private var ringAnnouncementLang: String?
     private var ringAnnouncementLoopWork: DispatchWorkItem?
-    /// Hides WKWebView + dark host only if CallKit must dismiss before in-app UI is ready (timeout path).
+    /// Hides WKWebView + dark host so CallKit Accept never reveals the home feed.
     private weak var acceptHandoffWebView: WKWebView?
     private var acceptHandoffHideWork: DispatchWorkItem?
     private var acceptHandoffPollWork: DispatchWorkItem?
     private var acceptHandoffActive = false
     private static let acceptHandoffBg = UIColor(red: 0.10, green: 0.07, blue: 0.04, alpha: 1)
-    /// Held until in-app call UI paints (or timeout) so CallKit Accept UI stays up and covers the feed.
-    private var pendingAnswerAction: CXAnswerCallAction?
-    private var pendingAnswerFulfillWork: DispatchWorkItem?
-    private var pendingAnswerUiPollWork: DispatchWorkItem?
 
     private static func isForegroundActive() -> Bool {
         guard UIApplication.shared.applicationState == .active else { return false }
@@ -158,89 +154,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         if let window = scene.windows.first(where: { $0.isKeyWindow }) {
             window.makeKeyAndVisible()
-        }
-    }
-
-    /// Prefer keeping CallKit Accept UI until React paints the in-app call screen.
-    /// Fulfill only when `data-amt-call-active` is set, or after a short timeout (CallKit requires timely fulfill).
-    private func scheduleAnswerFulfillWhenCallUiReady(callId: String) {
-        pendingAnswerFulfillWork?.cancel()
-        pendingAnswerUiPollWork?.cancel()
-
-        let timeout = DispatchWorkItem { [weak self] in
-            self?.fulfillPendingAnswer(reason: "timeout", ensureCover: true)
-        }
-        pendingAnswerFulfillWork = timeout
-        // Keep Accept UI briefly; do not wait for WebRTC connect (that would delay audio activation).
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: timeout)
-        pollForCallUiThenFulfillAnswer(callId: callId, attempt: 0)
-    }
-
-    private func pollForCallUiThenFulfillAnswer(callId: String, attempt: Int) {
-        guard pendingAnswerAction != nil, attempt < 50 else { return }
-        let work = DispatchWorkItem { [weak self] in
-            guard let self, self.pendingAnswerAction != nil else { return }
-            guard let webView = Self.findBridgeViewController()?.webView else {
-                self.pollForCallUiThenFulfillAnswer(callId: callId, attempt: attempt + 1)
-                return
-            }
-            webView.evaluateJavaScript(
-                "document.documentElement.getAttribute('data-amt-call-active')"
-            ) { [weak self] result, _ in
-                guard let self, self.pendingAnswerAction != nil else { return }
-                if (result as? String) == "1" {
-                    self.fulfillPendingAnswer(reason: "call_ui_ready", ensureCover: false)
-                    return
-                }
-                self.pollForCallUiThenFulfillAnswer(callId: callId, attempt: attempt + 1)
-            }
-        }
-        pendingAnswerUiPollWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
-    }
-
-    private func fulfillPendingAnswer(reason: String, ensureCover: Bool) {
-        let run = { [weak self] in
-            guard let self else { return }
-            guard let action = self.pendingAnswerAction else { return }
-            self.pendingAnswerAction = nil
-            self.pendingAnswerFulfillWork?.cancel()
-            self.pendingAnswerFulfillWork = nil
-            self.pendingAnswerUiPollWork?.cancel()
-            self.pendingAnswerUiPollWork = nil
-            if ensureCover {
-                // CallKit is about to dismiss without in-app UI — brief cover prevents feed flash.
-                self.beginAcceptUiHandoff()
-            }
-            action.fulfill()
-            print("[AiMediaTankVoipPushBridge] CallKit answer fulfilled (\(reason))")
-            if !ensureCover {
-                self.endAcceptUiHandoff(reason: "answer_fulfilled_ui_ready")
-            }
-        }
-        if Thread.isMainThread {
-            run()
-        } else {
-            DispatchQueue.main.async(execute: run)
-        }
-    }
-
-    private func failPendingAnswerIfNeeded() {
-        let run = { [weak self] in
-            guard let self else { return }
-            guard let action = self.pendingAnswerAction else { return }
-            self.pendingAnswerAction = nil
-            self.pendingAnswerFulfillWork?.cancel()
-            self.pendingAnswerFulfillWork = nil
-            self.pendingAnswerUiPollWork?.cancel()
-            self.pendingAnswerUiPollWork = nil
-            action.fail()
-            print("[AiMediaTankVoipPushBridge] CallKit answer failed (call ended before fulfill)")
-        }
-        if Thread.isMainThread {
-            run()
-        } else {
-            DispatchQueue.main.async(execute: run)
         }
     }
 
@@ -967,7 +880,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let end = { [weak self] in
             guard let self = self else { return }
             self.stopCallKitRingAnnouncement()
-            self.failPendingAnswerIfNeeded()
             self.endAcceptUiHandoff(reason: "call_ended")
             let observer = CXCallObserver()
             let stillOnCallKit = observer.calls.contains { $0.uuid == uuid && !$0.hasEnded }
@@ -1836,8 +1748,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func providerDidReset(_ provider: CXProvider) {
         print("[AiMediaTankVoipPushBridge] providerDidReset — clearing stale VoIP call state")
         stopCallKitRingAnnouncement()
-        failPendingAnswerIfNeeded()
-        endAcceptUiHandoff(reason: "provider_reset")
         statusWatchGeneration.keys.forEach { stopCallStatusWatch(callId: $0) }
         dismissRetryGeneration.removeAll()
         clearPendingCallKitAnswer()
@@ -2086,8 +1996,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         stopCallKitRingAnnouncement()
-        // Hold fulfill so CallKit Accept UI stays up until in-app call UI paints (or timeout).
-        pendingAnswerAction = action
+        // Hide WebView before CallKit dismisses — home feed must not paint between Accept and call UI.
+        beginAcceptUiHandoff()
         configureAudioSession()
         cancelDismissRetries(callId: callId)
         markPendingCallKitAnswer(callId: callId)
@@ -2115,7 +2025,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         if Self.canDeliverToWebView() {
             deliverLockScreenCallUiToJs(callId: callId, declineToken: token.isEmpty ? nil : token)
         }
-        scheduleAnswerFulfillWhenCallUiReady(callId: callId)
+        // Fulfill after audio session is configured — CallKit then calls didActivate for WebRTC.
+        action.fulfill()
+        // Window may not exist until after fulfill — re-hide feed on next turn.
+        DispatchQueue.main.async { [weak self] in
+            self?.beginAcceptUiHandoff()
+        }
     }
 
     /// Unlock → retry JS WebRTC if CallKit answer is still pending; otherwise native on lock screen.
@@ -2152,7 +2067,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         stopCallKitRingAnnouncement()
         audioActivationFallbackGeneration = nil
         Self.clearLockScreenNativeAnswer(callId: callId)
-        failPendingAnswerIfNeeded()
         endAcceptUiHandoff(reason: "user_end")
         let alreadyHandled = endedCallKitCallIds.contains(callId)
         if !alreadyHandled {
@@ -2189,10 +2103,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
         print("[AiMediaTankVoipPushBridge] CallKit action timed out: \(action)")
-        if action is CXAnswerCallAction {
-            // System timed out waiting — fulfill so audio can proceed rather than leaving a stuck Accept UI.
-            fulfillPendingAnswer(reason: "system_timeout", ensureCover: true)
-        }
     }
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
