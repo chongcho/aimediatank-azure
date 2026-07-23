@@ -109,12 +109,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var ringAnnouncementText = ""
     private var ringAnnouncementLang: String?
     private var ringAnnouncementLoopWork: DispatchWorkItem?
-    /// Hides WKWebView + dark host so CallKit Accept never reveals the home feed.
-    private weak var acceptHandoffWebView: WKWebView?
-    private var acceptHandoffHideWork: DispatchWorkItem?
-    private var acceptHandoffPollWork: DispatchWorkItem?
-    private var acceptHandoffActive = false
-    private static let acceptHandoffBg = UIColor(red: 0.10, green: 0.07, blue: 0.04, alpha: 1)
 
     private static func isForegroundActive() -> Bool {
         guard UIApplication.shared.applicationState == .active else { return false }
@@ -155,110 +149,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         if let window = scene.windows.first(where: { $0.isKeyWindow }) {
             window.makeKeyAndVisible()
         }
-    }
-
-    /// Hide the WebView before CallKit dismisses into the app — prevents home-feed flash.
-    /// Reveal only when React marks call UI ready (or hard timeout). Never a new UIWindow.
-    private func beginAcceptUiHandoff() {
-        let begin = { [weak self] in
-            guard let self else { return }
-            let wasActive = self.acceptHandoffActive
-            self.acceptHandoffActive = true
-            if !wasActive {
-                self.acceptHandoffHideWork?.cancel()
-                self.acceptHandoffPollWork?.cancel()
-            }
-
-            let bridge = Self.findBridgeViewController()
-            if let bridge {
-                bridge.view.backgroundColor = Self.acceptHandoffBg
-                if let webView = bridge.webView {
-                    webView.isHidden = true
-                    webView.backgroundColor = Self.acceptHandoffBg
-                    webView.scrollView.backgroundColor = Self.acceptHandoffBg
-                    self.acceptHandoffWebView = webView
-                }
-            }
-            if let window = bridge?.view.window ??
-                UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .flatMap(\.windows)
-                .first(where: { $0.isKeyWindow })
-            {
-                window.backgroundColor = Self.acceptHandoffBg
-            }
-
-            if !wasActive {
-                let timeout = DispatchWorkItem { [weak self] in
-                    self?.endAcceptUiHandoff(reason: "timeout")
-                }
-                self.acceptHandoffHideWork = timeout
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: timeout)
-                self.scheduleAcceptUiReadyPoll(attempt: 0)
-                print("[AiMediaTankVoipPushBridge] begin accept UI handoff (webview hidden)")
-            } else if self.acceptHandoffWebView != nil {
-                print("[AiMediaTankVoipPushBridge] accept UI handoff refreshed (webview hidden)")
-            }
-        }
-        if Thread.isMainThread {
-            begin()
-        } else {
-            DispatchQueue.main.async(execute: begin)
-        }
-    }
-
-    private func endAcceptUiHandoff(reason: String) {
-        let end = { [weak self] in
-            guard let self else { return }
-            guard self.acceptHandoffActive else { return }
-            self.acceptHandoffActive = false
-            self.acceptHandoffHideWork?.cancel()
-            self.acceptHandoffHideWork = nil
-            self.acceptHandoffPollWork?.cancel()
-            self.acceptHandoffPollWork = nil
-            if let webView = self.acceptHandoffWebView ?? Self.findBridgeViewController()?.webView {
-                webView.isHidden = false
-            }
-            self.acceptHandoffWebView = nil
-            print("[AiMediaTankVoipPushBridge] end accept UI handoff (\(reason))")
-        }
-        if Thread.isMainThread {
-            end()
-        } else {
-            DispatchQueue.main.async(execute: end)
-        }
-    }
-
-    private func scheduleAcceptUiReadyPoll(attempt: Int) {
-        guard acceptHandoffActive, attempt < 40 else { return }
-        let work = DispatchWorkItem { [weak self] in
-            guard let self, self.acceptHandoffActive else { return }
-            guard let webView = self.acceptHandoffWebView ?? Self.findBridgeViewController()?.webView else {
-                self.scheduleAcceptUiReadyPoll(attempt: attempt + 1)
-                return
-            }
-            // Temporarily show WebView only for the attribute check if shell/call UI already painted
-            // while hidden — evaluateJavaScript still works on hidden WKWebView.
-            webView.evaluateJavaScript(
-                "document.documentElement.getAttribute('data-amt-call-active') || (document.getElementById('aimediatank-accept-shell') ? 'shell' : null)"
-            ) { [weak self] result, _ in
-                guard let self, self.acceptHandoffActive else { return }
-                let flag = result as? String
-                if flag == "1" {
-                    self.endAcceptUiHandoff(reason: "call_ui_ready")
-                    return
-                }
-                // Shell is in DOM under a hidden webview — reveal once so user sees call-colored shell,
-                // keep handoff until React sets data-amt-call-active.
-                if flag == "shell", webView.isHidden {
-                    webView.isHidden = false
-                    print("[AiMediaTankVoipPushBridge] accept handoff — reveal shell")
-                }
-                self.scheduleAcceptUiReadyPoll(attempt: attempt + 1)
-            }
-        }
-        acceptHandoffPollWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
     }
 
     private override init() {
@@ -880,7 +770,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let end = { [weak self] in
             guard let self = self else { return }
             self.stopCallKitRingAnnouncement()
-            self.endAcceptUiHandoff(reason: "call_ended")
+            NativeVoiceCallEngine.shared.clearPrefetch(callId: callId)
             let observer = CXCallObserver()
             let stillOnCallKit = observer.calls.contains { $0.uuid == uuid && !$0.hasEnded }
             let alreadyMarked = self.endedCallKitCallIds.contains(callId)
@@ -1722,6 +1612,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                     announcement: announcement,
                     lang: lang
                 )
+                // Prefetch offer/ICE while ringing so Accept can createAnswer immediately.
+                if let token = self.declineToken(from: payloadDict) ??
+                    UserDefaults.standard.string(forKey: Self.declineTokenKey(for: normalizedCallId)),
+                   !token.isEmpty
+                {
+                    NativeVoiceCallEngine.shared.prefetchBootstrapWhileRinging(
+                        callId: normalizedCallId,
+                        token: token,
+                        baseURL: self.voiceApiBaseURL()
+                    )
+                }
                 completeOnce()
             } else {
                 self.postVoiceTrace(callId: normalizedCallId, event: "callkit_report_fail")
@@ -1857,13 +1758,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             print("[AiMediaTankVoipPushBridge] WebView inject skipped — no bridge for \(callId)")
             return
         }
-        if acceptHandoffActive {
-            webView.isHidden = true
-            webView.backgroundColor = Self.acceptHandoffBg
-            webView.scrollView.backgroundColor = Self.acceptHandoffBg
-            acceptHandoffWebView = webView
-            bridge.view.backgroundColor = Self.acceptHandoffBg
-        }
+        // Tint only (never hide WebView) — avoids black flash while shell/call UI paints.
+        let callBg = UIColor(red: 0.10, green: 0.07, blue: 0.04, alpha: 1)
+        bridge.view.backgroundColor = callBg
+        webView.backgroundColor = callBg
+        webView.scrollView.backgroundColor = callBg
         let tokenJs: String
         if let declineToken, !declineToken.isEmpty {
             let escaped = declineToken
@@ -1885,11 +1784,26 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
               el.setAttribute('aria-hidden', 'true');
               el.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:linear-gradient(180deg,#3d2914 0%,#1a1208 45%,#0d0906 100%);pointer-events:none;';
               (document.documentElement || document.body).appendChild(el);
-              setTimeout(function(){ var n = document.getElementById(id); if (n) n.remove(); }, 2000);
+            }
+            function removeShell() {
+              var n = document.getElementById(id);
+              if (n) n.remove();
+            }
+            if (document.documentElement.getAttribute('data-amt-call-active') === '1') {
+              removeShell();
+            } else {
+              var mo = new MutationObserver(function() {
+                if (document.documentElement.getAttribute('data-amt-call-active') === '1') {
+                  mo.disconnect();
+                  removeShell();
+                }
+              });
+              mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-amt-call-active'] });
+              setTimeout(function(){ mo.disconnect(); removeShell(); }, 8000);
             }
             window.addEventListener('aimediatank-native-call-connected', function once() {
               window.removeEventListener('aimediatank-native-call-connected', once);
-              var n = document.getElementById(id); if (n) n.remove();
+              removeShell();
             });
             window.dispatchEvent(new CustomEvent('aimediatank-callkit-answer', {
               detail: { callId: '\(callId)'\(tokenJs)\(sessionJs)\(nativeJs) }
@@ -1904,7 +1818,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 } else {
                     print("[AiMediaTankVoipPushBridge] WebView inject ok \(callId)")
                 }
-                // Keep handoff until React sets data-amt-call-active (poll) — do not unveil early.
             }
         }
         if Thread.isMainThread {
@@ -1996,8 +1909,14 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         stopCallKitRingAnnouncement()
-        // Hide WebView before CallKit dismisses — home feed must not paint between Accept and call UI.
-        beginAcceptUiHandoff()
+        // Darken host immediately (no WebView hide) so CallKit dismiss never shows the feed.
+        if let bridge = Self.findBridgeViewController() {
+            let callBg = UIColor(red: 0.10, green: 0.07, blue: 0.04, alpha: 1)
+            bridge.view.backgroundColor = callBg
+            bridge.webView?.backgroundColor = callBg
+            bridge.webView?.scrollView.backgroundColor = callBg
+            bridge.view.window?.backgroundColor = callBg
+        }
         configureAudioSession()
         cancelDismissRetries(callId: callId)
         markPendingCallKitAnswer(callId: callId)
@@ -2027,10 +1946,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         // Fulfill after audio session is configured — CallKit then calls didActivate for WebRTC.
         action.fulfill()
-        // Window may not exist until after fulfill — re-hide feed on next turn.
-        DispatchQueue.main.async { [weak self] in
-            self?.beginAcceptUiHandoff()
-        }
     }
 
     /// Unlock → retry JS WebRTC if CallKit answer is still pending; otherwise native on lock screen.
@@ -2067,7 +1982,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         stopCallKitRingAnnouncement()
         audioActivationFallbackGeneration = nil
         Self.clearLockScreenNativeAnswer(callId: callId)
-        endAcceptUiHandoff(reason: "user_end")
         let alreadyHandled = endedCallKitCallIds.contains(callId)
         if !alreadyHandled {
             endedCallKitCallIds.insert(callId)

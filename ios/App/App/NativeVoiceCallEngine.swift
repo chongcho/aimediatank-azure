@@ -36,6 +36,10 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var isShuttingDownPeerConnection = false
     private var cachedCaller: [String: Any]?
     private(set) var isMediaConnected = false
+    /// Prefetched while CallKit is ringing so Accept skips the bootstrap wait.
+    private var prefetchedBootstrap: BootstrapResult?
+    private var prefetchedCallId: String?
+    private var prefetchGeneration: UUID?
 
     private override init() {
         super.init()
@@ -62,6 +66,60 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         pendingStart && isAnswering && !audioSessionReady
     }
 
+    /// Fetch offer/ICE while the phone is still ringing (no peer connection / no mic yet).
+    func prefetchBootstrapWhileRinging(callId: String, token: String, baseURL: String) {
+        let normalized = callId.lowercased()
+        guard !token.isEmpty else { return }
+        if isAnswering, self.callId == normalized { return }
+
+        self.baseURL = baseURL
+        self.token = token
+        prefetchedCallId = normalized
+        prefetchedBootstrap = nil
+        let generation = UUID()
+        prefetchGeneration = generation
+        print("[NativeVoiceCallEngine] prefetch bootstrap while ringing \(normalized)")
+        postTrace(callId: normalized, token: token, event: "native_webrtc_prefetch_start")
+        prefetchBootstrapLoop(callId: normalized, token: token, generation: generation, attempt: 0)
+    }
+
+    func clearPrefetch(callId: String? = nil) {
+        if let callId {
+            guard prefetchedCallId == callId.lowercased() else { return }
+        }
+        prefetchGeneration = nil
+        prefetchedBootstrap = nil
+        prefetchedCallId = nil
+    }
+
+    private func prefetchBootstrapLoop(callId: String, token: String, generation: UUID, attempt: Int) {
+        guard prefetchGeneration == generation, prefetchedCallId == callId else { return }
+        fetchBootstrap(callId: callId, token: token) { [weak self] result in
+            guard let self, self.prefetchGeneration == generation, self.prefetchedCallId == callId else { return }
+            switch result {
+            case .failure:
+                if attempt < 40 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        self.prefetchBootstrapLoop(callId: callId, token: token, generation: generation, attempt: attempt + 1)
+                    }
+                }
+            case .success(let bootstrap):
+                if let offer = bootstrap.offerSdp, !offer.isEmpty {
+                    self.prefetchedBootstrap = bootstrap
+                    if let caller = bootstrap.caller { self.cachedCaller = caller }
+                    print("[NativeVoiceCallEngine] prefetch offer ready \(callId) ice=\(bootstrap.remoteIceCandidates.count)")
+                    self.postTrace(callId: callId, token: token, event: "native_webrtc_prefetch_ready")
+                    return
+                }
+                if attempt < 40 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        self.prefetchBootstrapLoop(callId: callId, token: token, generation: generation, attempt: attempt + 1)
+                    }
+                }
+            }
+        }
+    }
+
     func prepareAnswer(callId: String, token: String, baseURL: String) {
         let normalized = callId.lowercased()
         if isAnswering, self.callId == normalized, pendingStart || peerConnection != nil {
@@ -80,10 +138,13 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         appliedRemoteIceKeys.removeAll()
         pendingRemoteIce.removeAll()
         remoteDescriptionReady = false
-        cachedCaller = nil
+        if prefetchedCallId != normalized {
+            cachedCaller = nil
+            prefetchedBootstrap = nil
+        }
         isMediaConnected = false
 
-        print("[NativeVoiceCallEngine] prepare answer \(normalized)")
+        print("[NativeVoiceCallEngine] prepare answer \(normalized) prefetch=\(prefetchedBootstrap?.offerSdp != nil)")
         postTrace(callId: normalized, token: token, event: "native_webrtc_prepare")
 
         if audioSessionReady {
@@ -152,6 +213,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         uiSyncGeneration = UUID()
         stopIcePoll()
         bootstrapGeneration = nil
+        clearPrefetch()
         isAnswering = false
         pendingStart = false
         isMediaConnected = false
@@ -180,6 +242,29 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         pendingStart = false
 
         postNativeCallKit(action: "accept", callId: callId, token: token)
+
+        if prefetchedCallId == callId.lowercased(),
+           let cached = prefetchedBootstrap,
+           let offerSdp = cached.offerSdp,
+           !offerSdp.isEmpty
+        {
+            let ice = cached.remoteIceCandidates
+            let servers = cached.iceServers
+            if let caller = cached.caller { cachedCaller = caller }
+            prefetchedBootstrap = nil
+            prefetchGeneration = nil
+            print("[NativeVoiceCallEngine] using prefetched offer \(callId)")
+            postTrace(callId: callId, token: token, event: "native_webrtc_prefetch_hit")
+            createAnswer(
+                callId: callId,
+                token: token,
+                offerSdp: offerSdp,
+                iceServers: servers,
+                initialRemoteIce: ice
+            )
+            return
+        }
+
         bootstrapUntilOfferReady(callId: callId, token: token)
     }
 
@@ -194,7 +279,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             switch result {
             case .failure(let error):
                 if attempt < 60 {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                         self.bootstrapUntilOfferReady(callId: callId, token: token, attempt: attempt + 1)
                     }
                 } else {
@@ -206,7 +291,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                 }
                 guard let offerSdp = bootstrap.offerSdp, !offerSdp.isEmpty else {
                     if attempt < 60 {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                             self.bootstrapUntilOfferReady(callId: callId, token: token, attempt: attempt + 1)
                         }
                     } else {
