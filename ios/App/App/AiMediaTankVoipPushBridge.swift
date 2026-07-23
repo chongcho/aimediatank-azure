@@ -109,6 +109,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var ringAnnouncementText = ""
     private var ringAnnouncementLang: String?
     private var ringAnnouncementLoopWork: DispatchWorkItem?
+    /// Opaque call-colored cover above the WebView (WebView stays visible and paints underneath).
+    private weak var acceptCoverView: UIView?
+    private var acceptCoverPollWork: DispatchWorkItem?
+    private var acceptCoverActive = false
+    private static let acceptCoverBg = UIColor(red: 0.10, green: 0.07, blue: 0.04, alpha: 1)
 
     private static func isForegroundActive() -> Bool {
         guard UIApplication.shared.applicationState == .active else { return false }
@@ -149,6 +154,88 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         if let window = scene.windows.first(where: { $0.isKeyWindow }) {
             window.makeKeyAndVisible()
         }
+    }
+
+    /// Cover the feed instantly on Accept. WebView keeps painting call UI underneath — no hide/black flash.
+    private func beginAcceptCover() {
+        let begin = { [weak self] in
+            guard let self else { return }
+            self.acceptCoverActive = true
+            let bg = Self.acceptCoverBg
+            guard let bridge = Self.findBridgeViewController() else { return }
+            bridge.view.backgroundColor = bg
+            bridge.webView?.backgroundColor = bg
+            bridge.webView?.scrollView.backgroundColor = bg
+            bridge.view.window?.backgroundColor = bg
+
+            if self.acceptCoverView == nil {
+                let cover = UIView(frame: bridge.view.bounds)
+                cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                cover.backgroundColor = bg
+                cover.isUserInteractionEnabled = false
+                cover.tag = 0xA11C07
+                if let webView = bridge.webView {
+                    bridge.view.insertSubview(cover, aboveSubview: webView)
+                } else {
+                    bridge.view.addSubview(cover)
+                }
+                self.acceptCoverView = cover
+            } else {
+                self.acceptCoverView?.backgroundColor = bg
+                self.acceptCoverView?.isHidden = false
+            }
+            self.scheduleAcceptCoverReadyPoll(attempt: 0)
+            print("[AiMediaTankVoipPushBridge] begin accept cover")
+        }
+        if Thread.isMainThread {
+            begin()
+        } else {
+            DispatchQueue.main.async(execute: begin)
+        }
+    }
+
+    private func endAcceptCover(reason: String) {
+        let end = { [weak self] in
+            guard let self else { return }
+            guard self.acceptCoverActive || self.acceptCoverView != nil else { return }
+            self.acceptCoverActive = false
+            self.acceptCoverPollWork?.cancel()
+            self.acceptCoverPollWork = nil
+            self.acceptCoverView?.removeFromSuperview()
+            self.acceptCoverView = nil
+            print("[AiMediaTankVoipPushBridge] end accept cover (\(reason))")
+        }
+        if Thread.isMainThread {
+            end()
+        } else {
+            DispatchQueue.main.async(execute: end)
+        }
+    }
+
+    private func scheduleAcceptCoverReadyPoll(attempt: Int) {
+        guard acceptCoverActive, attempt < 60 else {
+            if attempt >= 60 { endAcceptCover(reason: "timeout") }
+            return
+        }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.acceptCoverActive else { return }
+            guard let webView = Self.findBridgeViewController()?.webView else {
+                self.scheduleAcceptCoverReadyPoll(attempt: attempt + 1)
+                return
+            }
+            webView.evaluateJavaScript(
+                "document.documentElement.getAttribute('data-amt-call-active')"
+            ) { [weak self] result, _ in
+                guard let self, self.acceptCoverActive else { return }
+                if (result as? String) == "1" {
+                    self.endAcceptCover(reason: "call_ui_ready")
+                    return
+                }
+                self.scheduleAcceptCoverReadyPoll(attempt: attempt + 1)
+            }
+        }
+        acceptCoverPollWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
     }
 
     private override init() {
@@ -771,6 +858,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             guard let self = self else { return }
             self.stopCallKitRingAnnouncement()
             NativeVoiceCallEngine.shared.clearPrefetch(callId: callId)
+            self.endAcceptCover(reason: "call_ended")
             let observer = CXCallObserver()
             let stillOnCallKit = observer.calls.contains { $0.uuid == uuid && !$0.hasEnded }
             let alreadyMarked = self.endedCallKitCallIds.contains(callId)
@@ -1909,14 +1997,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let callId = action.callUUID.uuidString.lowercased()
         stopCallKitRingAnnouncement()
-        // Darken host immediately (no WebView hide) so CallKit dismiss never shows the feed.
-        if let bridge = Self.findBridgeViewController() {
-            let callBg = UIColor(red: 0.10, green: 0.07, blue: 0.04, alpha: 1)
-            bridge.view.backgroundColor = callBg
-            bridge.webView?.backgroundColor = callBg
-            bridge.webView?.scrollView.backgroundColor = callBg
-            bridge.view.window?.backgroundColor = callBg
-        }
+        // Cover feed immediately; WebView stays visible and paints call UI underneath.
+        beginAcceptCover()
         configureAudioSession()
         cancelDismissRetries(callId: callId)
         markPendingCallKitAnswer(callId: callId)
@@ -1929,6 +2011,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             // Always native WebRTC for CallKit Accept — WKWebView RTCPeerConnection conflicts with CallKit audio (lock + in-app).
             Self.markLockScreenNativeAnswer(callId: callId)
             print("[AiMediaTankVoipPushBridge] CallKit Accept — native WebRTC \(callId)")
+            // Start SDP/ICE now — do not wait for didActivate.
             NativeVoiceCallEngine.shared.prepareAnswer(
                 callId: callId,
                 token: token,
@@ -1940,12 +2023,15 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         pendingJsAnswerCallId = callId
         pendingJsAnswerDeclineToken = token.isEmpty ? nil : token
+        // Fulfill ASAP so CallKit activates audio while signaling is already in flight.
+        action.fulfill()
         scheduleJsAnswerDeliveryRetries(callId: callId)
         if Self.canDeliverToWebView() {
             deliverLockScreenCallUiToJs(callId: callId, declineToken: token.isEmpty ? nil : token)
         }
-        // Fulfill after audio session is configured — CallKit then calls didActivate for WebRTC.
-        action.fulfill()
+        DispatchQueue.main.async { [weak self] in
+            self?.beginAcceptCover()
+        }
     }
 
     /// Unlock → retry JS WebRTC if CallKit answer is still pending; otherwise native on lock screen.
@@ -1982,6 +2068,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         stopCallKitRingAnnouncement()
         audioActivationFallbackGeneration = nil
         Self.clearLockScreenNativeAnswer(callId: callId)
+        endAcceptCover(reason: "user_end")
         let alreadyHandled = endedCallKitCallIds.contains(callId)
         if !alreadyHandled {
             endedCallKitCallIds.insert(callId)

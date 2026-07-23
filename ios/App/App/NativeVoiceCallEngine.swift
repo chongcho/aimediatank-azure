@@ -36,6 +36,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var isShuttingDownPeerConnection = false
     private var cachedCaller: [String: Any]?
     private(set) var isMediaConnected = false
+    private weak var localAudioTrack: RTCAudioTrack?
     /// Prefetched while CallKit is ringing so Accept skips the bootstrap wait.
     private var prefetchedBootstrap: BootstrapResult?
     private var prefetchedCallId: String?
@@ -62,8 +63,9 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         callId
     }
 
+    /// True until CallKit `didActivate` — signaling may already be in flight.
     var awaitsCallKitAudioActivation: Bool {
-        pendingStart && isAnswering && !audioSessionReady
+        isAnswering && !audioSessionReady
     }
 
     /// Fetch offer/ICE while the phone is still ringing (no peer connection / no mic yet).
@@ -78,6 +80,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         prefetchedBootstrap = nil
         let generation = UUID()
         prefetchGeneration = generation
+        // Warm WebRTC early so Accept does not pay RTCInitializeSSL cost.
+        _ = peerConnectionFactory()
         print("[NativeVoiceCallEngine] prefetch bootstrap while ringing \(normalized)")
         postTrace(callId: normalized, token: token, event: "native_webrtc_prefetch_start")
         prefetchBootstrapLoop(callId: normalized, token: token, generation: generation, attempt: 0)
@@ -122,7 +126,11 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     func prepareAnswer(callId: String, token: String, baseURL: String) {
         let normalized = callId.lowercased()
-        if isAnswering, self.callId == normalized, pendingStart || peerConnection != nil {
+        if isAnswering, self.callId == normalized {
+            // Already answering this call — keep in-flight SDP/ICE; only re-kick if still pending.
+            self.token = token
+            self.baseURL = baseURL
+            beginAnswerIfNeeded()
             return
         }
         if isActive, self.callId != normalized {
@@ -144,17 +152,18 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         }
         isMediaConnected = false
 
-        print("[NativeVoiceCallEngine] prepare answer \(normalized) prefetch=\(prefetchedBootstrap?.offerSdp != nil)")
+        print("[NativeVoiceCallEngine] prepare answer \(normalized) prefetch=\(prefetchedBootstrap?.offerSdp != nil) audioReady=\(audioSessionReady)")
         postTrace(callId: normalized, token: token, event: "native_webrtc_prepare")
 
-        if audioSessionReady {
-            beginAnswerIfNeeded()
-        }
+        // Start SDP/ICE immediately on Accept — do not wait for CallKit didActivate.
+        beginAnswerIfNeeded()
     }
 
     func audioSessionActivated() {
         audioSessionReady = true
         applyWebRtcAudioSession(activated: true)
+        localAudioTrack?.isEnabled = true
+        // If Accept raced ahead of didActivate, finish any deferred start (should be rare now).
         beginAnswerIfNeeded()
     }
 
@@ -228,6 +237,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         self.callId = nil
         self.token = nil
         cachedCaller = nil
+        localAudioTrack = nil
         tearDownPeerConnection(notify: true, notifyCallId: endedCallId)
     }
 
@@ -237,11 +247,12 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     }
 
     private func beginAnswerIfNeeded() {
-        guard pendingStart, isAnswering, audioSessionReady else { return }
+        guard pendingStart, isAnswering else { return }
         guard let callId, let token, !token.isEmpty else { return }
         pendingStart = false
 
         postNativeCallKit(action: "accept", callId: callId, token: token)
+        print("[NativeVoiceCallEngine] begin answer \(callId) audioReady=\(audioSessionReady)")
 
         if prefetchedCallId == callId.lowercased(),
            let cached = prefetchedBootstrap,
@@ -323,16 +334,14 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             failCall(callId: callId, error: "invalid offer sdp")
             return
         }
-        guard audioSessionReady else {
-            print("[NativeVoiceCallEngine] defer createAnswer — awaiting CallKit audio \(callId)")
-            pendingStart = true
-            return
-        }
 
         let generation = UUID()
         tearDownPeerConnection(notify: false)
         createAnswerGeneration = generation
-        ensureWebRtcAudioEnabled()
+        // Enable WebRTC audio I/O only after CallKit didActivate; signaling starts now.
+        if audioSessionReady {
+            ensureWebRtcAudioEnabled()
+        }
 
         let config = RTCConfiguration()
         config.iceServers = iceServers
@@ -352,7 +361,9 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
         let audioSource = peerConnectionFactory().audioSource(with: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil))
         let audioTrack = peerConnectionFactory().audioTrack(with: audioSource, trackId: "audio0")
-        audioTrack.isEnabled = true
+        // Keep mic muted until CallKit activates the shared audio session.
+        audioTrack.isEnabled = audioSessionReady
+        localAudioTrack = audioTrack
         pc.add(audioTrack, streamIds: ["stream0"])
 
         let offer = RTCSessionDescription(type: .offer, sdp: sdp)
@@ -410,6 +421,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             self.remoteDescriptionReady = false
             self.pendingRemoteIce.removeAll()
             self.invalidateRemoteIceProcessing()
+            self.localAudioTrack = nil
             let pc = self.peerConnection
             self.peerConnection = nil
             pc?.close()
