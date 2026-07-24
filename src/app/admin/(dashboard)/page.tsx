@@ -2195,9 +2195,9 @@ export default function AdminPage() {
                 <button
                   type="button"
                   className="text-xs text-sky-400 hover:text-sky-300 whitespace-nowrap"
-                  title="Fill Sign-in for older social users from Entra identities"
+                  title="Fill Sign-in / name / phone / country for older social users from Entra"
                   onClick={async () => {
-                    if (!confirm('Look up missing Sign-in values from Entra for up to 50 social users?')) return
+                    if (!confirm('Look up missing Sign-in, name, phone, and country from Entra for up to 50 social users?')) return
                     try {
                       const res = await adminFetch('/api/admin', {
                         method: 'POST',
@@ -2220,7 +2220,7 @@ export default function AdminPage() {
                     }
                   }}
                 >
-                  Backfill Sign-in from Entra
+                  Backfill profile from Entra
                 </button>
               </>
             )}
@@ -4895,43 +4895,49 @@ export default function AdminPage() {
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
                   New Google / Facebook / Apple / Microsoft / Email sign-ups are saved automatically.
+                  Entra can also fill User Name, phone, and country when Graph has them.
                 </p>
-                {!(selectedUser.authMethods ?? []).some((m) =>
-                  ['Google', 'Facebook', 'Apple', 'Microsoft', 'Email'].includes(m)
-                ) && (
-                  <button
-                    type="button"
-                    className="mt-2 w-full text-sm rounded-lg py-2 px-3 border border-sky-500/40 text-sky-300 hover:bg-sky-500/10 transition-colors"
-                    onClick={async () => {
-                      try {
-                        const res = await adminFetch('/api/admin', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'lookupUserAuthProviderFromEntra',
-                            targetId: selectedUser.id,
-                          }),
-                        })
-                        const data = await res.json().catch(() => ({}))
-                        if (!res.ok) {
-                          alert(data.error || 'Entra lookup failed')
-                          return
-                        }
-                        setSelectedUser((prev) =>
-                          prev && data.authProvider
-                            ? { ...prev, authMethods: [data.authProvider] }
-                            : prev
-                        )
-                        fetchData()
-                      } catch (e) {
-                        console.error(e)
-                        alert('Entra lookup failed')
+                <button
+                  type="button"
+                  className="mt-2 w-full text-sm rounded-lg py-2 px-3 border border-sky-500/40 text-sky-300 hover:bg-sky-500/10 transition-colors"
+                  onClick={async () => {
+                    try {
+                      const res = await adminFetch('/api/admin', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          action: 'lookupUserAuthProviderFromEntra',
+                          targetId: selectedUser.id,
+                        }),
+                      })
+                      const data = await res.json().catch(() => ({}))
+                      if (!res.ok) {
+                        alert(data.error || 'Entra lookup failed')
+                        return
                       }
-                    }}
-                  >
-                    Look up Sign-in from Entra
-                  </button>
-                )}
+                      setSelectedUser((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              authMethods: data.authProvider
+                                ? [data.authProvider]
+                                : prev.authMethods,
+                              legalName: data.patch?.legalName ?? prev.legalName,
+                              phone: data.patch?.phone ?? prev.phone,
+                              location: data.patch?.location ?? prev.location,
+                            }
+                          : prev
+                      )
+                      alert(data.message || 'Updated from Entra')
+                      fetchData()
+                    } catch (e) {
+                      console.error(e)
+                      alert('Entra lookup failed')
+                    }
+                  }}
+                >
+                  Refresh profile from Entra
+                </button>
               </div>
 
               {selectedUser.isSuspended && (

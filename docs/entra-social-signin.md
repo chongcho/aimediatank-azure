@@ -71,7 +71,8 @@ You can set **either** Option A **or** Option B. If both are set, Option A (`ENT
 ## Admin Sign-in column
 
 - New Google / Facebook / Apple / Microsoft / Email registrations store `User.authProvider` automatically.
-- Older social accounts may show blank until the user signs in again, or until admin runs **Look up Sign-in from Entra** / **Backfill Sign-in from Entra**.
+- Admin **Refresh profile from Entra** / **Backfill profile from Entra** also fill blank **User Name**, **phone**, and **country** when Microsoft Graph has `displayName` / `givenName` / `surname`, `mobilePhone`, or `country` / `usageLocation`.
+- Social IdPs often omit phone and country — those stay blank unless Entra or the user later provides them.
 - Entra lookup uses Microsoft Graph (`User.Read.All` application permission + admin consent on the same app as `ENTRA_CLIENT_ID`). Without that permission, lookup returns a clear error.
 
 ## Implementation notes

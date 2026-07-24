@@ -11,6 +11,12 @@ import {
   pictureUrlFromOAuthClaims,
 } from './oauthProfile'
 import { canonicalSocialProviderId, adminSetProviderAccountId, resolveAuthMethodLabel, SOCIAL_AUTH_LABELS, type SocialAuthLabel } from './authMethodLabel'
+import {
+  isEntraLookupConfigured,
+  isPlaceholderLegalName,
+  lookupEntraUserProfile,
+  mergeEntraProfileIntoUser,
+} from './entraUserLookup'
 
 // Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
@@ -251,13 +257,19 @@ export const authOptions: NextAuthOptions = {
 
         if (!dbUser) {
           const username = await ensureUniqueUsername(email.split('@')[0])
+          const safeLegal =
+            derivedLegalName && !isPlaceholderLegalName(derivedLegalName) ? derivedLegalName : undefined
+          const safeDisplay =
+            displayNameFromIdp && !isPlaceholderLegalName(displayNameFromIdp)
+              ? displayNameFromIdp
+              : email.split('@')[0]
           dbUser = await prisma.user.create({
             data: {
               email,
               username,
               password: '',
-              name: displayNameFromIdp,
-              legalName: derivedLegalName ?? undefined,
+              name: safeDisplay,
+              legalName: safeLegal,
               avatar: derivedPicture ?? undefined,
               birthday: derivedBirthday ?? undefined,
               emailVerified: true,
@@ -274,7 +286,11 @@ export const authOptions: NextAuthOptions = {
             name?: string
             authProvider?: string
           } = {}
-          if (!(dbUser.legalName && dbUser.legalName.trim()) && derivedLegalName) {
+          if (
+            (isPlaceholderLegalName(dbUser.legalName) || !(dbUser.legalName && dbUser.legalName.trim())) &&
+            derivedLegalName &&
+            !isPlaceholderLegalName(derivedLegalName)
+          ) {
             backfill.legalName = derivedLegalName
           }
           if (!(dbUser.avatar && dbUser.avatar.trim()) && derivedPicture) {
@@ -283,7 +299,11 @@ export const authOptions: NextAuthOptions = {
           if (!dbUser.birthday && derivedBirthday) {
             backfill.birthday = derivedBirthday
           }
-          if (!(dbUser.name && dbUser.name.trim()) && displayNameFromIdp) {
+          if (
+            (!(dbUser.name && dbUser.name.trim()) || isPlaceholderLegalName(dbUser.name)) &&
+            displayNameFromIdp &&
+            !isPlaceholderLegalName(displayNameFromIdp)
+          ) {
             backfill.name = displayNameFromIdp
           }
           // Always refresh Sign-in network from the button they just used.
@@ -295,6 +315,34 @@ export const authOptions: NextAuthOptions = {
               where: { id: dbUser.id },
               data: backfill,
             })
+          }
+        }
+
+        // Enrich missing name / phone / country from Entra Graph when available (safety / support).
+        if (
+          isEntraLookupConfigured() &&
+          (isPlaceholderLegalName(dbUser.legalName) ||
+            !(dbUser.phone && dbUser.phone.trim()) ||
+            !(dbUser.location && dbUser.location.trim()) ||
+            !(dbUser.authProvider && dbUser.authProvider.trim()))
+        ) {
+          try {
+            const entra = await lookupEntraUserProfile(email)
+            if (entra.ok) {
+              const patch = mergeEntraProfileIntoUser(dbUser, entra.patch)
+              if (socialLabel) {
+                // Prefer the button they just used over Graph when both exist.
+                delete patch.authProvider
+              }
+              if (Object.keys(patch).length > 0) {
+                dbUser = await prisma.user.update({
+                  where: { id: dbUser.id },
+                  data: patch,
+                })
+              }
+            }
+          } catch (e) {
+            console.warn('[auth] Entra profile enrich failed', e)
           }
         }
         if (dbUser.isSuspended) {

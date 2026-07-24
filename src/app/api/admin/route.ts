@@ -6,7 +6,11 @@ import { getFirstHomeLayoutSetting } from '@/lib/homeLayoutSetting'
 import { requireAdminPanelElevation } from '@/lib/requireAdminElevation'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
 import { deriveAuthMethods, isSocialAuthLabel, SOCIAL_PROVIDER_IDS, adminSetProviderAccountId } from '@/lib/authMethodLabel'
-import { lookupSocialAuthProviderFromEntra, isEntraLookupConfigured } from '@/lib/entraUserLookup'
+import {
+  lookupEntraUserProfile,
+  isEntraLookupConfigured,
+  mergeEntraProfileIntoUser,
+} from '@/lib/entraUserLookup'
 import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
@@ -1410,39 +1414,67 @@ export async function POST(request: Request) {
         }
         const user = await prisma.user.findUnique({
           where: { id: targetId },
-          select: { id: true, email: true, authProvider: true },
+          select: {
+            id: true,
+            email: true,
+            authProvider: true,
+            legalName: true,
+            name: true,
+            phone: true,
+            location: true,
+          },
         })
         if (!user) {
           return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
-        const lookup = await lookupSocialAuthProviderFromEntra(user.email)
+        const lookup = await lookupEntraUserProfile(user.email)
         if (!lookup.ok) {
           return NextResponse.json({ error: lookup.error }, { status: 404 })
         }
-        const label = lookup.authProvider
-        const placeholderId = adminSetProviderAccountId(targetId)
-        await prisma.account.deleteMany({
-          where: { userId: targetId, providerAccountId: placeholderId },
-        })
-        await prisma.account.create({
-          data: {
-            userId: targetId,
-            type: 'oauth',
-            provider: SOCIAL_PROVIDER_IDS[label],
-            providerAccountId: placeholderId,
-          },
-        })
+        const dataPatch = mergeEntraProfileIntoUser(user, lookup.patch)
+        // Always refresh Sign-in when Entra reports a social network.
+        if (lookup.patch.authProvider) {
+          dataPatch.authProvider = lookup.patch.authProvider
+        }
+        if (Object.keys(dataPatch).length === 0) {
+          return NextResponse.json({
+            message: 'Entra profile already matches our records (nothing to update)',
+            authProvider: user.authProvider,
+            patch: {},
+          })
+        }
+        if (dataPatch.authProvider && isSocialAuthLabel(dataPatch.authProvider)) {
+          const placeholderId = adminSetProviderAccountId(targetId)
+          await prisma.account.deleteMany({
+            where: { userId: targetId, providerAccountId: placeholderId },
+          })
+          await prisma.account.create({
+            data: {
+              userId: targetId,
+              type: 'oauth',
+              provider: SOCIAL_PROVIDER_IDS[dataPatch.authProvider],
+              providerAccountId: placeholderId,
+            },
+          })
+        }
         await prisma.user.update({
           where: { id: targetId },
-          data: { authProvider: label },
+          data: dataPatch,
         })
         await logAdminAction(adminId, 'LOOKUP_AUTH_PROVIDER_ENTRA', 'USER', targetId, {
-          authProvider: label,
           email: user.email,
+          patch: dataPatch,
         })
+        const parts = [
+          dataPatch.authProvider && `Sign-in=${dataPatch.authProvider}`,
+          dataPatch.legalName && `name=${dataPatch.legalName}`,
+          dataPatch.phone && 'phone',
+          dataPatch.location && `country=${dataPatch.location}`,
+        ].filter(Boolean)
         return NextResponse.json({
-          message: `Sign-in set to ${label} (from Entra)`,
-          authProvider: label,
+          message: `Updated from Entra: ${parts.join(', ') || 'profile'}`,
+          authProvider: dataPatch.authProvider ?? user.authProvider,
+          patch: dataPatch,
         })
       }
 
@@ -1456,53 +1488,91 @@ export async function POST(request: Request) {
             { status: 400 }
           )
         }
-        const missing = await prisma.user.findMany({
+        // Social users (empty password) missing Sign-in and/or profile fields.
+        const candidates = await prisma.user.findMany({
           where: {
-            OR: [{ authProvider: null }, { authProvider: '' }],
             password: '',
+            OR: [
+              { authProvider: null },
+              { authProvider: '' },
+              { phone: null },
+              { phone: '' },
+              { location: null },
+              { location: '' },
+              { legalName: null },
+              { legalName: '' },
+              { legalName: { equals: 'unknown unknown', mode: 'insensitive' } },
+              { legalName: { equals: 'unknown', mode: 'insensitive' } },
+            ],
           },
-          select: { id: true, email: true, username: true },
+          select: {
+            id: true,
+            email: true,
+            username: true,
+            authProvider: true,
+            legalName: true,
+            name: true,
+            phone: true,
+            location: true,
+          },
           take: 50,
           orderBy: { createdAt: 'desc' },
         })
         const results: Array<{
           username: string
           email: string
-          authProvider?: string
+          patch?: Record<string, string>
           error?: string
         }> = []
-        for (const u of missing) {
-          const lookup = await lookupSocialAuthProviderFromEntra(u.email)
+        for (const u of candidates) {
+          const lookup = await lookupEntraUserProfile(u.email)
           if (!lookup.ok) {
             results.push({ username: u.username, email: u.email, error: lookup.error })
             continue
           }
-          const label = lookup.authProvider
-          const placeholderId = adminSetProviderAccountId(u.id)
-          await prisma.account.deleteMany({
-            where: { userId: u.id, providerAccountId: placeholderId },
-          })
-          await prisma.account.create({
-            data: {
-              userId: u.id,
-              type: 'oauth',
-              provider: SOCIAL_PROVIDER_IDS[label],
-              providerAccountId: placeholderId,
-            },
-          })
+          const dataPatch = mergeEntraProfileIntoUser(u, lookup.patch)
+          if (lookup.patch.authProvider) {
+            dataPatch.authProvider = lookup.patch.authProvider
+          }
+          if (Object.keys(dataPatch).length === 0) {
+            results.push({
+              username: u.username,
+              email: u.email,
+              error: 'nothing to update',
+            })
+            continue
+          }
+          if (dataPatch.authProvider && isSocialAuthLabel(dataPatch.authProvider)) {
+            const placeholderId = adminSetProviderAccountId(u.id)
+            await prisma.account.deleteMany({
+              where: { userId: u.id, providerAccountId: placeholderId },
+            })
+            await prisma.account.create({
+              data: {
+                userId: u.id,
+                type: 'oauth',
+                provider: SOCIAL_PROVIDER_IDS[dataPatch.authProvider],
+                providerAccountId: placeholderId,
+              },
+            })
+          }
           await prisma.user.update({
             where: { id: u.id },
-            data: { authProvider: label },
+            data: dataPatch,
           })
-          results.push({ username: u.username, email: u.email, authProvider: label })
+          results.push({
+            username: u.username,
+            email: u.email,
+            patch: dataPatch as Record<string, string>,
+          })
         }
-        const updated = results.filter((r) => r.authProvider).length
+        const updated = results.filter((r) => r.patch).length
         await logAdminAction(adminId, 'BACKFILL_AUTH_PROVIDERS_ENTRA', 'USER', adminId, {
-          attempted: missing.length,
+          attempted: candidates.length,
           updated,
         })
         return NextResponse.json({
-          message: `Updated ${updated} of ${missing.length} users from Entra`,
+          message: `Updated ${updated} of ${candidates.length} users from Entra (Sign-in / name / phone / country when available)`,
           results,
         })
       }
