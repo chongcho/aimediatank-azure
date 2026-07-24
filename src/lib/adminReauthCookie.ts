@@ -1,11 +1,15 @@
-// Signed cookie for admin re-authentication (ADMIN_PANEL_ACCESS_PASSWORD_* passphrase + 2FA). Short-lived so admins
-// must re-verify periodically when accessing the panel.
+// Signed cookie for admin re-authentication (ADMIN_PANEL_ACCESS_PASSWORD_* passphrase + 2FA).
+// Sliding idle window: renews while the admin is actively using the panel; expires after idle.
 
 import { createHmac, timingSafeEqual } from 'crypto'
-import { ADMIN_REAUTH_COOKIE_NAME } from './adminReauthConstants'
+import { NextResponse } from 'next/server'
+import {
+  ADMIN_REAUTH_COOKIE_NAME,
+  ADMIN_REAUTH_IDLE_SEC,
+} from './adminReauthConstants'
 
 const COOKIE_NAME = ADMIN_REAUTH_COOKIE_NAME
-const MAX_AGE_SEC = 30 * 60 // 30 minutes
+const MAX_AGE_SEC = ADMIN_REAUTH_IDLE_SEC
 const SECRET = process.env.NEXTAUTH_SECRET ?? ''
 
 /** What the signed admin cookie authorizes. Legacy payloads omit scopes → treated as panel-only. */
@@ -108,4 +112,25 @@ export function verifyAdminReauthCookie(cookieHeader: string | null): AdminReaut
 export function getAdminReauthFromRequest(request: Request): AdminReauthPayload | null {
   const cookieHeader = request.headers.get('cookie')
   return verifyAdminReauthCookie(cookieHeader)
+}
+
+/** Renew elevation expiry (sliding idle). Call on successful admin panel access. */
+export function applySlidingAdminReauthCookie(
+  response: NextResponse,
+  request: Request,
+  userId: string
+): NextResponse {
+  const payload = getAdminReauthFromRequest(request)
+  if (!payload || payload.userId !== userId) return response
+  const cookie = createAdminReauthCookie(userId, normalizeAdminReauthScopes(payload))
+  response.cookies.set(cookie.name, cookie.value, cookie.options)
+  return response
+}
+
+/** Cookie options for Server Components / `cookies().set` after a successful panel gate. */
+export function slidingAdminReauthCookieForUser(
+  userId: string,
+  scopes?: AdminReauthScope[]
+): { name: string; value: string; options: { httpOnly: boolean; secure: boolean; sameSite: 'lax'; path: string; maxAge: number } } {
+  return createAdminReauthCookie(userId, scopes ?? ['panel'])
 }

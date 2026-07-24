@@ -3,6 +3,7 @@ import {
   getAdminReauthFromRequest,
   adminCookieAllowsPanel,
   adminCookieAllowsContentElevation,
+  applySlidingAdminReauthCookie,
 } from '@/lib/adminReauthCookie'
 
 /** Valid Admin Panel elevation cookie (panel passphrase + 2FA), or legacy unsigned-scope cookie. */
@@ -30,4 +31,13 @@ export function requireAdminContentElevation(
     )
   }
   return null
+}
+
+/** Renew panel/app elevation on a successful admin API response. */
+export function withSlidingAdminElevation(
+  response: NextResponse,
+  request: Request,
+  session: { user: { id: string } }
+): NextResponse {
+  return applySlidingAdminReauthCookie(response, request, session.user.id)
 }

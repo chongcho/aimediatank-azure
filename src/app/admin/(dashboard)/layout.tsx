@@ -2,7 +2,12 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { adminCookieAllowsPanel, verifyAdminReauthCookie } from '@/lib/adminReauthCookie'
+import {
+  adminCookieAllowsPanel,
+  normalizeAdminReauthScopes,
+  slidingAdminReauthCookieForUser,
+  verifyAdminReauthCookie,
+} from '@/lib/adminReauthCookie'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +18,7 @@ function isAdminRole(role: unknown): boolean {
 /**
  * Server-side gate: only users with a valid admin_reauth cookie reach the dashboard.
  * Everyone else is sent to /admin/reauth (Step 2). This cannot be skipped by client JS.
+ * Successful access slides the idle timer so active panel use stays elevated.
  */
 export default async function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions)
@@ -35,6 +41,9 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
   if (!ok) {
     redirect('/admin/reauth')
   }
+
+  const refreshed = slidingAdminReauthCookieForUser(userId, normalizeAdminReauthScopes(payload!))
+  cookieStore.set(refreshed.name, refreshed.value, refreshed.options)
 
   return <>{children}</>
 }

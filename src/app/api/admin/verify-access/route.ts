@@ -14,10 +14,11 @@ import {
 import {
   adminCookieAllowsContentElevation,
   adminCookieAllowsPanel,
+  applySlidingAdminReauthCookie,
   createAdminReauthCookie,
   getAdminReauthFromRequest,
 } from '@/lib/adminReauthCookie'
-import { buildExpiredAdminReauthCookie } from '@/lib/adminReauthConstants'
+import { buildExpiredAdminReauthCookie, ADMIN_REAUTH_IDLE_SEC } from '@/lib/adminReauthConstants'
 import { verifyCode } from '@/lib/verificationCodes'
 import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
 
@@ -70,14 +71,18 @@ export async function GET(request: Request) {
         adminUserStep2Configured,
       })
     }
-    return NextResponse.json({
+    const res = NextResponse.json({
       verified: true,
       panelElevated,
       contentElevated,
       adminPanelPasswordConfigured,
       dedicatedPasswordRequired,
       adminUserStep2Configured,
+      idleSec: ADMIN_REAUTH_IDLE_SEC,
     })
+    // Sliding idle: any successful elevation check renews the cookie while admin is active.
+    applySlidingAdminReauthCookie(res, request, session.user.id)
+    return res
   } catch (e) {
     console.error('Admin verify-access GET error:', e)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

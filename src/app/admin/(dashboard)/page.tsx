@@ -12,6 +12,7 @@ import {
   goToAdminReauth,
   isAdminReauthRequiredResponse,
 } from '@/lib/adminPanelNav'
+import { ADMIN_REAUTH_IDLE_SEC } from '@/lib/adminReauthConstants'
 const RUNTIME_RISK_FLAG_LABELS: Record<string, string> = {
   TRAFFIC_BURST_IP: 'High request burst from IP in last 10 minutes',
   TRAFFIC_BURST_IP_HIGH: 'Very high request burst from IP in last 10 minutes',
@@ -798,13 +799,20 @@ export default function AdminPage() {
     }
   }, [status, session, router])
 
-  // When Step 2 elevation expires (30 min), leave the client shell and force reauth.
-  // Soft navigations / silent 403s otherwise make Admin Panel feel "dead" (clicks do nothing).
+  // Sliding idle: stay elevated while the admin is using the panel; reauth after idle with no access.
   useEffect(() => {
     if (!isAppAdminRole(session?.user?.role)) return
 
     let cancelled = false
-    const checkElevation = () => {
+    let lastAccessAt = Date.now()
+    let lastSlideAt = 0
+    const idleMs = ADMIN_REAUTH_IDLE_SEC * 1000
+    const slideMinGapMs = 15_000
+
+    const slideElevation = () => {
+      const now = Date.now()
+      if (now - lastSlideAt < slideMinGapMs) return
+      lastSlideAt = now
       void fetch('/api/admin/verify-access', { credentials: 'include', cache: 'no-store' })
         .then(async (res) => {
           const data = (await res.json().catch(() => ({}))) as { panelElevated?: boolean }
@@ -816,19 +824,49 @@ export default function AdminPage() {
         .catch(() => {})
     }
 
-    checkElevation()
-    const onFocus = () => checkElevation()
+    const markAccess = () => {
+      lastAccessAt = Date.now()
+      slideElevation()
+    }
+
+    const checkIdle = () => {
+      if (cancelled) return
+      if (Date.now() - lastAccessAt >= idleMs) {
+        void fetch('/api/admin/clear-reauth-cookie', {
+          method: 'POST',
+          credentials: 'include',
+        }).finally(() => {
+          if (!cancelled) goToAdminReauth()
+        })
+      }
+    }
+
+    markAccess()
+    const onFocus = () => markAccess()
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') checkElevation()
+      if (document.visibilityState === 'visible') markAccess()
+    }
+    const activityEvents: Array<keyof DocumentEventMap> = [
+      'pointerdown',
+      'keydown',
+      'scroll',
+      'touchstart',
+      'mousemove',
+    ]
+    for (const evt of activityEvents) {
+      document.addEventListener(evt, markAccess, { passive: true })
     }
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onVisibility)
-    const intervalId = window.setInterval(checkElevation, 60_000)
+    const intervalId = window.setInterval(checkIdle, 5_000)
 
     return () => {
       cancelled = true
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisibility)
+      for (const evt of activityEvents) {
+        document.removeEventListener(evt, markAccess)
+      }
       window.clearInterval(intervalId)
     }
   }, [session?.user?.role])
@@ -924,7 +962,7 @@ export default function AdminPage() {
   }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsSearchDebounced, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter, alAbnormalOnly, alPrivateIpOnly, alIpDebugOnly])
 
   const adminFetch = async (input: string, init?: RequestInit): Promise<Response> => {
-    const res = await fetch(input, init)
+    const res = await fetch(input, { ...init, credentials: init?.credentials ?? 'include' })
     if (res.status === 403) {
       const body = (await res.clone().json().catch(() => ({}))) as { error?: string; code?: string }
       if (isAdminReauthRequiredResponse(res, body)) {
@@ -932,6 +970,10 @@ export default function AdminPage() {
         // Hang until unload so callers don't flash error alerts during redirect.
         return new Promise(() => {})
       }
+    }
+    // Successful panel API access slides the idle timer (via verify-access Set-Cookie).
+    if (res.ok) {
+      void fetch('/api/admin/verify-access', { credentials: 'include', cache: 'no-store' }).catch(() => {})
     }
     return res
   }
