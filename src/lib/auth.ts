@@ -10,7 +10,7 @@ import {
   mergeOAuthProfileSources,
   pictureUrlFromOAuthClaims,
 } from './oauthProfile'
-import { canonicalSocialProviderId } from './authMethodLabel'
+import { canonicalSocialProviderId, adminSetProviderAccountId } from './authMethodLabel'
 
 // Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
@@ -343,6 +343,13 @@ export const authOptions: NextAuthOptions = {
                 id_token: idToken ?? undefined,
                 session_state:
                   typeof account.session_state === 'string' ? account.session_state : undefined,
+              },
+            })
+            // Drop admin placeholder once a real IdP link exists.
+            await prisma.account.deleteMany({
+              where: {
+                userId: dbUser.id,
+                providerAccountId: adminSetProviderAccountId(dbUser.id),
               },
             })
           } catch (e) {

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { getFirstHomeLayoutSetting } from '@/lib/homeLayoutSetting'
 import { requireAdminPanelElevation } from '@/lib/requireAdminElevation'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
-import { deriveAuthMethods } from '@/lib/authMethodLabel'
+import { deriveAuthMethods, isSocialAuthLabel, SOCIAL_PROVIDER_IDS, adminSetProviderAccountId } from '@/lib/authMethodLabel'
 import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
@@ -1351,6 +1351,45 @@ export async function POST(request: Request) {
         })
         await logAdminAction(adminId, 'UPDATE_USER_ROLE', 'USER', targetId, { role: data.role })
         return NextResponse.json({ message: 'User role updated' })
+
+      case 'setUserAuthProvider': {
+        const labelRaw = typeof data?.authProvider === 'string' ? data.authProvider.trim() : ''
+        if (labelRaw && !isSocialAuthLabel(labelRaw)) {
+          return NextResponse.json(
+            { error: 'authProvider must be Google, Facebook, Apple, or Microsoft' },
+            { status: 400 }
+          )
+        }
+        const label = labelRaw && isSocialAuthLabel(labelRaw) ? labelRaw : ''
+        const user = await prisma.user.findUnique({
+          where: { id: targetId },
+          select: { id: true, password: true },
+        })
+        if (!user) {
+          return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        }
+        const placeholderId = adminSetProviderAccountId(targetId)
+        await prisma.account.deleteMany({
+          where: { userId: targetId, providerAccountId: placeholderId },
+        })
+        if (label) {
+          await prisma.account.create({
+            data: {
+              userId: targetId,
+              type: 'oauth',
+              provider: SOCIAL_PROVIDER_IDS[label],
+              providerAccountId: placeholderId,
+            },
+          })
+        }
+        await logAdminAction(adminId, 'SET_USER_AUTH_PROVIDER', 'USER', targetId, {
+          authProvider: label || null,
+        })
+        return NextResponse.json({
+          message: label ? `Sign-in set to ${label}` : 'Sign-in cleared',
+          authProvider: label || null,
+        })
+      }
 
       case 'deleteUser': {
         const shouldSendDeleteEmail = data?.sendEmail !== false

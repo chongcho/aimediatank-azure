@@ -2716,18 +2716,18 @@ export default function AdminPage() {
                                               ? 'bg-sky-500/20 text-sky-300'
                                               : 'bg-amber-500/20 text-amber-300'
                                   }`}
-                                  title={
-                                    method === 'OAuth'
-                                      ? 'Social signup before provider tracking; specific network unknown until they sign in again'
-                                      : undefined
-                                  }
                                 >
                                   {method}
                                 </span>
                               ))}
                             </div>
                           ) : (
-                            <span className="text-gray-500">-</span>
+                            <span
+                              className="text-amber-400/90 text-xs"
+                              title="Social signup before provider was tracked — set Google, Facebook, Apple, or Microsoft in Manage"
+                            >
+                              Set in Manage
+                            </span>
                           )}
                         </td>
                         <td className="p-3 text-gray-400 whitespace-nowrap">
@@ -4837,6 +4837,44 @@ export default function AdminPage() {
                   <span className="text-gray-500">Chat Messages:</span>
                   <span className="ml-2 font-medium">{selectedUser._count.chatMessages}</span>
                 </div>
+              </div>
+
+              <div className="text-sm">
+                <label className="text-gray-500 block mb-1">Sign-in (Google / Facebook / Apple / Microsoft)</label>
+                <select
+                  className="input w-full h-9 text-sm"
+                  value={
+                    (selectedUser.authMethods ?? []).find((m) =>
+                      ['Google', 'Facebook', 'Apple', 'Microsoft'].includes(m)
+                    ) || ''
+                  }
+                  onChange={async (e) => {
+                    const authProvider = e.target.value
+                    await handleAction('setUserAuthProvider', selectedUser.id, { authProvider })
+                    setSelectedUser((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            authMethods: authProvider
+                              ? [
+                                  authProvider,
+                                  ...(prev.authMethods ?? []).filter((m) => m === 'Email'),
+                                ]
+                              : (prev.authMethods ?? []).filter((m) => m === 'Email'),
+                          }
+                        : prev
+                    )
+                  }}
+                >
+                  <option value="">Unknown — choose network</option>
+                  <option value="Google">Google</option>
+                  <option value="Facebook">Facebook</option>
+                  <option value="Apple">Apple</option>
+                  <option value="Microsoft">Microsoft</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Required for older social signups that only showed a generic label. New sign-ins are saved automatically.
+                </p>
               </div>
 
               {selectedUser.isSuspended && (

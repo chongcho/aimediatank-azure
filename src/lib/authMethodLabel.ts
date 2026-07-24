@@ -4,11 +4,16 @@ import { decodeJwtPayload } from '@/lib/oauthProfile'
 export const SOCIAL_AUTH_LABELS = ['Google', 'Facebook', 'Apple', 'Microsoft'] as const
 export type SocialAuthLabel = (typeof SOCIAL_AUTH_LABELS)[number]
 
-const SOCIAL_PROVIDER_IDS: Record<SocialAuthLabel, string> = {
+export const SOCIAL_PROVIDER_IDS: Record<SocialAuthLabel, string> = {
   Google: 'entra-external-id-google',
   Facebook: 'entra-external-id-facebook',
   Apple: 'entra-external-id-apple',
   Microsoft: 'entra-external-id-microsoft',
+}
+
+/** Stable Account.providerAccountId for admin-assigned social links. */
+export function adminSetProviderAccountId(userId: string): string {
+  return `admin-set-${userId}`
 }
 
 /**
@@ -17,7 +22,7 @@ const SOCIAL_PROVIDER_IDS: Record<SocialAuthLabel, string> = {
  */
 export function authMethodLabelFromProvider(provider: string): string {
   const p = provider.trim().toLowerCase()
-  if (!p) return 'OAuth'
+  if (!p) return ''
   if (p === 'credentials') return 'Email'
   if (p.includes('google')) return 'Google'
   if (p.includes('facebook')) return 'Facebook'
@@ -25,7 +30,7 @@ export function authMethodLabelFromProvider(provider: string): string {
   if (p.includes('microsoft') || p.endsWith('-microsoft')) return 'Microsoft'
   // Legacy single B2C / Microsoft button (no social suffix)
   if (p === 'azure-ad-b2c') return 'Microsoft'
-  return 'OAuth'
+  return ''
 }
 
 /** Resolve Google / Facebook / Apple / Microsoft from Entra id_token idp claims. */
@@ -61,7 +66,7 @@ export function resolveAuthMethodLabel(
   const fromProvider = authMethodLabelFromProvider(provider || '')
   if (fromProvider === 'Email') return 'Email'
   if (SOCIAL_AUTH_LABELS.includes(fromProvider as SocialAuthLabel)) return fromProvider
-  return authMethodLabelFromIdToken(idToken) || fromProvider
+  return authMethodLabelFromIdToken(idToken) || ''
 }
 
 /**
@@ -82,7 +87,8 @@ export function canonicalSocialProviderId(
 
 /**
  * Derive signup/sign-in methods for admin display.
- * Historical OAuth users may have empty password and no Account row yet.
+ * Only returns Email and/or Google / Facebook / Apple / Microsoft — never a generic "OAuth".
+ * Empty array = social signup before tracking; admin can set the network in Manage.
  */
 export function deriveAuthMethods(
   password: string | null | undefined,
@@ -92,16 +98,17 @@ export function deriveAuthMethods(
     new Set(
       (accounts ?? [])
         .map((a) => resolveAuthMethodLabel(a.provider, a.id_token))
-        .filter(Boolean)
+        .filter((label): label is string => Boolean(label))
     )
   )
   const hasPassword = typeof password === 'string' && password.length > 0
   if (hasPassword && !labels.includes('Email')) {
     labels.push('Email')
   }
-  if (labels.length === 0) {
-    // Empty password + no linked Account → likely pre-tracking social signup
-    return hasPassword ? ['Email'] : ['OAuth']
-  }
+  if (labels.length === 0 && hasPassword) return ['Email']
   return labels
+}
+
+export function isSocialAuthLabel(value: string): value is SocialAuthLabel {
+  return (SOCIAL_AUTH_LABELS as readonly string[]).includes(value)
 }
