@@ -22,13 +22,13 @@ export function deriveAuthMethods(
   password: string | null | undefined,
   accounts: Array<{ provider: string }> | null | undefined
 ): string[] {
-  const labels = [
-    ...new Set(
+  const labels = Array.from(
+    new Set(
       (accounts ?? [])
         .map((a) => authMethodLabelFromProvider(a.provider))
         .filter(Boolean)
-    ),
-  ]
+    )
+  )
   const hasPassword = typeof password === 'string' && password.length > 0
   if (hasPassword && !labels.includes('Email')) {
     labels.push('Email')
