@@ -2722,12 +2722,7 @@ export default function AdminPage() {
                               ))}
                             </div>
                           ) : (
-                            <span
-                              className="text-amber-400/90 text-xs"
-                              title="Social signup before provider was tracked — set Google, Facebook, Apple, or Microsoft in Manage"
-                            >
-                              Set in Manage
-                            </span>
+                            <span className="text-gray-500">-</span>
                           )}
                         </td>
                         <td className="p-3 text-gray-400 whitespace-nowrap">
@@ -4840,12 +4835,12 @@ export default function AdminPage() {
               </div>
 
               <div className="text-sm">
-                <label className="text-gray-500 block mb-1">Sign-in (Google / Facebook / Apple / Microsoft)</label>
+                <label className="text-gray-500 block mb-1">Sign-in</label>
                 <select
                   className="input w-full h-9 text-sm"
                   value={
                     (selectedUser.authMethods ?? []).find((m) =>
-                      ['Google', 'Facebook', 'Apple', 'Microsoft'].includes(m)
+                      ['Google', 'Facebook', 'Apple', 'Microsoft', 'Email'].includes(m)
                     ) || ''
                   }
                   onChange={async (e) => {
@@ -4855,25 +4850,21 @@ export default function AdminPage() {
                       prev
                         ? {
                             ...prev,
-                            authMethods: authProvider
-                              ? [
-                                  authProvider,
-                                  ...(prev.authMethods ?? []).filter((m) => m === 'Email'),
-                                ]
-                              : (prev.authMethods ?? []).filter((m) => m === 'Email'),
+                            authMethods: authProvider ? [authProvider] : [],
                           }
                         : prev
                     )
                   }}
                 >
-                  <option value="">Unknown — choose network</option>
+                  <option value="">Unknown (signed up before tracking)</option>
                   <option value="Google">Google</option>
                   <option value="Facebook">Facebook</option>
                   <option value="Apple">Apple</option>
                   <option value="Microsoft">Microsoft</option>
+                  <option value="Email">Email</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  Required for older social signups that only showed a generic label. New sign-ins are saved automatically.
+                  New Google / Facebook / Apple / Microsoft / Email sign-ups are saved automatically. Only older accounts may need this once.
                 </p>
               </div>
 

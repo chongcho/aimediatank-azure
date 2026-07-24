@@ -139,6 +139,7 @@ export async function POST(request: Request) {
           birthday: birthday ? new Date(birthday) : null,
           role: userRole,
           policyAgreedAt: new Date(),
+          authProvider: 'Email',
         },
       })
     } catch (fieldError: any) {
@@ -166,6 +167,7 @@ export async function POST(request: Request) {
             bio: bio || null,
             avatar: avatarUrl,
             birthday: birthday ? new Date(birthday) : null,
+            authProvider: 'Email',
           },
     })
       } catch (updateError) {

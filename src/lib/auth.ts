@@ -10,7 +10,7 @@ import {
   mergeOAuthProfileSources,
   pictureUrlFromOAuthClaims,
 } from './oauthProfile'
-import { canonicalSocialProviderId, adminSetProviderAccountId } from './authMethodLabel'
+import { canonicalSocialProviderId, adminSetProviderAccountId, resolveAuthMethodLabel, SOCIAL_AUTH_LABELS, type SocialAuthLabel } from './authMethodLabel'
 
 // Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
@@ -240,6 +240,15 @@ export const authOptions: NextAuthOptions = {
           email.split('@')[0]
 
         let dbUser = await prisma.user.findUnique({ where: { email } })
+        const idTokenEarly = typeof account?.id_token === 'string' ? account.id_token : null
+        const socialLabelRaw = account?.provider
+          ? resolveAuthMethodLabel(account.provider, idTokenEarly)
+          : ''
+        const socialLabel =
+          SOCIAL_AUTH_LABELS.includes(socialLabelRaw as SocialAuthLabel)
+            ? (socialLabelRaw as SocialAuthLabel)
+            : null
+
         if (!dbUser) {
           const username = await ensureUniqueUsername(email.split('@')[0])
           dbUser = await prisma.user.create({
@@ -254,6 +263,7 @@ export const authOptions: NextAuthOptions = {
               emailVerified: true,
               policyAgreedAt: new Date(),
               role: 'SUBSCRIBER',
+              ...(socialLabel ? { authProvider: socialLabel } : {}),
             },
           })
         } else {
@@ -262,6 +272,7 @@ export const authOptions: NextAuthOptions = {
             avatar?: string
             birthday?: Date
             name?: string
+            authProvider?: string
           } = {}
           if (!(dbUser.legalName && dbUser.legalName.trim()) && derivedLegalName) {
             backfill.legalName = derivedLegalName
@@ -274,6 +285,10 @@ export const authOptions: NextAuthOptions = {
           }
           if (!(dbUser.name && dbUser.name.trim()) && displayNameFromIdp) {
             backfill.name = displayNameFromIdp
+          }
+          // Always refresh Sign-in network from the button they just used.
+          if (socialLabel) {
+            backfill.authProvider = socialLabel
           }
           if (Object.keys(backfill).length > 0) {
             dbUser = await prisma.user.update({

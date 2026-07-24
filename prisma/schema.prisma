@@ -38,6 +38,8 @@ model User {
   bio           String?
   phone         String?
   location      String?
+  /// Sign-in network for admin: "Email" | "Google" | "Facebook" | "Apple" | "Microsoft"
+  authProvider  String?
   birthday      DateTime?
   role          String    @default("VIEWER")
   membershipType String   @default("VIEWER")  // "VIEWER", "BASIC", "PREMIUM"

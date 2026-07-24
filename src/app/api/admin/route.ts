@@ -143,6 +143,7 @@ export async function GET(request: Request) {
           adminNotes: true,
           createdAt: true,
           password: true,
+          authProvider: true,
           accounts: {
             select: { provider: true, id_token: true },
           },
@@ -221,9 +222,9 @@ export async function GET(request: Request) {
         }
       }
       
-      const usersForAdmin = users.map(({ password, accounts, ...user }) => ({
+      const usersForAdmin = users.map(({ password, accounts, authProvider, ...user }) => ({
         ...user,
-        authMethods: deriveAuthMethods(password, accounts),
+        authMethods: deriveAuthMethods(password, accounts, authProvider),
       }))
 
       return NextResponse.json({ users: usersForAdmin })
@@ -1354,16 +1355,17 @@ export async function POST(request: Request) {
 
       case 'setUserAuthProvider': {
         const labelRaw = typeof data?.authProvider === 'string' ? data.authProvider.trim() : ''
-        if (labelRaw && !isSocialAuthLabel(labelRaw)) {
+        if (labelRaw && !isSocialAuthLabel(labelRaw) && labelRaw !== 'Email') {
           return NextResponse.json(
-            { error: 'authProvider must be Google, Facebook, Apple, or Microsoft' },
+            { error: 'authProvider must be Google, Facebook, Apple, Microsoft, or Email' },
             { status: 400 }
           )
         }
-        const label = labelRaw && isSocialAuthLabel(labelRaw) ? labelRaw : ''
+        const label =
+          labelRaw && (isSocialAuthLabel(labelRaw) || labelRaw === 'Email') ? labelRaw : ''
         const user = await prisma.user.findUnique({
           where: { id: targetId },
-          select: { id: true, password: true },
+          select: { id: true },
         })
         if (!user) {
           return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -1372,7 +1374,7 @@ export async function POST(request: Request) {
         await prisma.account.deleteMany({
           where: { userId: targetId, providerAccountId: placeholderId },
         })
-        if (label) {
+        if (label && isSocialAuthLabel(label)) {
           await prisma.account.create({
             data: {
               userId: targetId,
@@ -1382,6 +1384,10 @@ export async function POST(request: Request) {
             },
           })
         }
+        await prisma.user.update({
+          where: { id: targetId },
+          data: { authProvider: label || null },
+        })
         await logAdminAction(adminId, 'SET_USER_AUTH_PROVIDER', 'USER', targetId, {
           authProvider: label || null,
         })

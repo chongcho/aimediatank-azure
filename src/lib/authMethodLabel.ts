@@ -1,6 +1,6 @@
 import { decodeJwtPayload } from '@/lib/oauthProfile'
 
-/** Admin-facing social network names (Create Account / social buttons). */
+/** The four social sign-in buttons + email/password. */
 export const SOCIAL_AUTH_LABELS = ['Google', 'Facebook', 'Apple', 'Microsoft'] as const
 export type SocialAuthLabel = (typeof SOCIAL_AUTH_LABELS)[number]
 
@@ -11,14 +11,13 @@ export const SOCIAL_PROVIDER_IDS: Record<SocialAuthLabel, string> = {
   Microsoft: 'entra-external-id-microsoft',
 }
 
-/** Stable Account.providerAccountId for admin-assigned social links. */
+/** Stable Account.providerAccountId for admin-assigned social links (legacy backfill). */
 export function adminSetProviderAccountId(userId: string): string {
   return `admin-set-${userId}`
 }
 
 /**
- * Map NextAuth / Entra provider ids to admin-facing labels.
- * Provider ids look like: entra-external-id-google, azure-ad-b2c, credentials.
+ * Map NextAuth / Entra provider ids to Google | Facebook | Apple | Microsoft | Email.
  */
 export function authMethodLabelFromProvider(provider: string): string {
   const p = provider.trim().toLowerCase()
@@ -28,12 +27,11 @@ export function authMethodLabelFromProvider(provider: string): string {
   if (p.includes('facebook')) return 'Facebook'
   if (p.includes('apple')) return 'Apple'
   if (p.includes('microsoft') || p.endsWith('-microsoft')) return 'Microsoft'
-  // Legacy single B2C / Microsoft button (no social suffix)
   if (p === 'azure-ad-b2c') return 'Microsoft'
   return ''
 }
 
-/** Resolve Google / Facebook / Apple / Microsoft from Entra id_token idp claims. */
+/** Resolve network from Entra id_token idp claims. */
 export function authMethodLabelFromIdToken(idToken: string | null | undefined): SocialAuthLabel | null {
   const claims = decodeJwtPayload(idToken)
   if (!claims) return null
@@ -58,7 +56,6 @@ export function authMethodLabelFromIdToken(idToken: string | null | undefined): 
   return null
 }
 
-/** Prefer NextAuth provider id; fall back to id_token idp for Google/Facebook/Apple/Microsoft. */
 export function resolveAuthMethodLabel(
   provider: string | null | undefined,
   idToken?: string | null
@@ -69,10 +66,6 @@ export function resolveAuthMethodLabel(
   return authMethodLabelFromIdToken(idToken) || ''
 }
 
-/**
- * Canonical Account.provider id for the social network (so admin always shows
- * Google / Facebook / Apple / Microsoft instead of a generic Entra id).
- */
 export function canonicalSocialProviderId(
   provider: string | null | undefined,
   idToken?: string | null
@@ -85,22 +78,30 @@ export function canonicalSocialProviderId(
   return provider
 }
 
+function isKnownAuthLabel(value: string): boolean {
+  return value === 'Email' || SOCIAL_AUTH_LABELS.includes(value as SocialAuthLabel)
+}
+
 /**
- * Derive signup/sign-in methods for admin display.
- * Only returns Email and/or Google / Facebook / Apple / Microsoft — never a generic "OAuth".
- * Empty array = social signup before tracking; admin can set the network in Manage.
+ * Admin Sign-in column: Email and/or Google / Facebook / Apple / Microsoft.
+ * Prefers User.authProvider (set at register / social sign-in).
  */
 export function deriveAuthMethods(
   password: string | null | undefined,
-  accounts: Array<{ provider: string; id_token?: string | null }> | null | undefined
+  accounts: Array<{ provider: string; id_token?: string | null }> | null | undefined,
+  authProvider?: string | null
 ): string[] {
-  const labels = Array.from(
-    new Set(
-      (accounts ?? [])
-        .map((a) => resolveAuthMethodLabel(a.provider, a.id_token))
-        .filter((label): label is string => Boolean(label))
-    )
-  )
+  const labels: string[] = []
+  const stored = typeof authProvider === 'string' ? authProvider.trim() : ''
+  if (stored && isKnownAuthLabel(stored)) {
+    labels.push(stored)
+  }
+
+  for (const a of accounts ?? []) {
+    const label = resolveAuthMethodLabel(a.provider, a.id_token)
+    if (label && !labels.includes(label)) labels.push(label)
+  }
+
   const hasPassword = typeof password === 'string' && password.length > 0
   if (hasPassword && !labels.includes('Email')) {
     labels.push('Email')
