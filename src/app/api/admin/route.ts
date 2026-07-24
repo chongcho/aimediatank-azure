@@ -144,7 +144,7 @@ export async function GET(request: Request) {
           createdAt: true,
           password: true,
           accounts: {
-            select: { provider: true },
+            select: { provider: true, id_token: true },
           },
           _count: {
             select: {

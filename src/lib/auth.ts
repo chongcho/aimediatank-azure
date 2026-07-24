@@ -10,6 +10,7 @@ import {
   mergeOAuthProfileSources,
   pictureUrlFromOAuthClaims,
 } from './oauthProfile'
+import { canonicalSocialProviderId } from './authMethodLabel'
 
 // Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
@@ -305,26 +306,30 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Persist which social button was used (Account.provider) for admin Users column.
+        // Store canonical Google/Facebook/Apple/Microsoft provider ids when resolvable.
         if (account?.provider && account.providerAccountId) {
           try {
+            const idToken = typeof account.id_token === 'string' ? account.id_token : null
+            const providerId =
+              canonicalSocialProviderId(account.provider, idToken) || account.provider
             await prisma.account.upsert({
               where: {
                 provider_providerAccountId: {
-                  provider: account.provider,
+                  provider: providerId,
                   providerAccountId: String(account.providerAccountId),
                 },
               },
               create: {
                 userId: dbUser.id,
                 type: account.type || 'oauth',
-                provider: account.provider,
+                provider: providerId,
                 providerAccountId: String(account.providerAccountId),
                 refresh_token: typeof account.refresh_token === 'string' ? account.refresh_token : null,
                 access_token: typeof account.access_token === 'string' ? account.access_token : null,
                 expires_at: typeof account.expires_at === 'number' ? account.expires_at : null,
                 token_type: typeof account.token_type === 'string' ? account.token_type : null,
                 scope: typeof account.scope === 'string' ? account.scope : null,
-                id_token: typeof account.id_token === 'string' ? account.id_token : null,
+                id_token: idToken,
                 session_state:
                   typeof account.session_state === 'string' ? account.session_state : null,
               },
@@ -335,7 +340,7 @@ export const authOptions: NextAuthOptions = {
                 expires_at: typeof account.expires_at === 'number' ? account.expires_at : undefined,
                 token_type: typeof account.token_type === 'string' ? account.token_type : undefined,
                 scope: typeof account.scope === 'string' ? account.scope : undefined,
-                id_token: typeof account.id_token === 'string' ? account.id_token : undefined,
+                id_token: idToken ?? undefined,
                 session_state:
                   typeof account.session_state === 'string' ? account.session_state : undefined,
               },

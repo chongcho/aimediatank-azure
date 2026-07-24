@@ -69,7 +69,7 @@ interface User {
   location: string | null
   role: string
   membershipType: string
-  /** Email and/or social labels: Google, Facebook, Apple, Microsoft, OAuth */
+  /** Email and/or social labels: Google, Facebook, Apple, Microsoft */
   authMethods?: string[]
   isSuspended: boolean
   suspendedAt: string | null
@@ -880,13 +880,20 @@ export default function AdminPage() {
   }, [accessLogsSearch])
 
   // Users: distinct values + client-side column filtering
-  const userDistinct = useMemo(() => ({
-    memberships: Array.from(new Set(users.map(u => u.membershipType))).sort(),
-    statuses: Array.from(new Set(users.map(u => u.isSuspended ? 'Suspended' : 'Active'))).sort(),
-    countries: Array.from(new Set(users.map(u => u.location).filter(Boolean) as string[])).sort(),
-    authMethods: Array.from(new Set(users.flatMap(u => u.authMethods ?? []))).sort(),
-    roles: Array.from(new Set(users.map(u => u.role))).sort(),
-  }), [users])
+  const userDistinct = useMemo(() => {
+    const fromUsers = users.flatMap((u) => u.authMethods ?? [])
+    // Always offer the four social networks + Email so admins can filter by name.
+    const authMethods = Array.from(
+      new Set(['Google', 'Facebook', 'Apple', 'Microsoft', 'Email', ...fromUsers])
+    ).sort()
+    return {
+      memberships: Array.from(new Set(users.map(u => u.membershipType))).sort(),
+      statuses: Array.from(new Set(users.map(u => u.isSuspended ? 'Suspended' : 'Active'))).sort(),
+      countries: Array.from(new Set(users.map(u => u.location).filter(Boolean) as string[])).sort(),
+      authMethods,
+      roles: Array.from(new Set(users.map(u => u.role))).sort(),
+    }
+  }, [users])
 
   const filteredUsers = useMemo(() => users.filter(u => {
     if (userMembershipColFilter.length && !userMembershipColFilter.includes(u.membershipType)) return false
@@ -2654,7 +2661,7 @@ export default function AdminPage() {
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email Address</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Phone Number</th>
                       <ColumnFilter label="Country" options={userDistinct.countries} selected={userCountryColFilter} onApply={setUserCountryColFilter} />
-                      <ColumnFilter label="Social / OAuth" options={userDistinct.authMethods} selected={userAuthColFilter} onApply={setUserAuthColFilter} />
+                      <ColumnFilter label="Sign-in" options={userDistinct.authMethods} selected={userAuthColFilter} onApply={setUserAuthColFilter} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Subscription Date</th>
                       <ColumnFilter label="Membership" options={userDistinct.memberships} selected={userMembershipColFilter} onApply={setUserMembershipColFilter} />
                       <ColumnFilter label="Status" options={userDistinct.statuses} selected={userStatusColFilter} onApply={setUserStatusColFilter} />
