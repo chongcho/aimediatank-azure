@@ -6,6 +6,7 @@ import { getFirstHomeLayoutSetting } from '@/lib/homeLayoutSetting'
 import { requireAdminPanelElevation } from '@/lib/requireAdminElevation'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
 import { deriveAuthMethods, isSocialAuthLabel, SOCIAL_PROVIDER_IDS, adminSetProviderAccountId } from '@/lib/authMethodLabel'
+import { lookupSocialAuthProviderFromEntra, isEntraLookupConfigured } from '@/lib/entraUserLookup'
 import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
@@ -1394,6 +1395,115 @@ export async function POST(request: Request) {
         return NextResponse.json({
           message: label ? `Sign-in set to ${label}` : 'Sign-in cleared',
           authProvider: label || null,
+        })
+      }
+
+      case 'lookupUserAuthProviderFromEntra': {
+        if (!isEntraLookupConfigured()) {
+          return NextResponse.json(
+            {
+              error:
+                'Entra is not configured. Set ENTRA_ISSUER, ENTRA_CLIENT_ID, and ENTRA_CLIENT_SECRET.',
+            },
+            { status: 400 }
+          )
+        }
+        const user = await prisma.user.findUnique({
+          where: { id: targetId },
+          select: { id: true, email: true, authProvider: true },
+        })
+        if (!user) {
+          return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        }
+        const lookup = await lookupSocialAuthProviderFromEntra(user.email)
+        if (!lookup.ok) {
+          return NextResponse.json({ error: lookup.error }, { status: 404 })
+        }
+        const label = lookup.authProvider
+        const placeholderId = adminSetProviderAccountId(targetId)
+        await prisma.account.deleteMany({
+          where: { userId: targetId, providerAccountId: placeholderId },
+        })
+        await prisma.account.create({
+          data: {
+            userId: targetId,
+            type: 'oauth',
+            provider: SOCIAL_PROVIDER_IDS[label],
+            providerAccountId: placeholderId,
+          },
+        })
+        await prisma.user.update({
+          where: { id: targetId },
+          data: { authProvider: label },
+        })
+        await logAdminAction(adminId, 'LOOKUP_AUTH_PROVIDER_ENTRA', 'USER', targetId, {
+          authProvider: label,
+          email: user.email,
+        })
+        return NextResponse.json({
+          message: `Sign-in set to ${label} (from Entra)`,
+          authProvider: label,
+        })
+      }
+
+      case 'backfillAuthProvidersFromEntra': {
+        if (!isEntraLookupConfigured()) {
+          return NextResponse.json(
+            {
+              error:
+                'Entra is not configured. Set ENTRA_ISSUER, ENTRA_CLIENT_ID, and ENTRA_CLIENT_SECRET.',
+            },
+            { status: 400 }
+          )
+        }
+        const missing = await prisma.user.findMany({
+          where: {
+            OR: [{ authProvider: null }, { authProvider: '' }],
+            password: '',
+          },
+          select: { id: true, email: true, username: true },
+          take: 50,
+          orderBy: { createdAt: 'desc' },
+        })
+        const results: Array<{
+          username: string
+          email: string
+          authProvider?: string
+          error?: string
+        }> = []
+        for (const u of missing) {
+          const lookup = await lookupSocialAuthProviderFromEntra(u.email)
+          if (!lookup.ok) {
+            results.push({ username: u.username, email: u.email, error: lookup.error })
+            continue
+          }
+          const label = lookup.authProvider
+          const placeholderId = adminSetProviderAccountId(u.id)
+          await prisma.account.deleteMany({
+            where: { userId: u.id, providerAccountId: placeholderId },
+          })
+          await prisma.account.create({
+            data: {
+              userId: u.id,
+              type: 'oauth',
+              provider: SOCIAL_PROVIDER_IDS[label],
+              providerAccountId: placeholderId,
+            },
+          })
+          await prisma.user.update({
+            where: { id: u.id },
+            data: { authProvider: label },
+          })
+          results.push({ username: u.username, email: u.email, authProvider: label })
+        }
+        const updated = results.filter((r) => r.authProvider).length
+        await logAdminAction(adminId, 'BACKFILL_AUTH_PROVIDERS_ENTRA', 'USER', adminId, {
+          attempted: missing.length,
+          updated,
+        })
+        return NextResponse.json({
+          message: `Updated ${updated} of ${missing.length} users from Entra`,
+          results,
         })
       }
 

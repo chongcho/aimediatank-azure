@@ -68,6 +68,12 @@ You can set **either** Option A **or** Option B. If both are set, Option A (`ENT
 - NextAuth redirects to `/login?error=...` on failure; the login page shows friendly messages for codes like `OAuthCallback`, `CredentialsSignin`, etc.
 - **Cookie warning “Mark cross-site cookies as Secure”**: The cookie `esctx-*` on `.aimediatank.ciamlogin.com` is set by **Microsoft Entra** (CIAM), not by your app. Ensure the app and redirects use **HTTPS**. If the warning persists, it is on Microsoft’s side; sign-in may still work in many browsers.
 
+## Admin Sign-in column
+
+- New Google / Facebook / Apple / Microsoft / Email registrations store `User.authProvider` automatically.
+- Older social accounts may show blank until the user signs in again, or until admin runs **Look up Sign-in from Entra** / **Backfill Sign-in from Entra**.
+- Entra lookup uses Microsoft Graph (`User.Read.All` application permission + admin consent on the same app as `ENTRA_CLIENT_ID`). Without that permission, lookup returns a clear error.
+
 ## Implementation notes
 
 - **Auth config**: `src/lib/auth.ts` — adds the Entra/B2C provider and find-or-create user logic in the JWT callback.

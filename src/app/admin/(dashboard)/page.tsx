@@ -2192,6 +2192,36 @@ export default function AdminPage() {
                   </button>
                 )}
                 <span className="text-sm text-gray-400 ml-auto">{filteredUsers.length === users.length ? `Total: ${users.length} users` : `${filteredUsers.length} of ${users.length} users`}</span>
+                <button
+                  type="button"
+                  className="text-xs text-sky-400 hover:text-sky-300 whitespace-nowrap"
+                  title="Fill Sign-in for older social users from Entra identities"
+                  onClick={async () => {
+                    if (!confirm('Look up missing Sign-in values from Entra for up to 50 social users?')) return
+                    try {
+                      const res = await adminFetch('/api/admin', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          action: 'backfillAuthProvidersFromEntra',
+                          targetId: '',
+                        }),
+                      })
+                      const data = await res.json().catch(() => ({}))
+                      if (!res.ok) {
+                        alert(data.error || 'Entra backfill failed')
+                        return
+                      }
+                      alert(data.message || 'Done')
+                      fetchData()
+                    } catch (e) {
+                      console.error(e)
+                      alert('Entra backfill failed')
+                    }
+                  }}
+                >
+                  Backfill Sign-in from Entra
+                </button>
               </>
             )}
 
@@ -4864,8 +4894,44 @@ export default function AdminPage() {
                   <option value="Email">Email</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  New Google / Facebook / Apple / Microsoft / Email sign-ups are saved automatically. Only older accounts may need this once.
+                  New Google / Facebook / Apple / Microsoft / Email sign-ups are saved automatically.
                 </p>
+                {!(selectedUser.authMethods ?? []).some((m) =>
+                  ['Google', 'Facebook', 'Apple', 'Microsoft', 'Email'].includes(m)
+                ) && (
+                  <button
+                    type="button"
+                    className="mt-2 w-full text-sm rounded-lg py-2 px-3 border border-sky-500/40 text-sky-300 hover:bg-sky-500/10 transition-colors"
+                    onClick={async () => {
+                      try {
+                        const res = await adminFetch('/api/admin', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            action: 'lookupUserAuthProviderFromEntra',
+                            targetId: selectedUser.id,
+                          }),
+                        })
+                        const data = await res.json().catch(() => ({}))
+                        if (!res.ok) {
+                          alert(data.error || 'Entra lookup failed')
+                          return
+                        }
+                        setSelectedUser((prev) =>
+                          prev && data.authProvider
+                            ? { ...prev, authMethods: [data.authProvider] }
+                            : prev
+                        )
+                        fetchData()
+                      } catch (e) {
+                        console.error(e)
+                        alert('Entra lookup failed')
+                      }
+                    }}
+                  >
+                    Look up Sign-in from Entra
+                  </button>
+                )}
               </div>
 
               {selectedUser.isSuspended && (
