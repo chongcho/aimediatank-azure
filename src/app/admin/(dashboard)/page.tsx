@@ -69,6 +69,8 @@ interface User {
   location: string | null
   role: string
   membershipType: string
+  /** Email and/or social labels: Google, Facebook, Apple, Microsoft, OAuth */
+  authMethods?: string[]
   isSuspended: boolean
   suspendedAt: string | null
   suspendedUntil: string | null
@@ -547,6 +549,7 @@ export default function AdminPage() {
   const [userMembershipColFilter, setUserMembershipColFilter] = useState<string[]>([])
   const [userStatusColFilter, setUserStatusColFilter] = useState<string[]>([])
   const [userCountryColFilter, setUserCountryColFilter] = useState<string[]>([])
+  const [userAuthColFilter, setUserAuthColFilter] = useState<string[]>([])
   const [userRoleColFilter, setUserRoleColFilter] = useState<string[]>([])
   
   // Debounce timers
@@ -881,6 +884,7 @@ export default function AdminPage() {
     memberships: Array.from(new Set(users.map(u => u.membershipType))).sort(),
     statuses: Array.from(new Set(users.map(u => u.isSuspended ? 'Suspended' : 'Active'))).sort(),
     countries: Array.from(new Set(users.map(u => u.location).filter(Boolean) as string[])).sort(),
+    authMethods: Array.from(new Set(users.flatMap(u => u.authMethods ?? []))).sort(),
     roles: Array.from(new Set(users.map(u => u.role))).sort(),
   }), [users])
 
@@ -888,9 +892,13 @@ export default function AdminPage() {
     if (userMembershipColFilter.length && !userMembershipColFilter.includes(u.membershipType)) return false
     if (userStatusColFilter.length && !userStatusColFilter.includes(u.isSuspended ? 'Suspended' : 'Active')) return false
     if (userCountryColFilter.length && (!u.location || !userCountryColFilter.includes(u.location))) return false
+    if (userAuthColFilter.length) {
+      const methods = u.authMethods ?? []
+      if (!userAuthColFilter.some((m) => methods.includes(m))) return false
+    }
     if (userRoleColFilter.length && !userRoleColFilter.includes(u.role)) return false
     return true
-  }), [users, userMembershipColFilter, userStatusColFilter, userCountryColFilter, userRoleColFilter])
+  }), [users, userMembershipColFilter, userStatusColFilter, userCountryColFilter, userAuthColFilter, userRoleColFilter])
 
   // Media: distinct values + client-side column filtering
   const mediaDistinct = useMemo(() => ({
@@ -2168,9 +2176,9 @@ export default function AdminPage() {
                   onChange={(e) => setUserSearch(e.target.value)}
                   className="input flex-1 min-w-[200px] h-9 text-sm"
                 />
-                {(userMembershipColFilter.length > 0 || userStatusColFilter.length > 0 || userCountryColFilter.length > 0 || userRoleColFilter.length > 0) && (
+                {(userMembershipColFilter.length > 0 || userStatusColFilter.length > 0 || userCountryColFilter.length > 0 || userAuthColFilter.length > 0 || userRoleColFilter.length > 0) && (
                   <button
-                    onClick={() => { setUserMembershipColFilter([]); setUserStatusColFilter([]); setUserCountryColFilter([]); setUserRoleColFilter([]) }}
+                    onClick={() => { setUserMembershipColFilter([]); setUserStatusColFilter([]); setUserCountryColFilter([]); setUserAuthColFilter([]); setUserRoleColFilter([]) }}
                     className="text-xs text-red-400 hover:text-red-300 whitespace-nowrap"
                   >
                     ✕ Clear all filters
@@ -2637,7 +2645,7 @@ export default function AdminPage() {
           {activeTab === 'users' && (
             <div className="space-y-4">
               <div className="card overflow-x-auto max-h-[70vh] overflow-y-auto">
-                <table className="w-full text-sm min-w-[1350px]">
+                <table className="w-full text-sm min-w-[1480px]">
                   <thead className="sticky top-0 bg-tank-dark z-10">
                     <tr className="border-b border-tank-light">
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">#</th>
@@ -2646,6 +2654,7 @@ export default function AdminPage() {
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email Address</th>
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Phone Number</th>
                       <ColumnFilter label="Country" options={userDistinct.countries} selected={userCountryColFilter} onApply={setUserCountryColFilter} />
+                      <ColumnFilter label="Social / OAuth" options={userDistinct.authMethods} selected={userAuthColFilter} onApply={setUserAuthColFilter} />
                       <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Subscription Date</th>
                       <ColumnFilter label="Membership" options={userDistinct.memberships} selected={userMembershipColFilter} onApply={setUserMembershipColFilter} />
                       <ColumnFilter label="Status" options={userDistinct.statuses} selected={userStatusColFilter} onApply={setUserStatusColFilter} />
@@ -2680,6 +2689,39 @@ export default function AdminPage() {
                         </td>
                         <td className="p-3 text-gray-400 whitespace-nowrap">
                           {user.location || '-'}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          {(user.authMethods ?? []).length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {(user.authMethods ?? []).map((method) => (
+                                <span
+                                  key={method}
+                                  className={`badge text-xs ${
+                                    method === 'Email'
+                                      ? 'bg-gray-500/20 text-gray-300'
+                                      : method === 'Google'
+                                        ? 'bg-blue-500/20 text-blue-300'
+                                        : method === 'Facebook'
+                                          ? 'bg-indigo-500/20 text-indigo-300'
+                                          : method === 'Apple'
+                                            ? 'bg-zinc-500/20 text-zinc-200'
+                                            : method === 'Microsoft'
+                                              ? 'bg-sky-500/20 text-sky-300'
+                                              : 'bg-amber-500/20 text-amber-300'
+                                  }`}
+                                  title={
+                                    method === 'OAuth'
+                                      ? 'Social signup before provider tracking; specific network unknown until they sign in again'
+                                      : undefined
+                                  }
+                                >
+                                  {method}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-500">-</span>
+                          )}
                         </td>
                         <td className="p-3 text-gray-400 whitespace-nowrap">
                           {new Date(user.createdAt).toLocaleDateString()}

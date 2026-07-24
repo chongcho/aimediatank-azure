@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { getFirstHomeLayoutSetting } from '@/lib/homeLayoutSetting'
 import { requireAdminPanelElevation } from '@/lib/requireAdminElevation'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
+import { deriveAuthMethods } from '@/lib/authMethodLabel'
 import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
@@ -141,6 +142,10 @@ export async function GET(request: Request) {
           freeUploadsUsed: true,
           adminNotes: true,
           createdAt: true,
+          password: true,
+          accounts: {
+            select: { provider: true },
+          },
           _count: {
             select: {
               media: true,
@@ -216,7 +221,12 @@ export async function GET(request: Request) {
         }
       }
       
-      return NextResponse.json({ users })
+      const usersForAdmin = users.map(({ password, accounts, ...user }) => ({
+        ...user,
+        authMethods: deriveAuthMethods(password, accounts),
+      }))
+
+      return NextResponse.json({ users: usersForAdmin })
     }
     
     if (action === 'chatMessages') {

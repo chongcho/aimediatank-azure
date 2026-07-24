@@ -303,6 +303,48 @@ export const authOptions: NextAuthOptions = {
             'This account has been deactivated. If you use email and password, open Log in with Email and tap Activate after entering your password. Or contact support for help.',
           )
         }
+
+        // Persist which social button was used (Account.provider) for admin Users column.
+        if (account?.provider && account.providerAccountId) {
+          try {
+            await prisma.account.upsert({
+              where: {
+                provider_providerAccountId: {
+                  provider: account.provider,
+                  providerAccountId: String(account.providerAccountId),
+                },
+              },
+              create: {
+                userId: dbUser.id,
+                type: account.type || 'oauth',
+                provider: account.provider,
+                providerAccountId: String(account.providerAccountId),
+                refresh_token: typeof account.refresh_token === 'string' ? account.refresh_token : null,
+                access_token: typeof account.access_token === 'string' ? account.access_token : null,
+                expires_at: typeof account.expires_at === 'number' ? account.expires_at : null,
+                token_type: typeof account.token_type === 'string' ? account.token_type : null,
+                scope: typeof account.scope === 'string' ? account.scope : null,
+                id_token: typeof account.id_token === 'string' ? account.id_token : null,
+                session_state:
+                  typeof account.session_state === 'string' ? account.session_state : null,
+              },
+              update: {
+                userId: dbUser.id,
+                refresh_token: typeof account.refresh_token === 'string' ? account.refresh_token : undefined,
+                access_token: typeof account.access_token === 'string' ? account.access_token : undefined,
+                expires_at: typeof account.expires_at === 'number' ? account.expires_at : undefined,
+                token_type: typeof account.token_type === 'string' ? account.token_type : undefined,
+                scope: typeof account.scope === 'string' ? account.scope : undefined,
+                id_token: typeof account.id_token === 'string' ? account.id_token : undefined,
+                session_state:
+                  typeof account.session_state === 'string' ? account.session_state : undefined,
+              },
+            })
+          } catch (e) {
+            console.error('[auth] Failed to persist OAuth Account link:', e)
+          }
+        }
+
         token.id = dbUser.id
         token.name = dbUser.name ?? token.name ?? null
         token.legalName = dbUser.legalName ?? null
