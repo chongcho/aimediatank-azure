@@ -673,14 +673,13 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         localVideoTrack = track
 
         // Prefer the video transceiver created by the remote offer (Unified Plan).
+        // WebRTC-SDK does not expose RTCRtpSender.setTrack — addTrack after
+        // setRemoteDescription reuses the offer's video transceiver.
         if let transceiver = pc.transceivers.first(where: { $0.mediaType == .video }) {
             transceiver.setDirection(.sendRecv, error: nil)
-            _ = transceiver.sender.setTrack(track)
-            print("[NativeVoiceCallEngine] local video on existing transceiver")
-        } else {
-            pc.add(track, streamIds: ["stream0"])
-            print("[NativeVoiceCallEngine] local video added as new track")
         }
+        pc.add(track, streamIds: ["stream0"])
+        print("[NativeVoiceCallEngine] local video track added (transceivers=\(pc.transceivers.count))")
 
         if startCapture {
             startFrontCamera(capturer: capturer)
