@@ -227,6 +227,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             // Layout inset for controls only after tracks exist — avoid empty Metal cover.
             if reason == "call_ui_ready", NativeVoiceCallEngine.shared.shouldShowVideoOverlay {
                 NativeVoiceCallEngine.shared.layoutVideoOverlayForJsControls()
+            } else if reason == "call_ended" || reason == "user_end" || reason == "timeout" {
+                // Always strip video overlay on hangup — do not wait for endCall races.
+                NativeVoiceCallEngine.shared.forceCleanupMediaUi()
             }
             print("[AiMediaTankVoipPushBridge] end accept cover (\(reason))")
         }
@@ -895,6 +898,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             self.stopCallKitRingAnnouncement()
             NativeVoiceCallEngine.shared.clearPrefetch(callId: callId)
             Self.clearCallHasVideo(callId)
+            // Always clear Metal overlay/camera — activeCallId may already be nil after races.
+            NativeVoiceCallEngine.shared.forceCleanupMediaUi()
             self.endAcceptCover(reason: "call_ended")
             let observer = CXCallObserver()
             let stillOnCallKit = observer.calls.contains { $0.uuid == uuid && !$0.hasEnded }
@@ -905,7 +910,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             // scheduleDismissRetries became no-ops (stuck lock-screen UI after caller hangup).
             if stillOnCallKit || !alreadyMarked {
                 self.endedCallKitCallIds.insert(callId)
-                if NativeVoiceCallEngine.shared.activeCallId == callId {
+                if NativeVoiceCallEngine.shared.activeCallId == callId || NativeVoiceCallEngine.shared.isActive {
                     NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
                 }
                 // Remote hangup / cancel: reportCall is the correct provider API.

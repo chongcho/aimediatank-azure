@@ -44,10 +44,12 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var wantsVideo = false
     private var localPreviewView: RTCMTLVideoView?
     private var remoteVideoView: RTCMTLVideoView?
-    private weak var videoOverlayContainer: UIView?
+    /// Strong — weak ref could drop while the view stayed on the window (stuck black PiP after hangup).
+    private var videoOverlayContainer: UIView?
     private weak var remoteVideoTrack: RTCVideoTrack?
     /// Bottom inset so WKWebView End/Mute/etc. stay visible under the native video surface.
     private var videoControlSafeArea: CGFloat = 0
+    private static let videoOverlayTag = 0xA11C08
     /// Prefetched while CallKit is ringing so Accept skips the bootstrap wait.
     private var prefetchedBootstrap: BootstrapResult?
     private var prefetchedCallId: String?
@@ -65,11 +67,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         // works but remote/local video stays black (camera indicator on, Metal views empty).
         let encoderFactory = RTCDefaultVideoEncoderFactory()
         let decoderFactory = RTCDefaultVideoDecoderFactory()
-        if let vp8 = encoderFactory.supportedCodecs().first(where: {
-            $0.name.uppercased() == "VP8"
-        }) {
-            encoderFactory.preferredCodec = vp8
-        }
+        // Do not force preferredCodec — let offer/answer negotiate H264/VP8 with the peer.
         let created = RTCPeerConnectionFactory(
             encoderFactory: encoderFactory,
             decoderFactory: decoderFactory
@@ -247,12 +245,20 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         audioSessionReady = false
     }
 
+    /// Strip Metal overlay + camera immediately (CallKit end can race before endCall).
+    func forceCleanupMediaUi() {
+        wantsVideo = false
+        stopVideoCapture()
+        removeVideoOverlay()
+    }
+
     func endCall(reason: String = "user", syncServer: Bool = true) {
         print("[NativeVoiceCallEngine] end call \(callId ?? "nil") reason=\(reason)")
         cancelIceDisconnectTimer()
         uiSyncGeneration = UUID()
         stopIcePoll()
         bootstrapGeneration = nil
+        createAnswerGeneration = nil
         clearPrefetch()
         isAnswering = false
         pendingStart = false
@@ -270,8 +276,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         self.token = nil
         cachedCaller = nil
         localAudioTrack = nil
-        stopVideoCapture()
-        removeVideoOverlay()
+        // Overlay first — never leave black PiP covering home after hangup.
+        forceCleanupMediaUi()
         tearDownPeerConnection(notify: true, notifyCallId: endedCallId)
     }
 
@@ -406,12 +412,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         localAudioTrack = audioTrack
         pc.add(audioTrack, streamIds: ["stream0"])
 
-        // Match Android: attach local video before setRemoteDescription so the answer
-        // negotiates sendrecv with a real track (Unified Plan reuses/adds correctly).
-        if wantsVideo {
-            attachLocalVideoTrack(to: pc, startCapture: false)
-        }
-
+        // Attach video only AFTER setRemoteDescription so Unified Plan reuses the offer's
+        // video transceiver (adding before creates a second m=video and black frames).
         let offer = RTCSessionDescription(type: .offer, sdp: sdp)
         print("[NativeVoiceCallEngine] setRemoteDescription \(callId) len=\(sdp.count) video=\(wantsVideo)")
         pc.setRemoteDescription(offer) { [weak self] error in
@@ -428,7 +430,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             self.flushPendingRemoteIce(callId: callId)
 
             if self.wantsVideo {
-                // Ensure sendrecv on the offer's video transceiver after remote description.
+                self.attachLocalVideoTrack(to: pc, startCapture: false)
                 if let transceiver = pc.transceivers.first(where: { $0.mediaType == .video }) {
                     transceiver.setDirection(.sendRecv, error: nil)
                 }
@@ -466,8 +468,9 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                     self.postTrace(callId: callId, token: token, event: "native_webrtc_answer_sent")
                     print("[NativeVoiceCallEngine] posted answer sdp \(callId) hasVideoMLine=\(answer.sdp.contains("m=video"))")
                     if self.wantsVideo {
-                        self.startLocalCameraIfNeeded()
+                        // Overlay first so Metal views have non-zero bounds before frames arrive.
                         self.ensureVideoOverlay()
+                        self.startLocalCameraIfNeeded()
                     }
                     self.startIcePoll(callId: callId, token: token)
                 }
@@ -508,9 +511,12 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         isAnswering = false
         pendingStart = false
         bootstrapGeneration = nil
+        createAnswerGeneration = nil
         isMediaConnected = false
+        wantsVideo = false
         self.callId = nil
         self.token = nil
+        forceCleanupMediaUi()
         tearDownPeerConnection(notify: false)
         runOnMain { [weak self] in
             self?.delegate?.nativeVoiceCallEngineDidFail(callId: callId, error: error)
@@ -775,7 +781,9 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     }
 
     private func stopVideoCapture() {
-        videoCapturer?.stopCapture()
+        if let capturer = videoCapturer {
+            capturer.stopCapture()
+        }
         videoCapturer = nil
         localVideoTrack = nil
         remoteVideoTrack = nil
@@ -809,14 +817,12 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
                 let container = UIView(frame: host.bounds)
                 container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                // Must stay clear — opaque Metal placeholders covered the working voice UI.
                 container.backgroundColor = .clear
                 container.isUserInteractionEnabled = false
-                container.tag = 0xA11C08
+                container.tag = Self.videoOverlayTag
 
                 let remote = RTCMTLVideoView(frame: .zero)
                 remote.videoContentMode = .scaleAspectFill
-                // Opaque Metal layer — clear/isOpaque=false often never paints frames.
                 remote.backgroundColor = UIColor(white: 0.05, alpha: 1)
                 remote.isOpaque = true
                 container.addSubview(remote)
@@ -825,9 +831,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                 preview.videoContentMode = .scaleAspectFill
                 preview.backgroundColor = UIColor(white: 0.12, alpha: 1)
                 preview.isOpaque = true
-                preview.layer.cornerRadius = 10
-                preview.clipsToBounds = true
-                // Do not apply CATransform3D/UIView mirror — breaks RTCMTLVideoView rendering.
+                // No cornerRadius/clipsToBounds — both break Metal frame delivery on RTCMTLVideoView.
                 container.addSubview(preview)
 
                 host.addSubview(container)
@@ -865,7 +869,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     }
 
     private func removeVideoOverlay() {
-        runOnMain { [weak self] in
+        let work = { [weak self] in
             guard let self else { return }
             self.localPreviewView?.removeFromSuperview()
             self.remoteVideoView?.removeFromSuperview()
@@ -874,6 +878,24 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             self.remoteVideoView = nil
             self.videoOverlayContainer = nil
             self.videoControlSafeArea = 0
+            // Sweep orphans left by races (weak-ref loss / late ensureVideoOverlay).
+            let hosts: [UIView] = {
+                var views: [UIView] = []
+                if let bridge = Self.findBridgeViewController()?.view { views.append(bridge) }
+                for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+                    views.append(contentsOf: scene.windows)
+                }
+                return views
+            }()
+            for host in hosts {
+                host.viewWithTag(Self.videoOverlayTag)?.removeFromSuperview()
+            }
+            print("[NativeVoiceCallEngine] video overlay removed")
+        }
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.sync(execute: work)
         }
     }
 
