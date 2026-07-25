@@ -206,6 +206,7 @@ export function VoiceCallOverlayPanel({
       nativeOwnsVideo={ctx.nativeOwnsVideo}
       localVideoRef={ctx.localVideoRef}
       remoteVideoRef={ctx.remoteVideoRef}
+      onVideoElementsReady={ctx.syncVideoElements}
       labels={labels}
       inAppHint={showCallControls ? undefined : labels.inAppHint}
       onHide={canHideCall ? ctx.hideCallUi : undefined}

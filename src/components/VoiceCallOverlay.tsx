@@ -32,6 +32,7 @@ interface VoiceCallOverlayProps {
   nativeOwnsVideo?: boolean
   localVideoRef?: MutableRefObject<HTMLVideoElement | null>
   remoteVideoRef?: MutableRefObject<HTMLVideoElement | null>
+  onVideoElementsReady?: () => void
   labels: {
     appAudio: string
     incomingCall: string
@@ -839,6 +840,7 @@ function ActiveCallScreen({
   nativeOwnsVideo = false,
   localVideoRef,
   remoteVideoRef,
+  onVideoElementsReady,
   labels,
   onEnd,
   onToggleMute,
@@ -863,6 +865,7 @@ function ActiveCallScreen({
   nativeOwnsVideo?: boolean
   localVideoRef?: MutableRefObject<HTMLVideoElement | null>
   remoteVideoRef?: MutableRefObject<HTMLVideoElement | null>
+  onVideoElementsReady?: () => void
   labels: VoiceCallOverlayProps['labels']
   onEnd: () => void
   onToggleMute: () => void
@@ -961,6 +964,7 @@ function ActiveCallScreen({
             <video
               ref={(el) => {
                 if (remoteVideoRef) remoteVideoRef.current = el
+                if (el) onVideoElementsReady?.()
               }}
               autoPlay
               playsInline
@@ -974,6 +978,7 @@ function ActiveCallScreen({
             <video
               ref={(el) => {
                 if (localVideoRef) localVideoRef.current = el
+                if (el) onVideoElementsReady?.()
               }}
               autoPlay
               muted
@@ -981,7 +986,7 @@ function ActiveCallScreen({
               style={{
                 position: 'absolute',
                 right: 12,
-                bottom: 12,
+                top: 56,
                 width: compact ? 88 : 112,
                 height: compact ? 118 : 150,
                 objectFit: 'cover',
@@ -1303,6 +1308,7 @@ export function VoiceCallOverlay({
   nativeOwnsVideo = false,
   localVideoRef,
   remoteVideoRef,
+  onVideoElementsReady,
   labels,
   onAccept,
   onReject,
@@ -1380,6 +1386,7 @@ export function VoiceCallOverlay({
         nativeOwnsVideo={nativeOwnsVideo}
         localVideoRef={localVideoRef}
         remoteVideoRef={remoteVideoRef}
+        onVideoElementsReady={onVideoElementsReady}
         labels={labels}
         onEnd={onEnd}
         onToggleMute={onToggleMute}
