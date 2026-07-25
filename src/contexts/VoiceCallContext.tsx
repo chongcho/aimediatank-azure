@@ -65,6 +65,8 @@ interface VoiceCallContextValue {
   isSpeakerOn: boolean
   hasVideo: boolean
   isCameraOff: boolean
+  /** iOS CallKit Accept: native Metal views render video — JS <video> stay empty. */
+  nativeOwnsVideo: boolean
   lastError: string | null
   clearLastError: () => void
   remoteAudioRef: MutableRefObject<HTMLAudioElement | null>
@@ -201,6 +203,7 @@ export function VoiceCallOverlayPanel({
       isSpeakerOn={ctx.isSpeakerOn}
       hasVideo={ctx.hasVideo}
       isCameraOff={ctx.isCameraOff}
+      nativeOwnsVideo={ctx.nativeOwnsVideo}
       localVideoRef={ctx.localVideoRef}
       remoteVideoRef={ctx.remoteVideoRef}
       labels={labels}
@@ -380,6 +383,7 @@ export function VoiceCallProvider({
         isSpeakerOn: voiceCall.isSpeakerOn,
         hasVideo: voiceCall.hasVideo,
         isCameraOff: voiceCall.isCameraOff,
+        nativeOwnsVideo: voiceCall.nativeOwnsVideo,
         lastError: voiceCall.lastError,
         clearLastError: voiceCall.clearLastError,
         remoteAudioRef: voiceCall.remoteAudioRef,

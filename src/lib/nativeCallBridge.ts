@@ -653,11 +653,13 @@ type NativeWebRtcPlugin = {
   prepareNativeWebRtcCaller?: (options: {
     callId: string
     iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }>
+    hasVideo?: boolean
   }) => Promise<void>
   prepareNativeWebRtcAnswer?: (options: {
     callId: string
     declineToken?: string
     remoteOfferSdp?: string
+    hasVideo?: boolean
   }) => Promise<void>
   endNativeWebRtc?: () => Promise<void>
   setNativeWebRtcMuted?: (options: { muted: boolean }) => Promise<void>
@@ -667,13 +669,14 @@ type NativeWebRtcPlugin = {
 export async function prepareNativeWebRtcCaller(
   callId: string,
   iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }>,
+  hasVideo = false,
 ): Promise<void> {
   if (!isNativeAndroidCallApp() || !callId) return
   try {
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeWebRtcPlugin
     if (typeof plugin.prepareNativeWebRtcCaller !== 'function') return
-    await plugin.prepareNativeWebRtcCaller({ callId, iceServers })
+    await plugin.prepareNativeWebRtcCaller({ callId, iceServers, hasVideo: Boolean(hasVideo) || undefined })
   } catch (error) {
     console.error('[NativeCall] prepareNativeWebRtcCaller failed:', error)
     throw error
@@ -685,6 +688,7 @@ export async function prepareNativeWebRtcAnswer(
   callId: string,
   declineToken?: string,
   remoteOfferSdp?: string,
+  hasVideo = false,
 ): Promise<void> {
   if (!isNativeAndroidCallApp() || !callId) return
   try {
@@ -694,7 +698,12 @@ export async function prepareNativeWebRtcAnswer(
       console.error('[NativeCall] prepareNativeWebRtcAnswer plugin method missing — rebuild native app')
       return
     }
-    await plugin.prepareNativeWebRtcAnswer({ callId, declineToken, remoteOfferSdp })
+    await plugin.prepareNativeWebRtcAnswer({
+      callId,
+      declineToken,
+      remoteOfferSdp,
+      hasVideo: Boolean(hasVideo) || undefined,
+    })
   } catch (error) {
     console.error('[NativeCall] prepareNativeWebRtcAnswer failed:', error)
     throw error

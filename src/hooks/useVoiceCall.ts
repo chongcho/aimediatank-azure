@@ -240,6 +240,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const nativeWebRtcCalleeRef = useRef(false)
   /** Android uses Kotlin NativeVoiceWebRtcEngine — JS must not use WebView RTCPeerConnection. */
   const nativeWebRtcAndroidRef = useRef(false)
+  const [nativeOwnsVideo, setNativeOwnsVideo] = useState(false)
 
   const reportError = useCallback(
     (message: string) => {
@@ -315,6 +316,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     callKitSignalingRef.current = false
     nativeWebRtcCalleeRef.current = false
     nativeWebRtcAndroidRef.current = false
+    setNativeOwnsVideo(false)
     hasVideoRef.current = false
     setCallId(null)
     setRemoteUser(null)
@@ -590,7 +592,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     try {
       if (isNativeAndroidCallApp()) {
         nativeWebRtcAndroidRef.current = true
-        await prepareNativeWebRtcCaller(callIdRef.current, getIceServers())
+        await prepareNativeWebRtcCaller(callIdRef.current, getIceServers(), hasVideoRef.current)
         if (callStateRef.current === 'outgoing') {
           retryVoiceCallRingtone()
         }
@@ -840,7 +842,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         }
         if (!opts?.fromCallKit) {
           // Offer SDP comes from native bootstrap (Capacitor bridge corrupts multiline SDP).
-          await prepareNativeWebRtcAnswer(id, declineToken)
+          await prepareNativeWebRtcAnswer(id, declineToken, undefined, hasVideoRef.current)
         }
         pendingOfferRef.current = null
         setCallState('connecting')
@@ -1359,15 +1361,22 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           if (options?.hasVideo) {
             hasVideoRef.current = true
             setHasVideo(true)
+            if (isNativeIosCallApp()) setNativeOwnsVideo(true)
           }
           // Prefer hasVideo from bootstrap when available (native inject may not include it).
           void (async () => {
-            if (!token || hasVideoRef.current) return
+            if (!token || hasVideoRef.current) {
+              if (hasVideoRef.current && isNativeIosCallApp() && nativeWebRtcCalleeRef.current) {
+                setNativeOwnsVideo(true)
+              }
+              return
+            }
             try {
               const bootstrap = await fetchNativeCallKitBootstrap(normalizedId, token)
               if (bootstrap?.hasVideo) {
                 hasVideoRef.current = true
                 setHasVideo(true)
+                if (isNativeIosCallApp()) setNativeOwnsVideo(true)
               }
             } catch {
               /* ignore */
@@ -1782,6 +1791,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     isSpeakerOn,
     hasVideo,
     isCameraOff,
+    nativeOwnsVideo,
     remoteAudioRef,
     localVideoRef,
     remoteVideoRef,

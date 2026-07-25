@@ -2365,9 +2365,9 @@ if (fs.existsSync(callManagerPath)) {
         NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).prepareAnswer(callId, token)
     }
 
-    fun startNativeWebRtcCaller(callId: String, iceServersJson: org.json.JSONArray?) {
+    fun startNativeWebRtcCaller(callId: String, iceServersJson: org.json.JSONArray?, wantsVideo: Boolean = false) {
         val emitter = eventEmitter ?: return
-        NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).startCaller(callId, iceServersJson)
+        NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).startCaller(callId, iceServersJson, wantsVideo)
     }
 
     fun endNativeWebRtc() {
@@ -2439,7 +2439,8 @@ if (fs.existsSync(pluginPath)) {
         }
         val iceArray = call.getArray("iceServers")
         val iceJson = if (iceArray != null) org.json.JSONArray(iceArray.toString()) else null
-        callManager?.startNativeWebRtcCaller(callId, iceJson)
+        val hasVideo = call.getBoolean("hasVideo", false) ?: false
+        callManager?.startNativeWebRtcCaller(callId, iceJson, hasVideo)
         call.resolve()
     }
 
@@ -2451,7 +2452,8 @@ if (fs.existsSync(pluginPath)) {
         }
         val token = call.getString("declineToken")
         val baseUrl = bridge.serverUrl.toString().trimEnd('/')
-        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token)
+        val hasVideo = call.getBoolean("hasVideo", false) ?: false
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token, wantsVideo = hasVideo)
         call.resolve()
     }
 
@@ -2522,9 +2524,9 @@ if (fs.existsSync(callManagerPath)) {
         NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).prepareAnswer(callId, token)
     }
 
-    fun startNativeWebRtcCaller(callId: String, iceServersJson: org.json.JSONArray?) {
+    fun startNativeWebRtcCaller(callId: String, iceServersJson: org.json.JSONArray?, wantsVideo: Boolean = false) {
         val emitter = eventEmitter ?: return
-        NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).startCaller(callId, iceServersJson)
+        NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).startCaller(callId, iceServersJson, wantsVideo)
     }`,
     )
     if (callManager.includes('declineTokensByCallId[callId] = it')) {
@@ -2786,8 +2788,9 @@ if (fs.existsSync(pluginPath)) {
         call.resolve()`,
       `        val token = call.getString("declineToken") ?: callManager?.declineTokenForCall(callId)
         val remoteOfferSdp = call.getString("remoteOfferSdp")
+        val hasVideo = call.getBoolean("hasVideo", false) ?: false
         val baseUrl = callManager?.resolveWebRtcBaseUrl() ?: "https://aimediatank.com"
-        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token, remoteOfferSdp)
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token, remoteOfferSdp, hasVideo)
         call.resolve()`,
     )
     fs.writeFileSync(pluginPath, pluginSource)
@@ -4370,6 +4373,101 @@ if (fs.existsSync(callManagerPath)) {
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
     console.log('[patch-android-fcm] CallManager announcement session checks')
+  }
+}
+
+// Pass hasVideo into native WebRTC startCaller / prepareAnswer (idempotent upgrade).
+const nativeWebRtcHasVideoMarker = 'startCaller(callId, iceServersJson, wantsVideo)'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  let cmChanged = false
+  if (
+    callManager.includes('fun startNativeWebRtcCaller(callId: String, iceServersJson: org.json.JSONArray?) {') &&
+    !callManager.includes(nativeWebRtcHasVideoMarker)
+  ) {
+    callManager = callManager.replace(
+      /fun startNativeWebRtcCaller\(callId: String, iceServersJson: org\.json\.JSONArray\?\) \{[\s\S]*?\.startCaller\(callId, iceServersJson\)\n    \}/,
+      `fun startNativeWebRtcCaller(callId: String, iceServersJson: org.json.JSONArray?, wantsVideo: Boolean = false) {
+        val emitter = eventEmitter ?: return
+        NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter).startCaller(callId, iceServersJson, wantsVideo)
+    }`,
+    )
+    cmChanged = true
+  }
+  if (cmChanged) {
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] startNativeWebRtcCaller wantsVideo')
+  }
+}
+
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  let pluginChanged = false
+  if (
+    pluginSource.includes('callManager?.startNativeWebRtcCaller(callId, iceJson)') &&
+    !pluginSource.includes('startNativeWebRtcCaller(callId, iceJson, hasVideo)')
+  ) {
+    pluginSource = pluginSource.replace(
+      `        val iceArray = call.getArray("iceServers")
+        val iceJson = if (iceArray != null) org.json.JSONArray(iceArray.toString()) else null
+        callManager?.startNativeWebRtcCaller(callId, iceJson)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun prepareNativeWebRtcAnswer(call: PluginCall) {
+        val callId = call.getString("callId") ?: run {
+            call.reject("callId is required")
+            return
+        }
+        val token = call.getString("declineToken")
+        val baseUrl = bridge.serverUrl.toString().trimEnd('/')
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token)
+        call.resolve()
+    }`,
+      `        val iceArray = call.getArray("iceServers")
+        val iceJson = if (iceArray != null) org.json.JSONArray(iceArray.toString()) else null
+        val hasVideo = call.getBoolean("hasVideo", false) ?: false
+        callManager?.startNativeWebRtcCaller(callId, iceJson, hasVideo)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun prepareNativeWebRtcAnswer(call: PluginCall) {
+        val callId = call.getString("callId") ?: run {
+            call.reject("callId is required")
+            return
+        }
+        val token = call.getString("declineToken")
+        val baseUrl = bridge.serverUrl.toString().trimEnd('/')
+        val hasVideo = call.getBoolean("hasVideo", false) ?: false
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token, wantsVideo = hasVideo)
+        call.resolve()
+    }`,
+    )
+    pluginChanged = true
+  }
+  // remoteOfferSdp variant of prepareAnswer
+  if (
+    pluginSource.includes('prepareAnswer(callId, token, remoteOfferSdp)') &&
+    !pluginSource.includes('prepareAnswer(callId, token, remoteOfferSdp, hasVideo)')
+  ) {
+    pluginSource = pluginSource.replace(
+      `        val remoteOfferSdp = call.getString("remoteOfferSdp")
+        val baseUrl = callManager?.resolveWebRtcBaseUrl() ?: "https://aimediatank.com"
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token, remoteOfferSdp)`,
+      `        val remoteOfferSdp = call.getString("remoteOfferSdp")
+        val hasVideo = call.getBoolean("hasVideo", false) ?: false
+        val baseUrl = callManager?.resolveWebRtcBaseUrl() ?: "https://aimediatank.com"
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token, remoteOfferSdp, hasVideo)`,
+    )
+    pluginChanged = true
+  }
+  if (pluginChanged) {
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] plugin hasVideo for native WebRTC')
   }
 }
 

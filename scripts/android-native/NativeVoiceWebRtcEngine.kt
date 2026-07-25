@@ -141,6 +141,12 @@ class NativeVoiceWebRtcEngine private constructor(
         this.wantsVideo = wantsVideo ||
             context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
                 .getBoolean("video_$normalized", false)
+        if (this.wantsVideo) {
+            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("video_$normalized", true)
+                .apply()
+        }
 
         if (isActive() && this.callId != normalized) {
             endCall(syncServer = false, reason = "superseded")
@@ -216,7 +222,7 @@ class NativeVoiceWebRtcEngine private constructor(
         }
     }
 
-    fun startCaller(callIdRaw: String, iceServersJson: JSONArray?) {
+    fun startCaller(callIdRaw: String, iceServersJson: JSONArray?, wantsVideo: Boolean = false) {
         val normalized = callIdRaw.lowercase()
         if (isActive() && this.callId != normalized) {
             endCall(syncServer = false, reason = "superseded")
@@ -229,6 +235,15 @@ class NativeVoiceWebRtcEngine private constructor(
         isAnswering = false
         isMediaConnected = false
         running.set(true)
+        this.wantsVideo = wantsVideo ||
+            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                .getBoolean("video_$normalized", false)
+        if (this.wantsVideo) {
+            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("video_$normalized", true)
+                .apply()
+        }
         appliedRemoteIceKeys.clear()
         remoteDescriptionReady = false
         remoteAnswerApplied = false
@@ -236,7 +251,7 @@ class NativeVoiceWebRtcEngine private constructor(
         cachedCaller = null
         parsedIceServers = parseIceServers(iceServersJson)
 
-        Log.i(TAG, "start caller $normalized")
+        Log.i(TAG, "start caller $normalized video=${this.wantsVideo}")
         runWebRtc("startCaller") {
             ensureVoiceCallAudioActive()
             createAndSendOffer(normalized)
@@ -269,7 +284,14 @@ class NativeVoiceWebRtcEngine private constructor(
             }
         }
 
+        wantsVideo = false
         tearDownPeerConnection(notify = true)
+        id?.let { endedId ->
+            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                .edit()
+                .remove("video_${endedId.lowercase()}")
+                .apply()
+        }
         callId = null
         token = null
         cachedCaller = null
@@ -495,11 +517,17 @@ class NativeVoiceWebRtcEngine private constructor(
             failCall(callId, "invalid offer sdp")
             return
         }
-        if (sdp.contains("m=video")) {
-            wantsVideo = true
-        }
+        val offerHasVideo = sdp.contains("m=video")
         val generation = UUID.randomUUID()
+        // Do not clear wantsVideo here — tearDown only resets peer/media resources.
         tearDownPeerConnection(notify = false)
+        if (offerHasVideo) {
+            wantsVideo = true
+            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("video_${callId.lowercase()}", true)
+                .apply()
+        }
         createAnswerGeneration = generation
         applyTelecomSpeakerRoute()
         val pc = createPeerConnection(iceServers)
@@ -871,7 +899,7 @@ class NativeVoiceWebRtcEngine private constructor(
         surfaceTextureHelper = null
         eglBase?.release()
         eglBase = null
-        wantsVideo = false
+        // Keep wantsVideo for this call — reset only in endCall/failCall (iOS parity).
         peerConnection?.close()
         peerConnection = null
         if (notify) {
@@ -909,6 +937,7 @@ class NativeVoiceWebRtcEngine private constructor(
         isAnswering = false
         bootstrapGeneration = null
         running.set(false)
+        wantsVideo = false
         tearDownPeerConnection(notify = false)
         emitFailed(callId, error)
         injectUiEvent("aimediatank-callkit-end", JSONObject().put("callId", callId))

@@ -224,9 +224,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             self.acceptCoverPollWork = nil
             self.acceptCoverView?.removeFromSuperview()
             self.acceptCoverView = nil
-            // Native video surface sits above the WebView — lift it once call controls paint.
+            // Native WebRTC owns video — keep the Metal overlay; only leave room for JS controls.
             if reason == "call_ui_ready" {
-                NativeVoiceCallEngine.shared.hideVideoOverlayForJsUi()
+                NativeVoiceCallEngine.shared.layoutVideoOverlayForJsControls()
             }
             print("[AiMediaTankVoipPushBridge] end accept cover (\(reason))")
         }

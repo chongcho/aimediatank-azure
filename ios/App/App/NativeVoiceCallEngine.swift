@@ -45,6 +45,9 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var localPreviewView: RTCMTLVideoView?
     private var remoteVideoView: RTCMTLVideoView?
     private weak var videoOverlayContainer: UIView?
+    private weak var remoteVideoTrack: RTCVideoTrack?
+    /// Bottom inset so WKWebView End/Mute/etc. stay visible under the native video surface.
+    private var videoControlSafeArea: CGFloat = 0
     /// Prefetched while CallKit is ringing so Accept skips the bootstrap wait.
     private var prefetchedBootstrap: BootstrapResult?
     private var prefetchedCallId: String?
@@ -495,6 +498,9 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         print("[NativeVoiceCallEngine] connected \(callId)")
         ensureWebRtcAudioEnabled()
         postTrace(callId: callId, token: token ?? "", event: "native_webrtc_connected")
+        if wantsVideo {
+            layoutVideoOverlayForJsControls()
+        }
         let caller = cachedCaller
         runOnMain { [weak self] in
             guard let self, self.isMediaConnected, self.callId == callId.lowercased() else { return }
@@ -698,56 +704,86 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         videoCapturer?.stopCapture()
         videoCapturer = nil
         localVideoTrack = nil
+        remoteVideoTrack = nil
         videoSource = nil
     }
 
-    /// Call UI painted in WKWebView — drop native fullscreen surface so End/Mute are tappable.
+    /// Call UI painted in WKWebView — keep native video (JS has no MediaStream on CallKit Accept).
+    /// Inset the bottom so End / Mute / Speaker remain visible and tappable through the overlay.
+    func layoutVideoOverlayForJsControls() {
+        guard wantsVideo else { return }
+        videoControlSafeArea = 132
+        ensureVideoOverlay()
+        applyVideoOverlayLayout()
+    }
+
+    /// Legacy no-op name — never strip the native surface while video media is live.
     func hideVideoOverlayForJsUi() {
-        removeVideoOverlay()
+        layoutVideoOverlayForJsControls()
     }
 
     private func ensureVideoOverlay() {
         runOnMain { [weak self] in
             guard let self, self.wantsVideo else { return }
-            if self.videoOverlayContainer != nil { return }
-            guard let window = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .flatMap(\.windows)
-                .first(where: { $0.isKeyWindow })
-                ?? UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .flatMap(\.windows)
-                .first
-            else { return }
+            if self.videoOverlayContainer == nil {
+                guard let window = UIApplication.shared.connectedScenes
+                    .compactMap({ $0 as? UIWindowScene })
+                    .flatMap(\.windows)
+                    .first(where: { $0.isKeyWindow })
+                    ?? UIApplication.shared.connectedScenes
+                    .compactMap({ $0 as? UIWindowScene })
+                    .flatMap(\.windows)
+                    .first
+                else { return }
 
-            let container = UIView(frame: window.bounds)
-            container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            container.backgroundColor = .black
-            container.isUserInteractionEnabled = false
-            container.tag = 0xA11C08
+                let container = UIView(frame: window.bounds)
+                container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                // Clear so the bottom control strip shows the WebView chrome underneath.
+                container.backgroundColor = .clear
+                container.isUserInteractionEnabled = false
+                container.tag = 0xA11C08
 
-            let remote = RTCMTLVideoView(frame: container.bounds)
-            remote.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            remote.videoContentMode = .scaleAspectFill
-            container.addSubview(remote)
+                let remote = RTCMTLVideoView(frame: .zero)
+                remote.videoContentMode = .scaleAspectFill
+                remote.backgroundColor = UIColor(red: 0.05, green: 0.04, blue: 0.03, alpha: 1)
+                container.addSubview(remote)
 
-            let preview = RTCMTLVideoView(frame: CGRect(x: container.bounds.width - 120, y: 56, width: 100, height: 140))
-            preview.autoresizingMask = [.flexibleLeftMargin, .flexibleBottomMargin]
-            preview.videoContentMode = .scaleAspectFill
-            preview.layer.cornerRadius = 10
-            preview.clipsToBounds = true
-            preview.transform = CGAffineTransform(scaleX: -1, y: 1)
-            container.addSubview(preview)
+                let preview = RTCMTLVideoView(frame: .zero)
+                preview.videoContentMode = .scaleAspectFill
+                preview.layer.cornerRadius = 10
+                preview.clipsToBounds = true
+                preview.transform = CGAffineTransform(scaleX: -1, y: 1)
+                container.addSubview(preview)
 
-            window.addSubview(container)
-            self.videoOverlayContainer = container
-            self.remoteVideoView = remote
-            self.localPreviewView = preview
-            if let track = self.localVideoTrack {
+                window.addSubview(container)
+                self.videoOverlayContainer = container
+                self.remoteVideoView = remote
+                self.localPreviewView = preview
+                print("[NativeVoiceCallEngine] video overlay attached")
+            }
+            self.applyVideoOverlayLayout()
+            if let track = self.localVideoTrack, let preview = self.localPreviewView {
                 track.add(preview)
             }
-            print("[NativeVoiceCallEngine] video overlay attached")
+            if let track = self.remoteVideoTrack, let remote = self.remoteVideoView {
+                track.add(remote)
+            }
         }
+    }
+
+    private func applyVideoOverlayLayout() {
+        guard let container = videoOverlayContainer else { return }
+        let bounds = container.bounds
+        let bottom = max(0, videoControlSafeArea)
+        let videoHeight = max(0, bounds.height - bottom)
+        remoteVideoView?.frame = CGRect(x: 0, y: 0, width: bounds.width, height: videoHeight)
+        let previewW: CGFloat = 100
+        let previewH: CGFloat = 140
+        let previewX = bounds.width - previewW - 16
+        let previewY: CGFloat = 56
+        localPreviewView?.frame = CGRect(x: previewX, y: previewY, width: previewW, height: previewH)
+        // Keep overlay above WebView but below nothing else critical.
+        container.superview?.bringSubviewToFront(container)
     }
 
     private func removeVideoOverlay() {
@@ -759,6 +795,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             self.localPreviewView = nil
             self.remoteVideoView = nil
             self.videoOverlayContainer = nil
+            self.videoControlSafeArea = 0
         }
     }
 
@@ -772,10 +809,11 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         }
         for track in stream.videoTracks {
             track.isEnabled = true
+            self.remoteVideoTrack = track
+            ensureVideoOverlay()
             if let view = remoteVideoView {
                 track.add(view)
             }
-            ensureVideoOverlay()
             print("[NativeVoiceCallEngine] remote stream video track attached")
         }
         ensureWebRtcAudioEnabled()
@@ -796,6 +834,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         }
         if let track = rtpReceiver.track as? RTCVideoTrack {
             track.isEnabled = true
+            remoteVideoTrack = track
             ensureVideoOverlay()
             if let view = remoteVideoView {
                 track.add(view)

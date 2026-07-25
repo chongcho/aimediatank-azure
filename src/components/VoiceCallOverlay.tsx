@@ -29,6 +29,7 @@ interface VoiceCallOverlayProps {
   isSpeakerOn: boolean
   hasVideo?: boolean
   isCameraOff?: boolean
+  nativeOwnsVideo?: boolean
   localVideoRef?: MutableRefObject<HTMLVideoElement | null>
   remoteVideoRef?: MutableRefObject<HTMLVideoElement | null>
   labels: {
@@ -835,6 +836,7 @@ function ActiveCallScreen({
   isSpeakerOn,
   hasVideo = false,
   isCameraOff = false,
+  nativeOwnsVideo = false,
   localVideoRef,
   remoteVideoRef,
   labels,
@@ -858,6 +860,7 @@ function ActiveCallScreen({
   isSpeakerOn: boolean
   hasVideo?: boolean
   isCameraOff?: boolean
+  nativeOwnsVideo?: boolean
   localVideoRef?: MutableRefObject<HTMLVideoElement | null>
   remoteVideoRef?: MutableRefObject<HTMLVideoElement | null>
   labels: VoiceCallOverlayProps['labels']
@@ -923,10 +926,13 @@ function ActiveCallScreen({
               minHeight: compact ? 180 : 240,
               borderRadius: compact ? 12 : 16,
               overflow: 'hidden',
-              background: '#0d0906',
+              // Native CallKit video paints above the WebView — keep this slot transparent.
+              background: nativeOwnsVideo ? 'transparent' : '#0d0906',
               marginBottom: compact ? 8 : 12,
             }}
           >
+            {nativeOwnsVideo ? null : (
+              <>
             <video
               ref={(el) => {
                 if (remoteVideoRef) remoteVideoRef.current = el
@@ -961,6 +967,8 @@ function ActiveCallScreen({
                 opacity: isCameraOff ? 0.35 : 1,
               }}
             />
+              </>
+            )}
           </div>
         ) : remoteUser?.avatar ? (
           <img
@@ -1267,6 +1275,7 @@ export function VoiceCallOverlay({
   isSpeakerOn,
   hasVideo = false,
   isCameraOff = false,
+  nativeOwnsVideo = false,
   localVideoRef,
   remoteVideoRef,
   labels,
@@ -1343,6 +1352,7 @@ export function VoiceCallOverlay({
         isSpeakerOn={isSpeakerOn}
         hasVideo={hasVideo}
         isCameraOff={isCameraOff}
+        nativeOwnsVideo={nativeOwnsVideo}
         localVideoRef={localVideoRef}
         remoteVideoRef={remoteVideoRef}
         labels={labels}
