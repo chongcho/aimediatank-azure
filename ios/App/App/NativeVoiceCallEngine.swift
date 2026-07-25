@@ -108,63 +108,6 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         prefetchedCallId = nil
     }
 
-    /// Offer already fetched while ringing — used so unlocked Accept can prefer JS WebRTC.
-    func prefetchedOfferHasVideo(callId: String) -> Bool {
-        guard prefetchedCallId == callId.lowercased(),
-              let sdp = prefetchedBootstrap?.offerSdp
-        else { return false }
-        return sdp.contains("m=video")
-    }
-
-    /// True when native Metal overlay should paint (lock-screen / native Accept path).
-    var shouldShowVideoOverlay: Bool {
-        wantsVideo && (peerConnection != nil || isAnswering || isMediaConnected)
-    }
-
-    /// Soft-cancel native answer so unlocked JS WebRTC can take over (do not POST /end).
-    func cancelAnswerForJsHandoff(callId: String) {
-        let normalized = callId.lowercased()
-        guard self.callId == normalized || prefetchedCallId == normalized else {
-            abandonForJsHandoff(callId: normalized)
-            return
-        }
-        print("[NativeVoiceCallEngine] cancelAnswerForJsHandoff \(normalized)")
-        cancelIceDisconnectTimer()
-        uiSyncGeneration = UUID()
-        stopIcePoll()
-        bootstrapGeneration = nil
-        createAnswerGeneration = nil
-        clearPrefetch()
-        isAnswering = false
-        pendingStart = false
-        isMediaConnected = false
-        wantsVideo = false
-        self.callId = nil
-        self.token = nil
-        cachedCaller = nil
-        localAudioTrack = nil
-        stopVideoCapture()
-        removeVideoOverlay()
-        tearDownPeerConnection(notify: false)
-    }
-
-    /// Unlocked video Accept uses WKWebView — drop prefetch/overlay so Metal cannot cover JS video.
-    func abandonForJsHandoff(callId: String) {
-        let normalized = callId.lowercased()
-        if prefetchedCallId == normalized {
-            clearPrefetch(callId: normalized)
-        }
-        if isAnswering || peerConnection != nil {
-            if self.callId == normalized {
-                print("[NativeVoiceCallEngine] abandonForJsHandoff skipped — native answer in flight \(normalized)")
-            }
-            return
-        }
-        wantsVideo = false
-        removeVideoOverlay()
-        print("[NativeVoiceCallEngine] abandoned for JS handoff \(normalized)")
-    }
-
     private func prefetchBootstrapLoop(callId: String, token: String, generation: UUID, attempt: Int) {
         guard prefetchGeneration == generation, prefetchedCallId == callId else { return }
         fetchBootstrap(callId: callId, token: token) { [weak self] result in
@@ -180,16 +123,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                 if let offer = bootstrap.offerSdp, !offer.isEmpty {
                     self.prefetchedBootstrap = bootstrap
                     if let caller = bootstrap.caller { self.cachedCaller = caller }
-                    let hasVideo = offer.contains("m=video")
-                    print("[NativeVoiceCallEngine] prefetch offer ready \(callId) ice=\(bootstrap.remoteIceCandidates.count) video=\(hasVideo)")
+                    print("[NativeVoiceCallEngine] prefetch offer ready \(callId) ice=\(bootstrap.remoteIceCandidates.count)")
                     self.postTrace(callId: callId, token: token, event: "native_webrtc_prefetch_ready")
-                    if hasVideo {
-                        NotificationCenter.default.post(
-                            name: Notification.Name("AiMediaTankPrefetchOfferHasVideo"),
-                            object: nil,
-                            userInfo: ["callId": callId]
-                        )
-                    }
                     return
                 }
                 if attempt < 40 {
@@ -421,11 +356,6 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         let offerHasVideo = sdp.contains("m=video")
         if offerHasVideo {
             wantsVideo = true
-            NotificationCenter.default.post(
-                name: Notification.Name("AiMediaTankPrefetchOfferHasVideo"),
-                object: nil,
-                userInfo: ["callId": callId.lowercased()]
-            )
         }
 
         let generation = UUID()
@@ -744,12 +674,22 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         localVideoTrack = track
 
         // Prefer the video transceiver created by the remote offer (Unified Plan).
-        // addTrack after setRemoteDescription reuses that transceiver (WebRTC-SDK).
         if let transceiver = pc.transceivers.first(where: { $0.mediaType == .video }) {
             transceiver.setDirection(.sendRecv, error: nil)
+            let sender = transceiver.sender
+            // WebRTC-SDK hides setTrack from Swift — call via ObjC runtime.
+            let sel = NSSelectorFromString("setTrack:")
+            if sender.responds(to: sel) {
+                _ = sender.perform(sel, with: track)
+                print("[NativeVoiceCallEngine] local video via setTrack on transceiver")
+            } else {
+                pc.add(track, streamIds: ["stream0"])
+                print("[NativeVoiceCallEngine] local video addTrack fallback")
+            }
+        } else {
+            pc.add(track, streamIds: ["stream0"])
+            print("[NativeVoiceCallEngine] local video added as new track")
         }
-        pc.add(track, streamIds: ["stream0"])
-        print("[NativeVoiceCallEngine] local video track added (transceivers=\(pc.transceivers.count))")
 
         if startCapture {
             startFrontCamera(capturer: capturer)
@@ -853,13 +793,11 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                 else { return }
 
                 let window = UIWindow(windowScene: scene)
-                window.frame = scene.screen.bounds
                 window.windowLevel = .alert + 1
                 window.backgroundColor = .clear
                 window.isUserInteractionEnabled = false
                 let root = UIViewController()
                 root.view.backgroundColor = .clear
-                root.view.frame = window.bounds
                 window.rootViewController = root
                 window.isHidden = false
 
@@ -879,7 +817,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                 preview.backgroundColor = UIColor(white: 0.12, alpha: 1)
                 preview.layer.cornerRadius = 10
                 preview.clipsToBounds = true
-                // Do not mirror via transform — breaks RTCMTLVideoView Metal rendering.
+                preview.layer.transform = CATransform3DMakeScale(-1, 1, 1)
                 container.addSubview(preview)
 
                 root.view.addSubview(container)
@@ -887,7 +825,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                 self.videoOverlayContainer = container
                 self.remoteVideoView = remote
                 self.localPreviewView = preview
-                print("[NativeVoiceCallEngine] video overlay window attached bounds=\(Int(window.bounds.width))x\(Int(window.bounds.height))")
+                print("[NativeVoiceCallEngine] video overlay window attached")
             }
             self.applyVideoOverlayLayout()
             self.bindLocalPreviewIfNeeded()
