@@ -224,8 +224,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             self.acceptCoverPollWork = nil
             self.acceptCoverView?.removeFromSuperview()
             self.acceptCoverView = nil
-            // Native WebRTC owns video — keep the Metal overlay; only leave room for JS controls.
-            if reason == "call_ui_ready" {
+            // Layout inset for controls only after tracks exist — avoid empty Metal cover.
+            if reason == "call_ui_ready", NativeVoiceCallEngine.shared.shouldShowVideoOverlay {
                 NativeVoiceCallEngine.shared.layoutVideoOverlayForJsControls()
             }
             print("[AiMediaTankVoipPushBridge] end accept cover (\(reason))")
@@ -1881,10 +1881,13 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             "useSessionWebRtc": false,
             "nativeWebRtc": true,
         ]
+        if Self.callHasVideo(callId) {
+            userInfo["hasVideo"] = true
+        }
         if let declineToken, !declineToken.isEmpty {
             userInfo["declineToken"] = declineToken
         }
-        print("[AiMediaTankVoipPushBridge] deliver lock-screen call UI to JS \(callId)")
+        print("[AiMediaTankVoipPushBridge] deliver lock-screen call UI to JS \(callId) video=\(Self.callHasVideo(callId))")
         NotificationCenter.default.post(
             name: Self.callKitAnswerNotification,
             object: nil,
@@ -2141,9 +2144,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         DispatchQueue.main.async { [weak self] in
             self?.beginAcceptCover()
-            if Self.callHasVideo(callId) {
-                NativeVoiceCallEngine.shared.layoutVideoOverlayForJsControls()
-            }
+            // Overlay is created when camera/tracks are ready — not here (empty Metal covers UI).
         }
     }
 

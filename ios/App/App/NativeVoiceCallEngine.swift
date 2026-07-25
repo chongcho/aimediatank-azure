@@ -61,8 +61,21 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private func peerConnectionFactory() -> RTCPeerConnectionFactory {
         if let factory { return factory }
         RTCInitializeSSL()
-        let created = RTCPeerConnectionFactory()
+        // Bare RTCPeerConnectionFactory() has no reliable VP8/H264 software path — audio
+        // works but remote/local video stays black (camera indicator on, Metal views empty).
+        let encoderFactory = RTCDefaultVideoEncoderFactory()
+        let decoderFactory = RTCDefaultVideoDecoderFactory()
+        if let vp8 = encoderFactory.supportedCodecs().first(where: {
+            $0.name.uppercased() == "VP8"
+        }) {
+            encoderFactory.preferredCodec = vp8
+        }
+        let created = RTCPeerConnectionFactory(
+            encoderFactory: encoderFactory,
+            decoderFactory: decoderFactory
+        )
         factory = created
+        print("[NativeVoiceCallEngine] peerConnectionFactory ready codecs=\(encoderFactory.supportedCodecs().map(\.name))")
         return created
     }
 
@@ -77,6 +90,11 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     /// True until CallKit `didActivate` — signaling may already be in flight.
     var awaitsCallKitAudioActivation: Bool {
         isAnswering && !audioSessionReady
+    }
+
+    /// True when native Metal video surface should be shown (tracks/PC active).
+    var shouldShowVideoOverlay: Bool {
+        wantsVideo && (peerConnection != nil || isMediaConnected)
     }
 
     /// Fetch offer/ICE while the phone is still ringing (no peer connection / no mic yet).
@@ -388,8 +406,11 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         localAudioTrack = audioTrack
         pc.add(audioTrack, streamIds: ["stream0"])
 
-        // Do not add local video before setRemoteDescription — Unified Plan creates the
-        // video transceiver from the offer; we attach our track afterward via replaceTrack.
+        // Match Android: attach local video before setRemoteDescription so the answer
+        // negotiates sendrecv with a real track (Unified Plan reuses/adds correctly).
+        if wantsVideo {
+            attachLocalVideoTrack(to: pc, startCapture: false)
+        }
 
         let offer = RTCSessionDescription(type: .offer, sdp: sdp)
         print("[NativeVoiceCallEngine] setRemoteDescription \(callId) len=\(sdp.count) video=\(wantsVideo)")
@@ -407,7 +428,10 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             self.flushPendingRemoteIce(callId: callId)
 
             if self.wantsVideo {
-                self.attachLocalVideoTrack(to: pc, startCapture: false)
+                // Ensure sendrecv on the offer's video transceiver after remote description.
+                if let transceiver = pc.transceivers.first(where: { $0.mediaType == .video }) {
+                    transceiver.setDirection(.sendRecv, error: nil)
+                }
             }
 
             let answerConstraints = RTCMediaConstraints(
@@ -792,18 +816,18 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
                 let remote = RTCMTLVideoView(frame: .zero)
                 remote.videoContentMode = .scaleAspectFill
-                remote.backgroundColor = .clear
-                remote.isOpaque = false
+                // Opaque Metal layer — clear/isOpaque=false often never paints frames.
+                remote.backgroundColor = UIColor(white: 0.05, alpha: 1)
+                remote.isOpaque = true
                 container.addSubview(remote)
 
                 let preview = RTCMTLVideoView(frame: .zero)
                 preview.videoContentMode = .scaleAspectFill
-                preview.backgroundColor = .clear
-                preview.isOpaque = false
+                preview.backgroundColor = UIColor(white: 0.12, alpha: 1)
+                preview.isOpaque = true
                 preview.layer.cornerRadius = 10
                 preview.clipsToBounds = true
-                // Mirror via layer so Metal rendering is not broken by UIView.transform.
-                preview.layer.transform = CATransform3DMakeScale(-1, 1, 1)
+                // Do not apply CATransform3D/UIView mirror — breaks RTCMTLVideoView rendering.
                 container.addSubview(preview)
 
                 host.addSubview(container)
@@ -896,6 +920,20 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             }
         }
     }
+
+    func peerConnection(_ peerConnection: RTCPeerConnection, didStartReceivingOn transceiver: RTCRtpTransceiver) {
+        guard transceiver.mediaType == .video,
+              let track = transceiver.receiver.track as? RTCVideoTrack
+        else { return }
+        track.isEnabled = true
+        remoteVideoTrack = track
+        print("[NativeVoiceCallEngine] didStartReceivingOn video")
+        DispatchQueue.main.async {
+            self.ensureVideoOverlay()
+            self.bindRemoteVideoIfNeeded()
+        }
+    }
+
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
         guard let callId, !isShuttingDownPeerConnection else { return }
         print("[NativeVoiceCallEngine] ice state \(callId): \(newState.rawValue)")
