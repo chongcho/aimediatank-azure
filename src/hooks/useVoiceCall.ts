@@ -1348,19 +1348,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         const useSessionWebRtc = Boolean(options?.useSessionWebRtc)
         const nativeWebRtc = Boolean(options?.nativeWebRtc)
 
-        if (options?.hasVideo) {
-          hasVideoRef.current = true
-          setHasVideo(true)
-        }
-
-        // Foreground video Accept: same WKWebView WebRTC path as outgoing (nativeOwnsVideo off).
-        if (useSessionWebRtc) {
-          setNativeOwnsVideo(false)
-          if (isNativeIosCallApp()) {
-            nativeWebRtcCalleeRef.current = false
-          }
-        }
-
         // Lock-screen Accept: native engine owns WebRTC — JS must not start WebView RTCPeerConnection.
         if (nativeWebRtc && !useSessionWebRtc && isNativeVoiceCallApp()) {
           if (isNativeIosCallApp()) {
@@ -1371,8 +1358,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           callIdRef.current = normalizedId
           setCallId(normalizedId)
           isCallerRef.current = false
-          if (hasVideoRef.current && isNativeIosCallApp()) {
-            setNativeOwnsVideo(true)
+          if (options?.hasVideo) {
+            hasVideoRef.current = true
+            setHasVideo(true)
+            if (isNativeIosCallApp()) setNativeOwnsVideo(true)
           }
           // Prefer hasVideo from bootstrap when available (native inject may not include it).
           void (async () => {
