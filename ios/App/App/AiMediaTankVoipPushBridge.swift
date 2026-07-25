@@ -1874,17 +1874,37 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         deliverLockScreenCallUiToJs(callId: callId, declineToken: token)
     }
 
-    private func deliverLockScreenCallUiToJs(callId: String, declineToken: String?) {
+    /// Video Accept while unlocked uses WKWebView WebRTC (same as outgoing).
+    /// Lock-screen / audio uses the native engine (`isLockScreenNativeAnswer`).
+    private func callKitAnswerDeliveryFlags(callId: String) -> (useSessionWebRtc: Bool, nativeWebRtc: Bool) {
+        let preferJsVideo = Self.callHasVideo(callId) && !Self.isLockScreenNativeAnswer(callId: callId)
+        return (preferJsVideo, !preferJsVideo)
+    }
+
+    private func deliverLockScreenCallUiToJs(
+        callId: String,
+        declineToken: String?,
+        useSessionWebRtc: Bool? = nil,
+        nativeWebRtc: Bool? = nil
+    ) {
         guard Self.canDeliverToWebView() else { return }
+        let flags = callKitAnswerDeliveryFlags(callId: callId)
+        let session = useSessionWebRtc ?? flags.useSessionWebRtc
+        let native = nativeWebRtc ?? flags.nativeWebRtc
         var userInfo: [String: Any] = [
             "callId": callId,
-            "useSessionWebRtc": false,
-            "nativeWebRtc": true,
+            "useSessionWebRtc": session,
+            "nativeWebRtc": native,
         ]
+        if Self.callHasVideo(callId) {
+            userInfo["hasVideo"] = true
+        }
         if let declineToken, !declineToken.isEmpty {
             userInfo["declineToken"] = declineToken
         }
-        print("[AiMediaTankVoipPushBridge] deliver lock-screen call UI to JS \(callId)")
+        print(
+            "[AiMediaTankVoipPushBridge] deliver call UI to JS \(callId) session=\(session) native=\(native) video=\(Self.callHasVideo(callId))"
+        )
         NotificationCenter.default.post(
             name: Self.callKitAnswerNotification,
             object: nil,
@@ -1893,8 +1913,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         injectCallKitAnswerToWebView(
             callId: callId,
             declineToken: declineToken,
-            useSessionWebRtc: false,
-            nativeWebRtc: true
+            useSessionWebRtc: session,
+            nativeWebRtc: native
         )
     }
 
@@ -1906,6 +1926,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         if Self.canDeliverToWebView() {
             let token = pendingJsAnswerDeclineToken
                 ?? UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId))
+            // Preserve JS-video vs native flags — defaulting native=true broke unlocked video Accept.
             deliverLockScreenCallUiToJs(callId: callId, declineToken: token)
             return
         }
@@ -2114,34 +2135,46 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         postNativeCallKitAccept(callId: callId)
         postVoiceTrace(callId: callId, event: "callkit_answer")
         let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId)) ?? ""
+        let wantsVideo = Self.callHasVideo(callId)
+        // Outgoing video already works in WKWebView. Prefer the same path when unlocked —
+        // native Metal video has not been reliable for CallKit Accept.
+        let preferJsVideo = wantsVideo && Self.canDeliverToWebView()
         if !token.isEmpty {
-            // Always native WebRTC for CallKit Accept — WKWebView RTCPeerConnection conflicts with CallKit audio (lock + in-app).
-            Self.markLockScreenNativeAnswer(callId: callId)
-            print("[AiMediaTankVoipPushBridge] CallKit Accept — native WebRTC \(callId)")
-            // Start SDP/ICE now — do not wait for didActivate.
-            NativeVoiceCallEngine.shared.prepareAnswer(
-                callId: callId,
-                token: token,
-                baseURL: voiceApiBaseURL(),
-                wantsVideo: Self.callHasVideo(callId)
-            )
-            scheduleCallKitAudioActivationFallback(callId: callId)
+            if preferJsVideo {
+                print("[AiMediaTankVoipPushBridge] CallKit Accept — JS WebRTC video \(callId)")
+                Self.clearLockScreenNativeAnswer(callId: callId)
+            } else {
+                // Lock-screen / audio: native WebRTC (CallKit audio + optional video overlay).
+                Self.markLockScreenNativeAnswer(callId: callId)
+                print("[AiMediaTankVoipPushBridge] CallKit Accept — native WebRTC \(callId) video=\(wantsVideo)")
+                NativeVoiceCallEngine.shared.prepareAnswer(
+                    callId: callId,
+                    token: token,
+                    baseURL: voiceApiBaseURL(),
+                    wantsVideo: wantsVideo
+                )
+                scheduleCallKitAudioActivationFallback(callId: callId)
+            }
         } else {
-            print("[AiMediaTankVoipPushBridge] native WebRTC skipped — no decline token \(callId)")
+            print("[AiMediaTankVoipPushBridge] WebRTC skipped — no decline token \(callId)")
         }
         pendingJsAnswerCallId = callId
         pendingJsAnswerDeclineToken = token.isEmpty ? nil : token
         // Fulfill ASAP so CallKit activates audio while signaling is already in flight.
         action.fulfill()
-        // Promote to Video in CallKit chrome as soon as Accept completes.
         reportCallKitHasVideo(callId: callId)
         scheduleJsAnswerDeliveryRetries(callId: callId)
         if Self.canDeliverToWebView() {
-            deliverLockScreenCallUiToJs(callId: callId, declineToken: token.isEmpty ? nil : token)
+            deliverLockScreenCallUiToJs(
+                callId: callId,
+                declineToken: token.isEmpty ? nil : token,
+                useSessionWebRtc: preferJsVideo,
+                nativeWebRtc: !preferJsVideo
+            )
         }
         DispatchQueue.main.async { [weak self] in
             self?.beginAcceptCover()
-            if Self.callHasVideo(callId) {
+            if wantsVideo, !preferJsVideo {
                 NativeVoiceCallEngine.shared.layoutVideoOverlayForJsControls()
             }
         }
@@ -2169,12 +2202,25 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             }
             return
         }
+        // Unlocked video Accept: do not start native WebRTC (would race WKWebView).
+        if Self.callHasVideo(callId) {
+            print("[AiMediaTankVoipPushBridge] retry JS WebRTC video deliver \(callId)")
+            if Self.canDeliverToWebView() {
+                deliverLockScreenCallUiToJs(
+                    callId: callId,
+                    declineToken: token,
+                    useSessionWebRtc: true,
+                    nativeWebRtc: false
+                )
+            }
+            return
+        }
         print("[AiMediaTankVoipPushBridge] retry native WebRTC connect \(callId)")
         NativeVoiceCallEngine.shared.prepareAnswer(
             callId: callId,
             token: token,
             baseURL: voiceApiBaseURL(),
-            wantsVideo: Self.callHasVideo(callId)
+            wantsVideo: false
         )
     }
 

@@ -45,6 +45,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var localPreviewView: RTCMTLVideoView?
     private var remoteVideoView: RTCMTLVideoView?
     private weak var videoOverlayContainer: UIView?
+    private var videoOverlayWindow: UIWindow?
     private weak var remoteVideoTrack: RTCVideoTrack?
     /// Bottom inset so WKWebView End/Mute/etc. stay visible under the native video surface.
     private var videoControlSafeArea: CGFloat = 0
@@ -673,13 +674,22 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         localVideoTrack = track
 
         // Prefer the video transceiver created by the remote offer (Unified Plan).
-        // WebRTC-SDK does not expose RTCRtpSender.setTrack — addTrack after
-        // setRemoteDescription reuses the offer's video transceiver.
         if let transceiver = pc.transceivers.first(where: { $0.mediaType == .video }) {
             transceiver.setDirection(.sendRecv, error: nil)
+            let sender = transceiver.sender
+            // WebRTC-SDK hides setTrack from Swift — call via ObjC runtime.
+            let sel = NSSelectorFromString("setTrack:")
+            if sender.responds(to: sel) {
+                _ = sender.perform(sel, with: track)
+                print("[NativeVoiceCallEngine] local video via setTrack on transceiver")
+            } else {
+                pc.add(track, streamIds: ["stream0"])
+                print("[NativeVoiceCallEngine] local video addTrack fallback")
+            }
+        } else {
+            pc.add(track, streamIds: ["stream0"])
+            print("[NativeVoiceCallEngine] local video added as new track")
         }
-        pc.add(track, streamIds: ["stream0"])
-        print("[NativeVoiceCallEngine] local video track added (transceivers=\(pc.transceivers.count))")
 
         if startCapture {
             startFrontCamera(capturer: capturer)
@@ -776,41 +786,46 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         let work = { [weak self] in
             guard let self, self.wantsVideo else { return }
             if self.videoOverlayContainer == nil {
-                guard let host = Self.findBridgeViewController()?.view
-                    ?? UIApplication.shared.connectedScenes
+                guard let scene = UIApplication.shared.connectedScenes
                     .compactMap({ $0 as? UIWindowScene })
-                    .flatMap(\.windows)
-                    .first(where: { $0.isKeyWindow })
+                    .first(where: { $0.activationState == .foregroundActive })
+                    ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first
                 else { return }
 
-                let container = UIView(frame: host.bounds)
+                let window = UIWindow(windowScene: scene)
+                window.windowLevel = .alert + 1
+                window.backgroundColor = .clear
+                window.isUserInteractionEnabled = false
+                let root = UIViewController()
+                root.view.backgroundColor = .clear
+                window.rootViewController = root
+                window.isHidden = false
+
+                let container = UIView(frame: root.view.bounds)
                 container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                // Must stay clear — opaque Metal placeholders covered the working voice UI.
                 container.backgroundColor = .clear
                 container.isUserInteractionEnabled = false
                 container.tag = 0xA11C08
 
                 let remote = RTCMTLVideoView(frame: .zero)
                 remote.videoContentMode = .scaleAspectFill
-                remote.backgroundColor = .clear
-                remote.isOpaque = false
+                remote.backgroundColor = UIColor(white: 0.05, alpha: 1)
                 container.addSubview(remote)
 
                 let preview = RTCMTLVideoView(frame: .zero)
                 preview.videoContentMode = .scaleAspectFill
-                preview.backgroundColor = .clear
-                preview.isOpaque = false
+                preview.backgroundColor = UIColor(white: 0.12, alpha: 1)
                 preview.layer.cornerRadius = 10
                 preview.clipsToBounds = true
-                // Mirror via layer so Metal rendering is not broken by UIView.transform.
                 preview.layer.transform = CATransform3DMakeScale(-1, 1, 1)
                 container.addSubview(preview)
 
-                host.addSubview(container)
+                root.view.addSubview(container)
+                self.videoOverlayWindow = window
                 self.videoOverlayContainer = container
                 self.remoteVideoView = remote
                 self.localPreviewView = preview
-                print("[NativeVoiceCallEngine] video overlay attached on \(type(of: host))")
+                print("[NativeVoiceCallEngine] video overlay window attached")
             }
             self.applyVideoOverlayLayout()
             self.bindLocalPreviewIfNeeded()
@@ -837,7 +852,6 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         let previewX = max(0, bounds.width - previewW - 16)
         let previewY: CGFloat = 56
         localPreviewView?.frame = CGRect(x: previewX, y: previewY, width: previewW, height: previewH)
-        container.superview?.bringSubviewToFront(container)
     }
 
     private func removeVideoOverlay() {
@@ -846,6 +860,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             self.localPreviewView?.removeFromSuperview()
             self.remoteVideoView?.removeFromSuperview()
             self.videoOverlayContainer?.removeFromSuperview()
+            self.videoOverlayWindow?.isHidden = true
+            self.videoOverlayWindow = nil
             self.localPreviewView = nil
             self.remoteVideoView = nil
             self.videoOverlayContainer = nil
