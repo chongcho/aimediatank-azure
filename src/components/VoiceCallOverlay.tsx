@@ -926,12 +926,37 @@ function ActiveCallScreen({
               minHeight: compact ? 180 : 240,
               borderRadius: compact ? 12 : 16,
               overflow: 'hidden',
-              // Native CallKit video paints above the WebView — keep this slot transparent.
               background: nativeOwnsVideo ? 'transparent' : '#0d0906',
               marginBottom: compact ? 8 : 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            {nativeOwnsVideo ? null : (
+            {nativeOwnsVideo ? (
+              remoteUser?.avatar ? (
+                <img
+                  src={remoteUser.avatar}
+                  alt=""
+                  style={{
+                    width: compact ? 96 : 128,
+                    height: compact ? 96 : 128,
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    opacity: 0.85,
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: compact ? 96 : 128,
+                    height: compact ? 96 : 128,
+                    borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.12)',
+                  }}
+                />
+              )
+            ) : (
               <>
             <video
               ref={(el) => {
