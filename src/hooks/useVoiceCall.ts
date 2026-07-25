@@ -592,6 +592,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     try {
       if (isNativeAndroidCallApp()) {
         nativeWebRtcAndroidRef.current = true
+        if (hasVideoRef.current) setNativeOwnsVideo(true)
         await prepareNativeWebRtcCaller(callIdRef.current, getIceServers(), hasVideoRef.current)
         if (callStateRef.current === 'outgoing') {
           retryVoiceCallRingtone()
@@ -830,6 +831,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     try {
       if (isNativeAndroidCallApp()) {
         nativeWebRtcAndroidRef.current = true
+        if (hasVideoRef.current) setNativeOwnsVideo(true)
         void dismissVoiceCallPushNotifications(id)
         // In-app Accept: start native WebRTC here. answerNativeCall only reaches Telecom
         // when ConnectionService registered a connection — often missing for poll/FCM UI.
@@ -1361,12 +1363,16 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           if (options?.hasVideo) {
             hasVideoRef.current = true
             setHasVideo(true)
-            if (isNativeIosCallApp()) setNativeOwnsVideo(true)
+            if (isNativeIosCallApp() || isNativeAndroidCallApp()) setNativeOwnsVideo(true)
           }
           // Prefer hasVideo from bootstrap when available (native inject may not include it).
           void (async () => {
             if (!token || hasVideoRef.current) {
-              if (hasVideoRef.current && isNativeIosCallApp() && nativeWebRtcCalleeRef.current) {
+              if (
+                hasVideoRef.current &&
+                ((isNativeIosCallApp() && nativeWebRtcCalleeRef.current) ||
+                  (isNativeAndroidCallApp() && nativeWebRtcAndroidRef.current))
+              ) {
                 setNativeOwnsVideo(true)
               }
               return
@@ -1376,7 +1382,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
               if (bootstrap?.hasVideo) {
                 hasVideoRef.current = true
                 setHasVideo(true)
-                if (isNativeIosCallApp()) setNativeOwnsVideo(true)
+                if (isNativeIosCallApp() || isNativeAndroidCallApp()) setNativeOwnsVideo(true)
               }
             } catch {
               /* ignore */

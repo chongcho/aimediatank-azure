@@ -4,6 +4,9 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.webkit.CookieManager
 import com.getcapacitor.Bridge
 import com.getcapacitor.JSObject
@@ -80,10 +83,13 @@ class NativeVoiceWebRtcEngine private constructor(
 
     private fun releaseFactory() {
         mainHandler.post {
+            removeVideoOverlay()
             audioDeviceModule?.release()
             audioDeviceModule = null
             peerConnectionFactory?.dispose()
             peerConnectionFactory = null
+            eglBase?.release()
+            eglBase = null
         }
     }
 
@@ -98,10 +104,14 @@ class NativeVoiceWebRtcEngine private constructor(
     private var localAudioTrack: AudioTrack? = null
     private var videoSource: VideoSource? = null
     private var localVideoTrack: VideoTrack? = null
+    private var remoteVideoTrack: VideoTrack? = null
     private var videoCapturer: VideoCapturer? = null
     private var eglBase: EglBase? = null
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
     private var wantsVideo = false
+    private var videoOverlayContainer: FrameLayout? = null
+    private var remoteRenderer: SurfaceViewRenderer? = null
+    private var localRenderer: SurfaceViewRenderer? = null
 
     private var callId: String? = null
     private var token: String? = null
@@ -314,6 +324,11 @@ class NativeVoiceWebRtcEngine private constructor(
         }
     }
 
+    private fun ensureEgl(): EglBase {
+        eglBase?.let { return it }
+        return EglBase.create().also { eglBase = it }
+    }
+
     private fun ensureFactory(): PeerConnectionFactory {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             throw IllegalStateException("WebRTC factory must be created on the main thread")
@@ -338,10 +353,17 @@ class NativeVoiceWebRtcEngine private constructor(
             })
             .createAudioDeviceModule()
         audioDeviceModule = adm
+        val egl = ensureEgl()
+        // Without encoder/decoder factories, video tracks negotiate but frames stay black.
+        val encoderFactory = DefaultVideoEncoderFactory(egl.eglBaseContext, true, true)
+        val decoderFactory = DefaultVideoDecoderFactory(egl.eglBaseContext)
         val factory = PeerConnectionFactory.builder()
             .setAudioDeviceModule(adm)
+            .setVideoEncoderFactory(encoderFactory)
+            .setVideoDecoderFactory(decoderFactory)
             .createPeerConnectionFactory()
         peerConnectionFactory = factory
+        Log.i(TAG, "peerConnectionFactory ready with video codecs")
         return factory
     }
 
@@ -371,7 +393,7 @@ class NativeVoiceWebRtcEngine private constructor(
                 ?: enumerator.deviceNames.firstOrNull()
                 ?: return
             val capturer = enumerator.createCapturer(deviceName, null) ?: return
-            val rootEgl = eglBase ?: EglBase.create().also { eglBase = it }
+            val rootEgl = ensureEgl()
             val helper = SurfaceTextureHelper.create("CaptureThread", rootEgl.eglBaseContext)
             surfaceTextureHelper = helper
             val source = ensureFactory().createVideoSource(false)
@@ -384,8 +406,141 @@ class NativeVoiceWebRtcEngine private constructor(
             videoSource = source
             localVideoTrack = track
             Log.i(TAG, "local video track attached")
+            ensureVideoOverlay()
         } catch (err: Exception) {
             Log.w(TAG, "attach local video failed: ${err.message}")
+        }
+    }
+
+    private fun dp(value: Int): Int =
+        (value * context.resources.displayMetrics.density).toInt()
+
+    /** Full-screen remote + PiP local — JS has no MediaStream on Android native WebRTC. */
+    private fun ensureVideoOverlay() {
+        if (!wantsVideo) return
+        val work = Runnable {
+            if (!wantsVideo) return@Runnable
+            val activity = CapacitorVoipCallsPlugin.getInstance()?.activity ?: return@Runnable
+            val egl = ensureEgl()
+            if (videoOverlayContainer == null) {
+                val decor = activity.window?.decorView as? ViewGroup ?: return@Runnable
+                val container = FrameLayout(activity).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                    isClickable = false
+                    isFocusable = false
+                    // Leave bottom strip for WKWebView End/Mute/Speaker.
+                    setPadding(0, 0, 0, dp(132))
+                }
+                val remote = SurfaceViewRenderer(activity).apply {
+                    init(egl.eglBaseContext, null)
+                    setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                    setEnableHardwareScaler(true)
+                    setMirror(false)
+                }
+                val local = SurfaceViewRenderer(activity).apply {
+                    init(egl.eglBaseContext, null)
+                    setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                    setEnableHardwareScaler(true)
+                    setMirror(true)
+                    setZOrderMediaOverlay(true)
+                }
+                container.addView(
+                    remote,
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+                container.addView(
+                    local,
+                    FrameLayout.LayoutParams(dp(100), dp(140)).apply {
+                        gravity = Gravity.TOP or Gravity.END
+                        topMargin = dp(56)
+                        marginEnd = dp(16)
+                    },
+                )
+                decor.addView(container)
+                videoOverlayContainer = container
+                remoteRenderer = remote
+                localRenderer = local
+                Log.i(TAG, "video overlay attached")
+            }
+            bindVideoRenderers()
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            work.run()
+        } else {
+            mainHandler.post(work)
+        }
+    }
+
+    private fun bindVideoRenderers() {
+        localVideoTrack?.let { track ->
+            localRenderer?.let { renderer ->
+                try {
+                    track.removeSink(renderer)
+                } catch (_: Exception) {
+                }
+                track.addSink(renderer)
+            }
+        }
+        remoteVideoTrack?.let { track ->
+            track.setEnabled(true)
+            remoteRenderer?.let { renderer ->
+                try {
+                    track.removeSink(renderer)
+                } catch (_: Exception) {
+                }
+                track.addSink(renderer)
+            }
+        }
+    }
+
+    private fun removeVideoOverlay() {
+        val work = Runnable {
+            localVideoTrack?.let { track ->
+                localRenderer?.let { renderer ->
+                    try {
+                        track.removeSink(renderer)
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+            remoteVideoTrack?.let { track ->
+                remoteRenderer?.let { renderer ->
+                    try {
+                        track.removeSink(renderer)
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+            localRenderer?.release()
+            remoteRenderer?.release()
+            localRenderer = null
+            remoteRenderer = null
+            videoOverlayContainer?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            videoOverlayContainer = null
+            remoteVideoTrack = null
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            work.run()
+            return
+        }
+        val done = java.util.concurrent.CountDownLatch(1)
+        mainHandler.post {
+            try {
+                work.run()
+            } finally {
+                done.countDown()
+            }
+        }
+        try {
+            done.await(2, java.util.concurrent.TimeUnit.SECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
         }
     }
 
@@ -891,14 +1046,15 @@ class NativeVoiceWebRtcEngine private constructor(
         }
         videoCapturer?.dispose()
         videoCapturer = null
+        // Detach sinks before disposing tracks.
+        removeVideoOverlay()
         localVideoTrack?.dispose()
         localVideoTrack = null
         videoSource?.dispose()
         videoSource = null
         surfaceTextureHelper?.dispose()
         surfaceTextureHelper = null
-        eglBase?.release()
-        eglBase = null
+        // Keep eglBase for PeerConnectionFactory encoder/decoder across calls.
         // Keep wantsVideo for this call — reset only in endCall/failCall (iOS parity).
         peerConnection?.close()
         peerConnection = null
@@ -980,6 +1136,9 @@ class NativeVoiceWebRtcEngine private constructor(
         running.set(true)
         Log.i(TAG, "connected $callId")
         token?.let { postNativeTrace(callId, it, "native_webrtc_connected") }
+        if (wantsVideo) {
+            ensureVideoOverlay()
+        }
         mainHandler.post {
             val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: return@post
             callManager.setVoiceCallAudioActive(true)
@@ -1009,7 +1168,20 @@ class NativeVoiceWebRtcEngine private constructor(
     override fun onRemoveStream(stream: MediaStream?) {}
     override fun onDataChannel(channel: DataChannel?) {}
     override fun onRenegotiationNeeded() {}
-    override fun onAddTrack(receiver: RtpReceiver?, streams: Array<out MediaStream>?) {}
+    override fun onAddTrack(receiver: RtpReceiver?, streams: Array<out MediaStream>?) {
+        val track = receiver?.track() ?: return
+        if (track is AudioTrack) {
+            track.setEnabled(true)
+            Log.i(TAG, "remote RTP audio track enabled")
+            return
+        }
+        if (track is VideoTrack) {
+            track.setEnabled(true)
+            remoteVideoTrack = track
+            Log.i(TAG, "remote RTP video track")
+            ensureVideoOverlay()
+        }
+    }
     override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>?) {}
 
     override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
