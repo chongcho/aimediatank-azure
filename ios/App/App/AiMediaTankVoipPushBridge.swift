@@ -265,9 +265,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
-        // Audio CallKit chrome only — video media is in-app WebRTC. supportsVideo/hasVideo
-        // replace Accept/Decline with a Video/More grid that looks like "no action".
-        configuration.supportsVideo = false
+        // Required for CallKit to label video calls as Video (not "AiMediaTank Audio").
+        // Per-call CXCallUpdate.hasVideo still distinguishes audio vs video ringing/in-call.
+        configuration.supportsVideo = true
         configuration.maximumCallGroups = 1
         configuration.maximumCallsPerCallGroup = 1
         configuration.supportedHandleTypes = [.generic, .phoneNumber, .emailAddress]
@@ -441,12 +441,22 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// WebRTC connected — clear pending answer state. Do not call reportOutgoingCall on incoming UUIDs (CallKit crash).
     func reportCallConnected(callId: String) {
         let normalized = callId.lowercased()
+        reportCallKitHasVideo(callId: normalized)
         Self.noteCallDismissed(normalized)
         Self.clearLockScreenNativeAnswer(callId: normalized)
         endAnswerBackgroundSupport()
         clearPendingCallKitAnswer()
         cancelDismissRetries(callId: normalized)
         stopCallStatusWatch(callId: normalized)
+    }
+
+    /// Keep CallKit subtitle/icon in sync with video vs audio for this UUID.
+    private func reportCallKitHasVideo(callId: String) {
+        guard let uuid = UUID(uuidString: callId) else { return }
+        let update = CXCallUpdate()
+        update.hasVideo = Self.callHasVideo(callId)
+        provider.reportCall(with: uuid, updated: update)
+        print("[AiMediaTankVoipPushBridge] CallKit hasVideo=\(update.hasVideo) \(callId.lowercased())")
     }
 
     private func markPendingCallKitAnswer(callId: String) {
@@ -1020,10 +1030,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         update.supportsGrouping = false
         update.supportsUngrouping = false
         update.supportsDTMF = true
-        // Always audio CallKit UI so Accept/Decline stay tappable. Video is in-app WebRTC.
-        update.hasVideo = false
+        // Video calls must set hasVideo so CallKit shows Video (not "AiMediaTank Audio").
+        update.hasVideo = video
         if video {
-            print("[AiMediaTankVoipPushBridge] incoming video media \(callId.uuidString.lowercased()) — CallKit stays audio chrome")
+            print("[AiMediaTankVoipPushBridge] incoming CallKit video \(callId.uuidString.lowercased())")
         }
 
         endOrphanedBridgeCallsBeforeIncoming(exceptCallId: callId.uuidString)
@@ -2123,12 +2133,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         pendingJsAnswerDeclineToken = token.isEmpty ? nil : token
         // Fulfill ASAP so CallKit activates audio while signaling is already in flight.
         action.fulfill()
+        // Promote to Video in CallKit chrome as soon as Accept completes.
+        reportCallKitHasVideo(callId: callId)
         scheduleJsAnswerDeliveryRetries(callId: callId)
         if Self.canDeliverToWebView() {
             deliverLockScreenCallUiToJs(callId: callId, declineToken: token.isEmpty ? nil : token)
         }
         DispatchQueue.main.async { [weak self] in
             self?.beginAcceptCover()
+            if Self.callHasVideo(callId) {
+                NativeVoiceCallEngine.shared.layoutVideoOverlayForJsControls()
+            }
         }
     }
 
