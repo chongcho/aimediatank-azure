@@ -96,6 +96,12 @@ class NativeVoiceWebRtcEngine private constructor(
     private var peerConnection: PeerConnection? = null
     private var audioSource: AudioSource? = null
     private var localAudioTrack: AudioTrack? = null
+    private var videoSource: VideoSource? = null
+    private var localVideoTrack: VideoTrack? = null
+    private var videoCapturer: VideoCapturer? = null
+    private var eglBase: EglBase? = null
+    private var surfaceTextureHelper: SurfaceTextureHelper? = null
+    private var wantsVideo = false
 
     private var callId: String? = null
     private var token: String? = null
@@ -128,10 +134,13 @@ class NativeVoiceWebRtcEngine private constructor(
         return this.callId == normalized && (isAnswering || running.get() || peerConnection != null)
     }
 
-    fun prepareAnswer(callIdRaw: String, declineToken: String?, remoteOfferSdp: String? = null) {
+    fun prepareAnswer(callIdRaw: String, declineToken: String?, remoteOfferSdp: String? = null, wantsVideo: Boolean = false) {
         val normalized = callIdRaw.lowercase()
         val newToken = declineToken?.trim()?.ifEmpty { null }
         val inlineOffer = remoteOfferSdp?.trim()?.takeIf { it.startsWith("v=") }
+        this.wantsVideo = wantsVideo ||
+            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                .getBoolean("video_$normalized", false)
 
         if (isActive() && this.callId != normalized) {
             endCall(syncServer = false, reason = "superseded")
@@ -332,6 +341,32 @@ class NativeVoiceWebRtcEngine private constructor(
         localAudioTrack = track
     }
 
+    private fun attachLocalVideo(pc: PeerConnection) {
+        if (!wantsVideo) return
+        try {
+            val enumerator = Camera2Enumerator(context)
+            val deviceName = enumerator.deviceNames.firstOrNull { enumerator.isFrontFacing(it) }
+                ?: enumerator.deviceNames.firstOrNull()
+                ?: return
+            val capturer = enumerator.createCapturer(deviceName, null) ?: return
+            val rootEgl = eglBase ?: EglBase.create().also { eglBase = it }
+            val helper = SurfaceTextureHelper.create("CaptureThread", rootEgl.eglBaseContext)
+            surfaceTextureHelper = helper
+            val source = ensureFactory().createVideoSource(false)
+            capturer.initialize(helper, context, source.capturerObserver)
+            capturer.startCapture(1280, 720, 30)
+            val track = ensureFactory().createVideoTrack("video0", source)
+            track.setEnabled(true)
+            pc.addTrack(track, listOf("stream0"))
+            videoCapturer = capturer
+            videoSource = source
+            localVideoTrack = track
+            Log.i(TAG, "local video track attached")
+        } catch (err: Exception) {
+            Log.w(TAG, "attach local video failed: ${err.message}")
+        }
+    }
+
     private fun createAndSendOffer(callId: String) {
         tearDownPeerConnection(notify = false)
         val pc = createPeerConnection(parsedIceServers)
@@ -341,6 +376,7 @@ class NativeVoiceWebRtcEngine private constructor(
         }
         peerConnection = pc
         attachLocalAudio(pc)
+        attachLocalVideo(pc)
         applyTelecomSpeakerRoute()
         localAudioTrack?.setEnabled(true)
 
@@ -459,6 +495,9 @@ class NativeVoiceWebRtcEngine private constructor(
             failCall(callId, "invalid offer sdp")
             return
         }
+        if (sdp.contains("m=video")) {
+            wantsVideo = true
+        }
         val generation = UUID.randomUUID()
         tearDownPeerConnection(notify = false)
         createAnswerGeneration = generation
@@ -470,6 +509,7 @@ class NativeVoiceWebRtcEngine private constructor(
         }
         peerConnection = pc
         attachLocalAudio(pc)
+        attachLocalVideo(pc)
 
         val offer = SessionDescription(SessionDescription.Type.OFFER, sdp)
         val descLen = offer.description?.length ?: 0
@@ -817,6 +857,21 @@ class NativeVoiceWebRtcEngine private constructor(
         localAudioTrack = null
         audioSource?.dispose()
         audioSource = null
+        try {
+            videoCapturer?.stopCapture()
+        } catch (_: Exception) {
+        }
+        videoCapturer?.dispose()
+        videoCapturer = null
+        localVideoTrack?.dispose()
+        localVideoTrack = null
+        videoSource?.dispose()
+        videoSource = null
+        surfaceTextureHelper?.dispose()
+        surfaceTextureHelper = null
+        eglBase?.release()
+        eglBase = null
+        wantsVideo = false
         peerConnection?.close()
         peerConnection = null
         if (notify) {

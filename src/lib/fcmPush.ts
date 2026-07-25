@@ -175,7 +175,7 @@ export async function sendAndroidCallPushToUser(
     handle: payload.handle,
     displayName: payload.displayName,
     handleType: 'generic',
-    video: 'false',
+    video: payload.video ? 'true' : 'false',
     announcement,
     lang,
     callerId: payload.caller.id,

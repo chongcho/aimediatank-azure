@@ -450,13 +450,15 @@ model ChatMessage {
   @@index([contentInspectionStatus])
 }
 
-// WebRTC voice calls between TalkChat users (1-on-1)
+// WebRTC voice/video calls between TalkChat users (1-on-1)
 model VoiceCall {
   id             String    @id @default(uuid())
   callerId       String
   calleeId       String
   conversationId String?
   status         String    @default("ringing") // ringing | active | ended | rejected | missed
+  /// True when the caller started a video call (camera + mic).
+  hasVideo       Boolean   @default(false)
   createdAt      DateTime  @default(now())
   endedAt        DateTime?
 

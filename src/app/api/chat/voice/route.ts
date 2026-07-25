@@ -222,6 +222,7 @@ export async function GET(request: Request) {
         id: c.id,
         caller: c.caller,
         conversationId: c.conversationId,
+        hasVideo: c.hasVideo,
         createdAt: c.createdAt.toISOString(),
         declineToken: createVoiceCallDeclineToken(c.id) ?? undefined,
       })),
@@ -237,6 +238,7 @@ export async function GET(request: Request) {
         ? {
             id: activeCall.id,
             status: activeCall.status,
+            hasVideo: activeCall.hasVideo,
             caller: activeCall.caller,
             callee: activeCall.callee,
             conversationId: activeCall.conversationId,
@@ -267,13 +269,14 @@ export async function POST(request: Request) {
     const { action } = body
 
     if (action === 'initiate') {
-      const { calleeId, conversationId } = body
+      const { calleeId, conversationId, hasVideo } = body
       if (!calleeId || typeof calleeId !== 'string') {
         return NextResponse.json({ error: 'calleeId is required' }, { status: 400 })
       }
       if (calleeId === userId) {
         return NextResponse.json({ error: 'Cannot call yourself' }, { status: 400 })
       }
+      const wantVideo = Boolean(hasVideo)
 
       await cleanupOldSignals()
       await expireStaleVoiceCalls()
@@ -313,6 +316,7 @@ export async function POST(request: Request) {
           calleeId,
           conversationId: conversationId || null,
           status: 'ringing',
+          hasVideo: wantVideo,
         },
         include: {
           caller: { select: VOICE_CALL_USER_SELECT },
@@ -327,8 +331,10 @@ export async function POST(request: Request) {
           type: 'voice_call',
           callId: call.id,
           caller: call.caller,
-          title: 'Incoming voice call',
-          body: `${callerLabel} is calling on AiMediaTank`,
+          title: wantVideo ? 'Incoming video call' : 'Incoming voice call',
+          body: wantVideo
+            ? `${callerLabel} is video calling on AiMediaTank`
+            : `${callerLabel} is calling on AiMediaTank`,
           url: `/?openChat=1&voiceIncoming=1&callId=${encodeURIComponent(call.id)}`,
         }).catch((err) => console.error('Voice call push failed:', err))
       } else {
@@ -340,6 +346,7 @@ export async function POST(request: Request) {
         caller: call.caller,
         displayName: callerLabel,
         handle: call.caller.username || call.caller.id,
+        video: wantVideo,
       }
 
       const nativePushTask = (async () => {
@@ -369,6 +376,7 @@ export async function POST(request: Request) {
         call: {
           id: call.id,
           status: call.status,
+          hasVideo: call.hasVideo,
           caller: call.caller,
           callee: call.callee,
           conversationId: call.conversationId,

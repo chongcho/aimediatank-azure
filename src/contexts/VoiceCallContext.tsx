@@ -50,17 +50,27 @@ interface VoiceCallContextValue {
   callState: VoiceCallState
   callId: string | null
   remoteUser: VoiceCallUser | null
-  startCall: (peer: VoiceCallUser, conversationId?: string | null) => Promise<void>
+  startCall: (
+    peer: VoiceCallUser,
+    conversationId?: string | null,
+    opts?: { video?: boolean },
+  ) => Promise<void>
   answerCall: () => Promise<void>
   rejectCall: () => Promise<void>
   endCall: () => Promise<void>
   toggleMute: () => void
+  toggleCamera: () => void
   toggleSpeaker: () => void
   isMuted: boolean
   isSpeakerOn: boolean
+  hasVideo: boolean
+  isCameraOff: boolean
   lastError: string | null
   clearLastError: () => void
   remoteAudioRef: MutableRefObject<HTMLAudioElement | null>
+  localVideoRef: MutableRefObject<HTMLVideoElement | null>
+  remoteVideoRef: MutableRefObject<HTMLVideoElement | null>
+  syncVideoElements: () => void
   callUiHidden: boolean
   hideCallUi: () => void
   showCallUi: () => void
@@ -170,6 +180,13 @@ export function VoiceCallOverlayPanel({
     }
   }, [showCallControls, ctx.callState])
 
+  useEffect(() => {
+    if (!ctx.hasVideo || !showCallControls) return
+    ctx.syncVideoElements()
+    const t = window.setInterval(() => ctx.syncVideoElements(), 500)
+    return () => window.clearInterval(t)
+  }, [ctx.hasVideo, showCallControls, ctx.callState, ctx.syncVideoElements])
+
   if (placement === 'embedded' && isDesktop) return null
 
   return (
@@ -182,6 +199,10 @@ export function VoiceCallOverlayPanel({
       remoteUser={ctx.remoteUser}
       isMuted={ctx.isMuted}
       isSpeakerOn={ctx.isSpeakerOn}
+      hasVideo={ctx.hasVideo}
+      isCameraOff={ctx.isCameraOff}
+      localVideoRef={ctx.localVideoRef}
+      remoteVideoRef={ctx.remoteVideoRef}
       labels={labels}
       inAppHint={showCallControls ? undefined : labels.inAppHint}
       onHide={canHideCall ? ctx.hideCallUi : undefined}
@@ -201,6 +222,10 @@ export function VoiceCallOverlayPanel({
       onReject={() => void ctx.rejectCall()}
       onEnd={() => void ctx.endCall()}
       onToggleMute={ctx.toggleMute}
+      onToggleCamera={() => {
+        ctx.toggleCamera()
+        ctx.syncVideoElements()
+      }}
       onToggleSpeaker={ctx.toggleSpeaker}
       speakerEnabled={nativeVoiceCall}
       ringVolume={ringVolume}
@@ -349,12 +374,18 @@ export function VoiceCallProvider({
         rejectCall: voiceCall.rejectCall,
         endCall: voiceCall.endCall,
         toggleMute: voiceCall.toggleMute,
+        toggleCamera: voiceCall.toggleCamera,
         toggleSpeaker: voiceCall.toggleSpeaker,
         isMuted: voiceCall.isMuted,
         isSpeakerOn: voiceCall.isSpeakerOn,
+        hasVideo: voiceCall.hasVideo,
+        isCameraOff: voiceCall.isCameraOff,
         lastError: voiceCall.lastError,
         clearLastError: voiceCall.clearLastError,
         remoteAudioRef: voiceCall.remoteAudioRef,
+        localVideoRef: voiceCall.localVideoRef,
+        remoteVideoRef: voiceCall.remoteVideoRef,
+        syncVideoElements: voiceCall.syncVideoElements,
         callUiHidden,
         hideCallUi,
         showCallUi,

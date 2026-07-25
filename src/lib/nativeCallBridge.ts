@@ -531,6 +531,7 @@ export async function reportIncomingCallToNativeUi(params: {
   handle: string
   displayName: string
   declineToken?: string
+  video?: boolean
   caller?: {
     id: string
     username: string
@@ -552,7 +553,7 @@ export async function reportIncomingCallToNativeUi(params: {
     handle: params.handle,
     displayName: params.displayName,
     handleType: 'generic',
-    video: false,
+    video: Boolean(params.video),
     metadata: {
       ...(params.caller
         ? {

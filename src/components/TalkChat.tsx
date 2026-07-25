@@ -609,9 +609,11 @@ function TalkChatContent({
   const voiceCallRecentActive = showVoiceCallPicker && voiceCallTab === 'recent'
   const voiceCallContactsActive = showVoiceCallPicker && voiceCallTab === 'contacts'
 
-  const handleConfirmVoiceCall = () => {
+  const handleConfirmVoiceCall = (opts?: { video?: boolean }) => {
     if (!voiceCallPickTarget || !voiceCall || isActiveVoiceCall) return
-    void voiceCall.startCall(voiceCallPickTarget, activeConversation?.id ?? null)
+    void voiceCall.startCall(voiceCallPickTarget, activeConversation?.id ?? null, {
+      video: Boolean(opts?.video),
+    })
     setVoiceCallPickTarget(null)
   }
 
@@ -3349,10 +3351,29 @@ function TalkChatContent({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'flex-end',
+              gap: '8px',
             }}>
               <button
                 type="button"
-                onClick={handleConfirmVoiceCall}
+                onClick={() => handleConfirmVoiceCall({ video: true })}
+                disabled={!voiceCallPickTarget || isActiveVoiceCall}
+                style={{
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: voiceCallPickTarget ? '#2563eb' : '#9ca3af',
+                  color: 'white',
+                  fontWeight: 700,
+                  cursor: voiceCallPickTarget ? 'pointer' : 'not-allowed',
+                  fontSize: '15px',
+                  minWidth: '100px',
+                }}
+              >
+                Video
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConfirmVoiceCall()}
                 disabled={!voiceCallPickTarget || isActiveVoiceCall}
                 style={{
                   padding: '12px 28px',

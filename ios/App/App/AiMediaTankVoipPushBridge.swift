@@ -44,6 +44,23 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         "AiMediaTank.declineToken.\(callId.lowercased())"
     }
 
+    private static func callHasVideoKey(for callId: String) -> String {
+        "AiMediaTank.callHasVideo.\(callId.lowercased())"
+    }
+
+    private static func noteCallHasVideo(_ callId: String, hasVideo: Bool) {
+        let key = callHasVideoKey(for: callId)
+        if hasVideo {
+            UserDefaults.standard.set(true, forKey: key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+    }
+
+    private static func callHasVideo(_ callId: String) -> Bool {
+        UserDefaults.standard.bool(forKey: callHasVideoKey(for: callId))
+    }
+
     /// Lock-screen Accept uses native WebRTC; JS must not start session WebRTC for this call.
     private static func lockScreenNativeAnswerKey(for callId: String) -> String {
         "AiMediaTank.lockScreenNativeAnswer.\(callId.lowercased())"
@@ -240,8 +257,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
-        // Audio-only: lock screen shows Accept/Decline instead of in-call Video/More grid.
-        configuration.supportsVideo = false
+        // Allow video CallKit UI when push sets hasVideo=true; audio calls stay audio-only via CXCallUpdate.
+        configuration.supportsVideo = true
         configuration.maximumCallGroups = 1
         configuration.maximumCallsPerCallGroup = 1
         configuration.supportedHandleTypes = [.generic, .phoneNumber, .emailAddress]
@@ -993,7 +1010,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         update.supportsGrouping = false
         update.supportsUngrouping = false
         update.supportsDTMF = true
-        update.hasVideo = false
+        // Video calls use CallKit video chrome; audio stays Accept/Decline.
+        update.hasVideo = video
 
         endOrphanedBridgeCallsBeforeIncoming(exceptCallId: callId.uuidString)
 
@@ -1711,7 +1729,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
 
         let handleTypeString = payloadString(payloadDict, key: "handleType") ?? "generic"
-        let video = payloadDict["video"] as? Bool ?? false
+        let video = (payloadDict["video"] as? Bool)
+            ?? ((payloadDict["video"] as? String)?.lowercased() == "true")
+            ?? false
+        Self.noteCallHasVideo(normalizedCallId, hasVideo: video)
 
         func forwardToPlugin(reportedToCallKit: Bool) {
             var info = self.userInfo(from: payloadDict)
@@ -2077,7 +2098,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             NativeVoiceCallEngine.shared.prepareAnswer(
                 callId: callId,
                 token: token,
-                baseURL: voiceApiBaseURL()
+                baseURL: voiceApiBaseURL(),
+                wantsVideo: Self.callHasVideo(callId)
             )
             scheduleCallKitAudioActivationFallback(callId: callId)
         } else {
@@ -2112,7 +2134,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 NativeVoiceCallEngine.shared.prepareAnswer(
                     callId: callId,
                     token: token,
-                    baseURL: voiceApiBaseURL()
+                    baseURL: voiceApiBaseURL(),
+                    wantsVideo: Self.callHasVideo(callId)
                 )
             }
             return
@@ -2121,7 +2144,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         NativeVoiceCallEngine.shared.prepareAnswer(
             callId: callId,
             token: token,
-            baseURL: voiceApiBaseURL()
+            baseURL: voiceApiBaseURL(),
+            wantsVideo: Self.callHasVideo(callId)
         )
     }
 

@@ -19,6 +19,8 @@ export interface VoipCallPushPayload {
   }
   displayName: string
   handle: string
+  /** When true, lock-screen CallKit / ConnectionService show a video call. */
+  video?: boolean
 }
 
 const apnsClients = new Map<'production' | 'sandbox', ApnsClient>()
@@ -337,7 +339,7 @@ export async function sendVoipCallPushToUser(
       handle: payload.handle,
       displayName: payload.displayName,
       handleType: 'generic',
-      video: false,
+      video: Boolean(payload.video),
       announcement,
       lang,
       ...(declineToken ? { declineToken } : {}),

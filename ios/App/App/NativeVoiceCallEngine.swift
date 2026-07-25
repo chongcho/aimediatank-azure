@@ -37,6 +37,13 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var cachedCaller: [String: Any]?
     private(set) var isMediaConnected = false
     private weak var localAudioTrack: RTCAudioTrack?
+    private weak var localVideoTrack: RTCVideoTrack?
+    private var videoCapturer: RTCCameraVideoCapturer?
+    private var videoSource: RTCVideoSource?
+    private var wantsVideo = false
+    private var localPreviewView: RTCMTLVideoView?
+    private var remoteVideoView: RTCMTLVideoView?
+    private weak var videoOverlayContainer: UIView?
     /// Prefetched while CallKit is ringing so Accept skips the bootstrap wait.
     private var prefetchedBootstrap: BootstrapResult?
     private var prefetchedCallId: String?
@@ -124,12 +131,13 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         }
     }
 
-    func prepareAnswer(callId: String, token: String, baseURL: String) {
+    func prepareAnswer(callId: String, token: String, baseURL: String, wantsVideo: Bool = false) {
         let normalized = callId.lowercased()
         if isAnswering, self.callId == normalized {
             // Already answering this call — keep in-flight SDP/ICE; only re-kick if still pending.
             self.token = token
             self.baseURL = baseURL
+            if wantsVideo { self.wantsVideo = true }
             beginAnswerIfNeeded()
             return
         }
@@ -141,6 +149,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         self.callId = normalized
         self.token = token
         self.baseURL = baseURL
+        self.wantsVideo = wantsVideo
         isAnswering = true
         pendingStart = true
         appliedRemoteIceKeys.removeAll()
@@ -152,7 +161,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         }
         isMediaConnected = false
 
-        print("[NativeVoiceCallEngine] prepare answer \(normalized) prefetch=\(prefetchedBootstrap?.offerSdp != nil) audioReady=\(audioSessionReady)")
+        print("[NativeVoiceCallEngine] prepare answer \(normalized) prefetch=\(prefetchedBootstrap?.offerSdp != nil) audioReady=\(audioSessionReady) video=\(wantsVideo)")
         postTrace(callId: normalized, token: token, event: "native_webrtc_prepare")
 
         // Start SDP/ICE immediately on Accept — do not wait for CallKit didActivate.
@@ -226,6 +235,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         isAnswering = false
         pendingStart = false
         isMediaConnected = false
+        wantsVideo = false
 
         let endedCallId = callId
         let authToken = token
@@ -238,6 +248,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         self.token = nil
         cachedCaller = nil
         localAudioTrack = nil
+        stopVideoCapture()
+        removeVideoOverlay()
         tearDownPeerConnection(notify: true, notifyCallId: endedCallId)
     }
 
@@ -366,6 +378,11 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         localAudioTrack = audioTrack
         pc.add(audioTrack, streamIds: ["stream0"])
 
+        if wantsVideo {
+            attachLocalVideoTrack(to: pc)
+            ensureVideoOverlay()
+        }
+
         let offer = RTCSessionDescription(type: .offer, sdp: sdp)
         print("[NativeVoiceCallEngine] setRemoteDescription \(callId) len=\(sdp.count)")
         pc.setRemoteDescription(offer) { [weak self] error in
@@ -422,6 +439,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             self.pendingRemoteIce.removeAll()
             self.invalidateRemoteIceProcessing()
             self.localAudioTrack = nil
+            self.stopVideoCapture()
+            self.removeVideoOverlay()
             let pc = self.peerConnection
             self.peerConnection = nil
             pc?.close()
@@ -618,6 +637,100 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: work)
     }
 
+    private func attachLocalVideoTrack(to pc: RTCPeerConnection) {
+        let source = peerConnectionFactory().videoSource()
+        videoSource = source
+        let capturer = RTCCameraVideoCapturer(delegate: source)
+        videoCapturer = capturer
+        let track = peerConnectionFactory().videoTrack(with: source, trackId: "video0")
+        track.isEnabled = true
+        localVideoTrack = track
+        pc.add(track, streamIds: ["stream0"])
+        startFrontCamera(capturer: capturer)
+        if let preview = localPreviewView {
+            track.add(preview)
+        }
+        print("[NativeVoiceCallEngine] local video track attached")
+    }
+
+    private func startFrontCamera(capturer: RTCCameraVideoCapturer) {
+        let devices = RTCCameraVideoCapturer.captureDevices()
+        let device =
+            devices.first(where: { $0.position == .front })
+            ?? devices.first
+        guard let device else {
+            print("[NativeVoiceCallEngine] no camera device")
+            return
+        }
+        let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
+        guard let format = formats.last else { return }
+        let fps = Int(format.videoSupportedFrameRateRanges.first?.maxFrameRate ?? 30)
+        capturer.startCapture(with: device, format: format, fps: min(fps, 30))
+    }
+
+    private func stopVideoCapture() {
+        videoCapturer?.stopCapture()
+        videoCapturer = nil
+        localVideoTrack = nil
+        videoSource = nil
+    }
+
+    private func ensureVideoOverlay() {
+        runOnMain { [weak self] in
+            guard let self, self.wantsVideo else { return }
+            if self.videoOverlayContainer != nil { return }
+            guard let window = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .flatMap(\.windows)
+                .first(where: { $0.isKeyWindow })
+                ?? UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .flatMap(\.windows)
+                .first
+            else { return }
+
+            let container = UIView(frame: window.bounds)
+            container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            container.backgroundColor = .black
+            container.isUserInteractionEnabled = false
+            container.tag = 0xA11C08
+
+            let remote = RTCMTLVideoView(frame: container.bounds)
+            remote.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            remote.videoContentMode = .scaleAspectFill
+            container.addSubview(remote)
+
+            let preview = RTCMTLVideoView(frame: CGRect(x: container.bounds.width - 120, y: 56, width: 100, height: 140))
+            preview.autoresizingMask = [.flexibleLeftMargin, .flexibleBottomMargin]
+            preview.videoContentMode = .scaleAspectFill
+            preview.layer.cornerRadius = 10
+            preview.clipsToBounds = true
+            preview.transform = CGAffineTransform(scaleX: -1, y: 1)
+            container.addSubview(preview)
+
+            window.addSubview(container)
+            self.videoOverlayContainer = container
+            self.remoteVideoView = remote
+            self.localPreviewView = preview
+            if let track = self.localVideoTrack {
+                track.add(preview)
+            }
+            print("[NativeVoiceCallEngine] video overlay attached")
+        }
+    }
+
+    private func removeVideoOverlay() {
+        runOnMain { [weak self] in
+            guard let self else { return }
+            self.localPreviewView?.removeFromSuperview()
+            self.remoteVideoView?.removeFromSuperview()
+            self.videoOverlayContainer?.removeFromSuperview()
+            self.localPreviewView = nil
+            self.remoteVideoView = nil
+            self.videoOverlayContainer = nil
+        }
+    }
+
     // MARK: - RTCPeerConnectionDelegate
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
@@ -625,6 +738,14 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         for track in stream.audioTracks {
             track.isEnabled = true
             print("[NativeVoiceCallEngine] remote stream audio track enabled")
+        }
+        for track in stream.videoTracks {
+            track.isEnabled = true
+            if let view = remoteVideoView {
+                track.add(view)
+            }
+            ensureVideoOverlay()
+            print("[NativeVoiceCallEngine] remote stream video track attached")
         }
         ensureWebRtcAudioEnabled()
     }
@@ -641,6 +762,14 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             track.isEnabled = true
             print("[NativeVoiceCallEngine] remote RTP audio track enabled")
             ensureWebRtcAudioEnabled()
+        }
+        if let track = rtpReceiver.track as? RTCVideoTrack {
+            track.isEnabled = true
+            ensureVideoOverlay()
+            if let view = remoteVideoView {
+                track.add(view)
+            }
+            print("[NativeVoiceCallEngine] remote RTP video track attached")
         }
     }
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {

@@ -71,6 +71,7 @@ interface PollIncomingCall {
   id: string
   caller: VoiceCallUser
   conversationId: string | null
+  hasVideo?: boolean
 }
 
 async function voiceApi(action: string, body: Record<string, unknown> = {}) {
@@ -91,9 +92,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function getUserMediaWithTimeout(timeoutMs: number): Promise<MediaStream> {
+async function getUserMediaWithTimeout(timeoutMs: number, withVideo = false): Promise<MediaStream> {
+  const constraints: MediaStreamConstraints = withVideo
+    ? {
+        audio: true,
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      }
+    : { audio: true, video: false }
   return Promise.race([
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false }),
+    navigator.mediaDevices.getUserMedia(constraints),
     sleep(timeoutMs).then(() => {
       throw new Error('getUserMedia timeout')
     }),
@@ -149,6 +160,7 @@ async function fetchNativeCallKitBootstrap(callId: string, token: string) {
   if (!res.ok) return null
   return res.json() as Promise<{
     status?: string
+    hasVideo?: boolean
     caller?: VoiceCallUser
     offer?: { sdp?: RTCSessionDescriptionInit }
     iceCandidates?: Array<{ candidate?: RTCIceCandidateInit }>
@@ -191,11 +203,16 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const [callId, setCallId] = useState<string | null>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [isSpeakerOn, setIsSpeakerOn] = useState(false)
+  const [hasVideo, setHasVideo] = useState(false)
+  const [isCameraOff, setIsCameraOff] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
 
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null) as MutableRefObject<HTMLAudioElement | null>
+  const localVideoRef = useRef<HTMLVideoElement | null>(null) as MutableRefObject<HTMLVideoElement | null>
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null) as MutableRefObject<HTMLVideoElement | null>
+  const hasVideoRef = useRef(false)
   const callIdRef = useRef<string | null>(null)
   const pollSinceRef = useRef<string>(new Date(0).toISOString())
   const isCallerRef = useRef(false)
@@ -280,6 +297,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       remoteAudioRef.current.srcObject = null
       remoteAudioRef.current.muted = false
     }
+    if (localVideoRef.current) localVideoRef.current.srcObject = null
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null
     callIdRef.current = null
     isCallerRef.current = false
     makingOfferRef.current = false
@@ -296,10 +315,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     callKitSignalingRef.current = false
     nativeWebRtcCalleeRef.current = false
     nativeWebRtcAndroidRef.current = false
+    hasVideoRef.current = false
     setCallId(null)
     setRemoteUser(null)
     setIsMuted(false)
     setIsSpeakerOn(false)
+    setHasVideo(false)
+    setIsCameraOff(false)
     setCallState('idle')
   }, [closePeerConnection, stopLocalStream])
 
@@ -393,16 +415,35 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   const ensureLocalAudio = useCallback(async (retries = 0) => {
     if (localStreamRef.current) return localStreamRef.current
+    const wantVideo = hasVideoRef.current
     const maxAttempts = 1 + Math.max(0, retries)
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        const stream = await getUserMediaWithTimeout(attempt === 0 ? 8000 : 12000)
+        const stream = await getUserMediaWithTimeout(attempt === 0 ? 8000 : 12000, wantVideo)
         localStreamRef.current = stream
+        if (wantVideo && localVideoRef.current) {
+          localVideoRef.current.srcObject = stream
+          localVideoRef.current.muted = true
+          void localVideoRef.current.play().catch(() => {})
+        }
         return stream
       } catch {
         if (attempt === maxAttempts - 1) {
-          reportError('Microphone access is required for voice calls')
-          throw new Error('Microphone denied')
+          if (wantVideo) {
+            // Fall back to audio-only if camera is denied.
+            try {
+              const audioOnly = await getUserMediaWithTimeout(8000, false)
+              localStreamRef.current = audioOnly
+              setHasVideo(false)
+              hasVideoRef.current = false
+              reportError('Camera unavailable — continuing with audio only')
+              return audioOnly
+            } catch {
+              /* fall through */
+            }
+          }
+          reportError(wantVideo ? 'Camera/microphone access is required' : 'Microphone access is required for voice calls')
+          throw new Error(wantVideo ? 'Media denied' : 'Microphone denied')
         }
         await sleep(350 + attempt * 250)
       }
@@ -448,6 +489,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (!stream) return
       remoteStreamRef.current = stream
       reattachRemoteAudio()
+      if (remoteVideoRef.current && stream.getVideoTracks().length > 0) {
+        remoteVideoRef.current.srcObject = stream
+        void remoteVideoRef.current.play().catch(() => {})
+      }
     }
 
     let iceDisconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -605,6 +650,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             displayName: label,
             declineToken,
             caller,
+            video: hasVideoRef.current,
           })
         }
       }
@@ -865,17 +911,26 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [attachLocalTracks, createPeerConnection, endCall, flushPendingIceCandidates, reportError, reattachRemoteAudio, resetCallKitWebRtcState, resolvePendingOffer, sendSignal])
 
   const startCall = useCallback(
-    async (peer: VoiceCallUser, conversationId?: string | null) => {
+    async (
+      peer: VoiceCallUser,
+      conversationId?: string | null,
+      opts?: { video?: boolean },
+    ) => {
       if (!currentUserId || callState !== 'idle') return
       markVoiceCallUserGesture()
+      const wantVideo = Boolean(opts?.video)
       try {
         setRemoteUser(peer)
+        setHasVideo(wantVideo)
+        hasVideoRef.current = wantVideo
+        setIsCameraOff(false)
         setCallState('outgoing')
         isCallerRef.current = true
 
         const data = await voiceApi('initiate', {
           calleeId: peer.id,
           conversationId: conversationId || undefined,
+          hasVideo: wantVideo,
         })
         const call = data.call as { id: string }
         const id = normalizeVoiceCallId(call.id)
@@ -904,6 +959,17 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     })
     setIsMuted(next)
   }, [isMuted])
+
+  const toggleCamera = useCallback(() => {
+    if (!hasVideoRef.current) return
+    const stream = localStreamRef.current
+    if (!stream) return
+    const nextOff = !isCameraOff
+    stream.getVideoTracks().forEach((t) => {
+      t.enabled = !nextOff
+    })
+    setIsCameraOff(nextOff)
+  }, [isCameraOff])
 
   const toggleSpeaker = useCallback(() => {
     if (!isNativeVoiceCallApp()) return
@@ -1069,6 +1135,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           setCallId(normalizeVoiceCallId(incoming.id))
           setRemoteUser(incoming.caller)
           isCallerRef.current = false
+          const wantVideo = Boolean(incoming.hasVideo)
+          hasVideoRef.current = wantVideo
+          setHasVideo(wantVideo)
+          setIsCameraOff(false)
           // iOS: lock-screen + foreground rings use CallKit only — poll must not drive in-app incoming UI.
           if (isNativeIosCallApp()) {
             return
@@ -1286,6 +1356,19 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           callIdRef.current = normalizedId
           setCallId(normalizedId)
           isCallerRef.current = false
+          // Prefer hasVideo from bootstrap when available (native inject may not include it).
+          void (async () => {
+            if (!token || hasVideoRef.current) return
+            try {
+              const bootstrap = await fetchNativeCallKitBootstrap(normalizedId, token)
+              if (bootstrap?.hasVideo) {
+                hasVideoRef.current = true
+                setHasVideo(true)
+              }
+            } catch {
+              /* ignore */
+            }
+          })()
           if (callStateRef.current !== 'connected') {
             setCallState('connecting')
           }
@@ -1669,19 +1752,43 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
   }, [closePeerConnection, endCallOnServer, stopLocalStream])
 
+  const syncVideoElements = useCallback(() => {
+    const local = localStreamRef.current
+    if (local && localVideoRef.current) {
+      if (localVideoRef.current.srcObject !== local) {
+        localVideoRef.current.srcObject = local
+      }
+      localVideoRef.current.muted = true
+      void localVideoRef.current.play().catch(() => {})
+    }
+    const remote = remoteStreamRef.current
+    if (remote && remoteVideoRef.current && remote.getVideoTracks().length > 0) {
+      if (remoteVideoRef.current.srcObject !== remote) {
+        remoteVideoRef.current.srcObject = remote
+      }
+      void remoteVideoRef.current.play().catch(() => {})
+    }
+  }, [])
+
   return {
     callState,
     remoteUser,
     callId,
     isMuted,
     isSpeakerOn,
+    hasVideo,
+    isCameraOff,
     remoteAudioRef,
+    localVideoRef,
+    remoteVideoRef,
     reattachRemoteAudio,
+    syncVideoElements,
     startCall,
     answerCall,
     rejectCall,
     endCall,
     toggleMute,
+    toggleCamera,
     toggleSpeaker,
     setRemoteCallVolume,
     lastError,

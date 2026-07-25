@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type MutableRefObject, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
 import { voiceCallNickname } from '@/hooks/useVoiceCall'
@@ -27,6 +27,10 @@ interface VoiceCallOverlayProps {
   remoteUser: VoiceCallUser | null
   isMuted: boolean
   isSpeakerOn: boolean
+  hasVideo?: boolean
+  isCameraOff?: boolean
+  localVideoRef?: MutableRefObject<HTMLVideoElement | null>
+  remoteVideoRef?: MutableRefObject<HTMLVideoElement | null>
   labels: {
     appAudio: string
     incomingCall: string
@@ -63,6 +67,7 @@ interface VoiceCallOverlayProps {
   onReject: () => void
   onEnd: () => void
   onToggleMute: () => void
+  onToggleCamera?: () => void
   onToggleSpeaker: () => void
   speakerEnabled?: boolean
   onHide?: () => void
@@ -828,9 +833,14 @@ function ActiveCallScreen({
   remoteUser,
   isMuted,
   isSpeakerOn,
+  hasVideo = false,
+  isCameraOff = false,
+  localVideoRef,
+  remoteVideoRef,
   labels,
   onEnd,
   onToggleMute,
+  onToggleCamera,
   onToggleSpeaker,
   speakerEnabled = false,
   onHide,
@@ -846,9 +856,14 @@ function ActiveCallScreen({
   remoteUser: VoiceCallUser | null
   isMuted: boolean
   isSpeakerOn: boolean
+  hasVideo?: boolean
+  isCameraOff?: boolean
+  localVideoRef?: MutableRefObject<HTMLVideoElement | null>
+  remoteVideoRef?: MutableRefObject<HTMLVideoElement | null>
   labels: VoiceCallOverlayProps['labels']
   onEnd: () => void
   onToggleMute: () => void
+  onToggleCamera?: () => void
   onToggleSpeaker: () => void
   speakerEnabled?: boolean
   onHide?: () => void
@@ -891,13 +906,63 @@ function ActiveCallScreen({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
+          justifyContent: hasVideo ? 'flex-start' : 'center',
           gap: compact ? '8px' : '12px',
           padding: mode === 'fullscreen' ? '0 16px' : '8px 0 12px',
           textAlign: 'center',
+          minHeight: 0,
+          width: '100%',
         }}
       >
-        {remoteUser?.avatar ? (
+        {hasVideo ? (
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              flex: 1,
+              minHeight: compact ? 180 : 240,
+              borderRadius: compact ? 12 : 16,
+              overflow: 'hidden',
+              background: '#0d0906',
+              marginBottom: compact ? 8 : 12,
+            }}
+          >
+            <video
+              ref={(el) => {
+                if (remoteVideoRef) remoteVideoRef.current = el
+              }}
+              autoPlay
+              playsInline
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                background: '#111',
+              }}
+            />
+            <video
+              ref={(el) => {
+                if (localVideoRef) localVideoRef.current = el
+              }}
+              autoPlay
+              muted
+              playsInline
+              style={{
+                position: 'absolute',
+                right: 12,
+                bottom: 12,
+                width: compact ? 88 : 112,
+                height: compact ? 118 : 150,
+                objectFit: 'cover',
+                borderRadius: 10,
+                border: '2px solid rgba(255,255,255,0.35)',
+                background: '#222',
+                transform: 'scaleX(-1)',
+                opacity: isCameraOff ? 0.35 : 1,
+              }}
+            />
+          </div>
+        ) : remoteUser?.avatar ? (
           <img
             src={remoteUser.avatar}
             alt=""
@@ -955,8 +1020,9 @@ function ActiveCallScreen({
         </RoundCallButton>
         <RoundCallButton
           label={labels.video}
-          background="rgba(255,255,255,0.18)"
-          disabled
+          onClick={onToggleCamera}
+          background={hasVideo && !isCameraOff ? '#2563eb' : 'rgba(255,255,255,0.18)'}
+          disabled={!hasVideo || !onToggleCamera}
           compact={compact}
         >
           <IconVideo />
@@ -1199,11 +1265,16 @@ export function VoiceCallOverlay({
   remoteUser,
   isMuted,
   isSpeakerOn,
+  hasVideo = false,
+  isCameraOff = false,
+  localVideoRef,
+  remoteVideoRef,
   labels,
   onAccept,
   onReject,
   onEnd,
   onToggleMute,
+  onToggleCamera,
   onToggleSpeaker,
   speakerEnabled = false,
   onHide,
@@ -1270,9 +1341,14 @@ export function VoiceCallOverlay({
         remoteUser={remoteUser}
         isMuted={isMuted}
         isSpeakerOn={isSpeakerOn}
+        hasVideo={hasVideo}
+        isCameraOff={isCameraOff}
+        localVideoRef={localVideoRef}
+        remoteVideoRef={remoteVideoRef}
         labels={labels}
         onEnd={onEnd}
         onToggleMute={onToggleMute}
+        onToggleCamera={onToggleCamera}
         onToggleSpeaker={onToggleSpeaker}
         speakerEnabled={speakerEnabled}
         onHide={onHide}

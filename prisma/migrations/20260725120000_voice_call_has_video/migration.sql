@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "VoiceCall" ADD COLUMN IF NOT EXISTS "hasVideo" BOOLEAN NOT NULL DEFAULT false;

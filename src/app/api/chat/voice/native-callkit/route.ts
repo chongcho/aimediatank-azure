@@ -60,6 +60,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     status: call.status,
+    hasVideo: call.hasVideo,
     caller: call.caller,
     offer: offerSignal ? JSON.parse(offerSignal.payload) : null,
     iceCandidates,
