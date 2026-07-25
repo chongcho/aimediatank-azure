@@ -50,6 +50,8 @@ export interface NativeCallAnsweredOptions {
   useSessionWebRtc?: boolean
   /** Lock-screen answer: Swift NativeVoiceCallEngine owns media — JS syncs UI only. */
   nativeWebRtc?: boolean
+  /** Incoming was a video call (from VoIP push / inject). */
+  hasVideo?: boolean
 }
 
 export interface NativeCallBridgeHandlers {
@@ -91,6 +93,7 @@ let pendingCallAnswered: {
   declineToken?: string
   useSessionWebRtc?: boolean
   nativeWebRtc?: boolean
+  hasVideo?: boolean
 } | null = null
 let pendingCallRejected: string | null = null
 let pendingCallEnded: string | null = null
@@ -127,6 +130,7 @@ function attachWebViewCallKitInjectListener(): void {
       declineToken?: string
       useSessionWebRtc?: boolean
       nativeWebRtc?: boolean
+      hasVideo?: boolean
     }>).detail
     const callId = detail?.callId
     if (!callId) return
@@ -137,6 +141,7 @@ function attachWebViewCallKitInjectListener(): void {
       declineToken: token,
       useSessionWebRtc: Boolean(detail?.useSessionWebRtc) || undefined,
       nativeWebRtc: Boolean(detail?.nativeWebRtc) || undefined,
+      hasVideo: Boolean(detail?.hasVideo) || undefined,
     }
     if (bridgeHandlers) {
       bridgeHandlers.onCallAnswered(callId, payload)
@@ -249,6 +254,7 @@ function attachNativeCallEventListeners(
       declineToken?: string
       useSessionWebRtc?: boolean
       nativeWebRtc?: boolean
+      hasVideo?: boolean
     }
     const fromEvent = extended.declineToken
     const token =
@@ -259,6 +265,7 @@ function attachNativeCallEventListeners(
       declineToken: token,
       useSessionWebRtc: Boolean(extended.useSessionWebRtc) || undefined,
       nativeWebRtc: Boolean(extended.nativeWebRtc) || undefined,
+      hasVideo: Boolean(extended.hasVideo) || undefined,
     }
     if (bridgeHandlers) {
       bridgeHandlers.onCallAnswered(callId, payload)

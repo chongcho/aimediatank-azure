@@ -1356,6 +1356,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           callIdRef.current = normalizedId
           setCallId(normalizedId)
           isCallerRef.current = false
+          if (options?.hasVideo) {
+            hasVideoRef.current = true
+            setHasVideo(true)
+          }
           // Prefer hasVideo from bootstrap when available (native inject may not include it).
           void (async () => {
             if (!token || hasVideoRef.current) return

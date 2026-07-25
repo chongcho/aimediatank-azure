@@ -61,6 +61,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         UserDefaults.standard.bool(forKey: callHasVideoKey(for: callId))
     }
 
+    private static func clearCallHasVideo(_ callId: String) {
+        UserDefaults.standard.removeObject(forKey: callHasVideoKey(for: callId))
+    }
+
     /// Lock-screen Accept uses native WebRTC; JS must not start session WebRTC for this call.
     private static func lockScreenNativeAnswerKey(for callId: String) -> String {
         "AiMediaTank.lockScreenNativeAnswer.\(callId.lowercased())"
@@ -220,6 +224,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             self.acceptCoverPollWork = nil
             self.acceptCoverView?.removeFromSuperview()
             self.acceptCoverView = nil
+            // Native video surface sits above the WebView — lift it once call controls paint.
+            if reason == "call_ui_ready" {
+                NativeVoiceCallEngine.shared.hideVideoOverlayForJsUi()
+            }
             print("[AiMediaTankVoipPushBridge] end accept cover (\(reason))")
         }
         if Thread.isMainThread {
@@ -257,8 +265,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private override init() {
         let configuration = CXProviderConfiguration(localizedName: "AiMediaTank")
-        // Allow video CallKit UI when push sets hasVideo=true; audio calls stay audio-only via CXCallUpdate.
-        configuration.supportsVideo = true
+        // Audio CallKit chrome only — video media is in-app WebRTC. supportsVideo/hasVideo
+        // replace Accept/Decline with a Video/More grid that looks like "no action".
+        configuration.supportsVideo = false
         configuration.maximumCallGroups = 1
         configuration.maximumCallsPerCallGroup = 1
         configuration.supportedHandleTypes = [.generic, .phoneNumber, .emailAddress]
@@ -875,6 +884,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             guard let self = self else { return }
             self.stopCallKitRingAnnouncement()
             NativeVoiceCallEngine.shared.clearPrefetch(callId: callId)
+            Self.clearCallHasVideo(callId)
             self.endAcceptCover(reason: "call_ended")
             let observer = CXCallObserver()
             let stillOnCallKit = observer.calls.contains { $0.uuid == uuid && !$0.hasEnded }
@@ -1010,8 +1020,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         update.supportsGrouping = false
         update.supportsUngrouping = false
         update.supportsDTMF = true
-        // Video calls use CallKit video chrome; audio stays Accept/Decline.
-        update.hasVideo = video
+        // Always audio CallKit UI so Accept/Decline stay tappable. Video is in-app WebRTC.
+        update.hasVideo = false
+        if video {
+            print("[AiMediaTankVoipPushBridge] incoming video media \(callId.uuidString.lowercased()) — CallKit stays audio chrome")
+        }
 
         endOrphanedBridgeCallsBeforeIncoming(exceptCallId: callId.uuidString)
 
@@ -1945,6 +1958,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         let sessionJs = useSessionWebRtc ? ", useSessionWebRtc: true" : ""
         let nativeJs = nativeWebRtc ? ", nativeWebRtc: true" : ""
+        let videoJs = Self.callHasVideo(callId) ? ", hasVideo: true" : ""
         let js = """
         (function(){
           try {
@@ -1977,7 +1991,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
               removeShell();
             });
             window.dispatchEvent(new CustomEvent('aimediatank-callkit-answer', {
-              detail: { callId: '\(callId)'\(tokenJs)\(sessionJs)\(nativeJs) }
+              detail: { callId: '\(callId)'\(tokenJs)\(sessionJs)\(nativeJs)\(videoJs) }
             }));
           } catch (e) {}
         })();
@@ -2154,6 +2168,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         stopCallKitRingAnnouncement()
         audioActivationFallbackGeneration = nil
         Self.clearLockScreenNativeAnswer(callId: callId)
+        Self.clearCallHasVideo(callId)
         endAcceptCover(reason: "user_end")
         let alreadyHandled = endedCallKitCallIds.contains(callId)
         if !alreadyHandled {

@@ -1,5 +1,6 @@
 import AVFoundation
 import Capacitor
+import CoreMedia
 import Foundation
 import UIKit
 import WebRTC
@@ -379,8 +380,9 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         pc.add(audioTrack, streamIds: ["stream0"])
 
         if wantsVideo {
-            attachLocalVideoTrack(to: pc)
-            ensureVideoOverlay()
+            // Attach transceiver/track before SDP so answer includes m=video, but start
+            // the camera after the answer is posted so Accept is not blocked on permission.
+            attachLocalVideoTrack(to: pc, startCapture: false)
         }
 
         let offer = RTCSessionDescription(type: .offer, sdp: sdp)
@@ -422,6 +424,11 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                     )
                     self.postTrace(callId: callId, token: token, event: "native_webrtc_answer_sent")
                     print("[NativeVoiceCallEngine] posted answer sdp \(callId)")
+                    if self.wantsVideo {
+                        self.startLocalCameraIfNeeded()
+                        // Overlay only while locked / before JS call UI — lifted when cover ends.
+                        self.ensureVideoOverlay()
+                    }
                     self.startIcePoll(callId: callId, token: token)
                 }
             }
@@ -637,7 +644,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: work)
     }
 
-    private func attachLocalVideoTrack(to pc: RTCPeerConnection) {
+    private func attachLocalVideoTrack(to pc: RTCPeerConnection, startCapture: Bool = true) {
         let source = peerConnectionFactory().videoSource()
         videoSource = source
         let capturer = RTCCameraVideoCapturer(delegate: source)
@@ -646,11 +653,21 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         track.isEnabled = true
         localVideoTrack = track
         pc.add(track, streamIds: ["stream0"])
-        startFrontCamera(capturer: capturer)
+        if startCapture {
+            startFrontCamera(capturer: capturer)
+        }
         if let preview = localPreviewView {
             track.add(preview)
         }
-        print("[NativeVoiceCallEngine] local video track attached")
+        print("[NativeVoiceCallEngine] local video track attached capture=\(startCapture)")
+    }
+
+    private func startLocalCameraIfNeeded() {
+        guard wantsVideo, let capturer = videoCapturer else { return }
+        startFrontCamera(capturer: capturer)
+        if let track = localVideoTrack, let preview = localPreviewView {
+            track.add(preview)
+        }
     }
 
     private func startFrontCamera(capturer: RTCCameraVideoCapturer) {
@@ -663,9 +680,18 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             return
         }
         let formats = RTCCameraVideoCapturer.supportedFormats(for: device)
-        guard let format = formats.last else { return }
+        // Prefer ~720p — formats.last can be extreme and slow to start on Accept.
+        let format =
+            formats.first(where: {
+                let dims = CMVideoFormatDescriptionGetDimensions($0.formatDescription)
+                return dims.width >= 640 && dims.width <= 1280
+            })
+            ?? formats.dropLast().last
+            ?? formats.first
+        guard let format else { return }
         let fps = Int(format.videoSupportedFrameRateRanges.first?.maxFrameRate ?? 30)
         capturer.startCapture(with: device, format: format, fps: min(fps, 30))
+        print("[NativeVoiceCallEngine] camera start requested")
     }
 
     private func stopVideoCapture() {
@@ -673,6 +699,11 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         videoCapturer = nil
         localVideoTrack = nil
         videoSource = nil
+    }
+
+    /// Call UI painted in WKWebView — drop native fullscreen surface so End/Mute are tappable.
+    func hideVideoOverlayForJsUi() {
+        removeVideoOverlay()
     }
 
     private func ensureVideoOverlay() {
