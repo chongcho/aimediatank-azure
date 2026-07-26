@@ -10,12 +10,16 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
+import android.view.Window
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -24,6 +28,9 @@ import android.webkit.CookieManager
 import android.graphics.drawable.ColorDrawable
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.getcapacitor.Bridge
 import com.getcapacitor.JSObject
 import org.json.JSONArray
@@ -556,6 +563,31 @@ class NativeVoiceWebRtcEngine private constructor(
         return if (id != 0) id else android.R.drawable.ic_btn_speak_now
     }
 
+    /** Hide status + nav bars for full-screen video Dialog (sticky — swipe to peek). */
+    private fun applyImmersiveVideoCallWindow(window: Window?) {
+        window ?: return
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.statusBarColor = Color.TRANSPARENT
+            window.navigationBarColor = Color.TRANSPARENT
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+            window.isStatusBarContrastEnforced = false
+        }
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+    }
+
     private fun roundControlButton(
         activity: Activity,
         iconRes: Int,
@@ -631,6 +663,7 @@ class NativeVoiceWebRtcEngine private constructor(
             }
             statusLabel?.text = status
             if (callVideoDialog?.isShowing == true) {
+                applyImmersiveVideoCallWindow(callVideoDialog?.window)
                 bindVideoRenderers()
                 scheduleRendererBindRetries()
                 return@Runnable
@@ -792,6 +825,14 @@ class NativeVoiceWebRtcEngine private constructor(
                 ),
             )
             dialog.show()
+            applyImmersiveVideoCallWindow(dialog.window)
+            // Re-hide if the user swipes bars back into view.
+            dialog.window?.decorView?.setOnSystemUiVisibilityChangeListener { flags ->
+                val navVisible = flags and View.SYSTEM_UI_FLAG_HIDE_NAVIGATION == 0
+                if (navVisible && callVideoDialog?.isShowing == true) {
+                    applyImmersiveVideoCallWindow(dialog.window)
+                }
+            }
             callVideoDialog = dialog
             videoOverlayContainer = root
             remoteRenderer = remote
@@ -799,7 +840,7 @@ class NativeVoiceWebRtcEngine private constructor(
             postClientTrace("video_dialog_shown")
             bindVideoRenderers()
             scheduleRendererBindRetries()
-            Log.i(TAG, "native video call Dialog shown (TextureView)")
+            Log.i(TAG, "native video call Dialog shown (TextureView, immersive)")
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             work.run()
@@ -906,6 +947,7 @@ class NativeVoiceWebRtcEngine private constructor(
             videoOverlayContainer = null
             remoteVideoTrack = null
             try {
+                callVideoDialog?.window?.decorView?.setOnSystemUiVisibilityChangeListener(null)
                 callVideoDialog?.dismiss()
             } catch (_: Exception) {
             }

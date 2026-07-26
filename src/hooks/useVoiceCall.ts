@@ -619,7 +619,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     try {
       if (isNativeAndroidCallApp()) {
         nativeWebRtcAndroidRef.current = true
-        // nativeOwnsVideo only after prepare — permission prompt must not sit under a black overlay.
+        // Keep JS chrome suppressed while native Dialog / camera permission run.
+        if (hasVideoRef.current) setNativeOwnsVideo(true)
         const useVideo = await prepareNativeWebRtcCaller(
           callIdRef.current,
           getIceServers(),
@@ -989,6 +990,12 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         setHasVideo(wantVideo)
         hasVideoRef.current = wantVideo
         setIsCameraOff(false)
+        // Android video: skip JS "Calling…" splash — native Dialog owns chrome immediately.
+        if (isNativeAndroidCallApp() && wantVideo) {
+          setNativeOwnsVideo(true)
+        } else {
+          setNativeOwnsVideo(false)
+        }
         setCallState('outgoing')
         isCallerRef.current = true
 

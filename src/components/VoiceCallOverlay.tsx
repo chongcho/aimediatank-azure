@@ -6,11 +6,15 @@ import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
 import { voiceCallNickname } from '@/hooks/useVoiceCall'
 import type { VoiceCallRingtoneId } from '@/lib/voiceCallVolume'
 
-const CALL_POPUP_WIDTH = 360
+const CALL_POPUP_DEFAULT = { width: 360, height: 420 }
+const CALL_POPUP_VIDEO_DEFAULT = { width: 560, height: 560 }
+const CALL_POPUP_MIN = { width: 320, height: 360 }
 const CALL_POPUP_Z_INDEX = 100050
 /** Above navbar (100010) and TalkChat so the call UI covers the screen on mobile. */
 const FULLSCREEN_CALL_Z_INDEX = 100050
 const MINIMIZED_CALL_Z_INDEX = 100050
+const POPUP_SIZE_STORAGE_KEY = 'voiceCallPopupSize'
+const POPUP_POS_STORAGE_KEY = 'voiceCallPopupPosition'
 
 /** Matches CallBackdrop so portal mount delay never flashes the home feed. */
 const CALL_UI_VEIL_STYLE: CSSProperties = {
@@ -400,11 +404,51 @@ function IconKeypad() {
   )
 }
 
-function defaultPopupPosition() {
-  if (typeof window === 'undefined') return { x: 24, y: 72 }
+function getDesktopNavbarBottom(): number {
+  // Match TalkChat pickup window — desktop navbar is h-16 (4rem).
+  const FALLBACK = 64
+  if (typeof document === 'undefined') return FALLBACK
+  const nav = document.querySelector('.pwa-navbar')
+  if (nav instanceof HTMLElement) {
+    const bottom = nav.getBoundingClientRect().bottom
+    if (Number.isFinite(bottom) && bottom > 0) return bottom
+  }
+  return FALLBACK
+}
+
+function defaultPopupPosition(width = CALL_POPUP_DEFAULT.width) {
+  if (typeof window === 'undefined') return { x: 24, y: 64 }
+  const minY = getDesktopNavbarBottom()
   return {
-    x: Math.max(24, window.innerWidth - CALL_POPUP_WIDTH - 24),
-    y: 72,
+    x: Math.max(24, window.innerWidth - width - 24),
+    y: minY + 8,
+  }
+}
+
+function clampPopupSize(width: number, height: number, topY?: number) {
+  if (typeof window === 'undefined') {
+    return {
+      width: Math.max(CALL_POPUP_MIN.width, width),
+      height: Math.max(CALL_POPUP_MIN.height, height),
+    }
+  }
+  const minY = topY ?? getDesktopNavbarBottom()
+  const maxW = Math.max(CALL_POPUP_MIN.width, window.innerWidth - 48)
+  const maxH = Math.max(CALL_POPUP_MIN.height, window.innerHeight - minY - 24)
+  return {
+    width: Math.min(maxW, Math.max(CALL_POPUP_MIN.width, width)),
+    height: Math.min(maxH, Math.max(CALL_POPUP_MIN.height, height)),
+  }
+}
+
+function clampCallPopupPosition(x: number, y: number, width: number, height: number) {
+  if (typeof window === 'undefined') return { x, y }
+  const minY = getDesktopNavbarBottom()
+  const maxX = Math.max(0, window.innerWidth - width)
+  const maxY = Math.max(minY, window.innerHeight - height)
+  return {
+    x: Math.max(0, Math.min(x, maxX)),
+    y: Math.max(minY, Math.min(y, maxY)),
   }
 }
 
@@ -414,18 +458,34 @@ function CallPopupShell({
   children,
   onHide,
   hideLabel,
+  hasVideo = false,
 }: {
   remoteUser: VoiceCallUser | null
   title: string
   children: ReactNode
   onHide?: () => void
   hideLabel?: string
+  hasVideo?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState(defaultPopupPosition)
+  const defaultSize = hasVideo ? CALL_POPUP_VIDEO_DEFAULT : CALL_POPUP_DEFAULT
+  const [size, setSize] = useState(defaultSize)
+  const [position, setPosition] = useState(() => defaultPopupPosition(defaultSize.width))
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [hasCustomPosition, setHasCustomPosition] = useState(false)
+  const [hasCustomSize, setHasCustomSize] = useState(false)
+  const [resizeEdge, setResizeEdge] = useState<
+    'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | null
+  >(null)
+  const resizeStartRef = useRef({
+    mouseX: 0,
+    mouseY: 0,
+    width: 0,
+    height: 0,
+    x: 0,
+    y: 0,
+  })
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -433,44 +493,60 @@ function CallPopupShell({
   }, [])
 
   useEffect(() => {
-    const saved = localStorage.getItem('voiceCallPopupPosition')
-    if (!saved) return
-    try {
-      const pos = JSON.parse(saved) as { x: number; y: number }
-      const maxX = Math.max(0, window.innerWidth - CALL_POPUP_WIDTH)
-      const maxY = Math.max(0, window.innerHeight - 200)
-      setPosition({
-        x: Math.max(0, Math.min(pos.x, maxX)),
-        y: Math.max(0, Math.min(pos.y, maxY)),
-      })
-      setHasCustomPosition(true)
-    } catch {
-      // ignore invalid saved position
+    const savedPos = localStorage.getItem(POPUP_POS_STORAGE_KEY)
+    const savedSize = localStorage.getItem(POPUP_SIZE_STORAGE_KEY)
+    let nextSize = hasVideo ? CALL_POPUP_VIDEO_DEFAULT : CALL_POPUP_DEFAULT
+    if (savedSize) {
+      try {
+        const parsed = JSON.parse(savedSize) as { width?: number; height?: number }
+        if (typeof parsed.width === 'number' && typeof parsed.height === 'number') {
+          nextSize = clampPopupSize(parsed.width, parsed.height)
+          setHasCustomSize(true)
+        }
+      } catch {
+        // ignore
+      }
     }
+    setSize(nextSize)
+    if (savedPos) {
+      try {
+        const pos = JSON.parse(savedPos) as { x: number; y: number }
+        setPosition(clampCallPopupPosition(pos.x, pos.y, nextSize.width, nextSize.height))
+        setHasCustomPosition(true)
+      } catch {
+        // ignore invalid saved position
+      }
+    } else {
+      setPosition(defaultPopupPosition(nextSize.width))
+    }
+    // Initial layout only — don't reset when hasVideo flips mid-call.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     if (!hasCustomPosition) return
-    localStorage.setItem('voiceCallPopupPosition', JSON.stringify(position))
+    localStorage.setItem(POPUP_POS_STORAGE_KEY, JSON.stringify(position))
   }, [position, hasCustomPosition])
 
   useEffect(() => {
-    if (!hasCustomPosition) return
-    const handleResize = () => {
-      setPosition((prev) => {
-        const maxX = Math.max(0, window.innerWidth - CALL_POPUP_WIDTH)
-        const maxY = Math.max(0, window.innerHeight - 200)
-        return {
-          x: Math.max(0, Math.min(prev.x, maxX)),
-          y: Math.max(0, Math.min(prev.y, maxY)),
-        }
+    if (!hasCustomSize) return
+    localStorage.setItem(POPUP_SIZE_STORAGE_KEY, JSON.stringify(size))
+  }, [size, hasCustomSize])
+
+  useEffect(() => {
+    const handleWindowResize = () => {
+      setSize((prev) => {
+        const next = clampPopupSize(prev.width, prev.height)
+        setPosition((pos) => clampCallPopupPosition(pos.x, pos.y, next.width, next.height))
+        return next
       })
     }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [hasCustomPosition])
+    window.addEventListener('resize', handleWindowResize)
+    return () => window.removeEventListener('resize', handleWindowResize)
+  }, [])
 
   const handleDragStart = (e: React.MouseEvent) => {
+    if (resizeEdge) return
     e.preventDefault()
     setIsDragging(true)
     setHasCustomPosition(true)
@@ -480,22 +556,44 @@ function CallPopupShell({
     }
   }
 
-  const handleResetPosition = () => {
-    setPosition(defaultPopupPosition())
+  const handleResetLayout = () => {
+    const next = hasVideo ? CALL_POPUP_VIDEO_DEFAULT : CALL_POPUP_DEFAULT
+    const sized = clampPopupSize(next.width, next.height)
+    setSize(sized)
+    setPosition(defaultPopupPosition(sized.width))
     setHasCustomPosition(false)
-    localStorage.removeItem('voiceCallPopupPosition')
+    setHasCustomSize(false)
+    localStorage.removeItem(POPUP_POS_STORAGE_KEY)
+    localStorage.removeItem(POPUP_SIZE_STORAGE_KEY)
+  }
+
+  const beginResize = (edge: NonNullable<typeof resizeEdge>) => (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setResizeEdge(edge)
+    setHasCustomSize(true)
+    setHasCustomPosition(true)
+    resizeStartRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      width: size.width,
+      height: size.height,
+      x: position.x,
+      y: position.y,
+    }
   }
 
   useEffect(() => {
     if (!isDragging) return
     const handleMove = (e: MouseEvent) => {
-      const height = containerRef.current?.offsetHeight ?? 400
-      const maxX = Math.max(0, window.innerWidth - CALL_POPUP_WIDTH)
-      const maxY = Math.max(0, window.innerHeight - height)
-      setPosition({
-        x: Math.max(0, Math.min(e.clientX - dragOffset.x, maxX)),
-        y: Math.max(0, Math.min(e.clientY - dragOffset.y, maxY)),
-      })
+      setPosition(
+        clampCallPopupPosition(
+          e.clientX - dragOffset.x,
+          e.clientY - dragOffset.y,
+          size.width,
+          size.height,
+        ),
+      )
     }
     const handleUp = () => setIsDragging(false)
     document.addEventListener('mousemove', handleMove)
@@ -504,9 +602,60 @@ function CallPopupShell({
       document.removeEventListener('mousemove', handleMove)
       document.removeEventListener('mouseup', handleUp)
     }
-  }, [isDragging, dragOffset])
+  }, [isDragging, dragOffset, size.width, size.height])
+
+  useEffect(() => {
+    if (!resizeEdge) return
+    const handleMove = (e: MouseEvent) => {
+      const start = resizeStartRef.current
+      const dx = e.clientX - start.mouseX
+      const dy = e.clientY - start.mouseY
+      let nextW = start.width
+      let nextH = start.height
+      let nextX = start.x
+      let nextY = start.y
+      const minY = getDesktopNavbarBottom()
+
+      if (resizeEdge.includes('e')) nextW = start.width + dx
+      if (resizeEdge.includes('w')) {
+        nextW = start.width - dx
+        nextX = start.x + dx
+      }
+      if (resizeEdge.includes('s')) nextH = start.height + dy
+      if (resizeEdge.includes('n')) {
+        nextH = start.height - dy
+        nextY = start.y + dy
+        // Do not drag the top edge above the navbar.
+        if (nextY < minY) {
+          nextH -= minY - nextY
+          nextY = minY
+        }
+      }
+
+      const clamped = clampPopupSize(nextW, nextH, nextY)
+      if (resizeEdge.includes('w')) {
+        nextX = start.x + (start.width - clamped.width)
+      }
+      if (resizeEdge.includes('n')) {
+        nextY = start.y + (start.height - clamped.height)
+        if (nextY < minY) nextY = minY
+      }
+      setSize(clamped)
+      setPosition(clampCallPopupPosition(nextX, nextY, clamped.width, clamped.height))
+    }
+    const handleUp = () => setResizeEdge(null)
+    document.addEventListener('mousemove', handleMove)
+    document.addEventListener('mouseup', handleUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMove)
+      document.removeEventListener('mouseup', handleUp)
+    }
+  }, [resizeEdge])
 
   if (!mounted) return null
+
+  const edgeHit = 6
+  const cornerHit = 12
 
   return createPortal(
     <div
@@ -515,22 +664,42 @@ function CallPopupShell({
         position: 'fixed',
         top: position.y,
         left: position.x,
-        width: CALL_POPUP_WIDTH,
+        width: size.width,
+        height: size.height,
         zIndex: CALL_POPUP_Z_INDEX,
         color: 'white',
         borderRadius: '14px',
         overflow: 'hidden',
         boxShadow: '0 12px 40px rgba(0, 0, 0, 0.45)',
         boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      <div style={{ position: 'relative', minHeight: '280px' }}>
+      <div
+        style={{
+          position: 'relative',
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         <CallBackdrop remoteUser={remoteUser} />
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           <div
             onMouseDown={handleDragStart}
-            onDoubleClick={handleResetPosition}
-            title="Drag to move · double-click to reset"
+            onDoubleClick={handleResetLayout}
+            title="Drag to move · drag edges to resize · double-click to reset"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -540,6 +709,7 @@ function CallPopupShell({
               userSelect: 'none',
               borderBottom: '1px solid rgba(255,255,255,0.12)',
               background: 'rgba(0,0,0,0.2)',
+              flexShrink: 0,
             }}
           >
             <span style={{ fontSize: '13px', fontWeight: 600, opacity: 0.9 }}>{title}</span>
@@ -571,9 +741,70 @@ function CallPopupShell({
               <span style={{ fontSize: '11px', opacity: 0.55 }}>⋮⋮</span>
             )}
           </div>
-          <div style={{ padding: '16px 18px 20px' }}>{children}</div>
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              padding: '16px 18px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            {children}
+          </div>
         </div>
       </div>
+
+      {/* Resize edges */}
+      <div
+        onMouseDown={beginResize('w')}
+        style={{ position: 'absolute', left: 0, top: 0, width: edgeHit, height: '100%', cursor: 'ew-resize', zIndex: 3 }}
+        title="Resize"
+      />
+      <div
+        onMouseDown={beginResize('e')}
+        style={{ position: 'absolute', right: 0, top: 0, width: edgeHit, height: '100%', cursor: 'ew-resize', zIndex: 3 }}
+        title="Resize"
+      />
+      <div
+        onMouseDown={beginResize('n')}
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: edgeHit, cursor: 'ns-resize', zIndex: 3 }}
+        title="Resize"
+      />
+      <div
+        onMouseDown={beginResize('s')}
+        style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: edgeHit, cursor: 'ns-resize', zIndex: 3 }}
+        title="Resize"
+      />
+      <div
+        onMouseDown={beginResize('nw')}
+        style={{ position: 'absolute', left: 0, top: 0, width: cornerHit, height: cornerHit, cursor: 'nwse-resize', zIndex: 4 }}
+      />
+      <div
+        onMouseDown={beginResize('ne')}
+        style={{ position: 'absolute', right: 0, top: 0, width: cornerHit, height: cornerHit, cursor: 'nesw-resize', zIndex: 4 }}
+      />
+      <div
+        onMouseDown={beginResize('sw')}
+        style={{ position: 'absolute', left: 0, bottom: 0, width: cornerHit, height: cornerHit, cursor: 'nesw-resize', zIndex: 4 }}
+      />
+      <div
+        onMouseDown={beginResize('se')}
+        style={{
+          position: 'absolute',
+          right: 2,
+          bottom: 2,
+          width: cornerHit,
+          height: cornerHit,
+          cursor: 'nwse-resize',
+          zIndex: 4,
+          borderRight: '2px solid rgba(255,255,255,0.35)',
+          borderBottom: '2px solid rgba(255,255,255,0.35)',
+          borderRadius: '0 0 4px 0',
+        }}
+        title="Drag to resize"
+      />
     </div>,
     document.body,
   )
@@ -637,6 +868,7 @@ function CallScreenShell({
   children,
   onHide,
   hideLabel,
+  hasVideo = false,
 }: {
   mode: CallUiMode
   remoteUser: VoiceCallUser | null
@@ -644,10 +876,17 @@ function CallScreenShell({
   children: ReactNode
   onHide?: () => void
   hideLabel?: string
+  hasVideo?: boolean
 }) {
   if (mode === 'popup') {
     return (
-      <CallPopupShell remoteUser={remoteUser} title={title} onHide={onHide} hideLabel={hideLabel}>
+      <CallPopupShell
+        remoteUser={remoteUser}
+        title={title}
+        onHide={onHide}
+        hideLabel={hideLabel}
+        hasVideo={hasVideo}
+      >
         {children}
       </CallPopupShell>
     )
@@ -836,7 +1075,7 @@ function ActiveCallScreen({
       ? formatCallStatus(labels.calling, remoteUser)
       : callState === 'connecting'
         ? labels.connecting
-        : `${labels.appAudio} - ${formatDuration(duration)}`
+        : `${hasVideo ? 'AiMediaTank Video' : labels.appAudio} - ${formatDuration(duration)}`
 
   // Android-aligned video UI: edge-to-edge remote, PiP top-right, black footer (Speaker / End / Mute).
   if (hasVideo && mode === 'fullscreen' && !nativeOwnsVideo) {
@@ -953,6 +1192,7 @@ function ActiveCallScreen({
       title={statusLine}
       onHide={onHide}
       hideLabel={onHide ? labels.hideCall : undefined}
+      hasVideo={hasVideo}
     >
       {mode === 'fullscreen' ? (
         <div style={{ textAlign: 'center', opacity: 0.9, fontSize: '15px', marginTop: '8px', flexShrink: 0 }}>
@@ -962,7 +1202,7 @@ function ActiveCallScreen({
 
       <div
         style={{
-          flex: mode === 'fullscreen' ? '1 1 0' : undefined,
+          flex: mode === 'fullscreen' || hasVideo ? '1 1 0' : undefined,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -973,6 +1213,7 @@ function ActiveCallScreen({
           minHeight: 0,
           width: '100%',
           overflow: 'hidden',
+          height: mode === 'popup' && hasVideo ? '100%' : undefined,
         }}
       >
         {hasVideo ? (
@@ -981,7 +1222,7 @@ function ActiveCallScreen({
               position: 'relative',
               width: '100%',
               flex: '1 1 0',
-              minHeight: compact ? 120 : 160,
+              minHeight: compact ? 160 : 160,
               maxHeight: mode === 'fullscreen' ? '48dvh' : undefined,
               borderRadius: compact ? 12 : 16,
               overflow: 'hidden',
