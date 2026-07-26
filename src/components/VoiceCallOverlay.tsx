@@ -1221,10 +1221,24 @@ function ActiveCallScreen({
           <div
             style={{
               position: 'relative',
-              width: '100%',
-              flex: '1 1 0',
-              minHeight: compact ? 160 : 160,
-              maxHeight: mode === 'fullscreen' ? '48dvh' : undefined,
+              // Popup: same portrait ratio as PiP (A) — 88×118 / 112×150.
+              // CSS-only on this container (no extra wrapper) so video refs stay stable.
+              ...(mode === 'popup'
+                ? {
+                    height: '100%',
+                    width: 'auto',
+                    maxWidth: '100%',
+                    aspectRatio: compact ? '88 / 118' : '112 / 150',
+                    alignSelf: 'center',
+                    flex: '1 1 0',
+                    minHeight: 0,
+                  }
+                : {
+                    width: '100%',
+                    flex: '1 1 0',
+                    minHeight: 160,
+                    maxHeight: '48dvh',
+                  }),
               borderRadius: compact ? 12 : 16,
               overflow: 'hidden',
               background: nativeOwnsVideo ? 'transparent' : '#0d0906',
