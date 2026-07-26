@@ -157,6 +157,10 @@ class NativeVoiceWebRtcEngine private constructor(
     private var iceDisconnectRunnable: Runnable? = null
     private var cachedCaller: JSONObject? = null
     private var parsedIceServers: List<PeerConnection.IceServer> = defaultIceServers()
+    /** One retry if createAnswer produced recvonly despite a local video track. */
+    private var answerSendRecvRetryDone = false
+    /** Cached from the remote offer — Safari sendonly cannot be answered as sendrecv. */
+    private var offerVideoLooksSendRecv = true
 
     fun isActive(): Boolean = running.get() || peerConnection != null || isAnswering
 
@@ -460,11 +464,13 @@ class NativeVoiceWebRtcEngine private constructor(
             videoSource = source
             localVideoTrack = track
             Log.i(TAG, "local video track attached sinks pending surface")
+            ensureVideoSendRecv(pc)
             postClientTrace(
                 "local_video_attached",
                 JSONObject()
                     .put("cameraPermission", hasCameraPermission())
-                    .put("hasLocalRenderer", localRenderer != null),
+                    .put("hasLocalRenderer", localRenderer != null)
+                    .put("isCaller", isCaller),
             )
             ensureVideoOverlay()
             scheduleRendererBindRetries()
@@ -1066,6 +1072,8 @@ class NativeVoiceWebRtcEngine private constructor(
         val generation = UUID.randomUUID()
         // Do not clear wantsVideo here — tearDown only resets peer/media resources.
         tearDownPeerConnection(notify = false)
+        answerSendRecvRetryDone = false
+        offerVideoLooksSendRecv = !offerHasVideo || videoSectionIsSendRecv(sdp)
         if (offerHasVideo) {
             wantsVideo = true
             context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
@@ -1087,7 +1095,15 @@ class NativeVoiceWebRtcEngine private constructor(
 
         val offer = SessionDescription(SessionDescription.Type.OFFER, sdp)
         val descLen = offer.description?.length ?: 0
-        Log.i(TAG, "setRemoteDescription $callId descLen=$descLen video=$wantsVideo prefix=${sdp.take(48).replace("\n", "\\n")}")
+        val offerDir = videoSectionDirection(sdp)
+        Log.i(TAG, "setRemoteDescription $callId descLen=$descLen video=$wantsVideo offerDir=$offerDir prefix=${sdp.take(48).replace("\n", "\\n")}")
+        postClientTrace(
+            "remote_offer",
+            JSONObject()
+                .put("hasVideo", offerHasVideo)
+                .put("videoDirection", offerDir)
+                .put("sdpLen", descLen),
+        )
         if (descLen == 0) {
             failCall(callId, "SessionDescription description empty")
             return
@@ -1101,52 +1117,20 @@ class NativeVoiceWebRtcEngine private constructor(
                 }
                 flushPendingRemoteIce(callId)
                 attachLocalVideo(pc)
-                val constraints = MediaConstraints()
-                pc.createAnswer(object : SdpObserverAdapter() {
-                    override fun onCreateSuccess(desc: SessionDescription?) {
-                        if (createAnswerGeneration != generation) return
-                        if (desc == null) {
-                            failCall(callId, "createAnswer returned nil")
-                            return
-                        }
-                        pc.setLocalDescription(object : SdpObserverAdapter() {
-                            override fun onSetSuccess() {
-                                if (createAnswerGeneration != generation) return
-                                val payload = JSONObject().apply {
-                                    put("sdp", JSONObject().apply {
-                                        put("type", sdpTypeString(desc.type))
-                                        put("sdp", desc.description)
-                                    })
-                                }
-                                val hasVideoM = desc.description?.contains("m=video") == true
-                                Log.i(TAG, "posted answer sdp $callId hasVideoMLine=$hasVideoM")
-                                if (!token.isNullOrEmpty()) {
-                                    postNativeSignal(callId, token!!, "answer", payload)
-                                } else {
-                                    postSessionSignal(callId, "answer", payload)
-                                }
-                                if (!token.isNullOrEmpty()) {
-                                    startIcePoll(callId, token!!)
-                                } else {
-                                    startSessionPoll(callId, asCaller = false)
-                                }
-                                if (wantsVideo) {
-                                    ensureVideoOverlay()
-                                }
-                            }
-
-                            override fun onSetFailure(error: String?) {
-                                if (createAnswerGeneration != generation) return
-                                failCall(callId, "setLocalDescription: $error")
-                            }
-                        }, desc)
-                    }
-
-                    override fun onCreateFailure(error: String?) {
-                        if (createAnswerGeneration != generation) return
-                        failCall(callId, "createAnswer: $error")
-                    }
-                }, constraints)
+                ensureVideoSendRecv(pc)
+                // iPhone callers need sendrecv in the answer. If camera is still starting,
+                // wait briefly so we do not answer recvonly (black remote on iPhone).
+                if (wantsVideo && localVideoTrack == null) {
+                    postClientTrace("answer_waiting_local_video")
+                    mainHandler.postDelayed({
+                        if (createAnswerGeneration != generation) return@postDelayed
+                        attachLocalVideo(pc)
+                        ensureVideoSendRecv(pc)
+                        createAnswerSdp(pc, callId, generation)
+                    }, 1200)
+                    return
+                }
+                createAnswerSdp(pc, callId, generation)
             }
 
             override fun onSetFailure(error: String?) {
@@ -1155,6 +1139,129 @@ class NativeVoiceWebRtcEngine private constructor(
                 failCall(callId, "setRemoteDescription: $error")
             }
         }, offer)
+    }
+
+    /** Force Unified Plan video transceiver to send+receive (iOS parity). */
+    private fun ensureVideoSendRecv(pc: PeerConnection) {
+        if (!wantsVideo) return
+        for (transceiver in pc.transceivers) {
+            if (transceiver.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO) {
+                try {
+                    transceiver.direction = RtpTransceiver.RtpTransceiverDirection.SEND_RECV
+                    Log.i(TAG, "video transceiver direction=SEND_RECV")
+                } catch (err: Exception) {
+                    Log.w(TAG, "set video SEND_RECV failed: ${err.message}")
+                }
+            }
+        }
+    }
+
+    private fun createAnswerSdp(pc: PeerConnection, callId: String, generation: UUID) {
+        ensureVideoSendRecv(pc)
+        val constraints = MediaConstraints().apply {
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+            mandatory.add(
+                MediaConstraints.KeyValuePair(
+                    "OfferToReceiveVideo",
+                    if (wantsVideo) "true" else "false",
+                ),
+            )
+        }
+        pc.createAnswer(object : SdpObserverAdapter() {
+            override fun onCreateSuccess(desc: SessionDescription?) {
+                if (createAnswerGeneration != generation) return
+                if (desc == null) {
+                    failCall(callId, "createAnswer returned nil")
+                    return
+                }
+                val answerSdp = desc.description ?: ""
+                val hasVideoM = answerSdp.contains("m=video")
+                val sendRecv = hasVideoM && videoSectionIsSendRecv(answerSdp)
+                // Prefer waiting for a real sendrecv answer over posting recvonly (black remote on iPhone).
+                if (wantsVideo && localVideoTrack != null && !sendRecv && !answerSendRecvRetryDone) {
+                    answerSendRecvRetryDone = true
+                    ensureVideoSendRecv(pc)
+                    postClientTrace("answer_retry_sendrecv")
+                    mainHandler.postDelayed({
+                        if (createAnswerGeneration != generation) return@postDelayed
+                        createAnswerSdp(pc, callId, generation)
+                    }, 400)
+                    return
+                }
+                pc.setLocalDescription(object : SdpObserverAdapter() {
+                    override fun onSetSuccess() {
+                        if (createAnswerGeneration != generation) return
+                        Log.i(
+                            TAG,
+                            "posted answer sdp $callId hasVideoMLine=$hasVideoM sendRecv=$sendRecv localTrack=${localVideoTrack != null}",
+                        )
+                        postClientTrace(
+                            "answer_sdp",
+                            JSONObject()
+                                .put("hasVideoMLine", hasVideoM)
+                                .put("sendRecv", sendRecv)
+                                .put("localVideoTrack", localVideoTrack != null)
+                                .put("offerVideoSendRecv", offerVideoLooksSendRecv),
+                        )
+                        val payload = JSONObject().apply {
+                            put("sdp", JSONObject().apply {
+                                put("type", sdpTypeString(desc.type))
+                                put("sdp", answerSdp)
+                            })
+                        }
+                        if (!token.isNullOrEmpty()) {
+                            postNativeSignal(callId, token!!, "answer", payload)
+                        } else {
+                            postSessionSignal(callId, "answer", payload)
+                        }
+                        if (!token.isNullOrEmpty()) {
+                            startIcePoll(callId, token!!)
+                        } else {
+                            startSessionPoll(callId, asCaller = false)
+                        }
+                        if (wantsVideo) {
+                            ensureVideoOverlay()
+                            scheduleRendererBindRetries()
+                        }
+                    }
+
+                    override fun onSetFailure(error: String?) {
+                        if (createAnswerGeneration != generation) return
+                        failCall(callId, "setLocalDescription: $error")
+                    }
+                }, desc)
+            }
+
+            override fun onCreateFailure(error: String?) {
+                if (createAnswerGeneration != generation) return
+                failCall(callId, "createAnswer: $error")
+            }
+        }, constraints)
+    }
+
+    private fun videoSectionIsSendRecv(sdp: String): Boolean {
+        val idx = sdp.indexOf("m=video")
+        if (idx < 0) return false
+        val next = sdp.indexOf("\nm=", idx + 1)
+        val section = if (next < 0) sdp.substring(idx) else sdp.substring(idx, next)
+        return section.contains("a=sendrecv") ||
+            (section.contains("a=sendonly").not() &&
+                section.contains("a=recvonly").not() &&
+                section.contains("a=inactive").not())
+    }
+
+    private fun videoSectionDirection(sdp: String): String {
+        val idx = sdp.indexOf("m=video")
+        if (idx < 0) return "none"
+        val next = sdp.indexOf("\nm=", idx + 1)
+        val section = if (next < 0) sdp.substring(idx) else sdp.substring(idx, next)
+        return when {
+            section.contains("a=sendrecv") -> "sendrecv"
+            section.contains("a=sendonly") -> "sendonly"
+            section.contains("a=recvonly") -> "recvonly"
+            section.contains("a=inactive") -> "inactive"
+            else -> "default_sendrecv"
+        }
     }
 
     private fun applyRemoteAnswer(callId: String, answerSdp: String) {

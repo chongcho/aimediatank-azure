@@ -485,11 +485,32 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
 
     pc.ontrack = (event) => {
-      const stream =
-        event.streams[0] ??
-        (event.track ? new MediaStream([event.track]) : null)
-      if (!stream) return
-      remoteStreamRef.current = stream
+      // Accumulate audio+video onto one stream. Replacing remoteStreamRef on each
+      // ontrack (audio first, then video) left iPhone callers with a black remote
+      // when the Android answer delivered tracks on separate events.
+      let stream = remoteStreamRef.current
+      if (!stream) {
+        stream = event.streams[0] ? event.streams[0] : new MediaStream()
+        remoteStreamRef.current = stream
+      }
+      if (event.track && !stream.getTracks().some((t) => t.id === event.track.id)) {
+        // If event.streams[0] is a different object, still merge the track we care about.
+        if (event.streams[0] && event.streams[0] !== stream) {
+          for (const t of event.streams[0].getTracks()) {
+            if (!stream.getTracks().some((x) => x.id === t.id)) {
+              stream.addTrack(t)
+            }
+          }
+        } else {
+          stream.addTrack(event.track)
+        }
+      }
+      event.track?.addEventListener('unmute', () => {
+        if (remoteVideoRef.current && stream.getVideoTracks().length > 0) {
+          remoteVideoRef.current.srcObject = stream
+          void remoteVideoRef.current.play().catch(() => {})
+        }
+      })
       reattachRemoteAudio()
       if (remoteVideoRef.current && stream.getVideoTracks().length > 0) {
         remoteVideoRef.current.srcObject = stream
@@ -551,7 +572,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const attachLocalTracks = useCallback(async (pc: RTCPeerConnection, mediaRetries = 0) => {
     const stream = await ensureLocalAudio(mediaRetries)
     for (const track of stream.getTracks()) {
-      pc.addTrack(track, stream)
+      // Prefer addTransceiver for video so Safari/WKWebView offers a=sendrecv
+      // (addTrack alone often yields sendonly → callee answers recvonly → black remote).
+      if (track.kind === 'video') {
+        pc.addTransceiver(track, { direction: 'sendrecv', streams: [stream] })
+      } else {
+        pc.addTrack(track, stream)
+      }
     }
   }, [ensureLocalAudio])
 
@@ -614,7 +641,12 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       }
       const pc = createPeerConnection()
       await attachLocalTracks(pc)
-      const offer = await pc.createOffer()
+      // Safari/WKWebView often emits a=sendonly for video unless we ask to receive.
+      // That makes Android answer recvonly → black remote on iPhone→Android calls.
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: Boolean(hasVideoRef.current),
+      })
       await pc.setLocalDescription(offer)
       localOfferSetRef.current = true
       await sendSignal('offer', { sdp: offer })
@@ -1071,7 +1103,32 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             isNativeIosCallApp() &&
             typeof document !== 'undefined' &&
             !document.hidden
-          if (callStateRef.current === 'idle' && !iosForegroundInApp) {
+          const state = callStateRef.current
+          // Late video renegotiation (e.g. Android attached camera after recvonly answer).
+          if (
+            (state === 'connecting' || state === 'connected') &&
+            voiceCallIdsMatch(signal.callId, callIdRef.current) &&
+            !(isNativeAndroidCallApp() && nativeWebRtcAndroidRef.current) &&
+            !(isNativeIosCallApp() && nativeWebRtcCalleeRef.current)
+          ) {
+            const renegSdp = normalizeRemoteSdp(signal.payload?.sdp ?? signal.payload)
+            const pc = pcRef.current
+            if (renegSdp && pc) {
+              try {
+                await pc.setRemoteDescription(new RTCSessionDescription(renegSdp))
+                remoteDescriptionSetRef.current = true
+                const answer = await pc.createAnswer()
+                await pc.setLocalDescription(answer)
+                await sendSignal('answer', { sdp: answer })
+                await flushPendingIceCandidates(pc)
+                console.info('[VoiceCall] answered renegotiation offer', signal.callId)
+              } catch (err) {
+                console.warn('[VoiceCall] renegotiation offer failed:', err)
+              }
+            }
+            continue
+          }
+          if (state === 'idle' && !iosForegroundInApp) {
             const caller = data.incomingCalls?.find((c) => c.id === signal.callId)?.caller
             if (caller) {
               await handleRemoteOffer(signal, caller)
@@ -1195,7 +1252,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         }
       }
     },
-    [handleRemoteAnswer, handleRemoteIce, handleRemoteOffer, resetCall, storePendingOffer],
+    [flushPendingIceCandidates, handleRemoteAnswer, handleRemoteIce, handleRemoteOffer, resetCall, sendSignal, storePendingOffer],
   )
 
   const runPendingVoiceAction = useCallback(() => {
