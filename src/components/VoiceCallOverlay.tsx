@@ -819,12 +819,125 @@ function ActiveCallScreen({
   const connected = callState === 'connected'
   const duration = useCallDuration(connected)
   const compact = mode === 'popup'
+  const statusText =
+    callState === 'outgoing'
+      ? formatCallStatus(labels.calling, remoteUser)
+      : callState === 'connecting'
+        ? labels.connecting
+        : connected
+          ? labels.connected
+          : labels.connecting
   const statusLine =
     callState === 'outgoing'
       ? formatCallStatus(labels.calling, remoteUser)
       : callState === 'connecting'
         ? labels.connecting
         : `${labels.appAudio} - ${formatDuration(duration)}`
+
+  // Android-aligned video UI: edge-to-edge remote, PiP top-right, black footer (Speaker / End / Mute).
+  if (hasVideo && mode === 'fullscreen' && !nativeOwnsVideo) {
+    if (typeof document === 'undefined') return null
+    return createPortal(
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: FULLSCREEN_CALL_Z_INDEX,
+          background: '#0a0a0a',
+          color: 'white',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ position: 'absolute', inset: 0, background: '#111' }}>
+          <video
+            ref={(el) => {
+              if (remoteVideoRef) remoteVideoRef.current = el
+            }}
+            autoPlay
+            playsInline
+            style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#111' }}
+          />
+          <video
+            ref={(el) => {
+              if (localVideoRef) localVideoRef.current = el
+            }}
+            autoPlay
+            muted
+            playsInline
+            style={{
+              position: 'absolute',
+              top: 'max(12px, env(safe-area-inset-top))',
+              right: 16,
+              width: 100,
+              height: 140,
+              objectFit: 'cover',
+              borderRadius: 0,
+              background: '#222',
+              transform: 'scaleX(-1)',
+              opacity: isCameraOff ? 0.35 : 1,
+            }}
+          />
+        </div>
+        <div
+          style={{
+            marginTop: 'auto',
+            position: 'relative',
+            zIndex: 2,
+            background: '#000',
+            padding:
+              '16px 24px max(20px, calc(12px + env(safe-area-inset-bottom)))',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+            {name}
+          </div>
+          <div style={{ fontSize: 15, opacity: 0.78, marginTop: 6, marginBottom: 16 }}>{statusText}</div>
+          <div
+            style={{
+              display: 'flex',
+              width: '100%',
+              maxWidth: 360,
+              justifyContent: 'space-around',
+              alignItems: 'flex-start',
+            }}
+          >
+            <RoundCallButton
+              label={labels.speaker}
+              onClick={onToggleSpeaker}
+              background={isSpeakerOn ? '#2563eb' : 'rgba(255,255,255,0.22)'}
+              disabled={!speakerEnabled}
+              compact
+            >
+              <IconSpeaker muted={!isSpeakerOn} />
+            </RoundCallButton>
+            <RoundCallButton
+              label={labels.endCall}
+              onClick={onEnd}
+              background="#ef4444"
+              compact
+            >
+              <IconPhoneEnd />
+            </RoundCallButton>
+            <RoundCallButton
+              label={isMuted ? labels.unmute : labels.mute}
+              onClick={onToggleMute}
+              background={isMuted ? '#f59e0b' : 'rgba(255,255,255,0.22)'}
+              compact
+            >
+              <IconMic muted={isMuted} />
+            </RoundCallButton>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    )
+  }
 
   return (
     <CallScreenShell
@@ -852,7 +965,6 @@ function ActiveCallScreen({
           textAlign: 'center',
           minHeight: 0,
           width: '100%',
-          // Keep End/Mute/etc. on-screen — video must not push controls below the fold.
           overflow: 'hidden',
         }}
       >
@@ -921,7 +1033,7 @@ function ActiveCallScreen({
               style={{
                 position: 'absolute',
                 right: 12,
-                bottom: 12,
+                top: 12,
                 width: compact ? 88 : 112,
                 height: compact ? 118 : 150,
                 objectFit: 'cover',
@@ -964,7 +1076,7 @@ function ActiveCallScreen({
             {labels.connected}
           </div>
         ) : null}
-        {callState === 'outgoing' ? (
+        {callState === 'outgoing' && !hasVideo ? (
           <RingtoneControls
             ringtoneId={ringtoneId}
             onRingtoneChange={onRingtoneChange}
@@ -996,15 +1108,26 @@ function ActiveCallScreen({
         >
           <IconSpeaker muted={!isSpeakerOn} />
         </RoundCallButton>
-        <RoundCallButton
-          label={labels.video}
-          onClick={onToggleCamera}
-          background={hasVideo && !isCameraOff ? '#2563eb' : 'rgba(255,255,255,0.18)'}
-          disabled={!hasVideo || !onToggleCamera}
-          compact={compact}
-        >
-          <IconVideo />
-        </RoundCallButton>
+        {hasVideo ? (
+          <RoundCallButton
+            label={labels.endCall}
+            onClick={onEnd}
+            background="#ef4444"
+            compact={compact}
+          >
+            <IconPhoneEnd />
+          </RoundCallButton>
+        ) : (
+          <RoundCallButton
+            label={labels.video}
+            onClick={onToggleCamera}
+            background={hasVideo && !isCameraOff ? '#2563eb' : 'rgba(255,255,255,0.18)'}
+            disabled={!hasVideo || !onToggleCamera}
+            compact={compact}
+          >
+            <IconVideo />
+          </RoundCallButton>
+        )}
         <RoundCallButton
           label={isMuted ? labels.unmute : labels.mute}
           onClick={onToggleMute}
@@ -1013,30 +1136,34 @@ function ActiveCallScreen({
         >
           <IconMic muted={isMuted} />
         </RoundCallButton>
-        <RoundCallButton
-          label={labels.more}
-          background="rgba(255,255,255,0.18)"
-          disabled
-          compact={compact}
-        >
-          <IconMore />
-        </RoundCallButton>
-        <RoundCallButton
-          label={labels.endCall}
-          onClick={onEnd}
-          background="#ef4444"
-          compact={compact}
-        >
-          <IconPhoneEnd />
-        </RoundCallButton>
-        <RoundCallButton
-          label={labels.keypad}
-          background="rgba(255,255,255,0.18)"
-          disabled
-          compact={compact}
-        >
-          <IconKeypad />
-        </RoundCallButton>
+        {!hasVideo ? (
+          <>
+            <RoundCallButton
+              label={labels.more}
+              background="rgba(255,255,255,0.18)"
+              disabled
+              compact={compact}
+            >
+              <IconMore />
+            </RoundCallButton>
+            <RoundCallButton
+              label={labels.endCall}
+              onClick={onEnd}
+              background="#ef4444"
+              compact={compact}
+            >
+              <IconPhoneEnd />
+            </RoundCallButton>
+            <RoundCallButton
+              label={labels.keypad}
+              background="rgba(255,255,255,0.18)"
+              disabled
+              compact={compact}
+            >
+              <IconKeypad />
+            </RoundCallButton>
+          </>
+        ) : null}
       </div>
     </CallScreenShell>
   )

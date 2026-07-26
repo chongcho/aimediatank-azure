@@ -2,8 +2,8 @@ import AVFoundation
 import UIKit
 import WebRTC
 
-/// KakaoTalk-style full-screen native video call UI (Metal views + controls).
-/// Replaces RTCMTLVideoView overlay on Capacitor WebView for incoming CallKit video.
+/// Android-aligned full-screen native video call UI (Metal + black footer chrome).
+/// Incoming CallKit video — matches NativeVoiceWebRtcEngine Dialog layout.
 final class CallVideoViewController: UIViewController {
     var onEndCall: (() -> Void)?
     var onToggleMute: ((Bool) -> Void)?
@@ -14,6 +14,7 @@ final class CallVideoViewController: UIViewController {
     private(set) var remoteVideoView: RTCMTLVideoView!
     private(set) var localPreviewView: RTCMTLVideoView!
 
+    private let footerBar = UIView()
     private let nameLabel = UILabel()
     private let statusLabel = UILabel()
     private var controlsStack: UIStackView!
@@ -56,17 +57,20 @@ final class CallVideoViewController: UIViewController {
         localPreviewView.transform = CGAffineTransform(scaleX: -1, y: 1)
         view.addSubview(localPreviewView)
 
+        footerBar.backgroundColor = .black
+        view.addSubview(footerBar)
+
         nameLabel.text = displayName
         nameLabel.textColor = .white
         nameLabel.font = .systemFont(ofSize: 28, weight: .bold)
         nameLabel.textAlignment = .center
-        view.addSubview(nameLabel)
+        footerBar.addSubview(nameLabel)
 
         statusLabel.text = "Connecting…"
-        statusLabel.textColor = UIColor.white.withAlphaComponent(0.75)
+        statusLabel.textColor = UIColor.white.withAlphaComponent(0.78)
         statusLabel.font = .systemFont(ofSize: 15, weight: .medium)
         statusLabel.textAlignment = .center
-        view.addSubview(statusLabel)
+        footerBar.addSubview(statusLabel)
 
         muteButton = roundControlButton(systemName: "mic.fill", title: "Mute", action: #selector(toggleMute))
         speakerButton = roundControlButton(systemName: "speaker.wave.2.fill", title: "Speaker", action: #selector(toggleSpeaker))
@@ -77,11 +81,15 @@ final class CallVideoViewController: UIViewController {
             background: UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 1)
         )
 
-        let stack = UIStackView(arrangedSubviews: [controlColumn(speakerButton, "Speaker"), controlColumn(endButton, "End"), controlColumn(muteButton, "Mute")])
+        let stack = UIStackView(arrangedSubviews: [
+            controlColumn(speakerButton, "Speaker"),
+            controlColumn(endButton, "End"),
+            controlColumn(muteButton, "Mute"),
+        ])
         stack.axis = .horizontal
-        stack.distribution = .equalSpacing
+        stack.distribution = .fillEqually
         stack.alignment = .top
-        view.addSubview(stack)
+        footerBar.addSubview(stack)
         controlsStack = stack
 
         refreshControlAppearance()
@@ -99,11 +107,34 @@ final class CallVideoViewController: UIViewController {
             width: previewW,
             height: previewH
         )
-        let stackH: CGFloat = 92
-        let stackY = view.bounds.height - safe.bottom - stackH - 20
-        controlsStack.frame = CGRect(x: 40, y: stackY, width: view.bounds.width - 80, height: stackH)
-        statusLabel.frame = CGRect(x: 24, y: stackY - 36, width: view.bounds.width - 48, height: 22)
-        nameLabel.frame = CGRect(x: 24, y: stackY - 72, width: view.bounds.width - 48, height: 34)
+
+        let controlsH: CGFloat = 92
+        let nameH: CGFloat = 34
+        let statusH: CGFloat = 22
+        let topPad: CGFloat = 16
+        let midGap: CGFloat = 6
+        let beforeControls: CGFloat = 16
+        let bottomPad: CGFloat = max(20, safe.bottom + 8)
+        let footerH = topPad + nameH + midGap + statusH + beforeControls + controlsH + bottomPad
+        footerBar.frame = CGRect(
+            x: 0,
+            y: view.bounds.height - footerH,
+            width: view.bounds.width,
+            height: footerH
+        )
+        nameLabel.frame = CGRect(x: 24, y: topPad, width: view.bounds.width - 48, height: nameH)
+        statusLabel.frame = CGRect(
+            x: 24,
+            y: topPad + nameH + midGap,
+            width: view.bounds.width - 48,
+            height: statusH
+        )
+        controlsStack.frame = CGRect(
+            x: 24,
+            y: topPad + nameH + midGap + statusH + beforeControls,
+            width: view.bounds.width - 48,
+            height: controlsH
+        )
 
         notifyViewsReadyIfNeeded()
     }
@@ -145,7 +176,6 @@ final class CallVideoViewController: UIViewController {
         wrap.addSubview(button)
         wrap.addSubview(label)
         NSLayoutConstraint.activate([
-            wrap.widthAnchor.constraint(equalToConstant: 72),
             wrap.heightAnchor.constraint(equalToConstant: 92),
             button.topAnchor.constraint(equalTo: wrap.topAnchor),
             button.centerXAnchor.constraint(equalTo: wrap.centerXAnchor),

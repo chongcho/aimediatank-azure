@@ -747,7 +747,8 @@ class NativeVoiceWebRtcEngine private constructor(
             val chrome = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(dp(24), 0, dp(24), dp(28))
+                setBackgroundColor(Color.BLACK)
+                setPadding(dp(24), dp(16), dp(24), dp(28))
                 addView(
                     name,
                     LinearLayout.LayoutParams(
