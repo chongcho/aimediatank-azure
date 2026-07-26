@@ -1,6 +1,10 @@
 package com.capacitor.voipcalls
 
+import android.Manifest
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -8,6 +12,8 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.webkit.CookieManager
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.getcapacitor.Bridge
 import com.getcapacitor.JSObject
 import org.json.JSONArray
@@ -156,6 +162,7 @@ class NativeVoiceWebRtcEngine private constructor(
                 .edit()
                 .putBoolean("video_$normalized", true)
                 .apply()
+            requestCameraPermissionIfNeeded()
         }
 
         if (isActive() && this.callId != normalized) {
@@ -253,6 +260,7 @@ class NativeVoiceWebRtcEngine private constructor(
                 .edit()
                 .putBoolean("video_$normalized", true)
                 .apply()
+            requestCameraPermissionIfNeeded()
         }
         appliedRemoteIceKeys.clear()
         remoteDescriptionReady = false
@@ -387,12 +395,23 @@ class NativeVoiceWebRtcEngine private constructor(
 
     private fun attachLocalVideo(pc: PeerConnection) {
         if (!wantsVideo) return
+        if (!hasCameraPermission()) {
+            Log.w(TAG, "attach local video skipped — CAMERA permission not granted")
+            requestCameraPermissionIfNeeded()
+            return
+        }
         try {
             val enumerator = Camera2Enumerator(context)
             val deviceName = enumerator.deviceNames.firstOrNull { enumerator.isFrontFacing(it) }
                 ?: enumerator.deviceNames.firstOrNull()
-                ?: return
-            val capturer = enumerator.createCapturer(deviceName, null) ?: return
+                ?: run {
+                    Log.w(TAG, "attach local video — no camera device")
+                    return
+                }
+            val capturer = enumerator.createCapturer(deviceName, null) ?: run {
+                Log.w(TAG, "attach local video — createCapturer failed")
+                return
+            }
             val rootEgl = ensureEgl()
             val helper = SurfaceTextureHelper.create("CaptureThread", rootEgl.eglBaseContext)
             surfaceTextureHelper = helper
@@ -401,6 +420,7 @@ class NativeVoiceWebRtcEngine private constructor(
             capturer.startCapture(1280, 720, 30)
             val track = ensureFactory().createVideoTrack("video0", source)
             track.setEnabled(true)
+            // After setRemoteDescription, addTrack reuses the offer's video transceiver.
             pc.addTrack(track, listOf("stream0"))
             videoCapturer = capturer
             videoSource = source
@@ -412,6 +432,27 @@ class NativeVoiceWebRtcEngine private constructor(
         }
     }
 
+    private fun hasCameraPermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+
+    private fun requestCameraPermissionIfNeeded() {
+        if (hasCameraPermission()) return
+        val activity = resolveActivity() ?: return
+        ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.CAMERA), 0xA11C)
+        Log.i(TAG, "requested CAMERA permission")
+    }
+
+    private fun resolveActivity(): Activity? {
+        CapacitorVoipCallsPlugin.getInstance()?.activity?.let { return it }
+        var ctx: Context? = context
+        while (ctx is ContextWrapper) {
+            if (ctx is Activity) return ctx
+            ctx = ctx.baseContext
+        }
+        return null
+    }
+
     private fun dp(value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()
 
@@ -420,10 +461,17 @@ class NativeVoiceWebRtcEngine private constructor(
         if (!wantsVideo) return
         val work = Runnable {
             if (!wantsVideo) return@Runnable
-            val activity = CapacitorVoipCallsPlugin.getInstance()?.activity ?: return@Runnable
+            val activity = resolveActivity()
+            if (activity == null) {
+                Log.w(TAG, "video overlay skipped — no activity")
+                return@Runnable
+            }
             val egl = ensureEgl()
             if (videoOverlayContainer == null) {
-                val decor = activity.window?.decorView as? ViewGroup ?: return@Runnable
+                val decor = activity.window?.decorView as? ViewGroup ?: run {
+                    Log.w(TAG, "video overlay skipped — no decor view")
+                    return@Runnable
+                }
                 val container = FrameLayout(activity).apply {
                     layoutParams = FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -431,14 +479,18 @@ class NativeVoiceWebRtcEngine private constructor(
                     )
                     isClickable = false
                     isFocusable = false
-                    // Leave bottom strip for WKWebView End/Mute/Speaker.
+                    // Leave bottom strip for WebView End/Mute/Speaker.
                     setPadding(0, 0, 0, dp(132))
+                    // Keep above WebView in the view hierarchy.
+                    elevation = 64f
                 }
                 val remote = SurfaceViewRenderer(activity).apply {
                     init(egl.eglBaseContext, null)
                     setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                     setEnableHardwareScaler(true)
                     setMirror(false)
+                    // Default SurfaceView sits behind the window — WebView covers it (black).
+                    setZOrderMediaOverlay(true)
                 }
                 val local = SurfaceViewRenderer(activity).apply {
                     init(egl.eglBaseContext, null)
@@ -463,10 +515,13 @@ class NativeVoiceWebRtcEngine private constructor(
                     },
                 )
                 decor.addView(container)
+                container.bringToFront()
                 videoOverlayContainer = container
                 remoteRenderer = remote
                 localRenderer = local
                 Log.i(TAG, "video overlay attached")
+            } else {
+                videoOverlayContainer?.bringToFront()
             }
             bindVideoRenderers()
         }
@@ -682,6 +737,7 @@ class NativeVoiceWebRtcEngine private constructor(
                 .edit()
                 .putBoolean("video_${callId.lowercase()}", true)
                 .apply()
+            requestCameraPermissionIfNeeded()
         }
         createAnswerGeneration = generation
         applyTelecomSpeakerRoute()
@@ -692,11 +748,11 @@ class NativeVoiceWebRtcEngine private constructor(
         }
         peerConnection = pc
         attachLocalAudio(pc)
-        attachLocalVideo(pc)
+        // Attach video only AFTER setRemoteDescription (Unified Plan / iOS parity).
 
         val offer = SessionDescription(SessionDescription.Type.OFFER, sdp)
         val descLen = offer.description?.length ?: 0
-        Log.i(TAG, "setRemoteDescription $callId descLen=$descLen prefix=${sdp.take(48).replace("\n", "\\n")}")
+        Log.i(TAG, "setRemoteDescription $callId descLen=$descLen video=$wantsVideo prefix=${sdp.take(48).replace("\n", "\\n")}")
         if (descLen == 0) {
             failCall(callId, "SessionDescription description empty")
             return
@@ -709,6 +765,7 @@ class NativeVoiceWebRtcEngine private constructor(
                     addRemoteIceCandidate(candidate, callId)
                 }
                 flushPendingRemoteIce(callId)
+                attachLocalVideo(pc)
                 val constraints = MediaConstraints()
                 pc.createAnswer(object : SdpObserverAdapter() {
                     override fun onCreateSuccess(desc: SessionDescription?) {
@@ -726,7 +783,8 @@ class NativeVoiceWebRtcEngine private constructor(
                                         put("sdp", desc.description)
                                     })
                                 }
-                                Log.i(TAG, "posted answer sdp $callId")
+                                val hasVideoM = desc.description?.contains("m=video") == true
+                                Log.i(TAG, "posted answer sdp $callId hasVideoMLine=$hasVideoM")
                                 if (!token.isNullOrEmpty()) {
                                     postNativeSignal(callId, token!!, "answer", payload)
                                 } else {
@@ -736,6 +794,9 @@ class NativeVoiceWebRtcEngine private constructor(
                                     startIcePoll(callId, token!!)
                                 } else {
                                     startSessionPoll(callId, asCaller = false)
+                                }
+                                if (wantsVideo) {
+                                    ensureVideoOverlay()
                                 }
                             }
 
