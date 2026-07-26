@@ -163,9 +163,12 @@ export function VoiceCallOverlayPanel({
   const iosCallKitIncoming =
     isNativeIosCallApp() && ctx.callState === 'incoming'
 
-  // iOS CallKit video: KakaoTalk-style native full-screen UI owns chrome (not Capacitor overlay).
+  // iOS CallKit / Android native video: full-screen native UI owns chrome (not Capacitor overlay).
   const iosNativeVideoChrome =
     isNativeIosCallApp() && ctx.nativeOwnsVideo && ctx.hasVideo
+  const androidNativeVideoChrome =
+    isNativeAndroidCallApp() && ctx.nativeOwnsVideo && ctx.hasVideo
+  const nativeVideoChrome = iosNativeVideoChrome || androidNativeVideoChrome
 
   const popupCallUi =
     placement === 'floating' && isActiveCall && isDesktop && !ctx.callUiHidden && !iosCallKitIncoming
@@ -175,23 +178,23 @@ export function VoiceCallOverlayPanel({
     !isDesktop &&
     !ctx.callUiHidden &&
     !iosCallKitIncoming &&
-    !iosNativeVideoChrome
+    !nativeVideoChrome
   const minimizedCallUi =
-    placement === 'floating' && isActiveCall && ctx.callUiHidden && !iosNativeVideoChrome
+    placement === 'floating' && isActiveCall && ctx.callUiHidden && !nativeVideoChrome
   const showCallControls = popupCallUi || fullscreenCallUi
   const canHideCall = isActiveCall
   const nativeVoiceCall = isNativeVoiceCallApp()
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    // Keep attribute while native iOS video UI is up so accept-cover poll can clear.
-    if (showCallControls || iosNativeVideoChrome) {
+    // Keep attribute while native video UI is up so accept-cover poll can clear.
+    if (showCallControls || nativeVideoChrome) {
       document.documentElement.setAttribute('data-amt-call-active', '1')
       document.getElementById('aimediatank-accept-shell')?.remove()
     } else {
       document.documentElement.removeAttribute('data-amt-call-active')
     }
-  }, [showCallControls, iosNativeVideoChrome, ctx.callState])
+  }, [showCallControls, nativeVideoChrome, ctx.callState])
 
   useEffect(() => {
     if (!ctx.hasVideo || !showCallControls) return

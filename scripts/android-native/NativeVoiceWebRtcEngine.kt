@@ -2,15 +2,24 @@ package com.capacitor.voipcalls
 
 import android.Manifest
 import android.app.Activity
+import android.app.Dialog
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageButton
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.webkit.CookieManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -116,8 +125,15 @@ class NativeVoiceWebRtcEngine private constructor(
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
     private var wantsVideo = false
     private var videoOverlayContainer: FrameLayout? = null
+    private var callVideoDialog: Dialog? = null
     private var remoteRenderer: SurfaceViewRenderer? = null
     private var localRenderer: SurfaceViewRenderer? = null
+    private var statusLabel: TextView? = null
+    private var nameLabel: TextView? = null
+    private var muteButton: ImageButton? = null
+    private var speakerButton: ImageButton? = null
+    private var uiMuted = false
+    private var uiSpeakerOn = true
 
     private var callId: String? = null
     private var token: String? = null
@@ -163,6 +179,7 @@ class NativeVoiceWebRtcEngine private constructor(
                 .putBoolean("video_$normalized", true)
                 .apply()
             requestCameraPermissionIfNeeded()
+            ensureVideoCallUI("Connecting…")
         }
 
         if (isActive() && this.callId != normalized) {
@@ -261,6 +278,8 @@ class NativeVoiceWebRtcEngine private constructor(
                 .putBoolean("video_$normalized", true)
                 .apply()
             requestCameraPermissionIfNeeded()
+            // Full-screen Dialog immediately — never paint black SurfaceView over WebView.
+            ensureVideoCallUI("Calling…")
         }
         appliedRemoteIceKeys.clear()
         remoteDescriptionReady = false
@@ -483,78 +502,256 @@ class NativeVoiceWebRtcEngine private constructor(
     private fun dp(value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()
 
-    /** Full-screen remote + PiP local — JS has no MediaStream on Android native WebRTC. */
-    private fun ensureVideoOverlay() {
-        if (!wantsVideo) return
-        // Avoid a full-screen black SurfaceView covering JS while CAMERA is still denied.
-        if (!hasCameraPermission() && localVideoTrack == null && remoteVideoTrack == null) {
-            Log.i(TAG, "video overlay deferred — waiting for CAMERA / tracks")
-            return
+    private fun roundControlButton(
+        activity: Activity,
+        iconRes: Int,
+        backgroundColor: Int,
+        onClick: () -> Unit,
+    ): ImageButton {
+        val button = ImageButton(activity)
+        button.setImageResource(iconRes)
+        button.scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+        button.setColorFilter(Color.WHITE)
+        button.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(backgroundColor)
         }
+        button.setOnClickListener { onClick() }
+        val pad = dp(14)
+        button.setPadding(pad, pad, pad, pad)
+        return button
+    }
+
+    private fun refreshNativeControlAppearance() {
+        muteButton?.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(
+                if (uiMuted) Color.parseColor("#F59E0B")
+                else Color.argb(56, 255, 255, 255),
+            )
+        }
+        muteButton?.setImageResource(
+            if (uiMuted) android.R.drawable.ic_lock_silent_mode
+            else android.R.drawable.ic_btn_speak_now,
+        )
+        speakerButton?.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(
+                if (uiSpeakerOn) Color.parseColor("#2563EB")
+                else Color.argb(56, 255, 255, 255),
+            )
+        }
+    }
+
+    private fun setSpeakerphone(enabled: Boolean) {
+        try {
+            val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            am.mode = AudioManager.MODE_IN_COMMUNICATION
+            @Suppress("DEPRECATION")
+            am.isSpeakerphoneOn = enabled
+        } catch (err: Exception) {
+            Log.w(TAG, "speaker toggle failed: ${err.message}")
+        }
+        if (enabled) {
+            applyTelecomSpeakerRoute()
+        }
+    }
+
+    /**
+     * KakaoTalk-style full-screen native video UI (separate Dialog window).
+     * Do NOT paint SurfaceView over Capacitor WebView — ZOrderMediaOverlay
+     * covers JS controls with a black surface when frames are empty.
+     */
+    private fun ensureVideoOverlay() {
+        ensureVideoCallUI(if (isMediaConnected) "Connected" else "Connecting…")
+    }
+
+    private fun ensureVideoCallUI(status: String) {
+        if (!wantsVideo) return
         val work = Runnable {
             if (!wantsVideo) return@Runnable
             val activity = resolveActivity()
-            if (activity == null) {
-                Log.w(TAG, "video overlay skipped — no activity")
+            if (activity == null || activity.isFinishing) {
+                Log.w(TAG, "video UI skipped — no activity")
                 return@Runnable
             }
+            statusLabel?.text = status
+            if (callVideoDialog?.isShowing == true) {
+                bindVideoRenderers()
+                return@Runnable
+            }
+
             val egl = ensureEgl()
-            if (videoOverlayContainer == null) {
-                val decor = activity.window?.decorView as? ViewGroup ?: run {
-                    Log.w(TAG, "video overlay skipped — no decor view")
-                    return@Runnable
+            val root = FrameLayout(activity).apply {
+                setBackgroundColor(Color.parseColor("#0A0A0A"))
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+            }
+
+            // Default SurfaceView z-order inside a Dialog — sibling Views (controls) stay on top.
+            val remote = SurfaceViewRenderer(activity).apply {
+                init(egl.eglBaseContext, null)
+                setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                setEnableHardwareScaler(true)
+                setMirror(false)
+                setZOrderMediaOverlay(false)
+                setZOrderOnTop(false)
+            }
+            val local = SurfaceViewRenderer(activity).apply {
+                init(egl.eglBaseContext, null)
+                setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                setEnableHardwareScaler(true)
+                setMirror(true)
+                setZOrderMediaOverlay(false)
+                setZOrderOnTop(false)
+            }
+            root.addView(
+                remote,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            root.addView(
+                local,
+                FrameLayout.LayoutParams(dp(100), dp(140)).apply {
+                    gravity = Gravity.TOP or Gravity.END
+                    topMargin = dp(56)
+                    marginEnd = dp(16)
+                },
+            )
+
+            val displayName = cachedCaller?.optString("name")?.takeIf { it.isNotBlank() }
+                ?: "AiMediaTank"
+            val name = TextView(activity).apply {
+                text = displayName
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                gravity = Gravity.CENTER
+            }
+            val statusView = TextView(activity).apply {
+                text = status
+                setTextColor(Color.argb(200, 255, 255, 255))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                gravity = Gravity.CENTER
+            }
+            nameLabel = name
+            statusLabel = statusView
+
+            uiMuted = false
+            uiSpeakerOn = true
+            val speaker = roundControlButton(
+                activity,
+                android.R.drawable.ic_lock_silent_mode_off,
+                Color.parseColor("#2563EB"),
+            ) {
+                uiSpeakerOn = !uiSpeakerOn
+                setSpeakerphone(uiSpeakerOn)
+                refreshNativeControlAppearance()
+            }
+            val end = roundControlButton(
+                activity,
+                android.R.drawable.ic_menu_call,
+                Color.parseColor("#E53935"),
+            ) {
+                endCall(syncServer = true, reason = "user")
+            }
+            val mute = roundControlButton(
+                activity,
+                android.R.drawable.ic_btn_speak_now,
+                Color.argb(56, 255, 255, 255),
+            ) {
+                uiMuted = !uiMuted
+                setMuted(uiMuted)
+                refreshNativeControlAppearance()
+            }
+            speakerButton = speaker
+            muteButton = mute
+            refreshNativeControlAppearance()
+
+            fun controlColumn(button: ImageButton, label: String): LinearLayout {
+                val col = LinearLayout(activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER_HORIZONTAL
                 }
-                val container = FrameLayout(activity).apply {
-                    layoutParams = FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                    )
-                    isClickable = false
-                    isFocusable = false
-                    // Leave bottom strip for WebView End/Mute/Speaker.
-                    setPadding(0, 0, 0, dp(132))
-                    elevation = 64f
-                }
-                val remote = SurfaceViewRenderer(activity).apply {
-                    init(egl.eglBaseContext, null)
-                    setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-                    setEnableHardwareScaler(true)
-                    setMirror(false)
-                    // Required so frames paint above Capacitor WebView (default SurfaceView is behind).
-                    setZOrderMediaOverlay(true)
-                }
-                val local = SurfaceViewRenderer(activity).apply {
-                    init(egl.eglBaseContext, null)
-                    setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-                    setEnableHardwareScaler(true)
-                    setMirror(true)
-                    setZOrderMediaOverlay(true)
-                }
-                container.addView(
-                    remote,
-                    FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT,
+                col.addView(button, LinearLayout.LayoutParams(dp(64), dp(64)))
+                col.addView(
+                    TextView(activity).apply {
+                        text = label
+                        setTextColor(Color.WHITE)
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                        gravity = Gravity.CENTER
+                        setPadding(0, dp(8), 0, 0)
+                    },
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
                     ),
                 )
-                container.addView(
-                    local,
-                    FrameLayout.LayoutParams(dp(100), dp(140)).apply {
-                        gravity = Gravity.TOP or Gravity.END
-                        topMargin = dp(56)
-                        marginEnd = dp(16)
-                    },
-                )
-                decor.addView(container)
-                container.bringToFront()
-                videoOverlayContainer = container
-                remoteRenderer = remote
-                localRenderer = local
-                Log.i(TAG, "video overlay attached")
-            } else {
-                videoOverlayContainer?.bringToFront()
+                return col
             }
+
+            val controls = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                addView(controlColumn(speaker, "Speaker"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(controlColumn(end, "End"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(controlColumn(mute, "Mute"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            }
+
+            val chrome = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(dp(24), 0, dp(24), dp(28))
+                addView(
+                    name,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ),
+                )
+                addView(
+                    statusView,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ).apply { topMargin = dp(6); bottomMargin = dp(16) },
+                )
+                addView(
+                    controls,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ),
+                )
+            }
+            root.addView(
+                chrome,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { gravity = Gravity.BOTTOM },
+            )
+
+            val dialog = Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+            dialog.setCancelable(false)
+            dialog.setContentView(
+                root,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            dialog.show()
+            callVideoDialog = dialog
+            videoOverlayContainer = root
+            remoteRenderer = remote
+            localRenderer = local
             bindVideoRenderers()
+            Log.i(TAG, "native video call Dialog shown")
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             work.run()
@@ -603,13 +800,27 @@ class NativeVoiceWebRtcEngine private constructor(
                     }
                 }
             }
-            localRenderer?.release()
-            remoteRenderer?.release()
+            try {
+                localRenderer?.release()
+            } catch (_: Exception) {
+            }
+            try {
+                remoteRenderer?.release()
+            } catch (_: Exception) {
+            }
             localRenderer = null
             remoteRenderer = null
-            videoOverlayContainer?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            statusLabel = null
+            nameLabel = null
+            muteButton = null
+            speakerButton = null
             videoOverlayContainer = null
             remoteVideoTrack = null
+            try {
+                callVideoDialog?.dismiss()
+            } catch (_: Exception) {
+            }
+            callVideoDialog = null
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             work.run()
@@ -1242,7 +1453,8 @@ class NativeVoiceWebRtcEngine private constructor(
         Log.i(TAG, "connected $callId")
         token?.let { postNativeTrace(callId, it, "native_webrtc_connected") }
         if (wantsVideo) {
-            ensureVideoOverlay()
+            ensureVideoCallUI("Connected")
+            mainHandler.post { bindVideoRenderers() }
         }
         mainHandler.post {
             val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: return@post
@@ -1284,7 +1496,8 @@ class NativeVoiceWebRtcEngine private constructor(
             track.setEnabled(true)
             remoteVideoTrack = track
             Log.i(TAG, "remote RTP video track")
-            ensureVideoOverlay()
+            ensureVideoCallUI(if (isMediaConnected) "Connected" else "Connecting…")
+            mainHandler.post { bindVideoRenderers() }
         }
     }
     override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>?) {}
