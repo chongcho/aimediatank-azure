@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic'
  * already-unlocked AudioContext — which iOS allows without a fresh gesture,
  * unlike speechSynthesis.
  *
- * Requires AZURE_SPEECH_KEY + AZURE_SPEECH_REGION. When unset, returns 503 so
- * the client falls back to on-device speechSynthesis.
+ * Requires AZURE_SPEECH_KEY + AZURE_SPEECH_REGION. When unset, returns 204 so
+ * the client falls back to on-device speechSynthesis (no console error noise).
  */
 
 // Map a UI/locale tag to an Azure neural voice. Falls back to en-US.
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
   const key = process.env.AZURE_SPEECH_KEY
   const region = process.env.AZURE_SPEECH_REGION
   if (!key || !region) {
-    return NextResponse.json({ error: 'TTS not configured' }, { status: 503 })
+    return new NextResponse(null, { status: 204 })
   }
 
   const { voice, locale } = pickVoice(lang)

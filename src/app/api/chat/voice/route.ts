@@ -58,7 +58,10 @@ async function cleanupOldSignals() {
 async function expireStaleVoiceCalls() {
   const now = new Date()
   const ringingCutoff = new Date(now.getTime() - 60_000)
-  const activeCutoff = new Date(now.getTime() - 4 * 60 * 60 * 1000)
+  // Abandoned "active" (client crash / tab close) used to block Talk for 4h.
+  const activeCutoff = new Date(now.getTime() - 20 * 60 * 1000)
+  // Active with no signaling traffic is almost certainly a zombie session.
+  const activeIdleCutoff = new Date(now.getTime() - 3 * 60 * 1000)
 
   const expiredRinging = await prisma.voiceCall.findMany({
     where: { status: 'ringing', createdAt: { lt: ringingCutoff } },
@@ -77,28 +80,63 @@ async function expireStaleVoiceCalls() {
     where: { status: 'active', createdAt: { lt: activeCutoff } },
     data: { status: 'ended', endedAt: now },
   })
+
+  const idleActive = await prisma.voiceCall.findMany({
+    where: {
+      status: 'active',
+      createdAt: { lt: activeIdleCutoff },
+      signals: { none: { createdAt: { gte: activeIdleCutoff } } },
+    },
+    select: { id: true },
+  })
+  if (idleActive.length > 0) {
+    await prisma.voiceCall.updateMany({
+      where: { id: { in: idleActive.map((c) => c.id) } },
+      data: { status: 'ended', endedAt: now },
+    })
+  }
 }
 
-/** Caller abandoned an outbound ring — allow placing a new call. */
-async function clearCallerRinging(userId: string) {
-  const staleRinging = await prisma.voiceCall.findMany({
-    where: { callerId: userId, status: 'ringing' },
-    select: { id: true, calleeId: true },
+/**
+ * User is placing a new call — end leftover ringing/active rows for them
+ * (as caller or callee). Previously only outbound ringing was cleared, so a
+ * stuck `active` from video/CallKit tests blocked browser Talk with 409.
+ */
+async function releaseUserOpenCalls(userId: string) {
+  const open = await prisma.voiceCall.findMany({
+    where: {
+      OR: [{ callerId: userId }, { calleeId: userId }],
+      status: { in: [...ACTIVE_STATUSES] },
+    },
+    select: { id: true, callerId: true, calleeId: true, status: true },
   })
-  if (staleRinging.length === 0) return
+  if (open.length === 0) return
 
   const endedAt = new Date()
-  await prisma.voiceCall.updateMany({
-    where: { callerId: userId, status: 'ringing' },
-    data: { status: 'missed', endedAt },
-  })
+  for (const call of open) {
+    const finalStatus = call.status === 'ringing' ? 'missed' : 'ended'
+    await prisma.voiceCall.update({
+      where: { id: call.id },
+      data: { status: finalStatus, endedAt },
+    })
 
-  for (const call of staleRinging) {
+    const peerId = call.callerId === userId ? call.calleeId : call.callerId
     try {
-      await sendNativeCallCancelPushBurstToUser(call.calleeId, call.id)
-      await sendVoiceCallDismissPushToUser(call.calleeId, call.id, userId)
+      await prisma.voiceCallSignal.create({
+        data: {
+          callId: call.id,
+          fromUserId: userId,
+          toUserId: peerId,
+          type: 'hangup',
+          payload: '{}',
+        },
+      })
+      if (call.status === 'ringing') {
+        await sendNativeCallCancelPushBurstToUser(peerId, call.id)
+        await sendVoiceCallDismissPushToUser(peerId, call.id, userId)
+      }
     } catch (err) {
-      console.error(`VoIP cancel push failed while clearing stale ring ${call.id}:`, err)
+      console.error(`VoIP cleanup failed while releasing open call ${call.id}:`, err)
     }
   }
 }
@@ -280,7 +318,7 @@ export async function POST(request: Request) {
 
       await cleanupOldSignals()
       await expireStaleVoiceCalls()
-      await clearCallerRinging(userId)
+      await releaseUserOpenCalls(userId)
 
       const callee = await prisma.user.findUnique({
         where: { id: calleeId },
