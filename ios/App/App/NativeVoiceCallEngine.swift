@@ -38,7 +38,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var cachedCaller: [String: Any]?
     private(set) var isMediaConnected = false
     private weak var localAudioTrack: RTCAudioTrack?
-    private weak var localVideoTrack: RTCVideoTrack?
+    /// Strong — weak let the track drop before PC sender retained it (black local PiP, camera LED on).
+    private var localVideoTrack: RTCVideoTrack?
     private var videoCapturer: RTCCameraVideoCapturer?
     private var videoSource: RTCVideoSource?
     private var wantsVideo = false
@@ -46,7 +47,9 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var remoteVideoView: RTCMTLVideoView?
     /// Full-screen KakaoTalk-style UI (not Metal painted over Capacitor WebView).
     private var callVideoViewController: CallVideoViewController?
-    private weak var remoteVideoTrack: RTCVideoTrack?
+    private var remoteVideoTrack: RTCVideoTrack?
+    private var videoRenderersBound = false
+    private var cameraStartedForCall = false
     /// Prefetched while CallKit is ringing so Accept skips the bootstrap wait.
     private var prefetchedBootstrap: BootstrapResult?
     private var prefetchedCallId: String?
@@ -477,9 +480,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                     self.postTrace(callId: callId, token: token, event: "native_webrtc_answer_sent")
                     print("[NativeVoiceCallEngine] posted answer sdp \(callId) hasVideoMLine=\(answer.sdp.contains("m=video"))")
                     if self.wantsVideo {
-                        // Present full-screen native UI so Metal views have bounds before frames arrive.
+                        // Present UI first; bind Metal + start camera only when views have size.
                         self.ensureVideoCallUI(status: "Connecting…")
-                        self.startLocalCameraIfNeeded()
                     }
                     self.startIcePoll(callId: callId, token: token)
                 }
@@ -552,6 +554,10 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         postTrace(callId: callId, token: token ?? "", event: "native_webrtc_connected")
         if wantsVideo {
             ensureVideoCallUI(status: "Connected")
+            // Remote frames often only start after ICE connected — rebind then.
+            runOnMain { [weak self] in
+                self?.bindVideoRenderersAndStartCamera()
+            }
         }
         let caller = cachedCaller
         runOnMain { [weak self] in
@@ -715,37 +721,85 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         track.isEnabled = true
         localVideoTrack = track
 
-        // Prefer the video transceiver created by the remote offer (Unified Plan).
-        // WebRTC-SDK does not expose RTCRtpSender.setTrack — addTrack after
-        // setRemoteDescription reuses the offer's video transceiver.
+        // Prefer replacing the offer's video transceiver track (Unified Plan).
+        // addTrack before setRemoteDescription creates a second m=video; after, setTrack
+        // is more reliable than addTrack when a recv-only transceiver already exists.
         if let transceiver = pc.transceivers.first(where: { $0.mediaType == .video }) {
             transceiver.setDirection(.sendRecv, error: nil)
+            if transceiver.sender.setTrack(track) {
+                print("[NativeVoiceCallEngine] local video setTrack on existing transceiver")
+            } else {
+                _ = pc.add(track, streamIds: ["stream0"])
+                print("[NativeVoiceCallEngine] local video addTrack fallback (setTrack failed)")
+            }
+        } else {
+            _ = pc.add(track, streamIds: ["stream0"])
+            print("[NativeVoiceCallEngine] local video addTrack (no video transceiver yet)")
         }
-        pc.add(track, streamIds: ["stream0"])
-        print("[NativeVoiceCallEngine] local video track added (transceivers=\(pc.transceivers.count))")
+        print("[NativeVoiceCallEngine] local video track attached capture=\(startCapture) transceivers=\(pc.transceivers.count)")
 
         if startCapture {
             startFrontCamera(capturer: capturer)
         }
-        bindLocalPreviewIfNeeded()
-        print("[NativeVoiceCallEngine] local video track attached capture=\(startCapture)")
     }
 
     private func bindLocalPreviewIfNeeded() {
-        guard let track = localVideoTrack, let preview = localPreviewView else { return }
+        guard let track = localVideoTrack, let preview = localPreviewView else {
+            print("[NativeVoiceCallEngine] bind local skipped track=\(localVideoTrack != nil) view=\(localPreviewView != nil)")
+            return
+        }
+        guard preview.bounds.width > 1, preview.bounds.height > 1 else {
+            print("[NativeVoiceCallEngine] bind local skipped zero bounds \(preview.bounds)")
+            return
+        }
+        track.remove(preview)
+        track.isEnabled = true
         track.add(preview)
+        print("[NativeVoiceCallEngine] local preview bound size=\(preview.bounds.size)")
     }
 
     private func bindRemoteVideoIfNeeded() {
-        guard let track = remoteVideoTrack, let remote = remoteVideoView else { return }
+        // Prefer live transceiver receiver over stale cached track.
+        if remoteVideoTrack == nil, let pc = peerConnection {
+            for transceiver in pc.transceivers where transceiver.mediaType == .video {
+                if let track = transceiver.receiver.track as? RTCVideoTrack {
+                    remoteVideoTrack = track
+                    break
+                }
+            }
+        }
+        guard let track = remoteVideoTrack, let remote = remoteVideoView else {
+            print("[NativeVoiceCallEngine] bind remote skipped track=\(remoteVideoTrack != nil) view=\(remoteVideoView != nil)")
+            return
+        }
+        guard remote.bounds.width > 1, remote.bounds.height > 1 else {
+            print("[NativeVoiceCallEngine] bind remote skipped zero bounds \(remote.bounds)")
+            return
+        }
+        track.remove(remote)
         track.isEnabled = true
         track.add(remote)
+        print("[NativeVoiceCallEngine] remote video bound size=\(remote.bounds.size)")
+    }
+
+    private func bindVideoRenderersAndStartCamera() {
+        guard wantsVideo else { return }
+        remoteVideoView = callVideoViewController?.remoteVideoView
+        localPreviewView = callVideoViewController?.localPreviewView
+        bindLocalPreviewIfNeeded()
+        bindRemoteVideoIfNeeded()
+        videoRenderersBound = true
+        startLocalCameraIfNeeded()
     }
 
     private func startLocalCameraIfNeeded() {
         guard wantsVideo, let capturer = videoCapturer else { return }
+        if cameraStartedForCall {
+            bindLocalPreviewIfNeeded()
+            return
+        }
+        cameraStartedForCall = true
         startFrontCamera(capturer: capturer)
-        bindLocalPreviewIfNeeded()
     }
 
     private func startFrontCamera(capturer: RTCCameraVideoCapturer) {
@@ -801,6 +855,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         localVideoTrack = nil
         remoteVideoTrack = nil
         videoSource = nil
+        cameraStartedForCall = false
+        videoRenderersBound = false
     }
 
     /// Present KakaoTalk-style full-screen native video UI (not WebView overlay).
@@ -840,10 +896,10 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                 vc.onToggleSpeaker = { [weak self] enabled in
                     self?.setSpeakerEnabled(enabled)
                 }
+                vc.onVideoViewsReady = { [weak self] in
+                    self?.bindVideoRenderersAndStartCamera()
+                }
                 self.callVideoViewController = vc
-                _ = vc.view
-                self.remoteVideoView = vc.remoteVideoView
-                self.localPreviewView = vc.localPreviewView
                 guard let presenter = Self.findBridgeViewController()
                     ?? Self.topMostViewController()
                 else {
@@ -851,15 +907,13 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                     return
                 }
                 let presentBlock = {
-                    // Present from bridge (not topMost) so we own the modal stack.
                     let host = Self.findBridgeViewController() ?? presenter
                     host.present(vc, animated: true) {
-                        self.remoteVideoView = vc.remoteVideoView
-                        self.localPreviewView = vc.localPreviewView
-                        self.bindLocalPreviewIfNeeded()
-                        self.bindRemoteVideoIfNeeded()
                         self.markCallUiActiveInWebView()
                         AiMediaTankVoipPushBridge.shared.notifyNativeVideoUiPresented()
+                        // viewDidLayoutSubviews / viewDidAppear will fire onVideoViewsReady.
+                        // Also try immediately after present in case layout already ran.
+                        self.bindVideoRenderersAndStartCamera()
                         print("[NativeVoiceCallEngine] native video UI presented")
                     }
                 }
@@ -870,30 +924,29 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                     }
                 } else if host.presentedViewController == nil {
                     presentBlock()
-                } else {
-                    self.bindLocalPreviewIfNeeded()
-                    self.bindRemoteVideoIfNeeded()
+                } else if host.presentedViewController === vc {
+                    self.bindVideoRenderersAndStartCamera()
                     self.markCallUiActiveInWebView()
                     AiMediaTankVoipPushBridge.shared.notifyNativeVideoUiPresented()
                 }
             } else {
                 self.callVideoViewController?.updateStatus(status)
-                self.remoteVideoView = self.callVideoViewController?.remoteVideoView
-                self.localPreviewView = self.callVideoViewController?.localPreviewView
-                self.bindLocalPreviewIfNeeded()
-                self.bindRemoteVideoIfNeeded()
+                if self.videoRenderersBound {
+                    self.bindLocalPreviewIfNeeded()
+                    self.bindRemoteVideoIfNeeded()
+                } else {
+                    self.bindVideoRenderersAndStartCamera()
+                }
             }
             self.callVideoViewController?.updateStatus(status)
         }
-        if Thread.isMainThread {
-            work()
-        } else {
-            DispatchQueue.main.async(execute: work)
-        }
+        runOnMain(work)
     }
 
     private func removeVideoOverlay() {
-        let work = { [weak self] in
+        // Always async onto main — never main.sync. WebRTC signaling can call
+        // forceCleanupMediaUi while main is blocked in pc.close() (deadlock).
+        runOnMain { [weak self] in
             guard let self else { return }
             let vc = self.callVideoViewController
             self.callVideoViewController = nil
@@ -919,11 +972,6 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                 host.viewWithTag(0xA11C08)?.removeFromSuperview()
             }
             print("[NativeVoiceCallEngine] native video UI removed")
-        }
-        if Thread.isMainThread {
-            work()
-        } else {
-            DispatchQueue.main.sync(execute: work)
         }
     }
 
@@ -965,8 +1013,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             self.remoteVideoTrack = track
             print("[NativeVoiceCallEngine] remote stream video track")
             DispatchQueue.main.async {
-                self.ensureVideoCallUI(status: self.isMediaConnected ? "Connected" : "Connecting…")
-                self.bindRemoteVideoIfNeeded()
+                self.bindVideoRenderersAndStartCamera()
             }
         }
         ensureWebRtcAudioEnabled()
@@ -990,8 +1037,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             remoteVideoTrack = track
             print("[NativeVoiceCallEngine] remote RTP video track")
             DispatchQueue.main.async {
-                self.ensureVideoCallUI(status: self.isMediaConnected ? "Connected" : "Connecting…")
-                self.bindRemoteVideoIfNeeded()
+                self.bindVideoRenderersAndStartCamera()
             }
         }
     }
@@ -1004,8 +1050,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         remoteVideoTrack = track
         print("[NativeVoiceCallEngine] didStartReceivingOn video")
         DispatchQueue.main.async {
-            self.ensureVideoCallUI(status: self.isMediaConnected ? "Connected" : "Connecting…")
-            self.bindRemoteVideoIfNeeded()
+            self.bindVideoRenderersAndStartCamera()
         }
     }
 
