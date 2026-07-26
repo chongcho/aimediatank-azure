@@ -665,18 +665,63 @@ type NativeWebRtcPlugin = {
   setNativeWebRtcMuted?: (options: { muted: boolean }) => Promise<void>
 }
 
+/**
+ * Android native WebRTC never calls getUserMedia, so CAMERA/MIC dialogs never appear
+ * unless we trigger them here (must run from a user gesture).
+ * Stops tracks immediately — native Camera2 capturer owns the camera afterward.
+ */
+export async function ensureAndroidNativeMediaAccess(wantVideo: boolean): Promise<boolean> {
+  if (!isNativeAndroidCallApp()) return true
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return true
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: wantVideo ? { facingMode: 'user' } : false,
+    })
+    stream.getTracks().forEach((track) => {
+      try {
+        track.stop()
+      } catch {
+        // ignore
+      }
+    })
+    return true
+  } catch (error) {
+    console.warn('[NativeCall] Android media permission failed:', error)
+    if (!wantVideo) return false
+    // Video denied — still unlock mic so audio call path can proceed.
+    try {
+      const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      audioOnly.getTracks().forEach((track) => {
+        try {
+          track.stop()
+        } catch {
+          // ignore
+        }
+      })
+    } catch {
+      // ignore
+    }
+    return false
+  }
+}
+
 /** Android: native WebRTC engine (KakaoTalk-style) for outbound calls. */
 export async function prepareNativeWebRtcCaller(
   callId: string,
   iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }>,
   hasVideo = false,
-): Promise<void> {
-  if (!isNativeAndroidCallApp() || !callId) return
+): Promise<boolean> {
+  if (!isNativeAndroidCallApp() || !callId) return false
   try {
+    const wantVideo = Boolean(hasVideo)
+    const mediaOk = await ensureAndroidNativeMediaAccess(wantVideo)
+    const useVideo = wantVideo && mediaOk
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeWebRtcPlugin
-    if (typeof plugin.prepareNativeWebRtcCaller !== 'function') return
-    await plugin.prepareNativeWebRtcCaller({ callId, iceServers, hasVideo: Boolean(hasVideo) || undefined })
+    if (typeof plugin.prepareNativeWebRtcCaller !== 'function') return false
+    await plugin.prepareNativeWebRtcCaller({ callId, iceServers, hasVideo: useVideo || undefined })
+    return useVideo
   } catch (error) {
     console.error('[NativeCall] prepareNativeWebRtcCaller failed:', error)
     throw error
@@ -689,21 +734,25 @@ export async function prepareNativeWebRtcAnswer(
   declineToken?: string,
   remoteOfferSdp?: string,
   hasVideo = false,
-): Promise<void> {
-  if (!isNativeAndroidCallApp() || !callId) return
+): Promise<boolean> {
+  if (!isNativeAndroidCallApp() || !callId) return false
   try {
+    const wantVideo = Boolean(hasVideo)
+    const mediaOk = await ensureAndroidNativeMediaAccess(wantVideo)
+    const useVideo = wantVideo && mediaOk
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeWebRtcPlugin
     if (typeof plugin.prepareNativeWebRtcAnswer !== 'function') {
       console.error('[NativeCall] prepareNativeWebRtcAnswer plugin method missing — rebuild native app')
-      return
+      return false
     }
     await plugin.prepareNativeWebRtcAnswer({
       callId,
       declineToken,
       remoteOfferSdp,
-      hasVideo: Boolean(hasVideo) || undefined,
+      hasVideo: useVideo || undefined,
     })
+    return useVideo
   } catch (error) {
     console.error('[NativeCall] prepareNativeWebRtcAnswer failed:', error)
     throw error

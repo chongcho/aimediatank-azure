@@ -592,8 +592,21 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     try {
       if (isNativeAndroidCallApp()) {
         nativeWebRtcAndroidRef.current = true
-        if (hasVideoRef.current) setNativeOwnsVideo(true)
-        await prepareNativeWebRtcCaller(callIdRef.current, getIceServers(), hasVideoRef.current)
+        // nativeOwnsVideo only after prepare — permission prompt must not sit under a black overlay.
+        const useVideo = await prepareNativeWebRtcCaller(
+          callIdRef.current,
+          getIceServers(),
+          hasVideoRef.current,
+        )
+        if (useVideo) {
+          hasVideoRef.current = true
+          setHasVideo(true)
+          setNativeOwnsVideo(true)
+        } else if (hasVideoRef.current) {
+          hasVideoRef.current = false
+          setHasVideo(false)
+          setNativeOwnsVideo(false)
+        }
         if (callStateRef.current === 'outgoing') {
           retryVoiceCallRingtone()
         }
@@ -831,7 +844,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     try {
       if (isNativeAndroidCallApp()) {
         nativeWebRtcAndroidRef.current = true
-        if (hasVideoRef.current) setNativeOwnsVideo(true)
         void dismissVoiceCallPushNotifications(id)
         // In-app Accept: start native WebRTC here. answerNativeCall only reaches Telecom
         // when ConnectionService registered a connection — often missing for poll/FCM UI.
@@ -844,7 +856,24 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         }
         if (!opts?.fromCallKit) {
           // Offer SDP comes from native bootstrap (Capacitor bridge corrupts multiline SDP).
-          await prepareNativeWebRtcAnswer(id, declineToken, undefined, hasVideoRef.current)
+          // Camera prompt runs inside prepareNativeWebRtcAnswer (user gesture).
+          const useVideo = await prepareNativeWebRtcAnswer(
+            id,
+            declineToken,
+            undefined,
+            hasVideoRef.current,
+          )
+          if (useVideo) {
+            hasVideoRef.current = true
+            setHasVideo(true)
+            setNativeOwnsVideo(true)
+          } else if (hasVideoRef.current) {
+            hasVideoRef.current = false
+            setHasVideo(false)
+            setNativeOwnsVideo(false)
+          }
+        } else if (hasVideoRef.current) {
+          setNativeOwnsVideo(true)
         }
         pendingOfferRef.current = null
         setCallState('connecting')

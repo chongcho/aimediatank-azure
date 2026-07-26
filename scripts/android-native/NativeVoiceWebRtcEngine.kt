@@ -398,15 +398,21 @@ class NativeVoiceWebRtcEngine private constructor(
         if (!hasCameraPermission()) {
             Log.w(TAG, "attach local video skipped — CAMERA permission not granted")
             requestCameraPermissionIfNeeded()
-            // Retry once after the permission dialog can settle.
-            mainHandler.postDelayed({
-                if (!wantsVideo || localVideoTrack != null) return@postDelayed
-                val livePc = peerConnection ?: return@postDelayed
-                if (hasCameraPermission()) {
-                    attachLocalVideo(livePc)
-                    ensureVideoOverlay()
-                }
-            }, 1200)
+            // Retry after the system permission dialog (user may grant mid-call).
+            listOf(800L, 2000L, 4500L).forEach { delayMs ->
+                mainHandler.postDelayed({
+                    if (!wantsVideo || localVideoTrack != null) return@postDelayed
+                    val livePc = peerConnection ?: return@postDelayed
+                    if (hasCameraPermission()) {
+                        attachLocalVideo(livePc)
+                        ensureVideoOverlay()
+                    }
+                }, delayMs)
+            }
+            return
+        }
+        if (localVideoTrack != null) {
+            ensureVideoOverlay()
             return
         }
         try {
@@ -447,9 +453,21 @@ class NativeVoiceWebRtcEngine private constructor(
 
     private fun requestCameraPermissionIfNeeded() {
         if (hasCameraPermission()) return
-        val activity = resolveActivity() ?: return
-        ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.CAMERA), 0xA11C)
-        Log.i(TAG, "requested CAMERA permission")
+        val work = Runnable {
+            if (hasCameraPermission()) return@Runnable
+            val activity = resolveActivity()
+            if (activity == null) {
+                Log.w(TAG, "CAMERA permission request skipped — no activity")
+                return@Runnable
+            }
+            ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.CAMERA), 0xA11C)
+            Log.i(TAG, "requested CAMERA permission")
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            work.run()
+        } else {
+            mainHandler.post(work)
+        }
     }
 
     private fun resolveActivity(): Activity? {
@@ -468,6 +486,11 @@ class NativeVoiceWebRtcEngine private constructor(
     /** Full-screen remote + PiP local — JS has no MediaStream on Android native WebRTC. */
     private fun ensureVideoOverlay() {
         if (!wantsVideo) return
+        // Avoid a full-screen black SurfaceView covering JS while CAMERA is still denied.
+        if (!hasCameraPermission() && localVideoTrack == null && remoteVideoTrack == null) {
+            Log.i(TAG, "video overlay deferred — waiting for CAMERA / tracks")
+            return
+        }
         val work = Runnable {
             if (!wantsVideo) return@Runnable
             val activity = resolveActivity()
@@ -490,7 +513,6 @@ class NativeVoiceWebRtcEngine private constructor(
                     isFocusable = false
                     // Leave bottom strip for WebView End/Mute/Speaker.
                     setPadding(0, 0, 0, dp(132))
-                    // Keep above WebView in the view hierarchy.
                     elevation = 64f
                 }
                 val remote = SurfaceViewRenderer(activity).apply {
@@ -498,7 +520,7 @@ class NativeVoiceWebRtcEngine private constructor(
                     setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                     setEnableHardwareScaler(true)
                     setMirror(false)
-                    // Default SurfaceView sits behind the window — WebView covers it (black).
+                    // Required so frames paint above Capacitor WebView (default SurfaceView is behind).
                     setZOrderMediaOverlay(true)
                 }
                 val local = SurfaceViewRenderer(activity).apply {
