@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom'
 import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
 import { voiceCallNickname } from '@/hooks/useVoiceCall'
 import type { VoiceCallRingtoneId } from '@/lib/voiceCallVolume'
-import { formatVolumePercent } from '@/lib/voiceCallVolume'
 
 const CALL_POPUP_WIDTH = 360
 const CALL_POPUP_Z_INDEX = 100050
@@ -50,19 +49,11 @@ interface VoiceCallOverlayProps {
     remindMe: string
     hideCall: string
     tapToShowCall: string
-    volume: string
-    ringVolume: string
-    callVolume: string
     ringtone: string
     ringtoneIncoming: string
     ringtoneOutgoing: string
-    mediaVolumeHint: string
   }
-  ringVolume: number
-  voiceVolume: number
   ringtoneId: VoiceCallRingtoneId
-  onRingVolumeChange: (level: number) => void
-  onVoiceVolumeChange: (level: number) => void
   onRingtoneChange: (id: VoiceCallRingtoneId) => void
   onAccept: () => void
   onReject: () => void
@@ -329,27 +320,18 @@ function HideCallButton({ label, onClick }: { label: string; onClick: () => void
   )
 }
 
-function CallAudioControls({
-  mode,
-  volume,
+/** Ringtone picker only — call/ring volume sliders removed (use hardware keys). */
+function RingtoneControls({
   ringtoneId,
-  onVolumeChange,
   onRingtoneChange,
   labels,
   compact = false,
-  showRingtone = false,
 }: {
-  mode: 'ring' | 'voice'
-  volume: number
   ringtoneId: VoiceCallRingtoneId
-  onVolumeChange: (level: number) => void
   onRingtoneChange: (id: VoiceCallRingtoneId) => void
   labels: VoiceCallOverlayProps['labels']
   compact?: boolean
-  showRingtone?: boolean
 }) {
-  const volumeLabel = mode === 'ring' ? labels.ringVolume : labels.callVolume
-
   return (
     <div
       style={{
@@ -363,63 +345,33 @@ function CallAudioControls({
         boxSizing: 'border-box',
       }}
     >
-      {showRingtone ? (
-        <label
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            marginBottom: '12px',
-            fontSize: compact ? '12px' : '13px',
-            fontWeight: 600,
-          }}
-        >
-          <span>{labels.ringtone}</span>
-          <select
-            value={ringtoneId}
-            onChange={(e) => onRingtoneChange(e.target.value as VoiceCallRingtoneId)}
-            style={{
-              width: '100%',
-              borderRadius: '10px',
-              border: '1px solid rgba(255,255,255,0.18)',
-              background: 'rgba(255,255,255,0.1)',
-              color: 'white',
-              padding: '8px 10px',
-              fontSize: compact ? '12px' : '13px',
-            }}
-          >
-            <option value="incoming">{labels.ringtoneIncoming}</option>
-            <option value="outgoing">{labels.ringtoneOutgoing}</option>
-          </select>
-        </label>
-      ) : null}
-
       <label
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px',
+          gap: '6px',
           fontSize: compact ? '12px' : '13px',
           fontWeight: 600,
         }}
       >
-        <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>{volumeLabel}</span>
-          <span style={{ opacity: 0.85, fontWeight: 500 }}>{formatVolumePercent(volume)}</span>
-        </span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={Math.round(volume * 100)}
-          onChange={(e) => onVolumeChange(Number(e.target.value) / 100)}
-          aria-label={volumeLabel}
-          style={{ width: '100%', accentColor: '#60a5fa' }}
-        />
+        <span>{labels.ringtone}</span>
+        <select
+          value={ringtoneId}
+          onChange={(e) => onRingtoneChange(e.target.value as VoiceCallRingtoneId)}
+          style={{
+            width: '100%',
+            borderRadius: '10px',
+            border: '1px solid rgba(255,255,255,0.18)',
+            background: 'rgba(255,255,255,0.1)',
+            color: 'white',
+            padding: '8px 10px',
+            fontSize: compact ? '12px' : '13px',
+          }}
+        >
+          <option value="incoming">{labels.ringtoneIncoming}</option>
+          <option value="outgoing">{labels.ringtoneOutgoing}</option>
+        </select>
       </label>
-      <p style={{ margin: '10px 0 0', fontSize: compact ? '10px' : '11px', opacity: 0.65, lineHeight: 1.35 }}>
-        {labels.mediaVolumeHint}
-      </p>
     </div>
   )
 }
@@ -660,10 +612,11 @@ function FullscreenShell({
           position: 'relative',
           zIndex: 1,
           flex: 1,
+          minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
           padding:
-            'max(48px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom))',
+            'max(48px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom))',
         }}
       >
         {children}
@@ -713,9 +666,7 @@ function IncomingCallScreen({
   onAccept,
   onReject,
   onHide,
-  ringVolume,
   ringtoneId,
-  onRingVolumeChange,
   onRingtoneChange,
   mode = 'fullscreen',
 }: {
@@ -724,9 +675,7 @@ function IncomingCallScreen({
   onAccept: () => void
   onReject: () => void
   onHide?: () => void
-  ringVolume: number
   ringtoneId: VoiceCallRingtoneId
-  onRingVolumeChange: (level: number) => void
   onRingtoneChange: (id: VoiceCallRingtoneId) => void
   mode?: CallUiMode
 }) {
@@ -787,15 +736,11 @@ function IncomingCallScreen({
         <div style={{ fontSize: compact ? '14px' : '16px', opacity: 0.75 }}>
           {formatCallStatus(labels.incomingCall, remoteUser)}
         </div>
-        <CallAudioControls
-          mode="ring"
-          volume={ringVolume}
+        <RingtoneControls
           ringtoneId={ringtoneId}
-          onVolumeChange={onRingVolumeChange}
           onRingtoneChange={onRingtoneChange}
           labels={labels}
           compact={compact}
-          showRingtone
         />
       </div>
 
@@ -846,11 +791,7 @@ function ActiveCallScreen({
   onToggleSpeaker,
   speakerEnabled = false,
   onHide,
-  ringVolume,
-  voiceVolume,
   ringtoneId,
-  onRingVolumeChange,
-  onVoiceVolumeChange,
   onRingtoneChange,
   mode = 'fullscreen',
 }: {
@@ -870,11 +811,7 @@ function ActiveCallScreen({
   onToggleSpeaker: () => void
   speakerEnabled?: boolean
   onHide?: () => void
-  ringVolume: number
-  voiceVolume: number
   ringtoneId: VoiceCallRingtoneId
-  onRingVolumeChange: (level: number) => void
-  onVoiceVolumeChange: (level: number) => void
   onRingtoneChange: (id: VoiceCallRingtoneId) => void
   mode?: CallUiMode
 }) {
@@ -898,14 +835,14 @@ function ActiveCallScreen({
       hideLabel={onHide ? labels.hideCall : undefined}
     >
       {mode === 'fullscreen' ? (
-        <div style={{ textAlign: 'center', opacity: 0.9, fontSize: '15px', marginTop: '8px' }}>
+        <div style={{ textAlign: 'center', opacity: 0.9, fontSize: '15px', marginTop: '8px', flexShrink: 0 }}>
           {statusLine}
         </div>
       ) : null}
 
       <div
         style={{
-          flex: mode === 'fullscreen' ? 1 : undefined,
+          flex: mode === 'fullscreen' ? '1 1 0' : undefined,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -915,6 +852,8 @@ function ActiveCallScreen({
           textAlign: 'center',
           minHeight: 0,
           width: '100%',
+          // Keep End/Mute/etc. on-screen — video must not push controls below the fold.
+          overflow: 'hidden',
         }}
       >
         {hasVideo ? (
@@ -922,8 +861,9 @@ function ActiveCallScreen({
             style={{
               position: 'relative',
               width: '100%',
-              flex: 1,
-              minHeight: compact ? 180 : 240,
+              flex: '1 1 0',
+              minHeight: compact ? 120 : 160,
+              maxHeight: mode === 'fullscreen' ? '48dvh' : undefined,
               borderRadius: compact ? 12 : 16,
               overflow: 'hidden',
               background: nativeOwnsVideo ? 'transparent' : '#0d0906',
@@ -1005,6 +945,7 @@ function ActiveCallScreen({
               borderRadius: '50%',
               objectFit: 'cover',
               marginBottom: compact ? '4px' : '8px',
+              flexShrink: 0,
             }}
           />
         ) : null}
@@ -1013,23 +954,24 @@ function ActiveCallScreen({
             fontSize: compact ? '24px' : '34px',
             fontWeight: 700,
             letterSpacing: '-0.02em',
+            flexShrink: 0,
           }}
         >
           {name}
         </div>
         {callState === 'connected' ? (
-          <div style={{ fontSize: compact ? '13px' : '15px', opacity: 0.75 }}>{labels.connected}</div>
+          <div style={{ fontSize: compact ? '13px' : '15px', opacity: 0.75, flexShrink: 0 }}>
+            {labels.connected}
+          </div>
         ) : null}
-        <CallAudioControls
-          mode={callState === 'outgoing' ? 'ring' : 'voice'}
-          volume={callState === 'outgoing' ? ringVolume : voiceVolume}
-          ringtoneId={ringtoneId}
-          onVolumeChange={callState === 'outgoing' ? onRingVolumeChange : onVoiceVolumeChange}
-          onRingtoneChange={onRingtoneChange}
-          labels={labels}
-          compact={compact}
-          showRingtone={callState === 'outgoing'}
-        />
+        {callState === 'outgoing' ? (
+          <RingtoneControls
+            ringtoneId={ringtoneId}
+            onRingtoneChange={onRingtoneChange}
+            labels={labels}
+            compact={compact}
+          />
+        ) : null}
       </div>
 
       <div
@@ -1037,9 +979,12 @@ function ActiveCallScreen({
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
           justifyItems: 'center',
-          rowGap: compact ? '16px' : '28px',
+          rowGap: compact ? '16px' : '20px',
           columnGap: '4px',
-          paddingBottom: mode === 'fullscreen' ? '8px' : 0,
+          paddingTop: compact ? 8 : 12,
+          paddingBottom: mode === 'fullscreen' ? 8 : 0,
+          flexShrink: 0,
+          width: '100%',
         }}
       >
         <RoundCallButton
@@ -1318,11 +1263,7 @@ export function VoiceCallOverlay({
   fullscreenCallUi = false,
   popupCallUi = false,
   minimizedCallUi = false,
-  ringVolume,
-  voiceVolume,
   ringtoneId,
-  onRingVolumeChange,
-  onVoiceVolumeChange,
   onRingtoneChange,
 }: VoiceCallOverlayProps) {
   if (callState === 'idle' || callState === 'ended') return null
@@ -1360,9 +1301,7 @@ export function VoiceCallOverlay({
           onAccept={onAccept}
           onReject={onReject}
           onHide={onHide}
-          ringVolume={ringVolume}
           ringtoneId={ringtoneId}
-          onRingVolumeChange={onRingVolumeChange}
           onRingtoneChange={onRingtoneChange}
           mode={callMode}
         />
@@ -1387,11 +1326,7 @@ export function VoiceCallOverlay({
         onToggleSpeaker={onToggleSpeaker}
         speakerEnabled={speakerEnabled}
         onHide={onHide}
-        ringVolume={ringVolume}
-        voiceVolume={voiceVolume}
         ringtoneId={ringtoneId}
-        onRingVolumeChange={onRingVolumeChange}
-        onVoiceVolumeChange={onVoiceVolumeChange}
         onRingtoneChange={onRingtoneChange}
         mode={callMode}
       />

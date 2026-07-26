@@ -112,13 +112,9 @@ function useVoiceCallLabels() {
     inAppHint: tr[TC.voiceCallInAppHint],
     hideCall: tr[TC.voiceHideCall],
     tapToShowCall: tr[TC.voiceTapToShowCall],
-    volume: tr[TC.voiceVolume],
-    ringVolume: tr[TC.voiceRingVolume],
-    callVolume: tr[TC.voiceCallVolume],
     ringtone: tr[TC.voiceRingtone],
     ringtoneIncoming: tr[TC.voiceRingtoneIncoming],
     ringtoneOutgoing: tr[TC.voiceRingtoneOutgoing],
-    mediaVolumeHint: tr[TC.voiceMediaVolumeHint],
   }
 }
 
@@ -132,22 +128,13 @@ export function VoiceCallOverlayPanel({
   const { data: session } = useSession()
   const labels = useVoiceCallLabels()
   const isDesktop = useIsDesktop()
-  const [ringVolume, setRingVolume] = useState(() => getVoiceCallRingVolume())
-  const [voiceVolume, setVoiceVolume] = useState(() => getVoiceCallVoiceVolume())
   const [ringtoneId, setRingtoneId] = useState<VoiceCallRingtoneId>(() => getVoiceCallRingtoneId())
 
-  const handleRingVolumeChange = useCallback((level: number) => {
-    applyRingVolume(level)
-    setRingVolume(level)
-  }, [])
-
-  const handleVoiceVolumeChange = useCallback(
-    (level: number) => {
-      ctx?.setRemoteCallVolume(level)
-      setVoiceVolume(level)
-    },
-    [ctx]
-  )
+  // Apply saved volumes once (no in-call slider — hardware keys adjust call volume).
+  useEffect(() => {
+    applyRingVolume(getVoiceCallRingVolume())
+    ctx?.setRemoteCallVolume(getVoiceCallVoiceVolume())
+  }, [ctx])
 
   const handleRingtoneChange = useCallback((id: VoiceCallRingtoneId) => {
     setVoiceCallRingtoneId(id)
@@ -245,11 +232,7 @@ export function VoiceCallOverlayPanel({
       }}
       onToggleSpeaker={ctx.toggleSpeaker}
       speakerEnabled={nativeVoiceCall}
-      ringVolume={ringVolume}
-      voiceVolume={voiceVolume}
       ringtoneId={ringtoneId}
-      onRingVolumeChange={handleRingVolumeChange}
-      onVoiceVolumeChange={handleVoiceVolumeChange}
       onRingtoneChange={handleRingtoneChange}
     />
   )
