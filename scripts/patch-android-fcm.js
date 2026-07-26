@@ -3159,20 +3159,21 @@ import android.telecom.Connection`,
     changed = true
     console.log('[patch-android-fcm] VoipConnection telecom speaker route')
   }
+}
 
-  if (fs.existsSync(voipConnectionPath)) {
-    let voipConnection = fs.readFileSync(voipConnectionPath, 'utf8')
-    if (
-      voipConnection.includes('fun requestSpeakerRoute()') &&
-      !voipConnection.includes('preferredAudioRoute == "earpiece"')
-    ) {
-      voipConnection = voipConnection.replace(
-        `    fun requestSpeakerRoute() {
+if (fs.existsSync(voipConnectionPath)) {
+  let voipConnection = fs.readFileSync(voipConnectionPath, 'utf8')
+  if (
+    voipConnection.includes('fun requestSpeakerRoute()') &&
+    !voipConnection.includes('preferredAudioRoute == "earpiece"')
+  ) {
+    voipConnection = voipConnection.replace(
+      `    fun requestSpeakerRoute() {
         // ${voipTelecomSpeakerMarker}
         // ${voipTelecomSpeakerLegacyMarker}
         routeSpeakerLegacy()
     }`,
-        `    fun requestSpeakerRoute() {
+      `    fun requestSpeakerRoute() {
         // ${voipTelecomSpeakerMarker}
         // ${voipTelecomSpeakerLegacyMarker}
         // Honor JS / in-call Speaker OFF — do not re-force loudspeaker.
@@ -3182,14 +3183,14 @@ import android.telecom.Connection`,
         }
         routeSpeakerLegacy()
     }`,
-      )
-      fs.writeFileSync(voipConnectionPath, voipConnection)
-      changed = true
-      console.log('[patch-android-fcm] VoipConnection respects preferredAudioRoute earpiece')
-    }
+    )
+    fs.writeFileSync(voipConnectionPath, voipConnection)
+    changed = true
+    console.log('[patch-android-fcm] VoipConnection respects preferredAudioRoute earpiece')
   }
+}
 
-  if (fs.existsSync(callManagerPath)) {
+if (fs.existsSync(callManagerPath)) {
   let callManager = fs.readFileSync(callManagerPath, 'utf8')
   if (callManager.includes(voiceCallRingLoudnessModeMarker) && !callManager.includes(voiceCallTelecomSpeakerMarker)) {
     callManager = callManager.replace(
