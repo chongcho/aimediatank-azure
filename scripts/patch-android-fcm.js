@@ -2290,6 +2290,17 @@ if (fs.existsSync(nativeWebRtcEngineSourcePath)) {
   }
 }
 
+const textureViewRendererSourcePath = path.join(__dirname, 'android-native', 'TextureViewRenderer.kt')
+const textureViewRendererDestPath = path.join(pluginDir, 'TextureViewRenderer.kt')
+if (fs.existsSync(textureViewRendererSourcePath)) {
+  const tvSource = fs.readFileSync(textureViewRendererSourcePath, 'utf8')
+  if (!fs.existsSync(textureViewRendererDestPath) || fs.readFileSync(textureViewRendererDestPath, 'utf8') !== tvSource) {
+    fs.writeFileSync(textureViewRendererDestPath, tvSource)
+    changed = true
+    console.log('[patch-android-fcm] TextureViewRenderer.kt')
+  }
+}
+
 const webrtcVersion = '1.3.10'
 const webrtcDep = `implementation 'io.getstream:stream-webrtc-android:${webrtcVersion}'`
 

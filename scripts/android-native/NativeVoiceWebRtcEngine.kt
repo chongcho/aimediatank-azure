@@ -15,13 +15,13 @@ import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.SurfaceHolder
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.webkit.CookieManager
+import android.graphics.drawable.ColorDrawable
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.getcapacitor.Bridge
@@ -127,8 +127,8 @@ class NativeVoiceWebRtcEngine private constructor(
     private var wantsVideo = false
     private var videoOverlayContainer: FrameLayout? = null
     private var callVideoDialog: Dialog? = null
-    private var remoteRenderer: SurfaceViewRenderer? = null
-    private var localRenderer: SurfaceViewRenderer? = null
+    private var remoteRenderer: TextureViewRenderer? = null
+    private var localRenderer: TextureViewRenderer? = null
     private var statusLabel: TextView? = null
     private var nameLabel: TextView? = null
     private var muteButton: ImageButton? = null
@@ -445,7 +445,7 @@ class NativeVoiceWebRtcEngine private constructor(
             val helper = SurfaceTextureHelper.create("CaptureThread", rootEgl.eglBaseContext)
             surfaceTextureHelper = helper
             val source = ensureFactory().createVideoSource(false)
-            capturer.initialize(helper, context, source.capturerObserver)
+            capturer.initialize(helper, resolveActivity() ?: context, source.capturerObserver)
             // Prefer 720p; fall back to 480p if the device rejects the format.
             try {
                 capturer.startCapture(1280, 720, 30)
@@ -460,20 +460,29 @@ class NativeVoiceWebRtcEngine private constructor(
             videoSource = source
             localVideoTrack = track
             Log.i(TAG, "local video track attached sinks pending surface")
+            postClientTrace(
+                "local_video_attached",
+                JSONObject()
+                    .put("cameraPermission", hasCameraPermission())
+                    .put("hasLocalRenderer", localRenderer != null),
+            )
             ensureVideoOverlay()
             scheduleRendererBindRetries()
         } catch (err: Exception) {
             Log.e(TAG, "attach local video failed", err)
+            postClientTrace("local_video_failed", JSONObject().put("error", err.message ?: "unknown"))
         }
     }
 
     private fun createCameraCapturer(): VideoCapturer? {
-        val camera2 = Camera2Enumerator(context)
+        val camContext = resolveActivity() ?: context
+        val camera2 = Camera2Enumerator(camContext)
         val camera2Name = camera2.deviceNames.firstOrNull { camera2.isFrontFacing(it) }
             ?: camera2.deviceNames.firstOrNull()
         if (camera2Name != null) {
             camera2.createCapturer(camera2Name, null)?.let {
                 Log.i(TAG, "using Camera2 capturer $camera2Name")
+                postClientTrace("camera2_selected", JSONObject().put("device", camera2Name))
                 return it
             }
         }
@@ -483,9 +492,11 @@ class NativeVoiceWebRtcEngine private constructor(
         if (camera1Name != null) {
             camera1.createCapturer(camera1Name, null)?.let {
                 Log.i(TAG, "using Camera1 capturer $camera1Name")
+                postClientTrace("camera1_selected", JSONObject().put("device", camera1Name))
                 return it
             }
         }
+        postClientTrace("camera_capturer_missing")
         return null
     }
 
@@ -607,6 +618,7 @@ class NativeVoiceWebRtcEngine private constructor(
 
             val egl = ensureEgl()
             val root = FrameLayout(activity).apply {
+                // TextureView paints in-hierarchy; opaque root is fine (unlike SurfaceView holes).
                 setBackgroundColor(Color.parseColor("#0A0A0A"))
                 layoutParams = FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -614,42 +626,23 @@ class NativeVoiceWebRtcEngine private constructor(
                 )
             }
 
-            // Default SurfaceView z-order inside a Dialog — sibling Views (controls) stay on top.
-            // Disable hardware scaler — some GPUs leave SurfaceViewRenderer permanently black.
-            val remote = SurfaceViewRenderer(activity).apply {
-                init(egl.eglBaseContext, object : RendererCommon.RendererEvents {
-                    override fun onFirstFrameRendered() {
-                        Log.i(TAG, "remote first frame rendered")
-                    }
-
-                    override fun onFrameResolutionChanged(videoWidth: Int, videoHeight: Int, rotation: Int) {
-                        Log.i(TAG, "remote frame ${videoWidth}x$videoHeight rot=$rotation")
-                    }
-                })
-                setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-                setEnableHardwareScaler(false)
+            val remote = TextureViewRenderer(activity).apply {
+                init(egl.eglBaseContext)
                 setMirror(false)
-                setZOrderMediaOverlay(false)
-                setZOrderOnTop(false)
+                onSurfaceReady = {
+                    Log.i(TAG, "remote TextureView surface ready")
+                    bindVideoRenderers()
+                }
             }
-            val local = SurfaceViewRenderer(activity).apply {
-                init(egl.eglBaseContext, object : RendererCommon.RendererEvents {
-                    override fun onFirstFrameRendered() {
-                        Log.i(TAG, "local first frame rendered")
-                    }
-
-                    override fun onFrameResolutionChanged(videoWidth: Int, videoHeight: Int, rotation: Int) {
-                        Log.i(TAG, "local frame ${videoWidth}x$videoHeight rot=$rotation")
-                    }
-                })
-                setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-                setEnableHardwareScaler(false)
+            val local = TextureViewRenderer(activity).apply {
+                init(egl.eglBaseContext)
                 setMirror(true)
-                setZOrderMediaOverlay(false)
-                setZOrderOnTop(false)
+                onSurfaceReady = {
+                    Log.i(TAG, "local TextureView surface ready")
+                    postClientTrace("local_surface_ready")
+                    bindVideoRenderers()
+                }
             }
-            attachSurfaceBindCallbacks(remote, "remote")
-            attachSurfaceBindCallbacks(local, "local")
             root.addView(
                 remote,
                 FrameLayout.LayoutParams(
@@ -781,6 +774,7 @@ class NativeVoiceWebRtcEngine private constructor(
 
             val dialog = Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
             dialog.setCancelable(false)
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.BLACK))
             dialog.setContentView(
                 root,
                 ViewGroup.LayoutParams(
@@ -793,33 +787,16 @@ class NativeVoiceWebRtcEngine private constructor(
             videoOverlayContainer = root
             remoteRenderer = remote
             localRenderer = local
+            postClientTrace("video_dialog_shown")
             bindVideoRenderers()
             scheduleRendererBindRetries()
-            Log.i(TAG, "native video call Dialog shown")
+            Log.i(TAG, "native video call Dialog shown (TextureView)")
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             work.run()
         } else {
             mainHandler.post(work)
         }
-    }
-
-    private fun attachSurfaceBindCallbacks(renderer: SurfaceViewRenderer, label: String) {
-        renderer.holder.addCallback(object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                Log.i(TAG, "$label surfaceCreated — binding sinks")
-                bindVideoRenderers()
-            }
-
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-                Log.i(TAG, "$label surfaceChanged ${width}x$height")
-                bindVideoRenderers()
-            }
-
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                Log.i(TAG, "$label surfaceDestroyed")
-            }
-        })
     }
 
     private fun scheduleRendererBindRetries() {
@@ -861,6 +838,26 @@ class NativeVoiceWebRtcEngine private constructor(
                     track.addSink(renderer)
                     Log.i(TAG, "remote sink bound size=${renderer.width}x${renderer.height}")
                 }
+            }
+        }
+    }
+
+    /** Session or decline-token trace — appears in Azure Log Stream as [VoIP] native trace. */
+    private fun postClientTrace(event: String, detail: JSONObject = JSONObject()) {
+        val id = callId ?: return
+        executor.execute {
+            try {
+                val body = JSONObject().apply {
+                    put("callId", id.lowercase())
+                    put("event", event)
+                    put("source", "android_native_webrtc")
+                    if (detail.length() > 0) put("detail", detail)
+                    val auth = token
+                    if (!auth.isNullOrEmpty()) put("token", auth)
+                }
+                httpPost("$baseUrl/api/chat/voice/native-trace", body, withCookies = true)
+            } catch (e: Exception) {
+                Log.w(TAG, "postClientTrace failed: ${e.message}")
             }
         }
     }
