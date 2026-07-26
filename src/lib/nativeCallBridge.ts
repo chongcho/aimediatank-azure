@@ -666,9 +666,10 @@ type NativeWebRtcPlugin = {
 }
 
 /**
- * Android native WebRTC never calls getUserMedia, so CAMERA/MIC dialogs never appear
- * unless we trigger them here (must run from a user gesture).
- * Stops tracks immediately — native Camera2 capturer owns the camera afterward.
+ * Android: unlock mic via getUserMedia (user gesture). Do NOT open the camera
+ * in the WebView — stopping tracks often leaves Camera2 unable to start, which
+ * yields a black native preview even when Settings shows CAMERA allowed.
+ * Native ActivityCompat / Camera2 owns the camera.
  */
 export async function ensureAndroidNativeMediaAccess(wantVideo: boolean): Promise<boolean> {
   if (!isNativeAndroidCallApp()) return true
@@ -676,7 +677,7 @@ export async function ensureAndroidNativeMediaAccess(wantVideo: boolean): Promis
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
-      video: wantVideo ? { facingMode: 'user' } : false,
+      video: false,
     })
     stream.getTracks().forEach((track) => {
       try {
@@ -685,24 +686,12 @@ export async function ensureAndroidNativeMediaAccess(wantVideo: boolean): Promis
         // ignore
       }
     })
+    // Camera permission is requested/used by the native engine when wantVideo.
     return true
   } catch (error) {
-    console.warn('[NativeCall] Android media permission failed:', error)
-    if (!wantVideo) return false
-    // Video denied — still unlock mic so audio call path can proceed.
-    try {
-      const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      audioOnly.getTracks().forEach((track) => {
-        try {
-          track.stop()
-        } catch {
-          // ignore
-        }
-      })
-    } catch {
-      // ignore
-    }
-    return false
+    console.warn('[NativeCall] Android mic permission failed:', error)
+    // Still allow video attempt — native may already have CAMERA from Settings.
+    return wantVideo
   }
 }
 
@@ -715,13 +704,13 @@ export async function prepareNativeWebRtcCaller(
   if (!isNativeAndroidCallApp() || !callId) return false
   try {
     const wantVideo = Boolean(hasVideo)
-    const mediaOk = await ensureAndroidNativeMediaAccess(wantVideo)
-    const useVideo = wantVideo && mediaOk
+    // Mic unlock only — camera is owned by native Camera2 (Settings may already grant it).
+    await ensureAndroidNativeMediaAccess(wantVideo)
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeWebRtcPlugin
     if (typeof plugin.prepareNativeWebRtcCaller !== 'function') return false
-    await plugin.prepareNativeWebRtcCaller({ callId, iceServers, hasVideo: useVideo || undefined })
-    return useVideo
+    await plugin.prepareNativeWebRtcCaller({ callId, iceServers, hasVideo: wantVideo || undefined })
+    return wantVideo
   } catch (error) {
     console.error('[NativeCall] prepareNativeWebRtcCaller failed:', error)
     throw error
@@ -738,8 +727,7 @@ export async function prepareNativeWebRtcAnswer(
   if (!isNativeAndroidCallApp() || !callId) return false
   try {
     const wantVideo = Boolean(hasVideo)
-    const mediaOk = await ensureAndroidNativeMediaAccess(wantVideo)
-    const useVideo = wantVideo && mediaOk
+    await ensureAndroidNativeMediaAccess(wantVideo)
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
     const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeWebRtcPlugin
     if (typeof plugin.prepareNativeWebRtcAnswer !== 'function') {
@@ -750,9 +738,9 @@ export async function prepareNativeWebRtcAnswer(
       callId,
       declineToken,
       remoteOfferSdp,
-      hasVideo: useVideo || undefined,
+      hasVideo: wantVideo || undefined,
     })
-    return useVideo
+    return wantVideo
   } catch (error) {
     console.error('[NativeCall] prepareNativeWebRtcAnswer failed:', error)
     throw error

@@ -15,6 +15,7 @@ import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.SurfaceHolder
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageButton
@@ -432,18 +433,12 @@ class NativeVoiceWebRtcEngine private constructor(
         }
         if (localVideoTrack != null) {
             ensureVideoOverlay()
+            scheduleRendererBindRetries()
             return
         }
         try {
-            val enumerator = Camera2Enumerator(context)
-            val deviceName = enumerator.deviceNames.firstOrNull { enumerator.isFrontFacing(it) }
-                ?: enumerator.deviceNames.firstOrNull()
-                ?: run {
-                    Log.w(TAG, "attach local video — no camera device")
-                    return
-                }
-            val capturer = enumerator.createCapturer(deviceName, null) ?: run {
-                Log.w(TAG, "attach local video — createCapturer failed")
+            val capturer = createCameraCapturer() ?: run {
+                Log.w(TAG, "attach local video — no camera capturer")
                 return
             }
             val rootEgl = ensureEgl()
@@ -451,19 +446,47 @@ class NativeVoiceWebRtcEngine private constructor(
             surfaceTextureHelper = helper
             val source = ensureFactory().createVideoSource(false)
             capturer.initialize(helper, context, source.capturerObserver)
-            capturer.startCapture(1280, 720, 30)
+            // Prefer 720p; fall back to 480p if the device rejects the format.
+            try {
+                capturer.startCapture(1280, 720, 30)
+            } catch (err: Exception) {
+                Log.w(TAG, "720p capture failed, trying 640x480: ${err.message}")
+                capturer.startCapture(640, 480, 24)
+            }
             val track = ensureFactory().createVideoTrack("video0", source)
             track.setEnabled(true)
-            // After setRemoteDescription, addTrack reuses the offer's video transceiver.
             pc.addTrack(track, listOf("stream0"))
             videoCapturer = capturer
             videoSource = source
             localVideoTrack = track
-            Log.i(TAG, "local video track attached")
+            Log.i(TAG, "local video track attached sinks pending surface")
             ensureVideoOverlay()
+            scheduleRendererBindRetries()
         } catch (err: Exception) {
-            Log.w(TAG, "attach local video failed: ${err.message}")
+            Log.e(TAG, "attach local video failed", err)
         }
+    }
+
+    private fun createCameraCapturer(): VideoCapturer? {
+        val camera2 = Camera2Enumerator(context)
+        val camera2Name = camera2.deviceNames.firstOrNull { camera2.isFrontFacing(it) }
+            ?: camera2.deviceNames.firstOrNull()
+        if (camera2Name != null) {
+            camera2.createCapturer(camera2Name, null)?.let {
+                Log.i(TAG, "using Camera2 capturer $camera2Name")
+                return it
+            }
+        }
+        val camera1 = Camera1Enumerator(true)
+        val camera1Name = camera1.deviceNames.firstOrNull { camera1.isFrontFacing(it) }
+            ?: camera1.deviceNames.firstOrNull()
+        if (camera1Name != null) {
+            camera1.createCapturer(camera1Name, null)?.let {
+                Log.i(TAG, "using Camera1 capturer $camera1Name")
+                return it
+            }
+        }
+        return null
     }
 
     private fun hasCameraPermission(): Boolean =
@@ -578,6 +601,7 @@ class NativeVoiceWebRtcEngine private constructor(
             statusLabel?.text = status
             if (callVideoDialog?.isShowing == true) {
                 bindVideoRenderers()
+                scheduleRendererBindRetries()
                 return@Runnable
             }
 
@@ -591,22 +615,41 @@ class NativeVoiceWebRtcEngine private constructor(
             }
 
             // Default SurfaceView z-order inside a Dialog — sibling Views (controls) stay on top.
+            // Disable hardware scaler — some GPUs leave SurfaceViewRenderer permanently black.
             val remote = SurfaceViewRenderer(activity).apply {
-                init(egl.eglBaseContext, null)
+                init(egl.eglBaseContext, object : RendererCommon.RendererEvents {
+                    override fun onFirstFrameRendered() {
+                        Log.i(TAG, "remote first frame rendered")
+                    }
+
+                    override fun onFrameResolutionChanged(videoWidth: Int, videoHeight: Int, rotation: Int) {
+                        Log.i(TAG, "remote frame ${videoWidth}x$videoHeight rot=$rotation")
+                    }
+                })
                 setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-                setEnableHardwareScaler(true)
+                setEnableHardwareScaler(false)
                 setMirror(false)
                 setZOrderMediaOverlay(false)
                 setZOrderOnTop(false)
             }
             val local = SurfaceViewRenderer(activity).apply {
-                init(egl.eglBaseContext, null)
+                init(egl.eglBaseContext, object : RendererCommon.RendererEvents {
+                    override fun onFirstFrameRendered() {
+                        Log.i(TAG, "local first frame rendered")
+                    }
+
+                    override fun onFrameResolutionChanged(videoWidth: Int, videoHeight: Int, rotation: Int) {
+                        Log.i(TAG, "local frame ${videoWidth}x$videoHeight rot=$rotation")
+                    }
+                })
                 setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-                setEnableHardwareScaler(true)
+                setEnableHardwareScaler(false)
                 setMirror(true)
                 setZOrderMediaOverlay(false)
                 setZOrderOnTop(false)
             }
+            attachSurfaceBindCallbacks(remote, "remote")
+            attachSurfaceBindCallbacks(local, "local")
             root.addView(
                 remote,
                 FrameLayout.LayoutParams(
@@ -751,6 +794,7 @@ class NativeVoiceWebRtcEngine private constructor(
             remoteRenderer = remote
             localRenderer = local
             bindVideoRenderers()
+            scheduleRendererBindRetries()
             Log.i(TAG, "native video call Dialog shown")
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
@@ -760,24 +804,63 @@ class NativeVoiceWebRtcEngine private constructor(
         }
     }
 
+    private fun attachSurfaceBindCallbacks(renderer: SurfaceViewRenderer, label: String) {
+        renderer.holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                Log.i(TAG, "$label surfaceCreated — binding sinks")
+                bindVideoRenderers()
+            }
+
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                Log.i(TAG, "$label surfaceChanged ${width}x$height")
+                bindVideoRenderers()
+            }
+
+            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                Log.i(TAG, "$label surfaceDestroyed")
+            }
+        })
+    }
+
+    private fun scheduleRendererBindRetries() {
+        listOf(50L, 150L, 400L, 900L, 1800L, 3500L).forEach { delayMs ->
+            mainHandler.postDelayed({
+                if (!wantsVideo) return@postDelayed
+                if (localVideoTrack == null && remoteVideoTrack == null) return@postDelayed
+                bindVideoRenderers()
+            }, delayMs)
+        }
+    }
+
     private fun bindVideoRenderers() {
         localVideoTrack?.let { track ->
             localRenderer?.let { renderer ->
-                try {
-                    track.removeSink(renderer)
-                } catch (_: Exception) {
+                if (renderer.width <= 0 || renderer.height <= 0) {
+                    Log.i(TAG, "bind local deferred — zero size ${renderer.width}x${renderer.height}")
+                } else {
+                    try {
+                        track.removeSink(renderer)
+                    } catch (_: Exception) {
+                    }
+                    track.setEnabled(true)
+                    track.addSink(renderer)
+                    Log.i(TAG, "local sink bound size=${renderer.width}x${renderer.height}")
                 }
-                track.addSink(renderer)
             }
         }
         remoteVideoTrack?.let { track ->
-            track.setEnabled(true)
             remoteRenderer?.let { renderer ->
-                try {
-                    track.removeSink(renderer)
-                } catch (_: Exception) {
+                if (renderer.width <= 0 || renderer.height <= 0) {
+                    Log.i(TAG, "bind remote deferred — zero size ${renderer.width}x${renderer.height}")
+                } else {
+                    try {
+                        track.removeSink(renderer)
+                    } catch (_: Exception) {
+                    }
+                    track.setEnabled(true)
+                    track.addSink(renderer)
+                    Log.i(TAG, "remote sink bound size=${renderer.width}x${renderer.height}")
                 }
-                track.addSink(renderer)
             }
         }
     }
@@ -1454,7 +1537,10 @@ class NativeVoiceWebRtcEngine private constructor(
         token?.let { postNativeTrace(callId, it, "native_webrtc_connected") }
         if (wantsVideo) {
             ensureVideoCallUI("Connected")
-            mainHandler.post { bindVideoRenderers() }
+            mainHandler.post {
+                bindVideoRenderers()
+                scheduleRendererBindRetries()
+            }
         }
         mainHandler.post {
             val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: return@post
