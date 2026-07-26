@@ -4404,6 +4404,7 @@ if (fs.existsSync(callManagerPath)) {
 if (fs.existsSync(pluginPath)) {
   let pluginSource = fs.readFileSync(pluginPath, 'utf8')
   let pluginChanged = false
+  // Targeted caller fix — do not require matching the full prepareAnswer body.
   if (
     pluginSource.includes('callManager?.startNativeWebRtcCaller(callId, iceJson)') &&
     !pluginSource.includes('startNativeWebRtcCaller(callId, iceJson, hasVideo)')
@@ -4413,33 +4414,29 @@ if (fs.existsSync(pluginPath)) {
         val iceJson = if (iceArray != null) org.json.JSONArray(iceArray.toString()) else null
         callManager?.startNativeWebRtcCaller(callId, iceJson)
         call.resolve()
-    }
-
-    @PluginMethod
-    fun prepareNativeWebRtcAnswer(call: PluginCall) {
-        val callId = call.getString("callId") ?: run {
-            call.reject("callId is required")
-            return
-        }
-        val token = call.getString("declineToken")
-        val baseUrl = bridge.serverUrl.toString().trimEnd('/')
-        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token)
-        call.resolve()
     }`,
       `        val iceArray = call.getArray("iceServers")
         val iceJson = if (iceArray != null) org.json.JSONArray(iceArray.toString()) else null
         val hasVideo = call.getBoolean("hasVideo", false) ?: false
         callManager?.startNativeWebRtcCaller(callId, iceJson, hasVideo)
         call.resolve()
-    }
-
-    @PluginMethod
-    fun prepareNativeWebRtcAnswer(call: PluginCall) {
-        val callId = call.getString("callId") ?: run {
-            call.reject("callId is required")
-            return
-        }
-        val token = call.getString("declineToken")
+    }`,
+    )
+    pluginChanged = true
+  }
+  // Legacy answer path without remoteOfferSdp
+  if (
+    pluginSource.includes('NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token)') &&
+    !pluginSource.includes('prepareAnswer(callId, token, wantsVideo = hasVideo)') &&
+    !pluginSource.includes('prepareAnswer(callId, token, remoteOfferSdp, hasVideo)')
+  ) {
+    pluginSource = pluginSource.replace(
+      `        val token = call.getString("declineToken")
+        val baseUrl = bridge.serverUrl.toString().trimEnd('/')
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token)
+        call.resolve()
+    }`,
+      `        val token = call.getString("declineToken")
         val baseUrl = bridge.serverUrl.toString().trimEnd('/')
         val hasVideo = call.getBoolean("hasVideo", false) ?: false
         NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent).prepareAnswer(callId, token, wantsVideo = hasVideo)

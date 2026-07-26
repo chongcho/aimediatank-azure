@@ -398,6 +398,15 @@ class NativeVoiceWebRtcEngine private constructor(
         if (!hasCameraPermission()) {
             Log.w(TAG, "attach local video skipped — CAMERA permission not granted")
             requestCameraPermissionIfNeeded()
+            // Retry once after the permission dialog can settle.
+            mainHandler.postDelayed({
+                if (!wantsVideo || localVideoTrack != null) return@postDelayed
+                val livePc = peerConnection ?: return@postDelayed
+                if (hasCameraPermission()) {
+                    attachLocalVideo(livePc)
+                    ensureVideoOverlay()
+                }
+            }, 1200)
             return
         }
         try {
@@ -609,10 +618,18 @@ class NativeVoiceWebRtcEngine private constructor(
         peerConnection = pc
         attachLocalAudio(pc)
         attachLocalVideo(pc)
+        if (wantsVideo) {
+            // Local preview while ringing — do not wait for remote answer / ICE.
+            ensureVideoOverlay()
+        }
         applyTelecomSpeakerRoute()
         localAudioTrack?.setEnabled(true)
 
         val constraints = MediaConstraints()
+        if (wantsVideo) {
+            constraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+        }
+        constraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
         pc.createOffer(object : SdpObserverAdapter() {
             override fun onCreateSuccess(desc: SessionDescription?) {
                 if (desc == null) {
@@ -621,6 +638,8 @@ class NativeVoiceWebRtcEngine private constructor(
                 }
                 pc.setLocalDescription(object : SdpObserverAdapter() {
                     override fun onSetSuccess() {
+                        val hasVideoM = desc.description?.contains("m=video") == true
+                        Log.i(TAG, "posted offer sdp $callId hasVideoMLine=$hasVideoM wantsVideo=$wantsVideo")
                         val payload = JSONObject().apply {
                             put("sdp", JSONObject().apply {
                                 put("type", sdpTypeString(desc.type))
@@ -629,6 +648,9 @@ class NativeVoiceWebRtcEngine private constructor(
                         }
                         postSessionSignal(callId, "offer", payload)
                         startSessionPoll(callId, asCaller = true)
+                        if (wantsVideo) {
+                            ensureVideoOverlay()
+                        }
                     }
 
                     override fun onSetFailure(error: String?) {
