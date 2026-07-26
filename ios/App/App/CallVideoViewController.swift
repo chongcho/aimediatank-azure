@@ -81,14 +81,11 @@ final class CallVideoViewController: UIViewController {
             background: UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 1)
         )
 
-        let stack = UIStackView(arrangedSubviews: [
-            controlColumn(speakerButton, "Speaker"),
-            controlColumn(endButton, "End"),
-            controlColumn(muteButton, "Mute"),
-        ])
+        // Icon-only row — matches Android video Dialog (no text labels under buttons).
+        let stack = UIStackView(arrangedSubviews: [speakerButton, endButton, muteButton])
         stack.axis = .horizontal
-        stack.distribution = .fillEqually
-        stack.alignment = .top
+        stack.distribution = .equalSpacing
+        stack.alignment = .center
         footerBar.addSubview(stack)
         controlsStack = stack
 
@@ -108,14 +105,14 @@ final class CallVideoViewController: UIViewController {
             height: previewH
         )
 
-        let controlsH: CGFloat = 92
+        let buttonSize: CGFloat = 64
         let nameH: CGFloat = 34
         let statusH: CGFloat = 22
         let topPad: CGFloat = 16
         let midGap: CGFloat = 6
         let beforeControls: CGFloat = 16
         let bottomPad: CGFloat = max(20, safe.bottom + 8)
-        let footerH = topPad + nameH + midGap + statusH + beforeControls + controlsH + bottomPad
+        let footerH = topPad + nameH + midGap + statusH + beforeControls + buttonSize + bottomPad
         footerBar.frame = CGRect(
             x: 0,
             y: view.bounds.height - footerH,
@@ -130,10 +127,10 @@ final class CallVideoViewController: UIViewController {
             height: statusH
         )
         controlsStack.frame = CGRect(
-            x: 24,
+            x: 48,
             y: topPad + nameH + midGap + statusH + beforeControls,
-            width: view.bounds.width - 48,
-            height: controlsH
+            width: view.bounds.width - 96,
+            height: buttonSize
         )
 
         notifyViewsReadyIfNeeded()
@@ -163,32 +160,6 @@ final class CallVideoViewController: UIViewController {
         onVideoViewsReady?()
     }
 
-    private func controlColumn(_ button: UIButton, _ title: String) -> UIView {
-        let wrap = UIView()
-        wrap.translatesAutoresizingMaskIntoConstraints = false
-        button.translatesAutoresizingMaskIntoConstraints = false
-        let label = UILabel()
-        label.text = title
-        label.textColor = .white
-        label.font = .systemFont(ofSize: 12, weight: .medium)
-        label.textAlignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
-        wrap.addSubview(button)
-        wrap.addSubview(label)
-        NSLayoutConstraint.activate([
-            wrap.heightAnchor.constraint(equalToConstant: 92),
-            button.topAnchor.constraint(equalTo: wrap.topAnchor),
-            button.centerXAnchor.constraint(equalTo: wrap.centerXAnchor),
-            button.widthAnchor.constraint(equalToConstant: 64),
-            button.heightAnchor.constraint(equalToConstant: 64),
-            label.topAnchor.constraint(equalTo: button.bottomAnchor, constant: 8),
-            label.centerXAnchor.constraint(equalTo: wrap.centerXAnchor),
-            label.leadingAnchor.constraint(equalTo: wrap.leadingAnchor),
-            label.trailingAnchor.constraint(equalTo: wrap.trailingAnchor),
-        ])
-        return wrap
-    }
-
     private func roundControlButton(systemName: String, title: String, action: Selector, background: UIColor = UIColor.white.withAlphaComponent(0.22)) -> UIButton {
         let button = UIButton(type: .system)
         button.backgroundColor = background
@@ -197,6 +168,11 @@ final class CallVideoViewController: UIViewController {
         button.setImage(UIImage(systemName: systemName), for: .normal)
         button.accessibilityLabel = title
         button.addTarget(self, action: action, for: .touchUpInside)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 64),
+            button.heightAnchor.constraint(equalToConstant: 64),
+        ])
         return button
     }
 
@@ -204,7 +180,12 @@ final class CallVideoViewController: UIViewController {
         muteButton?.backgroundColor = isMuted
             ? UIColor(red: 0.96, green: 0.62, blue: 0.04, alpha: 1)
             : UIColor.white.withAlphaComponent(0.22)
-        muteButton?.setImage(UIImage(systemName: isMuted ? "mic.slash.fill" : "mic.fill"), for: .normal)
+        // Match Android: unmuted = mic, muted = speaker-slash (ic_lock_silent_mode).
+        muteButton?.setImage(
+            UIImage(systemName: isMuted ? "speaker.slash.fill" : "mic.fill"),
+            for: .normal
+        )
+        muteButton?.accessibilityLabel = isMuted ? "Unmute" : "Mute"
         speakerButton?.backgroundColor = isSpeakerOn
             ? UIColor(red: 0.15, green: 0.39, blue: 0.92, alpha: 1)
             : UIColor.white.withAlphaComponent(0.22)

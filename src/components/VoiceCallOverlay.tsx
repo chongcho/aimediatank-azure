@@ -147,6 +147,7 @@ function RoundCallButton({
   children,
   disabled = false,
   compact = false,
+  showLabel = true,
 }: {
   label: string
   onClick?: () => void
@@ -154,6 +155,7 @@ function RoundCallButton({
   children: ReactNode
   disabled?: boolean
   compact?: boolean
+  showLabel?: boolean
 }) {
   const btnSize = compact ? 56 : 72
   return (
@@ -166,13 +168,13 @@ function RoundCallButton({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: compact ? '6px' : '10px',
+        gap: showLabel ? (compact ? '6px' : '10px') : 0,
         border: 'none',
         background: 'transparent',
         color: 'white',
         cursor: disabled ? 'default' : 'pointer',
         padding: 0,
-        minWidth: compact ? '72px' : '88px',
+        minWidth: showLabel ? (compact ? '72px' : '88px') : `${btnSize}px`,
         opacity: disabled ? 0.45 : 1,
       }}
     >
@@ -189,7 +191,9 @@ function RoundCallButton({
       >
         {children}
       </span>
-      <span style={{ fontSize: compact ? '12px' : '14px', fontWeight: 500 }}>{label}</span>
+      {showLabel ? (
+        <span style={{ fontSize: compact ? '12px' : '14px', fontWeight: 500 }}>{label}</span>
+      ) : null}
     </button>
   )
 }
@@ -904,7 +908,7 @@ function ActiveCallScreen({
               width: '100%',
               maxWidth: 360,
               justifyContent: 'space-around',
-              alignItems: 'flex-start',
+              alignItems: 'center',
             }}
           >
             <RoundCallButton
@@ -913,6 +917,7 @@ function ActiveCallScreen({
               background={isSpeakerOn ? '#2563eb' : 'rgba(255,255,255,0.22)'}
               disabled={!speakerEnabled}
               compact
+              showLabel={false}
             >
               <IconSpeaker muted={!isSpeakerOn} />
             </RoundCallButton>
@@ -921,6 +926,7 @@ function ActiveCallScreen({
               onClick={onEnd}
               background="#ef4444"
               compact
+              showLabel={false}
             >
               <IconPhoneEnd />
             </RoundCallButton>
@@ -929,8 +935,10 @@ function ActiveCallScreen({
               onClick={onToggleMute}
               background={isMuted ? '#f59e0b' : 'rgba(255,255,255,0.22)'}
               compact
+              showLabel={false}
             >
-              <IconMic muted={isMuted} />
+              {/* Match Android: unmuted = mic, muted = speaker-slash */}
+              {isMuted ? <IconSpeaker muted /> : <IconMic />}
             </RoundCallButton>
           </div>
         </div>

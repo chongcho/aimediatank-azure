@@ -37,7 +37,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var isShuttingDownPeerConnection = false
     private var cachedCaller: [String: Any]?
     private(set) var isMediaConnected = false
-    private weak var localAudioTrack: RTCAudioTrack?
+    private weak var localAudioTrack: RTCAudioTrack? // retained by PC sender; re-resolve in setLocalAudioMuted
     /// Strong — weak let the track drop before PC sender retained it (black local PiP, camera LED on).
     private var localVideoTrack: RTCVideoTrack?
     private var videoCapturer: RTCCameraVideoCapturer?
@@ -97,6 +97,13 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     func setLocalAudioMuted(_ muted: Bool) {
         localAudioTrack?.isEnabled = !muted
+        // Also mute any audio sender in case the weak ref was cleared.
+        peerConnection?.senders.forEach { sender in
+            guard let track = sender.track as? RTCAudioTrack else { return }
+            track.isEnabled = !muted
+            localAudioTrack = track
+        }
+        print("[NativeVoiceCallEngine] local audio muted=\(muted) track=\(localAudioTrack != nil)")
     }
 
     func setSpeakerEnabled(_ enabled: Bool) {

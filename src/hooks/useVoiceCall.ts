@@ -1017,11 +1017,20 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       setIsMuted(next)
       return
     }
+    // Always update UI; mute every local audio track we can find (stream + PC senders).
+    // Returning early when localStreamRef was briefly null left the mic live on iPhone.
     const stream = localStreamRef.current
-    if (!stream) return
-    stream.getAudioTracks().forEach((t) => {
+    stream?.getAudioTracks().forEach((t) => {
       t.enabled = !next
     })
+    const pc = pcRef.current
+    if (pc) {
+      for (const sender of pc.getSenders()) {
+        if (sender.track?.kind === 'audio') {
+          sender.track.enabled = !next
+        }
+      }
+    }
     setIsMuted(next)
   }, [isMuted])
 

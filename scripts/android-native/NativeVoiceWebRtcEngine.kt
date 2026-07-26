@@ -302,6 +302,14 @@ class NativeVoiceWebRtcEngine private constructor(
 
     fun setMuted(muted: Boolean) {
         localAudioTrack?.setEnabled(!muted)
+        // Also mute PC audio senders in case the local track ref was cleared.
+        peerConnection?.senders?.forEach { sender ->
+            val track = sender.track()
+            if (track is AudioTrack) {
+                track.setEnabled(!muted)
+                localAudioTrack = track
+            }
+        }
     }
 
     fun endCall(syncServer: Boolean = true, reason: String = "user") {
@@ -714,34 +722,22 @@ class NativeVoiceWebRtcEngine private constructor(
             muteButton = mute
             refreshNativeControlAppearance()
 
-            fun controlColumn(button: ImageButton, label: String): LinearLayout {
+            fun controlColumn(button: ImageButton): LinearLayout {
                 val col = LinearLayout(activity).apply {
                     orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER_HORIZONTAL
                 }
+                // Icon-only — no text labels (aligned with iOS video footer).
                 col.addView(button, LinearLayout.LayoutParams(dp(64), dp(64)))
-                col.addView(
-                    TextView(activity).apply {
-                        text = label
-                        setTextColor(Color.WHITE)
-                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                        gravity = Gravity.CENTER
-                        setPadding(0, dp(8), 0, 0)
-                    },
-                    LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ),
-                )
                 return col
             }
 
             val controls = LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
-                addView(controlColumn(speaker, "Speaker"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                addView(controlColumn(end, "End"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                addView(controlColumn(mute, "Mute"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(controlColumn(speaker), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(controlColumn(end), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(controlColumn(mute), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             }
 
             val chrome = LinearLayout(activity).apply {
