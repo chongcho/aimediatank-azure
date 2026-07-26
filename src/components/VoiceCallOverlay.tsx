@@ -937,8 +937,7 @@ function ActiveCallScreen({
               compact
               showLabel={false}
             >
-              {/* Match Android: unmuted = mic, muted = speaker-slash */}
-              {isMuted ? <IconSpeaker muted /> : <IconMic />}
+              <IconMic muted={isMuted} />
             </RoundCallButton>
           </div>
         </div>

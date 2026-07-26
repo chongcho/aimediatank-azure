@@ -180,9 +180,9 @@ final class CallVideoViewController: UIViewController {
         muteButton?.backgroundColor = isMuted
             ? UIColor(red: 0.96, green: 0.62, blue: 0.04, alpha: 1)
             : UIColor.white.withAlphaComponent(0.22)
-        // Match Android: unmuted = mic, muted = speaker-slash (ic_lock_silent_mode).
+        // Mic (not speaker) — speaker-slash was confused with the Speaker control.
         muteButton?.setImage(
-            UIImage(systemName: isMuted ? "speaker.slash.fill" : "mic.fill"),
+            UIImage(systemName: isMuted ? "mic.slash.fill" : "mic.fill"),
             for: .normal
         )
         muteButton?.accessibilityLabel = isMuted ? "Unmute" : "Mute"

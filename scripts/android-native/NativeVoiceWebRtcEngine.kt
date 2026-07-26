@@ -550,6 +550,12 @@ class NativeVoiceWebRtcEngine private constructor(
     private fun dp(value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()
 
+    /** App drawable ic_mic_off (mic + slash); avoid android silent/speaker icons. */
+    private fun micOffIconRes(): Int {
+        val id = context.resources.getIdentifier("ic_mic_off", "drawable", context.packageName)
+        return if (id != 0) id else android.R.drawable.ic_btn_speak_now
+    }
+
     private fun roundControlButton(
         activity: Activity,
         iconRes: Int,
@@ -579,7 +585,7 @@ class NativeVoiceWebRtcEngine private constructor(
             )
         }
         muteButton?.setImageResource(
-            if (uiMuted) android.R.drawable.ic_lock_silent_mode
+            if (uiMuted) micOffIconRes()
             else android.R.drawable.ic_btn_speak_now,
         )
         speakerButton?.background = GradientDrawable().apply {
