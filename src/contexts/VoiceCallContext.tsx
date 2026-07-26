@@ -163,24 +163,35 @@ export function VoiceCallOverlayPanel({
   const iosCallKitIncoming =
     isNativeIosCallApp() && ctx.callState === 'incoming'
 
+  // iOS CallKit video: KakaoTalk-style native full-screen UI owns chrome (not Capacitor overlay).
+  const iosNativeVideoChrome =
+    isNativeIosCallApp() && ctx.nativeOwnsVideo && ctx.hasVideo
+
   const popupCallUi =
     placement === 'floating' && isActiveCall && isDesktop && !ctx.callUiHidden && !iosCallKitIncoming
   const fullscreenCallUi =
-    placement === 'floating' && isActiveCall && !isDesktop && !ctx.callUiHidden && !iosCallKitIncoming
-  const minimizedCallUi = placement === 'floating' && isActiveCall && ctx.callUiHidden
+    placement === 'floating' &&
+    isActiveCall &&
+    !isDesktop &&
+    !ctx.callUiHidden &&
+    !iosCallKitIncoming &&
+    !iosNativeVideoChrome
+  const minimizedCallUi =
+    placement === 'floating' && isActiveCall && ctx.callUiHidden && !iosNativeVideoChrome
   const showCallControls = popupCallUi || fullscreenCallUi
   const canHideCall = isActiveCall
   const nativeVoiceCall = isNativeVoiceCallApp()
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    if (showCallControls) {
+    // Keep attribute while native iOS video UI is up so accept-cover poll can clear.
+    if (showCallControls || iosNativeVideoChrome) {
       document.documentElement.setAttribute('data-amt-call-active', '1')
       document.getElementById('aimediatank-accept-shell')?.remove()
     } else {
       document.documentElement.removeAttribute('data-amt-call-active')
     }
-  }, [showCallControls, ctx.callState])
+  }, [showCallControls, iosNativeVideoChrome, ctx.callState])
 
   useEffect(() => {
     if (!ctx.hasVideo || !showCallControls) return

@@ -215,6 +215,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
     }
 
+    /// Native full-screen video UI is up — drop accept cover without waiting on JS chrome.
+    func notifyNativeVideoUiPresented() {
+        endAcceptCover(reason: "call_ui_ready")
+    }
+
     private func endAcceptCover(reason: String) {
         let end = { [weak self] in
             guard let self else { return }
@@ -224,11 +229,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             self.acceptCoverPollWork = nil
             self.acceptCoverView?.removeFromSuperview()
             self.acceptCoverView = nil
-            // Layout inset for controls only after tracks exist — avoid empty Metal cover.
-            if reason == "call_ui_ready", NativeVoiceCallEngine.shared.shouldShowVideoOverlay {
-                NativeVoiceCallEngine.shared.layoutVideoOverlayForJsControls()
-            } else if reason == "call_ended" || reason == "user_end" || reason == "timeout" {
-                // Always strip video overlay on hangup — do not wait for endCall races.
+            // Full-screen native video UI owns chrome — do not re-layout WebView overlay.
+            if reason == "call_ended" || reason == "user_end" || reason == "timeout" {
+                // Always strip video UI on hangup — do not wait for endCall races.
                 NativeVoiceCallEngine.shared.forceCleanupMediaUi()
             }
             print("[AiMediaTankVoipPushBridge] end accept cover (\(reason))")
@@ -2149,7 +2152,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
         DispatchQueue.main.async { [weak self] in
             self?.beginAcceptCover()
-            // Overlay is created when camera/tracks are ready — not here (empty Metal covers UI).
+            // Full-screen CallVideoViewController presents when tracks are ready.
         }
     }
 
