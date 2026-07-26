@@ -6,14 +6,15 @@ import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
 import { voiceCallNickname } from '@/hooks/useVoiceCall'
 import type { VoiceCallRingtoneId } from '@/lib/voiceCallVolume'
 
-const CALL_POPUP_DEFAULT = { width: 360, height: 420 }
-const CALL_POPUP_VIDEO_DEFAULT = { width: 560, height: 560 }
-const CALL_POPUP_MIN = { width: 320, height: 360 }
+/** Desktop call chrome ≈ phone portrait (≈9:16), same idea as mobile fullscreen. */
+const CALL_POPUP_DEFAULT = { width: 375, height: 667 }
+const CALL_POPUP_VIDEO_DEFAULT = { width: 375, height: 667 }
+const CALL_POPUP_MIN = { width: 300, height: 480 }
 const CALL_POPUP_Z_INDEX = 100050
 /** Above navbar (100010) and TalkChat so the call UI covers the screen on mobile. */
 const FULLSCREEN_CALL_Z_INDEX = 100050
 const MINIMIZED_CALL_Z_INDEX = 100050
-const POPUP_SIZE_STORAGE_KEY = 'voiceCallPopupSize'
+const POPUP_SIZE_STORAGE_KEY = 'voiceCallPopupSize.v2'
 const POPUP_POS_STORAGE_KEY = 'voiceCallPopupPosition'
 
 /** Matches CallBackdrop so portal mount delay never flashes the home feed. */
