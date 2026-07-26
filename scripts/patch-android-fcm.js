@@ -4012,7 +4012,7 @@ if (fs.existsSync(callManagerPath)) {
         }
     }`,
       `    private fun enableVoiceCallLoudnessBoost() {
-        // ${removeGlobalLoudnessMarker}
+        // ${voiceCallLoudnessBoostMarker} — ${removeGlobalLoudnessMarker}
         releaseVoiceCallLoudnessBoost()
     }`,
     )
@@ -4468,6 +4468,48 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginSource)
     changed = true
     console.log('[patch-android-fcm] plugin hasVideo for native WebRTC')
+  }
+}
+
+// Collapse duplicate loudness helpers (re-patch after cap sync used to re-insert them).
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  const enableMatches = callManager.match(/private fun enableVoiceCallLoudnessBoost\(\)/g) || []
+  const releaseMatches = callManager.match(/private fun releaseVoiceCallLoudnessBoost\(\)/g) || []
+  if (enableMatches.length > 1 || releaseMatches.length > 1) {
+    // Keep a single no-op enable + release pair; drop every prior copy.
+    const enableBlock =
+      /    private fun enableVoiceCallLoudnessBoost\(\) \{[\s\S]*?\n    \}\n\n/g
+    const releaseBlock =
+      /    private fun releaseVoiceCallLoudnessBoost\(\) \{[\s\S]*?\n    \}\n\n/g
+    callManager = callManager.replace(enableBlock, '')
+    callManager = callManager.replace(releaseBlock, '')
+    const insertBefore = '    fun reapplyVolumeControlStream() {'
+    if (callManager.includes(insertBefore) && !callManager.includes('private fun enableVoiceCallLoudnessBoost()')) {
+      callManager = callManager.replace(
+        insertBefore,
+        `    private fun enableVoiceCallLoudnessBoost() {
+        // ${voiceCallLoudnessBoostMarker} — ${removeGlobalLoudnessMarker}
+        releaseVoiceCallLoudnessBoost()
+    }
+
+    private fun releaseVoiceCallLoudnessBoost() {
+        voiceCallLoudnessEnhancer?.let { enhancer ->
+            try {
+                enhancer.enabled = false
+                enhancer.release()
+            } catch (_: Exception) {
+            }
+        }
+        voiceCallLoudnessEnhancer = null
+    }
+
+${insertBefore}`,
+      )
+      fs.writeFileSync(callManagerPath, callManager)
+      changed = true
+      console.log('[patch-android-fcm] CallManager dedupe loudness boost helpers')
+    }
   }
 }
 
