@@ -3159,9 +3159,37 @@ import android.telecom.Connection`,
     changed = true
     console.log('[patch-android-fcm] VoipConnection telecom speaker route')
   }
-}
 
-if (fs.existsSync(callManagerPath)) {
+  if (fs.existsSync(voipConnectionPath)) {
+    let voipConnection = fs.readFileSync(voipConnectionPath, 'utf8')
+    if (
+      voipConnection.includes('fun requestSpeakerRoute()') &&
+      !voipConnection.includes('preferredAudioRoute == "earpiece"')
+    ) {
+      voipConnection = voipConnection.replace(
+        `    fun requestSpeakerRoute() {
+        // ${voipTelecomSpeakerMarker}
+        // ${voipTelecomSpeakerLegacyMarker}
+        routeSpeakerLegacy()
+    }`,
+        `    fun requestSpeakerRoute() {
+        // ${voipTelecomSpeakerMarker}
+        // ${voipTelecomSpeakerLegacyMarker}
+        // Honor JS / in-call Speaker OFF — do not re-force loudspeaker.
+        if (callManager?.preferredAudioRoute == "earpiece") {
+            requestEarpieceRoute()
+            return
+        }
+        routeSpeakerLegacy()
+    }`,
+      )
+      fs.writeFileSync(voipConnectionPath, voipConnection)
+      changed = true
+      console.log('[patch-android-fcm] VoipConnection respects preferredAudioRoute earpiece')
+    }
+  }
+
+  if (fs.existsSync(callManagerPath)) {
   let callManager = fs.readFileSync(callManagerPath, 'utf8')
   if (callManager.includes(voiceCallRingLoudnessModeMarker) && !callManager.includes(voiceCallTelecomSpeakerMarker)) {
     callManager = callManager.replace(
@@ -3284,6 +3312,7 @@ if (fs.existsSync(callManagerPath)) {
     }`,
       `    fun applyTelecomSpeakerRoute() {
         // ${voiceCallTelecomSpeakerMarker}
+        preferredAudioRoute = "speaker"
         var telecomRouted = false
         for (connection in activeCalls.values) {
             connection.requestSpeakerRoute()
@@ -3313,18 +3342,27 @@ if (fs.existsSync(callManagerPath)) {
     }
 
     fun applyTelecomEarpieceRoute() {
+        preferredAudioRoute = "earpiece"
         for (connection in activeCalls.values) {
             connection.requestEarpieceRoute()
         }
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
         @Suppress("DEPRECATION")
         audioManager.isSpeakerphoneOn = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                audioManager.clearCommunicationDevice()
+                val earpiece = audioManager.availableCommunicationDevices
+                    .firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
+                if (earpiece != null) {
+                    audioManager.setCommunicationDevice(earpiece)
+                } else {
+                    audioManager.clearCommunicationDevice()
+                }
             } catch (_: Exception) {
             }
         }
+        android.util.Log.i("CallManager", "telecom earpiece route connections=\${activeCalls.size}")
     }
 
     fun setAudioRoute(route: String) {
@@ -3340,9 +3378,113 @@ if (fs.existsSync(callManagerPath)) {
         }
     }`,
     )
+    // Ensure the preference field exists on fresh injects too.
+    if (!callManager.includes('preferredAudioRoute') && callManager.includes('private val activeCalls')) {
+      callManager = callManager.replace(
+        'private val activeCalls',
+        '@Volatile\n    var preferredAudioRoute: String = "speaker"\n\n    private val activeCalls',
+      )
+    }
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
     console.log('[patch-android-fcm] CallManager applyTelecomSpeakerRoute')
+  }
+
+  // Earpiece OFF must select TYPE_BUILTIN_EARPIECE — clearCommunicationDevice alone often stays on speaker.
+  callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('fun applyTelecomEarpieceRoute()') &&
+    !callManager.includes('preferredAudioRoute')
+  ) {
+    // Insert preference field near class members if missing.
+    if (callManager.includes('private val activeCalls')) {
+      callManager = callManager.replace(
+        'private val activeCalls',
+        '@Volatile\n    var preferredAudioRoute: String = "speaker"\n\n    private val activeCalls',
+      )
+    }
+    if (
+      callManager.includes('fun applyTelecomSpeakerRoute()') &&
+      !callManager.includes('preferredAudioRoute = "speaker"')
+    ) {
+      callManager = callManager.replace(
+        `    fun applyTelecomSpeakerRoute() {
+        // ${voiceCallTelecomSpeakerMarker}
+        var telecomRouted = false`,
+        `    fun applyTelecomSpeakerRoute() {
+        // ${voiceCallTelecomSpeakerMarker}
+        preferredAudioRoute = "speaker"
+        var telecomRouted = false`,
+      )
+    }
+    if (
+      callManager.includes('fun applyTelecomEarpieceRoute()') &&
+      !callManager.includes('preferredAudioRoute = "earpiece"')
+    ) {
+      callManager = callManager.replace(
+        `    fun applyTelecomEarpieceRoute() {
+        for (connection in activeCalls.values) {
+            connection.requestEarpieceRoute()
+        }`,
+        `    fun applyTelecomEarpieceRoute() {
+        preferredAudioRoute = "earpiece"
+        for (connection in activeCalls.values) {
+            connection.requestEarpieceRoute()
+        }`,
+      )
+    }
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager preferredAudioRoute preference')
+  }
+
+  callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('fun applyTelecomEarpieceRoute()') &&
+    callManager.includes('audioManager.clearCommunicationDevice()') &&
+    !callManager.includes('TYPE_BUILTIN_EARPIECE')
+  ) {
+    callManager = callManager.replace(
+      `    fun applyTelecomEarpieceRoute() {
+        for (connection in activeCalls.values) {
+            connection.requestEarpieceRoute()
+        }
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        @Suppress("DEPRECATION")
+        audioManager.isSpeakerphoneOn = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                audioManager.clearCommunicationDevice()
+            } catch (_: Exception) {
+            }
+        }
+    }`,
+      `    fun applyTelecomEarpieceRoute() {
+        for (connection in activeCalls.values) {
+            connection.requestEarpieceRoute()
+        }
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        @Suppress("DEPRECATION")
+        audioManager.isSpeakerphoneOn = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val earpiece = audioManager.availableCommunicationDevices
+                    .firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
+                if (earpiece != null) {
+                    audioManager.setCommunicationDevice(earpiece)
+                } else {
+                    audioManager.clearCommunicationDevice()
+                }
+            } catch (_: Exception) {
+            }
+        }
+        android.util.Log.i("CallManager", "telecom earpiece route connections=\${activeCalls.size}")
+    }`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager earpiece uses TYPE_BUILTIN_EARPIECE')
   }
 
   callManager = fs.readFileSync(callManagerPath, 'utf8')

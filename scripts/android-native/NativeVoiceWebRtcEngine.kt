@@ -391,8 +391,8 @@ class NativeVoiceWebRtcEngine private constructor(
             .setUseHardwareNoiseSuppressor(true)
             .setAudioTrackStateCallback(object : JavaAudioDeviceModule.AudioTrackStateCallback {
                 override fun onWebRtcAudioTrackStart() {
-                    Log.i(TAG, "webrtc audio track start")
-                    mainHandler.post { applyTelecomSpeakerRoute() }
+                    // Do not re-force speaker here — that overwrote user earpiece / JS setAudioRoute.
+                    Log.i(TAG, "webrtc audio track start (route unchanged speakerPref=$uiSpeakerOn)")
                 }
 
                 override fun onWebRtcAudioTrackStop() {
@@ -635,11 +635,31 @@ class NativeVoiceWebRtcEngine private constructor(
             am.mode = AudioManager.MODE_IN_COMMUNICATION
             @Suppress("DEPRECATION")
             am.isSpeakerphoneOn = enabled
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    val devices = am.availableCommunicationDevices
+                    val target = if (enabled) {
+                        devices.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                    } else {
+                        devices.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
+                    }
+                    if (target != null) {
+                        am.setCommunicationDevice(target)
+                    } else if (!enabled) {
+                        am.clearCommunicationDevice()
+                    }
+                } catch (err: Exception) {
+                    Log.w(TAG, "setCommunicationDevice failed: ${err.message}")
+                }
+            }
         } catch (err: Exception) {
             Log.w(TAG, "speaker toggle failed: ${err.message}")
         }
+        // Telecom Connection owns the real route — must flip both ways or OFF stays loud.
         if (enabled) {
             applyTelecomSpeakerRoute()
+        } else {
+            applyTelecomEarpieceRoute()
         }
     }
 
@@ -986,7 +1006,7 @@ class NativeVoiceWebRtcEngine private constructor(
             // Local preview while ringing — do not wait for remote answer / ICE.
             ensureVideoOverlay()
         }
-        applyTelecomSpeakerRoute()
+        applyPreferredAudioRoute()
         localAudioTrack?.setEnabled(true)
 
         val constraints = MediaConstraints()
@@ -1128,7 +1148,7 @@ class NativeVoiceWebRtcEngine private constructor(
             requestCameraPermissionIfNeeded()
         }
         createAnswerGeneration = generation
-        applyTelecomSpeakerRoute()
+        applyPreferredAudioRoute()
         val pc = createPeerConnection(iceServers)
         if (pc == null) {
             failCall(callId, "peer connection create failed")
@@ -1323,7 +1343,7 @@ class NativeVoiceWebRtcEngine private constructor(
                     flushPendingRemoteIce(callId)
                     remoteAnswerApplied = true
                     localAudioTrack?.setEnabled(true)
-                    applyTelecomSpeakerRoute()
+                    applyPreferredAudioRoute()
                     if (isCaller) {
                         stopSessionPoll()
                         injectUiEvent(
@@ -1619,7 +1639,7 @@ class NativeVoiceWebRtcEngine private constructor(
         val activate = Runnable {
             val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: return@Runnable
             callManager.setVoiceCallAudioActive(true)
-            applyTelecomSpeakerRoute()
+            applyPreferredAudioRoute()
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             activate.run()
@@ -1628,9 +1648,43 @@ class NativeVoiceWebRtcEngine private constructor(
         }
     }
 
+    private fun applyPreferredAudioRoute() {
+        val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager
+        val preferEarpiece =
+            !uiSpeakerOn || callManager?.preferredAudioRoute == "earpiece"
+        if (preferEarpiece) {
+            applyTelecomEarpieceRoute()
+        } else {
+            applyTelecomSpeakerRoute()
+        }
+    }
+
     private fun applyTelecomSpeakerRoute() {
         val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: return
         callManager.applyTelecomSpeakerRoute()
+    }
+
+    private fun applyTelecomEarpieceRoute() {
+        val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager
+        if (callManager != null) {
+            callManager.applyTelecomEarpieceRoute()
+            return
+        }
+        try {
+            val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            am.mode = AudioManager.MODE_IN_COMMUNICATION
+            @Suppress("DEPRECATION")
+            am.isSpeakerphoneOn = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val earpiece = am.availableCommunicationDevices
+                    .firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
+                if (earpiece != null) {
+                    am.setCommunicationDevice(earpiece)
+                }
+            }
+        } catch (err: Exception) {
+            Log.w(TAG, "earpiece fallback failed: ${err.message}")
+        }
     }
 
     private fun failCall(callId: String, error: String) {
@@ -1695,7 +1749,7 @@ class NativeVoiceWebRtcEngine private constructor(
             val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: return@post
             callManager.setVoiceCallAudioActive(true)
             callManager.setVoiceCallMediaVolume(1.0f)
-            callManager.applyTelecomSpeakerRoute()
+            applyPreferredAudioRoute()
         }
         emitConnected(callId, cachedCaller)
         scheduleConnectedUiSync(callId, cachedCaller)

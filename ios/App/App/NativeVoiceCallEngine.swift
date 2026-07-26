@@ -43,6 +43,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var videoCapturer: RTCCameraVideoCapturer?
     private var videoSource: RTCVideoSource?
     private var wantsVideo = false
+    /// Honored by forceLoudspeakerOutput — otherwise OFF never stays on earpiece.
+    private var prefersSpeaker = true
     private var localPreviewView: RTCMTLVideoView?
     private var remoteVideoView: RTCMTLVideoView?
     /// Full-screen KakaoTalk-style UI (not Metal painted over Capacitor WebView).
@@ -107,6 +109,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     }
 
     func setSpeakerEnabled(_ enabled: Bool) {
+        prefersSpeaker = enabled
         do {
             try AVAudioSession.sharedInstance().overrideOutputAudioPort(enabled ? .speaker : .none)
         } catch {
@@ -232,8 +235,9 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         config.categoryOptions = [
             .allowBluetoothHFP,
             .allowBluetoothA2DP,
-            .defaultToSpeaker,
         ]
+        // Do not set .defaultToSpeaker here — that locks loudness so Speaker OFF matches ON.
+        // Route is applied via overrideOutputAudioPort in forceLoudspeakerOutput / setSpeakerEnabled.
         do {
             // CallKit already activated the session — do not setActive here.
             try rtc.setConfiguration(config)
@@ -248,6 +252,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     }
 
     private func forceLoudspeakerOutput() {
+        guard prefersSpeaker else { return }
         do {
             try AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
         } catch {
@@ -283,6 +288,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         pendingStart = false
         isMediaConnected = false
         wantsVideo = false
+        prefersSpeaker = true
 
         let endedCallId = callId
         let authToken = token
