@@ -3379,8 +3379,25 @@ if (fs.existsSync(callManagerPath)) {
         }
     }`,
     )
-    // Ensure the preference field exists on fresh injects too.
-    if (!callManager.includes('preferredAudioRoute') && callManager.includes('private val activeCalls')) {
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager applyTelecomSpeakerRoute')
+  }
+
+  // Always declare the field if methods assign it (fresh inject added assignments first).
+  callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('preferredAudioRoute') &&
+    !callManager.includes('var preferredAudioRoute')
+  ) {
+    const activeCallsDecl =
+      'private val activeCalls = mutableMapOf<String, VoipConnection>()'
+    if (callManager.includes(activeCallsDecl)) {
+      callManager = callManager.replace(
+        activeCallsDecl,
+        `@Volatile\n    var preferredAudioRoute: String = "speaker"\n\n    ${activeCallsDecl}`,
+      )
+    } else if (callManager.includes('private val activeCalls')) {
       callManager = callManager.replace(
         'private val activeCalls',
         '@Volatile\n    var preferredAudioRoute: String = "speaker"\n\n    private val activeCalls',
@@ -3388,7 +3405,7 @@ if (fs.existsSync(callManagerPath)) {
     }
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
-    console.log('[patch-android-fcm] CallManager applyTelecomSpeakerRoute')
+    console.log('[patch-android-fcm] CallManager declare preferredAudioRoute field')
   }
 
   // Earpiece OFF must select TYPE_BUILTIN_EARPIECE — clearCommunicationDevice alone often stays on speaker.
@@ -3442,11 +3459,10 @@ if (fs.existsSync(callManagerPath)) {
   callManager = fs.readFileSync(callManagerPath, 'utf8')
   if (
     callManager.includes('fun applyTelecomEarpieceRoute()') &&
-    callManager.includes('audioManager.clearCommunicationDevice()') &&
     !callManager.includes('TYPE_BUILTIN_EARPIECE')
   ) {
-    callManager = callManager.replace(
-      `    fun applyTelecomEarpieceRoute() {
+    // Match either legacy (clear only) or assignment-prefixed earpiece body.
+    const earpieceLegacy = `    fun applyTelecomEarpieceRoute() {
         for (connection in activeCalls.values) {
             connection.requestEarpieceRoute()
         }
@@ -3459,8 +3475,24 @@ if (fs.existsSync(callManagerPath)) {
             } catch (_: Exception) {
             }
         }
-    }`,
-      `    fun applyTelecomEarpieceRoute() {
+    }`
+    const earpieceWithPref = `    fun applyTelecomEarpieceRoute() {
+        preferredAudioRoute = "earpiece"
+        for (connection in activeCalls.values) {
+            connection.requestEarpieceRoute()
+        }
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        @Suppress("DEPRECATION")
+        audioManager.isSpeakerphoneOn = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                audioManager.clearCommunicationDevice()
+            } catch (_: Exception) {
+            }
+        }
+    }`
+    const earpieceFixed = `    fun applyTelecomEarpieceRoute() {
+        preferredAudioRoute = "earpiece"
         for (connection in activeCalls.values) {
             connection.requestEarpieceRoute()
         }
@@ -3481,11 +3513,17 @@ if (fs.existsSync(callManagerPath)) {
             }
         }
         android.util.Log.i("CallManager", "telecom earpiece route connections=\${activeCalls.size}")
-    }`,
-    )
-    fs.writeFileSync(callManagerPath, callManager)
-    changed = true
-    console.log('[patch-android-fcm] CallManager earpiece uses TYPE_BUILTIN_EARPIECE')
+    }`
+    if (callManager.includes(earpieceWithPref)) {
+      callManager = callManager.replace(earpieceWithPref, earpieceFixed)
+    } else if (callManager.includes(earpieceLegacy)) {
+      callManager = callManager.replace(earpieceLegacy, earpieceFixed)
+    }
+    if (callManager.includes('TYPE_BUILTIN_EARPIECE')) {
+      fs.writeFileSync(callManagerPath, callManager)
+      changed = true
+      console.log('[patch-android-fcm] CallManager earpiece uses TYPE_BUILTIN_EARPIECE')
+    }
   }
 
   callManager = fs.readFileSync(callManagerPath, 'utf8')
