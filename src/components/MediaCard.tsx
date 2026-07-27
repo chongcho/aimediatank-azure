@@ -618,7 +618,11 @@ export default function MediaCard({
     }
   }, [isInView, media.id, applyPlayPrefetchViews])
 
+  // Soft-nav to /media keeps the home grid mounted; pause preplay while the detail route is open.
+  const onMediaDetailRoute = pathname.startsWith('/media/')
+
   // Mobile homepage: pre-play only the single focus tile; desktop / profile unchanged.
+  // Include pathname so returning from media detail re-runs play() (isInView often never toggles).
   useEffect(() => {
     if (!isMobile) return
     const isPreplay = preplay && media.type === 'VIDEO' && isPlayable
@@ -628,12 +632,21 @@ export default function MediaCard({
     const useOverlayVideo = hasThumb && !thumbnailError
     const useFallbackVideo = media.type === 'VIDEO' && !hasThumb && !thumbnailError
     const mayPlay = !androidNative || preplayActive
-    if (isInView && mobileHomePreplayFocused && mayPlay) {
+    if (isInView && mobileHomePreplayFocused && mayPlay && !onMediaDetailRoute) {
       let raf2: number | null = null
       const raf1 = requestAnimationFrame(() => {
         raf2 = requestAnimationFrame(() => {
           const tryPlay = (v: HTMLVideoElement | null) => {
             if (!v) return
+            // stopAllMedia used to strip src on soft-nav; heal if src is missing.
+            if (!v.getAttribute('src') && videoPreplaySrc) {
+              v.src = videoPreplaySrc
+              try {
+                v.load()
+              } catch {
+                /* ignore */
+              }
+            }
             v.muted = !audible
             void v.play().catch(() => {
               v.muted = true
@@ -668,6 +681,8 @@ export default function MediaCard({
     previewSoundOn,
     androidNative,
     preplayActive,
+    onMediaDetailRoute,
+    videoPreplaySrc,
   ])
 
   useEffect(() => {
@@ -1420,6 +1435,7 @@ export default function MediaCard({
                   ref={preplayVideoRef}
                   src={videoPreplaySrc}
                   poster={androidNative ? thumbnailSrc : undefined}
+                  data-home-preplay="1"
                   data-preplay-ready={showAndroidPreplayOverlay ? '1' : undefined}
                   className={
                     androidNative
@@ -1477,6 +1493,7 @@ export default function MediaCard({
             <video
               ref={videoRef}
               src={videoPreplaySrc}
+              data-home-preplay={preplay ? '1' : undefined}
               data-preplay-ready={showAndroidPreplayOverlay ? '1' : undefined}
               className={
                 androidNative && preplay

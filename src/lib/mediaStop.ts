@@ -21,6 +21,9 @@ export function pauseAllMedia(): void {
  * Without load(), already-buffered data can fire pending events (canplay, etc.) that restart
  * playback on detached elements, causing audio to leak in the background.
  * Calling load() with no src is lightweight — it simply resets to HAVE_NOTHING state.
+ *
+ * Home-feed preplay tiles (`data-home-preplay`) stay mounted under the intercepted /media modal.
+ * Pause them, but do not strip src — otherwise they stay dead until scroll remounts the <video>.
  */
 export function stopAllMedia(): void {
   if (typeof document === 'undefined') return
@@ -28,6 +31,7 @@ export function stopAllMedia(): void {
     const media = el as HTMLVideoElement | HTMLAudioElement
     try {
       if (!media.paused) media.pause()
+      if (media.dataset.homePreplay === '1') return
       media.removeAttribute('src')
       media.load() // Reset internal state — cancels buffered data and pending events
     } catch {
