@@ -215,6 +215,10 @@ if (!source.includes(cancelMarker)) {
             // ${cancelMarker}
             if (data["action"]?.lowercase() == "cancel") {
                 val cancelCallId = data["callId"] ?: return
+                // Remember cancel before ring can arrive (early caller hangup race).
+                val prefs = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                val key = "cancelled_" + cancelCallId.lowercase()
+                prefs.edit().putLong(key, System.currentTimeMillis()).apply()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     val manager = CallManager(context)
                     manager.endCall(cancelCallId)
@@ -230,6 +234,55 @@ if (!source.includes(cancelMarker)) {
     source = source.replace(cancelAnchor, cancelInsert)
     changed = true
     console.log('[patch-android-fcm] added FCM cancel routing')
+  }
+}
+
+// Upgrade existing cancel handler to remember cancelled call ids.
+if (
+  source.includes(cancelMarker) &&
+  !source.includes('cancelled_" + cancelCallId.lowercase()')
+) {
+  const oldCancel =
+    `            if (data["action"]?.lowercase() == "cancel") {
+                val cancelCallId = data["callId"] ?: return
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {`
+  const newCancel =
+    `            if (data["action"]?.lowercase() == "cancel") {
+                val cancelCallId = data["callId"] ?: return
+                val prefs = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                prefs.edit().putLong("cancelled_" + cancelCallId.lowercase(), System.currentTimeMillis()).apply()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {`
+  if (source.includes(oldCancel)) {
+    source = source.replace(oldCancel, newCancel)
+    changed = true
+    console.log('[patch-android-fcm] FCM cancel remembers cancelled call id')
+  }
+}
+
+// Skip reporting ConnectionService UI when cancel already arrived.
+if (
+  source.includes('manager.reportIncomingCall(') &&
+  !source.includes('AiMediaTank skip cancelled incoming')
+) {
+  const reportAnchor = `                try {
+                    val manager = CallManager(context)
+                    manager.reportIncomingCall(`
+  const reportInsert = `                // AiMediaTank skip cancelled incoming
+                val cancelledAt = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                    .getLong("cancelled_" + callId.lowercase(), 0L)
+                if (cancelledAt > 0L && System.currentTimeMillis() - cancelledAt < 120_000L) {
+                    android.util.Log.i("CapacitorPushCalls", "skip incoming — already cancelled $callId")
+                    IncomingCallUiHelper.dismiss(context)
+                    emitFromService("callEnded", JSObject().apply { put("callId", callId) })
+                    return
+                }
+                try {
+                    val manager = CallManager(context)
+                    manager.reportIncomingCall(`
+  if (source.includes(reportAnchor)) {
+    source = source.replace(reportAnchor, reportInsert)
+    changed = true
+    console.log('[patch-android-fcm] skip ConnectionService report after early cancel')
   }
 }
 

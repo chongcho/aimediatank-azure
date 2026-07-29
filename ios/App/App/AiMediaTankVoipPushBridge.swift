@@ -34,8 +34,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private static let pendingAnswerCallIdKey = "AiMediaTank.pendingCallKitAnswerCallId"
     private static let incomingReportedAtKeyPrefix = "AiMediaTank.incomingReportedAt."
     /// Ignore native-status dismiss while CallKit incoming UI is still settling.
-    private static let statusPollGraceSeconds: TimeInterval = 15
-    private static let statusPollStartDelaySeconds: TimeInterval = 3
+    private static let statusPollGraceSeconds: TimeInterval = 3
+    private static let statusPollStartDelaySeconds: TimeInterval = 1
     /// End ghost CallKit sessions if WebRTC never connects after Accept (in-app retests).
     private static let webrtcConnectWatchdogSeconds: TimeInterval = 45
     static let bridgeEndCallNotification = Notification.Name("AiMediaTankRequestBridgeEndCall")
@@ -1303,17 +1303,25 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     private func performCancelDismiss(callId: String, source: String) {
         let normalized = callId.lowercased()
-        if (source == "status_poll" || source == "bridge_dismiss_request"),
+        // status_poll already confirmed server is not ringing — never defer on grace
+        // (early caller hangup left CallKit ringing for the full 15s grace before).
+        if source == "bridge_dismiss_request",
            Self.isWithinIncomingGracePeriod(callId: normalized) {
             print("[AiMediaTankVoipPushBridge] defer \(source) dismiss — incoming grace \(normalized)")
             return
         }
         if Self.isCallCancelled(normalized) {
-            // Already handled — only re-end if CallKit still shows this call (no new UI).
+            // Already marked (e.g. cancel push marked early to beat a racing ring push).
+            // Still tear down CallKit / notify JS if the ring UI is live.
             if let uuid = UUID(uuidString: normalized),
                CXCallObserver().calls.contains(where: { $0.uuid == uuid && !$0.hasEnded }) {
-                endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: false)
+                endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: true)
             }
+            NotificationCenter.default.post(
+                name: Self.cancelPushNotification,
+                object: nil,
+                userInfo: ["callId": normalized]
+            )
             return
         }
         reportCancelAck(callId: normalized, source: source)
@@ -1666,6 +1674,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                     }
                     return
                 }
+                // Mark cancelled before any await/report — otherwise a ring push in the
+                // same window can report CallKit before performCancelDismiss runs.
+                Self.markCallCancelled(normalizedCallId)
                 fulfillVoipPushReportingRequirement(endingCallId: uuid) {
                     self.performCancelDismiss(callId: normalizedCallId, source: "voip_cancel_push")
                     completeOnce()
