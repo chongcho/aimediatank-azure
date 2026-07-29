@@ -220,6 +220,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const isCallerRef = useRef(false)
   const makingOfferRef = useRef(false)
   const handledIncomingRef = useRef<Set<string>>(new Set())
+  /** Call ids already ended/cancelled while local state was idle — skip late accept UI. */
+  const suppressedEndedCallIdsRef = useRef<Set<string>>(new Set())
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null)
   const pendingAnswerRef = useRef<RTCSessionDescriptionInit | null>(null)
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([])
@@ -251,6 +253,20 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     },
     [onError],
   )
+
+  const rememberEndedCallId = useCallback((id: string | null | undefined) => {
+    if (!id) return
+    const normalized = normalizeVoiceCallId(id)
+    const set = suppressedEndedCallIdsRef.current
+    set.add(normalized)
+    if (set.size > 40) {
+      suppressedEndedCallIdsRef.current = new Set([...set].slice(-40))
+    }
+  }, [])
+
+  const isSuppressedEndedCall = useCallback((id: string) => {
+    return suppressedEndedCallIdsRef.current.has(normalizeVoiceCallId(id))
+  }, [])
 
   const clearLastError = useCallback(() => {
     setLastError(null)
@@ -1114,12 +1130,15 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       }
 
       for (const signal of returnedSignals) {
-        if (
-          (signal.type === 'hangup' || signal.type === 'reject') &&
-          callStateRef.current === 'idle' &&
-          pendingVoiceActionRef.current
-        ) {
-          pendingVoiceActionRef.current = null
+        if (signal.type === 'hangup' || signal.type === 'reject') {
+          // Caller hung up before accept UI mounted — remember so a late poll/push
+          // cannot flash incoming after the call is already over.
+          if (callStateRef.current === 'idle') {
+            rememberEndedCallId(signal.callId)
+            if (pendingVoiceActionRef.current) {
+              pendingVoiceActionRef.current = null
+            }
+          }
         }
 
         if (signal.type === 'offer') {
@@ -1184,6 +1203,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
       const localCallId = callIdRef.current
       const localState = callStateRef.current
+
+      // While idle, record recently ended calls so late incoming mounts are skipped.
+      if (localState === 'idle' && data.endedCalls?.length) {
+        for (const ended of data.endedCalls) {
+          rememberEndedCallId(ended.id)
+        }
+      }
+
       if (
         localCallId &&
         (localState === 'outgoing' ||
@@ -1244,6 +1271,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
       if (callStateRef.current === 'idle' && data.incomingCalls?.length) {
         const incoming = data.incomingCalls[0]
+        if (isSuppressedEndedCall(incoming.id)) {
+          return
+        }
         if (!handledIncomingRef.current.has(`call-${incoming.id}`)) {
           handledIncomingRef.current.add(`call-${incoming.id}`)
           callIdRef.current = normalizeVoiceCallId(incoming.id)
@@ -1277,7 +1307,17 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         }
       }
     },
-    [flushPendingIceCandidates, handleRemoteAnswer, handleRemoteIce, handleRemoteOffer, resetCall, sendSignal, storePendingOffer],
+    [
+      flushPendingIceCandidates,
+      handleRemoteAnswer,
+      handleRemoteIce,
+      handleRemoteOffer,
+      isSuppressedEndedCall,
+      rememberEndedCallId,
+      resetCall,
+      sendSignal,
+      storePendingOffer,
+    ],
   )
 
   const runPendingVoiceAction = useCallback(() => {
@@ -1295,6 +1335,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   const applyIncomingCall = useCallback((callId: string, caller: VoiceCallUser, opts?: { callKitOnly?: boolean }) => {
     const normalizedId = normalizeVoiceCallId(callId)
+    if (isSuppressedEndedCall(normalizedId)) {
+      return
+    }
     if (callStateRef.current === 'connecting' || callStateRef.current === 'connected') {
       stopVoiceCallRingtone()
       callIdRef.current = normalizedId
@@ -1326,7 +1369,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     setRemoteUser(caller)
     isCallerRef.current = false
     setCallState('incoming')
-  }, [runPendingVoiceAction])
+  }, [isSuppressedEndedCall, runPendingVoiceAction])
 
   useEffect(() => {
     if (callState === 'incoming') {
@@ -1367,6 +1410,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
     const ensureIncomingCall = async (callId: string, call?: NativeIncomingCallPayload) => {
       const normalizedId = normalizeVoiceCallId(callId)
+      if (isSuppressedEndedCall(normalizedId)) {
+        return
+      }
       callIdRef.current = normalizedId
       setCallId(normalizedId)
       isCallerRef.current = false
@@ -1408,6 +1454,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         )
         if (!res.ok) return
         const data = await res.json()
+        const ended = (data.endedCalls as { id: string }[] | undefined)?.some((row) =>
+          voiceCallIdsMatch(row.id, normalizedId),
+        )
+        if (ended) {
+          rememberEndedCallId(normalizedId)
+          return
+        }
         const incoming = (data.incomingCalls as PollIncomingCall[] | undefined)?.find((row) =>
           voiceCallIdsMatch(row.id, normalizedId),
         )
@@ -1415,17 +1468,27 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           applyIncomingCallRef.current(normalizedId, incoming.caller)
           return
         }
+        const active =
+          data.activeCall &&
+          voiceCallIdsMatch(data.activeCall.id, normalizedId) &&
+          (data.activeCall.status === 'ringing' || data.activeCall.status === 'active')
+        if (active && data.activeCall?.caller) {
+          applyIncomingCallRef.current(normalizedId, data.activeCall.caller)
+        }
+        // Do not set incoming blindly — call may already be missed/ended.
       } catch {
         // poll fallback below on answer
       }
-
-      setCallState('incoming')
     }
 
     void initNativeCallBridge({
       onIncomingCall: (call) => {
         if (!isNativeVoiceCallApp()) {
           stopVoiceCallRingtone()
+        }
+        const normalizedIncoming = normalizeVoiceCallId(call.callId)
+        if (isSuppressedEndedCall(normalizedIncoming)) {
+          return
         }
         const token =
           getCachedNativeDeclineToken(call.callId) ||
@@ -1612,6 +1675,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         void rejectCallRef.current(callId)
       },
       onCallEnded: (callId) => {
+        const normalizedId = normalizeVoiceCallId(callId)
+        rememberEndedCallId(normalizedId)
         if (callIdRef.current && !voiceCallIdsMatch(callIdRef.current, callId)) return
         stopVoiceCallRingtone()
         callKitAnswerInFlightRef.current = null
@@ -1620,7 +1685,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           nativeWebRtcCalleeRef.current = false
         }
         nativeWebRtcAndroidRef.current = false
-        const normalizedId = normalizeVoiceCallId(callId)
         void (async () => {
           const state = callStateRef.current
           // Native bridge / remote cancel already synced end — avoid POST /end feedback loop.
@@ -1643,7 +1707,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         })()
       },
     })
-  }, [currentUserId, enabled, reportError, resetCallKitWebRtcState])
+  }, [currentUserId, enabled, isSuppressedEndedCall, rememberEndedCallId, reportError, resetCallKitWebRtcState])
 
   // Android lock-screen answer: native WebRTC owns media — open TalkChat when WebView wakes.
   useEffect(() => {

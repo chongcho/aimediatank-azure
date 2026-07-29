@@ -8,6 +8,7 @@ import {
 import { ApnsClient, ApnsError, Notification, Priority, PushType } from 'apns2'
 import { prisma } from '@/lib/prisma'
 import { voiceCallIsRinging } from '@/lib/voiceCallStatus'
+import { voiceCallHasNativeCancelAck } from '@/lib/voipCallTrace'
 
 export interface VoipCallPushPayload {
   callId: string
@@ -236,11 +237,13 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/** Cancel retries — first cancel often races before CallKit is up; later ones dismiss the ring. */
-const CANCEL_PUSH_RETRY_GAPS_MS: readonly number[] = [800, 1600, 3000, 5000]
+/** Cancel retries — first cancel often races before CallKit is up; later ones dismiss the ring.
+ * Keep short: each extra cancel VoIP after CallKit is gone forces a PushKit synthetic fulfill
+ * that can flash Accept UI on the iPhone (~3 flashes over ~2s with the old gaps). */
+const CANCEL_PUSH_RETRY_GAPS_MS: readonly number[] = [1200, 3500]
 
 /** Retries awaited before the HTTP handler returns. */
-const CANCEL_PUSH_AWAITED_RETRIES = 2
+const CANCEL_PUSH_AWAITED_RETRIES = 1
 
 /** Total cancel VoIP pushes per caller hangup (1 immediate + all retry gaps). */
 export function plannedVoipCancelPushAttempts(): number {
@@ -263,6 +266,7 @@ export async function sendVoipCallCancelPushToUser(userId: string, callId: strin
 /**
  * Send cancel VoIP pushes repeatedly. Quick retries are awaited so they are not lost when the
  * serverless/runtime freezes after the response; longer retries continue in the background.
+ * Stops once the iPhone acks cancel — further cancels only flash synthetic Accept UI.
  */
 export async function sendVoipCallCancelPushBurstToUser(userId: string, callId: string): Promise<void> {
   const normalizedCallId = normalizeVoiceCallId(callId)
@@ -280,9 +284,18 @@ export async function sendVoipCallCancelPushBurstToUser(userId: string, callId: 
     )
   }
 
+  const shouldAbort = async (label: string): Promise<boolean> => {
+    if (await voiceCallHasNativeCancelAck(normalizedCallId)) {
+      console.info(`[VoIP] abort cancel burst ${label} — device acked ${normalizedCallId}`)
+      return true
+    }
+    return false
+  }
+
   const runRetriesFrom = async (startIndex: number) => {
     for (let i = startIndex; i < CANCEL_PUSH_RETRY_GAPS_MS.length; i++) {
       await sleep(CANCEL_PUSH_RETRY_GAPS_MS[i]!)
+      if (await shouldAbort(`at retry gap #${i + 1}`)) return
       try {
         await sendOnce()
       } catch (err) {
@@ -300,6 +313,7 @@ export async function sendVoipCallCancelPushBurstToUser(userId: string, callId: 
   const awaitedEnd = Math.min(CANCEL_PUSH_AWAITED_RETRIES, CANCEL_PUSH_RETRY_GAPS_MS.length)
   for (let i = 0; i < awaitedEnd; i++) {
     await sleep(CANCEL_PUSH_RETRY_GAPS_MS[i]!)
+    if (await shouldAbort(`before awaited retry #${i + 1}`)) return
     try {
       await sendOnce()
     } catch (err) {

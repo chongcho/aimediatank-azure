@@ -47,6 +47,14 @@ object IncomingCallUiHelper {
     private const val NOTIFICATION_ID = 91001
 
     fun present(context: Context, callId: String, displayName: String) {
+        // AiMediaTank skip cancelled present
+        val cancelledAt = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+            .getLong("cancelled_" + callId.lowercase(), 0L)
+        if (cancelledAt > 0L && System.currentTimeMillis() - cancelledAt < 120_000L) {
+            Log.i(TAG, "skip present — already cancelled $callId")
+            dismiss(context)
+            return
+        }
         ensureNotificationChannel(context)
         launchMainActivity(context, callId)
         showFullScreenNotification(context, callId, displayName)
@@ -215,12 +223,11 @@ if (!source.includes(cancelMarker)) {
             // ${cancelMarker}
             if (data["action"]?.lowercase() == "cancel") {
                 val cancelCallId = data["callId"] ?: return
-                // Remember cancel before ring can arrive (early caller hangup race).
+                // AiMediaTank remember cancelled call id
                 val prefs = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
-                val key = "cancelled_" + cancelCallId.lowercase()
-                prefs.edit().putLong(key, System.currentTimeMillis()).apply()
+                prefs.edit().putLong("cancelled_" + cancelCallId.lowercase(), System.currentTimeMillis()).apply()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    val manager = CallManager(context)
+                    val manager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: CallManager(context)
                     manager.endCall(cancelCallId)
                     manager.rejectCall(cancelCallId)
                 }
@@ -4751,6 +4758,205 @@ ${insertBefore}`,
       fs.writeFileSync(callManagerPath, callManager)
       changed = true
       console.log('[patch-android-fcm] CallManager dedupe loudness boost helpers')
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Early caller hangup vs late ring FCM (Android Accept UI flash)
+// Cancel must be remembered even when ConnectionService has not reported yet;
+// reportIncomingCall / IncomingCallUiHelper must honor that mark.
+// ---------------------------------------------------------------------------
+
+const cancelRememberMarker = 'AiMediaTank remember cancelled call id'
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (pluginSource.includes('AiMediaTank FCM cancel push') && !pluginSource.includes(cancelRememberMarker)) {
+    const cancelWithoutRemember =
+      `            if (data["action"]?.lowercase() == "cancel") {
+                val cancelCallId = data["callId"] ?: return
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val manager = CallManager(context)
+                    manager.endCall(cancelCallId)
+                    manager.rejectCall(cancelCallId)
+                }`
+    const cancelWithRemember =
+      `            if (data["action"]?.lowercase() == "cancel") {
+                val cancelCallId = data["callId"] ?: return
+                // ${cancelRememberMarker}
+                val prefs = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                prefs.edit().putLong("cancelled_" + cancelCallId.lowercase(), System.currentTimeMillis()).apply()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val manager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: CallManager(context)
+                    manager.endCall(cancelCallId)
+                    manager.rejectCall(cancelCallId)
+                }`
+    if (pluginSource.includes(cancelWithoutRemember)) {
+      pluginSource = pluginSource.replace(cancelWithoutRemember, cancelWithRemember)
+      fs.writeFileSync(pluginPath, pluginSource)
+      changed = true
+      console.log('[patch-android-fcm] FCM cancel remembers cancelled call id (gate)')
+    } else if (
+      pluginSource.includes('if (data["action"]?.lowercase() == "cancel")') &&
+      !pluginSource.includes('cancelled_" + cancelCallId.lowercase()')
+    ) {
+      pluginSource = pluginSource.replace(
+        `            if (data["action"]?.lowercase() == "cancel") {
+                val cancelCallId = data["callId"] ?: return
+`,
+        `            if (data["action"]?.lowercase() == "cancel") {
+                val cancelCallId = data["callId"] ?: return
+                // ${cancelRememberMarker}
+                val prefs = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                prefs.edit().putLong("cancelled_" + cancelCallId.lowercase(), System.currentTimeMillis()).apply()
+`,
+      )
+      fs.writeFileSync(pluginPath, pluginSource)
+      changed = true
+      console.log('[patch-android-fcm] FCM cancel remembers cancelled call id (insert)')
+    }
+  }
+
+  // Prefer plugin CallManager singleton so cancel ends the same instance that reported the ring.
+  if (
+    pluginSource.includes('cancelled_" + cancelCallId.lowercase()') &&
+    pluginSource.includes('val manager = CallManager(context)') &&
+    pluginSource.includes('manager.endCall(cancelCallId)') &&
+    !pluginSource.includes('getInstance()?.callManager ?: CallManager(context)')
+  ) {
+    pluginSource = fs.readFileSync(pluginPath, 'utf8')
+    const cancelBareManager =
+      `                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val manager = CallManager(context)
+                    manager.endCall(cancelCallId)
+                    manager.rejectCall(cancelCallId)
+                }`
+    const cancelSingletonManager =
+      `                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val manager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: CallManager(context)
+                    manager.endCall(cancelCallId)
+                    manager.rejectCall(cancelCallId)
+                }`
+    if (pluginSource.includes(cancelBareManager)) {
+      pluginSource = pluginSource.replace(cancelBareManager, cancelSingletonManager)
+      fs.writeFileSync(pluginPath, pluginSource)
+      changed = true
+      console.log('[patch-android-fcm] FCM cancel uses plugin CallManager singleton')
+    }
+  }
+
+  pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (
+    pluginSource.includes('AiMediaTank skip cancelled incoming') &&
+    pluginSource.includes(
+      `                try {
+                    val manager = CallManager(context)
+                    manager.reportIncomingCall(`,
+    ) &&
+    !pluginSource.includes(
+      `                try {
+                    val manager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: CallManager(context)
+                    manager.reportIncomingCall(`,
+    )
+  ) {
+    pluginSource = pluginSource.replace(
+      `                try {
+                    val manager = CallManager(context)
+                    manager.reportIncomingCall(`,
+      `                try {
+                    val manager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: CallManager(context)
+                    manager.reportIncomingCall(`,
+    )
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] FCM incoming uses plugin CallManager singleton')
+  }
+}
+
+const callManagerCancelGateMarker = 'AiMediaTank CallManager cancel gate'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (callManager.includes('fun reportIncomingCall(') && !callManager.includes(callManagerCancelGateMarker)) {
+    const gateInsertTargets = [
+      `    ) {
+        val normalized = callId.lowercase()
+        if (NativeVoiceWebRtcEngine.isHandlingCallId(callId)) {`,
+      `    ) {
+        val normalized = callId.lowercase()
+        if (reportedIncomingCallIds.contains(normalized)) {`,
+      `    ) {
+        val phoneAccount = VoipConnectionService.getPhoneAccount(context)`,
+    ]
+    const gateBlock = `    ) {
+        val normalized = callId.lowercase()
+        // ${callManagerCancelGateMarker}
+        val cancelledAt = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+            .getLong("cancelled_" + normalized, 0L)
+        if (cancelledAt > 0L && System.currentTimeMillis() - cancelledAt < 120_000L) {
+            android.util.Log.i("CallManager", "skip incoming — already cancelled $callId")
+            reportedIncomingCallIds.add(normalized)
+            try {
+                IncomingCallUiHelper.dismiss(context)
+            } catch (_: Exception) {
+            }
+            eventEmitter?.invoke("callEnded", JSObject().apply { put("callId", callId) })
+            return
+        }
+`
+    let applied = false
+    for (const target of gateInsertTargets) {
+      if (callManager.includes(target)) {
+        if (target.includes('NativeVoiceWebRtcEngine.isHandlingCallId')) {
+          callManager = callManager.replace(
+            target,
+            `${gateBlock}        if (NativeVoiceWebRtcEngine.isHandlingCallId(callId)) {`,
+          )
+        } else if (target.includes('reportedIncomingCallIds.contains')) {
+          callManager = callManager.replace(
+            target,
+            `${gateBlock}        if (reportedIncomingCallIds.contains(normalized)) {`,
+          )
+        } else {
+          callManager = callManager.replace(
+            target,
+            `${gateBlock}        val phoneAccount = VoipConnectionService.getPhoneAccount(context)`,
+          )
+        }
+        applied = true
+        break
+      }
+    }
+    if (applied) {
+      fs.writeFileSync(callManagerPath, callManager)
+      changed = true
+      console.log('[patch-android-fcm] CallManager skips cancelled incoming calls')
+    }
+  }
+}
+
+const uiHelperCancelGateMarker = 'AiMediaTank skip cancelled present'
+if (fs.existsSync(incomingCallUiPath)) {
+  let helper = fs.readFileSync(incomingCallUiPath, 'utf8')
+  if (helper.includes('fun present(') && !helper.includes(uiHelperCancelGateMarker)) {
+    const presentOld =
+      `    fun present(context: Context, callId: String, displayName: String) {
+        ensureNotificationChannel(context)`
+    const presentNew =
+      `    fun present(context: Context, callId: String, displayName: String) {
+        // ${uiHelperCancelGateMarker}
+        val cancelledAt = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+            .getLong("cancelled_" + callId.lowercase(), 0L)
+        if (cancelledAt > 0L && System.currentTimeMillis() - cancelledAt < 120_000L) {
+            Log.i(TAG, "skip present — already cancelled $callId")
+            dismiss(context)
+            return
+        }
+        ensureNotificationChannel(context)`
+    if (helper.includes(presentOld)) {
+      helper = helper.replace(presentOld, presentNew)
+      fs.writeFileSync(incomingCallUiPath, helper)
+      changed = true
+      console.log('[patch-android-fcm] IncomingCallUiHelper skips cancelled present')
     }
   }
 }

@@ -62,6 +62,17 @@ export async function recordNativeCancelAck(params: {
   })
 }
 
+/** True once the iPhone reported it processed a cancel (stop further cancel VoIP bursts). */
+export async function voiceCallHasNativeCancelAck(callId: string): Promise<boolean> {
+  const normalized = normalizeVoiceCallId(callId)
+  if (!normalized) return false
+  const row = await prisma.voiceCallSignal.findFirst({
+    where: { callId: normalized, type: NATIVE_CANCEL_ACK_TYPE },
+    select: { id: true },
+  })
+  return Boolean(row)
+}
+
 export async function recordNativeIosTrace(params: {
   callId: string
   event: string
