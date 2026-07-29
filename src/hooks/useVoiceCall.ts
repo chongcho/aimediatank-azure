@@ -260,7 +260,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     const set = suppressedEndedCallIdsRef.current
     set.add(normalized)
     if (set.size > 40) {
-      suppressedEndedCallIdsRef.current = new Set([...set].slice(-40))
+      suppressedEndedCallIdsRef.current = new Set(Array.from(set).slice(-40))
     }
   }, [])
 
