@@ -214,6 +214,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null) as MutableRefObject<HTMLVideoElement | null>
   const hasVideoRef = useRef(false)
   const callIdRef = useRef<string | null>(null)
+  /** Set when user ends before initiate returns a callId — finish with server end then. */
+  const hangupRequestedRef = useRef(false)
   const pollSinceRef = useRef<string>(new Date(0).toISOString())
   const isCallerRef = useRef(false)
   const makingOfferRef = useRef(false)
@@ -301,6 +303,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     if (localVideoRef.current) localVideoRef.current.srcObject = null
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null
     callIdRef.current = null
+    hangupRequestedRef.current = false
     isCallerRef.current = false
     makingOfferRef.current = false
     pendingOfferRef.current = null
@@ -464,6 +467,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [])
 
   const endCall = useCallback(async (overrideCallId?: string) => {
+    hangupRequestedRef.current = true
     const id = normalizeVoiceCallId(overrideCallId || callIdRef.current)
     if (id) callIdRef.current = id
     await endCallOnServer()
@@ -984,6 +988,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (!currentUserId || callState !== 'idle') return
       markVoiceCallUserGesture()
       const wantVideo = Boolean(opts?.video)
+      hangupRequestedRef.current = false
       try {
         setRemoteUser(peer)
         setHasVideo(wantVideo)
@@ -1001,13 +1006,24 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         const id = normalizeVoiceCallId(call.id)
         callIdRef.current = id
         setCallId(id)
+        // User hung up while initiate was in flight — cancel before any more rings.
+        if (hangupRequestedRef.current) {
+          try {
+            await voiceApi('end', { callId: id })
+          } catch {
+            // best effort
+          }
+          await endNativeCall(id)
+          resetCall()
+          return
+        }
         await createAndSendOffer()
       } catch (err) {
         reportError(err instanceof Error ? err.message : 'Failed to start call')
         await endCall()
       }
     },
-    [callState, createAndSendOffer, currentUserId, endCall, reportError],
+    [callState, createAndSendOffer, currentUserId, endCall, reportError, resetCall],
   )
 
   const toggleMute = useCallback(() => {

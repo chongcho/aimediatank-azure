@@ -403,8 +403,9 @@ export async function POST(request: Request) {
       })()
 
       try {
-        // Await iOS burst (~2.7s) so Azure does not freeze before retry pushes are sent.
-        await Promise.race([nativePushTask, sleep(3200)])
+        // Return call id quickly so caller hangup can cancel. First push is in the
+        // burst; retries continue in background and abort if status leaves ringing.
+        await Promise.race([nativePushTask, sleep(800)])
       } catch (err) {
         console.error('Native call push failed:', err)
       }

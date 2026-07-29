@@ -7,6 +7,7 @@ import {
 } from '@/lib/voiceCallAnnouncement'
 import { ApnsClient, ApnsError, Notification, Priority, PushType } from 'apns2'
 import { prisma } from '@/lib/prisma'
+import { voiceCallIsRinging } from '@/lib/voiceCallStatus'
 
 export interface VoipCallPushPayload {
   callId: string
@@ -365,6 +366,12 @@ export async function sendVoipCallPushBurstToUser(
   for (let i = 0; i < total; i++) {
     const gap = INCOMING_PUSH_RETRY_GAPS_MS[i]!
     if (gap > 0) await sleep(gap)
+    if (!(await voiceCallIsRinging(payload.callId))) {
+      console.info(
+        `[VoIP] abort incoming burst at #${i + 1}/${total} — call ${payload.callId} no longer ringing`,
+      )
+      return
+    }
     try {
       await sendVoipCallPushToUser(userId, payload, { index: i + 1, total })
     } catch (err) {

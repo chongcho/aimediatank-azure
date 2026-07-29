@@ -3,6 +3,7 @@ import admin from 'firebase-admin'
 import { prisma } from '@/lib/prisma'
 import { createVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
+import { voiceCallIsRinging } from '@/lib/voiceCallStatus'
 import {
   recordFcmNoTokens,
   recordFcmNotConfigured,
@@ -206,6 +207,10 @@ export async function sendAndroidCallPushBurstToUser(
   for (let i = 0; i < RING_PUSH_RETRY_GAPS_MS.length; i++) {
     const gap = RING_PUSH_RETRY_GAPS_MS[i]!
     if (gap > 0) await sleep(gap)
+    if (!(await voiceCallIsRinging(callId))) {
+      console.info(`[FCM] abort ring burst at #${i + 1} — call ${callId} no longer ringing`)
+      return
+    }
     try {
       await sendAndroidCallPushToUser(userId, payload, {
         callId,
