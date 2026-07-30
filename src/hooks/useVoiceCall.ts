@@ -1130,6 +1130,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         setCallState('outgoing')
         isCallerRef.current = true
 
+        // Start camera immediately so the outgoing UI shows local preview (not WebView play glyph).
+        if (wantVideo && !isNativeIosCallApp()) {
+          void ensureLocalAudio(0)
+        }
+
         const data = await voiceApi('initiate', {
           calleeId: peer.id,
           conversationId: conversationId || undefined,
@@ -1156,7 +1161,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         await endCall()
       }
     },
-    [callState, createAndSendOffer, currentUserId, endCall, reportError, resetCall],
+    [callState, createAndSendOffer, currentUserId, endCall, ensureLocalAudio, reportError, resetCall],
   )
 
   const toggleMute = useCallback(() => {

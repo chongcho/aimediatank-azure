@@ -26,6 +26,57 @@ const CALL_UI_VEIL_STYLE: CSSProperties = {
   pointerEvents: 'none',
 }
 
+/** 1×1 transparent GIF — avoids Android WebView's giant play-icon on empty <video>. */
+const EMPTY_VIDEO_POSTER =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+
+/**
+ * WebView (especially Android) paints a huge play glyph on <video> with no frames.
+ * Keep the element invisible until playback actually starts; parent supplies the fill color.
+ */
+function CallSurfaceVideo({
+  videoRef,
+  muted = false,
+  mirrored = false,
+  style,
+  dimmed = false,
+}: {
+  videoRef?: MutableRefObject<HTMLVideoElement | null>
+  muted?: boolean
+  mirrored?: boolean
+  style?: CSSProperties
+  dimmed?: boolean
+}) {
+  const [hasFrames, setHasFrames] = useState(false)
+  return (
+    <video
+      ref={(el) => {
+        if (videoRef) videoRef.current = el
+      }}
+      autoPlay
+      muted={muted}
+      playsInline
+      controls={false}
+      disablePictureInPicture
+      poster={EMPTY_VIDEO_POSTER}
+      onPlaying={() => setHasFrames(true)}
+      onEmptied={() => setHasFrames(false)}
+      onSuspend={() => {
+        /* keep last frame state */
+      }}
+      onLoadedData={(e) => {
+        if (e.currentTarget.videoWidth > 0) setHasFrames(true)
+      }}
+      style={{
+        ...style,
+        background: style?.background ?? '#111',
+        opacity: hasFrames ? (dimmed ? 0.35 : 1) : 0,
+        transform: mirrored ? 'scaleX(-1)' : style?.transform,
+      }}
+    />
+  )
+}
+
 interface VoiceCallOverlayProps {
   callState: VoiceCallState
   remoteUser: VoiceCallUser | null
@@ -1095,21 +1146,15 @@ function ActiveCallScreen({
         }}
       >
         <div style={{ position: 'absolute', inset: 0, background: '#111' }}>
-          <video
-            ref={(el) => {
-              if (remoteVideoRef) remoteVideoRef.current = el
-            }}
-            autoPlay
-            playsInline
+          <CallSurfaceVideo
+            videoRef={remoteVideoRef}
             style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#111' }}
           />
-          <video
-            ref={(el) => {
-              if (localVideoRef) localVideoRef.current = el
-            }}
-            autoPlay
+          <CallSurfaceVideo
+            videoRef={localVideoRef}
             muted
-            playsInline
+            mirrored
+            dimmed={isCameraOff}
             style={{
               position: 'absolute',
               top: 'max(12px, env(safe-area-inset-top))',
@@ -1119,8 +1164,6 @@ function ActiveCallScreen({
               objectFit: 'cover',
               borderRadius: 0,
               background: '#222',
-              transform: 'scaleX(-1)',
-              opacity: isCameraOff ? 0.35 : 1,
             }}
           />
         </div>
@@ -1273,12 +1316,8 @@ function ActiveCallScreen({
               )
             ) : (
               <>
-            <video
-              ref={(el) => {
-                if (remoteVideoRef) remoteVideoRef.current = el
-              }}
-              autoPlay
-              playsInline
+            <CallSurfaceVideo
+              videoRef={remoteVideoRef}
               style={{
                 width: '100%',
                 height: '100%',
@@ -1286,13 +1325,11 @@ function ActiveCallScreen({
                 background: '#111',
               }}
             />
-            <video
-              ref={(el) => {
-                if (localVideoRef) localVideoRef.current = el
-              }}
-              autoPlay
+            <CallSurfaceVideo
+              videoRef={localVideoRef}
               muted
-              playsInline
+              mirrored
+              dimmed={isCameraOff}
               style={{
                 position: 'absolute',
                 right: 12,
@@ -1303,8 +1340,6 @@ function ActiveCallScreen({
                 borderRadius: 10,
                 border: '2px solid rgba(255,255,255,0.35)',
                 background: '#222',
-                transform: 'scaleX(-1)',
-                opacity: isCameraOff ? 0.35 : 1,
               }}
             />
               </>
