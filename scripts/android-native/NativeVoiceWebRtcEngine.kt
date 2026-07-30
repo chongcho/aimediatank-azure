@@ -88,9 +88,27 @@ class NativeVoiceWebRtcEngine private constructor(
         }
 
         fun endGlobal() {
-            instance?.endCall(syncServer = false, reason = "shutdown")
-            instance?.releaseFactory()
+            // End + dispose factory on main in one ordered pass so the next dial does not
+            // race a half-released PeerConnectionFactory / EGL (Samsung clear-cache crash).
+            val engine = instance
             instance = null
+            if (engine == null) return
+            val main = Handler(Looper.getMainLooper())
+            val work = Runnable {
+                try {
+                    engine.endCall(syncServer = false, reason = "shutdown")
+                } catch (_: Exception) {
+                }
+                try {
+                    engine.releaseFactory()
+                } catch (_: Exception) {
+                }
+            }
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                work.run()
+            } else {
+                main.post(work)
+            }
         }
 
         fun isHandlingCallId(callIdRaw: String): Boolean {
@@ -105,14 +123,28 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun releaseFactory() {
-        mainHandler.post {
+        val work = Runnable {
             removeVideoOverlay()
-            audioDeviceModule?.release()
+            try {
+                audioDeviceModule?.release()
+            } catch (_: Exception) {
+            }
             audioDeviceModule = null
-            peerConnectionFactory?.dispose()
+            try {
+                peerConnectionFactory?.dispose()
+            } catch (_: Exception) {
+            }
             peerConnectionFactory = null
-            eglBase?.release()
+            try {
+                eglBase?.release()
+            } catch (_: Exception) {
+            }
             eglBase = null
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            work.run()
+        } else {
+            mainHandler.post(work)
         }
     }
 
@@ -975,25 +1007,17 @@ class NativeVoiceWebRtcEngine private constructor(
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             work.run()
-            return
-        }
-        val done = java.util.concurrent.CountDownLatch(1)
-        mainHandler.post {
-            try {
-                work.run()
-            } finally {
-                done.countDown()
-            }
-        }
-        try {
-            done.await(2, java.util.concurrent.TimeUnit.SECONDS)
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
+        } else {
+            // Never latch-wait for main — runWebRtc already blocks main on the WebRTC
+            // executor; waiting here deadlocks and aborts the process.
+            mainHandler.post(work)
         }
     }
 
     private fun createAndSendOffer(callId: String) {
-        tearDownPeerConnection(notify = false)
+        // Preserve the Dialog [startCaller] already showed — a deferred teardown used to
+        // dismiss it ~1s later while PC stayed connected.
+        tearDownPeerConnection(notify = false, preserveVideoUi = wantsVideo)
         val pc = createPeerConnection(parsedIceServers)
         if (pc == null) {
             failCall(callId, "peer connection create failed")
@@ -1136,7 +1160,8 @@ class NativeVoiceWebRtcEngine private constructor(
         val offerHasVideo = sdp.contains("m=video")
         val generation = UUID.randomUUID()
         // Do not clear wantsVideo here — tearDown only resets peer/media resources.
-        tearDownPeerConnection(notify = false)
+        // Keep Dialog if video is already up or the offer includes video.
+        tearDownPeerConnection(notify = false, preserveVideoUi = wantsVideo || offerHasVideo)
         answerSendRecvRetryDone = false
         offerVideoLooksSendRecv = !offerHasVideo || videoSectionIsSendRecv(sdp)
         if (offerHasVideo) {
@@ -1612,23 +1637,21 @@ class NativeVoiceWebRtcEngine private constructor(
         return "$idx|$mid|$sdp"
     }
 
-    private fun tearDownPeerConnection(notify: Boolean) {
-        if (Looper.myLooper() != Looper.getMainLooper()) {
-            val done = java.util.concurrent.CountDownLatch(1)
-            mainHandler.post {
-                try {
-                    tearDownPeerConnection(notify)
-                } finally {
-                    done.countDown()
-                }
-            }
-            try {
-                done.await(3, java.util.concurrent.TimeUnit.SECONDS)
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-            }
-            return
-        }
+    /**
+     * Close the PeerConnection on the calling thread (WebRTC executor or main), then finish
+     * camera / Dialog work on main.
+     *
+     * Do NOT post the entire teardown to main and return: [createAndSendOffer] runs on the
+     * WebRTC executor right after this, and a deferred removeVideoOverlay dismissed the live
+     * Dialog ~1s later while the PC peer stayed in-call (and the next dial SIGABRTed).
+     *
+     * Do NOT CountDownLatch-wait for main either: [runWebRtc] already blocks main on the
+     * executor → classic deadlock → process abort / "Clear cache?" dialog.
+     *
+     * @param preserveVideoUi when true (offer/answer renegotiation), keep the Dialog that
+     *   [startCaller]/[answerCall] already showed.
+     */
+    private fun tearDownPeerConnection(notify: Boolean, preserveVideoUi: Boolean = false) {
         createAnswerGeneration = null
         stopIcePoll()
         stopSessionPoll()
@@ -1636,55 +1659,78 @@ class NativeVoiceWebRtcEngine private constructor(
         remoteAnswerApplied = false
         pendingRemoteIce.clear()
         invalidateRemoteIceProcessing()
-        try {
-            localAudioTrack?.dispose()
-        } catch (_: Exception) {
-        }
-        localAudioTrack = null
-        try {
-            audioSource?.dispose()
-        } catch (_: Exception) {
-        }
-        audioSource = null
-        try {
-            videoCapturer?.stopCapture()
-        } catch (_: Exception) {
-        }
-        try {
-            videoCapturer?.dispose()
-        } catch (_: Exception) {
-        }
-        videoCapturer = null
-        // Detach sinks before disposing tracks (must be on main — Dialog / TextureView).
-        removeVideoOverlay()
-        try {
-            localVideoTrack?.dispose()
-        } catch (_: Exception) {
-        }
-        localVideoTrack = null
-        try {
-            videoSource?.dispose()
-        } catch (_: Exception) {
-        }
-        videoSource = null
-        try {
-            surfaceTextureHelper?.dispose()
-        } catch (_: Exception) {
-        }
-        surfaceTextureHelper = null
-        // Keep eglBase for PeerConnectionFactory encoder/decoder across calls.
-        // Keep wantsVideo for this call — reset only in endCall/failCall (iOS parity).
-        try {
-            peerConnection?.close()
-        } catch (_: Exception) {
-        }
+
+        val pc = peerConnection
         peerConnection = null
-        if (notify) {
-            val id = callId
-            if (id != null) {
-                emitEnded(id)
-                injectUiEvent("aimediatank-callkit-end", JSONObject().put("callId", id))
+        val audioTrack = localAudioTrack
+        localAudioTrack = null
+        val aSource = audioSource
+        audioSource = null
+        val capturer = videoCapturer
+        videoCapturer = null
+        val vTrack = localVideoTrack
+        localVideoTrack = null
+        val vSource = videoSource
+        videoSource = null
+        val sth = surfaceTextureHelper
+        surfaceTextureHelper = null
+        val endedId = if (notify) callId else null
+        val keepUi = preserveVideoUi
+
+        // PeerConnection.close is safe on the WebRTC thread; do it before creating a replacement.
+        try {
+            pc?.close()
+        } catch (_: Exception) {
+        }
+
+        val finishOnMain = Runnable {
+            try {
+                capturer?.stopCapture()
+            } catch (_: Exception) {
             }
+            try {
+                capturer?.dispose()
+            } catch (_: Exception) {
+            }
+            try {
+                localRenderer?.let { renderer -> vTrack?.removeSink(renderer) }
+            } catch (_: Exception) {
+            }
+            try {
+                audioTrack?.dispose()
+            } catch (_: Exception) {
+            }
+            try {
+                aSource?.dispose()
+            } catch (_: Exception) {
+            }
+            // Detach sinks / Dialog only when ending the call — not when replacing PC for a
+            // new offer while the native video UI must stay visible.
+            if (!keepUi && peerConnection == null) {
+                removeVideoOverlay()
+            }
+            try {
+                vTrack?.dispose()
+            } catch (_: Exception) {
+            }
+            try {
+                vSource?.dispose()
+            } catch (_: Exception) {
+            }
+            try {
+                sth?.dispose()
+            } catch (_: Exception) {
+            }
+            // Keep eglBase for PeerConnectionFactory encoder/decoder across calls.
+            if (endedId != null && peerConnection == null && !running.get()) {
+                emitEnded(endedId)
+                injectUiEvent("aimediatank-callkit-end", JSONObject().put("callId", endedId))
+            }
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            finishOnMain.run()
+        } else {
+            mainHandler.post(finishOnMain)
         }
     }
 
@@ -1830,6 +1876,10 @@ class NativeVoiceWebRtcEngine private constructor(
         for (delay in delays) {
             mainHandler.postDelayed({
                 if (!isMediaConnected || this.callId != callId) return@postDelayed
+                if (wantsVideo && callVideoDialog?.isShowing != true) {
+                    ensureVideoCallUI("Connected")
+                    bindVideoRenderers()
+                }
                 injectNativeConnected(callId, caller)
             }, delay)
         }

@@ -1024,7 +1024,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           setNativeOwnsVideo(true)
         }
         pendingOfferRef.current = null
-        requestOpenTalkChat()
+        // Native video Dialog owns UI — do not open TalkChat (dismisses Dialog / crashes retry).
+        if (!hasVideoRef.current) {
+          requestOpenTalkChat()
+        }
         return true
       }
 
@@ -1677,7 +1680,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           }
           void ensureIncomingCall(callId)
           if (isNativeAndroidCallApp()) {
-            requestOpenTalkChat()
+            // Voice-only: bring TalkChat forward. Video: native Dialog owns UI.
+            if (!hasVideoRef.current) {
+              requestOpenTalkChat()
+            }
             void (async () => {
               try {
                 if (token) {
@@ -1765,7 +1771,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             await setNativeVoiceCallMediaVolume(getVoiceCallVoiceVolume())
           })()
         }
-        if (!isNativeIosCallApp()) {
+        // Android native video Dialog owns in-call UI. Opening TalkChat here recreates /
+        // resumes the Capacitor Activity and dismisses that Dialog while PeerConnection
+        // stays live — PC remains in-call, Android UI vanishes ~1s after connect, and the
+        // next dial crashes into the system clear-cache dialog.
+        if (!isNativeIosCallApp() && !(isNativeAndroidCallApp() && hasVideoRef.current)) {
           requestOpenTalkChat()
         }
         void markNativeCallConnected(normalizedId)
@@ -1827,6 +1837,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (document.hidden) return
       if (!nativeWebRtcAndroidRef.current) return
       if (callStateRef.current === 'connected' || callStateRef.current === 'idle') return
+      // Video Dialog owns chrome — TalkChat resume dismisses it mid-call.
+      if (hasVideoRef.current) return
       requestOpenTalkChat()
     }
 

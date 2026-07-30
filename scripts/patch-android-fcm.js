@@ -4548,13 +4548,12 @@ ${announceMethodAsync}`,
   }
 }
 
-const incomingSafeContainmentMarker = 'incoming-safe containment v3'
 const appSystemEffectsGuardSourcePath = path.join(__dirname, 'android-native', 'AppSystemEffectsGuard.kt')
 if (fs.existsSync(appSystemEffectsGuardSourcePath)) {
   const guardSource = fs.readFileSync(appSystemEffectsGuardSourcePath, 'utf8')
   if (
     !fs.existsSync(appSystemEffectsGuardPath) ||
-    !fs.readFileSync(appSystemEffectsGuardPath, 'utf8').includes(incomingSafeContainmentMarker)
+    fs.readFileSync(appSystemEffectsGuardPath, 'utf8') !== guardSource
   ) {
     fs.writeFileSync(appSystemEffectsGuardPath, guardSource)
     changed = true

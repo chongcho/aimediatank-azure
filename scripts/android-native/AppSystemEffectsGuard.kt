@@ -53,7 +53,7 @@ object AppSystemEffectsGuard {
         // yieldToPstn unconditional
         val appContext = context.applicationContext
         // Self-managed VoIP can surface as RINGING/OFFHOOK on some OEMs — never tear down our own call.
-        if (isAppCallSessionActive(appContext)) {
+        if (isAppCallSessionActive(appContext) || CallVolumeState.voiceCallActive) {
             Log.d(TAG, "skip yieldToPstn — app VoIP session active state=$telephonyState")
             return
         }
@@ -68,7 +68,10 @@ object AppSystemEffectsGuard {
         resolveActivity(appContext)?.let { activity ->
             CallScreenPresentation.clearWindowFlagsOnly(activity)
         }
-        if (!NativeVoiceWebRtcEngine.peekIsMediaConnected()) {
+        // Only kill WebRTC when no app call is active. Never use peekIsMediaConnected alone —
+        // ICE may still be checking while Dialog/UI is up; endGlobal left PC in-call and
+        // crashed the next Android dial.
+        if (!NativeVoiceWebRtcEngine.peekIsActive()) {
             NativeVoiceWebRtcEngine.endGlobal()
         }
     }
