@@ -88,19 +88,14 @@ class NativeVoiceWebRtcEngine private constructor(
         }
 
         fun endGlobal() {
-            // End + dispose factory on main in one ordered pass so the next dial does not
-            // race a half-released PeerConnectionFactory / EGL (Samsung clear-cache crash).
-            val engine = instance
-            instance = null
-            if (engine == null) return
+            // End the call only. Never dispose PeerConnectionFactory / EglBase between
+            // dials — releasing EGL here aborted the next Android→PC video dial on Samsung
+            // ("Clear cache for AiMediaTank?"). Keep the singleton + factory for reuse.
+            val engine = instance ?: return
             val main = Handler(Looper.getMainLooper())
             val work = Runnable {
                 try {
                     engine.endCall(syncServer = false, reason = "shutdown")
-                } catch (_: Exception) {
-                }
-                try {
-                    engine.releaseFactory()
                 } catch (_: Exception) {
                 }
             }
@@ -403,7 +398,8 @@ class NativeVoiceWebRtcEngine private constructor(
         callId = null
         token = null
         cachedCaller = null
-        tearDownPeerConnection(notify = true)
+        // Pass ended id explicitly — callId is already null.
+        tearDownPeerConnection(notify = true, preserveVideoUi = false, endedCallId = id)
         id?.let { endedId ->
             context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
                 .edit()
@@ -1680,7 +1676,11 @@ class NativeVoiceWebRtcEngine private constructor(
      * @param preserveVideoUi when true (offer/answer renegotiation), keep the Dialog that
      *   [startCaller]/[answerCall] already showed.
      */
-    private fun tearDownPeerConnection(notify: Boolean, preserveVideoUi: Boolean = false) {
+    private fun tearDownPeerConnection(
+        notify: Boolean,
+        preserveVideoUi: Boolean = false,
+        endedCallId: String? = null,
+    ) {
         createAnswerGeneration = null
         stopIcePoll()
         stopSessionPoll()
@@ -1703,7 +1703,7 @@ class NativeVoiceWebRtcEngine private constructor(
         videoSource = null
         val sth = surfaceTextureHelper
         surfaceTextureHelper = null
-        val endedId = if (notify) callId else null
+        val endedId = endedCallId ?: if (notify) callId else null
         val keepUi = preserveVideoUi
 
         // PeerConnection.close is safe on the WebRTC thread; do it before creating a replacement.

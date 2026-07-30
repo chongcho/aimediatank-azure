@@ -13,11 +13,10 @@ import org.webrtc.VideoSink
 
 /**
  * TextureView-backed WebRTC renderer.
- * SurfaceView punches a hole behind the window and often stays black inside a Dialog;
- * TextureView composites in the normal view hierarchy so local/remote frames actually paint.
  *
- * Lifecycle: [release] must run BEFORE Dialog.dismiss. [release] nulls the surface listener
- * so dismiss does not call into a disposed EglRenderer (Samsung process abort).
+ * Samsung aborts the process when [EglRenderer.release] runs during Dialog dismiss
+ * ("Clear cache for AiMediaTank?"). [release] therefore only detaches the listener and
+ * stops accepting frames — it does **not** call eglRenderer.release().
  */
 class TextureViewRenderer(context: Context) :
     TextureView(context),
@@ -41,25 +40,35 @@ class TextureViewRenderer(context: Context) :
 
     fun init(sharedContext: EglBase.Context) {
         if (isInitialized || isReleased) return
-        eglRenderer.init(sharedContext, EglBase.CONFIG_PLAIN, GlRectDrawer())
-        isInitialized = true
-        surfaceTexture?.let { ensureEglSurface(it) }
+        try {
+            eglRenderer.init(sharedContext, EglBase.CONFIG_PLAIN, GlRectDrawer())
+            isInitialized = true
+            surfaceTexture?.let { ensureEglSurface(it) }
+        } catch (err: Exception) {
+            Log.e(TAG, "init failed: ${err.message}")
+            isReleased = true
+        }
     }
 
     fun setMirror(mirror: Boolean) {
         this.mirror = mirror
         if (!isReleased && isInitialized) {
-            eglRenderer.setMirror(mirror)
+            try {
+                eglRenderer.setMirror(mirror)
+            } catch (_: Exception) {
+            }
         }
     }
 
     fun setScalingType(@Suppress("UNUSED_PARAMETER") scalingType: RendererCommon.ScalingType) {
-        // Aspect fill via layout; EglRenderer draws into the full TextureView.
     }
 
     override fun onFrame(frame: VideoFrame) {
         if (!isInitialized || isReleased || !hasEglSurface) return
-        eglRenderer.onFrame(frame)
+        try {
+            eglRenderer.onFrame(frame)
+        } catch (_: Exception) {
+        }
     }
 
     override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
@@ -76,16 +85,7 @@ class TextureViewRenderer(context: Context) :
 
     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
         hasEglSurface = false
-        // [release] already nulled the listener in the normal path. If we still get here
-        // (Activity teardown), never block main and never touch a released EglRenderer.
-        if (isReleased || !isInitialized) {
-            return false
-        }
-        try {
-            eglRenderer.releaseEglSurface { /* async — do not latch on main */ }
-        } catch (err: Exception) {
-            Log.w(TAG, "releaseEglSurface: ${err.message}")
-        }
+        // Never block main; never call into EglRenderer after [release].
         return false
     }
 
@@ -117,14 +117,10 @@ class TextureViewRenderer(context: Context) :
         if (isReleased) return
         isReleased = true
         onSurfaceReady = null
-        // Prevent Dialog.dismiss → onSurfaceTextureDestroyed from touching EglRenderer.
         surfaceTextureListener = null
         hasEglSurface = false
-        try {
-            eglRenderer.release()
-        } catch (err: Exception) {
-            Log.w(TAG, "eglRenderer.release: ${err.message}")
-        }
         isInitialized = false
+        // Intentionally skip eglRenderer.release() — it CountDownLatch-waits the GL thread
+        // and aborts AiMediaTank on Samsung when the video Dialog is tearing down.
     }
 }
