@@ -1613,6 +1613,22 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun tearDownPeerConnection(notify: Boolean) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            val done = java.util.concurrent.CountDownLatch(1)
+            mainHandler.post {
+                try {
+                    tearDownPeerConnection(notify)
+                } finally {
+                    done.countDown()
+                }
+            }
+            try {
+                done.await(3, java.util.concurrent.TimeUnit.SECONDS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+            return
+        }
         createAnswerGeneration = null
         stopIcePoll()
         stopSessionPoll()
@@ -1620,27 +1636,48 @@ class NativeVoiceWebRtcEngine private constructor(
         remoteAnswerApplied = false
         pendingRemoteIce.clear()
         invalidateRemoteIceProcessing()
-        localAudioTrack?.dispose()
+        try {
+            localAudioTrack?.dispose()
+        } catch (_: Exception) {
+        }
         localAudioTrack = null
-        audioSource?.dispose()
+        try {
+            audioSource?.dispose()
+        } catch (_: Exception) {
+        }
         audioSource = null
         try {
             videoCapturer?.stopCapture()
         } catch (_: Exception) {
         }
-        videoCapturer?.dispose()
+        try {
+            videoCapturer?.dispose()
+        } catch (_: Exception) {
+        }
         videoCapturer = null
-        // Detach sinks before disposing tracks.
+        // Detach sinks before disposing tracks (must be on main — Dialog / TextureView).
         removeVideoOverlay()
-        localVideoTrack?.dispose()
+        try {
+            localVideoTrack?.dispose()
+        } catch (_: Exception) {
+        }
         localVideoTrack = null
-        videoSource?.dispose()
+        try {
+            videoSource?.dispose()
+        } catch (_: Exception) {
+        }
         videoSource = null
-        surfaceTextureHelper?.dispose()
+        try {
+            surfaceTextureHelper?.dispose()
+        } catch (_: Exception) {
+        }
         surfaceTextureHelper = null
         // Keep eglBase for PeerConnectionFactory encoder/decoder across calls.
         // Keep wantsVideo for this call — reset only in endCall/failCall (iOS parity).
-        peerConnection?.close()
+        try {
+            peerConnection?.close()
+        } catch (_: Exception) {
+        }
         peerConnection = null
         if (notify) {
             val id = callId
@@ -1683,17 +1720,21 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun applyTelecomSpeakerRoute() {
-        val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: return
-        callManager.applyTelecomSpeakerRoute()
+        try {
+            val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: return
+            callManager.applyTelecomSpeakerRoute()
+        } catch (err: Exception) {
+            Log.w(TAG, "speaker route failed: ${err.message}")
+        }
     }
 
     private fun applyTelecomEarpieceRoute() {
-        val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager
-        if (callManager != null) {
-            callManager.applyTelecomEarpieceRoute()
-            return
-        }
         try {
+            val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager
+            if (callManager != null) {
+                callManager.applyTelecomEarpieceRoute()
+                return
+            }
             val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             am.mode = AudioManager.MODE_IN_COMMUNICATION
             @Suppress("DEPRECATION")
@@ -1711,6 +1752,10 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun failCall(callId: String, error: String) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { failCall(callId, error) }
+            return
+        }
         Log.e(TAG, "failed $callId: $error")
         token?.let { postNativeTrace(callId, it, "native_webrtc_failed", JSONObject().put("error", error)) }
         val authToken = token
@@ -1749,6 +1794,10 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun markConnected(callId: String) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { markConnected(callId) }
+            return
+        }
         if (!isAnswering && peerConnection == null && !isCaller) return
         if (isMediaConnected) return
         cancelIceDisconnectTimer()
@@ -1763,13 +1812,11 @@ class NativeVoiceWebRtcEngine private constructor(
         token?.let { postNativeTrace(callId, it, "native_webrtc_connected") }
         if (wantsVideo) {
             ensureVideoCallUI("Connected")
-            mainHandler.post {
-                bindVideoRenderers()
-                scheduleRendererBindRetries()
-            }
+            bindVideoRenderers()
+            scheduleRendererBindRetries()
         }
-        mainHandler.post {
-            val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager ?: return@post
+        val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager
+        if (callManager != null) {
             callManager.setVoiceCallAudioActive(true)
             callManager.setVoiceCallMediaVolume(1.0f)
             applyPreferredAudioRoute()
@@ -1799,39 +1846,51 @@ class NativeVoiceWebRtcEngine private constructor(
     override fun onRenegotiationNeeded() {}
     override fun onAddTrack(receiver: RtpReceiver?, streams: Array<out MediaStream>?) {
         val track = receiver?.track() ?: return
-        if (track is AudioTrack) {
-            track.setEnabled(true)
-            Log.i(TAG, "remote RTP audio track enabled")
-            return
-        }
-        if (track is VideoTrack) {
-            track.setEnabled(true)
-            remoteVideoTrack = track
-            Log.i(TAG, "remote RTP video track")
-            ensureVideoCallUI(if (isMediaConnected) "Connected" else "Connecting…")
-            mainHandler.post { bindVideoRenderers() }
+        mainHandler.post {
+            if (track is AudioTrack) {
+                track.setEnabled(true)
+                Log.i(TAG, "remote RTP audio track enabled")
+                return@post
+            }
+            if (track is VideoTrack) {
+                track.setEnabled(true)
+                remoteVideoTrack = track
+                Log.i(TAG, "remote RTP video track")
+                ensureVideoCallUI(if (isMediaConnected) "Connected" else "Connecting…")
+                bindVideoRenderers()
+            }
         }
     }
     override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>?) {}
 
     override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
         val id = callId ?: return
-        Log.i(TAG, "ice state $id: $state")
-        when (state) {
-            PeerConnection.IceConnectionState.CONNECTED,
-            PeerConnection.IceConnectionState.COMPLETED,
-            -> {
-                cancelIceDisconnectTimer()
-                markConnected(id)
+        // PeerConnection observer callbacks are off the main thread — never dispose
+        // camera / Dialog / PeerConnection here (Samsung: process abort → clear-cache dialog).
+        mainHandler.post {
+            if (this.callId != id) return@post
+            Log.i(TAG, "ice state $id: $state")
+            when (state) {
+                PeerConnection.IceConnectionState.CONNECTED,
+                PeerConnection.IceConnectionState.COMPLETED,
+                -> {
+                    cancelIceDisconnectTimer()
+                    markConnected(id)
+                }
+                PeerConnection.IceConnectionState.FAILED -> {
+                    // Same grace as disconnected — brief ICE failed flaps are common on
+                    // mobile↔PC and immediate failCall aborted the process mid-teardown.
+                    token?.let { postNativeTrace(id, it, "native_webrtc_ice_failed") }
+                    scheduleIceDisconnectFail(id)
+                }
+                PeerConnection.IceConnectionState.CHECKING ->
+                    token?.let { postNativeTrace(id, it, "native_webrtc_ice_checking") }
+                PeerConnection.IceConnectionState.DISCONNECTED -> {
+                    token?.let { postNativeTrace(id, it, "native_webrtc_ice_disconnected") }
+                    scheduleIceDisconnectFail(id)
+                }
+                else -> {}
             }
-            PeerConnection.IceConnectionState.FAILED -> failCall(id, "ICE failed")
-            PeerConnection.IceConnectionState.CHECKING ->
-                token?.let { postNativeTrace(id, it, "native_webrtc_ice_checking") }
-            PeerConnection.IceConnectionState.DISCONNECTED -> {
-                token?.let { postNativeTrace(id, it, "native_webrtc_ice_disconnected") }
-                scheduleIceDisconnectFail(id)
-            }
-            else -> {}
         }
     }
 
