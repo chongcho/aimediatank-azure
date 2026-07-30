@@ -8,15 +8,17 @@ import org.webrtc.EglBase
 import org.webrtc.EglRenderer
 import org.webrtc.GlRectDrawer
 import org.webrtc.RendererCommon
-import org.webrtc.ThreadUtils
 import org.webrtc.VideoFrame
 import org.webrtc.VideoSink
-import java.util.concurrent.CountDownLatch
 
 /**
  * TextureView-backed WebRTC renderer.
  * SurfaceView punches a hole behind the window and often stays black inside a Dialog;
  * TextureView composites in the normal view hierarchy so local/remote frames actually paint.
+ *
+ * IMPORTANT: never block the main thread waiting for EGL, and never call into EglRenderer
+ * after [release]. Samsung kills the process (clear-cache / "app has a bug") when
+ * Dialog.dismiss → [release] → onSurfaceTextureDestroyed hits a disposed EglRenderer.
  */
 class TextureViewRenderer(context: Context) :
     TextureView(context),
@@ -39,7 +41,7 @@ class TextureViewRenderer(context: Context) :
     }
 
     fun init(sharedContext: EglBase.Context) {
-        if (isInitialized) return
+        if (isInitialized || isReleased) return
         eglRenderer.init(sharedContext, EglBase.CONFIG_PLAIN, GlRectDrawer())
         isInitialized = true
         surfaceTexture?.let { ensureEglSurface(it) }
@@ -47,7 +49,9 @@ class TextureViewRenderer(context: Context) :
 
     fun setMirror(mirror: Boolean) {
         this.mirror = mirror
-        eglRenderer.setMirror(mirror)
+        if (!isReleased && isInitialized) {
+            eglRenderer.setMirror(mirror)
+        }
     }
 
     fun setScalingType(@Suppress("UNUSED_PARAMETER") scalingType: RendererCommon.ScalingType) {
@@ -67,32 +71,56 @@ class TextureViewRenderer(context: Context) :
     }
 
     override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+        if (!isInitialized || isReleased) return
         updateAspectRatio(width, height)
     }
 
     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
         hasEglSurface = false
-        val latch = CountDownLatch(1)
-        eglRenderer.releaseEglSurface { latch.countDown() }
-        ThreadUtils.awaitUninterruptibly(latch)
+        // Dialog.dismiss / view detach runs on main. Blocking here on EGL completion deadlocks
+        // with EglRenderer; calling releaseEglSurface after [release] aborts the process.
+        if (!isInitialized || isReleased) {
+            return false
+        }
+        try {
+            eglRenderer.releaseEglSurface {
+                try {
+                    surface.release()
+                } catch (_: Exception) {
+                }
+            }
+        } catch (err: Exception) {
+            Log.w(TAG, "releaseEglSurface: ${err.message}")
+            try {
+                surface.release()
+            } catch (_: Exception) {
+            }
+        }
         return true
     }
 
     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
 
     private fun ensureEglSurface(surface: SurfaceTexture) {
-        if (hasEglSurface) {
-            onSurfaceReady?.invoke()
+        if (hasEglSurface || isReleased || !isInitialized) {
+            if (hasEglSurface && !isReleased) onSurfaceReady?.invoke()
             return
         }
-        eglRenderer.createEglSurface(surface)
-        hasEglSurface = true
-        onSurfaceReady?.invoke()
+        try {
+            eglRenderer.createEglSurface(surface)
+            hasEglSurface = true
+            onSurfaceReady?.invoke()
+        } catch (err: Exception) {
+            Log.w(TAG, "createEglSurface: ${err.message}")
+        }
     }
 
     private fun updateAspectRatio(width: Int, height: Int) {
-        if (width <= 0 || height <= 0) return
-        eglRenderer.setLayoutAspectRatio(width.toFloat() / height.toFloat())
+        if (width <= 0 || height <= 0 || isReleased || !isInitialized) return
+        try {
+            eglRenderer.setLayoutAspectRatio(width.toFloat() / height.toFloat())
+        } catch (_: Exception) {
+        }
     }
 
     fun release() {
@@ -101,7 +129,11 @@ class TextureViewRenderer(context: Context) :
         onSurfaceReady = null
         surfaceTextureListener = null
         hasEglSurface = false
-        eglRenderer.release()
+        try {
+            eglRenderer.release()
+        } catch (err: Exception) {
+            Log.w(TAG, "eglRenderer.release: ${err.message}")
+        }
         isInitialized = false
     }
 }

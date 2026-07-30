@@ -302,8 +302,20 @@ class NativeVoiceWebRtcEngine private constructor(
 
     fun startCaller(callIdRaw: String, iceServersJson: JSONArray?, wantsVideo: Boolean = false) {
         val normalized = callIdRaw.lowercase()
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { startCaller(callIdRaw, iceServersJson, wantsVideo) }
+            return
+        }
         if (isActive() && this.callId != normalized) {
             endCall(syncServer = false, reason = "superseded")
+        }
+        // Redial after an aborted first attempt often leaves Dialog/camera half-alive.
+        // Fully clear before creating a new PeerConnection (Samsung second-dial abort).
+        if (peerConnection != null || localVideoTrack != null || callVideoDialog != null) {
+            Log.w(TAG, "startCaller clearing leftover media/ui before redial")
+            cancelIceDisconnectTimer()
+            isMediaConnected = false
+            tearDownPeerConnection(notify = false, preserveVideoUi = false)
         }
         if (isCaller && this.callId == normalized && peerConnection != null) return
 
@@ -352,6 +364,10 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     fun endCall(syncServer: Boolean = true, reason: String = "user") {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { endCall(syncServer, reason) }
+            return
+        }
         val id = callId
         val authToken = token
         cancelIceDisconnectTimer()
@@ -982,14 +998,11 @@ class NativeVoiceWebRtcEngine private constructor(
                     }
                 }
             }
-            try {
-                localRenderer?.release()
-            } catch (_: Exception) {
-            }
-            try {
-                remoteRenderer?.release()
-            } catch (_: Exception) {
-            }
+            // Dismiss first so onSurfaceTextureDestroyed can detach EGL while the renderer
+            // is still initialized. Releasing before dismiss double-frees EglRenderer and
+            // aborts the process on Samsung (clear-cache / "app has a bug").
+            val local = localRenderer
+            val remote = remoteRenderer
             localRenderer = null
             remoteRenderer = null
             statusLabel = null
@@ -1004,6 +1017,14 @@ class NativeVoiceWebRtcEngine private constructor(
             } catch (_: Exception) {
             }
             callVideoDialog = null
+            try {
+                local?.release()
+            } catch (_: Exception) {
+            }
+            try {
+                remote?.release()
+            } catch (_: Exception) {
+            }
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             work.run()
