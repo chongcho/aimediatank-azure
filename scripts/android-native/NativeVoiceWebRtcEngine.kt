@@ -1339,15 +1339,14 @@ class NativeVoiceWebRtcEngine private constructor(
             if (remoteAnswerApplied) return@runWebRtc
             val pc = peerConnection ?: return@runWebRtc
             if (this.callId != callId) return@runWebRtc
+            val activeCallId = this.callId
             val sdp = normalizeSdp(answerSdp)
             val answer = SessionDescription(SessionDescription.Type.ANSWER, sdp)
             pc.setRemoteDescription(object : SdpObserverAdapter() {
                 override fun onSetSuccess() {
                     // Signaling thread — hop to main before audio route / ICE flush / UI.
                     mainHandler.post {
-                        if (alice.j@example.com != callId || peerConnection !== pc) {
-                            return@post
-                        }
+                        if (activeCallId != callId || peerConnection !== pc) return@post
                         remoteDescriptionReady = true
                         flushPendingRemoteIce(callId)
                         remoteAnswerApplied = true
