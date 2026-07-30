@@ -209,17 +209,15 @@ class NativeVoiceWebRtcEngine private constructor(
         val normalized = callIdRaw.lowercase()
         val newToken = declineToken?.trim()?.ifEmpty { null }
         val inlineOffer = remoteOfferSdp?.trim()?.takeIf { it.startsWith("v=") }
-        this.wantsVideo = wantsVideo ||
-            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
-                .getBoolean("video_$normalized", false)
-        if (this.wantsVideo) {
-            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
-                .edit()
-                .putBoolean("video_$normalized", true)
-                .apply()
-            requestCameraPermissionIfNeeded()
-            ensureVideoCallUI("Connecting…")
+        // Samsung: never run Camera2 + Dialog EglRenderer. Android video is WebView WebRTC.
+        if (wantsVideo) {
+            Log.w(TAG, "prepareAnswer ignoring native video — WebView WebRTC owns Android video")
         }
+        context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+            .edit()
+            .remove("video_$normalized")
+            .apply()
+        this.wantsVideo = false
 
         if (isActive() && this.callId != normalized) {
             endCall(syncServer = false, reason = "superseded")
@@ -301,6 +299,17 @@ class NativeVoiceWebRtcEngine private constructor(
             mainHandler.post { startCaller(callIdRaw, iceServersJson, wantsVideo) }
             return
         }
+        // Samsung aborts when this engine owns Camera2 + Dialog EglRenderer for video.
+        // JS routes Android video through WebView WebRTC; refuse native video here.
+        if (wantsVideo) {
+            Log.w(TAG, "startCaller refusing native video — WebView WebRTC owns Android video")
+            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                .edit()
+                .remove("video_$normalized")
+                .apply()
+            startCaller(callIdRaw, iceServersJson, wantsVideo = false)
+            return
+        }
         if (isActive() && this.callId != normalized) {
             endCall(syncServer = false, reason = "superseded")
         }
@@ -320,18 +329,12 @@ class NativeVoiceWebRtcEngine private constructor(
         isAnswering = false
         isMediaConnected = false
         running.set(true)
-        this.wantsVideo = wantsVideo ||
-            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
-                .getBoolean("video_$normalized", false)
-        if (this.wantsVideo) {
-            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
-                .edit()
-                .putBoolean("video_$normalized", true)
-                .apply()
-            requestCameraPermissionIfNeeded()
-            // Full-screen Dialog immediately — never paint black SurfaceView over WebView.
-            ensureVideoCallUI("Calling…")
-        }
+        // Never enable native video path (prefs may still have video_* from older builds).
+        context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+            .edit()
+            .remove("video_$normalized")
+            .apply()
+        this.wantsVideo = false
         appliedRemoteIceKeys.clear()
         remoteDescriptionReady = false
         remoteAnswerApplied = false
@@ -339,7 +342,7 @@ class NativeVoiceWebRtcEngine private constructor(
         cachedCaller = null
         parsedIceServers = parseIceServers(iceServersJson)
 
-        Log.i(TAG, "start caller $normalized video=${this.wantsVideo}")
+        Log.i(TAG, "start caller $normalized video=false")
         runWebRtc("startCaller") {
             ensureVoiceCallAudioActive()
             createAndSendOffer(normalized)

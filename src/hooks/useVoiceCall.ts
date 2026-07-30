@@ -716,27 +716,28 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     if (makingOfferRef.current || !callIdRef.current) return
     makingOfferRef.current = true
     try {
-      if (isNativeAndroidCallApp()) {
+      // Android native video (Dialog + Camera2 + EglRenderer) aborts the process on Samsung
+      // ("Clear cache for AiMediaTank?"). Use WebView WebRTC for video; keep native for audio.
+      if (isNativeAndroidCallApp() && !hasVideoRef.current) {
         nativeWebRtcAndroidRef.current = true
-        // nativeOwnsVideo only after prepare — permission prompt must not sit under a black overlay.
         const useVideo = await prepareNativeWebRtcCaller(
           callIdRef.current,
           getIceServers(),
-          hasVideoRef.current,
+          false,
         )
         if (useVideo) {
           hasVideoRef.current = true
           setHasVideo(true)
           setNativeOwnsVideo(true)
-        } else if (hasVideoRef.current) {
-          hasVideoRef.current = false
-          setHasVideo(false)
-          setNativeOwnsVideo(false)
         }
         if (callStateRef.current === 'outgoing') {
           retryVoiceCallRingtone()
         }
         return
+      }
+      if (isNativeAndroidCallApp() && hasVideoRef.current) {
+        nativeWebRtcAndroidRef.current = false
+        setNativeOwnsVideo(false)
       }
       const pc = createPeerConnection()
       await attachLocalTracks(pc)
@@ -995,7 +996,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       }
     }
     try {
-      if (isNativeAndroidCallApp()) {
+      // Android native video Dialog/Camera2/EGL aborts on Samsung — WebView WebRTC for video.
+      // Lock-screen (fromCallKit) still uses native until a dedicated Activity UI exists.
+      if (isNativeAndroidCallApp() && !(hasVideoRef.current && !opts?.fromCallKit)) {
         nativeWebRtcAndroidRef.current = true
         void dismissVoiceCallPushNotifications(id)
         // In-app Accept: start native WebRTC here. answerNativeCall only reaches Telecom
@@ -1034,6 +1037,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           requestOpenTalkChat()
         }
         return true
+      }
+      if (isNativeAndroidCallApp() && hasVideoRef.current) {
+        nativeWebRtcAndroidRef.current = false
+        setNativeOwnsVideo(false)
       }
 
       // Accept first so the caller leaves ringing before we wait on a late offer.
