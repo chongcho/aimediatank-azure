@@ -32,7 +32,7 @@ const EMPTY_VIDEO_POSTER =
 
 /**
  * WebView (especially Android) paints a huge play glyph on <video> with no frames.
- * Keep the element invisible until playback actually starts; parent supplies the fill color.
+ * Wrap + opaque cover until playback starts so the placeholder never flashes.
  */
 function CallSurfaceVideo({
   videoRef,
@@ -48,32 +48,54 @@ function CallSurfaceVideo({
   dimmed?: boolean
 }) {
   const [hasFrames, setHasFrames] = useState(false)
+  const {
+    background = '#111',
+    opacity: _ignoredOpacity,
+    transform: _ignoredTransform,
+    objectFit = 'cover',
+    ...restStyle
+  } = style ?? {}
+
   return (
-    <video
-      ref={(el) => {
-        if (videoRef) videoRef.current = el
-      }}
-      autoPlay
-      muted={muted}
-      playsInline
-      controls={false}
-      disablePictureInPicture
-      poster={EMPTY_VIDEO_POSTER}
-      onPlaying={() => setHasFrames(true)}
-      onEmptied={() => setHasFrames(false)}
-      onSuspend={() => {
-        /* keep last frame state */
-      }}
-      onLoadedData={(e) => {
-        if (e.currentTarget.videoWidth > 0) setHasFrames(true)
-      }}
-      style={{
-        ...style,
-        background: style?.background ?? '#111',
-        opacity: hasFrames ? (dimmed ? 0.35 : 1) : 0,
-        transform: mirrored ? 'scaleX(-1)' : style?.transform,
-      }}
-    />
+    <div style={{ ...restStyle, background, overflow: 'hidden', position: restStyle.position ?? 'relative' }}>
+      <video
+        ref={(el) => {
+          if (videoRef) videoRef.current = el
+        }}
+        autoPlay
+        muted={muted}
+        playsInline
+        controls={false}
+        disablePictureInPicture
+        poster={EMPTY_VIDEO_POSTER}
+        onPlaying={() => setHasFrames(true)}
+        onEmptied={() => setHasFrames(false)}
+        onLoadedData={(e) => {
+          if (e.currentTarget.videoWidth > 0) setHasFrames(true)
+        }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit,
+          background,
+          opacity: hasFrames ? (dimmed ? 0.35 : 1) : 0,
+          transform: mirrored ? 'scaleX(-1)' : undefined,
+        }}
+      />
+      {!hasFrames ? (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background,
+            pointerEvents: 'none',
+          }}
+        />
+      ) : null}
+    </div>
   )
 }
 

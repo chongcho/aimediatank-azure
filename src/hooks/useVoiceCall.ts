@@ -611,6 +611,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         if (callIdRef.current) {
           void markNativeCallConnected(callIdRef.current)
         }
+        // Android video uses WebView WebRTC (no native Dialog) — still arm VoIP audio.
+        if (isNativeAndroidCallApp() && hasVideoRef.current) {
+          void (async () => {
+            await setNativeVoiceCallAudioActive(true)
+            await setNativeAudioRoute('speaker')
+            await setNativeVoiceCallMediaVolume(getVoiceCallVoiceVolume())
+          })()
+        }
       } else if (pc.connectionState === 'failed') {
         // Prefer ICE restart; give TURN a few seconds before hanging up both peers.
         if (tryIceRestartOnce('connectionState failed')) return
@@ -1090,6 +1098,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       reattachRemoteAudio()
       if (isNativeIosCallApp()) {
         // CallKit owns in-call UI — do not open TalkChat / home WebView.
+      } else if (isNativeAndroidCallApp() && hasVideoRef.current) {
+        // Android video is WebView WebRTC — TalkChat / native takeover hide the overlay
+        // while the PeerConnection stays live (UI gone, call still connected).
       } else if (isNativeVoiceCallApp()) {
         requestOpenTalkChat()
       }
@@ -1656,6 +1667,17 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
         // Lock-screen Accept: native engine owns WebRTC — JS must not start WebView RTCPeerConnection.
         if (nativeWebRtc && !useSessionWebRtc && isNativeVoiceCallApp()) {
+          // Android in-app video already answered on WebView RTCPeerConnection. A late
+          // Telecom notifyCallAnswered must not set nativeOwnsVideo (hides web overlay
+          // with no native Dialog) or claim nativeWebRtcAndroidRef.
+          if (
+            isNativeAndroidCallApp() &&
+            hasVideoRef.current &&
+            pcRef.current &&
+            !nativeWebRtcAndroidRef.current
+          ) {
+            return
+          }
           if (isNativeIosCallApp()) {
             nativeWebRtcCalleeRef.current = true
           } else {
