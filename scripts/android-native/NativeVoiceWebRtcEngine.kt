@@ -1187,19 +1187,12 @@ class NativeVoiceWebRtcEngine private constructor(
         }
         val offerHasVideo = sdp.contains("m=video")
         val generation = UUID.randomUUID()
-        // Do not clear wantsVideo here — tearDown only resets peer/media resources.
-        // Keep Dialog if video is already up or the offer includes video.
-        tearDownPeerConnection(notify = false, preserveVideoUi = wantsVideo || offerHasVideo)
+        // Never flip wantsVideo on for Android native — Camera2/Dialog EGL aborts on Samsung.
+        // Answer video m-lines as recvonly without local capture when the offer includes video.
+        tearDownPeerConnection(notify = false, preserveVideoUi = false)
         answerSendRecvRetryDone = false
         offerVideoLooksSendRecv = !offerHasVideo || videoSectionIsSendRecv(sdp)
-        if (offerHasVideo) {
-            wantsVideo = true
-            context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
-                .edit()
-                .putBoolean("video_${callId.lowercase()}", true)
-                .apply()
-            requestCameraPermissionIfNeeded()
-        }
+        wantsVideo = false
         createAnswerGeneration = generation
         applyPreferredAudioRoute()
         val pc = createPeerConnection(iceServers)
