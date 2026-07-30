@@ -1345,7 +1345,9 @@ class NativeVoiceWebRtcEngine private constructor(
                     localAudioTrack?.setEnabled(true)
                     applyPreferredAudioRoute()
                     if (isCaller) {
-                        stopSessionPoll()
+                        // Keep session poll until markConnected — PC trickle ICE arrives AFTER
+                        // the answer SDP. Stopping here dropped candidates and killed mobile→PC
+                        // calls ~1s after Accept (PC→mobile was fine as callee).
                         injectUiEvent(
                             "aimediatank-native-call-negotiating",
                             JSONObject().put("callId", callId.lowercase()),
@@ -1546,7 +1548,8 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun addRemoteIceCandidate(dict: JSONObject, callId: String) {
-        if (isCaller && remoteAnswerApplied) return
+        // Do not gate on remoteAnswerApplied — PC posts trickle ICE after its answer.
+        // Dedup via appliedRemoteIceKeys (avoids the old replay SIGABRT).
         if (!shouldProcessRemoteIce()) return
         val epoch = remoteIceEpoch
         val key = iceCandidateKey(dict)
@@ -1562,7 +1565,6 @@ class NativeVoiceWebRtcEngine private constructor(
 
         val task = Runnable {
             if (epoch != remoteIceEpoch) return@Runnable
-            if (isCaller && remoteAnswerApplied) return@Runnable
             if (!shouldProcessRemoteIce()) return@Runnable
             val pc = peerConnection ?: return@Runnable
             if (this.callId != callId) return@Runnable

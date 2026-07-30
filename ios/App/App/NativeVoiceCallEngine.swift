@@ -430,15 +430,9 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         }
         peerConnection = pc
 
-        let audioSource = peerConnectionFactory().audioSource(with: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil))
-        let audioTrack = peerConnectionFactory().audioTrack(with: audioSource, trackId: "audio0")
-        // Keep mic muted until CallKit activates the shared audio session.
-        audioTrack.isEnabled = audioSessionReady
-        localAudioTrack = audioTrack
-        pc.add(audioTrack, streamIds: ["stream0"])
-
-        // Attach video only AFTER setRemoteDescription so Unified Plan reuses the offer's
-        // video transceiver (adding before creates a second m=video and black frames).
+        // Attach audio+video only AFTER setRemoteDescription so Unified Plan reuses the
+        // offer's m-lines (addTrack before remote offer creates a second audio m-line and
+        // drops PC↔iPhone voice right after Accept).
         let offer = RTCSessionDescription(type: .offer, sdp: sdp)
         print("[NativeVoiceCallEngine] setRemoteDescription \(callId) len=\(sdp.count) video=\(wantsVideo)")
         pc.setRemoteDescription(offer) { [weak self] error in
@@ -453,6 +447,13 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                 self.addRemoteIceCandidate(candidate, callId: callId)
             }
             self.flushPendingRemoteIce(callId: callId)
+
+            let audioSource = self.peerConnectionFactory().audioSource(with: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil))
+            let audioTrack = self.peerConnectionFactory().audioTrack(with: audioSource, trackId: "audio0")
+            // Keep mic muted until CallKit activates the shared audio session.
+            audioTrack.isEnabled = self.audioSessionReady
+            self.localAudioTrack = audioTrack
+            _ = pc.add(audioTrack, streamIds: ["stream0"])
 
             if self.wantsVideo {
                 self.attachLocalVideoTrack(to: pc, startCapture: false)
@@ -1067,7 +1068,10 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             cancelIceDisconnectTimer()
             markConnected(callId: callId)
         case .failed:
-            failCall(callId: callId, error: "ICE failed")
+            // Same grace as disconnected — brief ICE failed flaps are common on PC↔iPhone
+            // and immediate failCall hung up both peers right after Accept.
+            self.postTrace(callId: callId, token: token ?? "", event: "native_webrtc_ice_failed")
+            scheduleIceDisconnectFail(callId: callId)
         case .checking:
             postTrace(callId: callId, token: token ?? "", event: "native_webrtc_ice_checking")
         case .disconnected:

@@ -539,6 +539,22 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
 
     let iceDisconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let iceRestartAttempted = false
+    const tryIceRestartOnce = (reason: string): boolean => {
+      if (iceRestartAttempted || typeof pc.restartIce !== 'function') return false
+      // restartIce alone does not renegotiate — only the offerer can usefully drive it.
+      // As PC callee it often worsened mobile→PC flaps into a hard hangup.
+      if (!isCallerRef.current) return false
+      iceRestartAttempted = true
+      try {
+        pc.restartIce()
+        console.warn(`[VoiceCall] ${reason} — restartIce attempted`)
+        return true
+      } catch (err) {
+        console.warn('[VoiceCall] restartIce failed:', err)
+        return false
+      }
+    }
     pc.oniceconnectionstatechange = () => {
       const iceState = pc.iceConnectionState
       if (iceState === 'connected' || iceState === 'completed') {
@@ -546,13 +562,24 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           clearTimeout(iceDisconnectTimer)
           iceDisconnectTimer = null
         }
+        iceRestartAttempted = false
       } else if (iceState === 'failed') {
         if (iceDisconnectTimer) {
           clearTimeout(iceDisconnectTimer)
           iceDisconnectTimer = null
         }
-        reportError('Call connection failed')
-        void endCall()
+        // One ICE restart before hangup — only useful for the offerer (see tryIceRestartOnce).
+        if (tryIceRestartOnce('ICE failed')) return
+        // Callee (PC Accept of mobile offer): give trickle/TURN time before hanging up both peers.
+        iceDisconnectTimer = setTimeout(() => {
+          iceDisconnectTimer = null
+          const current = pcRef.current
+          if (!current || current !== pc) return
+          if (current.iceConnectionState === 'failed' || current.connectionState === 'failed') {
+            reportError('Call connection failed')
+            void endCall()
+          }
+        }, 8000)
       } else if (iceState === 'disconnected') {
         if (iceDisconnectTimer) clearTimeout(iceDisconnectTimer)
         iceDisconnectTimer = setTimeout(() => {
@@ -580,8 +607,18 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           void markNativeCallConnected(callIdRef.current)
         }
       } else if (pc.connectionState === 'failed') {
-        reportError('Call connection failed')
-        void endCall()
+        // Prefer ICE restart; give TURN a few seconds before hanging up both peers.
+        if (tryIceRestartOnce('connectionState failed')) return
+        if (iceDisconnectTimer) clearTimeout(iceDisconnectTimer)
+        iceDisconnectTimer = setTimeout(() => {
+          iceDisconnectTimer = null
+          const current = pcRef.current
+          if (!current || current !== pc) return
+          if (current.connectionState === 'failed' || current.iceConnectionState === 'failed') {
+            reportError('Call connection failed')
+            void endCall()
+          }
+        }, 5000)
       }
     }
 
@@ -591,10 +628,47 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
   const attachLocalTracks = useCallback(async (pc: RTCPeerConnection, mediaRetries = 0) => {
     const stream = await ensureLocalAudio(mediaRetries)
+    // After setRemoteDescription the offer already created audio/video m-lines.
+    // Adding another transceiver produces a second m-line → brief connect then fail
+    // (mobile→PC). Reuse the existing transceiver like Android NativeVoiceWebRtcEngine.
+    const answering = Boolean(pc.currentRemoteDescription || pc.remoteDescription)
     for (const track of stream.getTracks()) {
-      // Prefer addTransceiver for video so Safari/WKWebView offers a=sendrecv
-      // (addTrack alone often yields sendonly → callee answers recvonly → black remote).
+      const existing = pc
+        .getTransceivers()
+        .find((t) => !t.sender.track && t.receiver.track?.kind === track.kind)
+      if (existing) {
+        await existing.sender.replaceTrack(track)
+        try {
+          existing.direction = 'sendrecv'
+        } catch {
+          // Offer may be sendonly; browser keeps the legal intersection.
+        }
+        continue
+      }
+      if (answering) {
+        // Never addTrack on answer — that can create a second m-line for the same kind.
+        const fallback = pc
+          .getTransceivers()
+          .find(
+            (t) =>
+              !t.sender.track &&
+              (!t.receiver.track || t.receiver.track.kind === track.kind),
+          )
+        if (fallback) {
+          await fallback.sender.replaceTrack(track)
+          try {
+            fallback.direction = 'sendrecv'
+          } catch {
+            /* offer may forbid upgrade */
+          }
+          continue
+        }
+        console.warn(`[VoiceCall] no ${track.kind} transceiver to attach while answering`)
+        continue
+      }
       if (track.kind === 'video') {
+        // Offering: Safari/WKWebView needs an explicit sendrecv transceiver
+        // (addTrack alone often yields sendonly → callee answers recvonly → black remote).
         pc.addTransceiver(track, { direction: 'sendrecv', streams: [stream] })
       } else {
         pc.addTrack(track, stream)
@@ -892,7 +966,29 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     }
     markVoiceCallUserGesture()
     answeringRef.current = true
+    // Sync ref immediately so the 350ms poll cannot tear down before React re-renders.
+    callStateRef.current = 'connecting'
+    setCallState('connecting')
     stopVoiceCallRingtone()
+    const acceptIdempotent = async () => {
+      if (opts?.fromCallKit && declineToken) {
+        try {
+          await nativeCallKitApi('accept', id, declineToken)
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          // Already accepted / active — continue WebRTC instead of hanging up.
+          if (!/not ringing|already|409|active/i.test(message)) throw err
+        }
+        return
+      }
+      if (opts?.fromCallKit) return
+      try {
+        await voiceApi('accept', { callId: id })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (!/not ringing|already|409|active/i.test(message)) throw err
+      }
+    }
     try {
       if (isNativeAndroidCallApp()) {
         nativeWebRtcAndroidRef.current = true
@@ -903,7 +999,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           if (opts?.fromCallKit) {
             // Lock-screen onCallAnswered posts accept separately.
           } else {
-            await voiceApi('accept', { callId: id })
+            await acceptIdempotent()
           }
         }
         if (!opts?.fromCallKit) {
@@ -928,10 +1024,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           setNativeOwnsVideo(true)
         }
         pendingOfferRef.current = null
-        setCallState('connecting')
         requestOpenTalkChat()
         return true
       }
+
+      // Accept first so the caller leaves ringing before we wait on a late offer.
+      await acceptIdempotent()
+      void dismissVoiceCallPushNotifications(id)
 
       const offerSdp = await resolvePendingOffer(
         id,
@@ -944,19 +1043,23 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         return false
       }
 
-      if (opts?.fromCallKit && declineToken) {
-        await nativeCallKitApi('accept', id, declineToken)
-      } else if (!opts?.fromCallKit) {
-        await voiceApi('accept', { callId: id })
-      }
-
-      void dismissVoiceCallPushNotifications(id)
-
       const pc = createPeerConnection()
       await pc.setRemoteDescription(new RTCSessionDescription(offerSdp))
       remoteDescriptionSetRef.current = true
       await flushPendingIceCandidates(pc)
       await attachLocalTracks(pc, opts?.fromCallKit ? 16 : 0)
+      // Match Android: force video sendrecv before createAnswer so iPhone remote isn't black.
+      if (hasVideoRef.current) {
+        for (const t of pc.getTransceivers()) {
+          if (t.receiver.track?.kind === 'video' || t.sender.track?.kind === 'video') {
+            try {
+              t.direction = 'sendrecv'
+            } catch {
+              /* offer may forbid upgrade */
+            }
+          }
+        }
+      }
 
       const answer = await pc.createAnswer()
       await pc.setLocalDescription(answer)
@@ -969,7 +1072,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         await sendSignal('answer', { sdp: answer })
       }
       pendingOfferRef.current = null
-      setCallState('connecting')
       reattachRemoteAudio()
       if (isNativeIosCallApp()) {
         // CallKit owns in-call UI — do not open TalkChat / home WebView.
@@ -1155,20 +1257,25 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             !(isNativeAndroidCallApp() && nativeWebRtcAndroidRef.current) &&
             !(isNativeIosCallApp() && nativeWebRtcCalleeRef.current)
           ) {
+            // Initial offer is re-polled until the answer is stored. Re-applying it while
+            // Accept/createAnswer is in flight races SDP and kills mobile→PC after ~1s.
+            if (answeringRef.current) continue
             const renegSdp = normalizeRemoteSdp(signal.payload?.sdp ?? signal.payload)
             const pc = pcRef.current
-            if (renegSdp && pc) {
-              try {
-                await pc.setRemoteDescription(new RTCSessionDescription(renegSdp))
-                remoteDescriptionSetRef.current = true
-                const answer = await pc.createAnswer()
-                await pc.setLocalDescription(answer)
-                await sendSignal('answer', { sdp: answer })
-                await flushPendingIceCandidates(pc)
-                console.info('[VoiceCall] answered renegotiation offer', signal.callId)
-              } catch (err) {
-                console.warn('[VoiceCall] renegotiation offer failed:', err)
-              }
+            if (!renegSdp || !pc || pc.signalingState !== 'stable') continue
+            const applied =
+              pc.currentRemoteDescription?.sdp || pc.remoteDescription?.sdp || ''
+            if (applied && renegSdp.sdp && applied === renegSdp.sdp) continue
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(renegSdp))
+              remoteDescriptionSetRef.current = true
+              const answer = await pc.createAnswer()
+              await pc.setLocalDescription(answer)
+              await sendSignal('answer', { sdp: answer })
+              await flushPendingIceCandidates(pc)
+              console.info('[VoiceCall] answered renegotiation offer', signal.callId)
+            } catch (err) {
+              console.warn('[VoiceCall] renegotiation offer failed:', err)
             }
             continue
           }
@@ -1259,11 +1366,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           void dismissVoiceCallPushNotifications(localCallId)
           setCallState('connecting')
         }
-        if (
-          ended ||
-          (data.activeCall && !voiceCallIdsMatch(data.activeCall.id, localCallId)) ||
-          (!stillActive && !data.activeCall)
-        ) {
+        // Never tear down just because activeCall is briefly missing from a poll —
+        // that raced Accept/ICE and hung up live iPhone↔PC voice+video calls.
+        // Only end on explicit endedCalls or a different live call id.
+        if (ended) {
+          resetCall()
+          return
+        }
+        if (data.activeCall && !voiceCallIdsMatch(data.activeCall.id, localCallId)) {
           resetCall()
           return
         }
@@ -1940,11 +2050,12 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   useEffect(() => {
     return () => {
       stopVoiceCallRingtone()
-      void endCallOnServer()
+      // Do not endCallOnServer here — React remount / Strict Mode / WebView resume
+      // would hang up a live iPhone↔PC call the moment Accept starts WebRTC.
       stopLocalStream()
       closePeerConnection()
     }
-  }, [closePeerConnection, endCallOnServer, stopLocalStream])
+  }, [closePeerConnection, stopLocalStream])
 
   const syncVideoElements = useCallback(() => {
     const local = localStreamRef.current
