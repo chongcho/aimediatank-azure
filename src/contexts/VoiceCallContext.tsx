@@ -151,10 +151,17 @@ export function VoiceCallOverlayPanel({
     isNativeIosCallApp() && ctx.callState === 'incoming'
 
   // iOS CallKit / Android native video: full-screen native UI owns chrome (not Capacitor overlay).
+  // Android: suppress the web overlay as soon as a video call starts — otherwise an empty
+  // <video> flashes the WebView play-icon placeholder before NativeVoiceWebRtcEngine's Dialog.
   const iosNativeVideoChrome =
     isNativeIosCallApp() && ctx.nativeOwnsVideo && ctx.hasVideo
   const androidNativeVideoChrome =
-    isNativeAndroidCallApp() && ctx.nativeOwnsVideo && ctx.hasVideo
+    isNativeAndroidCallApp() &&
+    ctx.hasVideo &&
+    (ctx.nativeOwnsVideo ||
+      ctx.callState === 'outgoing' ||
+      ctx.callState === 'connecting' ||
+      ctx.callState === 'connected')
   const nativeVideoChrome = iosNativeVideoChrome || androidNativeVideoChrome
 
   const popupCallUi =
