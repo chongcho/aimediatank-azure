@@ -1345,7 +1345,9 @@ class NativeVoiceWebRtcEngine private constructor(
                 override fun onSetSuccess() {
                     // Signaling thread — hop to main before audio route / ICE flush / UI.
                     mainHandler.post {
-                        if (this.callId != callId || peerConnection !== pc) return@post
+                        if (alice.j@example.com != callId || peerConnection !== pc) {
+                            return@post
+                        }
                         remoteDescriptionReady = true
                         flushPendingRemoteIce(callId)
                         remoteAnswerApplied = true
