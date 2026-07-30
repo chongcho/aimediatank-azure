@@ -282,16 +282,21 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     pcRef.current = null
   }, [])
 
-  const resetCall = useCallback((options?: { endNativeUi?: boolean }) => {
+  const resetCall = useCallback((options?: { endNativeUi?: boolean; skipNativeWebRtc?: boolean }) => {
     const id = callIdRef.current ? normalizeVoiceCallId(callIdRef.current) : null
     const state = callStateRef.current
     const endNativeUi = options?.endNativeUi ?? true
+    const skipNativeWebRtc = options?.skipNativeWebRtc ?? false
     stopVoiceCallRingtone()
     if (isNativeAndroidCallApp()) {
       void (async () => {
         await setNativeVoiceCallAudioActive(false)
         await clearNativeCallScreenPresentation()
-        await endNativeWebRtc()
+        // Native engine already tore down on callkit-end — a second endGlobal() aborts
+        // mid Dialog/EGL cleanup (Samsung "app has a bug").
+        if (!skipNativeWebRtc) {
+          await endNativeWebRtc()
+        }
         await enforceNativeSystemEffectsContainment()
       })()
     }
@@ -1775,7 +1780,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         // resumes the Capacitor Activity and dismisses that Dialog while PeerConnection
         // stays live — PC remains in-call, Android UI vanishes ~1s after connect, and the
         // next dial crashes into the system clear-cache dialog.
-        if (!isNativeIosCallApp() && !(isNativeAndroidCallApp() && hasVideoRef.current)) {
+        if (
+          !isNativeIosCallApp() &&
+          !(isNativeAndroidCallApp() && (hasVideoRef.current || nativeWebRtcAndroidRef.current))
+        ) {
           requestOpenTalkChat()
         }
         void markNativeCallConnected(normalizedId)
@@ -1821,9 +1829,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
               // Native bridge may have already synced end; still tear down locally.
             }
           }
-          // iOS native already ended CallKit before injecting aimediatank-callkit-end —
-          // calling endNativeCall again here races CallKit teardown and can crash after hang-up.
-          resetCallRef.current({ endNativeUi: !isNativeIosCallApp() })
+          // Native already ended WebRTC / CallKit before injecting aimediatank-callkit-end —
+          // calling endNativeCall / endNativeWebRtc again races Dialog+EGL teardown and
+          // aborts the process on Samsung ("app has a bug" / clear-cache).
+          resetCallRef.current({ endNativeUi: false, skipNativeWebRtc: true })
         })()
       },
     })

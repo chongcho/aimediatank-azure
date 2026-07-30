@@ -16,9 +16,8 @@ import org.webrtc.VideoSink
  * SurfaceView punches a hole behind the window and often stays black inside a Dialog;
  * TextureView composites in the normal view hierarchy so local/remote frames actually paint.
  *
- * IMPORTANT: never block the main thread waiting for EGL, and never call into EglRenderer
- * after [release]. Samsung kills the process (clear-cache / "app has a bug") when
- * Dialog.dismiss → [release] → onSurfaceTextureDestroyed hits a disposed EglRenderer.
+ * Lifecycle: [release] must run BEFORE Dialog.dismiss. [release] nulls the surface listener
+ * so dismiss does not call into a disposed EglRenderer (Samsung process abort).
  */
 class TextureViewRenderer(context: Context) :
     TextureView(context),
@@ -77,26 +76,17 @@ class TextureViewRenderer(context: Context) :
 
     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
         hasEglSurface = false
-        // Dialog.dismiss / view detach runs on main. Blocking here on EGL completion deadlocks
-        // with EglRenderer; calling releaseEglSurface after [release] aborts the process.
-        if (!isInitialized || isReleased) {
+        // [release] already nulled the listener in the normal path. If we still get here
+        // (Activity teardown), never block main and never touch a released EglRenderer.
+        if (isReleased || !isInitialized) {
             return false
         }
         try {
-            eglRenderer.releaseEglSurface {
-                try {
-                    surface.release()
-                } catch (_: Exception) {
-                }
-            }
+            eglRenderer.releaseEglSurface { /* async — do not latch on main */ }
         } catch (err: Exception) {
             Log.w(TAG, "releaseEglSurface: ${err.message}")
-            try {
-                surface.release()
-            } catch (_: Exception) {
-            }
         }
-        return true
+        return false
     }
 
     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
@@ -127,6 +117,7 @@ class TextureViewRenderer(context: Context) :
         if (isReleased) return
         isReleased = true
         onSurfaceReady = null
+        // Prevent Dialog.dismiss → onSurfaceTextureDestroyed from touching EglRenderer.
         surfaceTextureListener = null
         hasEglSurface = false
         try {

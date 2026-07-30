@@ -368,6 +368,14 @@ class NativeVoiceWebRtcEngine private constructor(
             mainHandler.post { endCall(syncServer, reason) }
             return
         }
+        // Idempotent — JS callkit-end → resetCall → endNativeWebRtc/endGlobal must not
+        // tear down Dialog/EGL a second time (Samsung "app has a bug" abort).
+        if (!running.get() && peerConnection == null && callVideoDialog == null && !isAnswering) {
+            callId = null
+            token = null
+            cachedCaller = null
+            return
+        }
         val id = callId
         val authToken = token
         cancelIceDisconnectTimer()
@@ -390,6 +398,11 @@ class NativeVoiceWebRtcEngine private constructor(
         }
 
         wantsVideo = false
+        // Drop call ownership before tearDown notify so JS callkit-end → endNativeCall
+        // sees isHandlingCallId=false and does not endGlobal a second time.
+        callId = null
+        token = null
+        cachedCaller = null
         tearDownPeerConnection(notify = true)
         id?.let { endedId ->
             context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
@@ -397,9 +410,6 @@ class NativeVoiceWebRtcEngine private constructor(
                 .remove("video_${endedId.lowercase()}")
                 .apply()
         }
-        callId = null
-        token = null
-        cachedCaller = null
         Log.i(TAG, "end call ${id ?: "nil"} reason=$reason")
     }
 
@@ -998,9 +1008,8 @@ class NativeVoiceWebRtcEngine private constructor(
                     }
                 }
             }
-            // Dismiss first so onSurfaceTextureDestroyed can detach EGL while the renderer
-            // is still initialized. Releasing before dismiss double-frees EglRenderer and
-            // aborts the process on Samsung (clear-cache / "app has a bug").
+            // Release EGL BEFORE dismiss. Dismiss-then-release races onSurfaceTextureDestroyed
+            // with eglRenderer.release() and aborts the process on Samsung.
             val local = localRenderer
             val remote = remoteRenderer
             localRenderer = null
@@ -1012,12 +1021,6 @@ class NativeVoiceWebRtcEngine private constructor(
             videoOverlayContainer = null
             remoteVideoTrack = null
             try {
-                callVideoDialog?.window?.decorView?.setOnSystemUiVisibilityChangeListener(null)
-                callVideoDialog?.dismiss()
-            } catch (_: Exception) {
-            }
-            callVideoDialog = null
-            try {
                 local?.release()
             } catch (_: Exception) {
             }
@@ -1025,12 +1028,17 @@ class NativeVoiceWebRtcEngine private constructor(
                 remote?.release()
             } catch (_: Exception) {
             }
+            val dialog = callVideoDialog
+            callVideoDialog = null
+            try {
+                dialog?.window?.decorView?.setOnSystemUiVisibilityChangeListener(null)
+                dialog?.dismiss()
+            } catch (_: Exception) {
+            }
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             work.run()
         } else {
-            // Never latch-wait for main — runWebRtc already blocks main on the WebRTC
-            // executor; waiting here deadlocks and aborts the process.
             mainHandler.post(work)
         }
     }
@@ -1823,6 +1831,9 @@ class NativeVoiceWebRtcEngine private constructor(
             mainHandler.post { failCall(callId, error) }
             return
         }
+        if (this.callId != callId && peerConnection == null && callVideoDialog == null) {
+            return
+        }
         Log.e(TAG, "failed $callId: $error")
         token?.let { postNativeTrace(callId, it, "native_webrtc_failed", JSONObject().put("error", error)) }
         val authToken = token
@@ -1831,6 +1842,9 @@ class NativeVoiceWebRtcEngine private constructor(
         bootstrapGeneration = null
         running.set(false)
         wantsVideo = false
+        // Clear ownership before JS callkit-end → endNativeCall so CallManager skips endGlobal.
+        this.callId = null
+        token = null
         tearDownPeerConnection(notify = false)
         emitFailed(callId, error)
         injectUiEvent("aimediatank-callkit-end", JSONObject().put("callId", callId))
@@ -1839,8 +1853,6 @@ class NativeVoiceWebRtcEngine private constructor(
         } else {
             executor.execute { postSessionAction("end", callId) }
         }
-        this.callId = null
-        token = null
     }
 
     private fun cancelIceDisconnectTimer() {

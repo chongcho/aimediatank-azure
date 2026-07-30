@@ -2458,7 +2458,11 @@ if (fs.existsSync(callManagerPath)) {
         activeCalls[callId]?.onDisconnect()
         activeCalls.remove(callId)
         declineTokensByCallId.remove(callId.lowercase())
-        endNativeWebRtc()
+        // Only if the engine still owns this call — after NativeVoiceWebRtcEngine.endCall
+        // injects callkit-end, a second endGlobal() double-frees Dialog/EGL (Samsung abort).
+        if (NativeVoiceWebRtcEngine.isHandlingCallId(callId)) {
+            endNativeWebRtc()
+        }
         if (activeCalls.isEmpty()) {
             setVoiceCallAudioActive(false)
         }
@@ -2478,6 +2482,36 @@ if (fs.existsSync(callManagerPath)) {
     fs.writeFileSync(callManagerPath, callManager)
     changed = true
     console.log('[patch-android-fcm] CallManager native WebRTC hooks')
+  }
+
+  // Upgrade previously patched CallManager.endCall that always called endNativeWebRtc().
+  callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('declineTokensByCallId.remove(callId.lowercase())') &&
+    callManager.includes('endNativeWebRtc()') &&
+    !callManager.includes('Only if the engine still owns this call')
+  ) {
+    const upgraded = callManager.replace(
+      `        declineTokensByCallId.remove(callId.lowercase())
+        endNativeWebRtc()
+        if (activeCalls.isEmpty()) {
+            setVoiceCallAudioActive(false)
+        }`,
+      `        declineTokensByCallId.remove(callId.lowercase())
+        // Only if the engine still owns this call — after NativeVoiceWebRtcEngine.endCall
+        // injects callkit-end, a second endGlobal() double-frees Dialog/EGL (Samsung abort).
+        if (NativeVoiceWebRtcEngine.isHandlingCallId(callId)) {
+            endNativeWebRtc()
+        }
+        if (activeCalls.isEmpty()) {
+            setVoiceCallAudioActive(false)
+        }`,
+    )
+    if (upgraded !== callManager) {
+      fs.writeFileSync(callManagerPath, upgraded)
+      changed = true
+      console.log('[patch-android-fcm] CallManager.endCall gate endNativeWebRtc')
+    }
   }
 }
 
