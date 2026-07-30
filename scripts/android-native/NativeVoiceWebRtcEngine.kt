@@ -1175,27 +1175,31 @@ class NativeVoiceWebRtcEngine private constructor(
         }
         pc.setRemoteDescription(object : SdpObserverAdapter() {
             override fun onSetSuccess() {
-                if (createAnswerGeneration != generation) return
-                remoteDescriptionReady = true
-                for (candidate in initialRemoteIce) {
-                    addRemoteIceCandidate(candidate, callId)
+                // WebRTC signaling callbacks are off the main thread; PeerConnectionFactory
+                // / Camera2 must run on main (Azure: local_video_failed "must be created on the main thread").
+                mainHandler.post {
+                    if (createAnswerGeneration != generation) return@post
+                    remoteDescriptionReady = true
+                    for (candidate in initialRemoteIce) {
+                        addRemoteIceCandidate(candidate, callId)
+                    }
+                    flushPendingRemoteIce(callId)
+                    attachLocalVideo(pc)
+                    ensureVideoSendRecv(pc)
+                    // iPhone callers need sendrecv in the answer. If camera is still starting,
+                    // wait briefly so we do not answer recvonly (black remote on iPhone).
+                    if (wantsVideo && localVideoTrack == null) {
+                        postClientTrace("answer_waiting_local_video")
+                        mainHandler.postDelayed({
+                            if (createAnswerGeneration != generation) return@postDelayed
+                            attachLocalVideo(pc)
+                            ensureVideoSendRecv(pc)
+                            createAnswerSdp(pc, callId, generation)
+                        }, 1200)
+                        return@post
+                    }
+                    createAnswerSdp(pc, callId, generation)
                 }
-                flushPendingRemoteIce(callId)
-                attachLocalVideo(pc)
-                ensureVideoSendRecv(pc)
-                // iPhone callers need sendrecv in the answer. If camera is still starting,
-                // wait briefly so we do not answer recvonly (black remote on iPhone).
-                if (wantsVideo && localVideoTrack == null) {
-                    postClientTrace("answer_waiting_local_video")
-                    mainHandler.postDelayed({
-                        if (createAnswerGeneration != generation) return@postDelayed
-                        attachLocalVideo(pc)
-                        ensureVideoSendRecv(pc)
-                        createAnswerSdp(pc, callId, generation)
-                    }, 1200)
-                    return
-                }
-                createAnswerSdp(pc, callId, generation)
             }
 
             override fun onSetFailure(error: String?) {
@@ -1339,21 +1343,25 @@ class NativeVoiceWebRtcEngine private constructor(
             val answer = SessionDescription(SessionDescription.Type.ANSWER, sdp)
             pc.setRemoteDescription(object : SdpObserverAdapter() {
                 override fun onSetSuccess() {
-                    remoteDescriptionReady = true
-                    flushPendingRemoteIce(callId)
-                    remoteAnswerApplied = true
-                    localAudioTrack?.setEnabled(true)
-                    applyPreferredAudioRoute()
-                    if (isCaller) {
-                        // Keep session poll until markConnected — PC trickle ICE arrives AFTER
-                        // the answer SDP. Stopping here dropped candidates and killed mobile→PC
-                        // calls ~1s after Accept (PC→mobile was fine as callee).
-                        injectUiEvent(
-                            "aimediatank-native-call-negotiating",
-                            JSONObject().put("callId", callId.lowercase()),
-                        )
+                    // Signaling thread — hop to main before audio route / ICE flush / UI.
+                    mainHandler.post {
+                        if (this.callId != callId || peerConnection !== pc) return@post
+                        remoteDescriptionReady = true
+                        flushPendingRemoteIce(callId)
+                        remoteAnswerApplied = true
+                        localAudioTrack?.setEnabled(true)
+                        applyPreferredAudioRoute()
+                        if (isCaller) {
+                            // Keep session poll until markConnected — PC trickle ICE arrives AFTER
+                            // the answer SDP. Stopping here dropped candidates and killed mobile→PC
+                            // calls ~1s after Accept (PC→mobile was fine as callee).
+                            injectUiEvent(
+                                "aimediatank-native-call-negotiating",
+                                JSONObject().put("callId", callId.lowercase()),
+                            )
+                        }
+                        Log.i(TAG, "applied remote answer $callId")
                     }
-                    Log.i(TAG, "applied remote answer $callId")
                 }
 
                 override fun onSetFailure(error: String?) {
@@ -1574,15 +1582,20 @@ class NativeVoiceWebRtcEngine private constructor(
             }
             if (!canAcceptRemoteIce(pc)) return@Runnable
             if (!appliedRemoteIceKeys.add(key)) return@Runnable
-            val candidate = IceCandidate(sdpMid, mLineIndex, sdp)
-            pc.addIceCandidate(candidate, object : AddIceObserver {
-                override fun onAddSuccess() {}
+            try {
+                val candidate = IceCandidate(sdpMid, mLineIndex, sdp)
+                pc.addIceCandidate(candidate, object : AddIceObserver {
+                    override fun onAddSuccess() {}
 
-                override fun onAddFailure(error: String) {
-                    appliedRemoteIceKeys.remove(key)
-                    Log.w(TAG, "addIceCandidate failed $callId: $error")
-                }
-            })
+                    override fun onAddFailure(error: String) {
+                        appliedRemoteIceKeys.remove(key)
+                        Log.w(TAG, "addIceCandidate failed $callId: $error")
+                    }
+                })
+            } catch (err: Exception) {
+                appliedRemoteIceKeys.remove(key)
+                Log.w(TAG, "addIceCandidate threw $callId: ${err.message}")
+            }
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             task.run()
@@ -1651,13 +1664,20 @@ class NativeVoiceWebRtcEngine private constructor(
     }
 
     private fun applyPreferredAudioRoute() {
-        val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager
-        val preferEarpiece =
-            !uiSpeakerOn || callManager?.preferredAudioRoute == "earpiece"
-        if (preferEarpiece) {
-            applyTelecomEarpieceRoute()
+        val work = Runnable {
+            val callManager = CapacitorVoipCallsPlugin.getInstance()?.callManager
+            val preferEarpiece =
+                !uiSpeakerOn || callManager?.preferredAudioRoute == "earpiece"
+            if (preferEarpiece) {
+                applyTelecomEarpieceRoute()
+            } else {
+                applyTelecomSpeakerRoute()
+            }
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            work.run()
         } else {
-            applyTelecomSpeakerRoute()
+            mainHandler.post(work)
         }
     }
 
