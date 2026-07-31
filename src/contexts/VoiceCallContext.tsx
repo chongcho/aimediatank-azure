@@ -218,14 +218,8 @@ export function VoiceCallOverlayPanel({
           if (isNativeIosCallApp() && ctx.callId) {
             await answerNativeCall(ctx.callId).catch(() => false)
           }
-          // Android in-app: answerCall owns server accept + native WebRTC (decline token).
+          // Android: answerCall owns Telecom answer (voice + WebView video with skipNativeWebRtc).
           await ctx.answerCall()
-          // Android video is WebView WebRTC — answerNativeCall → notifyCallAnswered would
-          // start a second native PeerConnection and set nativeOwnsVideo, hiding the web
-          // overlay with no Dialog (UI gone, call still connected).
-          if (isNativeAndroidCallApp() && ctx.callId && !ctx.hasVideo) {
-            await answerNativeCall(ctx.callId).catch(() => false)
-          }
         })()
       }}
       onReject={() => void ctx.rejectCall()}

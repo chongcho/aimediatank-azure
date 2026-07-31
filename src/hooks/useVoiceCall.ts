@@ -12,6 +12,7 @@ import {
 } from '@/lib/voiceCallRingtone'
 import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 import {
+  answerNativeCall,
   clearNativeCallScreenPresentation,
   endNativeCall,
   endNativeWebRtc,
@@ -150,6 +151,15 @@ function normalizeRemoteSdp(input: unknown): RTCSessionDescriptionInit | null {
     return normalizeRemoteSdp(obj.sdp)
   }
   return null
+}
+
+/** True when SDP includes an m=video section (PC video offer → Android must not answer as voice). */
+function sessionDescriptionHasVideo(
+  sdp: RTCSessionDescriptionInit | string | null | undefined,
+): boolean {
+  const text = typeof sdp === 'string' ? sdp : sdp?.sdp
+  if (!text) return false
+  return /(^|\r?\n)m=video[\s/]/i.test(text)
 }
 
 async function fetchNativeCallKitBootstrap(callId: string, token: string) {
@@ -770,9 +780,16 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   }, [applyRemoteAnswer, attachLocalTracks, createPeerConnection, sendSignal])
 
   const storePendingOffer = useCallback((payload: Record<string, unknown>) => {
-    const sdp = payload?.sdp as RTCSessionDescriptionInit | undefined
+    const sdp =
+      normalizeRemoteSdp(payload?.sdp ?? payload) ||
+      (payload?.sdp as RTCSessionDescriptionInit | undefined)
     if (sdp) {
       pendingOfferRef.current = sdp
+      // FCM/native incoming often never sets hasVideo — learn it from the offer itself.
+      if (sessionDescriptionHasVideo(sdp)) {
+        hasVideoRef.current = true
+        setHasVideo(true)
+      }
     }
   }, [])
 
@@ -1004,6 +1021,24 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       }
     }
     try {
+      // Android: FCM/native rings often never set hasVideo (applyIncomingCall ignored it), so
+      // Accept wrongly took the native *audio* path — TalkChat + no camera, PC black remote.
+      // Peek the offer SDP before choosing the answer path.
+      if (isNativeAndroidCallApp() && !opts?.fromCallKit && !hasVideoRef.current) {
+        let offerPeek = pendingOfferRef.current
+        if (!offerPeek) {
+          try {
+            offerPeek = await resolvePendingOffer(id, declineToken)
+          } catch {
+            offerPeek = null
+          }
+        }
+        if (offerPeek && sessionDescriptionHasVideo(offerPeek)) {
+          hasVideoRef.current = true
+          setHasVideo(true)
+        }
+      }
+
       // Android native video Dialog/Camera2/EGL aborts on Samsung — WebView WebRTC for video.
       // Lock-screen (fromCallKit) still uses native until a dedicated Activity UI exists.
       if (isNativeAndroidCallApp() && !(hasVideoRef.current && !opts?.fromCallKit)) {
@@ -1043,6 +1078,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         // Native video Dialog owns UI — do not open TalkChat (dismisses Dialog / crashes retry).
         if (!hasVideoRef.current) {
           requestOpenTalkChat()
+          // Telecom answer for voice (engine already handling → notifyCallAnswered skips duplicate).
+          if (!opts?.fromCallKit) {
+            void answerNativeCall(id).catch(() => false)
+          }
         }
         return true
       }
@@ -1096,11 +1135,23 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       }
       pendingOfferRef.current = null
       reattachRemoteAudio()
-      if (isNativeIosCallApp()) {
+      if (isNativeAndroidCallApp() && hasVideoRef.current) {
+        // WebView owns video — answer Telecom / dismiss "Incoming call" without starting
+        // a second native PeerConnection (markWebOwnsVideoCall prefs gate, new APK).
+        void (async () => {
+          try {
+            await answerNativeCall(id, { skipNativeWebRtc: true })
+          } catch {
+            /* old APK without markWebOwnsVideoCall — best-effort cleanup below */
+          }
+          void dismissVoiceCallPushNotifications(id)
+          void markNativeCallConnected(id)
+          void setNativeVoiceCallAudioActive(true)
+          void setNativeAudioRoute('speaker')
+          void clearNativeCallScreenPresentation()
+        })()
+      } else if (isNativeIosCallApp()) {
         // CallKit owns in-call UI — do not open TalkChat / home WebView.
-      } else if (isNativeAndroidCallApp() && hasVideoRef.current) {
-        // Android video is WebView WebRTC — TalkChat / native takeover hide the overlay
-        // while the PeerConnection stays live (UI gone, call still connected).
       } else if (isNativeVoiceCallApp()) {
         requestOpenTalkChat()
       }
@@ -1474,10 +1525,18 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     else void rejectCall()
   }, [answerCall, rejectCall])
 
-  const applyIncomingCall = useCallback((callId: string, caller: VoiceCallUser, opts?: { callKitOnly?: boolean }) => {
+  const applyIncomingCall = useCallback((
+    callId: string,
+    caller: VoiceCallUser,
+    opts?: { callKitOnly?: boolean; hasVideo?: boolean },
+  ) => {
     const normalizedId = normalizeVoiceCallId(callId)
     if (isSuppressedEndedCall(normalizedId)) {
       return
+    }
+    if (opts?.hasVideo) {
+      hasVideoRef.current = true
+      setHasVideo(true)
     }
     if (callStateRef.current === 'connecting' || callStateRef.current === 'connected') {
       stopVoiceCallRingtone()
@@ -1566,7 +1625,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
 
       const fromMeta = call ? callerFromNative(call) : null
       if (fromMeta) {
-        applyIncomingCallRef.current(normalizedId, fromMeta, { callKitOnly })
+        applyIncomingCallRef.current(normalizedId, fromMeta, {
+          callKitOnly,
+          hasVideo: Boolean(call.video),
+        })
         return
       }
 
@@ -1578,7 +1640,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         try {
           const bootstrap = await fetchNativeCallKitBootstrap(normalizedId, lockScreenToken)
           if (bootstrap?.caller) {
-            applyIncomingCallRef.current(normalizedId, bootstrap.caller, { callKitOnly })
+            applyIncomingCallRef.current(normalizedId, bootstrap.caller, {
+              callKitOnly,
+              hasVideo: Boolean(bootstrap.hasVideo),
+            })
             return
           }
         } catch {

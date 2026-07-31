@@ -2879,6 +2879,106 @@ if (fs.existsSync(callManagerPath)) {
   }
 }
 
+// WebView video: answer Telecom / dismiss "Incoming call" without a second native PeerConnection.
+const webOwnsVideoSkipMarker = 'AiMediaTank skip native WebRTC when WebView owns video'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes(notifySkipNativeWebRtcMarker) &&
+    !callManager.includes(webOwnsVideoSkipMarker)
+  ) {
+    const upgraded = callManager.replace(
+      `        // ${notifySkipNativeWebRtcMarker}
+        val emitter = eventEmitter ?: return
+        val engine = NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter)
+        if (!engine.isHandlingCall(callId)) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                startNativeWebRtcAnswer(callId, token)
+            }
+        }`,
+      `        // ${notifySkipNativeWebRtcMarker}
+        // ${webOwnsVideoSkipMarker}
+        val webOwnsVideo = context.getSharedPreferences("amt_voice", android.content.Context.MODE_PRIVATE)
+            .getBoolean("web_video_" + callId.lowercase(), false)
+        if (webOwnsVideo) {
+            try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+            return
+        }
+        val emitter = eventEmitter ?: return
+        val engine = NativeVoiceWebRtcEngine.shared(context, resolveWebRtcBaseUrl(), emitter)
+        if (!engine.isHandlingCall(callId)) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                startNativeWebRtcAnswer(callId, token)
+            }
+        }`,
+    )
+    if (upgraded !== callManager) {
+      fs.writeFileSync(callManagerPath, upgraded)
+      changed = true
+      console.log('[patch-android-fcm] notifyCallAnswered skips WebView-owned video')
+    }
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('fun resolveWebRtcBaseUrl()') &&
+    !callManager.includes('fun markWebOwnsVideoCall(')
+  ) {
+    callManager = callManager.replace(
+      `    fun resolveWebRtcBaseUrl(): String {`,
+      `    fun markWebOwnsVideoCall(callId: String) {
+        context.getSharedPreferences("amt_voice", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("web_video_" + callId.lowercase(), true)
+            .apply()
+        try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+    }
+
+    fun clearWebOwnsVideoCall(callId: String) {
+        context.getSharedPreferences("amt_voice", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .remove("web_video_" + callId.lowercase())
+            .apply()
+    }
+
+    fun resolveWebRtcBaseUrl(): String {`,
+    )
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager markWebOwnsVideoCall')
+  }
+}
+
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (
+    pluginSource.includes('fun prepareNativeWebRtcAnswer(call: PluginCall)') &&
+    !pluginSource.includes('fun markWebOwnsVideoCall(call: PluginCall)')
+  ) {
+    pluginSource = pluginSource.replace(
+      `    @PluginMethod
+    fun prepareNativeWebRtcAnswer(call: PluginCall) {`,
+      `    @PluginMethod
+    fun markWebOwnsVideoCall(call: PluginCall) {
+        val callId = call.getString("callId") ?: run {
+            call.reject("Missing callId")
+            return
+        }
+        callManager?.markWebOwnsVideoCall(callId)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun prepareNativeWebRtcAnswer(call: PluginCall) {`,
+    )
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] markWebOwnsVideoCall plugin method')
+  }
+}
+
 const remoteOfferSdpMarker = 'remoteOfferSdp'
 if (fs.existsSync(pluginPath)) {
   let pluginSource = fs.readFileSync(pluginPath, 'utf8')

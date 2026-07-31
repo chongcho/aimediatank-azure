@@ -601,10 +601,24 @@ export async function initNativeCallBridge(handlers: NativeCallBridgeHandlers): 
   return true
 }
 
-export async function answerNativeCall(callId: string | null | undefined): Promise<boolean> {
+export async function answerNativeCall(
+  callId: string | null | undefined,
+  opts?: { skipNativeWebRtc?: boolean },
+): Promise<boolean> {
   if (!isNativeVoiceCallApp() || !callId) return false
   try {
     const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & {
+      markWebOwnsVideoCall?: (options: { callId: string }) => Promise<void>
+    }
+    // WebView video: only answer Telecom when the APK can skip starting native WebRTC.
+    // Older builds would prepareAnswer and overwrite the video SDP with audio-only.
+    if (opts?.skipNativeWebRtc) {
+      if (typeof plugin.markWebOwnsVideoCall !== 'function') {
+        return false
+      }
+      await plugin.markWebOwnsVideoCall({ callId })
+    }
     await CapacitorPushCalls.answerCall({ callId })
     return true
   } catch (error) {
