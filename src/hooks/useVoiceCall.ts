@@ -1627,7 +1627,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (fromMeta) {
         applyIncomingCallRef.current(normalizedId, fromMeta, {
           callKitOnly,
-          hasVideo: Boolean(call.video),
+          hasVideo: Boolean(call?.video),
         })
         return
       }
