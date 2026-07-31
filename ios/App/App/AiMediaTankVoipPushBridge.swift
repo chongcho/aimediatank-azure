@@ -229,10 +229,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             self.acceptCoverPollWork = nil
             self.acceptCoverView?.removeFromSuperview()
             self.acceptCoverView = nil
-            // Only strip native video UI on real hangup. Timeout used to call
-            // forceCleanupMediaUi and wiped CallVideoViewController right after Accept
-            // while JS still had nativeOwnsVideo (PC→iPhone: UI gone, call still live).
-            if reason == "call_ended" || reason == "user_end" {
+            // Only strip orphan native video UI when no call owns the engine. Unconditional
+            // cleanup here (and isActive-based endCallKitCall) killed the next PC→iPhone Accept
+            // when a stale prior-call end/dismiss raced the new prepareAnswer.
+            if (reason == "call_ended" || reason == "user_end"),
+               !NativeVoiceCallEngine.shared.isActive {
                 NativeVoiceCallEngine.shared.forceCleanupMediaUi()
             }
             print("[AiMediaTankVoipPushBridge] end accept cover (\(reason))")
@@ -905,9 +906,16 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             self.stopCallKitRingAnnouncement()
             NativeVoiceCallEngine.shared.clearPrefetch(callId: callId)
             Self.clearCallHasVideo(callId)
-            // Always clear Metal overlay/camera — activeCallId may already be nil after races.
-            NativeVoiceCallEngine.shared.forceCleanupMediaUi()
-            self.endAcceptCover(reason: "call_ended")
+            // Only tear down native media when THIS UUID owns the engine. Using isActive alone
+            // killed the next PC→iPhone Accept when a stale end/dismiss for the prior call ran.
+            let engineOwnsThisCall =
+                NativeVoiceCallEngine.shared.activeCallId?.lowercased() == callId
+            if engineOwnsThisCall {
+                NativeVoiceCallEngine.shared.forceCleanupMediaUi()
+            }
+            if engineOwnsThisCall || self.acceptCoverActive {
+                self.endAcceptCover(reason: "call_ended")
+            }
             let observer = CXCallObserver()
             let stillOnCallKit = observer.calls.contains { $0.uuid == uuid && !$0.hasEnded }
             let alreadyMarked = self.endedCallKitCallIds.contains(callId)
@@ -917,13 +925,13 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             // scheduleDismissRetries became no-ops (stuck lock-screen UI after caller hangup).
             if stillOnCallKit || !alreadyMarked {
                 self.endedCallKitCallIds.insert(callId)
-                if NativeVoiceCallEngine.shared.activeCallId == callId || NativeVoiceCallEngine.shared.isActive {
+                if engineOwnsThisCall {
                     NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
                 }
                 // Remote hangup / cancel: reportCall is the correct provider API.
                 // CXEndCallAction alone often fails to clear lock-screen UI from a PushKit wake.
                 self.provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
-                print("[AiMediaTankVoipPushBridge] reportCall ended \(callId) reason=\(reason.rawValue) stillOnCallKit=\(stillOnCallKit)")
+                print("[AiMediaTankVoipPushBridge] reportCall ended \(callId) reason=\(reason.rawValue) stillOnCallKit=\(stillOnCallKit) engineOwned=\(engineOwnsThisCall)")
             }
 
             if notifyJs, !alreadyMarked {
@@ -2237,17 +2245,24 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         audioActivationFallbackGeneration = nil
         Self.clearLockScreenNativeAnswer(callId: callId)
         Self.clearCallHasVideo(callId)
-        endAcceptCover(reason: "user_end")
+        let engineOwnsThisCall =
+            NativeVoiceCallEngine.shared.activeCallId?.lowercased() == callId
+        // Do not clear accept cover / pending answer for a different live call.
+        if engineOwnsThisCall || UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased() == callId {
+            endAcceptCover(reason: "user_end")
+        }
         let alreadyHandled = endedCallKitCallIds.contains(callId)
         if !alreadyHandled {
             endedCallKitCallIds.insert(callId)
-            if NativeVoiceCallEngine.shared.activeCallId == callId {
+            if engineOwnsThisCall {
                 NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
             }
             syncCallEndToServer(callId: callId)
             injectCallCancelToWebView(callId: callId)
             stopCallStatusWatch(callId: callId)
-            clearPendingCallKitAnswer()
+            if UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased() == callId {
+                clearPendingCallKitAnswer()
+            }
             NotificationCenter.default.post(
                 name: Self.callKitEndNotification,
                 object: nil,
