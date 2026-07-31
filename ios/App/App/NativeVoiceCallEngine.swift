@@ -409,6 +409,11 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         let generation = UUID()
         tearDownPeerConnection(notify: false)
         createAnswerGeneration = generation
+        // Show Connecting UI immediately after tearDown so Accept cover can clear via
+        // notifyNativeVideoUiPresented before the home feed flashes (and before answer SDP).
+        if wantsVideo {
+            ensureVideoCallUI(status: "Connecting…")
+        }
         // Enable WebRTC audio I/O only after CallKit didActivate; signaling starts now.
         if audioSessionReady {
             ensureWebRtcAudioEnabled()
@@ -910,6 +915,9 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
                     ?? Self.topMostViewController()
                 else {
                     print("[NativeVoiceCallEngine] no presenter for video UI")
+                    // Do not keep an unpresented VC — later ensureVideoCallUI would
+                    // skip present() and leave PC→iPhone with no UI.
+                    self.callVideoViewController = nil
                     return
                 }
                 let presentBlock = {

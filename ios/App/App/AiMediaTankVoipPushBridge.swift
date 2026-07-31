@@ -229,9 +229,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             self.acceptCoverPollWork = nil
             self.acceptCoverView?.removeFromSuperview()
             self.acceptCoverView = nil
-            // Full-screen native video UI owns chrome — do not re-layout WebView overlay.
-            if reason == "call_ended" || reason == "user_end" || reason == "timeout" {
-                // Always strip video UI on hangup — do not wait for endCall races.
+            // Only strip native video UI on real hangup. Timeout used to call
+            // forceCleanupMediaUi and wiped CallVideoViewController right after Accept
+            // while JS still had nativeOwnsVideo (PC→iPhone: UI gone, call still live).
+            if reason == "call_ended" || reason == "user_end" {
                 NativeVoiceCallEngine.shared.forceCleanupMediaUi()
             }
             print("[AiMediaTankVoipPushBridge] end accept cover (\(reason))")
@@ -244,8 +245,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     }
 
     private func scheduleAcceptCoverReadyPoll(attempt: Int) {
-        guard acceptCoverActive, attempt < 60 else {
-            if attempt >= 60 { endAcceptCover(reason: "timeout") }
+        // ~8s — video UI often presents after answer SDP; old 3s timeout raced Accept.
+        guard acceptCoverActive, attempt < 160 else {
+            if attempt >= 160 { endAcceptCover(reason: "timeout") }
             return
         }
         let work = DispatchWorkItem { [weak self] in
