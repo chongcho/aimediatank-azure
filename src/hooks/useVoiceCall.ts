@@ -1904,7 +1904,28 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       onCallEnded: (callId) => {
         const normalizedId = normalizeVoiceCallId(callId)
         rememberEndedCallId(normalizedId)
-        if (callIdRef.current && !voiceCallIdsMatch(callIdRef.current, callId)) return
+        // Match against the live JS call or in-flight CallKit Accept. A late Android/PC
+        // cancel for the prior UUID used to hit here while callIdRef was still null (or
+        // still the old id) and resetCall mid second Accept — nativeOwnsVideo cleared,
+        // idle flash, and often a hangup of the new call.
+        const liveId = callIdRef.current || callKitAnswerInFlightRef.current
+        if (liveId) {
+          if (!voiceCallIdsMatch(liveId, callId)) return
+        } else if (isNativeIosCallApp()) {
+          const state = callStateRef.current
+          if (
+            nativeWebRtcCalleeRef.current ||
+            state === 'connecting' ||
+            state === 'connected' ||
+            state === 'incoming' ||
+            state === 'outgoing'
+          ) {
+            console.warn('[VoiceCall] ignore stale callKit end (no live id)', callId)
+            return
+          }
+          stopVoiceCallRingtone()
+          return
+        }
         stopVoiceCallRingtone()
         callKitAnswerInFlightRef.current = null
         callKitSignalingRef.current = false
