@@ -1198,10 +1198,19 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// reportNewIncomingCall + immediate historical end (PushKit require report; hide ring UI).
     private func reportIncomingThenEndHistorically(uuid: UUID, completion: @escaping () -> Void) {
         let normalized = uuid.uuidString.lowercased()
+        // Already dismissed this call — inventing a new CallKit row flashes "Audio connecting…"
+        // after Android→iPhone video already dropped (cancel VoIP after caller timeout).
+        if Self.isCallCancelled(normalized) || endedCallKitCallIds.contains(normalized) {
+            print("[AiMediaTankVoipPushBridge] skip historical fulfill UI — already dismissed \(normalized)")
+            // PushKit still needs a report when nothing is on CallKit; use a throwaway UUID
+            // so the real call id cannot resurface as a ghost Audio session.
+            reportIncomingThenEndHistoricallyFresh(completion: completion)
+            return
+        }
         let update = CXCallUpdate()
         update.remoteHandle = CXHandle(type: .generic, value: "aimediatank")
         update.localizedCallerName = "AiMediaTank"
-        update.hasVideo = false
+        update.hasVideo = Self.callHasVideo(normalized)
         update.supportsDTMF = false
         update.supportsHolding = false
         update.supportsGrouping = false
@@ -1220,6 +1229,38 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             }
             self.endCallKitHistorically(uuid: uuid)
             print("[AiMediaTankVoipPushBridge] fulfill VoIP push reported+ended historically \(normalized)")
+            completion()
+        }
+    }
+
+    /// PushKit-compliant report using a fresh UUID so a dead call id cannot flash system UI.
+    private func reportIncomingThenEndHistoricallyFresh(completion: @escaping () -> Void) {
+        reportIncomingThenEndHistoricallyAllowingRepeat(uuid: UUID(), completion: completion)
+    }
+
+    private func reportIncomingThenEndHistoricallyAllowingRepeat(uuid: UUID, completion: @escaping () -> Void) {
+        let normalized = uuid.uuidString.lowercased()
+        let update = CXCallUpdate()
+        update.remoteHandle = CXHandle(type: .generic, value: "aimediatank")
+        update.localizedCallerName = "AiMediaTank"
+        update.hasVideo = false
+        update.supportsDTMF = false
+        update.supportsHolding = false
+        update.supportsGrouping = false
+        update.supportsUngrouping = false
+
+        provider.reportNewIncomingCall(with: uuid, update: update) { [weak self] error in
+            guard let self else {
+                completion()
+                return
+            }
+            if let error {
+                print("[AiMediaTankVoipPushBridge] fresh historical fulfill report failed \(normalized): \(error.localizedDescription)")
+                completion()
+                return
+            }
+            self.endCallKitHistorically(uuid: uuid)
+            print("[AiMediaTankVoipPushBridge] fulfill VoIP push reported+ended on fresh UUID \(normalized)")
             completion()
         }
     }

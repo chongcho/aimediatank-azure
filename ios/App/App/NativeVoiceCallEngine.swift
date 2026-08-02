@@ -179,18 +179,23 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         // retry, didActivate race before pendingAnswer is cleared) must not reset a live
         // call — that tore down the PC and hung up Android→iPhone ~1s after both UIs appeared.
         if self.callId == normalized {
-            if isMediaConnected || peerConnection != nil {
+            if isMediaConnected || peerConnection != nil || createAnswerGeneration != nil {
                 self.token = token
                 self.baseURL = baseURL
                 if wantsVideo { self.wantsVideo = true }
-                print("[NativeVoiceCallEngine] prepare answer ignored — already live \(normalized) connected=\(isMediaConnected)")
+                print("[NativeVoiceCallEngine] prepare answer ignored — already live \(normalized) connected=\(isMediaConnected) pc=\(peerConnection != nil) creating=\(createAnswerGeneration != nil)")
                 return
             }
             if isAnswering {
-                // Already answering this call — keep in-flight SDP/ICE; only re-kick if still pending.
+                // Already answering — do not start a second bootstrap while one is in flight.
+                // A parallel createAnswer used to tear down the first PC (~1s after Connected).
                 self.token = token
                 self.baseURL = baseURL
                 if wantsVideo { self.wantsVideo = true }
+                if bootstrapGeneration != nil {
+                    print("[NativeVoiceCallEngine] prepare answer ignored — bootstrap in flight \(normalized)")
+                    return
+                }
                 beginAnswerIfNeeded()
                 return
             }
@@ -353,6 +358,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             return
         }
 
+        // Stop ringing prefetch so it cannot race a second createAnswer after bootstrap.
+        prefetchGeneration = nil
         bootstrapUntilOfferReady(callId: callId, token: token)
     }
 
@@ -407,12 +414,16 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         iceServers: [RTCIceServer],
         initialRemoteIce: [[String: Any]] = []
     ) {
-        // Never replace a live PC for this call (duplicate bootstrap / prepareAnswer race).
-        if self.callId == callId.lowercased(),
-           peerConnection != nil,
-           remoteDescriptionReady || isMediaConnected
-        {
-            print("[NativeVoiceCallEngine] createAnswer skipped — already negotiating/connected \(callId)")
+        // Never replace a PC for this call — even mid-setRemoteDescription. The old guard
+        // required remoteDescriptionReady/isMediaConnected, so a second createAnswer in the
+        // ~1s window after Accept tore down the live PC (iPhone Connected → home; Android
+        // stayed on Calling until hangup/timeout; cancel VoIP then flashed Audio CallKit).
+        if self.callId == callId.lowercased(), peerConnection != nil || isMediaConnected {
+            print("[NativeVoiceCallEngine] createAnswer skipped — already negotiating/connected \(callId) pc=\(peerConnection != nil) connected=\(isMediaConnected)")
+            return
+        }
+        if createAnswerGeneration != nil, self.callId == callId.lowercased() {
+            print("[NativeVoiceCallEngine] createAnswer skipped — createAnswer already in flight \(callId)")
             return
         }
         guard let sdp = Self.normalizeSdp(offerSdp), sdp.hasPrefix("v="), !sdp.hasPrefix("{") else {
