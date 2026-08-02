@@ -662,11 +662,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Defer stale CallKit cleanup until foreground — never during VoIP cold wake before reportNewIncomingCall.
     func recoverStaleCallStateWhenIdle() {
         if !hasActiveCallKitCall() && !hasPendingCallKitAnswer() {
-            // Do not end a live prepareAnswer/connect for a UUID CallKit briefly dropped.
-            let engineId = NativeVoiceCallEngine.shared.activeCallId?.lowercased()
-            if let engineId, NativeVoiceCallEngine.shared.isActive || NativeVoiceCallEngine.shared.isMediaConnected {
-                print("[AiMediaTankVoipPushBridge] stale recovery skipped — engine still owns \(engineId)")
-            } else if NativeVoiceCallEngine.shared.isActive || NativeVoiceCallEngine.shared.isMediaConnected {
+            if NativeVoiceCallEngine.shared.isActive || NativeVoiceCallEngine.shared.isMediaConnected {
                 print("[AiMediaTankVoipPushBridge] stale recovery — native WebRTC without CallKit call")
                 NativeVoiceCallEngine.shared.endCall(reason: "stale_recovery", syncServer: false)
             }
@@ -917,10 +913,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             if engineOwnsThisCall {
                 NativeVoiceCallEngine.shared.forceCleanupMediaUi()
             }
-            // Do not strip the next dial's accept cover when a late end for a prior UUID arrives.
-            let pendingAnswer =
-                UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased()
-            if engineOwnsThisCall || pendingAnswer == callId {
+            if engineOwnsThisCall || self.acceptCoverActive {
                 self.endAcceptCover(reason: "call_ended")
             }
             let observer = CXCallObserver()
@@ -1367,11 +1360,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         reportCancelAck(callId: normalized, source: source)
         postVoiceTrace(callId: normalized, event: "callkit_dismiss", detail: ["source": source])
         Self.markCallCancelled(normalized)
-        // Only clear pending answer for THIS call. A late cancel for the prior Android/PC
-        // dial used to wipe the next call's pendingAnswer and kill Accept mid-connect.
-        if UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased() == normalized {
-            clearPendingCallKitAnswer()
-        }
+        clearPendingCallKitAnswer()
         stopCallKitRingAnnouncement()
         if let uuid = UUID(uuidString: normalized) {
             endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: true)
