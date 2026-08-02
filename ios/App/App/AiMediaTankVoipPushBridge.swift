@@ -383,10 +383,21 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
 
         // Connected ghosts from failed in-app tests cause "End & Accept" on the next ring.
+        // Do NOT treat a live native WebRTC call as a ghost: reportCallConnected clears the
+        // pending-answer key, then applicationDidBecomeActive (+0.75s) used to end the just-
+        // connected Android→iPhone call (iPhone home, Android stuck on Calling, no server end).
         let pendingAnswer = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey)?.lowercased()
+        let liveNativeId = NativeVoiceCallEngine.shared.activeCallId?.lowercased()
+        let liveNative =
+            NativeVoiceCallEngine.shared.isMediaConnected
+            || NativeVoiceCallEngine.shared.isActive
         for call in systemCalls where call.hasConnected {
             let callId = call.uuid.uuidString.lowercased()
             if pendingAnswer == callId {
+                continue
+            }
+            if liveNative, liveNativeId == callId {
+                print("[AiMediaTankVoipPushBridge] skip stale recovery — live native call \(callId)")
                 continue
             }
             print("[AiMediaTankVoipPushBridge] stale recovery — ending connected ghost \(callId)")
@@ -395,6 +406,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
         // Never release audio while CallKit is answering/connecting — that breaks lock-screen accept.
         if hasActiveCallKitCall() || hasPendingCallKitAnswer() { return }
+        if liveNative { return }
 
         releaseAudioSession()
         clearPendingCallKitAnswer()
@@ -661,6 +673,13 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     /// Defer stale CallKit cleanup until foreground — never during VoIP cold wake before reportNewIncomingCall.
     func recoverStaleCallStateWhenIdle() {
+        // Live answered native call — never tear down on the DidBecomeActive +0.75s timer.
+        if NativeVoiceCallEngine.shared.isMediaConnected
+            || (NativeVoiceCallEngine.shared.isActive && hasActiveCallKitCall())
+        {
+            print("[AiMediaTankVoipPushBridge] skip idle stale recovery — native call live")
+            return
+        }
         if !hasActiveCallKitCall() && !hasPendingCallKitAnswer() {
             if NativeVoiceCallEngine.shared.isActive || NativeVoiceCallEngine.shared.isMediaConnected {
                 print("[AiMediaTankVoipPushBridge] stale recovery — native WebRTC without CallKit call")
