@@ -2216,6 +2216,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Unlock → retry JS WebRTC if CallKit answer is still pending; otherwise native on lock screen.
     func retryWebRtcConnectIfNeeded() {
         prepareUnlockedRingingCallsIfNeeded()
+        // Do not re-prepare after ICE connected — that tore down the live Android→iPhone call.
+        if NativeVoiceCallEngine.shared.isMediaConnected { return }
         guard hasPendingCallKitAnswer() else { return }
         guard let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey) else { return }
         let token = UserDefaults.standard.string(forKey: Self.declineTokenKey(for: callId)) ?? ""

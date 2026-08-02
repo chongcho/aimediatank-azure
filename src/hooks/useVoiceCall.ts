@@ -583,6 +583,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         }
         iceRestartAttempted = false
       } else if (iceState === 'failed') {
+        if (isNativeIosCallApp() && nativeWebRtcCalleeRef.current) return
         if (iceDisconnectTimer) {
           clearTimeout(iceDisconnectTimer)
           iceDisconnectTimer = null
@@ -600,6 +601,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           }
         }, 8000)
       } else if (iceState === 'disconnected') {
+        if (isNativeIosCallApp() && nativeWebRtcCalleeRef.current) return
         if (iceDisconnectTimer) clearTimeout(iceDisconnectTimer)
         iceDisconnectTimer = setTimeout(() => {
           iceDisconnectTimer = null
@@ -634,6 +636,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           })()
         }
       } else if (pc.connectionState === 'failed') {
+        // Native CallKit engine owns the real media — a stray JS PC must not hang up the call.
+        if (isNativeIosCallApp() && nativeWebRtcCalleeRef.current) return
         // Prefer ICE restart; give TURN a few seconds before hanging up both peers.
         if (tryIceRestartOnce('connectionState failed')) return
         if (iceDisconnectTimer) clearTimeout(iceDisconnectTimer)

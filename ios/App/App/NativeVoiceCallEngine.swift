@@ -175,13 +175,25 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     func prepareAnswer(callId: String, token: String, baseURL: String, wantsVideo: Bool = false) {
         let normalized = callId.lowercased()
-        if isAnswering, self.callId == normalized {
-            // Already answering this call — keep in-flight SDP/ICE; only re-kick if still pending.
-            self.token = token
-            self.baseURL = baseURL
-            if wantsVideo { self.wantsVideo = true }
-            beginAnswerIfNeeded()
-            return
+        // Offer is consumed once createAnswer runs. A second prepare (JS redelivery, unlock
+        // retry, didActivate race before pendingAnswer is cleared) must not reset a live
+        // call — that tore down the PC and hung up Android→iPhone ~1s after both UIs appeared.
+        if self.callId == normalized {
+            if isMediaConnected || peerConnection != nil {
+                self.token = token
+                self.baseURL = baseURL
+                if wantsVideo { self.wantsVideo = true }
+                print("[NativeVoiceCallEngine] prepare answer ignored — already live \(normalized) connected=\(isMediaConnected)")
+                return
+            }
+            if isAnswering {
+                // Already answering this call — keep in-flight SDP/ICE; only re-kick if still pending.
+                self.token = token
+                self.baseURL = baseURL
+                if wantsVideo { self.wantsVideo = true }
+                beginAnswerIfNeeded()
+                return
+            }
         }
         if isActive, self.callId != normalized {
             tearDownPeerConnection(notify: false)
@@ -395,6 +407,14 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         iceServers: [RTCIceServer],
         initialRemoteIce: [[String: Any]] = []
     ) {
+        // Never replace a live PC for this call (duplicate bootstrap / prepareAnswer race).
+        if self.callId == callId.lowercased(),
+           peerConnection != nil,
+           remoteDescriptionReady || isMediaConnected
+        {
+            print("[NativeVoiceCallEngine] createAnswer skipped — already negotiating/connected \(callId)")
+            return
+        }
         guard let sdp = Self.normalizeSdp(offerSdp), sdp.hasPrefix("v="), !sdp.hasPrefix("{") else {
             failCall(callId: callId, error: "invalid offer sdp")
             return
