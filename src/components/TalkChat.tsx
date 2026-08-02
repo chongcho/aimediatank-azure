@@ -23,9 +23,9 @@ function ChatWindowBrandIcon({ label }: { label: string }) {
   return (
     <div
       style={{
-        width: '28px',
-        height: '28px',
-        borderRadius: '6px',
+        width: '40px',
+        height: '40px',
+        borderRadius: '8px',
         background: '#fde047',
         display: 'flex',
         alignItems: 'center',
@@ -36,8 +36,8 @@ function ChatWindowBrandIcon({ label }: { label: string }) {
       aria-label={label}
     >
       <svg
-        width="15"
-        height="15"
+        width="20"
+        height="20"
         viewBox="0 0 24 24"
         fill="none"
         stroke="#111827"
@@ -2865,27 +2865,27 @@ function TalkChatContent({
           onDoubleClick={isDesktop ? handleResetPosition : undefined}
           style={{
           background: '#e8e8e8',
-          padding: showVoiceCallPicker ? '12px 8px' : '2px 4px',
-          minHeight: showVoiceCallPicker ? '64px' : undefined,
+          padding: '12px 8px',
+          minHeight: '64px',
           boxSizing: 'border-box',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: '1px solid #ccc',
-          gap: showVoiceCallPicker ? '8px' : '2px',
+          gap: '8px',
             cursor: isDesktop ? (isDragging ? 'grabbing' : 'grab') : 'default',
             userSelect: 'none',
         }}>
           <style>{`
             @media (min-width: 768px) {
               .chat-header-responsive {
-                padding: ${showVoiceCallPicker ? '14px 10px' : '4px 8px'} !important;
-                gap: ${showVoiceCallPicker ? '8px' : '4px'} !important;
-                min-height: ${showVoiceCallPicker ? '72px' : 'auto'} !important;
+                padding: 14px 10px !important;
+                gap: 8px !important;
+                min-height: 72px !important;
               }
             }
           `}</style>
-          <div style={{ display: 'flex', alignItems: 'center', gap: showVoiceCallPicker ? '8px' : '5px', flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
             {showVoiceCallPicker ? (
               <>
                 <div
@@ -2953,13 +2953,13 @@ function TalkChatContent({
               onClick={switchToOpenChat}
               className="chat-btn-responsive"
               style={{
-                padding: '4px 8px',
-                borderRadius: '4px',
+                padding: '10px 14px',
+                borderRadius: '6px',
                 border: 'none',
                 background: pubNavActive ? '#10b981' : 'transparent',
                 color: pubNavActive ? 'white' : '#666',
                 fontWeight: '700',
-                fontSize: '12px',
+                fontSize: '14px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 whiteSpace: 'nowrap',
@@ -2974,13 +2974,13 @@ function TalkChatContent({
               onClick={switchToPrivateChat}
               className="chat-btn-responsive"
               style={{
-                  padding: '4px 8px',
-                borderRadius: '4px',
+                  padding: '10px 14px',
+                borderRadius: '6px',
                 border: 'none',
                   background: myNavActive ? '#8b5cf6' : 'transparent',
                   color: myNavActive ? 'white' : '#666',
                 fontWeight: '700',
-                fontSize: '12px',
+                fontSize: '14px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 whiteSpace: 'nowrap',
@@ -3023,10 +3023,9 @@ function TalkChatContent({
             <button
               type="button"
               onClick={onClose}
-              className={showVoiceCallPicker ? undefined : 'h-7 w-7'}
               style={{
-                width: showVoiceCallPicker ? '40px' : undefined,
-                height: showVoiceCallPicker ? '40px' : undefined,
+                width: '40px',
+                height: '40px',
                 borderRadius: '4px',
                 border: 'none',
                 background: '#2563eb',
@@ -3040,9 +3039,8 @@ function TalkChatContent({
               aria-label={tr[TC.closeKongTitle]}
             >
               <svg
-                className={showVoiceCallPicker ? undefined : 'w-4 h-4'}
-                width={showVoiceCallPicker ? 20 : undefined}
-                height={showVoiceCallPicker ? 20 : undefined}
+                width={20}
+                height={20}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -3242,11 +3240,13 @@ function TalkChatContent({
             <div 
               style={{
                 padding: '8px',
+                paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))',
                 background: '#e8e8e8',
                 borderTop: '1px solid #ccc',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'flex-end',
+                justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
             </div>
