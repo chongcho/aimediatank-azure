@@ -131,6 +131,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var ringAnnouncementText = ""
     private var ringAnnouncementLang: String?
     private var ringAnnouncementLoopWork: DispatchWorkItem?
+    /// Keeps the speaker media route awake at full gain while CallKit plays silent.wav.
+    private var ringPrimePlayer: AVAudioPlayer?
+    private var ringSpeechVolumeKickDone = false
     /// Opaque call-colored cover above the WebView (WebView stays visible and paints underneath).
     private weak var acceptCoverView: UIView?
     private var acceptCoverPollWork: DispatchWorkItem?
@@ -1258,6 +1261,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         ringAnnouncementGeneration += 1
         let generation = ringAnnouncementGeneration
         ringAnnouncementActive = true
+        ringSpeechVolumeKickDone = false
         ringAnnouncementText = spoken
         ringAnnouncementLang = lang?.trimmingCharacters(in: .whitespacesAndNewlines)
         print("[AiMediaTankVoipPushBridge] start spoken ring: \(spoken) lang=\(ringAnnouncementLang ?? "nil")")
@@ -1265,6 +1269,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let work = DispatchWorkItem { [weak self] in
             self?.speakCallKitRingAnnouncementNow(generation: generation)
             self?.armCallKitRingWatchdog(generation: generation)
+            self?.scheduleRingSpeechVolumeKick(generation: generation)
         }
         ringAnnouncementLoopWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
@@ -1273,29 +1278,74 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private func stopCallKitRingAnnouncement() {
         ringAnnouncementGeneration += 1
         ringAnnouncementActive = false
+        ringSpeechVolumeKickDone = false
         ringAnnouncementLoopWork?.cancel()
         ringAnnouncementLoopWork = nil
         ringAnnouncementText = ""
         ringAnnouncementLang = nil
+        ringPrimePlayer?.stop()
+        ringPrimePlayer = nil
         if ringSpeech.isSpeaking {
             ringSpeech.stopSpeaking(at: .immediate)
         }
     }
 
-    /// Prime media volume / speaker before AVSpeech — otherwise first utterance is silent
-    /// until the user taps a hardware volume button (common on CallKit ring).
+    /// Exclusive speaker session — mix/duck with CallKit's silent ringtone left TTS tiny
+    /// until a hardware volume press cleared the attenuation.
     private func prepareRingSpeechAudioSession() {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(
-                .playback,
+                .playAndRecord,
                 mode: .default,
-                options: [.duckOthers, .mixWithOthers]
+                options: [.defaultToSpeaker]
             )
             try session.setActive(true)
             try session.overrideOutputAudioPort(.speaker)
         } catch {
             print("[AiMediaTankVoipPushBridge] ring TTS audio session failed: \(error.localizedDescription)")
+        }
+        primeRingSpeechOutputRoute()
+    }
+
+    /// Hold the loudspeaker route open with silent.wav so AVSpeech is not routed/attenuated
+    /// like a background mix under CallKit.
+    private func primeRingSpeechOutputRoute() {
+        if let player = ringPrimePlayer, player.isPlaying { return }
+        guard let url = Bundle.main.url(forResource: "silent", withExtension: "wav") else {
+            print("[AiMediaTankVoipPushBridge] ring TTS prime — silent.wav missing")
+            return
+        }
+        do {
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.volume = 1.0
+            player.numberOfLoops = -1
+            player.prepareToPlay()
+            guard player.play() else {
+                print("[AiMediaTankVoipPushBridge] ring TTS prime play failed")
+                return
+            }
+            ringPrimePlayer = player
+        } catch {
+            print("[AiMediaTankVoipPushBridge] ring TTS prime error: \(error.localizedDescription)")
+        }
+    }
+
+    /// First CallKit-era utterance is often attenuated; one restart after the session settles
+    /// matches what a volume-button press was doing for users.
+    private func scheduleRingSpeechVolumeKick(generation: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
+            guard let self else { return }
+            guard self.ringAnnouncementActive,
+                  generation == self.ringAnnouncementGeneration,
+                  !self.ringSpeechVolumeKickDone else { return }
+            self.ringSpeechVolumeKickDone = true
+            print("[AiMediaTankVoipPushBridge] ring TTS volume kick — restart utterance")
+            if self.ringSpeech.isSpeaking {
+                self.ringSpeech.stopSpeaking(at: .immediate)
+            }
+            self.speakCallKitRingAnnouncementNow(generation: generation)
+            self.armCallKitRingWatchdog(generation: generation)
         }
     }
 
