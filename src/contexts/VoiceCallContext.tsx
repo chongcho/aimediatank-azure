@@ -309,9 +309,10 @@ export function VoiceCallProvider({
       return
     }
 
-    // iOS CallKit + native AVSpeech owns incoming ring (spoken "Call from {name}").
-    // Do not also start WebView WAV/speech — that caused one spoken play then classic ring.
-    if (isNativeIosCallApp() && state === 'incoming') {
+    // iOS CallKit owns incoming spoken ring. Outgoing AVSpeech starts only after
+    // getUserMedia in useVoiceCall — starting here raced mic activation and made the
+    // first ~1s of "Calling…" roughly twice as loud before the session ducked.
+    if (isNativeIosCallApp()) {
       return
     }
     const announcement =

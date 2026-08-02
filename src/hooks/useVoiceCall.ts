@@ -7,9 +7,11 @@ import {
   markOpenedFromCallNotification,
   markVoiceCallUserGesture,
   retryVoiceCallRingtone,
+  startOutgoingRingback,
   stopVoiceCallRingtone,
   VOICE_CALL_RING_TIMEOUT_MS,
 } from '@/lib/voiceCallRingtone'
+import { formatVoiceCallAnnouncementText } from '@/lib/voiceCallAnnouncement'
 import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 import {
   answerNativeCall,
@@ -240,6 +242,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const remoteStreamRef = useRef<MediaStream | null>(null)
   const callStateRef = useRef<VoiceCallState>('idle')
   callStateRef.current = callState
+  const remoteUserRef = useRef<VoiceCallUser | null>(null)
+  remoteUserRef.current = remoteUser
   const pendingVoiceActionRef = useRef<'accept' | 'reject' | null>(null)
   const answeringRef = useRef(false)
   /** Decline token for lock-screen CallKit answer — routes ICE via native-callkit (no web session). */
@@ -759,6 +763,17 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       }
       const pc = createPeerConnection()
       await attachLocalTracks(pc)
+      // iOS: start "Calling…" only after mic/camera session is up. VoiceCallContext skips
+      // iOS outgoing ring on state change — starting before getUserMedia played ~1s at full
+      // speech volume then ducked hard when the voice session activated.
+      if (callStateRef.current === 'outgoing' && isNativeIosCallApp()) {
+        const name = voiceCallNickname(remoteUserRef.current) || 'AiMediaTank'
+        const lang =
+          typeof navigator !== 'undefined' ? navigator.language || undefined : undefined
+        startOutgoingRingback(formatVoiceCallAnnouncementText('outgoing', lang, name), lang)
+      } else if (callStateRef.current === 'outgoing' && !isNativeIosCallApp()) {
+        retryVoiceCallRingtone()
+      }
       // Safari/WKWebView often emits a=sendonly for video unless we ask to receive.
       // That makes Android answer recvonly → black remote on iPhone→Android calls.
       const offer = await pc.createOffer({
@@ -770,9 +785,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       await sendSignal('offer', { sdp: offer })
       if (pendingAnswerRef.current) {
         await applyRemoteAnswer(pendingAnswerRef.current)
-      }
-      if (callStateRef.current === 'outgoing' && !isNativeIosCallApp()) {
-        retryVoiceCallRingtone()
       }
     } finally {
       makingOfferRef.current = false
