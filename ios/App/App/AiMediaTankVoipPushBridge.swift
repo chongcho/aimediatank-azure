@@ -119,10 +119,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// Lock-screen spoken ring ("Call from Name") — CallKit ringtoneSound is silent.wav.
     private let ringSpeech: AVSpeechSynthesizer = {
         let synth = AVSpeechSynthesizer()
-        // Use the app audio session so we can activate .playback before speak. With
-        // usesApplicationAudioSession=false, TTS often stayed silent until a volume press.
+        // Keep TTS off CallKit's shared session so CallKit ringtone does not kill the loop after one play.
         if #available(iOS 13.0, *) {
-            synth.usesApplicationAudioSession = true
+            synth.usesApplicationAudioSession = false
         }
         return synth
     }()
@@ -1282,33 +1281,14 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
     }
 
-    /// Prime media volume / speaker before AVSpeech — otherwise first utterance is silent
-    /// until the user taps a hardware volume button (common on CallKit ring).
-    private func prepareRingSpeechAudioSession() {
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(
-                .playback,
-                mode: .default,
-                options: [.duckOthers, .mixWithOthers]
-            )
-            try session.setActive(true)
-            try session.overrideOutputAudioPort(.speaker)
-        } catch {
-            print("[AiMediaTankVoipPushBridge] ring TTS audio session failed: \(error.localizedDescription)")
-        }
-    }
-
     private func speakCallKitRingAnnouncementNow(generation: Int) {
         guard ringAnnouncementActive, generation == ringAnnouncementGeneration else { return }
         let text = ringAnnouncementText
         guard !text.isEmpty else { return }
-        prepareRingSpeechAudioSession()
         let utterance = AVSpeechUtterance(string: text)
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         // Slightly lower than default (1.0) for a warmer ring announcement.
         utterance.pitchMultiplier = 0.85
-        utterance.volume = 1.0
         if let tag = ringAnnouncementLang, !tag.isEmpty {
             utterance.voice = AVSpeechSynthesisVoice(language: tag.replacingOccurrences(of: "_", with: "-"))
                 ?? AVSpeechSynthesisVoice(language: String(tag.prefix(2)))
