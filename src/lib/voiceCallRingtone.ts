@@ -608,6 +608,9 @@ async function startRing(kind: RingKind, announcement?: string, lang?: string) {
     if (useNativeSpokenRing()) {
       nativeRingActive = true
       try {
+        // Await stop so a prior utterance cannot overlap (~2× loud) with the new one.
+        await stopNativeCallRing()
+        if (generation !== loopGeneration) return
         await startNativeCallRingAnnouncement(spoken, lang)
         if (isNativeAndroidCallApp()) {
           void setNativeCallRingVolume(getVoiceCallRingVolume())

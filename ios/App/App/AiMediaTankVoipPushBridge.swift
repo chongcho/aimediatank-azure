@@ -1281,14 +1281,45 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
     }
 
+    /// Outgoing/in-app only — match voice-call session gain before AVSpeech so the first
+    /// ~1s is not ~2× louder than after getUserMedia activates playAndRecord.
+    /// Never use this during CallKit incoming (that path must keep system TTS audio).
+    private func prepareOutgoingRingSpeechAudioSession() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(
+                .playAndRecord,
+                mode: .voiceChat,
+                options: [.allowBluetoothHFP, .allowBluetoothA2DP, .defaultToSpeaker]
+            )
+            try session.setActive(true)
+        } catch {
+            print("[AiMediaTankVoipPushBridge] outgoing ring TTS session failed: \(error.localizedDescription)")
+        }
+    }
+
     private func speakCallKitRingAnnouncementNow(generation: Int) {
         guard ringAnnouncementActive, generation == ringAnnouncementGeneration else { return }
         let text = ringAnnouncementText
         guard !text.isEmpty else { return }
+        // CallKit incoming: leave usesApplicationAudioSession=false (system path).
+        // Outgoing: use app session at voiceChat gain so WebRTC mic start does not duck mid-phrase.
+        if #available(iOS 13.0, *) {
+            if hasActiveCallKitCall() {
+                ringSpeech.usesApplicationAudioSession = false
+            } else {
+                ringSpeech.usesApplicationAudioSession = true
+                prepareOutgoingRingSpeechAudioSession()
+            }
+        }
+        if ringSpeech.isSpeaking {
+            ringSpeech.stopSpeaking(at: .immediate)
+        }
         let utterance = AVSpeechUtterance(string: text)
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         // Slightly lower than default (1.0) for a warmer ring announcement.
         utterance.pitchMultiplier = 0.85
+        utterance.volume = 1.0
         if let tag = ringAnnouncementLang, !tag.isEmpty {
             utterance.voice = AVSpeechSynthesisVoice(language: tag.replacingOccurrences(of: "_", with: "-"))
                 ?? AVSpeechSynthesisVoice(language: String(tag.prefix(2)))
