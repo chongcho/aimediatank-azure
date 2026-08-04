@@ -1004,9 +1004,8 @@ export default function RegisterPage() {
                 className="w-full"
                 disabled={phoneVerificationState.codeVerified}
               />
-              {authSettings.phoneVerificationEnabled && (
-                <SmsOptInDisclosure from="register" className="mt-2" />
-              )}
+              {/* Always visible for Azure TFV / carrier opt-in proof (even if phone verify is admin-off). */}
+              <SmsOptInDisclosure from="register" className="mt-2" />
               {authSettings.phoneVerificationEnabled && formData.phone.trim().replace(/\D/g, '').length >= 10 && (
                 <div className="mt-2 space-y-2">
                   {!phoneVerificationState.codeVerified ? (

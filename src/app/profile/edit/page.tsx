@@ -1127,9 +1127,8 @@ export default function EditProfilePage() {
               placeholder={tr[17]}
               className="w-full"
             />
-            {authSettings.phoneVerificationEnabled && (
-              <SmsOptInDisclosure from="profile" className="mt-2" />
-            )}
+            {/* Always visible for Azure TFV / carrier opt-in proof (even if phone verify is admin-off). */}
+            <SmsOptInDisclosure from="profile" className="mt-2" />
             {authSettings.phoneVerificationEnabled && phoneChangedAndValid && (
               <div className="mt-2 space-y-1">
                 <p className="text-xs text-yellow-400">{tr[18]}</p>

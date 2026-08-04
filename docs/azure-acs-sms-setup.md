@@ -129,7 +129,7 @@ Personal data (phone number) is collected for verification; the Privacy Policy c
 
 ### App UI
 
-`SmsOptInDisclosure` is shown under the phone field on Join and Edit Profile whenever phone verification is enabled.
+`SmsOptInDisclosure` is always shown under the phone field on Join and Edit Profile (not gated on the admin phone-verification toggle), so TFV screenshots and carriers always see consent at collection.
 
 ---
 
