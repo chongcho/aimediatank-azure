@@ -108,7 +108,7 @@ US/CA carriers require [toll-free verification](https://learn.microsoft.com/en-u
 
 ### Opt-in method (paste)
 
-> Website form. On Join (register) and Edit Profile, the user enters a mobile number. Beside the phone field they see an explicit SMS consent disclosure (program purpose, frequency, msg & data rates, STOP/HELP). Consent is collected by AI Media Tank (first party) when the user requests a verification code. Screenshots: Join and Edit Profile phone sections on production.
+> Website form. On Join (register) and Edit Profile, the user enters a mobile number. Beside the phone field they see: “By providing your mobile number, you agree to receive SMS messages from AI Media Tank” with a Privacy Policy link. Consent is collected by AI Media Tank (first party) when the user provides a phone number / requests a verification code. Screenshots: Join and Edit Profile phone sections on production.
 
 ### Opt-in URL
 
