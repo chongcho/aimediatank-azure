@@ -9,6 +9,7 @@ import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import { persistFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
 import PasswordField from '@/components/PasswordField'
+import SmsOptInDisclosure from '@/components/SmsOptInDisclosure'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
 
 const EDIT_PROFILE_STRINGS = [
@@ -1126,6 +1127,9 @@ export default function EditProfilePage() {
               placeholder={tr[17]}
               className="w-full"
             />
+            {authSettings.phoneVerificationEnabled && (
+              <SmsOptInDisclosure from="profile" className="mt-2" />
+            )}
             {authSettings.phoneVerificationEnabled && phoneChangedAndValid && (
               <div className="mt-2 space-y-1">
                 <p className="text-xs text-yellow-400">{tr[18]}</p>

@@ -98,6 +98,41 @@ Replace with your real connection string and the E.164 number from step 3.
 
 ---
 
+## 6. Toll-free verification (TFV) — opt-in & privacy
+
+US/CA carriers require [toll-free verification](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/sms/apply-for-toll-free-verification) before reliable delivery. Submit from the ACS resource → **Toll-free verification**.
+
+### Program description (paste)
+
+> AI Media Tank (AiM) sends transactional SMS one-time passcodes (OTP) so users can verify a mobile number during account registration or when updating their phone on their profile. Recipients are users who voluntarily provide a phone number on https://www.aimediatank.com. Message frequency varies (typically 1–few messages per signup or phone change). Not used for marketing or promotional campaigns.
+
+### Opt-in method (paste)
+
+> Website form. On Join (register) and Edit Profile, the user enters a mobile number. Beside the phone field they see an explicit SMS consent disclosure (program purpose, frequency, msg & data rates, STOP/HELP). Consent is collected by AI Media Tank (first party) when the user requests a verification code. Screenshots: Join and Edit Profile phone sections on production.
+
+### Opt-in URL
+
+Host a clear screenshot (or short PDF) of the Join / Edit Profile phone field **with the SMS consent text and Privacy/Terms links visible**, then paste the public HTTPS URL into Azure. Example pages to capture after deploy:
+
+- `https://www.aimediatank.com/register` (Mobile field + disclosure)
+- `https://www.aimediatank.com/profile/edit` (signed-in; Mobile field + disclosure)
+
+### Privacy policy URL
+
+`https://www.aimediatank.com/privacy`
+
+Personal data (phone number) is collected for verification; the Privacy Policy covers SMS delivery for verification and transactional messages.
+
+### Sample message template
+
+> AiMediaTank: Your verification code is ######. Reply STOP to opt out, HELP for help. Msg & data rates may apply.
+
+### App UI
+
+`SmsOptInDisclosure` is shown under the phone field on Join and Edit Profile whenever phone verification is enabled.
+
+---
+
 ## Summary checklist
 
 - [ ] Create Communication Service resource (Basics: subscription, resource group, name, data location).
@@ -105,3 +140,4 @@ Replace with your real connection string and the E.164 number from step 3.
 - [ ] In **Phone numbers**, purchase an SMS-capable number and note its E.164 value.
 - [ ] Set **AZURE_ACS_CONNECTION_STRING** and **AZURE_ACS_SMS_FROM** in App Service (or `.env` for local).
 - [ ] Restart the app and test “Send verification code” with a real phone number.
+- [ ] Screenshot Join + Edit Profile SMS consent UI; host publicly; submit **Toll-free verification** with Privacy Policy URL.

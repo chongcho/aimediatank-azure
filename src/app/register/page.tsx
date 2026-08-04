@@ -7,6 +7,7 @@ import Link from 'next/link'
 import PasswordField from '@/components/PasswordField'
 import { SocialSignIn } from '@/components/SocialSignIn'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
+import SmsOptInDisclosure from '@/components/SmsOptInDisclosure'
 import { compressImage } from '@/lib/mediaCompression'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
 import { LanguageModeTrans } from '@/components/LanguageModeTrans'
@@ -1003,6 +1004,9 @@ export default function RegisterPage() {
                 className="w-full"
                 disabled={phoneVerificationState.codeVerified}
               />
+              {authSettings.phoneVerificationEnabled && (
+                <SmsOptInDisclosure from="register" className="mt-2" />
+              )}
               {authSettings.phoneVerificationEnabled && formData.phone.trim().replace(/\D/g, '').length >= 10 && (
                 <div className="mt-2 space-y-2">
                   {!phoneVerificationState.codeVerified ? (
