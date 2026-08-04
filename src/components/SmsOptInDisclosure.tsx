@@ -1,18 +1,16 @@
 'use client'
 
-import Link from 'next/link'
 import { useLanguageModeList } from '@/hooks/useLanguageModeText'
 
 const SMS_OPT_IN_STRINGS = [
   'By providing your mobile number, you agree to receive SMS messages from AI Media Tank.',
-  'Privacy Policy',
 ] as const
 
 /** Carrier / Azure toll-free verification: explicit SMS consent at phone collection. */
 export default function SmsOptInDisclosure({
-  from = 'register',
   className = '',
 }: {
+  /** Kept for call-site compatibility; privacy link removed from disclosure copy. */
   from?: 'register' | 'profile'
   className?: string
 }) {
@@ -20,15 +18,7 @@ export default function SmsOptInDisclosure({
 
   return (
     <p className={`text-xs text-gray-400 leading-relaxed ${className}`.trim()}>
-      {tr[0]}{' '}
-      <Link
-        href={`/privacy?from=${from}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-tank-accent hover:underline font-medium"
-      >
-        {tr[1]}
-      </Link>
+      {tr[0]}
     </p>
   )
 }
