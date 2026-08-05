@@ -83,7 +83,8 @@ export async function middleware(request: NextRequest) {
 
   // AdSense (and other crawlers) must fetch /ads.txt without IP block or bot heuristics.
   // Otherwise a 403 or failed check can flip "Ads.txt status" to Not found after a later recrawl.
-  if (pathname === '/ads.txt') {
+  // Same for Digital Asset Links — Google/Android must fetch assetlinks.json for App Links.
+  if (pathname === '/ads.txt' || pathname === '/.well-known/assetlinks.json') {
     return NextResponse.next()
   }
 

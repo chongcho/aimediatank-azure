@@ -173,3 +173,17 @@ if (fs.existsSync(variablesGradle)) {
     console.log('[setup-android-native] set kotlinVersion in variables.gradle')
   }
 }
+
+// Keep https App Links intent-filter verified for aimediatank.com (Play Deep Links).
+const androidManifest = path.join(root, 'android', 'app', 'src', 'main', 'AndroidManifest.xml')
+if (fs.existsSync(androidManifest)) {
+  let manifest = fs.readFileSync(androidManifest, 'utf8')
+  const deepLinkFilter =
+    /(<intent-filter)(>\s*<action android:name="android\.intent\.action\.VIEW" \/>\s*<category android:name="android\.intent\.category\.DEFAULT" \/>\s*<category android:name="android\.intent\.category\.BROWSABLE" \/>\s*<data android:scheme="https" android:host="aimediatank\.com" \/>\s*<\/intent-filter>)/
+  if (deepLinkFilter.test(manifest) && !manifest.includes('android:autoVerify="true"')) {
+    manifest = manifest.replace(deepLinkFilter, '$1 android:autoVerify="true"$2')
+    fs.writeFileSync(androidManifest, manifest)
+    console.log('[setup-android-native] set autoVerify on App Links intent-filter')
+  }
+}
+
