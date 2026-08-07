@@ -27,13 +27,38 @@ function decodePathSegment(path: string): string {
 }
 
 const TRAVERSAL_RE =
-  /\.\.(?:\/|\\)|%2e%2e|%252e|\.%2e|\.\.%2f|(?:^|\/)\w+\.\.(?:\/|$)|%25c0%25af|%c0%af/i
+  /\.\.(?:\/|\\|;|$)|%2e%2e|%252e|\.%2e|\.\.%2f|(?:^|\/)\w+\.\.(?:\/|$)|%25c0%25af|%c0%af/i
 // Encoded quote/apostrophe prefix (e.g. /%22/_next/static/...) — path normalization probes.
 const ENCODED_DELIMITER_PREFIX_RE = /^\/(?:%22|%2522|%27|%2527)(?:\/|$)/i
 const ENCODED_DOTENV_RE =
   /(?:^|\/)%2e%65%6e%76(?:\/|$|\n)|\.%2565(?:%256e%2576|nv)|\.%65(?:%6e%76|nv)|%E2%80%8Benv/i
 const SUSPICIOUS_PAYLOAD_RE =
   /(?:\bunion(?:\s+all)?\s+select\b|\bdrop\s+table\b|\binformation_schema\b|<script\b|javascript:|onerror=|onload=|cmd=|exec=|\/etc\/passwd|\.\.\/|%00|%3cscript|%3e|%27\s*or\s*%271%27=%271)/i
+
+/**
+ * Strip scanner path-confusion junk so /env.js%09, /config/aws.json.txt, /foo..;
+ * still match the underlying secret/config probe patterns.
+ */
+function stripProbePathJunk(path: string): string {
+  let p = path
+  // Semicolon path-params / matrix segments: /env.json;  /aws.yml;.js  /..;/.aws
+  p = p.replace(/;[^/]*/g, '')
+  // Trailing encoded whitespace / control chars
+  p = p.replace(/(?:%09|%0[ad]|%20|[\t\r\n ])+$/i, '')
+  // Trailing .. left after stripping ..;
+  p = p.replace(/\.\.$/g, '')
+  // Stacked fake extensions: config.json.txt, aws.yaml.json, environment.ts.txt
+  // Do not treat ".conf.yml" as stacked (e.g. .aider.conf.yml).
+  for (let i = 0; i < 3; i++) {
+    const next = p.replace(
+      /(\.(?:json|ya?ml|js|mjs|cjs|ts|tsx|php|env|ini|xml|exs|key|pem|csv|txt|properties))(?:\.(?:json|js|txt|php|bak|old|save))+$/i,
+      '$1'
+    )
+    if (next === p) break
+    p = next
+  }
+  return p
+}
 
 const GIT_RES = [
   /\/\.git(\/|$)/i,
@@ -79,13 +104,24 @@ const ENV_RES = [
   // GCP / Firebase credential dumps (common scanner dictionary).
   /(^|\/)application_default_credentials\.json$/i,
   /(^|\/)firebase-adminsdk\.json$/i,
+  /(^|\/)firebase-admin\.json$/i,
   /(^|\/)firebase-credentials\.json$/i,
   /(^|\/)firebase-service-account\.json$/i,
-  /(^|\/)firebase\.json$/i,
+  /(^|\/)firebase(?:-config)?\.json$/i,
+  /(^|\/)__\/firebase\/init\.json$/i,
   /(^|\/)gcp-service-account\.json$/i,
+  /(^|\/)gcp-service\.json$/i,
   /(^|\/)gcp-credentials\.json$/i,
+  /(^|\/)gcp-key\.json$/i,
+  /(^|\/)gc-service\.json$/i,
   /(^|\/)google-credentials\.json$/i,
   /(^|\/)google-service-account\.json$/i,
+  /(^|\/)service_account\.json$/i,
+  /(^|\/)service-account-key\.json$/i,
+  /(^|\/)sa\.json$/i,
+  /(^|\/)creds\.json$/i,
+  /(^|\/)auth\.json$/i,
+  /(^|\/)config\/(?:creds|auth|firebase-admin)\.json$/i,
   /(^|\/)client_secrets\.json$/i,
   /(^|\/)client_secret\.json$/i,
   /(^|\/)keyfile\.json$/i,
@@ -105,9 +141,26 @@ const ENV_RES = [
   /(^|\/)gcp\.json$/i,
   /(^|\/)secrets\/gcp\.json$/i,
   /(^|\/)serviceaccount\.json$/i,
-  /(^|\/)\.azure\/credentials$/i,
-  /(^|\/)\.config\/gcloud\/credentials\.db$/i,
+  /(^|\/)\.azure\/(?:credentials|azureProfile\.json|accessTokens\.json)$/i,
+  /(^|\/)\.gcloud\/credentials(?:\/|$)/i,
+  /(^|\/)\.config\/gcloud\/credentials(?:\.db)?$/i,
+  /(^|\/)\.config\/anthropic\/credentials(?:\/|$)/i,
   /(^|\/)secrets\/azure\.json$/i,
+  // IDE / AI-agent / local tool credential dumps.
+  /(^|\/)\.claude\.json$/i,
+  /(^|\/)\.mcp\.json$/i,
+  /(^|\/)\.aider\.conf\.ya?ml$/i,
+  /(^|\/)\.hermes\/auth\.json$/i,
+  /(^|\/)\.openclaw\/openclaw\.json$/i,
+  /(^|\/)rclone\.conf$/i,
+  /(^|\/)(?:host|localhost|privatekey)\.key$/i,
+  /(^|\/)ssl\/[\w.-]+\.key$/i,
+  /(^|\/)private-key(?:\/|$)/i,
+  /(^|\/)gradle\.properties$/i,
+  /(^|\/)\.gradle\/gradle\.properties$/i,
+  /(^|\/)__env\.js$/i,
+  /(^|\/)rootkey\.csv$/i,
+  /^\/secrets\n/i,
   /(^|\/)api-keys\.json$/i,
   /(^|\/)api_keys\.ya?ml$/i,
   /(^|\/)keys\.json$/i,
@@ -131,7 +184,8 @@ const ENV_RES = [
   /(^|\/)_{1,2}env$/i, // _env, __env
   /(^|\/)envfile$/i,
   /(^|\/)\.?dotenv$/i, // dotenv, .dotenv
-  /(^|\/)environment(?:\.\w+)?$/i, // environment, environment.ts, ENVIRONMENT
+  /(^|\/)environment(?:\.\w+)*$/i, // environment, environment.ts, environment.prod.ts
+  /(^|\/)env\.js$/i,
   /(^|\/)application_env$/i,
   /(^|\/)app_env$/i,
   /(^|\/)\.app_env$/i,
@@ -161,16 +215,18 @@ const ENV_RES = [
 ]
 
 const AWS_RES = [
-  /\/\.aws\//i,
+  /(^|\/)\.aws(?:\/|$)/i,
   /\.aws\/credentials/i,
   /credentials\.aws/i,
+  /(^|\/)\.aws-sam(?:\/|$)/i,
   // Scanners probe YAML named like AWS exports (not the same as /.aws/credentials).
   /(^|\/)aws\.ya?ml$/i,
-  /(^|\/)config\/aws\.ya?ml$/i,
+  /(^|\/)config\/aws(?:\.(?:ya?ml|json|php|ini))?$/i,
   /(^|\/)aws-secret\.ya?ml$/i,
   /(^|\/)aws[-.]config\.js$/i,
-  /(^|\/)aws-exports\.js$/i,
+  /(^|\/)aws-exports\.(?:js|json)$/i,
   /(^|\/)aws(?:[-_]credentials)?\.json$/i,
+  /(^|\/)aws[-_]credentials(?:\.\w+)?$/i,
   /(^|\/)config\/aws\.json$/i,
   /(^|\/)secrets\/aws\.json$/i,
   /(^|\/)backend\/aws\.json$/i,
@@ -182,6 +238,8 @@ const AWS_RES = [
   /(^|\/)aws_s3(?:[_-]bucket|_config\.json)?$/i,
   /(^|\/)config\/aws\.ini$/i,
   /(^|\/)s3\/credentials$/i,
+  // EKS / K8s projected service-account tokens.
+  /(^|\/)var\/run\/secrets\/(?:eks\.amazonaws\.com|kubernetes\.io)\//i,
 ]
 
 const WP_RES = [
@@ -236,8 +294,21 @@ const PHP_RES = [
 const CONFIG_RES = [
   /(^|\/)_environment(?:\/|$)/i,
   /(^|\/)config\.js$/i,
+  /(^|\/)configuration\.js$/i,
   /(^|\/)settings\.json$/i,
   /(^|\/)runtime-config\.js$/i,
+  /(^|\/)app-config\.json$/i,
+  /(^|\/)amplifyconfiguration\.json$/i,
+  /(^|\/)assets\/(?:config|environment)\.json$/i,
+  /(^|\/)public\/admin\.json$/i,
+  /(^|\/)bootstrap\.ya?ml$/i,
+  /(^|\/)config\/(?:prod|runtime|dev|test)\.exs$/i,
+  // Laravel Horizon / log viewer and OpenCart admin stubs.
+  /(^|\/)horizon(?:\/|$)/i,
+  /(^|\/)log-viewer(?:\/|$)/i,
+  /(^|\/)admin\/controller\/extension(?:\/|$)/i,
+  // Vite /@fs absolute filesystem exposure probes.
+  /(^|\/)@fs(?:\/|$)/i,
   /(^|\/)graphql(?:\/|$)/i,
   /(^|\/)terraform\.tfvars$/i,
   /(^|\/)serverless\.ya?ml$/i,
@@ -509,11 +580,18 @@ export function detectAbnormalAccess(input: {
   const raw = (input.path || '').split('?')[0] || ''
   const lower = raw.toLowerCase()
   const decoded = decodePathSegment(lower)
-  const check = `${lower}\n${decoded}`
+  const stripped = stripProbePathJunk(lower)
+  const strippedDecoded = stripProbePathJunk(decoded)
+  const check = `${lower}\n${decoded}\n${stripped}\n${strippedDecoded}`
 
   const flags = new Set<string>()
 
-  if (TRAVERSAL_RE.test(raw) || TRAVERSAL_RE.test(decoded)) {
+  if (
+    TRAVERSAL_RE.test(raw) ||
+    TRAVERSAL_RE.test(decoded) ||
+    TRAVERSAL_RE.test(stripped) ||
+    TRAVERSAL_RE.test(strippedDecoded)
+  ) {
     flags.add('PATH_TRAVERSAL')
   }
   if (ENCODED_DELIMITER_PREFIX_RE.test(raw) || ENCODED_DELIMITER_PREFIX_RE.test(lower)) {
