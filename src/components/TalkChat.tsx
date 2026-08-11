@@ -55,8 +55,8 @@ function ChatWindowBrandIcon({ label }: { label: string }) {
 const MESSAGE_COMPOSER_LINE_HEIGHT_PX = 20
 const MESSAGE_COMPOSER_PAD_Y_PX = 6
 const MESSAGE_COMPOSER_MIN_LINES = 1
-/** KakaoTalk-style cap: grow from 1 line up to 5, then scroll internally. */
-const MESSAGE_COMPOSER_MAX_LINES = 5
+/** Grow from 1 line up; then scroll inside the box. */
+const MESSAGE_COMPOSER_MAX_LINES = 8
 const MESSAGE_COMPOSER_MIN_HEIGHT_PX =
   MESSAGE_COMPOSER_PAD_Y_PX * 2 + MESSAGE_COMPOSER_LINE_HEIGHT_PX * MESSAGE_COMPOSER_MIN_LINES
 const MESSAGE_COMPOSER_MAX_HEIGHT_PX =
@@ -2218,14 +2218,13 @@ function TalkChatContent({
     }
   }
 
-  // Handle input change with @mention detection
+  // Grow the message box upward as lines wrap; cap then scroll inside.
   const syncComposerHeight = useCallback((el?: HTMLTextAreaElement) => {
     const textarea = el ?? inputRef.current
     if (!textarea) return
 
     if (!textarea.value) {
       textarea.style.height = `${MESSAGE_COMPOSER_MIN_HEIGHT_PX}px`
-      textarea.style.maxHeight = `${MESSAGE_COMPOSER_MAX_HEIGHT_PX}px`
       textarea.style.overflowY = 'hidden'
       setComposerHeightPx(MESSAGE_COMPOSER_MIN_HEIGHT_PX)
       setComposerScrollable(false)
@@ -2236,16 +2235,15 @@ function TalkChatContent({
       return
     }
 
-    textarea.style.maxHeight = 'none'
-    textarea.style.height = `${MESSAGE_COMPOSER_MIN_HEIGHT_PX}px`
+    // Measure unconstrained scrollHeight, then clamp — grow into the message list.
+    textarea.style.height = '0px'
+    textarea.style.overflowY = 'hidden'
     const scrollHeight = textarea.scrollHeight
     const next = Math.min(
       MESSAGE_COMPOSER_MAX_HEIGHT_PX,
-      Math.max(MESSAGE_COMPOSER_MIN_HEIGHT_PX, scrollHeight)
+      Math.max(MESSAGE_COMPOSER_MIN_HEIGHT_PX, scrollHeight),
     )
-
     textarea.style.height = `${next}px`
-    textarea.style.maxHeight = `${MESSAGE_COMPOSER_MAX_HEIGHT_PX}px`
     textarea.style.overflowY = scrollHeight > MESSAGE_COMPOSER_MAX_HEIGHT_PX ? 'auto' : 'hidden'
     if (scrollHeight > MESSAGE_COMPOSER_MAX_HEIGHT_PX) {
       textarea.scrollTop = textarea.scrollHeight
@@ -4914,7 +4912,7 @@ function TalkChatContent({
               })}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px' }}>
             {/* Media Attach Button */}
             <button
               type="button"
@@ -4996,7 +4994,7 @@ function TalkChatContent({
                 overflowWrap: 'anywhere',
                 wordBreak: 'break-word',
                 fontFamily: 'inherit',
-                transition: 'height 0.12s ease-out',
+                alignSelf: 'flex-end',
               }}
             />
             <button
