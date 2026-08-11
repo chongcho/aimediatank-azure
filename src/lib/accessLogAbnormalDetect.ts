@@ -302,11 +302,20 @@ const CONFIG_RES = [
   /(^|\/)assets\/(?:config|environment)\.json$/i,
   /(^|\/)public\/admin\.json$/i,
   /(^|\/)bootstrap\.ya?ml$/i,
+  /(^|\/)values\.ya?ml$/i, // Helm chart values (often contain secrets)
+  /(^|\/)Chart\.ya?ml$/i,
   /(^|\/)config\/(?:prod|runtime|dev|test)\.exs$/i,
   // Laravel Horizon / log viewer and OpenCart admin stubs.
   /(^|\/)horizon(?:\/|$)/i,
   /(^|\/)log-viewer(?:\/|$)/i,
   /(^|\/)admin\/controller\/extension(?:\/|$)/i,
+  // Fake CMS/admin login panels (keep real /login and /admin reachable).
+  /(^|\/)admin\/login(?:\/|$)/i,
+  /(^|\/)auth\/login(?:\/|$)/i,
+  /(^|\/)user\/login(?:\/|$)/i,
+  /^\/(?:signin|dashboard|portal|workspace|account|settings|my)\n/i,
+  // Scanner canary / debug-trigger stubs (e.g. /z9x8c7v6b5-debug-trigger-aimediatank.com).
+  /-debug-trigger-/i,
   // Vite /@fs absolute filesystem exposure probes.
   /(^|\/)@fs(?:\/|$)/i,
   /(^|\/)graphql(?:\/|$)/i,
