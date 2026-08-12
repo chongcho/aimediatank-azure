@@ -262,7 +262,7 @@ export default function AvatarNicknameBioBlock({
 
   return (
     <>
-      <div className="flex items-start gap-4">
+      <div className="flex flex-col min-[480px]:flex-row items-start gap-3 min-[480px]:gap-4 min-w-0 w-full">
         <div className="relative shrink-0" ref={menuRef}>
           <input
             ref={galleryInputRef}
@@ -326,10 +326,10 @@ export default function AvatarNicknameBioBlock({
           )}
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 w-full">
           {/* One grid so the label column width matches — Bio field lines up with Nickname input */}
-          <div className="grid grid-cols-[minmax(8.25rem,max-content)_1fr] items-start gap-x-3 gap-y-3">
-            <label htmlFor="avatar-nickname" className="self-center text-sm font-medium text-gray-300 whitespace-nowrap">
+          <div className="form-fields-grid">
+            <label htmlFor="avatar-nickname" className="form-field-label">
               {tr[4]} <span className="text-gray-400">*</span>
             </label>
             <div className="relative min-w-0 self-center">
@@ -381,7 +381,7 @@ export default function AvatarNicknameBioBlock({
               )}
             </div>
 
-            <label htmlFor="avatar-bio" className="self-start pt-2 text-sm font-medium text-gray-300 whitespace-nowrap">
+            <label htmlFor="avatar-bio" className="form-field-label sm:self-start sm:pt-2">
               {tr[6]}
             </label>
             <textarea

@@ -940,7 +940,7 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-0 m-0 pb-[500px] pt-[10px]">
+    <div className="max-w-2xl mx-auto w-full min-w-0 px-3 sm:px-4 pb-[500px] pt-[10px] overflow-x-hidden">
       <div className="py-[20px]">
         <div className="flex items-center justify-center relative">
           <h1 className="text-[18px] font-bold">{tr[0]}</h1>
@@ -959,7 +959,7 @@ export default function EditProfilePage() {
       </div>
 
       <div className="card">
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 min-w-0 w-full">
           {error && (
             <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
               {localizedError}
@@ -987,12 +987,12 @@ export default function EditProfilePage() {
             uploadingAvatar={uploadingAvatar}
           />
 
-          {/* Name (First, Middle, Last) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+          {/* Profile details — label left / field right (matches Nickname & Bio / Create Account) */}
+          <div className="form-fields-grid">
+            <label className="form-field-label">
               {tr[3]}
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid min-w-0 grid-cols-1 min-[420px]:grid-cols-3 gap-2">
               <input
                 type="text"
                 value={firstName}
@@ -1026,18 +1026,16 @@ export default function EditProfilePage() {
                 className="w-full"
               />
             </div>
-          </div>
 
-          {/* Location — above Birthday so date format can follow country */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="edit-location" className="form-field-label">
               {tr[24]}
             </label>
             <select
+              id="edit-location"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               required
-              className="w-full"
+              className="min-w-0 w-full"
             >
               <option value="">{tr[25]}</option>
               {COUNTRY_NAMES.map((value, index) => (
@@ -1046,162 +1044,159 @@ export default function EditProfilePage() {
                 </option>
               ))}
             </select>
-          </div>
 
-          {/* Birthday — format follows Location */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="form-field-label">
               {tr[7]}
             </label>
-            <BirthdayInput
-              name="birthday"
-              value={formData.birthday}
-              onChange={(value) => setFormData({ ...formData, birthday: value })}
-              location={formData.location}
-              required
-            />
-          </div>
+            <div className="min-w-0">
+              <BirthdayInput
+                name="birthday"
+                value={formData.birthday}
+                onChange={(value) => setFormData({ ...formData, birthday: value })}
+                location={formData.location}
+                required
+              />
+            </div>
 
-          {/* Email with inline verification */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="edit-email" className="form-field-label">
               {tr[8]}
             </label>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-            <input
-              type="email"
-              value={formData.email}
-                  onChange={(e) => handleEmailChange(e.target.value)}
-              placeholder={tr[9]}
-                  className={`w-full ${
-                    emailChanged && emailVerificationState.codeVerified
-                      ? 'border-green-500 bg-green-500/10'
-                      : emailChanged
-                      ? 'border-yellow-500 focus:border-yellow-500'
-                      : ''
-                  }`}
-              required
-            />
-              </div>
-              {/* Show verify button only when email changed and not verified */}
-              {authSettings.emailVerificationEnabled && emailChanged && !emailVerificationState.codeVerified ? (
-                <button
-                  type="button"
-                  onClick={sendVerificationCode}
-                  disabled={!formData.email || formData.email.length < 5 || emailVerificationState.sending}
-                  className="flex-shrink-0 px-4 py-2.5 bg-tank-accent text-tank-black rounded-xl text-sm font-semibold hover:bg-tank-accent/90 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
-                >
-                  {emailVerificationState.sending ? (
-                    <span className="flex items-center">
-                      <svg className="animate-spin h-4 w-4 mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      {tr[10]}
-                    </span>
-                  ) : emailVerificationState.codeSent ? (
-                    tr[11]
-                  ) : (
-                    tr[12]
-                  )}
-                </button>
-              ) : authSettings.emailVerificationEnabled && emailChanged && emailVerificationState.codeVerified ? (
-                <div className="flex items-center px-4 py-2 bg-green-500/20 text-green-400 rounded-xl text-sm font-medium whitespace-nowrap border border-green-500/50">
-                  <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  {tr[13]}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-0 flex-1 basis-[12rem]">
+                  <input
+                    id="edit-email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleEmailChange(e.target.value)}
+                    placeholder={tr[9]}
+                    className={`w-full ${
+                      emailChanged && emailVerificationState.codeVerified
+                        ? 'border-green-500 bg-green-500/10'
+                        : emailChanged
+                        ? 'border-yellow-500 focus:border-yellow-500'
+                        : ''
+                    }`}
+                    required
+                  />
                 </div>
-              ) : authSettings.emailVerificationEnabled && formData.emailVerified ? (
-                <div className="flex items-center px-3 py-2 text-green-400 text-sm">
-                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  {tr[13]}
-                </div>
-              ) : !authSettings.emailVerificationEnabled ? (
-                <div className="flex items-center px-3 py-2 text-gray-400 text-sm whitespace-nowrap">
-                  {tr[14]}
-                </div>
-              ) : null}
-            </div>
-            {authSettings.emailVerificationEnabled && emailChanged && !emailVerificationState.codeVerified && (
-              <p className="text-xs text-yellow-400 mt-1">
-                {tr[15]}
-              </p>
-            )}
-            {emailVerificationState.error && (
-              <p className="text-xs text-red-400 mt-1">{localizedEmailVerificationError}</p>
-            )}
-          </div>
-
-          {/* Phone — verify when subscriber adds or changes number (Azure ACS) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              {tr[16]}
-            </label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => {
-                setFormData({ ...formData, phone: e.target.value })
-                setPhoneVerificationState((prev) => ({ ...prev, codeSent: false, code: '', error: '', codeInMessage: false }))
-              }}
-              placeholder={tr[17]}
-              className="w-full"
-            />
-            {/* Always visible for Azure TFV / carrier opt-in proof (even if phone verify is admin-off). */}
-            <SmsOptInDisclosure from="profile" className="mt-2" />
-            {authSettings.phoneVerificationEnabled && phoneChangedAndValid && (
-              <div className="mt-2 space-y-1">
-                <p className="text-xs text-yellow-400">{tr[18]}</p>
-                {!phoneVerificationState.codeSent ? (
+                {authSettings.emailVerificationEnabled && emailChanged && !emailVerificationState.codeVerified ? (
                   <button
                     type="button"
-                    onClick={sendPhoneCode}
-                    disabled={phoneVerificationState.sending}
-                    className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent/20 text-tank-accent hover:bg-tank-accent/30 border border-tank-accent/50"
+                    onClick={sendVerificationCode}
+                    disabled={!formData.email || formData.email.length < 5 || emailVerificationState.sending}
+                    className="flex-shrink-0 px-4 py-2.5 bg-tank-accent text-tank-black rounded-xl text-sm font-semibold hover:bg-tank-accent/90 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
                   >
-                    {phoneVerificationState.sending ? tr[10] : tr[19]}
-                  </button>
-                ) : (
-                  <div className="space-y-1">
-                    {phoneVerificationState.codeInMessage && (
-                      <p className="text-xs text-yellow-400">{tr[20]}</p>
+                    {emailVerificationState.sending ? (
+                      <span className="flex items-center">
+                        <svg className="animate-spin h-4 w-4 mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        {tr[10]}
+                      </span>
+                    ) : emailVerificationState.codeSent ? (
+                      tr[11]
+                    ) : (
+                      tr[12]
                     )}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-gray-400">{tr[21]}</span>
-                      <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      placeholder={tr[22]}
-                      value={phoneVerificationState.code}
-                      onChange={(e) =>
-                        setPhoneVerificationState((prev) => ({
-                          ...prev,
-                          code: e.target.value.replace(/\D/g, '').slice(0, 6),
-                        }))
-                      }
-                      className="w-28 px-2 py-1.5 rounded bg-tank-dark border border-tank-light text-center font-mono text-lg text-white"
-                    />
+                  </button>
+                ) : authSettings.emailVerificationEnabled && emailChanged && emailVerificationState.codeVerified ? (
+                  <div className="flex items-center px-4 py-2 bg-green-500/20 text-green-400 rounded-xl text-sm font-medium whitespace-nowrap border border-green-500/50">
+                    <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {tr[13]}
+                  </div>
+                ) : authSettings.emailVerificationEnabled && formData.emailVerified ? (
+                  <div className="flex items-center px-3 py-2 text-green-400 text-sm">
+                    <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {tr[13]}
+                  </div>
+                ) : !authSettings.emailVerificationEnabled ? (
+                  <div className="flex items-center px-3 py-2 text-gray-400 text-sm whitespace-nowrap">
+                    {tr[14]}
+                  </div>
+                ) : null}
+              </div>
+              {authSettings.emailVerificationEnabled && emailChanged && !emailVerificationState.codeVerified && (
+                <p className="text-xs text-yellow-400 mt-1">
+                  {tr[15]}
+                </p>
+              )}
+              {emailVerificationState.error && (
+                <p className="text-xs text-red-400 mt-1">{localizedEmailVerificationError}</p>
+              )}
+            </div>
+
+            <label htmlFor="edit-mobile" className="form-field-label">
+              {tr[16]}
+            </label>
+            <div className="min-w-0">
+              <input
+                id="edit-mobile"
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => {
+                  setFormData({ ...formData, phone: e.target.value })
+                  setPhoneVerificationState((prev) => ({ ...prev, codeSent: false, code: '', error: '', codeInMessage: false }))
+                }}
+                placeholder={tr[17]}
+                className="w-full"
+              />
+              <SmsOptInDisclosure from="profile" className="mt-2" />
+              {authSettings.phoneVerificationEnabled && phoneChangedAndValid && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-yellow-400">{tr[18]}</p>
+                  {!phoneVerificationState.codeSent ? (
                     <button
                       type="button"
                       onClick={sendPhoneCode}
                       disabled={phoneVerificationState.sending}
-                      className="text-sm text-gray-400 hover:text-tank-accent"
+                      className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent/20 text-tank-accent hover:bg-tank-accent/30 border border-tank-accent/50"
                     >
-                      {tr[23]}
+                      {phoneVerificationState.sending ? tr[10] : tr[19]}
                     </button>
+                  ) : (
+                    <div className="space-y-1">
+                      {phoneVerificationState.codeInMessage && (
+                        <p className="text-xs text-yellow-400">{tr[20]}</p>
+                      )}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-gray-400">{tr[21]}</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder={tr[22]}
+                          value={phoneVerificationState.code}
+                          onChange={(e) =>
+                            setPhoneVerificationState((prev) => ({
+                              ...prev,
+                              code: e.target.value.replace(/\D/g, '').slice(0, 6),
+                            }))
+                          }
+                          className="w-28 px-2 py-1.5 rounded bg-tank-dark border border-tank-light text-center font-mono text-lg text-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={sendPhoneCode}
+                          disabled={phoneVerificationState.sending}
+                          className="text-sm text-gray-400 hover:text-tank-accent"
+                        >
+                          {tr[23]}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {phoneVerificationState.error && (
-                  <p className="text-xs text-red-400">{localizedPhoneVerificationError}</p>
-                )}
-              </div>
-            )}
+                  )}
+                  {phoneVerificationState.error && (
+                    <p className="text-xs text-red-400">{localizedPhoneVerificationError}</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Password Section */}
@@ -1209,12 +1204,13 @@ export default function EditProfilePage() {
             <h3 className="text-lg font-semibold mb-0">{tr[26]}</h3>
             <p className="text-sm text-gray-400 mb-2">{tr[27]}</p>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  {tr[28]}
-                </label>
+            <div className="form-fields-grid">
+              <label htmlFor="edit-password" className="form-field-label">
+                {tr[28]}
+              </label>
+              <div className="min-w-0">
                 <PasswordField
+                  id="edit-password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="••••••••"
@@ -1231,11 +1227,12 @@ export default function EditProfilePage() {
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  {tr[29]}
-                </label>
+              <label htmlFor="edit-confirm-password" className="form-field-label">
+                {tr[29]}
+              </label>
+              <div className="min-w-0">
                 <PasswordField
+                  id="edit-confirm-password"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   placeholder="••••••••"
@@ -1275,29 +1272,34 @@ export default function EditProfilePage() {
 
           {/* Membership Selection */}
           <div className="border-t border-tank-light pt-6">
-            <h3 className="text-lg font-semibold mb-4">{tr[E.membershipHeading]}</h3>
-            <div>
-              <select
-                name="membership"
-                value={selectedMembership}
-                onChange={(e) => void handleMembershipChange(e.target.value)}
-                disabled={Boolean(membershipCheckoutLoading)}
-                className="w-full"
-                aria-label={tr[E.membershipPlanLabel]}
-                title={tr[E.membershipPlanLabel]}
-              >
-                <option value="viewer">{tr[E.membershipViewer]}</option>
-                <option value="basic">{tr[E.membershipBasic]}</option>
-                <option value="advanced">{tr[E.membershipAdvanced]}</option>
-                <option value="premium">{tr[E.membershipPremium]}</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-2">
-                {selectedMembership === originalMembership
-                  ? tr[E.membershipCurrentHint]
-                  : selectedMembership === 'viewer'
+            <div className="form-fields-grid">
+              <label htmlFor="edit-membership" className="form-field-label">
+                {tr[E.membershipHeading]}
+              </label>
+              <div className="min-w-0">
+                <select
+                  id="edit-membership"
+                  name="membership"
+                  value={selectedMembership}
+                  onChange={(e) => void handleMembershipChange(e.target.value)}
+                  disabled={Boolean(membershipCheckoutLoading)}
+                  className="w-full"
+                  aria-label={tr[E.membershipPlanLabel]}
+                  title={tr[E.membershipPlanLabel]}
+                >
+                  <option value="viewer">{tr[E.membershipViewer]}</option>
+                  <option value="basic">{tr[E.membershipBasic]}</option>
+                  <option value="advanced">{tr[E.membershipAdvanced]}</option>
+                  <option value="premium">{tr[E.membershipPremium]}</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-2">
+                  {selectedMembership === originalMembership
                     ? tr[E.membershipCurrentHint]
-                    : tr[E.membershipChangeHint]}
-              </p>
+                    : selectedMembership === 'viewer'
+                      ? tr[E.membershipCurrentHint]
+                      : tr[E.membershipChangeHint]}
+                </p>
+              </div>
             </div>
           </div>
 

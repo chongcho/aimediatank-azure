@@ -100,7 +100,7 @@ export default function FlexibleDateInput({
   }
 
   return (
-    <div className="flex w-full items-stretch gap-2">
+    <div className="flex w-full min-w-0 items-stretch gap-2">
       <input
         type="text"
         name={name}

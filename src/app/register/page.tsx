@@ -786,7 +786,7 @@ export default function RegisterPage() {
   // Success state - show verification instructions
   if (success) {
     return (
-      <div className="max-w-2xl mx-auto p-0 m-0 pb-[500px] pt-[10px]">
+      <div className="max-w-2xl mx-auto w-full min-w-0 px-3 sm:px-4 pb-[500px] pt-[10px] overflow-x-hidden">
         <div className="card p-8 text-center mt-3">
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-500/20 flex items-center justify-center">
               <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -839,7 +839,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-0 m-0 pb-[500px] pt-[10px]">
+    <div className="max-w-2xl mx-auto w-full min-w-0 px-3 sm:px-4 pb-[500px] pt-[10px] overflow-x-hidden">
         <div className="py-[20px]">
           <div className="flex items-center justify-center relative">
             <h1 className="text-3xl font-bold">{tr[0]}</h1>
@@ -885,7 +885,7 @@ export default function RegisterPage() {
               </button>
             </>
           ) : (
-          <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5 min-w-0 w-full">
             <AvatarNicknameBioBlock
               avatarPreviewUrl={avatarPreview}
               username={formData.username}
@@ -899,12 +899,12 @@ export default function RegisterPage() {
               statusHighlightMode="register"
             />
 
-            {/* Name (First, Middle, Last) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+            {/* Profile details — label left / field right (matches Nickname & Bio) */}
+            <div className="form-fields-grid">
+              <label className="form-field-label">
                 {tr[4]}
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid min-w-0 grid-cols-1 min-[420px]:grid-cols-3 gap-2">
                 <input
                   type="text"
                   name="firstName"
@@ -932,19 +932,17 @@ export default function RegisterPage() {
                   className="w-full"
                 />
               </div>
-            </div>
 
-            {/* Location — above Birthday so date format can follow country */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="register-location" className="form-field-label">
                 {tr[25]}
               </label>
               <select
+                id="register-location"
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
                 required
-                className="w-full"
+                className="min-w-0 w-full"
                 aria-label={tr[27]}
                 title={tr[27]}
               >
@@ -955,191 +953,189 @@ export default function RegisterPage() {
                   </option>
                 ))}
               </select>
-            </div>
 
-            {/* Birthday — manual entry + native calendar; format follows Location */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="form-field-label">
                 {tr[8]}
               </label>
-              <BirthdayInput
-                name="birthday"
-                value={formData.birthday}
-                onChange={(value) =>
-                  setFormData((prev) => ({ ...prev, birthday: value }))
-                }
-                location={formData.location}
-                required
-              />
-            </div>
+              <div className="min-w-0">
+                <BirthdayInput
+                  name="birthday"
+                  value={formData.birthday}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, birthday: value }))
+                  }
+                  location={formData.location}
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="register-email" className="form-field-label">
                 {tr[9]}
               </label>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder={tr[10]}
-                required
-                    disabled={verificationState.codeVerified}
-                    className={`w-full ${
-                      verificationState.codeVerified
-                        ? 'border-green-500 bg-green-500/10'
-                        : emailStatus.valid === false || emailStatus.available === false
-                        ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
-                        : emailStatus.valid && emailStatus.available
-                        ? 'border-tank-accent focus:border-tank-accent focus:ring-tank-accent/20'
-                        : ''
-                    }`}
-                  />
-                </div>
-                {/* Verify Email Button - Always visible */}
-                {authSettings.emailVerificationEnabled && verificationState.codeVerified ? (
-                  <div className="flex items-center px-4 py-2 bg-green-500/20 text-green-400 rounded-xl text-sm font-medium whitespace-nowrap border border-green-500/50">
-                    <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    {tr[11]}
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative min-w-0 flex-1 basis-[12rem]">
+                    <input
+                      id="register-email"
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      placeholder={tr[10]}
+                      required
+                      disabled={verificationState.codeVerified}
+                      className={`w-full ${
+                        verificationState.codeVerified
+                          ? 'border-green-500 bg-green-500/10'
+                          : emailStatus.valid === false || emailStatus.available === false
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
+                          : emailStatus.valid && emailStatus.available
+                          ? 'border-tank-accent focus:border-tank-accent focus:ring-tank-accent/20'
+                          : ''
+                      }`}
+                    />
                   </div>
-                ) : authSettings.emailVerificationEnabled ? (
-                  <button
-                    type="button"
-                    onClick={sendVerificationCode}
-                    disabled={!formData.email || formData.email.length < 5 || verificationState.sending}
-                    className="flex-shrink-0 px-4 py-2.5 bg-tank-accent text-tank-black rounded-xl text-sm font-semibold hover:bg-tank-accent/90 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
-                  >
-                    {verificationState.sending ? (
-                      <span className="flex items-center">
-                        <svg className="animate-spin h-4 w-4 mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        {tr[12]}
-                      </span>
-                    ) : verificationState.codeSent ? (
-                      tr[13]
+                  {authSettings.emailVerificationEnabled && verificationState.codeVerified ? (
+                    <div className="flex items-center px-4 py-2 bg-green-500/20 text-green-400 rounded-xl text-sm font-medium whitespace-nowrap border border-green-500/50">
+                      <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {tr[11]}
+                    </div>
+                  ) : authSettings.emailVerificationEnabled ? (
+                    <button
+                      type="button"
+                      onClick={sendVerificationCode}
+                      disabled={!formData.email || formData.email.length < 5 || verificationState.sending}
+                      className="flex-shrink-0 px-4 py-2.5 bg-tank-accent text-tank-black rounded-xl text-sm font-semibold hover:bg-tank-accent/90 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
+                    >
+                      {verificationState.sending ? (
+                        <span className="flex items-center">
+                          <svg className="animate-spin h-4 w-4 mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          {tr[12]}
+                        </span>
+                      ) : verificationState.codeSent ? (
+                        tr[13]
+                      ) : (
+                        tr[14]
+                      )}
+                    </button>
+                  ) : (
+                    <div className="flex items-center px-3 py-2 text-gray-400 text-sm whitespace-nowrap">
+                      {tr[15]}
+                    </div>
+                  )}
+                </div>
+                {emailStatus.message && !verificationState.codeVerified && (
+                  <p className={`text-xs mt-1 ${
+                    emailStatus.valid && emailStatus.available ? 'text-tank-accent' : 'text-red-400'
+                  }`}>
+                    {translatedEmailStatusMessage}
+                  </p>
+                )}
+                {verificationState.error && (
+                  <p className="text-xs mt-1 text-red-400">{translatedVerificationError}</p>
+                )}
+              </div>
+
+              <label htmlFor="register-mobile" className="form-field-label">
+                {tr[16]}
+              </label>
+              <div className="min-w-0">
+                <input
+                  id="register-mobile"
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder={tr[17]}
+                  className="w-full"
+                  disabled={phoneVerificationState.codeVerified}
+                />
+                <SmsOptInDisclosure from="register" className="mt-2" />
+                {authSettings.phoneVerificationEnabled && formData.phone.trim().replace(/\D/g, '').length >= 10 && (
+                  <div className="mt-2 space-y-2">
+                    {!phoneVerificationState.codeVerified ? (
+                      <>
+                        {!phoneVerificationState.codeSent ? (
+                          <button
+                            type="button"
+                            onClick={sendPhoneCode}
+                            disabled={phoneVerificationState.sending}
+                            className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent/20 text-tank-accent hover:bg-tank-accent/30 border border-tank-accent/50"
+                          >
+                            {phoneVerificationState.sending ? tr[12] : tr[18]}
+                          </button>
+                        ) : (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs text-gray-400">
+                              {tr[19]}
+                            </p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={6}
+                                placeholder={tr[20]}
+                                value={phoneVerificationState.code}
+                                onChange={(e) =>
+                                  setPhoneVerificationState((prev) => ({
+                                    ...prev,
+                                    code: e.target.value.replace(/\D/g, '').slice(0, 6),
+                                  }))
+                                }
+                                className="w-28 px-2 py-1.5 rounded bg-tank-black border border-tank-light text-center font-mono text-lg"
+                              />
+                              <button
+                                type="button"
+                                onClick={verifyPhoneCode}
+                                disabled={phoneVerificationState.code.length !== 6 || phoneVerificationState.verifying}
+                                className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent text-tank-black font-medium disabled:opacity-50"
+                              >
+                                {phoneVerificationState.verifying ? tr[21] : tr[22]}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={sendPhoneCode}
+                                disabled={phoneVerificationState.sending}
+                                className="text-sm text-gray-400 hover:text-tank-accent"
+                              >
+                                {tr[23]}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {phoneVerificationState.error && (
+                          <p className="text-xs text-red-400">{translatedPhoneVerificationError}</p>
+                        )}
+                      </>
                     ) : (
-                      tr[14]
+                      <p className="text-sm text-green-400 flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {tr[24]}
+                      </p>
                     )}
-                  </button>
-                ) : (
-                  <div className="flex items-center px-3 py-2 text-gray-400 text-sm whitespace-nowrap">
-                    {tr[15]}
                   </div>
                 )}
               </div>
-              {/* Status message */}
-              {emailStatus.message && !verificationState.codeVerified && (
-                <p className={`text-xs mt-1 ${
-                  emailStatus.valid && emailStatus.available ? 'text-tank-accent' : 'text-red-400'
-                }`}>
-                  {translatedEmailStatusMessage}
-                </p>
-              )}
-              {verificationState.error && (
-                <p className="text-xs mt-1 text-red-400">{translatedVerificationError}</p>
-              )}
-            </div>
-
-            {/* Mobile (optional) – two-step verification when provided */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                {tr[16]}
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder={tr[17]}
-                className="w-full"
-                disabled={phoneVerificationState.codeVerified}
-              />
-              {/* Always visible for Azure TFV / carrier opt-in proof (even if phone verify is admin-off). */}
-              <SmsOptInDisclosure from="register" className="mt-2" />
-              {authSettings.phoneVerificationEnabled && formData.phone.trim().replace(/\D/g, '').length >= 10 && (
-                <div className="mt-2 space-y-2">
-                  {!phoneVerificationState.codeVerified ? (
-                    <>
-                      {!phoneVerificationState.codeSent ? (
-                        <button
-                          type="button"
-                          onClick={sendPhoneCode}
-                          disabled={phoneVerificationState.sending}
-                          className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent/20 text-tank-accent hover:bg-tank-accent/30 border border-tank-accent/50"
-                        >
-                          {phoneVerificationState.sending ? tr[12] : tr[18]}
-                        </button>
-                      ) : (
-                        <div className="mt-2 space-y-1">
-                          <p className="text-xs text-gray-400">
-                            {tr[19]}
-                          </p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              maxLength={6}
-                              placeholder={tr[20]}
-                              value={phoneVerificationState.code}
-                              onChange={(e) =>
-                                setPhoneVerificationState((prev) => ({
-                                  ...prev,
-                                  code: e.target.value.replace(/\D/g, '').slice(0, 6),
-                                }))
-                              }
-                              className="w-28 px-2 py-1.5 rounded bg-tank-black border border-tank-light text-center font-mono text-lg"
-                            />
-                            <button
-                              type="button"
-                              onClick={verifyPhoneCode}
-                              disabled={phoneVerificationState.code.length !== 6 || phoneVerificationState.verifying}
-                              className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent text-tank-black font-medium disabled:opacity-50"
-                            >
-                              {phoneVerificationState.verifying ? tr[21] : tr[22]}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={sendPhoneCode}
-                              disabled={phoneVerificationState.sending}
-                              className="text-sm text-gray-400 hover:text-tank-accent"
-                            >
-                              {tr[23]}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      {phoneVerificationState.error && (
-                        <p className="text-xs text-red-400">{translatedPhoneVerificationError}</p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-sm text-green-400 flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      {tr[24]}
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Password Section */}
             <div className="border-t border-tank-light pt-6">
               <h3 className="text-lg font-semibold mb-4">{tr[28]}</h3>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    {tr[29]}
-                  </label>
+              <div className="form-fields-grid">
+                <label htmlFor="register-password" className="form-field-label">
+                  {tr[29]}
+                </label>
+                <div className="min-w-0">
                   <PasswordField
+                    id="register-password"
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
@@ -1158,11 +1154,12 @@ export default function RegisterPage() {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    {tr[30]}
-                  </label>
+                <label htmlFor="register-confirm-password" className="form-field-label">
+                  {tr[30]}
+                </label>
+                <div className="min-w-0">
                   <PasswordField
+                    id="register-confirm-password"
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange}
@@ -1204,28 +1201,33 @@ export default function RegisterPage() {
 
             {/* Membership Selection — optional; defaults to Free Viewer */}
             <div className="border-t border-tank-light pt-6">
-              <h3 className="text-lg font-semibold mb-4">{tr[R.membershipHeading]}</h3>
-              <div>
-                <select
-                  name="membership"
-                  value={selectedMembership}
-                  onChange={(e) => handleMembershipChange(e.target.value)}
-                  className="w-full"
-                  aria-label={tr[R.membershipPlanLabel]}
-                  title={tr[R.membershipPlanLabel]}
-                >
-                  <option value="viewer">{tr[R.membershipViewer]}</option>
-                  <option value="basic">{tr[R.membershipBasic]}</option>
-                  <option value="advanced">{tr[R.membershipAdvanced]}</option>
-                  <option value="premium">{tr[R.membershipPremium]}</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-2">
-                  {selectedMembership === 'viewer'
-                    ? tr[R.membershipFreeHint]
-                    : pendingBillingPeriod
-                      ? tr[R.membershipCheckoutHint]
-                      : tr[R.membershipChangeHint]}
-                </p>
+              <div className="form-fields-grid">
+                <label htmlFor="register-membership" className="form-field-label">
+                  {tr[R.membershipHeading]}
+                </label>
+                <div className="min-w-0">
+                  <select
+                    id="register-membership"
+                    name="membership"
+                    value={selectedMembership}
+                    onChange={(e) => handleMembershipChange(e.target.value)}
+                    className="w-full"
+                    aria-label={tr[R.membershipPlanLabel]}
+                    title={tr[R.membershipPlanLabel]}
+                  >
+                    <option value="viewer">{tr[R.membershipViewer]}</option>
+                    <option value="basic">{tr[R.membershipBasic]}</option>
+                    <option value="advanced">{tr[R.membershipAdvanced]}</option>
+                    <option value="premium">{tr[R.membershipPremium]}</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {selectedMembership === 'viewer'
+                      ? tr[R.membershipFreeHint]
+                      : pendingBillingPeriod
+                        ? tr[R.membershipCheckoutHint]
+                        : tr[R.membershipChangeHint]}
+                  </p>
+                </div>
               </div>
             </div>
 
