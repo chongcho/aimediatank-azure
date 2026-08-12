@@ -13,6 +13,7 @@ import { recordVoipCancelBurst, formatCalleeIosTokenSummary, logVoipPipelineSumm
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 import { createVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
 import { VOICE_CALL_USER_SELECT, voiceCallDisplayName } from '@/lib/voiceCallUser'
+import { socialMediaForbiddenResponse } from '@/lib/socialAgeGate'
 
 export const dynamic = 'force-dynamic'
 
@@ -302,6 +303,9 @@ export async function POST(request: Request) {
     const auth = await requireSubscriber(session?.user)
     if ('error' in auth) return auth.error
     const userId = auth.userId
+
+    const ageBlock = await socialMediaForbiddenResponse(userId)
+    if (ageBlock) return ageBlock
 
     const body = await request.json()
     const { action } = body

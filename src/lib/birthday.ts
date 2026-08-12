@@ -173,3 +173,38 @@ export function isValidBirthdayInput(
 ): boolean {
   return parseBirthdayToIso(raw, options) != null
 }
+
+/** Platform minimum age for registration / profile birthday (admin-configurable). */
+export type AgeRequirement = 9 | 13 | 16 | 18
+
+const AGE_REQUIREMENT_VALUES: readonly AgeRequirement[] = [9, 13, 16, 18]
+
+export function normalizeAgeRequirement(value: unknown): AgeRequirement {
+  const n = typeof value === 'string' ? Number(value) : typeof value === 'number' ? value : NaN
+  if ((AGE_REQUIREMENT_VALUES as readonly number[]).includes(n)) {
+    return n as AgeRequirement
+  }
+  return 13
+}
+
+/**
+ * True if the birthday is at least `minAge` years old as of `asOf` (local calendar date).
+ */
+export function isBirthdayAtLeastAge(
+  raw: string | null | undefined,
+  minAge: number,
+  options?: ParseDateOptions,
+  asOf: Date = new Date()
+): boolean {
+  const iso = parseBirthdayToIso(raw, options)
+  if (!iso) return false
+  const [ys, ms, ds] = iso.split('-')
+  const birth = new Date(Number(ys), Number(ms) - 1, Number(ds))
+  if (Number.isNaN(birth.getTime())) return false
+  let age = asOf.getFullYear() - birth.getFullYear()
+  const monthDiff = asOf.getMonth() - birth.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && asOf.getDate() < birth.getDate())) {
+    age -= 1
+  }
+  return age >= minAge
+}

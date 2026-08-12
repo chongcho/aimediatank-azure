@@ -9,7 +9,7 @@ import { parseIpDebugHeaders } from '@/lib/ipDebugHeaders'
 import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX, getUploadsAvailable } from '@/lib/uploadPlanConfig'
 import MarketingPopupView from '@/components/MarketingPopupView'
 import FlexibleDateInput from '@/components/FlexibleDateInput'
-import { parseBirthdayToIso } from '@/lib/birthday'
+import { parseBirthdayToIso, normalizeAgeRequirement, type AgeRequirement } from '@/lib/birthday'
 import {
   goToAdminReauth,
   isAdminReauthRequiredResponse,
@@ -456,6 +456,7 @@ export default function AdminPage() {
   const [mediaDetailSaving, setMediaDetailSaving] = useState(false)
   const [emailVerificationEnabled, setEmailVerificationEnabled] = useState(true)
   const [phoneVerificationEnabled, setPhoneVerificationEnabled] = useState(true)
+  const [ageRequirement, setAgeRequirement] = useState<AgeRequirement>(13)
   const [authenticationLoading, setAuthenticationLoading] = useState(false)
   const [authenticationSaving, setAuthenticationSaving] = useState(false)
   const [selfServiceDeactivateAccountEnabled, setSelfServiceDeactivateAccountEnabled] = useState(true)
@@ -1117,6 +1118,7 @@ export default function AdminPage() {
           const data = await res.json()
           setEmailVerificationEnabled(data.emailVerificationEnabled !== false)
           setPhoneVerificationEnabled(data.phoneVerificationEnabled !== false)
+          setAgeRequirement(normalizeAgeRequirement(data.ageRequirement))
         } finally {
           setAuthenticationLoading(false)
         }
@@ -1696,6 +1698,7 @@ export default function AdminPage() {
           data: {
             emailVerificationEnabled,
             phoneVerificationEnabled,
+            ageRequirement,
           },
         }),
       })
@@ -1706,6 +1709,7 @@ export default function AdminPage() {
       }
       setEmailVerificationEnabled(data.emailVerificationEnabled !== false)
       setPhoneVerificationEnabled(data.phoneVerificationEnabled !== false)
+      setAgeRequirement(normalizeAgeRequirement(data.ageRequirement))
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('authenticationSettingsUpdated'))
       }
@@ -3167,6 +3171,9 @@ export default function AdminPage() {
                               className="bg-tank-dark border border-tank-light rounded px-2 py-1 text-xs"
                             >
                               <option value="ALL">All Ages</option>
+                              <option value="9+">9+</option>
+                              <option value="13+">13+</option>
+                              <option value="16+">16+</option>
                               <option value="18+">18+</option>
                             </select>
                           </td>
@@ -4005,7 +4012,7 @@ export default function AdminPage() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">Authentication</h2>
-                <p className="text-gray-400 text-sm">Turn verification requirements ON/OFF for registration</p>
+                <p className="text-gray-400 text-sm">Verification and age requirements for registration</p>
               </div>
 
               {authenticationLoading ? (
@@ -4036,6 +4043,30 @@ export default function AdminPage() {
                         <option value="on">ON</option>
                         <option value="off">OFF</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">Age requirement</label>
+                      <select
+                        value={String(ageRequirement)}
+                        onChange={(e) => setAgeRequirement(normalizeAgeRequirement(e.target.value))}
+                        disabled={authenticationSaving}
+                        className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
+                      >
+                        <option value="9">9+</option>
+                        <option value="13">13+</option>
+                        <option value="16">16+</option>
+                        <option value="18">18+</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Minimum age for Register and Edit Profile birthday. Enforced from the birthday field.
+                        Aligns with App Store age bands (9+ / 13+ / 16+ / 18+).
+                      </p>
+                      <p className="text-xs text-amber-500/90 mt-2">
+                        Apple App Store: social media (chat, comments, reactions, share, post/upload) is always
+                        disabled for users under 13. On iOS the Declared Age Range API is called before enabling
+                        those features. Setting 9+ still blocks social under 13; 16+ / 18+ raise both registration
+                        and the social floor.
+                      </p>
                     </div>
                   </div>
 

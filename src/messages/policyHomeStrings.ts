@@ -14,7 +14,7 @@ export const POLICY_MAP = {
     'AI Media Tank, LLC (AMT) maintains two standalone policy documents that govern your use of the Platform and how we handle your data. Please review both documents carefully.',
   cardTermsHeading: 'Terms of Service',
   cardTermsLead: 'Governs your use of the Platform, including:',
-  cardTermsBullet1: 'Eligibility and age requirements (13+ minimum), including accurate date of birth at Register',
+  cardTermsBullet1: 'Eligibility and age requirements (9+, 13+, 16+, or 18+, admin-configurable)',
   cardTermsBullet2: 'User accounts (email or social Register), conduct, and responsibilities',
   cardTermsBullet3: 'Content guidelines, AI disclosure, chat, voice calls, and celebration cards',
   cardTermsBullet4: 'Copyright, DMCA, guest watermarks, and intellectual property',

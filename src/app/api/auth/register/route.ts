@@ -3,7 +3,7 @@ import { hash } from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
 import { BlobServiceClient } from '@azure/storage-blob'
-import { parseBirthdayToIso, parseBirthdayToDate } from '@/lib/birthday'
+import { parseBirthdayToIso, parseBirthdayToDate, isBirthdayAtLeastAge, normalizeAgeRequirement } from '@/lib/birthday'
 
 // Function to generate verification token
 function generateVerificationToken() {
@@ -114,13 +114,34 @@ export async function POST(request: Request) {
       birthday != null && String(birthday).trim()
         ? parseBirthdayToIso(String(birthday))
         : null
-    if (birthday != null && String(birthday).trim() && !birthdayIso) {
+    if (!birthdayIso) {
       return NextResponse.json(
         { error: 'Please enter a valid birthday' },
         { status: 400 }
       )
     }
-    const birthdayDate = birthdayIso ? parseBirthdayToDate(birthdayIso) : null
+
+    let ageRequirement = 13
+    try {
+      const setting = await prisma.mediaDetailSetting.findFirst()
+      const raw = (setting as { shareAppsEnabled?: unknown } | null)?.shareAppsEnabled
+      const auth =
+        raw && typeof raw === 'object' && !Array.isArray(raw) && (raw as Record<string, unknown>).__auth &&
+        typeof (raw as Record<string, unknown>).__auth === 'object' &&
+        !Array.isArray((raw as Record<string, unknown>).__auth)
+          ? ((raw as Record<string, unknown>).__auth as Record<string, unknown>)
+          : null
+      ageRequirement = normalizeAgeRequirement(auth?.ageRequirement)
+    } catch {
+      ageRequirement = 13
+    }
+    if (!isBirthdayAtLeastAge(birthdayIso, ageRequirement)) {
+      return NextResponse.json(
+        { error: `You must be at least ${ageRequirement} years old to register` },
+        { status: 400 }
+      )
+    }
+    const birthdayDate = parseBirthdayToDate(birthdayIso)
 
     // Hash password
     const hashedPassword = await hash(password, 12)

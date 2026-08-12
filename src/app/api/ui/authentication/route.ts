@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { normalizeAgeRequirement, type AgeRequirement } from '@/lib/birthday'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,6 +8,7 @@ async function getOrCreateSetting(): Promise<{
   emailVerificationEnabled: boolean
   phoneVerificationEnabled: boolean
   selfServiceDeactivateAccountEnabled: boolean
+  ageRequirement: AgeRequirement
 }> {
   let row = await prisma.mediaDetailSetting.findFirst()
   if (!row) {
@@ -23,24 +25,21 @@ async function getOrCreateSetting(): Promise<{
     emailVerificationEnabled: auth?.emailVerificationEnabled !== false,
     phoneVerificationEnabled: auth?.phoneVerificationEnabled !== false,
     selfServiceDeactivateAccountEnabled: auth?.selfServiceDeactivateAccountEnabled !== false,
+    ageRequirement: normalizeAgeRequirement(auth?.ageRequirement),
   }
 }
 
 export async function GET() {
   try {
-    const { emailVerificationEnabled, phoneVerificationEnabled, selfServiceDeactivateAccountEnabled } =
-      await getOrCreateSetting()
-    return NextResponse.json({
-      emailVerificationEnabled,
-      phoneVerificationEnabled,
-      selfServiceDeactivateAccountEnabled,
-    })
+    const settings = await getOrCreateSetting()
+    return NextResponse.json(settings)
   } catch (error) {
     console.error('Authentication settings unavailable:', error)
     return NextResponse.json({
       emailVerificationEnabled: true,
       phoneVerificationEnabled: true,
       selfServiceDeactivateAccountEnabled: true,
+      ageRequirement: 13,
     })
   }
 }

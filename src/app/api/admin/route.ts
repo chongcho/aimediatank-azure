@@ -11,7 +11,7 @@ import {
   isEntraLookupConfigured,
   mergeEntraProfileIntoUser,
 } from '@/lib/entraUserLookup'
-import { parseBirthdayToDate } from '@/lib/birthday'
+import { parseBirthdayToDate, normalizeAgeRequirement } from '@/lib/birthday'
 import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
@@ -1004,6 +1004,7 @@ export async function GET(request: Request) {
           emailVerificationEnabled: auth?.emailVerificationEnabled !== false,
           phoneVerificationEnabled: auth?.phoneVerificationEnabled !== false,
           selfServiceDeactivateAccountEnabled: auth?.selfServiceDeactivateAccountEnabled !== false,
+          ageRequirement: normalizeAgeRequirement(auth?.ageRequirement),
         })
       } catch (error) {
         console.error('Authentication settings unavailable:', error)
@@ -1011,6 +1012,7 @@ export async function GET(request: Request) {
           emailVerificationEnabled: true,
           phoneVerificationEnabled: true,
           selfServiceDeactivateAccountEnabled: true,
+          ageRequirement: 13,
         })
       }
     }
@@ -2740,9 +2742,14 @@ export async function POST(request: Request) {
         const {
           emailVerificationEnabled: emailPayload,
           phoneVerificationEnabled: phonePayload,
+          ageRequirement: agePayload,
         } = data || {}
         const emailVerificationEnabled = typeof emailPayload === 'boolean' ? emailPayload : undefined
         const phoneVerificationEnabled = typeof phonePayload === 'boolean' ? phonePayload : undefined
+        const ageRequirement =
+          agePayload === undefined || agePayload === null || agePayload === ''
+            ? undefined
+            : normalizeAgeRequirement(agePayload)
 
         let row = await prisma.mediaDetailSetting.findFirst()
         if (!row) {
@@ -2762,6 +2769,7 @@ export async function POST(request: Request) {
           ...prevAuth,
           ...(emailVerificationEnabled !== undefined ? { emailVerificationEnabled } : {}),
           ...(phoneVerificationEnabled !== undefined ? { phoneVerificationEnabled } : {}),
+          ...(ageRequirement !== undefined ? { ageRequirement } : {}),
         }
         row = await prisma.mediaDetailSetting.update({
           where: { id: row.id },
@@ -2776,16 +2784,19 @@ export async function POST(request: Request) {
           typeof nextAuth.emailVerificationEnabled === 'boolean' ? nextAuth.emailVerificationEnabled : true
         const appliedPhone =
           typeof nextAuth.phoneVerificationEnabled === 'boolean' ? nextAuth.phoneVerificationEnabled : true
+        const appliedAge = normalizeAgeRequirement(nextAuth.ageRequirement)
 
         await logAdminAction(adminId, 'SET_AUTHENTICATION_SETTINGS', 'AUTHENTICATION', row.id, {
           emailVerificationEnabled: appliedEmail,
           phoneVerificationEnabled: appliedPhone,
+          ageRequirement: appliedAge,
         })
 
         return NextResponse.json({
           message: 'Authentication settings updated',
           emailVerificationEnabled: appliedEmail,
           phoneVerificationEnabled: appliedPhone,
+          ageRequirement: appliedAge,
         })
       }
 

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
-import { parseBirthdayToIso, preferDayFirstFromLocation } from '@/lib/birthday'
+import { parseBirthdayToIso, preferDayFirstFromLocation, isBirthdayAtLeastAge, normalizeAgeRequirement, type AgeRequirement } from '@/lib/birthday'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import { persistFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
@@ -271,10 +271,16 @@ export default function EditProfilePage() {
     code: '',
     error: '',
   })
-  const [authSettings, setAuthSettings] = useState({
+  const [authSettings, setAuthSettings] = useState<{
+    emailVerificationEnabled: boolean
+    phoneVerificationEnabled: boolean
+    selfServiceDeactivateAccountEnabled: boolean
+    ageRequirement: AgeRequirement
+  }>({
     emailVerificationEnabled: true,
     phoneVerificationEnabled: true,
     selfServiceDeactivateAccountEnabled: true,
+    ageRequirement: 13,
   })
   const [selectedMembership, setSelectedMembership] = useState('viewer')
   const [originalMembership, setOriginalMembership] = useState('viewer')
@@ -390,6 +396,7 @@ export default function EditProfilePage() {
             emailVerificationEnabled: data.emailVerificationEnabled !== false,
             phoneVerificationEnabled: data.phoneVerificationEnabled !== false,
             selfServiceDeactivateAccountEnabled: data.selfServiceDeactivateAccountEnabled !== false,
+            ageRequirement: normalizeAgeRequirement(data.ageRequirement),
           })
         }
       } catch {
@@ -772,6 +779,14 @@ export default function EditProfilePage() {
       setError('Please enter a valid birthday (e.g. 1990-01-15 or 1990年1月15日)')
       return
     }
+    if (
+      !isBirthdayAtLeastAge(formData.birthday, authSettings.ageRequirement, {
+        preferDayFirst: dayFirstDates,
+      })
+    ) {
+      setError(`You must be at least ${authSettings.ageRequirement} years old`)
+      return
+    }
 
     if (!formData.location) {
       setError('Please select your location')
@@ -1056,6 +1071,9 @@ export default function EditProfilePage() {
                 location={formData.location}
                 required
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Must be {authSettings.ageRequirement}+ years old
+              </p>
             </div>
 
             <label htmlFor="edit-email" className="form-field-label">

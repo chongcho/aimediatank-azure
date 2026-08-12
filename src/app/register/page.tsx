@@ -9,7 +9,7 @@ import { SocialSignIn } from '@/components/SocialSignIn'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
 import SmsOptInDisclosure from '@/components/SmsOptInDisclosure'
 import { compressImage } from '@/lib/mediaCompression'
-import { parseBirthdayToIso, preferDayFirstFromLocation } from '@/lib/birthday'
+import { parseBirthdayToIso, preferDayFirstFromLocation, isBirthdayAtLeastAge, normalizeAgeRequirement, type AgeRequirement } from '@/lib/birthday'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
 import { LanguageModeTrans } from '@/components/LanguageModeTrans'
 import BirthdayInput from '@/components/BirthdayInput'
@@ -316,9 +316,14 @@ export default function RegisterPage() {
     code: '',
     error: '',
   })
-  const [authSettings, setAuthSettings] = useState({
+  const [authSettings, setAuthSettings] = useState<{
+    emailVerificationEnabled: boolean
+    phoneVerificationEnabled: boolean
+    ageRequirement: AgeRequirement
+  }>({
     emailVerificationEnabled: true,
     phoneVerificationEnabled: true,
+    ageRequirement: 13,
   })
 
   const translatedError = useLanguageModeText(error)
@@ -424,6 +429,7 @@ export default function RegisterPage() {
           setAuthSettings({
             emailVerificationEnabled: data.emailVerificationEnabled !== false,
             phoneVerificationEnabled: data.phoneVerificationEnabled !== false,
+            ageRequirement: normalizeAgeRequirement(data.ageRequirement),
           })
         }
       } catch {
@@ -677,6 +683,12 @@ export default function RegisterPage() {
     }
     if (!parseBirthdayToIso(formData.birthday, { preferDayFirst: dayFirstDates })) {
       blockers.push(REGISTER_STRINGS[R.birthdayInvalidHint])
+    } else if (
+      !isBirthdayAtLeastAge(formData.birthday, authSettings.ageRequirement, {
+        preferDayFirst: dayFirstDates,
+      })
+    ) {
+      blockers.push(`You must be at least ${authSettings.ageRequirement} years old to register`)
     }
     if (!formData.email.trim()) {
       blockers.push(REGISTER_STRINGS[R.emailRequired])
@@ -712,6 +724,7 @@ export default function RegisterPage() {
     formData.phone,
     authSettings.emailVerificationEnabled,
     authSettings.phoneVerificationEnabled,
+    authSettings.ageRequirement,
     verificationState.codeVerified,
     phoneVerificationState.codeVerified,
     usernameStatus.valid,
@@ -971,6 +984,9 @@ export default function RegisterPage() {
                   location={formData.location}
                   required
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Must be {authSettings.ageRequirement}+ years old
+                </p>
               </div>
 
               <label htmlFor="register-email" className="form-field-label">

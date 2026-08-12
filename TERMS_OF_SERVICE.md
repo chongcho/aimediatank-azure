@@ -50,11 +50,11 @@ These Terms constitute a legally binding agreement between you and AI Media Tank
 
 To register for an account or use the Platform, you must:
 
-- be at least thirteen (13) years of age
+- meet the Platform's minimum age requirement (9+, 13+, 16+, or 18+, as configured by the operator)
 - have the legal capacity to enter into a binding agreement
 - not be located in a jurisdiction restricted by U.S. sanctions or applicable law
 
-Users under the age of 13 are strictly prohibited from using the Platform.
+Users who do not meet the configured minimum age are strictly prohibited from using the Platform. The Platform does not knowingly collect personal information from children under 13.
 
 If you are under the age of 18, you represent that you have permission from a parent or legal guardian.
 

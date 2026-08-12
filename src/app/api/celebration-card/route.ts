@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, generateCelebrationCardEmail } from '@/lib/email'
+import { socialMediaForbiddenResponse } from '@/lib/socialAgeGate'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,6 +82,10 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     const userId = session?.user?.id ?? null
+    if (userId) {
+      const ageBlock = await socialMediaForbiddenResponse(userId)
+      if (ageBlock) return ageBlock
+    }
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'anonymous'
 
     if (!checkRateLimit(userId, ip)) {

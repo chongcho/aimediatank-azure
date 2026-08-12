@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import { prisma } from '@/lib/prisma'
 import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
-import { parseBirthdayToIso, parseBirthdayToDate } from '@/lib/birthday'
+import { parseBirthdayToIso, parseBirthdayToDate, isBirthdayAtLeastAge, normalizeAgeRequirement } from '@/lib/birthday'
 import bcrypt from 'bcryptjs'
 
 export const dynamic = 'force-dynamic'
@@ -165,6 +165,26 @@ export async function PUT(request: Request) {
         if (!birthdayIso) {
           return NextResponse.json(
             { error: 'Please enter a valid birthday' },
+            { status: 400 }
+          )
+        }
+        let ageRequirement = 13
+        try {
+          const setting = await prisma.mediaDetailSetting.findFirst()
+          const raw = (setting as { shareAppsEnabled?: unknown } | null)?.shareAppsEnabled
+          const auth =
+            raw && typeof raw === 'object' && !Array.isArray(raw) && (raw as Record<string, unknown>).__auth &&
+            typeof (raw as Record<string, unknown>).__auth === 'object' &&
+            !Array.isArray((raw as Record<string, unknown>).__auth)
+              ? ((raw as Record<string, unknown>).__auth as Record<string, unknown>)
+              : null
+          ageRequirement = normalizeAgeRequirement(auth?.ageRequirement)
+        } catch {
+          ageRequirement = 13
+        }
+        if (!isBirthdayAtLeastAge(birthdayIso, ageRequirement)) {
+          return NextResponse.json(
+            { error: `You must be at least ${ageRequirement} years old` },
             { status: 400 }
           )
         }

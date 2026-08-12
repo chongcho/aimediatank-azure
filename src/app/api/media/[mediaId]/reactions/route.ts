@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { socialMediaForbiddenResponse } from '@/lib/socialAgeGate'
 
 // Map reaction types to score values
 const reactionToScore: Record<string, number> = {
@@ -90,6 +91,9 @@ export async function POST(
     const score = reactionToScore[type]
 
     if (session?.user?.id) {
+      const ageBlock = await socialMediaForbiddenResponse(session.user.id)
+      if (ageBlock) return ageBlock
+
       // Signed-in user - use Rating table
       const existingRating = await prisma.rating.findUnique({
         where: {

@@ -17,7 +17,7 @@ AI Media Tank, LLC (AMT) maintains two standalone policy documents that govern t
 
 Governs the use of the Platform, including:
 
-- Eligibility and age requirements (13+ minimum), including accurate date of birth at Register
+- Eligibility and age requirements (9+, 13+, 16+, or 18+, admin-configurable), including accurate date of birth at Register
 - User accounts (email or social Register), conduct, and responsibilities
 - Content guidelines, AI disclosure, Open Chat, Private Chat, and Voice Talk
 - Copyright, intellectual property, guest watermarks, and DMCA procedures

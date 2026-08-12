@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
 import { requireAdminContentElevation } from '@/lib/requireAdminElevation'
+import { socialMediaForbiddenResponse } from '@/lib/socialAgeGate'
 
 // POST - Add comment to media
 export async function POST(
@@ -17,6 +18,9 @@ export async function POST(
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const ageBlock = await socialMediaForbiddenResponse(session.user.id)
+    if (ageBlock) return ageBlock
 
     const { content } = await request.json()
 

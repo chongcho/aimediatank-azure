@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { inspectMediaForAgeRating } from '@/lib/contentInspection'
+import { socialMediaForbiddenResponse } from '@/lib/socialAgeGate'
 
 export const dynamic = 'force-dynamic'
 
@@ -156,6 +157,9 @@ export async function POST(request: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const ageBlock = await socialMediaForbiddenResponse(session.user.id)
+    if (ageBlock) return ageBlock
 
     // Only subscribers and admins can send messages
     if (session.user.role !== 'SUBSCRIBER' && session.user.role !== 'ADMIN') {

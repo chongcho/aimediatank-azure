@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { getMaxUploadFileBytes } from '@/lib/uploadMaxFileSize'
 import { prisma } from '@/lib/prisma'
+import { socialMediaForbiddenResponse } from '@/lib/socialAgeGate'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +18,9 @@ export async function POST(request: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const ageBlock = await socialMediaForbiddenResponse(session.user.id)
+    if (ageBlock) return ageBlock
 
     if (session.user.role !== 'SUBSCRIBER' && session.user.role !== 'ADMIN') {
       return NextResponse.json(

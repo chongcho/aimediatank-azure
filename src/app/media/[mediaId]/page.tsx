@@ -173,7 +173,7 @@ export default async function MediaPage({
           '@type': 'Person',
           name: authorName,
         },
-        isFamilyFriendly: media.ageRestriction !== '18+',
+        isFamilyFriendly: media.ageRestriction !== '16+' && media.ageRestriction !== '18+',
         offers:
           media.price && media.price > 0
             ? {

@@ -66,12 +66,12 @@ function TermsPageContent() {
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">2. Eligibility</h2>
         <p className="text-gray-300 mb-2">To register for an account or use the Platform, you must:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>be at least thirteen (13) years of age</li>
+          <li>meet the Platform&apos;s minimum age requirement (9+, 13+, 16+, or 18+, as configured by the operator)</li>
           <li>have the legal capacity to enter into a binding agreement</li>
           <li>not be located in a jurisdiction restricted by U.S. sanctions or applicable law</li>
         </ul>
         <p className="text-gray-300 mb-4">
-          Users under the age of 13 are strictly prohibited from using the Platform.
+          Users who do not meet the configured minimum age are strictly prohibited from using the Platform. The Platform does not knowingly collect personal information from children under 13.
         </p>
         <p className="text-gray-300 mb-4">
           If you are under the age of 18, you represent that you have permission from a parent or legal guardian.
