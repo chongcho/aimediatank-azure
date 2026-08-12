@@ -103,7 +103,7 @@ export function SocialSignIn({ mode, callbackUrl = '/', hideDividerAbove = false
   return (
     <>
       {!hideDividerAbove && (
-        <div className="relative my-6">
+        <div className="relative my-3 sm:my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-tank-light" />
           </div>
@@ -113,14 +113,14 @@ export function SocialSignIn({ mode, callbackUrl = '/', hideDividerAbove = false
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-1.5 sm:space-y-2">
         {buttons.map((btn) => (
           <button
             key={btn.id}
             type="button"
             onClick={() => handleSocialSignIn(btn.id)}
             disabled={!!loadingId}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors disabled:opacity-50"
           >
             {loadingId === btn.id ? (
               <span className="spinner w-5 h-5" />

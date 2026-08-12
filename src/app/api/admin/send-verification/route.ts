@@ -24,13 +24,13 @@ const ADMIN_EMAIL_HTML = (code: string) => `
     </div>
   </div>
   <p style="font-size: 14px; color: #666;">This code expires in 10 minutes. If you didn't request it, secure your account.</p>
-  <p style="font-size: 14px; color: #666;">AI Media Tank (AiM)</p>
+  <p style="font-size: 14px; color: #666;">AI Media Tank (AMT)</p>
 </body>
 </html>
 `
 
 const SMS_MESSAGE = (code: string) =>
-  `Your AI Media Tank (AiM) Admin Panel verification code is: ${code}. It expires in 10 minutes.`
+  `Your AI Media Tank (AMT) Admin Panel verification code is: ${code}. It expires in 10 minutes.`
 
 export async function POST(request: Request) {
   try {

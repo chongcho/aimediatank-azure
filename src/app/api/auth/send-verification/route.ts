@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     
     const emailSent = await sendEmail({
       to: user.email,
-      subject: 'Verify your AI Media Tank (AiM) account',
+      subject: 'Verify your AI Media Tank (AMT) account',
       html: emailHtml,
     })
 

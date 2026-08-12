@@ -202,23 +202,23 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
+    <div className="form-compact-mobile form-compact-mobile--center min-h-screen flex items-start sm:items-center justify-center p-0 m-0 px-3 sm:px-0 pb-[500px]">
       <div className="w-full max-w-md relative">
-        <div className="text-center mb-8 pt-[30px]">
-          <Link href="/" className="inline-block mb-6">
-            <span className="font-bold text-3xl text-white">
+        <div className="form-compact-header text-center mb-3 sm:mb-8 pt-2 sm:pt-[30px]">
+          <Link href="/" className="form-compact-logo inline-block mb-2 sm:mb-6">
+            <span className="form-compact-logo-text font-bold text-2xl sm:text-3xl text-white">
               <span className="text-tank-accent">A</span>i
               <span className="text-red-500">M</span>edia
               <span className="text-sky-400">T</span>ank
             </span>
           </Link>
           {returningToAdmin && (
-            <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-1 sm:mb-2">
               Step 1 of 2 · Account login
             </p>
           )}
           <div className="flex items-center justify-center relative">
-            <h1 className="text-3xl font-bold mb-2">Log in / Register</h1>
+            <h1 className="form-compact-title text-2xl sm:text-3xl font-bold mb-0 sm:mb-2">Log in / Register</h1>
             <button
               type="button"
               onClick={() => { window.location.href = '/' }}
@@ -231,15 +231,15 @@ function LoginContent() {
             </button>
           </div>
           {returningToAdmin && (
-            <p className="text-sm text-gray-300 mt-3 max-w-md mx-auto">
+            <p className="text-sm text-gray-300 mt-2 sm:mt-3 max-w-md mx-auto">
               Use your email and password here first. Step 2 (after login) is Admin Panel verification: a server-configured admin passphrase plus email or phone code.
             </p>
           )}
         </div>
 
-        <div className="card">
+        <div className="card form-compact-card">
           {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+            <div className="mb-3 sm:mb-6 p-3 sm:p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
               <p className={showDeactivateActivateCta ? 'font-bold' : undefined}>{error}</p>
               {showDeactivateActivateCta && (
                 <button
@@ -262,7 +262,7 @@ function LoginContent() {
           )}
 
           {showForgotEmail ? (
-            <form onSubmit={handleForgotEmail} className="space-y-4">
+            <form onSubmit={handleForgotEmail} className="form-compact-stack space-y-3 sm:space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Enter your Nickname (username)
@@ -320,7 +320,7 @@ function LoginContent() {
             <>
               <SocialSignIn mode="signin" callbackUrl={safeCallbackUrl} hideDividerAbove />
 
-              <div className="relative mt-6">
+              <div className="relative mt-3 sm:mt-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-tank-light" />
                 </div>
@@ -332,13 +332,13 @@ function LoginContent() {
               <button
                 type="button"
                 onClick={() => setShowEmailForm(true)}
-                className="mt-6 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-gray-200"
+                className="mt-3 sm:mt-6 w-full flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-gray-200"
               >
                 Log in with Email
               </button>
             </>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="form-compact-stack space-y-3 sm:space-y-6">
               {!returningToAdmin && (
                 <button
                   type="button"
@@ -411,7 +411,7 @@ function LoginContent() {
 
           {returningToAdmin && showCredentialsForm && !showForgotEmail && (
             <>
-              <div className="relative my-6">
+              <div className="relative my-4 sm:my-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-tank-light" />
                 </div>
@@ -424,14 +424,14 @@ function LoginContent() {
                 callbackUrl={appendAdminFreshStep2Param(safeCallbackUrl)}
                 hideDividerAbove
               />
-              <p className="text-xs text-gray-500 text-center mt-3">
+              <p className="text-xs text-gray-500 text-center mt-2 sm:mt-3">
                 Social login only if your admin account uses that provider. Email/password above is recommended for admin access.
               </p>
             </>
           )}
 
-          <p className="mt-6 text-center text-sm text-gray-400">
-            By logging in, you agree to the AI Media Tank (AiM){' '}
+          <p className="form-compact-footer mt-3 sm:mt-6 text-center text-xs sm:text-sm text-gray-400 leading-snug sm:leading-normal">
+            By logging in, you agree to the AI Media Tank (AMT){' '}
             <Link href="/terms?from=login" className="text-tank-accent hover:underline font-medium">
               Terms of Service
             </Link>
@@ -445,7 +445,7 @@ function LoginContent() {
 
         <Link
           href="/register"
-          className="mt-6 flex w-full items-center justify-center rounded-xl bg-tank-accent px-4 py-3 text-center text-base font-semibold text-tank-black transition-colors hover:bg-tank-accent/90"
+          className="form-compact-footer mt-3 sm:mt-6 flex w-full items-center justify-center rounded-xl bg-tank-accent px-4 py-2.5 sm:py-3 text-center text-base font-semibold text-tank-black transition-colors hover:bg-tank-accent/90"
         >
           Don&apos;t have an account? Register
         </Link>
@@ -456,19 +456,19 @@ function LoginContent() {
 
 function LoginFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
+    <div className="min-h-screen flex items-start sm:items-center justify-center p-0 m-0 px-3 sm:px-0 pb-[500px]">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block mb-6">
-            <span className="font-bold text-3xl text-white">
+        <div className="text-center mb-3 sm:mb-8 pt-2 sm:pt-[30px]">
+          <Link href="/" className="inline-block mb-2 sm:mb-6">
+            <span className="font-bold text-2xl sm:text-3xl text-white">
               <span className="text-tank-accent">A</span>i
               <span className="text-red-500">M</span>edia
               <span className="text-sky-400">T</span>ank
             </span>
           </Link>
-          <h1 className="text-3xl font-bold mb-2">Log in / Register</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-0 sm:mb-2">Log in / Register</h1>
         </div>
-        <div className="card flex items-center justify-center py-12">
+        <div className="card flex items-center justify-center py-8 sm:py-12">
           <span className="spinner w-8 h-8" />
         </div>
       </div>

@@ -210,8 +210,8 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
   if (!media) return null
 
   return (
-    <div className="max-w-3xl mx-auto p-0 m-0 pb-[500px]">
-      <div className="flex items-center gap-4 mb-4">
+    <div className="form-compact-mobile max-w-3xl mx-auto p-0 m-0 px-3 sm:px-0 pb-[500px]">
+      <div className="form-compact-header flex items-center gap-4 mb-2 sm:mb-4">
         <button
           type="button"
           onClick={returnToDetail}
@@ -222,8 +222,8 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h1 className="text-2xl font-bold">Edit Media</h1>
-        <span className="text-gray-400">— Update your content details</span>
+        <h1 className="form-compact-title text-xl sm:text-2xl font-bold">Edit Media</h1>
+        <span className="text-gray-400 hidden sm:inline">— Update your content details</span>
       </div>
 
       <div className="card mb-3 !py-2">
@@ -264,7 +264,7 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="card space-y-6">
+      <form onSubmit={handleSubmit} className="card form-compact-card form-compact-stack space-y-3 sm:space-y-6">
         {error && (
           <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
             {error}

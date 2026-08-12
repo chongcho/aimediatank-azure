@@ -10,10 +10,10 @@ export default function EmailSupportModal({ isOpen, onClose, userName }: EmailSu
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-16 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-md mx-4 bg-tank-dark border border-tank-light rounded-2xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-12 sm:pt-16 bg-black/50 backdrop-blur-sm">
+      <div className="form-compact-mobile w-full max-w-md mx-3 sm:mx-4 bg-tank-dark border border-tank-light rounded-2xl shadow-2xl overflow-hidden">
         {/* Top Label Bar - User Chat Service */}
-        <div className="bg-gradient-to-r from-tank-accent via-emerald-500 to-teal-500 px-4 py-3">
+        <div className="bg-gradient-to-r from-tank-accent via-emerald-500 to-teal-500 px-4 py-2.5 sm:py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,8 +34,8 @@ export default function EmailSupportModal({ isOpen, onClose, userName }: EmailSu
         </div>
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-tank-dark to-tank-gray px-4 py-4 border-b border-tank-light flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+        <div className="bg-gradient-to-r from-tank-dark to-tank-gray px-4 py-3 sm:py-4 border-b border-tank-light flex items-center gap-3">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
@@ -47,22 +47,22 @@ export default function EmailSupportModal({ isOpen, onClose, userName }: EmailSu
         </div>
 
         {/* Content */}
-        <div className="p-6">
-          <p className="text-gray-300 mb-4">
+        <div className="p-4 sm:p-6">
+          <p className="text-gray-300 mb-2 sm:mb-4">
             Hello <span className="text-tank-accent font-semibold">{userName}</span>! 👋
           </p>
-          <p className="text-gray-400 text-sm mb-6">
+          <p className="text-gray-400 text-sm mb-3 sm:mb-6">
             Have a question or need assistance? Send us an email and we'll get back to you as soon as possible.
           </p>
 
           {/* Email Info */}
-          <div className="bg-tank-gray rounded-xl p-4 mb-6">
+          <div className="bg-tank-gray rounded-xl p-3 sm:p-4 mb-3 sm:mb-6">
             <p className="text-xs text-gray-500 mb-1">Contact Email</p>
             <p className="text-lg font-semibold text-tank-accent">support@aimediatank.com</p>
           </div>
 
           {/* Response Time */}
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+          <div className="flex items-center gap-2 text-sm text-gray-500 mb-3 sm:mb-6">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -72,7 +72,7 @@ export default function EmailSupportModal({ isOpen, onClose, userName }: EmailSu
           {/* Send Email Button */}
           <a
             href="mailto:support@aimediatank.com"
-            className="block w-full py-3 bg-tank-accent text-black font-semibold text-center rounded-xl hover:bg-tank-accent/90 transition-colors"
+            className="block w-full py-2.5 sm:py-3 bg-tank-accent text-black font-semibold text-center rounded-xl hover:bg-tank-accent/90 transition-colors"
             onClick={onClose}
           >
             Send Email
@@ -80,7 +80,7 @@ export default function EmailSupportModal({ isOpen, onClose, userName }: EmailSu
 
           <button
             onClick={onClose}
-            className="block w-full py-2 mt-3 text-gray-500 text-sm hover:text-white transition-colors"
+            className="block w-full py-2 mt-2 sm:mt-3 text-gray-500 text-sm hover:text-white transition-colors"
           >
             Close
           </button>

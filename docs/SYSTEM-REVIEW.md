@@ -1,6 +1,6 @@
 # System Review: Stability, Reliability, Performance & Risks
 
-This document summarizes a review of the **AI Media Tank (AiM)** (AI Media Tank, LLC (AiM)) Azure application across **database**, **storage**, **scroll/restore**, **upload/transcoding/download**, and **Azure services**, with identified weaknesses and recommendations.
+This document summarizes a review of the **AI Media Tank (AMT)** (AI Media Tank, LLC (AMT)) Azure application across **database**, **storage**, **scroll/restore**, **upload/transcoding/download**, and **Azure services**, with identified weaknesses and recommendations.
 
 ---
 

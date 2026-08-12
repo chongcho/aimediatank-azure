@@ -1,6 +1,6 @@
-# AI Media Tank (AiM) — Azure Deployment Guide
+# AI Media Tank (AMT) — Azure Deployment Guide
 
-This guide explains how to deploy **AI Media Tank (AiM)** (AI Media Tank, LLC (AiM)) to Microsoft Azure.
+This guide explains how to deploy **AI Media Tank (AMT)** (AI Media Tank, LLC (AMT)) to Microsoft Azure.
 
 ## 📋 Prerequisites
 

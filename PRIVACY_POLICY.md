@@ -1,10 +1,10 @@
-# AI Media Tank (AiM) — Privacy Policy
+# AI Media Tank (AMT) — Privacy Policy
 
-**Effective:** December 20, 2024 · **Last Updated:** July 7, 2026
+**Effective:** December 20, 2024 · **Last Updated:** August 11, 2026
 
 ---
 
-AI Media Tank, LLC (AiM) ("Company," "we," "us," or "our") operates the website and platform available at **https://www.aimediatank.com** (the "Platform"). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you access or use the Platform and related services.
+AI Media Tank, LLC (AMT) ("Company," "we," "us," or "our") operates the website and platform available at **https://www.aimediatank.com** (the "Platform"). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you access or use the Platform and related services.
 
 By accessing or using the Platform, you acknowledge that you have read and understood this Privacy Policy and agree to the collection and use of information as described herein.
 
@@ -35,13 +35,20 @@ We may collect several categories of information depending on how you interact w
 
 ### 1.1 Account Information
 
-When you register for an account, we may collect:
+When you register (create an account) via email or a supported social identity provider (such as Google, Facebook, Apple, or Microsoft), we may collect:
 
-- name or username
+- name (including first, middle, and last name where provided) and username / nickname
+- date of birth (birthday), which you may enter in common local date formats; we normalize and store it in a standard date format for age-eligibility and profile display
 - email address
-- encrypted password
+- mobile phone number (optional), when provided for verification or account contact
+- country or location selected at registration
+- encrypted password (for email registration)
 - profile information such as biography, avatar, or social media links
+- membership plan selection preferences
 - account preferences
+- identity tokens or profile claims provided by a social sign-in provider (subject to that provider’s settings and your consent)
+
+Providing a mobile number constitutes consent to receive SMS messages from AI Media Tank for verification and related transactional communications, as disclosed on the Register and Edit Profile screens. Message and data rates may apply. You may update or remove your phone number in your profile where available.
 
 ### 1.2 Transaction Information
 
@@ -53,7 +60,7 @@ When marketplace transactions occur, we may collect information related to purch
 - billing information
 - licensing details associated with purchased content
 
-Payment card or financial details are processed by third-party payment processors and are generally not stored directly by AI Media Tank, LLC (AiM).
+Payment card or financial details are processed by third-party payment processors and are generally not stored directly by AI Media Tank, LLC (AMT).
 
 ### 1.3 Creator Content and Metadata
 
@@ -117,9 +124,9 @@ You may disable notifications through your device or browser settings, though so
 
 We may collect:
 
-- country or location information you provide at registration
+- country or location information you provide at registration or in your profile
 - UI language preferences derived from your profile location or guest geo-detection
-- locale settings used for automatic translation and date formatting
+- locale settings used for automatic translation and for displaying dates (including birthday) in formats aligned with your selected country, while accepting common local input formats
 
 ---
 
@@ -127,12 +134,13 @@ We may collect:
 
 We may use collected information for purposes including:
 
-- creating and managing user accounts
+- creating and managing user accounts (including the Register / Log in flows)
+- verifying age eligibility and enforcing the Platform’s minimum-age requirements using date of birth
 - operating and maintaining the Platform
 - processing marketplace transactions
 - enabling creators to publish and sell digital media
 - delivering purchased content to buyers
-- communicating with users regarding accounts or services
+- communicating with users regarding accounts or services (including email and SMS verification)
 - providing customer support
 - improving platform features and performance
 - detecting fraud, abuse, or security incidents
@@ -145,7 +153,7 @@ We may use collected information for purposes including:
 
 ## 3. AI and Automated Processing
 
-AI Media Tank, LLC (AiM) may use automated systems and algorithms to process platform data and uploaded content for purposes such as:
+AI Media Tank, LLC (AMT) may use automated systems and algorithms to process platform data and uploaded content for purposes such as:
 
 - content moderation
 - indexing and search functionality
@@ -156,7 +164,7 @@ AI Media Tank, LLC (AiM) may use automated systems and algorithms to process pla
 
 Machine-translated text is provided for convenience and may not be accurate. Third-party translation services (such as Azure Translator or MyMemory) may process the text sent for translation.
 
-AI Media Tank, LLC (AiM) does not use user-uploaded content to train artificial intelligence models without explicit permission from the content owner.
+AI Media Tank, LLC (AMT) does not use user-uploaded content to train artificial intelligence models without explicit permission from the content owner.
 
 ---
 
@@ -188,11 +196,11 @@ We may disclose information when necessary to:
 - respond to lawful requests from government authorities
 - enforce our Terms of Service
 - investigate fraud or illegal activities
-- protect the rights, property, or safety of AI Media Tank, LLC (AiM), our users, or the public
+- protect the rights, property, or safety of AI Media Tank, LLC (AMT), our users, or the public
 
 ### 4.3 Business Transfers
 
-If AI Media Tank, LLC (AiM) undergoes a merger, acquisition, financing, reorganization, or sale of assets, user information may be transferred as part of that transaction.
+If AI Media Tank, LLC (AMT) undergoes a merger, acquisition, financing, reorganization, or sale of assets, user information may be transferred as part of that transaction.
 
 ---
 
@@ -226,7 +234,7 @@ Uploaded media and associated metadata may remain stored while accounts are acti
 
 ## 7. Data Security
 
-AI Media Tank, LLC (AiM) implements reasonable administrative, technical, and organizational safeguards designed to protect user information, including:
+AI Media Tank, LLC (AMT) implements reasonable administrative, technical, and organizational safeguards designed to protect user information, including:
 
 - encryption where appropriate
 - access controls
@@ -257,7 +265,7 @@ Residents of California may have rights under the California Consumer Privacy Ac
 - request disclosure of categories of data shared with third parties
 - correct inaccurate personal information
 
-AI Media Tank, LLC (AiM) does not sell personal information.
+AI Media Tank, LLC (AMT) does not sell personal information.
 
 Requests may be submitted by contacting: **support@aimediatank.com**
 
@@ -265,7 +273,7 @@ Requests may be submitted by contacting: **support@aimediatank.com**
 
 ## 10. International Data Transfers
 
-AI Media Tank, LLC (AiM) operates from the United States.
+AI Media Tank, LLC (AMT) operates from the United States.
 
 If you access the Platform from outside the United States, your information may be transferred to and processed in the United States or other jurisdictions where our service providers operate.
 
@@ -298,7 +306,7 @@ We may require verification of identity before fulfilling certain requests.
 
 ## 12. Do Not Track Signals
 
-Some browsers include a "Do Not Track" feature. Because there is not yet a universally accepted standard for responding to such signals, AI Media Tank, LLC (AiM) currently does not respond to Do Not Track requests.
+Some browsers include a "Do Not Track" feature. Because there is not yet a universally accepted standard for responding to such signals, AI Media Tank, LLC (AMT) currently does not respond to Do Not Track requests.
 
 ---
 
@@ -316,7 +324,7 @@ Continued use of the Platform after such changes constitutes acceptance of the r
 
 If you have questions or concerns regarding this Privacy Policy, please contact:
 
-**AI Media Tank, LLC (AiM)**
+**AI Media Tank, LLC (AMT)**
 
 - Email: support@aimediatank.com
 - Website: https://www.aimediatank.com
@@ -325,6 +333,6 @@ If you have questions or concerns regarding this Privacy Policy, please contact:
 
 This Privacy Policy should be read alongside our [Terms of Service](TERMS_OF_SERVICE.md), which governs your use of the Platform.
 
-**© 2025–2026 AI Media Tank, LLC (AiM). All rights reserved.**
+**© 2025–2026 AI Media Tank, LLC (AMT). All rights reserved.**
 
 *This document should be reviewed by qualified legal counsel. It does not constitute legal advice.*

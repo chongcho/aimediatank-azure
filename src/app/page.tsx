@@ -922,7 +922,7 @@ function HomeContent() {
         <div className="flex-shrink-0 overflow-visible">
           <div>
             <h1 className="text-base font-bold">
-              <span className="text-gradient">AI Media Tank (AiM)</span>
+              <span className="text-gradient">AI Media Tank (AMT)</span>
             </h1>
             <p className="text-gray-300 text-[13px] md:text-sm italic">
               {tHero('slogan')}

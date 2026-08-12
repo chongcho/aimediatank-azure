@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   
   <p style="font-size: 16px;">Hello ${user.username},</p>
   
-  <p style="font-size: 16px;">We received a request to reset your password for AI Media Tank (AiM). Use the code below to reset your password:</p>
+  <p style="font-size: 16px;">We received a request to reset your password for AI Media Tank (AMT). Use the code below to reset your password:</p>
   
   <div style="text-align: center; margin: 30px 0;">
     <div style="display: inline-block; background: #f8f9fa; padding: 20px 40px; border-radius: 12px; border: 2px dashed #ff6b6b;">
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
   
   <p style="font-size: 14px; color: #666;">
     Sincerely,<br>
-    <strong>AI Media Tank (AiM) Team</strong>
+    <strong>AI Media Tank (AMT) Team</strong>
   </p>
 </body>
 </html>
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
     
     const emailSent = await sendEmail({
       to: normalizedEmail,
-      subject: 'Reset Your AI Media Tank (AiM) Password',
+      subject: 'Reset Your AI Media Tank (AMT) Password',
       html: emailHtml,
     })
 

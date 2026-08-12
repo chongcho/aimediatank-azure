@@ -48,23 +48,23 @@ function TermsPageContent() {
 
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Terms of Service</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: July 19, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: August 11, 2026</p>
 
         {/* 1. Acceptance */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">1. Acceptance of Terms</h2>
         <p className="text-gray-300 mb-4">
-          By accessing, browsing, or using the Platform at https://www.aimediatank.com (the &quot;Platform&quot; and &quot;Service&quot;; AI Media Tank, LLC (AiM) is referred to herein as &quot;Company&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;), you (&quot;User&quot;, &quot;you&quot;, or &quot;your&quot;) acknowledge that you have read, understood, and agree to be bound by these Terms of Service (&quot;Terms&quot;).
+          By accessing, browsing, or using the Platform at https://www.aimediatank.com (the &quot;Platform&quot; and &quot;Service&quot;; AI Media Tank, LLC (AMT) is referred to herein as &quot;Company&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;), you (&quot;User&quot;, &quot;you&quot;, or &quot;your&quot;) acknowledge that you have read, understood, and agree to be bound by these Terms of Service (&quot;Terms&quot;).
         </p>
         <p className="text-gray-300 mb-4">
           If you do not agree to these Terms, you must immediately discontinue use of the Platform.
         </p>
         <p className="text-gray-300 mb-4">
-          These Terms constitute a legally binding agreement between you and AI Media Tank, LLC (AiM). Your use of the Platform is also governed by our <Link href={fromLogin ? '/privacy?from=login' : fromRegister ? '/privacy?from=register' : fromPolicy ? '/privacy?from=policy' : '/privacy'} className="text-tank-accent hover:underline">Privacy Policy</Link> and any additional policies, guidelines, or rules posted on the Platform.
+          These Terms constitute a legally binding agreement between you and AI Media Tank, LLC (AMT). Your use of the Platform is also governed by our <Link href={fromLogin ? '/privacy?from=login' : fromRegister ? '/privacy?from=register' : fromPolicy ? '/privacy?from=policy' : '/privacy'} className="text-tank-accent hover:underline">Privacy Policy</Link> and any additional policies, guidelines, or rules posted on the Platform.
         </p>
 
         {/* 2. Eligibility */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">2. Eligibility</h2>
-        <p className="text-gray-300 mb-2">To create an account or use the Platform, you must:</p>
+        <p className="text-gray-300 mb-2">To register for an account or use the Platform, you must:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
           <li>be at least thirteen (13) years of age</li>
           <li>have the legal capacity to enter into a binding agreement</li>
@@ -76,11 +76,14 @@ function TermsPageContent() {
         <p className="text-gray-300 mb-4">
           If you are under the age of 18, you represent that you have permission from a parent or legal guardian.
         </p>
+        <p className="text-gray-300 mb-4">
+          During registration, you must provide an accurate date of birth. We may use your birthday to assess age eligibility and to display your profile information. Providing a false date of birth is a violation of these Terms.
+        </p>
 
         {/* 3. Description */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">3. Description of Service</h2>
         <p className="text-gray-300 mb-4">
-          AI Media Tank, LLC (AiM) operates a global digital media marketplace and community platform where users may upload, share, discover, showcase, license, and purchase digital media including but not limited to: videos, images, music, AI-generated media, AI-assisted media, and real-world creative media.
+          AI Media Tank, LLC (AMT) operates a global digital media marketplace and community platform where users may upload, share, discover, showcase, license, and purchase digital media including but not limited to: videos, images, music, AI-generated media, AI-assisted media, and real-world creative media.
         </p>
         <p className="text-gray-300 mb-4">
           The Platform provides tools for creators to publish, distribute, and monetize their content.
@@ -108,22 +111,27 @@ function TermsPageContent() {
 
         {/* 4. User Accounts */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">4. User Accounts</h2>
-        <h3 className="text-lg font-semibold mt-6 mb-3">4.1 Account Creation</h3>
-        <p className="text-gray-300 mb-2">To access certain features, users must create an account and:</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">4.1 Account Creation (Register)</h3>
+        <p className="text-gray-300 mb-2">To access certain features, users must register for an account (via email or a supported social identity provider such as Google, Facebook, Apple, or Microsoft) and:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>provide accurate information</li>
+          <li>provide accurate information, including legal name where requested, date of birth, email address, and country / location</li>
+          <li>optionally provide a mobile phone number for verification and account contact</li>
           <li>maintain the security of login credentials</li>
           <li>promptly update account information when necessary</li>
+          <li>agree to these Terms and the Privacy Policy before completing registration</li>
         </ul>
         <p className="text-gray-300 mb-4">You are responsible for all activities conducted under your account.</p>
         <h3 className="text-lg font-semibold mt-6 mb-3">4.2 Verification</h3>
-        <p className="text-gray-300 mb-2">AI Media Tank, LLC (AiM) may require verification including:</p>
+        <p className="text-gray-300 mb-2">AI Media Tank, LLC (AMT) may require verification including:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
           <li>email verification</li>
-          <li>phone verification</li>
+          <li>phone verification (SMS)</li>
           <li>identity verification</li>
           <li>payment verification for sellers</li>
         </ul>
+        <p className="text-gray-300 mb-4">
+          Where phone verification is used, providing your mobile number includes consent to receive SMS verification and related transactional messages as disclosed on the Register and Edit Profile screens.
+        </p>
         <h3 className="text-lg font-semibold mt-6 mb-3">4.3 Account Suspension or Termination</h3>
         <p className="text-gray-300 mb-2">We may suspend or terminate accounts that:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
@@ -177,7 +185,7 @@ function TermsPageContent() {
           <li>malware or phishing content</li>
           <li>intellectual property infringement</li>
         </ul>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) may utilize automated systems and manual moderation to review content.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) may utilize automated systems and manual moderation to review content.</p>
 
         {/* 7. AI-Generated Content */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">7. AI-Generated Content Policy</h2>
@@ -190,7 +198,7 @@ function TermsPageContent() {
           <li>AI-assisted editing software</li>
         </ul>
         <p className="text-gray-300 mb-4">Users are solely responsible for ensuring they have the legal rights to distribute such content.</p>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) does not claim ownership of AI-generated media and will not use uploaded content to train AI models without user consent.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) does not claim ownership of AI-generated media and will not use uploaded content to train AI models without user consent.</p>
         <p className="text-gray-300 mb-2">Content uploaded to the Platform may be processed by automated systems for purposes including:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
           <li>moderation</li>
@@ -203,9 +211,9 @@ function TermsPageContent() {
         {/* 8. Intellectual Property */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">8. Intellectual Property</h2>
         <h3 className="text-lg font-semibold mt-6 mb-3">8.1 Ownership</h3>
-        <p className="text-gray-300 mb-4">Creators retain ownership of the media they upload. Uploading media to the Platform does not transfer ownership to AI Media Tank, LLC (AiM) or other users.</p>
+        <p className="text-gray-300 mb-4">Creators retain ownership of the media they upload. Uploading media to the Platform does not transfer ownership to AI Media Tank, LLC (AMT) or other users.</p>
         <h3 className="text-lg font-semibold mt-6 mb-3">8.2 License Grant to Platform</h3>
-        <p className="text-gray-300 mb-2">By uploading media to the Platform, you grant AI Media Tank, LLC (AiM) a worldwide, non-exclusive, royalty-free, sublicensable license to: host, store, reproduce, display, distribute, and promote the media solely for the purposes of operating, marketing, and improving the Platform. This license does not transfer ownership of the media.</p>
+        <p className="text-gray-300 mb-2">By uploading media to the Platform, you grant AI Media Tank, LLC (AMT) a worldwide, non-exclusive, royalty-free, sublicensable license to: host, store, reproduce, display, distribute, and promote the media solely for the purposes of operating, marketing, and improving the Platform. This license does not transfer ownership of the media.</p>
 
         {/* 9. Membership Plans */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">9. Membership Plans</h2>
@@ -250,11 +258,11 @@ function TermsPageContent() {
         <h3 className="text-lg font-semibold mt-6 mb-3">10.1 No Returns on Purchased Media</h3>
         <p className="text-gray-300 mb-4">All digital media purchases made through the AI Media Tank app are final. Due to the nature of digital assets, no returns, refunds, cancellations, or exchanges will be permitted once payment has been successfully processed.</p>
         <h3 className="text-lg font-semibold mt-6 mb-3">10.2 Media Pricing</h3>
-        <p className="text-gray-300 mb-4">The price displayed for any media item on the AI Media Tank app represents the fee for downloading the media as a digital file. The Seller (Poster) may change the listed price of any media item at any time and for any reason prior to purchase. Prices may be modified at any time but will not affect completed transactions. AI Media Tank, LLC (AiM) does not verify or control seller pricing.</p>
+        <p className="text-gray-300 mb-4">The price displayed for any media item on the AI Media Tank app represents the fee for downloading the media as a digital file. The Seller (Poster) may change the listed price of any media item at any time and for any reason prior to purchase. Prices may be modified at any time but will not affect completed transactions. AI Media Tank, LLC (AMT) does not verify or control seller pricing.</p>
         <h3 className="text-lg font-semibold mt-6 mb-3">10.3 Payment Processing</h3>
-        <p className="text-gray-300 mb-4">Buyers pay the listed price plus applicable taxes through the Platform. Payments may be processed through third-party payment providers. AI Media Tank, LLC (AiM) acts as a marketplace facilitator and payment intermediary. Use of payment services may also be subject to the terms of the applicable payment processor.</p>
+        <p className="text-gray-300 mb-4">Buyers pay the listed price plus applicable taxes through the Platform. Payments may be processed through third-party payment providers. AI Media Tank, LLC (AMT) acts as a marketplace facilitator and payment intermediary. Use of payment services may also be subject to the terms of the applicable payment processor.</p>
         <h3 className="text-lg font-semibold mt-6 mb-3">10.4 Platform Processing Fee</h3>
-        <p className="text-gray-300 mb-4">For each completed sale: AI Media Tank, LLC (AiM) retains 30% Processing Fee; 70% is credited to the Seller. Processing fees may be modified for future transactions at the Company&apos;s discretion.</p>
+        <p className="text-gray-300 mb-4">For each completed sale: AI Media Tank, LLC (AMT) retains 30% Processing Fee; 70% is credited to the Seller. Processing fees may be modified for future transactions at the Company&apos;s discretion.</p>
         <h3 className="text-lg font-semibold mt-6 mb-3">10.5 Seller Payouts</h3>
         <p className="text-gray-300 mb-4">Seller earnings accumulate in their account. Withdrawals occur when the account balance reaches $50 USD or more. If a seller withdraws below $50: the seller is responsible for transaction fees; fees may be up to 10% depending on payment method. Sellers are responsible for any applicable taxes and reporting obligations related to their earnings.</p>
         <h3 className="text-lg font-semibold mt-6 mb-3">10.6 Seller Representations</h3>
@@ -278,36 +286,36 @@ function TermsPageContent() {
 
         {/* 11. Content Moderation */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">11. Content Moderation</h2>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) reserves the right to remove or disable access to any content at its sole discretion. Where possible, users will be notified regarding the reason for removal. The Company may also moderate Open Chat, Private Chat, and Voice Talk usage, including issuing warnings, removing messages, suspending chat privileges, or terminating accounts for violations.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) reserves the right to remove or disable access to any content at its sole discretion. Where possible, users will be notified regarding the reason for removal. The Company may also moderate Open Chat, Private Chat, and Voice Talk usage, including issuing warnings, removing messages, suspending chat privileges, or terminating accounts for violations.</p>
 
         {/* 12. Copyright and DMCA */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">12. Copyright and DMCA</h2>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) complies with the Digital Millennium Copyright Act (DMCA). Copyright owners may submit takedown requests. Repeat infringers may have their accounts permanently terminated.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) complies with the Digital Millennium Copyright Act (DMCA). Copyright owners may submit takedown requests. Repeat infringers may have their accounts permanently terminated.</p>
 
         {/* 13. Third-Party Platforms */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">13. Third-Party Platforms</h2>
         <p className="text-gray-300 mb-2">The Platform allows sharing to third-party services including: YouTube, TikTok, X (formerly Twitter), Facebook, LinkedIn, Reddit, WhatsApp, and KakaoTalk.</p>
-        <p className="text-gray-300 mb-4">The Platform is also available through native mobile applications distributed via the Apple App Store (TestFlight) and Google Play (internal testing), which are subject to the respective store terms. When sharing content to these services, users are subject to the terms and privacy policies of those platforms. AI Media Tank, LLC (AiM) is not affiliated with or endorsed by the companies operating these services.</p>
+        <p className="text-gray-300 mb-4">The Platform is also available through native mobile applications distributed via the Apple App Store (TestFlight) and Google Play (internal testing), which are subject to the respective store terms. When sharing content to these services, users are subject to the terms and privacy policies of those platforms. AI Media Tank, LLC (AMT) is not affiliated with or endorsed by the companies operating these services.</p>
 
         {/* 14. Disclaimer */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">14. Disclaimer of Warranties</h2>
         <p className="text-gray-300 mb-4 text-sm">
-          THE PLATFORM IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE.&quot; AI Media Tank, LLC (AiM) makes no warranties, express or implied, including: merchantability, fitness for a particular purpose, non-infringement, uninterrupted service. Use of the Platform is at your own risk.
+          THE PLATFORM IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE.&quot; AI Media Tank, LLC (AMT) makes no warranties, express or implied, including: merchantability, fitness for a particular purpose, non-infringement, uninterrupted service. Use of the Platform is at your own risk.
         </p>
 
         {/* 15. Limitation of Liability */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">15. Limitation of Liability</h2>
         <p className="text-gray-300 mb-4 text-sm">
-          To the maximum extent permitted by law, AI Media Tank, LLC (AiM) shall not be liable for: disputes between buyers and sellers; misuse of media by third parties; intellectual property claims arising from uploaded content; indirect or consequential damages. Total liability shall not exceed the greater of: $100 USD, or the total processing fees paid to the Company in the previous 12 months.
+          To the maximum extent permitted by law, AI Media Tank, LLC (AMT) shall not be liable for: disputes between buyers and sellers; misuse of media by third parties; intellectual property claims arising from uploaded content; indirect or consequential damages. Total liability shall not exceed the greater of: $100 USD, or the total processing fees paid to the Company in the previous 12 months.
         </p>
 
         {/* 16. Indemnification */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">16. Indemnification</h2>
-        <p className="text-gray-300 mb-4">You agree to indemnify, defend, and hold harmless AI Media Tank, LLC (AiM) and its officers, employees, and affiliates from any claims arising from: your use of the Platform; content you upload; violations of these Terms; infringement of third-party rights.</p>
+        <p className="text-gray-300 mb-4">You agree to indemnify, defend, and hold harmless AI Media Tank, LLC (AMT) and its officers, employees, and affiliates from any claims arising from: your use of the Platform; content you upload; violations of these Terms; infringement of third-party rights.</p>
 
         {/* 17. Service Availability */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">17. Service Availability</h2>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) reserves the right to modify, suspend, or discontinue any part of the Platform at any time without liability. The Company does not guarantee uninterrupted availability.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) reserves the right to modify, suspend, or discontinue any part of the Platform at any time without liability. The Company does not guarantee uninterrupted availability.</p>
 
         {/* 18. Export Compliance */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">18. Export Compliance</h2>
@@ -327,7 +335,7 @@ function TermsPageContent() {
 
         {/* 22. Force Majeure */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">22. Force Majeure</h2>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) shall not be liable for delays or failures caused by events beyond its reasonable control including: natural disasters; war; cyberattacks; infrastructure failures; government actions.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) shall not be liable for delays or failures caused by events beyond its reasonable control including: natural disasters; war; cyberattacks; infrastructure failures; government actions.</p>
 
         {/* 23. Survival */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">23. Survival of Terms</h2>
@@ -335,9 +343,9 @@ function TermsPageContent() {
 
         {/* 24. User Content Responsibility and Safe Harbor */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">24. User Content Responsibility and Safe Harbor</h2>
-        <p className="text-gray-300 mb-4">Users are solely responsible for the media, files, text, and other content they upload, publish, or distribute through the Platform (&quot;User Content&quot;). AI Media Tank, LLC (AiM) does not review all uploaded content and does not guarantee the legality, accuracy, or ownership of User Content.</p>
+        <p className="text-gray-300 mb-4">Users are solely responsible for the media, files, text, and other content they upload, publish, or distribute through the Platform (&quot;User Content&quot;). AI Media Tank, LLC (AMT) does not review all uploaded content and does not guarantee the legality, accuracy, or ownership of User Content.</p>
         <p className="text-gray-300 mb-4">By uploading content to the Platform, you represent and warrant that: you own the content or you have obtained all necessary licenses, rights, and permissions to upload and distribute the content.</p>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) operates as an online service provider under the Digital Millennium Copyright Act (DMCA) and qualifies for safe harbor protection under 17 U.S.C. §512. The Company shall not be held liable for infringing content uploaded by users, provided that it responds to valid takedown notices and removes infringing material when notified.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) operates as an online service provider under the Digital Millennium Copyright Act (DMCA) and qualifies for safe harbor protection under 17 U.S.C. §512. The Company shall not be held liable for infringing content uploaded by users, provided that it responds to valid takedown notices and removes infringing material when notified.</p>
 
         {/* 25. User Liability for Uploaded Media */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">25. User Liability for Uploaded Media</h2>
@@ -348,7 +356,7 @@ function TermsPageContent() {
           <li>does not violate rights of publicity or privacy</li>
           <li>does not contain unauthorized third-party material</li>
         </ul>
-        <p className="text-gray-300 mb-4">The Company does not independently verify ownership of uploaded media. If any claim, lawsuit, or legal dispute arises from uploaded media, the User agrees to indemnify and hold harmless AI Media Tank, LLC (AiM) from any damages, costs, or legal fees resulting from such claims. The Company reserves the right to: remove disputed media; suspend accounts; cooperate with law enforcement when required.</p>
+        <p className="text-gray-300 mb-4">The Company does not independently verify ownership of uploaded media. If any claim, lawsuit, or legal dispute arises from uploaded media, the User agrees to indemnify and hold harmless AI Media Tank, LLC (AMT) from any damages, costs, or legal fees resulting from such claims. The Company reserves the right to: remove disputed media; suspend accounts; cooperate with law enforcement when required.</p>
 
         {/* 26. Changes to Terms */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">26. Changes to Terms</h2>
@@ -357,14 +365,14 @@ function TermsPageContent() {
         {/* 27. Contact */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">27. Contact Information</h2>
         <div className="bg-tank-dark rounded-xl p-4 space-y-2 mb-4">
-          <p className="text-gray-300"><strong>AI Media Tank (AiM) Support</strong></p>
+          <p className="text-gray-300"><strong>AI Media Tank (AMT) Support</strong></p>
           <p className="text-gray-300">Email: support@aimediatank.com</p>
           <p className="text-gray-300">Website: https://www.aimediatank.com</p>
         </div>
 
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-tank-light text-center">
-          <p className="text-gray-500 text-sm">&copy; 2025–2026 AI Media Tank, LLC (AiM). All rights reserved.</p>
+          <p className="text-gray-500 text-sm">&copy; 2025–2026 AI Media Tank, LLC (AMT). All rights reserved.</p>
           <p className="text-gray-600 text-xs mt-1">This document should be reviewed by qualified legal counsel. It does not constitute legal advice.</p>
         </div>
 
@@ -421,7 +429,7 @@ function TermsPageFallback() {
       </div>
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Terms of Service</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 · Last Updated: July 19, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 · Last Updated: August 11, 2026</p>
         <p className="text-gray-400">Loading...</p>
       </div>
     </div>

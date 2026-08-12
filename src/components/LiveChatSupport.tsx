@@ -135,7 +135,7 @@ export default function LiveChatSupport({ isOpen, onClose, userName }: LiveChatS
           </div>
         </div>
 
-        {/* Header - AI Media Tank (AiM) AI Assistant */}
+        {/* Header - AI Media Tank (AMT) AI Assistant */}
         <div className="bg-gradient-to-r from-tank-dark to-tank-gray px-4 py-4 border-b border-tank-light flex items-center gap-3">
           <div className="w-14 h-14 rounded-full bg-gradient-to-br from-tank-accent to-emerald-600 flex items-center justify-center shadow-lg">
             <svg className="w-7 h-7 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,7 +144,7 @@ export default function LiveChatSupport({ isOpen, onClose, userName }: LiveChatS
           </div>
           <div className="flex-1">
             <h3 className="font-bold text-white text-lg flex items-center gap-2">
-              AI Media Tank (AiM)
+              AI Media Tank (AMT)
               <span className="px-2 py-0.5 bg-purple-500/30 text-purple-300 text-xs font-medium rounded">AI</span>
             </h3>
             <p className="text-sm text-gray-400">LLM AI-Assisted Intelligent Chat</p>

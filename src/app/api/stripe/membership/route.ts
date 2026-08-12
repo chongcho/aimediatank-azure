@@ -107,7 +107,7 @@ export async function POST(request: Request) {
             currency: 'usd',
             product_data: {
               name: plan.name,
-              description: `AI Media Tank (AiM) ${plan.name} - ${billingLabel} Subscription`,
+              description: `AI Media Tank (AMT) ${plan.name} - ${billingLabel} Subscription`,
             },
             unit_amount: amount,
             recurring: {

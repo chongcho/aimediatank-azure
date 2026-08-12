@@ -332,11 +332,11 @@ function PolicyPageFallback() {
       <div className="relative mb-8">
         <div className="pr-12">
           <h1 className="text-3xl font-bold mb-2">Policy Home</h1>
-          <p className="text-gray-400">Effective: December 20, 2024 &middot; Last Updated: July 19, 2026</p>
+          <p className="text-gray-400">Effective: December 20, 2024 &middot; Last Updated: August 11, 2026</p>
         </div>
       </div>
       <p className="text-gray-300 mb-8">
-        AI Media Tank, LLC (AiM) maintains two standalone policy documents that govern your use of the Platform and how we handle your data. Please review both documents carefully.
+        AI Media Tank, LLC (AMT) maintains two standalone policy documents that govern your use of the Platform and how we handle your data. Please review both documents carefully.
       </p>
       <div className="animate-pulse flex gap-4">
         <div className="h-32 flex-1 rounded-lg bg-tank-light/30" />

@@ -89,7 +89,7 @@ const features = [
   { icon: '🔔', title: 'Live Notifications', desc: 'Stay updated on sales, comments, chat messages, voice calls, and platform activity with push and in-app notifications.' },
   { icon: '🔖', title: 'Save & Bookmark', desc: 'Curate your favorite content into personal collections for quick access and future reference.' },
   { icon: '⬇️', title: 'Smart Downloads', desc: 'Guests may download free media with a burned-in watermark. Registered members receive full-quality downloads per plan and media settings.' },
-  { icon: '📱', title: 'Web, PWA & Native Apps', desc: 'Use AiM in the browser, install as a Progressive Web App, or download the native iOS (TestFlight) and Android (Play internal testing) apps.' },
+  { icon: '📱', title: 'Web, PWA & Native Apps', desc: 'Use AMT in the browser, install as a Progressive Web App, or download the native iOS (TestFlight) and Android (Play internal testing) apps.' },
   { icon: '🔐', title: 'Enterprise Security', desc: 'Azure-backed cloud storage, encrypted transfers, SAS-token authentication, and role-based access control protect every asset.' },
   { icon: '🎞️', title: 'Video Processing', desc: 'Automated multi-resolution transcoding via Azure Functions ensures smooth playback across bandwidth conditions.' },
   { icon: '🎮', title: 'Interactive Games', desc: 'Built-in retro games — Pac-Man, Tetris, Pong, Breakout, Donkey Kong, and Minesweeper — for a fun break between creating.' },
@@ -121,7 +121,7 @@ export default function AboutPage() {
           </span>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold mb-6 leading-tight">
             <span className="text-gradient">
-              <AboutTrans text="AI Media Tank (AiM)" />
+              <AboutTrans text="AI Media Tank (AMT)" />
             </span>
           </h1>
           <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-10 leading-relaxed">
@@ -220,7 +220,7 @@ export default function AboutPage() {
             <AboutTrans text="Our Story" />
           </span>
           <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-8">
-            <AboutTrans text="Why We Built AI Media Tank (AiM)" />
+            <AboutTrans text="Why We Built AI Media Tank (AMT)" />
           </h2>
 
           <div className="space-y-6 text-gray-300 leading-relaxed text-base md:text-lg">
@@ -231,10 +231,10 @@ export default function AboutPage() {
               <AboutTrans text="Traditional platforms were designed for a different era. They scatter AI-generated content across generic feeds, offer limited monetization pathways, and make it difficult for professionals to build a credible portfolio. The result is that exceptional work gets lost in the noise, and creators are left without the tools they need to grow." />
             </p>
             <p>
-              <AboutTrans text="AI Media Tank (AiM) was founded to change that. We set out to build a dedicated, professional-grade platform that treats AI-generated media with the same respect and infrastructure as any creative discipline — while also welcoming real-world content creators who want to stand alongside the AI frontier. The result is a unified marketplace and community where every creator, from emerging artists to seasoned producers and forward-thinking technologists, can publish, showcase, and sell their work with confidence." />
+              <AboutTrans text="AI Media Tank (AMT) was founded to change that. We set out to build a dedicated, professional-grade platform that treats AI-generated media with the same respect and infrastructure as any creative discipline — while also welcoming real-world content creators who want to stand alongside the AI frontier. The result is a unified marketplace and community where every creator, from emerging artists to seasoned producers and forward-thinking technologists, can publish, showcase, and sell their work with confidence." />
             </p>
             <p>
-              <AboutTrans text="Whether you are a visual artist exploring generative aesthetics, a music producer experimenting with AI composition, a filmmaker blending AI with live-action footage, or a futurist documenting the evolution of creative technology — AI Media Tank (AiM) is the professional space where your work belongs." />
+              <AboutTrans text="Whether you are a visual artist exploring generative aesthetics, a music producer experimenting with AI composition, a filmmaker blending AI with live-action footage, or a futurist documenting the evolution of creative technology — AI Media Tank (AMT) is the professional space where your work belongs." />
             </p>
           </div>
         </div>
@@ -250,7 +250,7 @@ export default function AboutPage() {
               <AboutTrans text="Built For Professionals" />
             </span>
             <h2 className="text-3xl md:text-4xl font-bold mt-2">
-              <AboutTrans text="Who Thrives on AI Media Tank (AiM)" />
+              <AboutTrans text="Who Thrives on AI Media Tank (AMT)" />
             </h2>
             <p className="text-gray-400 mt-3 max-w-2xl mx-auto">
               <AboutTrans text="We designed every feature with working professionals in mind — the people who push creative boundaries and need a platform that keeps pace with their ambition." />
@@ -309,7 +309,7 @@ export default function AboutPage() {
               <AboutTrans text="For General Audiences Too" />
             </h3>
             <p className="text-gray-400 leading-relaxed">
-              <AboutTrans text="You do not need to be a professional to enjoy AI Media Tank (AiM). Enthusiasts, collectors, and curious minds are equally welcome. Browse and discover stunning AI-generated content, purchase unique media, and connect with the creators behind the work. The free Viewer tier gives you full access to explore the platform with zero commitment." />
+              <AboutTrans text="You do not need to be a professional to enjoy AI Media Tank (AMT). Enthusiasts, collectors, and curious minds are equally welcome. Browse and discover stunning AI-generated content, purchase unique media, and connect with the creators behind the work. The free Viewer tier gives you full access to explore the platform with zero commitment." />
             </p>
           </div>
         </div>
@@ -358,7 +358,7 @@ export default function AboutPage() {
               <AboutTrans text="Creator Workflow" />
             </span>
             <h2 className="text-3xl md:text-4xl font-bold mt-2">
-              <AboutTrans text="How AI Media Tank (AiM) Works" />
+              <AboutTrans text="How AI Media Tank (AMT) Works" />
             </h2>
           </div>
 
@@ -400,7 +400,7 @@ export default function AboutPage() {
                 <AboutTrans text="Built-In Marketplace, Powered by Stripe" />
               </h2>
               <p className="text-gray-300 leading-relaxed mb-6">
-                <AboutTrans text="AI Media Tank (AiM) is not just a gallery — it is a fully integrated marketplace. Every creator can set prices on their uploads and sell directly to collectors and buyers. There is no need for external payment tools, third-party storefronts, or complicated integrations." />
+                <AboutTrans text="AI Media Tank (AMT) is not just a gallery — it is a fully integrated marketplace. Every creator can set prices on their uploads and sell directly to collectors and buyers. There is no need for external payment tools, third-party storefronts, or complicated integrations." />
               </p>
               <div className="space-y-4">
                 {[
@@ -469,7 +469,7 @@ export default function AboutPage() {
               <AboutTrans text="Enterprise-Grade Technology Stack" />
             </h2>
             <p className="text-gray-400 mt-3 max-w-3xl mx-auto">
-              <AboutTrans text="AI Media Tank (AiM) is built on a modern, scalable architecture designed for production reliability. Every technology choice prioritizes performance, security, and developer experience." />
+              <AboutTrans text="AI Media Tank (AMT) is built on a modern, scalable architecture designed for production reliability. Every technology choice prioritizes performance, security, and developer experience." />
             </p>
           </div>
 
@@ -502,7 +502,7 @@ export default function AboutPage() {
                   <AboutTrans text="Developed with Cursor AI" />
                 </h3>
                 <p className="text-gray-300 leading-relaxed mb-4">
-                  <AboutTrans text="AI Media Tank (AiM) is proudly built using Cursor, the AI-powered code editor that represents the next generation of software development. Cursor's AI-assisted coding capabilities have been instrumental in accelerating development velocity, maintaining code quality, and enabling rapid iteration across the entire codebase." />
+                  <AboutTrans text="AI Media Tank (AMT) is proudly built using Cursor, the AI-powered code editor that represents the next generation of software development. Cursor's AI-assisted coding capabilities have been instrumental in accelerating development velocity, maintaining code quality, and enabling rapid iteration across the entire codebase." />
                 </p>
                 <p className="text-gray-300 leading-relaxed mb-4">
                   <AboutTrans text="From designing complex database schemas and API routes to building responsive UI components and optimizing Azure integrations, Cursor AI has served as a collaborative development partner — suggesting improvements, catching bugs early, and helping implement best practices across TypeScript, React, Next.js, and Prisma." />
@@ -674,7 +674,7 @@ export default function AboutPage() {
               <AboutTrans text="Fully Powered by Microsoft Azure" />
             </h2>
             <p className="text-gray-400 mt-3 max-w-3xl mx-auto">
-              <AboutTrans text="Every aspect of AI Media Tank (AiM) runs on Azure cloud infrastructure — from web hosting and database management to media storage, background processing, and communications. This is not a multi-cloud patchwork; it is a deliberate, end-to-end Azure architecture built for reliability and scale." />
+              <AboutTrans text="Every aspect of AI Media Tank (AMT) runs on Azure cloud infrastructure — from web hosting and database management to media storage, background processing, and communications. This is not a multi-cloud patchwork; it is a deliberate, end-to-end Azure architecture built for reliability and scale." />
             </p>
           </div>
 
@@ -717,7 +717,7 @@ export default function AboutPage() {
                 <AboutTrans text="GitHub-Powered Development Pipeline" />
               </h2>
               <p className="text-gray-300 leading-relaxed mb-6">
-                <AboutTrans text="AI Media Tank (AiM) follows modern DevOps practices with GitHub at the center of the development workflow. Source control, code review, automated testing, and continuous deployment are all managed through GitHub — ensuring every change is tracked, reviewed, and deployed with confidence." />
+                <AboutTrans text="AI Media Tank (AMT) follows modern DevOps practices with GitHub at the center of the development workflow. Source control, code review, automated testing, and continuous deployment are all managed through GitHub — ensuring every change is tracked, reviewed, and deployed with confidence." />
               </p>
               <div className="space-y-4">
                 {[
@@ -830,7 +830,7 @@ export default function AboutPage() {
                 <AboutTrans text="The AI Content Revolution" />
               </h2>
               <p className="text-gray-300 leading-relaxed mb-6">
-                <AboutTrans text="The generative AI market is one of the fastest-growing sectors in technology. As AI tools become more accessible and powerful, millions of creators are producing content daily — and they need a dedicated platform to share and monetize their work. AI Media Tank (AiM) is positioned at the intersection of this massive opportunity." />
+                <AboutTrans text="The generative AI market is one of the fastest-growing sectors in technology. As AI tools become more accessible and powerful, millions of creators are producing content daily — and they need a dedicated platform to share and monetize their work. AI Media Tank (AMT) is positioned at the intersection of this massive opportunity." />
               </p>
               <ul className="space-y-3">
                 {[
@@ -1203,7 +1203,7 @@ export default function AboutPage() {
             <AboutTrans text="Ready to Shape the Future of Media?" />
           </h2>
           <p className="text-lg text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            <AboutTrans text="Whether you are an AI artist, a filmmaker exploring generative tools, a music producer pushing sonic boundaries, or a technologist building the future — AI Media Tank (AiM) is the professional platform where your work gets the audience it deserves." />
+            <AboutTrans text="Whether you are an AI artist, a filmmaker exploring generative tools, a music producer pushing sonic boundaries, or a technologist building the future — AI Media Tank (AMT) is the professional platform where your work gets the audience it deserves." />
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-14">
             <Link
@@ -1248,7 +1248,7 @@ export default function AboutPage() {
       <footer className="py-8 px-4 border-t border-tank-light">
         <div className="max-w-6xl mx-auto text-center text-gray-500 text-sm">
           <p>
-            <AboutTrans text={`© ${CURRENT_YEAR} AI Media Tank (AiM). All rights reserved.`} />
+            <AboutTrans text={`© ${CURRENT_YEAR} AI Media Tank (AMT). All rights reserved.`} />
           </p>
           <p className="mt-2">
             <AboutTrans text="Built with Cursor AI · Powered by Microsoft Azure · Payments by Stripe" />

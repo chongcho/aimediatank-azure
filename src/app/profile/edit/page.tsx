@@ -940,10 +940,10 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto w-full min-w-0 px-3 sm:px-4 pb-[500px] pt-[10px] overflow-x-hidden">
-      <div className="py-[20px]">
+    <div className="form-compact-mobile max-w-2xl mx-auto w-full min-w-0 px-3 sm:px-4 pb-[500px] pt-2 sm:pt-[10px] overflow-x-hidden">
+      <div className="form-compact-header py-2 sm:py-[20px]">
         <div className="flex items-center justify-center relative">
-          <h1 className="text-[18px] font-bold">{tr[0]}</h1>
+          <h1 className="form-compact-title text-[18px] font-bold">{tr[0]}</h1>
           <button
             type="button"
             onClick={() => router.back()}
@@ -955,19 +955,19 @@ export default function EditProfilePage() {
             </svg>
           </button>
         </div>
-        <p className="text-gray-400 text-xs text-center">{tr[2]}</p>
+        <p className="form-compact-subtitle text-gray-400 text-xs text-center">{tr[2]}</p>
       </div>
 
-      <div className="card">
-        <form onSubmit={handleSubmit} className="space-y-4 min-w-0 w-full">
+      <div className="card form-compact-card">
+        <form onSubmit={handleSubmit} className="form-compact-stack space-y-3 sm:space-y-4 min-w-0 w-full">
           {error && (
-            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+            <div className="p-3 sm:p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
               {localizedError}
             </div>
           )}
 
           {success && (
-            <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-sm">
+            <div className="p-3 sm:p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-sm">
               {localizedSuccess}
             </div>
           )}

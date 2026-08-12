@@ -1208,9 +1208,9 @@ function UploadPageContent() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-0 m-0 pt-5 pb-[500px]">
-      <div className="flex items-center justify-center relative mb-[30px]">
-        <h1 className="text-3xl font-bold">{tr[U.pageTitle]}</h1>
+    <div className="form-compact-mobile max-w-3xl mx-auto p-0 m-0 px-3 sm:px-0 pt-2 sm:pt-5 pb-[500px]">
+      <div className="form-compact-header flex items-center justify-center relative mb-3 sm:mb-[30px]">
+        <h1 className="form-compact-title text-2xl sm:text-3xl font-bold">{tr[U.pageTitle]}</h1>
         <button
           type="button"
           onClick={() => router.back()}
@@ -1324,7 +1324,7 @@ function UploadPageContent() {
         </div>
       ) : (
       <div className="card">
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="form-compact-stack space-y-3 sm:space-y-6">
           {error && (
             <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
               {displayError}

@@ -355,7 +355,7 @@ export async function POST(request: Request) {
 
         if (justExhaustedFreeUploads) {
           const exhaustedEmailHtml = generateFreeUploadsExhaustedEmail(userName, planName, config.costPerUpload)
-          await sendEmail({ to: user.email, subject: '⚠️ Free Uploads Exhausted | AI Media Tank (AiM)', html: exhaustedEmailHtml })
+          await sendEmail({ to: user.email, subject: '⚠️ Free Uploads Exhausted | AI Media Tank (AMT)', html: exhaustedEmailHtml })
           await prisma.notification.create({
             data: {
               userId: user.id, type: 'system', title: '⚠️ Free Uploads Exhausted',
@@ -373,7 +373,7 @@ export async function POST(request: Request) {
               `${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''}`,
               true, 0, planName
             )
-            await sendEmail({ to: user.email, subject: '✅ Upload Complete (Credit Used) | AI Media Tank (AiM)', html: creditUploadEmailHtml })
+            await sendEmail({ to: user.email, subject: '✅ Upload Complete (Credit Used) | AI Media Tank (AMT)', html: creditUploadEmailHtml })
             await prisma.notification.create({
               data: {
                 userId: user.id, type: 'system', title: '✅ Upload Complete (Credit Used)',
@@ -385,7 +385,7 @@ export async function POST(request: Request) {
         } else if (!isFreeUpload && uploadCost > 0) {
           if (!deferVideoSuccessNotify) {
             const paidEmailHtml = generatePaidUploadEmail(userName, title, uploadCost, paidUploadsCount, totalPaidCost)
-            await sendEmail({ to: user.email, subject: '💳 Paid Upload Processed | AI Media Tank (AiM)', html: paidEmailHtml })
+            await sendEmail({ to: user.email, subject: '💳 Paid Upload Processed | AI Media Tank (AMT)', html: paidEmailHtml })
             await prisma.notification.create({
               data: {
                 userId: user.id, type: 'system', title: '💳 Paid Upload',
@@ -398,7 +398,7 @@ export async function POST(request: Request) {
           if (!deferVideoSuccessNotify) {
             const freeRemaining = user.membershipType === 'PREMIUM' ? 'Unlimited' : newFreeUploadsRemaining
             const confirmationEmailHtml = generateUploadConfirmationEmail(userName, title, totalUploads, freeRemaining, true, 0, planName)
-            await sendEmail({ to: user.email, subject: '🎬 Upload Successful! | AI Media Tank (AiM)', html: confirmationEmailHtml })
+            await sendEmail({ to: user.email, subject: '🎬 Upload Successful! | AI Media Tank (AMT)', html: confirmationEmailHtml })
             const notificationMessage = user.membershipType === 'PREMIUM'
               ? `"${title}" uploaded successfully! Unlimited uploads available.`
               : `"${title}" uploaded! ${newFreeUploadsRemaining} free upload${newFreeUploadsRemaining !== 1 ? 's' : ''} remaining.`

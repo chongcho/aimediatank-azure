@@ -25,10 +25,10 @@ export default function SupportPage() {
   const tr = useLanguageModeList(SUPPORT_STRINGS)
 
   return (
-    <div className="max-w-md mx-auto p-0 m-0 pb-[500px] pt-[25px]">
+    <div className="form-compact-mobile max-w-md mx-auto p-0 m-0 px-3 sm:px-0 pb-[500px] pt-2 sm:pt-[25px]">
       {/* Header */}
-      <div className="flex items-center justify-center relative mb-6">
-        <h1 className="text-[18px] font-bold">{tr[0]}</h1>
+      <div className="form-compact-header flex items-center justify-center relative mb-3 sm:mb-6">
+        <h1 className="form-compact-title text-[18px] font-bold">{tr[0]}</h1>
         <button
           type="button"
           onClick={() => router.back()}
@@ -66,14 +66,14 @@ export default function SupportPage() {
         </div>
 
         {/* Content */}
-        <div className="p-6">
-          <p className="text-gray-300 mb-4">
+        <div className="p-4 sm:p-6">
+          <p className="text-gray-300 mb-2 sm:mb-4">
             {tr[5]} <span className="text-tank-accent font-semibold">{userName}</span>! 👋
           </p>
-          <p className="text-gray-400 text-sm mb-6">{tr[6]}</p>
+          <p className="text-gray-400 text-sm mb-3 sm:mb-6">{tr[6]}</p>
 
           {/* Email Info */}
-          <div className="bg-tank-gray rounded-xl p-4 mb-6">
+          <div className="bg-tank-gray rounded-xl p-3 sm:p-4 mb-3 sm:mb-6">
             <p className="text-xs text-gray-500 mb-1">{tr[7]}</p>
             <p className="text-lg font-semibold text-tank-accent">support@aimediatank.com</p>
           </div>

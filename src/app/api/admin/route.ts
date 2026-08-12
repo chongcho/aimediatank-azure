@@ -1208,13 +1208,13 @@ export async function POST(request: Request) {
             const { sendEmail } = await import('@/lib/email')
             await sendEmail({
               to: data.creatorEmail,
-              subject: 'AI Media Tank (AiM) — Content suspended',
+              subject: 'AI Media Tank (AMT) — Content suspended',
               html: `
                 <h2>Content Suspended</h2>
-                <p>Your content "<strong>${data?.mediaTitle || 'Untitled'}</strong>" has been suspended on AI Media Tank (AiM).</p>
+                <p>Your content "<strong>${data?.mediaTitle || 'Untitled'}</strong>" has been suspended on AI Media Tank (AMT).</p>
                 <p><strong>Reason:</strong> ${suspendReason}</p>
                 <p>Please review our community guidelines. If you believe this was a mistake, please contact our support team.</p>
-                <p>Best regards,<br>AI Media Tank (AiM) Team</p>
+                <p>Best regards,<br>AI Media Tank (AMT) Team</p>
               `,
             })
           } catch (emailError) {
@@ -1326,13 +1326,13 @@ export async function POST(request: Request) {
             const { sendEmail } = await import('@/lib/email')
             emailSent = await sendEmail({
               to: data.creatorEmail,
-              subject: 'AI Media Tank (AiM) — Content removed',
+              subject: 'AI Media Tank (AMT) — Content removed',
               html: `
                 <h2>Content Removed</h2>
-                <p>Your content "<strong>${data?.mediaTitle || 'Untitled'}</strong>" has been removed from AI Media Tank (AiM).</p>
+                <p>Your content "<strong>${data?.mediaTitle || 'Untitled'}</strong>" has been removed from AI Media Tank (AMT).</p>
                 <p><strong>Reason:</strong> ${deletionReason}</p>
                 <p>If you believe this was a mistake, please contact our support team.</p>
-                <p>Best regards,<br>AI Media Tank (AiM) Team</p>
+                <p>Best regards,<br>AI Media Tank (AMT) Team</p>
               `,
             })
           } catch (err) {
@@ -1607,7 +1607,7 @@ export async function POST(request: Request) {
             const { sendEmail, generateAccountDeletedEmail } = await import('@/lib/email')
             deleteEmailSent = await sendEmail({
               to: recipientEmail,
-              subject: '🗑️ Your AI Media Tank (AiM) Account Has Been Deleted',
+              subject: '🗑️ Your AI Media Tank (AMT) Account Has Been Deleted',
               html: generateAccountDeletedEmail(recipientName || 'User', deleteReason)
             })
             if (deleteEmailSent) {
@@ -1682,7 +1682,7 @@ export async function POST(request: Request) {
             const userName = suspendTargetUser.legalName || suspendTargetUser.username || 'User'
             suspendEmailSent = await sendEmail({
               to: suspendTargetUser.email,
-              subject: '🚫 Your AI Media Tank (AiM) Account Has Been Suspended',
+              subject: '🚫 Your AI Media Tank (AMT) Account Has Been Suspended',
               html: generateSuspensionEmail(userName, suspendReason, suspendUntil)
             })
             if (suspendEmailSent) {
@@ -1738,7 +1738,7 @@ export async function POST(request: Request) {
             const userName = unsuspendTargetUser.legalName || unsuspendTargetUser.username || 'User'
             unsuspendEmailSent = await sendEmail({
               to: unsuspendTargetUser.email,
-              subject: '✅ Your AI Media Tank (AiM) Account Has Been Reinstated',
+              subject: '✅ Your AI Media Tank (AMT) Account Has Been Reinstated',
               html: generateUnsuspensionEmail(userName)
             })
             if (unsuspendEmailSent) {
@@ -1809,7 +1809,7 @@ export async function POST(request: Request) {
             const userName = warnTargetUser.legalName || warnTargetUser.username || 'User'
             warningEmailSent = await sendEmail({
               to: warnTargetUser.email,
-              subject: '⚠️ Warning: Your AI Media Tank (AiM) Account',
+              subject: '⚠️ Warning: Your AI Media Tank (AMT) Account',
               html: generateWarningEmail(userName, warningReason, newWarningCount)
             })
           } catch (err) {

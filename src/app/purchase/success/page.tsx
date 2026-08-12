@@ -68,22 +68,22 @@ function SuccessContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
-      <div className="text-center max-w-md">
-        <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-green-500/20 flex items-center justify-center animate-bounce">
+    <div className="form-compact-mobile form-compact-mobile--center min-h-screen flex items-start sm:items-center justify-center p-0 m-0 px-3 sm:px-0 pb-[500px]">
+      <div className="text-center max-w-md pt-4 sm:pt-0">
+        <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-3 sm:mb-6 rounded-full bg-green-500/20 flex items-center justify-center animate-bounce">
           <svg className="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
 
-        <h1 className="text-3xl font-bold mb-2">Purchase Successful!</h1>
-        <p className="text-gray-400 mb-8">
+        <h1 className="form-compact-title text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Purchase Successful!</h1>
+        <p className="form-compact-subtitle text-gray-400 mb-4 sm:mb-8">
           Thank you for your purchase. You now have access to this content.
         </p>
 
         {purchase && (
-          <div className="bg-tank-gray rounded-xl p-6 mb-8 text-left">
-            <h3 className="font-semibold mb-4">Purchase Details</h3>
+          <div className="bg-tank-gray rounded-xl p-4 sm:p-6 mb-4 sm:mb-8 text-left">
+            <h3 className="font-semibold mb-3 sm:mb-4">Purchase Details</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-400">Item</span>

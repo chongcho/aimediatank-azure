@@ -121,6 +121,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div 
+        className="signin-modal-panel"
         style={{
           position: 'relative',
           background: '#1a1a1a',
@@ -161,15 +162,15 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
         </button>
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{ marginBottom: '16px' }}>
+        <div className="signin-modal-header" style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <div className="signin-modal-logo" style={{ marginBottom: '16px' }}>
             <span style={{ fontWeight: 'bold', fontSize: '28px', color: 'white' }}>
               <span style={{ color: '#10b981' }}>A</span>i
               <span style={{ color: '#ef4444' }}>M</span>edia
               <span style={{ color: '#3b82f6' }}>T</span>ank
             </span>
           </div>
-          <h2 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
+          <h2 className="signin-modal-title" style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
             Log in / Register
           </h2>
         </div>
@@ -297,14 +298,16 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
                 {error}
               </div>
             )}
-            <div style={{ marginBottom: '16px' }}>
+            <div className="signin-modal-social" style={{ marginBottom: '16px' }}>
               <SocialSignIn
                 mode="signin"
                 callbackUrl="/"
                 hideDividerAbove
               />
             </div>
-            <div style={{
+            <div
+              className="signin-modal-or"
+              style={{
               position: 'relative',
               margin: '20px 0',
               display: 'flex',
@@ -317,6 +320,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={() => setShowEmailForm(true)}
+              className="signin-modal-email-btn"
               style={{
                 width: '100%',
                 padding: '14px',
@@ -463,8 +467,8 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Legal disclaimer */}
-        <p style={{ textAlign: 'center', color: '#888', fontSize: '12px', margin: '20px 0 0 0', lineHeight: 1.5 }}>
-          By logging in, you agree to the AI Media Tank (AiM){' '}
+        <p className="signin-modal-legal" style={{ textAlign: 'center', color: '#888', fontSize: '12px', margin: '20px 0 0 0', lineHeight: 1.5 }}>
+          By logging in, you agree to the AI Media Tank (AMT){' '}
           <Link href="/terms" onClick={onClose} style={{ color: '#10b981', textDecoration: 'underline', fontWeight: 600 }}>
             Terms of Service
           </Link>
@@ -478,6 +482,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
         <Link
           href="/register"
           onClick={onClose}
+          className="signin-modal-register"
           style={{
             display: 'flex',
             width: '100%',

@@ -43,26 +43,26 @@ function VerifyEmailContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
+    <div className="form-compact-mobile form-compact-mobile--center min-h-screen flex items-start sm:items-center justify-center p-0 m-0 px-3 sm:px-0 pb-[500px]">
       <div className="max-w-md w-full text-center">
         {status === 'loading' && (
-          <div className="card p-8">
-            <div className="spinner mx-auto mb-4" />
-            <h1 className="text-2xl font-bold mb-2">Verifying Email</h1>
-            <p className="text-gray-400">Please wait while we verify your email address...</p>
+          <div className="card form-compact-card p-4 sm:p-8">
+            <div className="spinner mx-auto mb-3 sm:mb-4" />
+            <h1 className="form-compact-title text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Verifying Email</h1>
+            <p className="form-compact-subtitle text-gray-400">Please wait while we verify your email address...</p>
           </div>
         )}
 
         {status === 'success' && (
-          <div className="card p-8">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-500/20 flex items-center justify-center">
+          <div className="card form-compact-card p-4 sm:p-8">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-6 rounded-full bg-green-500/20 flex items-center justify-center">
               <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold mb-2 text-green-400">Email Verified!</h1>
-            <p className="text-gray-400 mb-6">{message}</p>
-            <p className="text-sm text-gray-500 mb-4">Redirecting to login...</p>
+            <h1 className="form-compact-title text-xl sm:text-2xl font-bold mb-1 sm:mb-2 text-green-400">Email Verified!</h1>
+            <p className="text-gray-400 mb-3 sm:mb-6">{message}</p>
+            <p className="text-sm text-gray-500 mb-3 sm:mb-4">Redirecting to login...</p>
             <Link href="/login" className="btn-primary inline-block">
               Go to Login
             </Link>
@@ -70,15 +70,15 @@ function VerifyEmailContent() {
         )}
 
         {status === 'error' && (
-          <div className="card p-8">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-500/20 flex items-center justify-center">
+          <div className="card form-compact-card p-4 sm:p-8">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-6 rounded-full bg-red-500/20 flex items-center justify-center">
               <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold mb-2 text-red-400">Verification Failed</h1>
-            <p className="text-gray-400 mb-6">{message}</p>
-            <div className="space-y-3">
+            <h1 className="form-compact-title text-xl sm:text-2xl font-bold mb-1 sm:mb-2 text-red-400">Verification Failed</h1>
+            <p className="text-gray-400 mb-3 sm:mb-6">{message}</p>
+            <div className="form-compact-stack space-y-2 sm:space-y-3">
               <Link href="/login" className="btn-primary block">
                 Go to Login
               </Link>

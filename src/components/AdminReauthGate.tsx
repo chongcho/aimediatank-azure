@@ -16,9 +16,9 @@ function sessionRoleIsLoaded(role: string | undefined | null): boolean {
 /** Same chrome as Step 2 card so session hydration does not flash a full-screen spinner. */
 function AdminReauthPlaceholder({ message }: { message?: string }) {
   return (
-    <div data-initial-content className="min-h-screen flex items-center justify-center px-4">
+    <div data-initial-content className="form-compact-mobile form-compact-mobile--center min-h-screen flex items-start sm:items-center justify-center px-3 sm:px-4">
       <div
-        className="w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-8"
+        className="form-compact-card w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-4 sm:p-8"
         aria-busy={message ? undefined : true}
         aria-label={message ?? 'Loading admin verification'}
       >
@@ -219,7 +219,7 @@ export default function AdminReauthGate({
     'your account'
 
   return (
-    <div data-initial-content className="min-h-screen flex items-center justify-center px-4">
+    <div data-initial-content className="form-compact-mobile form-compact-mobile--center min-h-screen flex items-start sm:items-center justify-center px-3 sm:px-4">
       {toast && (
         <div
           className={`fixed top-4 right-4 z-[99999] px-6 py-3 rounded-lg shadow-lg ${
@@ -229,18 +229,18 @@ export default function AdminReauthGate({
           {toast.message}
         </div>
       )}
-      <div className="w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-2">Step 2 of 2</p>
-        <h1 className="text-2xl font-bold text-white mb-1">
+      <div className="form-compact-card w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-4 sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-1 sm:mb-2">Step 2 of 2</p>
+        <h1 className="form-compact-title text-xl sm:text-2xl font-bold text-white mb-1">
           {verifyMode === 'adminUser' ? 'Admin account verification' : 'Admin Panel access'}
         </h1>
-        <p className="text-gray-300 text-sm mb-1">
+        <p className="form-compact-subtitle text-gray-300 text-sm mb-1">
           Logged in as <span className="font-medium text-white">{adminUsername}</span>.
           {verifyMode === 'adminUser'
             ? ' Enter the admin login passphrase and a verification code to finish logging in.'
             : ' App login is complete; use the Admin Panel passphrase and a verification code to open the panel.'}
         </p>
-        <p className="text-gray-400 text-sm mb-6">
+        <p className="form-compact-subtitle text-gray-400 text-sm mb-3 sm:mb-6">
           {verifyMode === 'adminUser'
             ? "Step 2 uses ADMIN_USER_STEP2_PASSWORD_HASH on the server—not your account login password. Completing this step sets a short-lived cookie needed to moderate or edit other users' content. The Admin Panel uses a separate passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH)."
             : 'Enter the Admin Panel passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH on the server—not your account login password) and complete two-step verification.'}
@@ -271,7 +271,7 @@ export default function AdminReauthGate({
             from account login). This step will not accept your account password.
           </div>
         )}
-        <form onSubmit={handleVerify} className="space-y-4">
+        <form onSubmit={handleVerify} className="form-compact-stack space-y-3 sm:space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
               {verifyMode === 'adminUser' ? 'Admin login passphrase' : 'Admin Panel passphrase'}

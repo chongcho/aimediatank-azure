@@ -1,13 +1,13 @@
-# AI Media Tank (AiM) — Policy Home
+# AI Media Tank (AMT) — Policy Home
 
 **Effective Date:** December 20, 2024  
-**Last Updated:** July 19, 2026
+**Last Updated:** August 11, 2026
 
 ---
 
 ## Overview
 
-AI Media Tank, LLC (AiM) maintains two standalone policy documents that govern the use of the Platform and the handling of user data. Both documents are available on the Platform at https://www.aimediatank.com and are incorporated into the user agreement.
+AI Media Tank, LLC (AMT) maintains two standalone policy documents that govern the use of the Platform and the handling of user data. Both documents are available on the Platform at https://www.aimediatank.com and are incorporated into the user agreement.
 
 ---
 
@@ -17,8 +17,8 @@ AI Media Tank, LLC (AiM) maintains two standalone policy documents that govern t
 
 Governs the use of the Platform, including:
 
-- Eligibility and age requirements (13+ minimum)
-- User accounts, conduct, and responsibilities
+- Eligibility and age requirements (13+ minimum), including accurate date of birth at Register
+- User accounts (email or social Register), conduct, and responsibilities
 - Content guidelines, AI disclosure, Open Chat, Private Chat, and Voice Talk
 - Copyright, intellectual property, guest watermarks, and DMCA procedures
 - Payment, refund (no returns on purchased media), license/usage rights, and creator payout policies
@@ -29,12 +29,12 @@ Governs the use of the Platform, including:
 
 ### 2. [Privacy Policy](PRIVACY_POLICY.md)
 
-Describes how AI Media Tank, LLC (AiM) collects, uses, stores, shares, and protects personal information, including:
+Describes how AI Media Tank, LLC (AMT) collects, uses, stores, shares, and protects personal information, including:
 
-- Information collected (directly, automatically, and from third parties)
+- Information collected at Register and in profile (name, birthday, email, optional mobile/SMS, location, social sign-in claims)
 - Communications, messaging, voice call metadata, and push device tokens
 - Legal bases for processing (GDPR compliance)
-- How information is used and shared
+- How information is used and shared (including age eligibility and locale-based date display)
 - Cookies, push notifications, and tracking technologies
 - Machine translation processing (Azure Translator, MyMemory)
 - Data security measures
@@ -74,6 +74,6 @@ These documents are designed to comply with applicable regulations worldwide, in
 
 ---
 
-**© 2025–2026 AI Media Tank, LLC (AiM). All rights reserved.**
+**© 2025–2026 AI Media Tank, LLC (AMT). All rights reserved.**
 
 *These documents should be reviewed by qualified legal counsel. They do not constitute legal advice.*

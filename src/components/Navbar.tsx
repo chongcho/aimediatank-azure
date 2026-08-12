@@ -773,7 +773,7 @@ function NavbarContent() {
             >
             <img 
               src="/logo.png" 
-              alt="AI Media Tank (AiM)" 
+              alt="AI Media Tank (AMT)" 
               className="h-10 w-auto rounded-[6px]"
             />
             </Link>

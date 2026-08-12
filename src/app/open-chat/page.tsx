@@ -3,18 +3,18 @@ import Link from 'next/link'
 import { getSiteUrl } from '@/lib/siteUrl'
 
 export const metadata: Metadata = {
-  title: 'Open Chat (TalkChat) | AI Media Tank (AiM)',
+  title: 'Open Chat (TalkChat) | AI Media Tank (AMT)',
   description:
     'Open Chat is the public TalkChat room on AI Media Tank: join the community conversation alongside AI and real creators.',
   alternates: {
     canonical: `${getSiteUrl()}/open-chat`,
   },
   openGraph: {
-    title: 'Open Chat (TalkChat) | AI Media Tank (AiM)',
+    title: 'Open Chat (TalkChat) | AI Media Tank (AMT)',
     description:
       'Join the public Open Chat room on AI Media Tank — TalkChat for creators and enthusiasts.',
     url: `${getSiteUrl()}/open-chat`,
-    siteName: 'AI Media Tank, LLC (AiM)',
+    siteName: 'AI Media Tank, LLC (AMT)',
     type: 'website',
   },
 }

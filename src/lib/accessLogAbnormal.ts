@@ -54,7 +54,7 @@ export async function maybeNotifyAbnormalAccess(params: {
 
   const sent = await sendEmail({
     to,
-    subject: `[AI Media Tank (AiM)] Abnormal access detected`,
+    subject: `[AI Media Tank (AMT)] Abnormal access detected`,
     html: `
         <p>An access request matched <strong>abnormal / security-related</strong> patterns (example below).</p>
         <p><strong>Flags:</strong></p>

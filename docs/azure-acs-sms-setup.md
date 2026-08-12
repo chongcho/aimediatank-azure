@@ -104,7 +104,7 @@ US/CA carriers require [toll-free verification](https://learn.microsoft.com/en-u
 
 ### Program description (paste)
 
-> AI Media Tank (AiM) sends transactional SMS one-time passcodes (OTP) so users can verify a mobile number during account registration or when updating their phone on their profile. Recipients are users who voluntarily provide a phone number on https://www.aimediatank.com. Message frequency varies (typically 1–few messages per signup or phone change). Not used for marketing or promotional campaigns.
+> AI Media Tank (AMT) sends transactional SMS one-time passcodes (OTP) so users can verify a mobile number during account registration or when updating their phone on their profile. Recipients are users who voluntarily provide a phone number on https://www.aimediatank.com. Message frequency varies (typically 1–few messages per signup or phone change). Not used for marketing or promotional campaigns.
 
 ### Opt-in method (paste)
 

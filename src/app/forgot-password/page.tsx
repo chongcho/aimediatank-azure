@@ -111,32 +111,32 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
+    <div className="form-compact-mobile form-compact-mobile--center min-h-screen flex items-start sm:items-center justify-center p-0 m-0 px-3 sm:px-0 pb-[500px]">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block mb-6">
-            <span className="font-bold text-3xl text-white">
+        <div className="form-compact-header text-center mb-3 sm:mb-8 pt-2 sm:pt-0">
+          <Link href="/" className="form-compact-logo inline-block mb-2 sm:mb-6">
+            <span className="form-compact-logo-text font-bold text-2xl sm:text-3xl text-white">
               <span className="text-tank-accent">A</span>i
               <span className="text-red-500">M</span>edia
               <span className="text-sky-400">T</span>ank
             </span>
           </Link>
-          <h1 className="text-3xl font-bold mb-2">
+          <h1 className="form-compact-title text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">
             {step === 'email' && 'Forgot Password'}
             {step === 'code' && 'Verify Code'}
             {step === 'password' && 'Set New Password'}
           </h1>
-          <p className="text-gray-400">
+          <p className="form-compact-subtitle text-gray-400">
             {step === 'email' && 'Enter your email to receive a reset code'}
             {step === 'code' && 'Enter the 6-digit code sent to your email'}
             {step === 'password' && 'Create a new password for your account'}
           </p>
         </div>
 
-        <div className="card">
+        <div className="card form-compact-card">
           {/* Step 1: Email */}
           {step === 'email' && (
-            <form onSubmit={handleSendCode} className="space-y-6">
+            <form onSubmit={handleSendCode} className="form-compact-stack space-y-3 sm:space-y-6">
               {error && (
                 <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
                   {error}
@@ -176,7 +176,7 @@ export default function ForgotPasswordPage() {
 
           {/* Step 2: Verify Code */}
           {step === 'code' && (
-            <form onSubmit={handleVerifyCode} className="space-y-6">
+            <form onSubmit={handleVerifyCode} className="form-compact-stack space-y-3 sm:space-y-6">
               {/* Dev mode: show code */}
               {generatedCode && (
                 <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
@@ -249,7 +249,7 @@ export default function ForgotPasswordPage() {
 
           {/* Step 3: New Password */}
           {step === 'password' && (
-            <form onSubmit={handleResetPassword} className="space-y-6">
+            <form onSubmit={handleResetPassword} className="form-compact-stack space-y-3 sm:space-y-6">
               {error && (
                 <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
                   {error}
@@ -346,7 +346,7 @@ export default function ForgotPasswordPage() {
           )}
         </div>
 
-        <p className="text-center mt-6 text-gray-400">
+        <p className="form-compact-footer text-center mt-3 sm:mt-6 text-gray-400">
           Remember your password?{' '}
           <Link href="/login" className="text-tank-accent hover:underline">
             Log in

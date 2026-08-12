@@ -1,6 +1,6 @@
-# AI Media Tank (AiM) — Terms of Service
+# AI Media Tank (AMT) — Terms of Service
 
-**Effective:** December 20, 2024 · **Last Updated:** July 19, 2026
+**Effective:** December 20, 2024 · **Last Updated:** August 11, 2026
 
 ---
 
@@ -38,17 +38,17 @@
 
 ## 1. Acceptance of Terms
 
-By accessing, browsing, or using the Platform at https://www.aimediatank.com (the "Platform" and "Service"; AI Media Tank, LLC (AiM) is referred to herein as "Company", "we", "us", or "our"), you ("User", "you", or "your") acknowledge that you have read, understood, and agree to be bound by these Terms of Service ("Terms").
+By accessing, browsing, or using the Platform at https://www.aimediatank.com (the "Platform" and "Service"; AI Media Tank, LLC (AMT) is referred to herein as "Company", "we", "us", or "our"), you ("User", "you", or "your") acknowledge that you have read, understood, and agree to be bound by these Terms of Service ("Terms").
 
 If you do not agree to these Terms, you must immediately discontinue use of the Platform.
 
-These Terms constitute a legally binding agreement between you and AI Media Tank, LLC (AiM). Your use of the Platform is also governed by our [Privacy Policy](PRIVACY_POLICY.md) and any additional policies, guidelines, or rules posted on the Platform.
+These Terms constitute a legally binding agreement between you and AI Media Tank, LLC (AMT). Your use of the Platform is also governed by our [Privacy Policy](PRIVACY_POLICY.md) and any additional policies, guidelines, or rules posted on the Platform.
 
 ---
 
 ## 2. Eligibility
 
-To create an account or use the Platform, you must:
+To register for an account or use the Platform, you must:
 
 - be at least thirteen (13) years of age
 - have the legal capacity to enter into a binding agreement
@@ -58,11 +58,13 @@ Users under the age of 13 are strictly prohibited from using the Platform.
 
 If you are under the age of 18, you represent that you have permission from a parent or legal guardian.
 
+During registration, you must provide an accurate date of birth. We may use your birthday to assess age eligibility and to display your profile information. Providing a false date of birth is a violation of these Terms.
+
 ---
 
 ## 3. Description of Service
 
-AI Media Tank, LLC (AiM) operates a global digital media marketplace and community platform where users may upload, share, discover, showcase, license, and purchase digital media including but not limited to: videos, images, music, AI-generated media, AI-assisted media, and real-world creative media.
+AI Media Tank, LLC (AMT) operates a global digital media marketplace and community platform where users may upload, share, discover, showcase, license, and purchase digital media including but not limited to: videos, images, music, AI-generated media, AI-assisted media, and real-world creative media.
 
 The Platform provides tools for creators to publish, distribute, and monetize their content.
 
@@ -88,24 +90,28 @@ You acknowledge that AI-generated content technologies are evolving, and the leg
 
 ## 4. User Accounts
 
-### 4.1 Account Creation
+### 4.1 Account Creation (Register)
 
-To access certain features, users must create an account and:
+To access certain features, users must register for an account (via email or a supported social identity provider such as Google, Facebook, Apple, or Microsoft) and:
 
-- provide accurate information
+- provide accurate information, including legal name where requested, date of birth, email address, and country / location
+- optionally provide a mobile phone number for verification and account contact
 - maintain the security of login credentials
 - promptly update account information when necessary
+- agree to these Terms and the Privacy Policy before completing registration
 
 You are responsible for all activities conducted under your account.
 
 ### 4.2 Verification
 
-AI Media Tank, LLC (AiM) may require verification including:
+AI Media Tank, LLC (AMT) may require verification including:
 
 - email verification
-- phone verification
+- phone verification (SMS)
 - identity verification
 - payment verification for sellers
+
+Where phone verification is used, providing your mobile number includes consent to receive SMS verification and related transactional messages as disclosed on the Register and Edit Profile screens.
 
 ### 4.3 Account Suspension or Termination
 
@@ -165,7 +171,7 @@ Prohibited content includes:
 - malware or phishing content
 - intellectual property infringement
 
-AI Media Tank, LLC (AiM) may utilize automated systems and manual moderation to review content.
+AI Media Tank, LLC (AMT) may utilize automated systems and manual moderation to review content.
 
 ---
 
@@ -182,7 +188,7 @@ Examples include content created using:
 
 Users are solely responsible for ensuring they have the legal rights to distribute such content.
 
-AI Media Tank, LLC (AiM) does not claim ownership of AI-generated media and will not use uploaded content to train AI models without user consent.
+AI Media Tank, LLC (AMT) does not claim ownership of AI-generated media and will not use uploaded content to train AI models without user consent.
 
 Content uploaded to the Platform may be processed by automated systems for purposes including:
 
@@ -200,11 +206,11 @@ Content uploaded to the Platform may be processed by automated systems for purpo
 
 Creators retain ownership of the media they upload.
 
-Uploading media to the Platform does not transfer ownership to AI Media Tank, LLC (AiM) or other users.
+Uploading media to the Platform does not transfer ownership to AI Media Tank, LLC (AMT) or other users.
 
 ### 8.2 License Grant to Platform
 
-By uploading media to the Platform, you grant AI Media Tank, LLC (AiM) a worldwide, non-exclusive, royalty-free, sublicensable license to:
+By uploading media to the Platform, you grant AI Media Tank, LLC (AMT) a worldwide, non-exclusive, royalty-free, sublicensable license to:
 
 - host
 - store
@@ -248,7 +254,7 @@ The price displayed for any media item on the AI Media Tank app represents the f
 
 Prices may be modified at any time but will not affect completed transactions.
 
-AI Media Tank, LLC (AiM) does not verify or control seller pricing.
+AI Media Tank, LLC (AMT) does not verify or control seller pricing.
 
 ### 10.3 Payment Processing
 
@@ -256,7 +262,7 @@ Buyers pay the listed price plus applicable taxes through the Platform.
 
 Payments may be processed through third-party payment providers.
 
-AI Media Tank, LLC (AiM) acts as a marketplace facilitator and payment intermediary.
+AI Media Tank, LLC (AMT) acts as a marketplace facilitator and payment intermediary.
 
 Use of payment services may also be subject to the terms of the applicable payment processor.
 
@@ -264,7 +270,7 @@ Use of payment services may also be subject to the terms of the applicable payme
 
 For each completed sale:
 
-- AI Media Tank, LLC (AiM) retains 30% Processing Fee
+- AI Media Tank, LLC (AMT) retains 30% Processing Fee
 - 70% is credited to the Seller
 
 Processing fees may be modified for future transactions at the Company's discretion.
@@ -331,7 +337,7 @@ Circumventing watermarks or technical download restrictions is prohibited.
 
 ## 11. Content Moderation
 
-AI Media Tank, LLC (AiM) reserves the right to remove or disable access to any content at its sole discretion.
+AI Media Tank, LLC (AMT) reserves the right to remove or disable access to any content at its sole discretion.
 
 Where possible, users will be notified regarding the reason for removal.
 
@@ -341,7 +347,7 @@ The Company may also moderate Open Chat, Private Chat, and Voice Talk usage, inc
 
 ## 12. Copyright and DMCA
 
-AI Media Tank, LLC (AiM) complies with the Digital Millennium Copyright Act (DMCA).
+AI Media Tank, LLC (AMT) complies with the Digital Millennium Copyright Act (DMCA).
 
 Copyright owners may submit takedown requests.
 
@@ -366,7 +372,7 @@ The Platform is also available through native mobile applications distributed vi
 
 When sharing content to these services, users are subject to the terms and privacy policies of those platforms.
 
-AI Media Tank, LLC (AiM) is not affiliated with or endorsed by the companies operating these services.
+AI Media Tank, LLC (AMT) is not affiliated with or endorsed by the companies operating these services.
 
 ---
 
@@ -374,7 +380,7 @@ AI Media Tank, LLC (AiM) is not affiliated with or endorsed by the companies ope
 
 THE PLATFORM IS PROVIDED "AS IS" AND "AS AVAILABLE."
 
-AI Media Tank, LLC (AiM) makes no warranties, express or implied, including:
+AI Media Tank, LLC (AMT) makes no warranties, express or implied, including:
 
 - merchantability
 - fitness for a particular purpose
@@ -387,7 +393,7 @@ Use of the Platform is at your own risk.
 
 ## 15. Limitation of Liability
 
-To the maximum extent permitted by law, AI Media Tank, LLC (AiM) shall not be liable for:
+To the maximum extent permitted by law, AI Media Tank, LLC (AMT) shall not be liable for:
 
 - disputes between buyers and sellers
 - misuse of media by third parties
@@ -403,7 +409,7 @@ Total liability shall not exceed the greater of:
 
 ## 16. Indemnification
 
-You agree to indemnify, defend, and hold harmless AI Media Tank, LLC (AiM) and its officers, employees, and affiliates from any claims arising from:
+You agree to indemnify, defend, and hold harmless AI Media Tank, LLC (AMT) and its officers, employees, and affiliates from any claims arising from:
 
 - your use of the Platform
 - content you upload
@@ -414,7 +420,7 @@ You agree to indemnify, defend, and hold harmless AI Media Tank, LLC (AiM) and i
 
 ## 17. Service Availability
 
-AI Media Tank, LLC (AiM) reserves the right to modify, suspend, or discontinue any part of the Platform at any time without liability.
+AI Media Tank, LLC (AMT) reserves the right to modify, suspend, or discontinue any part of the Platform at any time without liability.
 
 The Company does not guarantee uninterrupted availability.
 
@@ -464,7 +470,7 @@ You waive any right to participate in:
 
 ## 22. Force Majeure
 
-AI Media Tank, LLC (AiM) shall not be liable for delays or failures caused by events beyond its reasonable control including:
+AI Media Tank, LLC (AMT) shall not be liable for delays or failures caused by events beyond its reasonable control including:
 
 - natural disasters
 - war
@@ -491,14 +497,14 @@ The following sections survive termination:
 
 Users are solely responsible for the media, files, text, and other content they upload, publish, or distribute through the Platform ("User Content").
 
-AI Media Tank, LLC (AiM) does not review all uploaded content and does not guarantee the legality, accuracy, or ownership of User Content.
+AI Media Tank, LLC (AMT) does not review all uploaded content and does not guarantee the legality, accuracy, or ownership of User Content.
 
 By uploading content to the Platform, you represent and warrant that:
 
 - you own the content or
 - you have obtained all necessary licenses, rights, and permissions to upload and distribute the content.
 
-AI Media Tank, LLC (AiM) operates as an online service provider under the Digital Millennium Copyright Act (DMCA) and qualifies for safe harbor protection under 17 U.S.C. §512.
+AI Media Tank, LLC (AMT) operates as an online service provider under the Digital Millennium Copyright Act (DMCA) and qualifies for safe harbor protection under 17 U.S.C. §512.
 
 The Company shall not be held liable for infringing content uploaded by users, provided that it responds to valid takedown notices and removes infringing material when notified.
 
@@ -515,7 +521,7 @@ Users are solely responsible for ensuring that media uploaded to the Platform:
 
 The Company does not independently verify ownership of uploaded media.
 
-If any claim, lawsuit, or legal dispute arises from uploaded media, the User agrees to indemnify and hold harmless AI Media Tank, LLC (AiM) from any damages, costs, or legal fees resulting from such claims.
+If any claim, lawsuit, or legal dispute arises from uploaded media, the User agrees to indemnify and hold harmless AI Media Tank, LLC (AMT) from any damages, costs, or legal fees resulting from such claims.
 
 The Company reserves the right to:
 
@@ -533,13 +539,13 @@ The Company reserves the right to modify these Terms at any time. Updated versio
 
 ## 27. Contact Information
 
-**AI Media Tank (AiM) Support**
+**AI Media Tank (AMT) Support**
 
 - Email: support@aimediatank.com
 - Website: https://www.aimediatank.com
 
 ---
 
-**© 2025–2026 AI Media Tank, LLC (AiM). All rights reserved.**
+**© 2025–2026 AI Media Tank, LLC (AMT). All rights reserved.**
 
 *This document should be reviewed by qualified legal counsel. It does not constitute legal advice.*

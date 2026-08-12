@@ -1203,7 +1203,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             <div className="bg-[#1a6e7a] px-5 py-3">
               <p className="text-white font-medium">
                 <span className="text-sm font-semibold text-white/80 uppercase tracking-wide">{tMedia('from')} </span>
-                <span className="bg-[#0f3f47] px-2 py-0.5 rounded text-sm">AI Media Tank (AiM) &lt;aimediatank@aimediatank.com&gt;</span>
+                <span className="bg-[#0f3f47] px-2 py-0.5 rounded text-sm">AI Media Tank (AMT) &lt;aimediatank@aimediatank.com&gt;</span>
               </p>
             </div>
 

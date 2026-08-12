@@ -64,14 +64,14 @@ export async function generateMetadata({
 
   if (!media) {
     return {
-      title: 'Media Not Found | AI Media Tank (AiM)',
+      title: 'Media Not Found | AI Media Tank (AMT)',
       description: 'This media item is not available.',
       robots: { index: false, follow: false },
     }
   }
 
   const title = cleanTitle(media.title)
-  const description = media.description?.trim() || `Explore ${title} on AI Media Tank (AiM).`
+  const description = media.description?.trim() || `Explore ${title} on AI Media Tank (AMT).`
   const canonical = `${baseUrl}/media/${media.id}`
   const contentUrl = toAbsoluteUrl(baseUrl, media.url)
   const thumbnailUrl =
@@ -80,14 +80,14 @@ export async function generateMetadata({
     `${baseUrl}/logo.png`
   const keywords = Array.from(
     new Set(
-      ['AI media', 'AI Media Tank (AiM)', media.type?.toLowerCase(), media.aiTool, media.realDevice].filter(
+      ['AI media', 'AI Media Tank (AMT)', media.type?.toLowerCase(), media.aiTool, media.realDevice].filter(
         (value): value is string => Boolean(value && value.trim())
       )
     )
   )
 
   return {
-    title: `${title} | AI Media Tank (AiM)`,
+    title: `${title} | AI Media Tank (AMT)`,
     description,
     keywords,
     alternates: { canonical },
@@ -95,7 +95,7 @@ export async function generateMetadata({
       title,
       description,
       url: canonical,
-      siteName: 'AI Media Tank, LLC (AiM)',
+      siteName: 'AI Media Tank, LLC (AMT)',
       type:
         media.type === 'VIDEO'
           ? 'video.other'
@@ -137,14 +137,14 @@ export default async function MediaPage({
     media &&
     (() => {
       const title = cleanTitle(media.title)
-      const description = media.description?.trim() || `Explore ${title} on AI Media Tank (AiM).`
+      const description = media.description?.trim() || `Explore ${title} on AI Media Tank (AMT).`
       const contentUrl = toAbsoluteUrl(baseUrl, media.url)
       const thumbnailUrl =
         toAbsoluteUrl(baseUrl, media.thumbnailUrl) ||
         toAbsoluteUrl(baseUrl, media.type === 'IMAGE' ? media.url : null)
       const keywords = Array.from(
         new Set(
-          ['AI media', 'AI Media Tank (AiM)', media.type?.toLowerCase(), media.aiTool, media.realDevice].filter(
+          ['AI media', 'AI Media Tank (AMT)', media.type?.toLowerCase(), media.aiTool, media.realDevice].filter(
             (value): value is string => Boolean(value && value.trim())
           )
         )

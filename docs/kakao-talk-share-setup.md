@@ -1,12 +1,12 @@
-# KakaoTalk Share – AI Media Tank (AiM) setup
+# KakaoTalk Share – AI Media Tank (AMT) setup
 
-This guide configures **Kakao Talk Share** so users can share media from **AI Media Tank (AiM)** to KakaoTalk. You already created the Kakao developers app for this product on [developer.kakao.com](https://developer.kakao.com); follow these steps to enable sharing and connect the app.
+This guide configures **Kakao Talk Share** so users can share media from **AI Media Tank (AMT)** to KakaoTalk. You already created the Kakao developers app for this product on [developer.kakao.com](https://developer.kakao.com); follow these steps to enable sharing and connect the app.
 
 ---
 
 ## 1. Enable Kakao Talk Share and get keys
 
-1. Open [developer.kakao.com](https://developer.kakao.com) and select your **AI Media Tank (AiM)** app (ID 1398467).
+1. Open [developer.kakao.com](https://developer.kakao.com) and select your **AI Media Tank (AMT)** app (ID 1398467).
 2. In the left menu, go to **Product Settings** → **Kakao Talk Message** (or **Kakao Talk Share**).
 3. Enable the product and complete any required agreement.
 4. Go to **App Settings** → **App** (or **App** under App Settings).
@@ -20,7 +20,7 @@ Kakao validates the calling domain in **two separate places**. If either is miss
 
 ### 2a. App Platform → Web (JavaScript SDK domain)
 
-1. **My Application** → select **AI Media Tank (AiM)** (ID 1398467).
+1. **My Application** → select **AI Media Tank (AMT)** (ID 1398467).
 2. **App Settings** → **Platform** → **Web**.
 3. Add every origin the SDK will run from, with scheme but no path/trailing slash:
    - `https://www.aimediatank.com`
@@ -31,7 +31,7 @@ Kakao validates the calling domain in **two separate places**. If either is miss
 
 ### 2b. Product Settings → Kakao Talk Sharing → Domain (Product Link)
 
-1. **My Application** → AiM app → **Product Settings** → **Kakao Talk Sharing** (or **Kakao Talk Share** / **Kakao Talk Message**, depending on console language).
+1. **My Application** → AMT app → **Product Settings** → **Kakao Talk Sharing** (or **Kakao Talk Share** / **Kakao Talk Message**, depending on console language).
 2. Enable the product if not already enabled.
 3. Under **Domain** (a.k.a. **Product Link**), add the **same domains** you used in 2a — this is the domain of the URL you pass into `link.webUrl` / `link.mobileWebUrl`. Missing this is what triggers Kakao error `4002`.
 4. Save and wait ~1 minute for Kakao to propagate.
@@ -93,7 +93,7 @@ Next.js inlines `NEXT_PUBLIC_*` variables at **`npm run build`**. Setting the ke
   2. In **Product Settings → Kakao Talk Sharing → Domain**, confirm the same origin is in the list (this is the new requirement that catches most teams).
   3. If you use a `www.` and an apex variant, register **both**.
   4. Save and re-test in an incognito window (Kakao caches the failure).
-  5. Confirm the `app_key` in the failing URL matches `NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY` for the AiM app — if it's a different app's key, you registered the domain on the wrong app.
+  5. Confirm the `app_key` in the failing URL matches `NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY` for the AMT app — if it's a different app's key, you registered the domain on the wrong app.
 
 - **"Invalid domain" / `-401 domain mismatched! caller=…`**  
   Same as above — Kakao is reporting the `caller` origin it received. Add that exact origin (scheme + host, no path) to both lists in §2.

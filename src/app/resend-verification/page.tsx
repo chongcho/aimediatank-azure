@@ -44,32 +44,32 @@ export default function ResendVerificationPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-0 m-0 pb-[500px]">
+    <div className="form-compact-mobile form-compact-mobile--center min-h-screen flex items-start sm:items-center justify-center p-0 m-0 px-3 sm:px-0 pb-[500px]">
       <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Resend Verification</h1>
-          <p className="text-gray-400">
+        <div className="form-compact-header text-center mb-3 sm:mb-8 pt-2 sm:pt-0">
+          <h1 className="form-compact-title text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Resend Verification</h1>
+          <p className="form-compact-subtitle text-gray-400">
             Enter your email to receive a new verification link
           </p>
         </div>
 
-        <div className="card">
+        <div className="card form-compact-card">
           {status === 'success' ? (
-            <div className="text-center p-4">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
+            <div className="text-center p-2 sm:p-4">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
                 <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
               <h2 className="text-xl font-semibold text-green-400 mb-2">Email Sent!</h2>
-              <p className="text-gray-400 mb-4">{message}</p>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-gray-400 mb-3 sm:mb-4">{message}</p>
+              <p className="text-sm text-gray-500 mb-3 sm:mb-4">
                 Check your inbox and spam folder for the verification link.
               </p>
 
               {/* Dev mode: show verification link */}
               {devUrl && (
-                <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-left">
+                <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-left">
                   <p className="text-yellow-400 text-sm font-semibold mb-2">
                     🔧 Development Mode
                   </p>
@@ -83,12 +83,12 @@ export default function ResendVerificationPage() {
                 </div>
               )}
 
-              <Link href="/login" className="btn-primary inline-block mt-4">
+              <Link href="/login" className="btn-primary inline-block mt-3 sm:mt-4">
                 Previous to Login
               </Link>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="form-compact-stack space-y-3 sm:space-y-6">
               {status === 'error' && (
                 <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
                   {message}

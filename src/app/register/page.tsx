@@ -110,13 +110,12 @@ const REGISTER_STRINGS = [
   'Start free. Select a paid plan to subscribe.',
   'Choose monthly or yearly billing to continue to checkout.',
   'Membership plan (optional)',
-  'Terms & Policy Agreement',
-  'By creating an account, you agree to the AI Media Tank (AiM)',
+  'Terms & Policy Agreement *',
+  'By creating an account, you agree to the AI Media Tank (AMT)',
   'Terms of Service',
   'and',
   'Privacy Policy',
   'and acknowledge that you have read and accepted all applicable rules and regulations.',
-  'You must agree to the policy to create an account',
   'Cancel',
   'Creating account...',
   'Already have an account?',
@@ -172,20 +171,20 @@ const R = {
   membershipFreeHint: 39,
   membershipChangeHint: 40,
   membershipPlanLabel: 41,
-  membershipCheckoutHint: 70,
-  chooseBillingPeriod: 71,
-  youSelected: 72,
-  monthly: 73,
-  billedMonthly: 74,
-  yearly: 75,
-  billedAnnually: 76,
-  perMonth: 77,
-  perYear: 78,
-  billingCancelNote: 79,
-  fixToCreateAccount: 80,
-  birthdayInvalidHint: 81,
-  emailRequired: 82,
-  passwordRequired: 83,
+  membershipCheckoutHint: 69,
+  chooseBillingPeriod: 70,
+  youSelected: 71,
+  monthly: 72,
+  billedMonthly: 73,
+  yearly: 74,
+  billedAnnually: 75,
+  perMonth: 76,
+  perYear: 77,
+  billingCancelNote: 78,
+  fixToCreateAccount: 79,
+  birthdayInvalidHint: 80,
+  emailRequired: 81,
+  passwordRequired: 82,
 } as const
 
 export default function RegisterPage() {
@@ -701,9 +700,6 @@ export default function RegisterPage() {
     if (formData.password !== formData.confirmPassword) {
       blockers.push('Passwords do not match')
     }
-    if (!policyAgreed) {
-      blockers.push('You must agree to the policy to create an account')
-    }
     return blockers
   }, [
     formData.firstName,
@@ -721,16 +717,17 @@ export default function RegisterPage() {
     usernameStatus.valid,
     usernameStatus.available,
     phoneNeedsVerification,
-    policyAgreed,
     dayFirstDates,
   ])
+
+  const hasSubmitBlockers = submitBlockers.length > 0 || !policyAgreed
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setAttemptedSubmit(true)
 
-    if (submitBlockers.length > 0) {
+    if (hasSubmitBlockers) {
       return
     }
 
@@ -786,36 +783,36 @@ export default function RegisterPage() {
   // Success state - show verification instructions
   if (success) {
     return (
-      <div className="max-w-2xl mx-auto w-full min-w-0 px-3 sm:px-4 pb-[500px] pt-[10px] overflow-x-hidden">
-        <div className="card p-8 text-center mt-3">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-500/20 flex items-center justify-center">
+      <div className="form-compact-mobile max-w-2xl mx-auto w-full min-w-0 px-3 sm:px-4 pb-[500px] pt-2 sm:pt-[10px] overflow-x-hidden">
+        <div className="card form-compact-card p-4 sm:p-8 text-center mt-2 sm:mt-3">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-6 rounded-full bg-green-500/20 flex items-center justify-center">
               <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold mb-2">{tr[53]}</h1>
-            <p className="text-gray-400 mb-6">
-              {tr[54]}{' '}
+            <h1 className="form-compact-title text-xl sm:text-2xl font-bold mb-1 sm:mb-2">{tr[52]}</h1>
+            <p className="text-gray-400 mb-3 sm:mb-6">
+              {tr[53]}{' '}
               <strong className="text-white">{formData.email}</strong>.{' '}
-              {tr[55]}
+              {tr[54]}
             </p>
             
-            <div className="p-4 bg-tank-gray rounded-xl text-left mb-6">
-              <p className="text-sm text-gray-400 mb-2">{tr[56]}</p>
+            <div className="p-3 sm:p-4 bg-tank-gray rounded-xl text-left mb-3 sm:mb-6">
+              <p className="text-sm text-gray-400 mb-2">{tr[55]}</p>
               <ul className="text-sm text-gray-500 list-disc list-inside space-y-1">
+                <li>{tr[56]}</li>
                 <li>{tr[57]}</li>
                 <li>{tr[58]}</li>
-                <li>{tr[59]}</li>
               </ul>
             </div>
 
             {/* Dev mode: show verification link */}
             {verificationUrl && (
-              <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-left mb-6">
+              <div className="p-3 sm:p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-left mb-3 sm:mb-6">
                 <p className="text-yellow-400 text-sm font-semibold mb-2">
-                  🔧 {tr[60]}
+                  🔧 {tr[59]}
                 </p>
-                <p className="text-xs text-gray-400 mb-2">{tr[61]}</p>
+                <p className="text-xs text-gray-400 mb-2">{tr[60]}</p>
                 <a 
                   href={verificationUrl} 
                   className="text-xs text-tank-accent break-all hover:underline"
@@ -825,12 +822,12 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <div className="space-y-3">
+            <div className="form-compact-stack space-y-2 sm:space-y-3">
               <Link href="/login" className="btn-primary block">
-                {tr[62]}
+                {tr[61]}
               </Link>
               <Link href="/resend-verification" className="block text-tank-accent hover:underline text-sm">
-                {tr[63]}
+                {tr[62]}
               </Link>
             </div>
           </div>
@@ -839,17 +836,17 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto w-full min-w-0 px-3 sm:px-4 pb-[500px] pt-[10px] overflow-x-hidden">
-        <div className="text-center py-[20px]">
-          <Link href="/" className="inline-block mb-6">
-            <span className="font-bold text-3xl text-white">
+    <div className="form-compact-mobile max-w-2xl mx-auto w-full min-w-0 px-3 sm:px-4 pb-[500px] pt-2 sm:pt-[10px] overflow-x-hidden">
+        <div className="form-compact-header text-center py-2 sm:py-[20px]">
+          <Link href="/" className="form-compact-logo inline-block mb-2 sm:mb-6">
+            <span className="form-compact-logo-text font-bold text-2xl sm:text-3xl text-white">
               <span className="text-tank-accent">A</span>i
               <span className="text-red-500">M</span>edia
               <span className="text-sky-400">T</span>ank
             </span>
           </Link>
           <div className="flex items-center justify-center relative">
-            <h1 className="text-3xl font-bold">{tr[0]}</h1>
+            <h1 className="form-compact-title text-2xl sm:text-3xl font-bold">{tr[0]}</h1>
             <button
               type="button"
               onClick={() => { window.location.href = '/' }}
@@ -863,9 +860,9 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card form-compact-card">
           {error && !showEmailForm && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+            <div className="mb-3 sm:mb-6 p-3 sm:p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
               {translatedError}
             </div>
           )}
@@ -874,7 +871,7 @@ export default function RegisterPage() {
             <>
               <SocialSignIn mode="signup" callbackUrl="/" hideDividerAbove />
 
-              <div className="relative mt-6">
+              <div className="relative mt-3 sm:mt-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-tank-light" />
                 </div>
@@ -886,13 +883,13 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setShowEmailForm(true)}
-                className="mt-6 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-gray-200"
+                className="mt-3 sm:mt-6 w-full flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-gray-200"
               >
                 {tr[3]}
               </button>
             </>
           ) : (
-          <form onSubmit={handleSubmit} noValidate className="space-y-5 min-w-0 w-full">
+          <form onSubmit={handleSubmit} noValidate className="form-compact-stack space-y-3 sm:space-y-5 min-w-0 w-full">
             <AvatarNicknameBioBlock
               avatarPreviewUrl={avatarPreview}
               username={formData.username}
@@ -1252,6 +1249,8 @@ export default function RegisterPage() {
                   checked={policyAgreed}
                   onChange={(e) => setPolicyAgreed(e.target.checked)}
                   className="mt-1 w-5 h-5 rounded border-tank-light bg-tank-dark text-tank-accent focus:ring-tank-accent focus:ring-offset-0 cursor-pointer"
+                  required
+                  aria-required="true"
                 />
                 <span className="text-sm text-gray-300">
                   <LanguageModeTrans text={REGISTER_STRINGS[43]} />{' '}
@@ -1265,14 +1264,6 @@ export default function RegisterPage() {
                   {' '}<LanguageModeTrans text={REGISTER_STRINGS[47]} />
                 </span>
               </label>
-              {!policyAgreed && (
-                <p className="text-xs text-yellow-500 mt-2 flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  {tr[48]}
-                </p>
-              )}
             </div>
 
             {(attemptedSubmit && submitBlockers.length > 0) || error ? (
@@ -1309,13 +1300,13 @@ export default function RegisterPage() {
                 onClick={() => router.back()}
                 className="flex-1 py-3 rounded-xl font-semibold bg-tank-gray border border-tank-light text-white hover:bg-tank-light transition-all"
               >
-                {tr[49]}
+                {tr[48]}
               </button>
               <button
                 type="submit"
-                disabled={loading || (attemptedSubmit && submitBlockers.length > 0)}
+                disabled={loading || (attemptedSubmit && hasSubmitBlockers)}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${
-                  loading || (attemptedSubmit && submitBlockers.length > 0)
+                  loading || (attemptedSubmit && hasSubmitBlockers)
                     ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     : 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
                 }`}
@@ -1323,7 +1314,7 @@ export default function RegisterPage() {
                 {loading ? (
                   <>
                     <span className="spinner" />
-                    {tr[50]}
+                    {tr[49]}
                   </>
                 ) : (
                   tr[0]
@@ -1334,10 +1325,10 @@ export default function RegisterPage() {
           )}
         </div>
 
-        <p className="text-center mt-6 text-gray-400">
-          {tr[51]}{' '}
+        <p className="form-compact-footer text-center mt-3 sm:mt-6 text-gray-400">
+          {tr[50]}{' '}
           <Link href="/login" className="text-tank-accent hover:underline">
-            {tr[52]}
+            {tr[51]}
           </Link>
         </p>
 
@@ -1429,9 +1420,9 @@ export default function RegisterPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold mb-2">{tr[64]}</h3>
+              <h3 className="text-xl font-bold mb-2">{tr[63]}</h3>
               <p className="text-gray-400 text-sm">
-                {tr[65]}<br />
+                {tr[64]}<br />
                 <strong className="text-white">{formData.email}</strong>
               </p>
             </div>
@@ -1439,14 +1430,14 @@ export default function RegisterPage() {
             {/* Dev mode: show code */}
             {generatedCode && (
               <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-                <p className="text-yellow-400 text-xs font-semibold mb-1">🔧 {tr[66]}</p>
+                <p className="text-yellow-400 text-xs font-semibold mb-1">🔧 {tr[65]}</p>
                 <p className="text-2xl font-mono font-bold text-center text-yellow-400">{generatedCode}</p>
               </div>
             )}
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                {tr[67]}
+                {tr[66]}
               </label>
               <input
                 type="text"
@@ -1472,7 +1463,7 @@ export default function RegisterPage() {
                 onClick={() => setShowVerifyModal(false)}
                 className="flex-1 px-4 py-3 bg-tank-gray text-white rounded-xl font-medium hover:bg-tank-gray/80 transition-colors"
               >
-                {tr[49]}
+                {tr[48]}
               </button>
               <button
                 type="button"
@@ -1495,14 +1486,14 @@ export default function RegisterPage() {
             </div>
 
             <p className="text-center text-gray-500 text-xs mt-4">
-              {tr[68]}{' '}
+              {tr[67]}{' '}
               <button
                 type="button"
                 onClick={sendVerificationCode}
                 disabled={verificationState.sending}
                 className="text-tank-accent hover:underline"
               >
-                {tr[69]}
+                {tr[68]}
               </button>
             </p>
           </div>

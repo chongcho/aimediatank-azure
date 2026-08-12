@@ -48,10 +48,10 @@ function PrivacyPageContent() {
 
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Privacy Policy</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: July 7, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: August 11, 2026</p>
 
         <p className="text-gray-300 mb-6">
-          AI Media Tank, LLC (AiM) (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates the website and platform available at <strong>https://www.aimediatank.com</strong> (the &quot;Platform&quot;). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you access or use the Platform and related services.
+          AI Media Tank, LLC (AMT) (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates the website and platform available at <strong>https://www.aimediatank.com</strong> (the &quot;Platform&quot;). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you access or use the Platform and related services.
         </p>
         <p className="text-gray-300 mb-8">
           By accessing or using the Platform, you acknowledge that you have read and understood this Privacy Policy and agree to the collection and use of information as described herein.
@@ -62,14 +62,22 @@ function PrivacyPageContent() {
         <p className="text-gray-300 mb-4">We may collect several categories of information depending on how you interact with the Platform.</p>
 
         <h3 className="text-lg font-semibold mt-6 mb-3">1.1 Account Information</h3>
-        <p className="text-gray-300 mb-2">When you register for an account, we may collect:</p>
+        <p className="text-gray-300 mb-2">When you register (create an account) via email or a supported social identity provider (such as Google, Facebook, Apple, or Microsoft), we may collect:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>name or username</li>
+          <li>name (including first, middle, and last name where provided) and username / nickname</li>
+          <li>date of birth (birthday), which you may enter in common local date formats; we normalize and store it in a standard date format for age-eligibility and profile display</li>
           <li>email address</li>
-          <li>encrypted password</li>
+          <li>mobile phone number (optional), when provided for verification or account contact</li>
+          <li>country or location selected at registration</li>
+          <li>encrypted password (for email registration)</li>
           <li>profile information such as biography, avatar, or social media links</li>
+          <li>membership plan selection preferences</li>
           <li>account preferences</li>
+          <li>identity tokens or profile claims provided by a social sign-in provider (subject to that provider’s settings and your consent)</li>
         </ul>
+        <p className="text-gray-300 mb-4">
+          Providing a mobile number constitutes consent to receive SMS messages from AI Media Tank for verification and related transactional communications, as disclosed on the Register and Edit Profile screens. Message and data rates may apply. You may update or remove your phone number in your profile where available.
+        </p>
 
         <h3 className="text-lg font-semibold mt-6 mb-3">1.2 Transaction Information</h3>
         <p className="text-gray-300 mb-2">When marketplace transactions occur, we may collect information related to purchases or sales, including:</p>
@@ -80,7 +88,7 @@ function PrivacyPageContent() {
           <li>billing information</li>
           <li>licensing details associated with purchased content</li>
         </ul>
-        <p className="text-gray-300 mb-4">Payment card or financial details are processed by third-party payment processors and are generally not stored directly by AI Media Tank, LLC (AiM).</p>
+        <p className="text-gray-300 mb-4">Payment card or financial details are processed by third-party payment processors and are generally not stored directly by AI Media Tank, LLC (AMT).</p>
 
         <h3 className="text-lg font-semibold mt-6 mb-3">1.3 Creator Content and Metadata</h3>
         <p className="text-gray-300 mb-2">When creators upload media to the Platform, we may collect:</p>
@@ -139,21 +147,22 @@ function PrivacyPageContent() {
         <h3 className="text-lg font-semibold mt-6 mb-3">1.8 Location and Language Preferences</h3>
         <p className="text-gray-300 mb-2">We may collect:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>country or location information you provide at registration</li>
+          <li>country or location information you provide at registration or in your profile</li>
           <li>UI language preferences derived from your profile location or guest geo-detection</li>
-          <li>locale settings used for automatic translation and date formatting</li>
+          <li>locale settings used for automatic translation and for displaying dates (including birthday) in formats aligned with your selected country, while accepting common local input formats</li>
         </ul>
 
         {/* 2. How We Use Information */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">2. How We Use Information</h2>
         <p className="text-gray-300 mb-2">We may use collected information for purposes including:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
-          <li>creating and managing user accounts</li>
+          <li>creating and managing user accounts (including the Register / Log in flows)</li>
+          <li>verifying age eligibility and enforcing the Platform’s minimum-age requirements using date of birth</li>
           <li>operating and maintaining the Platform</li>
           <li>processing marketplace transactions</li>
           <li>enabling creators to publish and sell digital media</li>
           <li>delivering purchased content to buyers</li>
-          <li>communicating with users regarding accounts or services</li>
+          <li>communicating with users regarding accounts or services (including email and SMS verification)</li>
           <li>providing customer support</li>
           <li>improving platform features and performance</li>
           <li>detecting fraud, abuse, or security incidents</li>
@@ -165,7 +174,7 @@ function PrivacyPageContent() {
 
         {/* 3. AI and Automated Processing */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">3. AI and Automated Processing</h2>
-        <p className="text-gray-300 mb-2">AI Media Tank, LLC (AiM) may use automated systems and algorithms to process platform data and uploaded content for purposes such as:</p>
+        <p className="text-gray-300 mb-2">AI Media Tank, LLC (AMT) may use automated systems and algorithms to process platform data and uploaded content for purposes such as:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
           <li>content moderation</li>
           <li>indexing and search functionality</li>
@@ -175,7 +184,7 @@ function PrivacyPageContent() {
           <li>machine translation of user-facing text (titles, descriptions, comments, and chat copy) when automatic translation is enabled</li>
         </ul>
         <p className="text-gray-300 mb-4">Machine-translated text is provided for convenience and may not be accurate. Third-party translation services (such as Azure Translator or MyMemory) may process the text sent for translation.</p>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) does not use user-uploaded content to train artificial intelligence models without explicit permission from the content owner.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) does not use user-uploaded content to train artificial intelligence models without explicit permission from the content owner.</p>
 
         {/* 4. How We Share Information */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">4. How We Share Information</h2>
@@ -203,11 +212,11 @@ function PrivacyPageContent() {
           <li>respond to lawful requests from government authorities</li>
           <li>enforce our Terms of Service</li>
           <li>investigate fraud or illegal activities</li>
-          <li>protect the rights, property, or safety of AI Media Tank, LLC (AiM), our users, or the public</li>
+          <li>protect the rights, property, or safety of AI Media Tank, LLC (AMT), our users, or the public</li>
         </ul>
 
         <h3 className="text-lg font-semibold mt-6 mb-3">4.3 Business Transfers</h3>
-        <p className="text-gray-300 mb-4">If AI Media Tank, LLC (AiM) undergoes a merger, acquisition, financing, reorganization, or sale of assets, user information may be transferred as part of that transaction.</p>
+        <p className="text-gray-300 mb-4">If AI Media Tank, LLC (AMT) undergoes a merger, acquisition, financing, reorganization, or sale of assets, user information may be transferred as part of that transaction.</p>
 
         {/* 5. Cookies */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">5. Cookies and Tracking Technologies</h2>
@@ -235,7 +244,7 @@ function PrivacyPageContent() {
 
         {/* 7. Data Security */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">7. Data Security</h2>
-        <p className="text-gray-300 mb-2">AI Media Tank, LLC (AiM) implements reasonable administrative, technical, and organizational safeguards designed to protect user information, including:</p>
+        <p className="text-gray-300 mb-2">AI Media Tank, LLC (AMT) implements reasonable administrative, technical, and organizational safeguards designed to protect user information, including:</p>
         <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
           <li>encryption where appropriate</li>
           <li>access controls</li>
@@ -260,12 +269,12 @@ function PrivacyPageContent() {
           <li>request disclosure of categories of data shared with third parties</li>
           <li>correct inaccurate personal information</li>
         </ul>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) does not sell personal information.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) does not sell personal information.</p>
         <p className="text-gray-300 mb-4">Requests may be submitted by contacting: <strong>support@aimediatank.com</strong></p>
 
         {/* 10. International Data Transfers */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">10. International Data Transfers</h2>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AiM) operates from the United States.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) operates from the United States.</p>
         <p className="text-gray-300 mb-4">If you access the Platform from outside the United States, your information may be transferred to and processed in the United States or other jurisdictions where our service providers operate. By using the Platform, you consent to such transfers.</p>
         <p className="text-gray-300 mb-4">Users located in regions governed by the General Data Protection Regulation (GDPR) may have additional rights including: access to personal data; correction of inaccurate information; deletion of personal data; restriction of processing; data portability.</p>
 
@@ -283,7 +292,7 @@ function PrivacyPageContent() {
 
         {/* 12. Do Not Track */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">12. Do Not Track Signals</h2>
-        <p className="text-gray-300 mb-4">Some browsers include a &quot;Do Not Track&quot; feature. Because there is not yet a universally accepted standard for responding to such signals, AI Media Tank, LLC (AiM) currently does not respond to Do Not Track requests.</p>
+        <p className="text-gray-300 mb-4">Some browsers include a &quot;Do Not Track&quot; feature. Because there is not yet a universally accepted standard for responding to such signals, AI Media Tank, LLC (AMT) currently does not respond to Do Not Track requests.</p>
 
         {/* 13. Changes */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">13. Changes to This Privacy Policy</h2>
@@ -294,14 +303,14 @@ function PrivacyPageContent() {
         {/* 14. Contact */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">14. Contact Information</h2>
         <div className="bg-tank-dark rounded-xl p-4 space-y-2 mb-4">
-          <p className="text-gray-300"><strong>AI Media Tank, LLC (AiM)</strong></p>
+          <p className="text-gray-300"><strong>AI Media Tank, LLC (AMT)</strong></p>
           <p className="text-gray-300">Email: support@aimediatank.com</p>
           <p className="text-gray-300">Website: https://www.aimediatank.com</p>
         </div>
 
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-tank-light text-center">
-          <p className="text-gray-500 text-sm">&copy; 2025–2026 AI Media Tank, LLC (AiM). All rights reserved.</p>
+          <p className="text-gray-500 text-sm">&copy; 2025–2026 AI Media Tank, LLC (AMT). All rights reserved.</p>
           <p className="text-gray-600 text-xs mt-1">This document should be reviewed by qualified legal counsel. It does not constitute legal advice.</p>
         </div>
 
@@ -358,7 +367,7 @@ function PrivacyPageFallback() {
       </div>
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Privacy Policy</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 · Last Updated: March 6, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 · Last Updated: August 11, 2026</p>
         <p className="text-gray-400">Loading...</p>
       </div>
     </div>
