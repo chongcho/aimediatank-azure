@@ -731,13 +731,11 @@ export default function RegisterPage() {
     setAttemptedSubmit(true)
 
     if (submitBlockers.length > 0) {
-      setError(submitBlockers[0])
       return
     }
 
     const birthdayIso = parseBirthdayToIso(formData.birthday, { preferDayFirst: dayFirstDates })
     if (!birthdayIso) {
-      setError(REGISTER_STRINGS[R.birthdayInvalidHint])
       return
     }
 
@@ -859,7 +857,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="card">
-          {error && (
+          {error && !showEmailForm && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
               {translatedError}
             </div>
@@ -1268,27 +1266,33 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {attemptedSubmit && submitBlockers.length > 0 && (
+            {(attemptedSubmit && submitBlockers.length > 0) || error ? (
               <div
                 className="p-4 bg-yellow-500/10 border border-yellow-500/40 rounded-xl text-yellow-200 text-sm"
                 role="alert"
                 aria-live="assertive"
               >
-                <p className="font-semibold text-yellow-300 mb-2 flex items-center gap-2">
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  {tr[R.fixToCreateAccount]}
-                </p>
-                <ul className="list-disc pl-5 space-y-1 text-yellow-100/90">
-                  {submitBlockers.map((msg) => (
-                    <li key={msg}>
-                      <LanguageModeTrans text={msg} />
-                    </li>
-                  ))}
-                </ul>
+                {attemptedSubmit && submitBlockers.length > 0 ? (
+                  <>
+                    <p className="font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      {tr[R.fixToCreateAccount]}
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 text-yellow-100/90">
+                      {submitBlockers.map((msg) => (
+                        <li key={msg}>
+                          <LanguageModeTrans text={msg} />
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="text-red-400">{translatedError}</p>
+                )}
               </div>
-            )}
+            ) : null}
 
             <div className="flex gap-3">
               <button
@@ -1300,9 +1304,9 @@ export default function RegisterPage() {
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (attemptedSubmit && submitBlockers.length > 0)}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${
-                  loading
+                  loading || (attemptedSubmit && submitBlockers.length > 0)
                     ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     : 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
                 }`}
@@ -1319,18 +1323,6 @@ export default function RegisterPage() {
             </div>
           </form>
           )}
-
-          <p className="mt-6 text-center text-sm text-gray-400">
-            <LanguageModeTrans text={REGISTER_STRINGS[43]} />{' '}
-<Link href="/terms?from=register" className="text-tank-accent hover:underline font-medium">
-            {tr[44]}
-          </Link>
-          {' '}<LanguageModeTrans text={REGISTER_STRINGS[45]} />{' '}
-          <Link href="/privacy?from=register" className="text-tank-accent hover:underline font-medium">
-            {tr[46]}
-          </Link>
-            {' '}<LanguageModeTrans text={REGISTER_STRINGS[47]} />
-          </p>
         </div>
 
         <p className="text-center mt-6 text-gray-400">
