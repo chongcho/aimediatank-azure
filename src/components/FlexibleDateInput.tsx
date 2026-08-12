@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { parseBirthdayToIso } from '@/lib/birthday'
 
 type Props = {
@@ -23,11 +23,9 @@ type Props = {
 
 /**
  * Locale-friendly date field for iOS + Android:
- * - Type manually (ISO, Chinese 年/月/日, common slash forms)
- * - Calendar button opens the native picker
+ * - Type manually (ISO, Chinese 年/月/日, Korean 년/월/일, EU forms)
+ * - Calendar control is a real <input type="date"> overlay (iOS has no showPicker for dates)
  * - Dismissing/canceling the picker leaves the text field editable
- *
- * Pure <input type="date"> on Android does not allow keyboard entry.
  */
 export default function FlexibleDateInput({
   value,
@@ -41,7 +39,6 @@ export default function FlexibleDateInput({
   preferDayFirst = false,
 }: Props) {
   const [text, setText] = useState(value)
-  const dateRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const valueIso = parseBirthdayToIso(value, { preferDayFirst })
@@ -56,21 +53,6 @@ export default function FlexibleDateInput({
     parseBirthdayToIso(text, { preferDayFirst }) ||
     parseBirthdayToIso(value, { preferDayFirst }) ||
     ''
-
-  const openCalendar = () => {
-    const el = dateRef.current
-    if (!el) return
-    try {
-      if (typeof el.showPicker === 'function') {
-        void el.showPicker()
-        return
-      }
-    } catch {
-      // NotAllowedError / unsupported — fall through
-    }
-    el.focus()
-    el.click()
-  }
 
   const handleTextChange = (raw: string) => {
     setText(raw)
@@ -92,6 +74,7 @@ export default function FlexibleDateInput({
   }
 
   const handleDatePicked = (iso: string) => {
+    // Cancel on some platforms does not fire change; ignore empty clears
     if (!iso) return
     setText(iso)
     onChange(iso)
@@ -112,31 +95,33 @@ export default function FlexibleDateInput({
         enterKeyHint="done"
         className={`min-w-0 flex-1 ${className}`.trim()}
       />
-      <button
-        type="button"
-        onClick={openCalendar}
-        className="flex-shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-3 rounded-xl bg-tank-gray border border-tank-light text-white hover:bg-tank-light transition-colors"
-        aria-label={calendarLabel}
-        title={calendarLabel}
-      >
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-          />
-        </svg>
-      </button>
-      <input
-        ref={dateRef}
-        type="date"
-        value={isoForPicker}
-        onChange={(e) => handleDatePicked(e.target.value)}
-        tabIndex={-1}
-        aria-hidden
-        className="birthday-native-picker pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
-      />
+      {/*
+        iOS Safari/WKWebView: showPicker() does not open date pickers.
+        Put a real type="date" over the icon so the tap hits the native control.
+      */}
+      <div className="relative flex-shrink-0 min-h-[44px] min-w-[44px]">
+        <div
+          className="flex h-full min-h-[44px] min-w-[44px] items-center justify-center px-3 rounded-xl bg-tank-gray border border-tank-light text-white pointer-events-none"
+          aria-hidden
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
+        <input
+          type="date"
+          value={isoForPicker}
+          onChange={(e) => handleDatePicked(e.target.value)}
+          aria-label={calendarLabel}
+          title={calendarLabel}
+          className="birthday-native-picker absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+        />
+      </div>
     </div>
   )
 }
