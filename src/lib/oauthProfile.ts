@@ -4,6 +4,8 @@
  * family_name, picture; birthdate is rarely present without extra scopes.
  */
 
+import { parseBirthdayToDate } from '@/lib/birthday'
+
 export function decodeJwtPayload(token: string | undefined | null): Record<string, unknown> | null {
   if (!token || typeof token !== 'string') return null
   const parts = token.split('.')
@@ -55,21 +57,14 @@ export function legalNameFromOAuthClaims(c: Record<string, unknown>): string | n
   return legalNameFromDisplayNameOnly(name)
 }
 
-/** OIDC birthdate claim (YYYY-MM-DD) when the IdP issues it. */
+/** OIDC birthdate claim (usually YYYY-MM-DD; also accepts 年/月/日 if present). */
 export function birthDateFromOAuthClaims(c: Record<string, unknown>): Date | null {
   const raw =
     (typeof c.birthdate === 'string' && c.birthdate.trim()) ||
     (typeof c.birthday === 'string' && c.birthday.trim()) ||
     ''
   if (!raw) return null
-  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw)
-  if (!iso) return null
-  const y = Number(iso[1])
-  const mo = Number(iso[2])
-  const day = Number(iso[3])
-  const d = new Date(Date.UTC(y, mo - 1, day))
-  if (d.getUTCFullYear() !== y || d.getUTCMonth() !== mo - 1 || d.getUTCDate() !== day) return null
-  return d
+  return parseBirthdayToDate(raw)
 }
 
 export function pictureUrlFromOAuthClaims(c: Record<string, unknown>): string | null {

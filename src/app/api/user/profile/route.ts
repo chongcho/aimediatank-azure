@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import { prisma } from '@/lib/prisma'
 import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
+import { parseBirthdayToIso, parseBirthdayToDate } from '@/lib/birthday'
 import bcrypt from 'bcryptjs'
 
 export const dynamic = 'force-dynamic'
@@ -156,7 +157,20 @@ export async function PUT(request: Request) {
     }
     if (location !== undefined) updateData.location = location
     if (bio !== undefined) updateData.bio = bio
-    if (birthday !== undefined) updateData.birthday = birthday ? new Date(birthday) : null
+    if (birthday !== undefined) {
+      if (!birthday) {
+        updateData.birthday = null
+      } else {
+        const birthdayIso = parseBirthdayToIso(String(birthday))
+        if (!birthdayIso) {
+          return NextResponse.json(
+            { error: 'Please enter a valid birthday' },
+            { status: 400 }
+          )
+        }
+        updateData.birthday = parseBirthdayToDate(birthdayIso)
+      }
+    }
     if (avatar !== undefined) updateData.avatar = avatar
 
     // Hash password if provided

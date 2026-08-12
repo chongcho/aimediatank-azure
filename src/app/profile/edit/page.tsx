@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
+import { parseBirthdayToIso, preferDayFirstFromLocation } from '@/lib/birthday'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import { persistFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
+import BirthdayInput from '@/components/BirthdayInput'
 import PasswordField from '@/components/PasswordField'
 import SmsOptInDisclosure from '@/components/SmsOptInDisclosure'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
@@ -764,8 +766,10 @@ export default function EditProfilePage() {
       return
     }
 
-    if (!formData.birthday) {
-      setError('Please enter your birthday')
+    const dayFirstDates = preferDayFirstFromLocation(formData.location)
+    const birthdayIso = parseBirthdayToIso(formData.birthday, { preferDayFirst: dayFirstDates })
+    if (!birthdayIso) {
+      setError('Please enter a valid birthday (e.g. 1990-01-15 or 1990年1月15日)')
       return
     }
 
@@ -816,7 +820,7 @@ export default function EditProfilePage() {
         phone: formData.phone,
         location: formData.location,
         bio: formData.bio,
-        birthday: formData.birthday || undefined,
+        birthday: birthdayIso,
         avatar: formData.avatar,
       }
       if (authSettings.phoneVerificationEnabled && phoneChangedAndValid && phoneVerificationState.code.trim().length === 6) {
@@ -1024,17 +1028,17 @@ export default function EditProfilePage() {
             </div>
           </div>
 
-          {/* Birthday */}
+          {/* Birthday — manual entry (incl. 年/月/日) + native calendar */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               {tr[7]}
             </label>
-            <input
-              type="date"
+            <BirthdayInput
+              name="birthday"
               value={formData.birthday}
-              onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
+              onChange={(value) => setFormData({ ...formData, birthday: value })}
+              preferDayFirst={preferDayFirstFromLocation(formData.location)}
               required
-              className="w-full"
             />
           </div>
 

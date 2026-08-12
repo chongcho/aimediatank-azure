@@ -11,6 +11,7 @@ import {
   isEntraLookupConfigured,
   mergeEntraProfileIntoUser,
 } from '@/lib/entraUserLookup'
+import { parseBirthdayToDate } from '@/lib/birthday'
 import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
@@ -2371,6 +2372,27 @@ export async function POST(request: Request) {
         if (!promotionData?.name || !promotionData?.type) {
           return NextResponse.json({ error: 'Name and type are required' }, { status: 400 })
         }
+
+        const startDate =
+          promotionData.startDate != null && String(promotionData.startDate).trim()
+            ? parseBirthdayToDate(String(promotionData.startDate))
+            : new Date()
+        if (promotionData.startDate != null && String(promotionData.startDate).trim() && !startDate) {
+          return NextResponse.json(
+            { error: 'Invalid start date. Use YYYY-MM-DD or 2026年5月3日.' },
+            { status: 400 }
+          )
+        }
+        let endDate: Date | null = null
+        if (promotionData.endDate != null && String(promotionData.endDate).trim()) {
+          endDate = parseBirthdayToDate(String(promotionData.endDate))
+          if (!endDate) {
+            return NextResponse.json(
+              { error: 'Invalid end date. Use YYYY-MM-DD or 2026年5月3日.' },
+              { status: 400 }
+            )
+          }
+        }
         
         const promotion = await prisma.promotion.create({
           data: {
@@ -2383,8 +2405,8 @@ export async function POST(request: Request) {
             freeTrialDays: promotionData.freeTrialDays ? parseInt(promotionData.freeTrialDays) : null,
             applicablePlans: promotionData.applicablePlans || 'all',
             promoCode: promotionData.promoCode || null,
-            startDate: promotionData.startDate ? new Date(promotionData.startDate) : new Date(),
-            endDate: promotionData.endDate ? new Date(promotionData.endDate) : null,
+            startDate: startDate ?? new Date(),
+            endDate,
             usageLimit: promotionData.usageLimit ? parseInt(promotionData.usageLimit) : null,
             isActive: promotionData.isActive ?? true,
             showPopup: promotionData.showPopup ?? false,
@@ -2418,8 +2440,34 @@ export async function POST(request: Request) {
         if (updateData.freeTrialDays !== undefined) updateObj.freeTrialDays = updateData.freeTrialDays ? parseInt(updateData.freeTrialDays) : null
         if (updateData.applicablePlans !== undefined) updateObj.applicablePlans = updateData.applicablePlans
         if (updateData.promoCode !== undefined) updateObj.promoCode = updateData.promoCode || null
-        if (updateData.startDate !== undefined) updateObj.startDate = updateData.startDate ? new Date(updateData.startDate) : new Date()
-        if (updateData.endDate !== undefined) updateObj.endDate = updateData.endDate ? new Date(updateData.endDate) : null
+        if (updateData.startDate !== undefined) {
+          if (!updateData.startDate || !String(updateData.startDate).trim()) {
+            updateObj.startDate = new Date()
+          } else {
+            const parsedStart = parseBirthdayToDate(String(updateData.startDate))
+            if (!parsedStart) {
+              return NextResponse.json(
+                { error: 'Invalid start date. Use YYYY-MM-DD or 2026年5月3日.' },
+                { status: 400 }
+              )
+            }
+            updateObj.startDate = parsedStart
+          }
+        }
+        if (updateData.endDate !== undefined) {
+          if (!updateData.endDate || !String(updateData.endDate).trim()) {
+            updateObj.endDate = null
+          } else {
+            const parsedEnd = parseBirthdayToDate(String(updateData.endDate))
+            if (!parsedEnd) {
+              return NextResponse.json(
+                { error: 'Invalid end date. Use YYYY-MM-DD or 2026年5月3日.' },
+                { status: 400 }
+              )
+            }
+            updateObj.endDate = parsedEnd
+          }
+        }
         if (updateData.usageLimit !== undefined) updateObj.usageLimit = updateData.usageLimit ? parseInt(updateData.usageLimit) : null
         if (updateData.isActive !== undefined) updateObj.isActive = updateData.isActive
         if (updateData.showPopup !== undefined) updateObj.showPopup = updateData.showPopup

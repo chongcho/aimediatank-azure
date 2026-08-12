@@ -3,6 +3,7 @@ import { hash } from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
 import { BlobServiceClient } from '@azure/storage-blob'
+import { parseBirthdayToIso, parseBirthdayToDate } from '@/lib/birthday'
 
 // Function to generate verification token
 function generateVerificationToken() {
@@ -109,6 +110,18 @@ export async function POST(request: Request) {
       }
     }
 
+    const birthdayIso =
+      birthday != null && String(birthday).trim()
+        ? parseBirthdayToIso(String(birthday))
+        : null
+    if (birthday != null && String(birthday).trim() && !birthdayIso) {
+      return NextResponse.json(
+        { error: 'Please enter a valid birthday' },
+        { status: 400 }
+      )
+    }
+    const birthdayDate = birthdayIso ? parseBirthdayToDate(birthdayIso) : null
+
     // Hash password
     const hashedPassword = await hash(password, 12)
     
@@ -136,7 +149,7 @@ export async function POST(request: Request) {
           location: location || null,
           bio: bio || null,
           avatar: avatarUrl,
-          birthday: birthday ? new Date(birthday) : null,
+          birthday: birthdayDate,
           role: userRole,
           policyAgreedAt: new Date(),
           authProvider: 'Email',
@@ -166,7 +179,7 @@ export async function POST(request: Request) {
             location: location || null,
             bio: bio || null,
             avatar: avatarUrl,
-            birthday: birthday ? new Date(birthday) : null,
+            birthday: birthdayDate,
             authProvider: 'Email',
           },
     })

@@ -1,7 +1,7 @@
 'use client'
 
 // Registration page with email verification
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PasswordField from '@/components/PasswordField'
@@ -9,8 +9,10 @@ import { SocialSignIn } from '@/components/SocialSignIn'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
 import SmsOptInDisclosure from '@/components/SmsOptInDisclosure'
 import { compressImage } from '@/lib/mediaCompression'
+import { parseBirthdayToIso, preferDayFirstFromLocation } from '@/lib/birthday'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
 import { LanguageModeTrans } from '@/components/LanguageModeTrans'
+import BirthdayInput from '@/components/BirthdayInput'
 
 const COUNTRY_VALUES = [
   'United States',
@@ -146,6 +148,10 @@ const REGISTER_STRINGS = [
   '/month',
   '/year',
   'You can cancel anytime. Your subscription continues until the end of the billing period.',
+  'To create your account, please fix:',
+  'Please enter a valid birthday (e.g. 1990-01-15, 1990年1月15日, or 31.12.1990)',
+  'Please enter your email',
+  'Please enter a password',
 ] as const
 
 const MEMBERSHIP_PLANS: Record<
@@ -176,6 +182,10 @@ const R = {
   perMonth: 77,
   perYear: 78,
   billingCancelNote: 79,
+  fixToCreateAccount: 80,
+  birthdayInvalidHint: 81,
+  emailRequired: 82,
+  passwordRequired: 83,
 } as const
 
 export default function RegisterPage() {
@@ -199,6 +209,7 @@ export default function RegisterPage() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
   const [success, setSuccess] = useState(false)
   const [verificationUrl, setVerificationUrl] = useState('')
   
@@ -653,56 +664,80 @@ export default function RegisterPage() {
     }
   }
 
+  const dayFirstDates = preferDayFirstFromLocation(formData.location)
+
+  const phoneNeedsVerification =
+    authSettings.phoneVerificationEnabled &&
+    formData.phone.trim().replace(/\D/g, '').length >= 10 &&
+    !phoneVerificationState.codeVerified
+
+  const submitBlockers = useMemo(() => {
+    const blockers: string[] = []
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      blockers.push('Please enter your first and last name')
+    }
+    if (!parseBirthdayToIso(formData.birthday, { preferDayFirst: dayFirstDates })) {
+      blockers.push(REGISTER_STRINGS[R.birthdayInvalidHint])
+    }
+    if (!formData.email.trim()) {
+      blockers.push(REGISTER_STRINGS[R.emailRequired])
+    } else if (authSettings.emailVerificationEnabled && !verificationState.codeVerified) {
+      blockers.push('Please verify your email address first')
+    }
+    if (!formData.location) {
+      blockers.push('Please select your location')
+    }
+    if (!usernameStatus.valid || !usernameStatus.available) {
+      blockers.push('Please choose an available Nickname')
+    }
+    if (phoneNeedsVerification) {
+      blockers.push('Please verify your phone number first')
+    }
+    if (!formData.password) {
+      blockers.push(REGISTER_STRINGS[R.passwordRequired])
+    } else if (formData.password.length < 6) {
+      blockers.push('Password must be at least 6 characters')
+    }
+    if (formData.password !== formData.confirmPassword) {
+      blockers.push('Passwords do not match')
+    }
+    if (!policyAgreed) {
+      blockers.push('You must agree to the policy to create an account')
+    }
+    return blockers
+  }, [
+    formData.firstName,
+    formData.lastName,
+    formData.birthday,
+    formData.email,
+    formData.location,
+    formData.password,
+    formData.confirmPassword,
+    formData.phone,
+    authSettings.emailVerificationEnabled,
+    authSettings.phoneVerificationEnabled,
+    verificationState.codeVerified,
+    phoneVerificationState.codeVerified,
+    usernameStatus.valid,
+    usernameStatus.available,
+    phoneNeedsVerification,
+    policyAgreed,
+    dayFirstDates,
+  ])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setAttemptedSubmit(true)
 
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      setError('Please enter your first and last name')
+    if (submitBlockers.length > 0) {
+      setError(submitBlockers[0])
       return
     }
 
-    if (!formData.birthday) {
-      setError('Please enter your birthday')
-      return
-    }
-
-    if (!formData.location) {
-      setError('Please select your location')
-      return
-    }
-
-    // Check username availability
-    if (!usernameStatus.valid || !usernameStatus.available) {
-      setError('Please choose an available Nickname')
-      return
-    }
-
-    // Check email verification
-    if (authSettings.emailVerificationEnabled && !verificationState.codeVerified) {
-      setError('Please verify your email address first')
-      return
-    }
-
-    // If phone provided, require phone verification (two-step)
-    const phoneTrimmed = formData.phone.trim()
-    if (
-      authSettings.phoneVerificationEnabled &&
-      phoneTrimmed &&
-      phoneTrimmed.replace(/\D/g, '').length >= 10 &&
-      !phoneVerificationState.codeVerified
-    ) {
-      setError('Please verify your phone number first')
-      return
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
-
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters')
+    const birthdayIso = parseBirthdayToIso(formData.birthday, { preferDayFirst: dayFirstDates })
+    if (!birthdayIso) {
+      setError(REGISTER_STRINGS[R.birthdayInvalidHint])
       return
     }
 
@@ -725,7 +760,7 @@ export default function RegisterPage() {
           phone: formData.phone,
           location: formData.location,
           bio: formData.bio,
-          birthday: formData.birthday.trim() || undefined,
+          birthday: birthdayIso,
           avatarDataUrl,
         }),
       })
@@ -852,7 +887,7 @@ export default function RegisterPage() {
               </button>
             </>
           ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <AvatarNicknameBioBlock
               avatarPreviewUrl={avatarPreview}
               username={formData.username}
@@ -901,19 +936,19 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Birthday — same as Edit Profile (`type="date"`) */}
+            {/* Birthday — manual entry (incl. 年/月/日) + native calendar */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 {tr[8]}
               </label>
-              <input
-                type="date"
+              <BirthdayInput
                 name="birthday"
                 value={formData.birthday}
-                onChange={handleChange}
-                autoComplete="bday"
+                onChange={(value) =>
+                  setFormData((prev) => ({ ...prev, birthday: value }))
+                }
+                preferDayFirst={dayFirstDates}
                 required
-                className="w-full"
               />
             </div>
 
@@ -1233,6 +1268,28 @@ export default function RegisterPage() {
               )}
             </div>
 
+            {attemptedSubmit && submitBlockers.length > 0 && (
+              <div
+                className="p-4 bg-yellow-500/10 border border-yellow-500/40 rounded-xl text-yellow-200 text-sm"
+                role="alert"
+                aria-live="assertive"
+              >
+                <p className="font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  {tr[R.fixToCreateAccount]}
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-yellow-100/90">
+                  {submitBlockers.map((msg) => (
+                    <li key={msg}>
+                      <LanguageModeTrans text={msg} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <button
                 type="button"
@@ -1243,16 +1300,11 @@ export default function RegisterPage() {
               </button>
               <button
                 type="submit"
-                disabled={
-                  loading ||
-                  !policyAgreed ||
-                  (formData.phone.trim().replace(/\D/g, '').length >= 10 && !phoneVerificationState.codeVerified)
-                }
+                disabled={loading}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${
-                  policyAgreed &&
-                  !(formData.phone.trim().replace(/\D/g, '').length >= 10 && !phoneVerificationState.codeVerified)
-                    ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
-                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  loading
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    : 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
                 }`}
               >
                 {loading ? (

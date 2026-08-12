@@ -544,6 +544,21 @@ input[type="date"]::-webkit-datetime-edit-year-field {
   color: inherit;
 }
 
+/*
+ * Birthday calendar: stretch WebKit picker indicator when the native control
+ * is used as a visible overlay fallback (kept for Android WebView quirks).
+ */
+input.birthday-native-picker::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
 /* Number input spinner spacing - add gap between number and arrows */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {

@@ -8,6 +8,8 @@ import { ABNORMAL_FLAG_LABELS } from '@/lib/accessLogAbnormal'
 import { parseIpDebugHeaders } from '@/lib/ipDebugHeaders'
 import { clampUploadSizeMb, UPLOAD_MAX_SIZE_MB_MIN, UPLOAD_MAX_SIZE_MB_MAX, getUploadsAvailable } from '@/lib/uploadPlanConfig'
 import MarketingPopupView from '@/components/MarketingPopupView'
+import FlexibleDateInput from '@/components/FlexibleDateInput'
+import { parseBirthdayToIso } from '@/lib/birthday'
 import {
   goToAdminReauth,
   isAdminReauthRequiredResponse,
@@ -1362,17 +1364,34 @@ export default function AdminPage() {
   }
   
   const savePromotion = async () => {
+    const startIso = parseBirthdayToIso(promotionForm.startDate)
+    if (!startIso) {
+      alert('Invalid start date. Use YYYY-MM-DD or 2026年5月3日.')
+      return
+    }
+    const endRaw = promotionForm.endDate?.trim() || ''
+    const endIso = endRaw ? parseBirthdayToIso(endRaw) : ''
+    if (endRaw && !endIso) {
+      alert('Invalid end date. Use YYYY-MM-DD or 2026年5月3日.')
+      return
+    }
+
     setPromotionsLoading(true)
     try {
       const action = editingPromotion ? 'updatePromotion' : 'createPromotion'
+      const payload = {
+        ...promotionForm,
+        startDate: startIso,
+        endDate: endIso || '',
+      }
       const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action,
           data: editingPromotion 
-            ? { promotionId: editingPromotion.id, ...promotionForm }
-            : promotionForm
+            ? { promotionId: editingPromotion.id, ...payload }
+            : payload
         })
       })
       const data = await res.json()
@@ -5884,20 +5903,24 @@ export default function AdminPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray-400 text-sm mb-1">Start Date</label>
-                  <input
-                    type="date"
+                  <FlexibleDateInput
+                    name="startDate"
                     value={promotionForm.startDate}
-                    onChange={(e) => setPromotionForm(prev => ({ ...prev, startDate: e.target.value }))}
+                    onChange={(startDate) => setPromotionForm((prev) => ({ ...prev, startDate }))}
+                    placeholder="YYYY-MM-DD or 2026年5月3日"
                     className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                    calendarLabel="Open start date calendar"
                   />
                 </div>
                 <div>
                   <label className="block text-gray-400 text-sm mb-1">End Date (optional)</label>
-                  <input
-                    type="date"
+                  <FlexibleDateInput
+                    name="endDate"
                     value={promotionForm.endDate}
-                    onChange={(e) => setPromotionForm(prev => ({ ...prev, endDate: e.target.value }))}
+                    onChange={(endDate) => setPromotionForm((prev) => ({ ...prev, endDate }))}
+                    placeholder="YYYY-MM-DD or 2026年5月3日"
                     className="w-full bg-tank-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
+                    calendarLabel="Open end date calendar"
                   />
                 </div>
               </div>
