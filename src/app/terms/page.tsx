@@ -39,7 +39,7 @@ function TermsPageContent() {
             )}
             {(!fromAuth || fromRegister) && (
               <Link href="/register" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">
-                Previous to Join
+                Previous to Register
               </Link>
             )}
           </div>
@@ -398,7 +398,7 @@ function TermsPageContent() {
               href="/register"
               className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent font-medium"
             >
-              Previous to Join
+              Previous to Register
             </Link>
           )}
         </div>
@@ -416,7 +416,7 @@ function TermsPageFallback() {
         <Link href="/privacy" className="text-tank-accent hover:underline">Privacy Policy</Link>
         <div className="ml-auto flex gap-2">
           <Link href="/login" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">Previous to Log in</Link>
-          <Link href="/register" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">Previous to Join</Link>
+          <Link href="/register" className="inline-flex items-center px-3 py-1.5 rounded-lg border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-tank-accent text-sm font-medium">Previous to Register</Link>
         </div>
       </div>
       <div className="card prose prose-invert max-w-none">

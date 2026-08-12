@@ -140,7 +140,7 @@ export default function MarketingPopupView({
               onClick={handleCta}
               className="min-w-[100px] px-7 py-2 rounded-xl bg-green-500 text-white text-3xl font-extrabold hover:bg-green-600 transition-colors shadow leading-none"
             >
-              {copied ? 'Copied!' : popupButtonText || 'Join'}
+              {copied ? 'Copied!' : popupButtonText || 'Register'}
             </button>
           </div>
 

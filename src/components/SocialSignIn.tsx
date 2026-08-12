@@ -98,7 +98,7 @@ export function SocialSignIn({ mode, callbackUrl = '/', hideDividerAbove = false
 
   if (buttons.length === 0) return null
 
-  const actionText = mode === 'signin' ? 'Continue with' : 'Join with'
+  const actionText = mode === 'signin' ? 'Continue with' : 'Register with'
 
   return (
     <>

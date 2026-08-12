@@ -46,7 +46,7 @@ const EN: Pack = {
   home: 'Home',
   notifications: 'Notifications',
   signIn: 'Log in',
-  signUp: 'Join',
+  signUp: 'Register',
   signOut: 'Log out',
   openMenu: 'Open menu',
   closeMenu: 'Close menu',

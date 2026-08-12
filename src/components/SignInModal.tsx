@@ -169,12 +169,9 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
               <span style={{ color: '#3b82f6' }}>T</span>ank
             </span>
           </div>
-          <h2 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0' }}>
-            Welcome Back
+          <h2 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
+            Log in / Register
           </h2>
-          <p style={{ color: '#888', fontSize: '14px', margin: 0 }}>
-            Log in to your account
-          </p>
         </div>
 
         {/* Forgot Email Form */}
@@ -478,17 +475,27 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
           {' '}and acknowledge that you have read and accepted all applicable rules and regulations.
         </p>
 
-        {/* Footer */}
-        <p style={{ textAlign: 'center', color: '#888', fontSize: '14px', margin: '16px 0 0 0' }}>
-          Don&apos;t have an account?{' '}
-          <Link 
-            href="/register" 
-            onClick={onClose}
-            style={{ color: '#10b981', textDecoration: 'underline' }}
-          >
-            Join
-          </Link>
-        </p>
+        <Link
+          href="/register"
+          onClick={onClose}
+          style={{
+            display: 'flex',
+            width: '100%',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: '16px',
+            padding: '12px 16px',
+            borderRadius: '12px',
+            backgroundColor: '#10b981',
+            color: '#0a0a0a',
+            fontSize: '16px',
+            fontWeight: 600,
+            textAlign: 'center',
+            textDecoration: 'none',
+          }}
+        >
+          Don&apos;t have an account? Register
+        </Link>
       </div>
     </div>
   )

@@ -491,7 +491,7 @@ export default function AdminPage() {
     showPopup: false,
     popupTitle: '',
     popupMessage: '',
-    popupButtonText: 'Join',
+    popupButtonText: 'Register',
     popupImageUrl: '',
     popupCtaUrl: '/register',
   })
@@ -1330,7 +1330,7 @@ export default function AdminPage() {
       showPopup: false,
       popupTitle: '',
       popupMessage: '',
-      popupButtonText: 'Join',
+      popupButtonText: 'Register',
       popupImageUrl: '',
       popupCtaUrl: '/register',
     })
@@ -1356,7 +1356,7 @@ export default function AdminPage() {
       showPopup: promo.showPopup,
       popupTitle: promo.popupTitle || '',
       popupMessage: promo.popupMessage || '',
-      popupButtonText: promo.popupButtonText || 'Join',
+      popupButtonText: promo.popupButtonText || 'Register',
       popupImageUrl: promo.popupImageUrl || '',
       popupCtaUrl: promo.popupCtaUrl || '',
     })
@@ -5977,7 +5977,7 @@ export default function AdminPage() {
                           type="text"
                           value={promotionForm.popupButtonText}
                           onChange={(e) => setPromotionForm(prev => ({ ...prev, popupButtonText: e.target.value }))}
-                          placeholder="Join"
+                          placeholder="Register"
                           className="w-full bg-tank-gray border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tank-accent"
                         />
                       </div>

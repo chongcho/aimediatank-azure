@@ -71,7 +71,7 @@ const REGISTER_STRINGS = [
   'Create Account',
   'Close',
   'Or',
-  'Join with Email',
+  'Register with Email',
   'Name *',
   'First',
   'Middle',

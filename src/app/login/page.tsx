@@ -218,7 +218,7 @@ function LoginContent() {
             </p>
           )}
           <div className="flex items-center justify-center relative">
-            <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
+            <h1 className="text-3xl font-bold mb-2">Log in / Register</h1>
             <button
               type="button"
               onClick={() => { window.location.href = '/' }}
@@ -230,7 +230,6 @@ function LoginContent() {
               </svg>
             </button>
           </div>
-          <p className="text-gray-400">Log in to your account</p>
           {returningToAdmin && (
             <p className="text-sm text-gray-300 mt-3 max-w-md mx-auto">
               Use your email and password here first. Step 2 (after login) is Admin Panel verification: a server-configured admin passphrase plus email or phone code.
@@ -444,12 +443,12 @@ function LoginContent() {
           </p>
         </div>
 
-        <p className="text-center mt-6 text-gray-400">
-          Don't have an account?{' '}
-          <Link href="/register" className="text-tank-accent hover:underline">
-            Join
-          </Link>
-        </p>
+        <Link
+          href="/register"
+          className="mt-6 flex w-full items-center justify-center rounded-xl bg-tank-accent px-4 py-3 text-center text-base font-semibold text-tank-black transition-colors hover:bg-tank-accent/90"
+        >
+          Don&apos;t have an account? Register
+        </Link>
       </div>
     </div>
   )
@@ -467,8 +466,7 @@ function LoginFallback() {
               <span className="text-sky-400">T</span>ank
             </span>
           </Link>
-          <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
-          <p className="text-gray-400">Log in to your account</p>
+          <h1 className="text-3xl font-bold mb-2">Log in / Register</h1>
         </div>
         <div className="card flex items-center justify-center py-12">
           <span className="spinner w-8 h-8" />

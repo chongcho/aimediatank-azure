@@ -364,7 +364,7 @@ export default function AboutPage() {
 
           <div className="grid md:grid-cols-4 gap-6">
             {[
-              { step: '01', title: 'Create an Account', desc: 'Join free with email or social login (Google, Microsoft, Facebook, Apple). Set up your creator profile in minutes.' },
+              { step: '01', title: 'Create an Account', desc: 'Register free with email or social login (Google, Microsoft, Facebook, Apple). Set up your creator profile in minutes.' },
               { step: '02', title: 'Upload Your Media', desc: 'Use the streamlined upload form — with crop tool for images — to publish videos, images, or music. Tag AI tools, real devices, and set pricing.' },
               { step: '03', title: 'Get Discovered', desc: 'Your content appears in the feed with professional badges, hashtags, and metadata. The community rates, comments, shares, and chats.' },
               { step: '04', title: 'Earn & Grow', desc: 'Sell through Stripe-powered checkout, connect via Open Chat, Private Chat, and Voice Talk, and scale your creative business.' },
