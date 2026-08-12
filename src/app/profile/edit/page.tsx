@@ -1028,7 +1028,27 @@ export default function EditProfilePage() {
             </div>
           </div>
 
-          {/* Birthday — manual entry (incl. 年/月/日) + native calendar */}
+          {/* Location — above Birthday so date format can follow country */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              {tr[24]}
+            </label>
+            <select
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              required
+              className="w-full"
+            >
+              <option value="">{tr[25]}</option>
+              {COUNTRY_NAMES.map((value, index) => (
+                <option key={value} value={value}>
+                  {countryLabels[index]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Birthday — format follows Location */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               {tr[7]}
@@ -1037,7 +1057,7 @@ export default function EditProfilePage() {
               name="birthday"
               value={formData.birthday}
               onChange={(value) => setFormData({ ...formData, birthday: value })}
-              preferDayFirst={preferDayFirstFromLocation(formData.location)}
+              location={formData.location}
               required
             />
           </div>
@@ -1182,26 +1202,6 @@ export default function EditProfilePage() {
                 )}
               </div>
             )}
-          </div>
-
-          {/* Location */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              {tr[24]}
-            </label>
-            <select
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              required
-              className="w-full"
-            >
-              <option value="">{tr[25]}</option>
-              {COUNTRY_NAMES.map((value, index) => (
-                <option key={value} value={value}>
-                  {countryLabels[index]}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Password Section */}

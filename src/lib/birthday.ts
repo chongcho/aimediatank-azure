@@ -11,6 +11,9 @@ export type ParseDateOptions = {
   preferDayFirst?: boolean
 }
 
+/** How birthday should be shown / suggested for a registration Location. */
+export type BirthdayDateStyle = 'mdy' | 'dmy' | 'dmy-dot' | 'ymd' | 'zh' | 'ko'
+
 function pad2(n: number): string {
   return String(n).padStart(2, '0')
 }
@@ -30,11 +33,82 @@ function toIsoIfValid(year: number, month: number, day: number): string | null {
 /** Countries in our Location list that commonly type month/day/year when ambiguous. */
 const MONTH_FIRST_LOCATIONS = new Set(['United States', 'Canada', 'Philippines'])
 
+const STYLE_ZH = new Set(['China', 'Taiwan', 'Hong Kong', 'Japan'])
+const STYLE_KO = new Set(['South Korea'])
+const STYLE_YMD = new Set(['Sweden'])
+const STYLE_DMY_DOT = new Set([
+  'Germany',
+  'Austria',
+  'Switzerland',
+  'Poland',
+  'Russia',
+  'Ukraine',
+  'Norway',
+  'Denmark',
+  'Finland',
+])
+
 /** Prefer DMY for most registration countries; MDY for US/Canada/Philippines (and empty → US default). */
 export function preferDayFirstFromLocation(location: string | null | undefined): boolean {
+  const style = birthdayDateStyleFromLocation(location)
+  return style === 'dmy' || style === 'dmy-dot'
+}
+
+export function birthdayDateStyleFromLocation(location: string | null | undefined): BirthdayDateStyle {
   const loc = typeof location === 'string' ? location.trim() : ''
-  if (!loc) return false
-  return !MONTH_FIRST_LOCATIONS.has(loc)
+  if (!loc || MONTH_FIRST_LOCATIONS.has(loc)) return 'mdy'
+  if (STYLE_ZH.has(loc)) return 'zh'
+  if (STYLE_KO.has(loc)) return 'ko'
+  if (STYLE_YMD.has(loc)) return 'ymd'
+  if (STYLE_DMY_DOT.has(loc)) return 'dmy-dot'
+  return 'dmy'
+}
+
+export function birthdayPlaceholderFromLocation(location: string | null | undefined): string {
+  switch (birthdayDateStyleFromLocation(location)) {
+    case 'mdy':
+      return 'MM/DD/YYYY'
+    case 'dmy':
+      return 'DD/MM/YYYY'
+    case 'dmy-dot':
+      return 'DD.MM.YYYY'
+    case 'ymd':
+      return 'YYYY-MM-DD'
+    case 'zh':
+      return '1990年1月15日'
+    case 'ko':
+      return '1990년 1월 15일'
+  }
+}
+
+/** Format an ISO YYYY-MM-DD (or parseable date) for the Location's display style. */
+export function formatBirthdayForLocation(
+  raw: string | null | undefined,
+  location: string | null | undefined
+): string {
+  const style = birthdayDateStyleFromLocation(location)
+  const iso = parseBirthdayToIso(raw, {
+    preferDayFirst: style === 'dmy' || style === 'dmy-dot',
+  })
+  if (!iso) return (raw || '').trim()
+  const [ys, ms, ds] = iso.split('-')
+  const y = Number(ys)
+  const mo = Number(ms)
+  const day = Number(ds)
+  switch (style) {
+    case 'mdy':
+      return `${pad2(mo)}/${pad2(day)}/${y}`
+    case 'dmy':
+      return `${pad2(day)}/${pad2(mo)}/${y}`
+    case 'dmy-dot':
+      return `${pad2(day)}.${pad2(mo)}.${y}`
+    case 'ymd':
+      return iso
+    case 'zh':
+      return `${y}年${mo}月${day}日`
+    case 'ko':
+      return `${y}년 ${mo}월 ${day}일`
+  }
 }
 
 function parseDayMonthYearAmbiguous(
@@ -43,10 +117,8 @@ function parseDayMonthYearAmbiguous(
   year: number,
   preferDayFirst: boolean
 ): string | null {
-  // Unambiguous: one part must be the day (>12)
-  if (a > 12) return toIsoIfValid(year, b, a) // D/M/Y
-  if (b > 12) return toIsoIfValid(year, a, b) // M/D/Y
-  // Ambiguous (e.g. 5/3/2026): locale preference
+  if (a > 12) return toIsoIfValid(year, b, a)
+  if (b > 12) return toIsoIfValid(year, a, b)
   return preferDayFirst ? toIsoIfValid(year, b, a) : toIsoIfValid(year, a, b)
 }
 
@@ -62,29 +134,23 @@ export function parseBirthdayToIso(
   if (!s) return null
   const preferDayFirst = Boolean(options?.preferDayFirst)
 
-  // Already ISO
   let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s)
   if (m) return toIsoIfValid(Number(m[1]), Number(m[2]), Number(m[3]))
 
-  // Chinese / Japanese Gregorian: 2026年5月3日
   m = /^(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日?\s*$/.exec(s)
   if (m) return toIsoIfValid(Number(m[1]), Number(m[2]), Number(m[3]))
 
-  // Korean Gregorian: 2026년 5월 3일
   m = /^(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일?\s*$/.exec(s)
   if (m) return toIsoIfValid(Number(m[1]), Number(m[2]), Number(m[3]))
 
-  // Year-first with / or . : 2026/5/3 or 2026.5.3 (CN/JP/ISO-like)
   m = /^(\d{4})[/.](\d{1,2})[/.](\d{1,2})$/.exec(s)
   if (m) return toIsoIfValid(Number(m[1]), Number(m[2]), Number(m[3]))
 
-  // European dotted day-first: 3.5.2026 or 03.05.2026 (DE, and many EU locales)
   m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(s)
   if (m) {
     return parseDayMonthYearAmbiguous(Number(m[1]), Number(m[2]), Number(m[3]), true)
   }
 
-  // Slash or dash with year last: 5/3/2026, 03-05-2026, 5-3-2026
   m = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(s)
   if (m) {
     return parseDayMonthYearAmbiguous(Number(m[1]), Number(m[2]), Number(m[3]), preferDayFirst)
@@ -93,7 +159,6 @@ export function parseBirthdayToIso(
   return null
 }
 
-/** Parse to a UTC midnight Date, or null if invalid/empty. */
 export function parseBirthdayToDate(
   raw: string | null | undefined,
   options?: ParseDateOptions
@@ -102,7 +167,6 @@ export function parseBirthdayToDate(
   return iso ? new Date(`${iso}T00:00:00.000Z`) : null
 }
 
-/** True when the string parses to a real calendar date. */
 export function isValidBirthdayInput(
   raw: string | null | undefined,
   options?: ParseDateOptions

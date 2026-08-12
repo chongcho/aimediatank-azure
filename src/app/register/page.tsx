@@ -934,7 +934,30 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Birthday — manual entry (incl. 年/月/日) + native calendar */}
+            {/* Location — above Birthday so date format can follow country */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                {tr[25]}
+              </label>
+              <select
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                required
+                className="w-full"
+                aria-label={tr[27]}
+                title={tr[27]}
+              >
+                <option value="">{tr[26]}</option>
+                {COUNTRY_VALUES.map((value, index) => (
+                  <option key={value} value={value}>
+                    {countryLabels[index]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Birthday — manual entry + native calendar; format follows Location */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 {tr[8]}
@@ -945,7 +968,7 @@ export default function RegisterPage() {
                 onChange={(value) =>
                   setFormData((prev) => ({ ...prev, birthday: value }))
                 }
-                preferDayFirst={dayFirstDates}
+                location={formData.location}
                 required
               />
             </div>
@@ -1105,29 +1128,6 @@ export default function RegisterPage() {
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Location */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                {tr[25]}
-              </label>
-              <select
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                required
-                className="w-full"
-                aria-label={tr[27]}
-                title={tr[27]}
-              >
-                <option value="">{tr[26]}</option>
-                {COUNTRY_VALUES.map((value, index) => (
-                  <option key={value} value={value}>
-                    {countryLabels[index]}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {/* Password Section */}

@@ -19,6 +19,8 @@ type Props = {
    * (UK/EU/AU) instead of US month/day/year.
    */
   preferDayFirst?: boolean
+  /** Format a parsed ISO date for display (country-specific). */
+  formatDisplay?: (iso: string) => string
 }
 
 /**
@@ -37,8 +39,11 @@ export default function FlexibleDateInput({
   autoComplete = 'off',
   calendarLabel = 'Open calendar',
   preferDayFirst = false,
+  formatDisplay,
 }: Props) {
   const [text, setText] = useState(value)
+
+  const toDisplay = (iso: string) => (formatDisplay ? formatDisplay(iso) : iso)
 
   useEffect(() => {
     const valueIso = parseBirthdayToIso(value, { preferDayFirst })
@@ -48,6 +53,19 @@ export default function FlexibleDateInput({
       setText(value)
     }
   }, [value, text, preferDayFirst])
+
+  // When Location-driven display style changes, reformat an already-valid date
+  useEffect(() => {
+    const iso = parseBirthdayToIso(text, { preferDayFirst }) || parseBirthdayToIso(value, { preferDayFirst })
+    if (!iso || !formatDisplay) return
+    const formatted = formatDisplay(iso)
+    if (formatted && formatted !== text) {
+      setText(formatted)
+      if (formatted !== value) onChange(formatted)
+    }
+    // intentionally only when formatDisplay identity / preferDayFirst changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formatDisplay, preferDayFirst])
 
   const isoForPicker =
     parseBirthdayToIso(text, { preferDayFirst }) ||
@@ -68,16 +86,17 @@ export default function FlexibleDateInput({
     }
     const iso = parseBirthdayToIso(text, { preferDayFirst })
     if (iso) {
-      setText(iso)
-      onChange(iso)
+      const display = toDisplay(iso)
+      setText(display)
+      onChange(display)
     }
   }
 
   const handleDatePicked = (iso: string) => {
-    // Cancel on some platforms does not fire change; ignore empty clears
     if (!iso) return
-    setText(iso)
-    onChange(iso)
+    const display = toDisplay(iso)
+    setText(display)
+    onChange(display)
   }
 
   return (
@@ -95,10 +114,6 @@ export default function FlexibleDateInput({
         enterKeyHint="done"
         className={`min-w-0 flex-1 ${className}`.trim()}
       />
-      {/*
-        iOS Safari/WKWebView: showPicker() does not open date pickers.
-        Put a real type="date" over the icon so the tap hits the native control.
-      */}
       <div className="relative flex-shrink-0 min-h-[44px] min-w-[44px]">
         <div
           className="flex h-full min-h-[44px] min-w-[44px] items-center justify-center px-3 rounded-xl bg-tank-gray border border-tank-light text-white pointer-events-none"
