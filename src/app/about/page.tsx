@@ -1153,7 +1153,7 @@ export default function AboutPage() {
                 </li>
                 <li>
                   <Link href="/register" className="hover:text-white transition-colors">
-                    <AboutTrans text="Create Account" />
+                    <AboutTrans text="Register" />
                   </Link>
                 </li>
                 <li>

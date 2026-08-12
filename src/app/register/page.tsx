@@ -68,7 +68,7 @@ const COUNTRY_VALUES = [
 const COUNTRY_LABELS = [...COUNTRY_VALUES] as const
 
 const REGISTER_STRINGS = [
-  'Create Account',
+  'Register',
   'Close',
   'Or',
   'Register with Email',
@@ -840,7 +840,14 @@ export default function RegisterPage() {
 
   return (
     <div className="max-w-2xl mx-auto w-full min-w-0 px-3 sm:px-4 pb-[500px] pt-[10px] overflow-x-hidden">
-        <div className="py-[20px]">
+        <div className="text-center py-[20px]">
+          <Link href="/" className="inline-block mb-6">
+            <span className="font-bold text-3xl text-white">
+              <span className="text-tank-accent">A</span>i
+              <span className="text-red-500">M</span>edia
+              <span className="text-sky-400">T</span>ank
+            </span>
+          </Link>
           <div className="flex items-center justify-center relative">
             <h1 className="text-3xl font-bold">{tr[0]}</h1>
             <button
