@@ -236,11 +236,12 @@ interface MediaBadgeItem {
   sortOrder: number
 }
 
-function ColumnFilter({ label, options, selected, onApply }: {
+function ColumnFilter({ label, options, selected, onApply, compact }: {
   label: string
   options: string[]
   selected: string[]
   onApply: (values: string[]) => void
+  compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [local, setLocal] = useState<Set<string>>(new Set())
@@ -275,7 +276,7 @@ function ColumnFilter({ label, options, selected, onApply }: {
   }
 
   return (
-    <th ref={ref} className="text-left p-3 font-medium whitespace-nowrap relative">
+    <th ref={ref} className={`text-left font-medium whitespace-nowrap relative ${compact ? 'px-2 py-1' : 'p-3'}`}>
       <button onClick={() => setOpen(!open)} className={`flex items-center gap-1 ${isFiltered ? 'text-tank-accent' : 'text-gray-400'}`}>
         {label}
         <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -342,9 +343,10 @@ function timePeriodToRange(value: string): { from: string; to: string } {
   return { from: from.toISOString(), to: '' }
 }
 
-function TimePeriodFilter({ selected, onApply }: {
+function TimePeriodFilter({ selected, onApply, compact }: {
   selected: string
   onApply: (value: string) => void
+  compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [local, setLocal] = useState('')
@@ -371,7 +373,7 @@ function TimePeriodFilter({ selected, onApply }: {
   }
 
   return (
-    <th ref={ref} className="text-left p-3 font-medium whitespace-nowrap relative">
+    <th ref={ref} className={`text-left font-medium whitespace-nowrap relative ${compact ? 'px-2 py-1' : 'p-3'}`}>
       <button onClick={() => setOpen(!open)} className={`flex items-center gap-1 ${isFiltered ? 'text-tank-accent' : 'text-gray-400'}`}>
         Time
         <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -2389,35 +2391,35 @@ export default function AdminPage() {
           {/* Access Logs */}
           {activeTab === 'accessLogs' && (
             <div className="card overflow-hidden">
-              <h2 className="text-xl font-bold text-white mb-4">Access Logs (site analytics, support, security)</h2>
-              <p className="text-gray-400 text-sm mb-4">
+              <h2 className="text-xl font-bold text-white mb-2">Access Logs (site analytics, support, security)</h2>
+              <p className="text-gray-400 text-xs leading-snug mb-3">
                 Use the <strong className="text-gray-300">search box</strong> above to filter by path, IP, email, name, referrer, session id, user agent, country/city, or method (matches any column). Column filters and time range combine with search.
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
                 Rows with <span className="text-amber-400/90">security flags</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and now also include payload/header anomalies. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. For <strong className="text-gray-300">127.0.0.1</strong> / private IP traffic, use the <strong className="text-gray-300">IP debug</strong> button to inspect proxy headers (<code className="text-gray-500">X-Forwarded-For</code>, Azure <code className="text-gray-500">X-ARR-*</code>, etc.) and determine whether the request is internal, mis-attributed external, or platform health traffic. Use <strong className="text-gray-300">Block IP</strong> in each row to add that address to the blocklist. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—use the <strong className="text-gray-300">Blocked IPs</strong> tab for the full list and enforcement. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-xs leading-tight">
                   <thead>
                     <tr className="border-b border-tank-light/30">
-                      <TimePeriodFilter selected={alTimePeriod} onApply={(v) => { setAlTimePeriod(v); if (v) { setAccessLogsFrom(''); setAccessLogsTo('') }; setAccessLogsPage(1) }} />
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">IP</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap w-24">Block</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Name</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Email</th>
-                      <ColumnFilter label="Browser" options={alDistinct.browsers} selected={alBrowserFilter} onApply={(v) => { setAlBrowserFilter(v); setAccessLogsPage(1) }} />
-                      <ColumnFilter label="OS" options={alDistinct.oses} selected={alOsFilter} onApply={(v) => { setAlOsFilter(v); setAccessLogsPage(1) }} />
-                      <ColumnFilter label="Country" options={alDistinct.countries} selected={alCountryFilter} onApply={(v) => { setAlCountryFilter(v); setAccessLogsPage(1) }} />
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Path</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap min-w-[140px]">Flags</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap min-w-[120px]">Risk</th>
-                      <ColumnFilter label="Method" options={alDistinct.methods} selected={alMethodFilter} onApply={(v) => { setAlMethodFilter(v); setAccessLogsPage(1) }} />
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Referrer</th>
-                      <th className="text-left p-3 text-gray-400 font-medium whitespace-nowrap">Session</th>
+                      <TimePeriodFilter compact selected={alTimePeriod} onApply={(v) => { setAlTimePeriod(v); if (v) { setAccessLogsFrom(''); setAccessLogsTo('') }; setAccessLogsPage(1) }} />
+                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">IP</th>
+                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap w-24">Block</th>
+                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">Name</th>
+                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">Email</th>
+                      <ColumnFilter compact label="Browser" options={alDistinct.browsers} selected={alBrowserFilter} onApply={(v) => { setAlBrowserFilter(v); setAccessLogsPage(1) }} />
+                      <ColumnFilter compact label="OS" options={alDistinct.oses} selected={alOsFilter} onApply={(v) => { setAlOsFilter(v); setAccessLogsPage(1) }} />
+                      <ColumnFilter compact label="Country" options={alDistinct.countries} selected={alCountryFilter} onApply={(v) => { setAlCountryFilter(v); setAccessLogsPage(1) }} />
+                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">Path</th>
+                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap min-w-[140px]">Flags</th>
+                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap min-w-[120px]">Risk</th>
+                      <ColumnFilter compact label="Method" options={alDistinct.methods} selected={alMethodFilter} onApply={(v) => { setAlMethodFilter(v); setAccessLogsPage(1) }} />
+                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">Referrer</th>
+                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">Session</th>
                     </tr>
                   </thead>
                   <tbody>
                     {accessLogs.length === 0 && !loading && (
-                      <tr><td colSpan={14} className="p-6 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
+                      <tr><td colSpan={14} className="px-2 py-3 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
                     )}
                     {accessLogs.map((log) => {
                       const rowFlags = parseAccessLogAbnormalFlags(log.abnormalFlags)
@@ -2428,30 +2430,30 @@ export default function AdminPage() {
                       return (
                       <Fragment key={log.id}>
                       <tr className={`border-b border-tank-light/10 hover:bg-tank-light/5 ${rowFlags.length || riskScore >= 60 ? 'bg-amber-950/15' : ''}`}>
-                        <td className="p-3 text-gray-300 whitespace-nowrap" title={log.createdAt}>
+                        <td className="px-2 py-1 text-gray-300 whitespace-nowrap" title={log.createdAt}>
                           {new Date(log.createdAt).toLocaleString()}
                         </td>
-                        <td className="p-3 text-gray-300 font-mono text-xs whitespace-nowrap align-top">
-                          <div className="flex flex-col gap-1">
+                        <td className="px-2 py-1 text-gray-300 font-mono text-[11px] whitespace-nowrap align-middle">
+                          <div className="flex flex-col gap-0.5">
                             <span title={log.ipAddress ?? ''}>{log.ipAddress ?? '-'}</span>
                             {ipDebug && (
                               <button
                                 type="button"
                                 onClick={() => setAccessLogIpDebugExpanded(ipDebugOpen ? null : log.id)}
-                                className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-900/40 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-800/40 w-fit"
+                                className="text-[10px] px-1 py-0 rounded bg-cyan-900/40 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-800/40 w-fit leading-tight"
                               >
                                 {ipDebugOpen ? 'Hide IP debug' : 'IP debug'}
                               </button>
                             )}
                           </div>
                         </td>
-                        <td className="p-3 align-top whitespace-nowrap">
+                        <td className="px-2 py-1 align-middle whitespace-nowrap">
                           {log.ipAddress ? (
                             <button
                               type="button"
                               onClick={() => void handleBlockIpFromAccessLog(log.ipAddress as string, log.path ?? '')}
                               disabled={accessLogBlockingIp === log.ipAddress}
-                              className="text-xs px-2 py-1 rounded bg-red-900/50 text-red-200 border border-red-700/50 hover:bg-red-800/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="text-[11px] px-1.5 py-0.5 rounded bg-red-900/50 text-red-200 border border-red-700/50 hover:bg-red-800/50 disabled:opacity-50 disabled:cursor-not-allowed leading-tight"
                             >
                               {accessLogBlockingIp === log.ipAddress ? 'Blocking…' : 'Block IP'}
                             </button>
@@ -2459,27 +2461,27 @@ export default function AdminPage() {
                             <span className="text-gray-600">—</span>
                           )}
                         </td>
-                        <td className="p-3 text-gray-300 whitespace-nowrap">{log.userName ?? <span className="text-gray-600">-</span>}</td>
-                        <td className="p-3 text-gray-300 text-xs">{log.userEmail ?? <span className="text-gray-600">-</span>}</td>
-                        <td className="p-3 text-gray-300">
+                        <td className="px-2 py-1 text-gray-300 whitespace-nowrap">{log.userName ?? <span className="text-gray-600">-</span>}</td>
+                        <td className="px-2 py-1 text-gray-300 text-[11px]">{log.userEmail ?? <span className="text-gray-600">-</span>}</td>
+                        <td className="px-2 py-1 text-gray-300">
                           <span className="text-tank-accent">{log.browser ?? '-'}</span>
-                          {log.device && <span className="text-gray-500 text-xs ml-1">/ {log.device}</span>}
+                          {log.device && <span className="text-gray-500 text-[11px] ml-1">/ {log.device}</span>}
                         </td>
-                        <td className="p-3 text-gray-300">{log.os ?? '-'}</td>
-                        <td className="p-3 text-gray-300" title={[log.city, log.region, log.country].filter(Boolean).join(', ')}>
+                        <td className="px-2 py-1 text-gray-300">{log.os ?? '-'}</td>
+                        <td className="px-2 py-1 text-gray-300" title={[log.city, log.region, log.country].filter(Boolean).join(', ')}>
                           {log.country ?? '-'}
-                          {log.city && <span className="text-gray-500 text-xs ml-1">({log.city})</span>}
+                          {log.city && <span className="text-gray-500 text-[11px] ml-1">({log.city})</span>}
                         </td>
-                        <td className="p-3 text-gray-300 max-w-[200px] truncate" title={log.path}>{log.path}</td>
-                        <td className="p-3 text-gray-300 align-top">
+                        <td className="px-2 py-1 text-gray-300 max-w-[200px] truncate" title={log.path}>{log.path}</td>
+                        <td className="px-2 py-1 text-gray-300 align-middle">
                           {rowFlags.length === 0 ? (
                             <span className="text-gray-600">—</span>
                           ) : (
-                            <div className="flex flex-wrap gap-1 max-w-[220px]">
+                            <div className="flex flex-wrap gap-0.5 max-w-[220px]">
                               {rowFlags.map((code) => (
                                 <span
                                   key={code}
-                                  className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-200/95 border border-amber-700/40"
+                                  className="text-[10px] px-1 py-0 rounded bg-amber-900/50 text-amber-200/95 border border-amber-700/40 leading-tight"
                                   title={ABNORMAL_FLAG_LABELS[code] || code}
                                 >
                                   {code}
@@ -2488,9 +2490,9 @@ export default function AdminPage() {
                             </div>
                           )}
                         </td>
-                        <td className="p-3 text-gray-300 align-top">
-                          <div className="flex flex-wrap items-center gap-2 max-w-[320px]">
-                            <span className={`shrink-0 text-xs px-2 py-0.5 rounded border ${
+                        <td className="px-2 py-1 text-gray-300 align-middle">
+                          <div className="flex flex-wrap items-center gap-1 max-w-[320px]">
+                            <span className={`shrink-0 text-[11px] px-1.5 py-0 rounded border leading-tight ${
                               riskScore >= 75
                                 ? 'bg-red-900/40 text-red-200 border-red-700/40'
                                 : riskScore >= 60
@@ -2500,11 +2502,11 @@ export default function AdminPage() {
                               {riskScore}
                             </span>
                             {riskFlags.length > 0 && (
-                              <div className="flex flex-wrap items-center gap-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-0.5 min-w-0">
                                 {riskFlags.map((code) => (
                                   <span
                                     key={`${log.id}-${code}`}
-                                    className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-200/95 border border-purple-700/40"
+                                    className="text-[10px] px-1 py-0 rounded bg-purple-900/40 text-purple-200/95 border border-purple-700/40 leading-tight"
                                     title={RUNTIME_RISK_FLAG_LABELS[code] || ABNORMAL_FLAG_LABELS[code] || code}
                                   >
                                     {code}
@@ -2514,15 +2516,15 @@ export default function AdminPage() {
                             )}
                           </div>
                         </td>
-                        <td className="p-3 text-gray-400">{log.method}</td>
-                        <td className="p-3 text-gray-400 max-w-[150px] truncate" title={log.referrer ?? ''}>{log.referrer || '-'}</td>
-                        <td className="p-3 text-gray-500 font-mono text-xs">{log.sessionId ? log.sessionId.slice(0, 8) + '…' : '-'}</td>
+                        <td className="px-2 py-1 text-gray-400">{log.method}</td>
+                        <td className="px-2 py-1 text-gray-400 max-w-[150px] truncate" title={log.referrer ?? ''}>{log.referrer || '-'}</td>
+                        <td className="px-2 py-1 text-gray-500 font-mono text-[11px]">{log.sessionId ? log.sessionId.slice(0, 8) + '…' : '-'}</td>
                       </tr>
                       {ipDebug && ipDebugOpen && (
                         <tr key={`${log.id}-ip-debug`} className="border-b border-tank-light/10 bg-cyan-950/10">
-                          <td colSpan={14} className="p-3">
-                            <div className="text-xs text-cyan-200/90 font-medium mb-2">Proxy / platform headers (localhost investigation)</div>
-                            <pre className="text-[11px] leading-relaxed text-gray-300 font-mono whitespace-pre-wrap break-all bg-black/30 rounded p-3 border border-cyan-800/30 max-h-64 overflow-auto">
+                          <td colSpan={14} className="px-2 py-2">
+                            <div className="text-xs text-cyan-200/90 font-medium mb-1">Proxy / platform headers (localhost investigation)</div>
+                            <pre className="text-[11px] leading-snug text-gray-300 font-mono whitespace-pre-wrap break-all bg-black/30 rounded p-2 border border-cyan-800/30 max-h-64 overflow-auto">
                               {Object.entries(ipDebug).map(([key, value]) => `${key}: ${value}`).join('\n')}
                             </pre>
                           </td>
@@ -2535,7 +2537,7 @@ export default function AdminPage() {
                 </table>
               </div>
               {accessLogsTotalPages > 1 && (
-                <div className="flex items-center justify-between p-3 border-t border-tank-light/20">
+                <div className="flex items-center justify-between px-2 py-2 border-t border-tank-light/20">
                   <span className="text-gray-500 text-sm">Page {accessLogsPage} of {accessLogsTotalPages}</span>
                   <div className="flex gap-2">
                     <button
