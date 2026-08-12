@@ -242,7 +242,7 @@ export default function AdminReauthGate({
         </p>
         <p className="form-compact-subtitle text-gray-400 text-sm mb-3 sm:mb-6">
           {verifyMode === 'adminUser'
-            ? "Step 2 uses ADMIN_USER_STEP2_PASSWORD_HASH on the server—not your account login password. Completing this step sets a short-lived cookie needed to moderate or edit other users' content. The Admin Panel uses a separate passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH)."
+            ? "Step 2 uses the Admin Step 2 password (Admin → Authentication, or ADMIN_USER_STEP2_PASSWORD_HASH on the server)—not your account login password. Completing this step sets a short-lived cookie needed to moderate or edit other users' content. The Admin Panel uses a separate passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH)."
             : 'Enter the Admin Panel passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH on the server—not your account login password) and complete two-step verification.'}
         </p>
         {verifyMode === 'adminUser' &&

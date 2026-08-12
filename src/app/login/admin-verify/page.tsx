@@ -37,7 +37,7 @@ export default async function AdminLoginVerifyPage({
   }
 
   const nextPath = safeNext(searchParams.next)
-  const adminUserStep2Configured = isAdminUserStep2PasswordConfigured()
+  const adminUserStep2Configured = await isAdminUserStep2PasswordConfigured()
 
   const u = session.user as { username?: string | null; name?: string | null }
   const adminUsername = u.username ?? u.name ?? 'your account'

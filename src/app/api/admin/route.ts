@@ -12,6 +12,11 @@ import {
   mergeEntraProfileIntoUser,
 } from '@/lib/entraUserLookup'
 import { parseBirthdayToDate, normalizeAgeRequirement } from '@/lib/birthday'
+import {
+  clearAdminUserStep2PasswordDbOverride,
+  getAdminUserStep2PasswordStatus,
+  setAdminUserStep2Password,
+} from '@/lib/adminUserStep2Password'
 import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
@@ -1000,11 +1005,16 @@ export async function GET(request: Request) {
           !Array.isArray((raw as Record<string, unknown>).__auth)
             ? ((raw as Record<string, unknown>).__auth as Record<string, unknown>)
             : null
+        const step2Status = await getAdminUserStep2PasswordStatus()
         return NextResponse.json({
           emailVerificationEnabled: auth?.emailVerificationEnabled !== false,
           phoneVerificationEnabled: auth?.phoneVerificationEnabled !== false,
           selfServiceDeactivateAccountEnabled: auth?.selfServiceDeactivateAccountEnabled !== false,
           ageRequirement: normalizeAgeRequirement(auth?.ageRequirement),
+          adminUserStep2Configured: step2Status.configured,
+          adminUserStep2Source: step2Status.source,
+          adminUserStep2EnvConfigured: step2Status.envConfigured,
+          adminUserStep2DatabaseOverride: step2Status.databaseOverride,
         })
       } catch (error) {
         console.error('Authentication settings unavailable:', error)
@@ -1013,6 +1023,10 @@ export async function GET(request: Request) {
           phoneVerificationEnabled: true,
           selfServiceDeactivateAccountEnabled: true,
           ageRequirement: 13,
+          adminUserStep2Configured: false,
+          adminUserStep2Source: 'none',
+          adminUserStep2EnvConfigured: false,
+          adminUserStep2DatabaseOverride: false,
         })
       }
     }
@@ -2797,6 +2811,51 @@ export async function POST(request: Request) {
           emailVerificationEnabled: appliedEmail,
           phoneVerificationEnabled: appliedPhone,
           ageRequirement: appliedAge,
+        })
+      }
+
+      case 'setAdminUserStep2Password': {
+        const currentPassword = typeof data?.currentPassword === 'string' ? data.currentPassword : ''
+        const newPassword = typeof data?.newPassword === 'string' ? data.newPassword : ''
+        const confirmPassword = typeof data?.confirmPassword === 'string' ? data.confirmPassword : ''
+        const result = await setAdminUserStep2Password({
+          currentPassword,
+          newPassword,
+          confirmPassword,
+        })
+        if (!result.ok) {
+          return NextResponse.json({ error: result.error }, { status: 400 })
+        }
+        const status = await getAdminUserStep2PasswordStatus()
+        await logAdminAction(adminId, 'SET_ADMIN_USER_STEP2_PASSWORD', 'AUTHENTICATION', adminId, {
+          source: status.source,
+          databaseOverride: status.databaseOverride,
+        })
+        return NextResponse.json({
+          message: 'Admin Step 2 password updated',
+          adminUserStep2Configured: status.configured,
+          adminUserStep2Source: status.source,
+          adminUserStep2EnvConfigured: status.envConfigured,
+          adminUserStep2DatabaseOverride: status.databaseOverride,
+        })
+      }
+
+      case 'clearAdminUserStep2PasswordDbOverride': {
+        const currentPassword = typeof data?.currentPassword === 'string' ? data.currentPassword : ''
+        const result = await clearAdminUserStep2PasswordDbOverride(currentPassword)
+        if (!result.ok) {
+          return NextResponse.json({ error: result.error }, { status: 400 })
+        }
+        const status = await getAdminUserStep2PasswordStatus()
+        await logAdminAction(adminId, 'CLEAR_ADMIN_USER_STEP2_PASSWORD_DB', 'AUTHENTICATION', adminId, {
+          source: status.source,
+        })
+        return NextResponse.json({
+          message: 'Database Step 2 password override cleared; server env is in use again',
+          adminUserStep2Configured: status.configured,
+          adminUserStep2Source: status.source,
+          adminUserStep2EnvConfigured: status.envConfigured,
+          adminUserStep2DatabaseOverride: status.databaseOverride,
         })
       }
 

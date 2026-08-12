@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     }
     const adminPanelPasswordConfigured = isAdminPanelAccessPasswordConfigured()
     const dedicatedPasswordRequired = isDedicatedAdminPanelPasswordRequired()
-    const adminUserStep2Configured = isAdminUserStep2PasswordConfigured()
+    const adminUserStep2Configured = await isAdminUserStep2PasswordConfigured()
 
     const url = new URL(request.url)
     if (url.searchParams.get('init') === '1') {
@@ -113,11 +113,11 @@ export async function POST(request: Request) {
     }
 
     if (verifyMode === 'adminUser') {
-      if (!isAdminUserStep2PasswordConfigured()) {
+      if (!(await isAdminUserStep2PasswordConfigured())) {
         return NextResponse.json(
           {
             error:
-              'Admin login Step 2 requires ADMIN_USER_STEP2_PASSWORD_HASH (or ADMIN_USER_STEP2_PASSWORD for local dev)—a passphrase separate from your account login password.',
+              'Admin login Step 2 requires a Step 2 password (set in Admin → Authentication, or ADMIN_USER_STEP2_PASSWORD_HASH / ADMIN_USER_STEP2_PASSWORD on the server)—separate from your account login password.',
           },
           { status: 503 }
         )

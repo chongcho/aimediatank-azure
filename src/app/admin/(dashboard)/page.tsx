@@ -461,6 +461,16 @@ export default function AdminPage() {
   const [ageRequirement, setAgeRequirement] = useState<AgeRequirement>(13)
   const [authenticationLoading, setAuthenticationLoading] = useState(false)
   const [authenticationSaving, setAuthenticationSaving] = useState(false)
+  const [step2PasswordConfigured, setStep2PasswordConfigured] = useState(false)
+  const [step2PasswordSource, setStep2PasswordSource] = useState<'database' | 'environment' | 'none'>('none')
+  const [step2PasswordEnvConfigured, setStep2PasswordEnvConfigured] = useState(false)
+  const [step2PasswordDatabaseOverride, setStep2PasswordDatabaseOverride] = useState(false)
+  const [step2CurrentPassword, setStep2CurrentPassword] = useState('')
+  const [step2NewPassword, setStep2NewPassword] = useState('')
+  const [step2ConfirmPassword, setStep2ConfirmPassword] = useState('')
+  const [step2PasswordSaving, setStep2PasswordSaving] = useState(false)
+  const [step2PasswordMessage, setStep2PasswordMessage] = useState<string | null>(null)
+  const [step2PasswordError, setStep2PasswordError] = useState<string | null>(null)
   const [selfServiceDeactivateAccountEnabled, setSelfServiceDeactivateAccountEnabled] = useState(true)
   const [manageAccountLoading, setManageAccountLoading] = useState(false)
   const [manageAccountSaving, setManageAccountSaving] = useState(false)
@@ -1121,6 +1131,19 @@ export default function AdminPage() {
           setEmailVerificationEnabled(data.emailVerificationEnabled !== false)
           setPhoneVerificationEnabled(data.phoneVerificationEnabled !== false)
           setAgeRequirement(normalizeAgeRequirement(data.ageRequirement))
+          setStep2PasswordConfigured(data.adminUserStep2Configured === true)
+          setStep2PasswordSource(
+            data.adminUserStep2Source === 'database' || data.adminUserStep2Source === 'environment'
+              ? data.adminUserStep2Source
+              : 'none'
+          )
+          setStep2PasswordEnvConfigured(data.adminUserStep2EnvConfigured === true)
+          setStep2PasswordDatabaseOverride(data.adminUserStep2DatabaseOverride === true)
+          setStep2CurrentPassword('')
+          setStep2NewPassword('')
+          setStep2ConfirmPassword('')
+          setStep2PasswordMessage(null)
+          setStep2PasswordError(null)
         } finally {
           setAuthenticationLoading(false)
         }
@@ -1719,6 +1742,92 @@ export default function AdminPage() {
       console.error('Error saving authentication settings:', error)
     } finally {
       setAuthenticationSaving(false)
+    }
+  }
+
+  const applyStep2PasswordStatus = (data: {
+    adminUserStep2Configured?: boolean
+    adminUserStep2Source?: string
+    adminUserStep2EnvConfigured?: boolean
+    adminUserStep2DatabaseOverride?: boolean
+  }) => {
+    setStep2PasswordConfigured(data.adminUserStep2Configured === true)
+    setStep2PasswordSource(
+      data.adminUserStep2Source === 'database' || data.adminUserStep2Source === 'environment'
+        ? data.adminUserStep2Source
+        : 'none'
+    )
+    setStep2PasswordEnvConfigured(data.adminUserStep2EnvConfigured === true)
+    setStep2PasswordDatabaseOverride(data.adminUserStep2DatabaseOverride === true)
+  }
+
+  const saveAdminUserStep2Password = async () => {
+    setStep2PasswordSaving(true)
+    setStep2PasswordMessage(null)
+    setStep2PasswordError(null)
+    try {
+      const res = await adminFetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setAdminUserStep2Password',
+          data: {
+            currentPassword: step2CurrentPassword,
+            newPassword: step2NewPassword,
+            confirmPassword: step2ConfirmPassword,
+          },
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setStep2PasswordError(typeof data.error === 'string' ? data.error : 'Could not update Step 2 password')
+        return
+      }
+      applyStep2PasswordStatus(data)
+      setStep2CurrentPassword('')
+      setStep2NewPassword('')
+      setStep2ConfirmPassword('')
+      setStep2PasswordMessage(typeof data.message === 'string' ? data.message : 'Step 2 password updated')
+    } catch (error) {
+      console.error('Error saving Step 2 password:', error)
+      setStep2PasswordError('Could not update Step 2 password')
+    } finally {
+      setStep2PasswordSaving(false)
+    }
+  }
+
+  const clearAdminUserStep2PasswordOverride = async () => {
+    if (!step2PasswordDatabaseOverride) return
+    if (!window.confirm('Clear the database Step 2 password and use the server environment password again?')) {
+      return
+    }
+    setStep2PasswordSaving(true)
+    setStep2PasswordMessage(null)
+    setStep2PasswordError(null)
+    try {
+      const res = await adminFetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'clearAdminUserStep2PasswordDbOverride',
+          data: { currentPassword: step2CurrentPassword },
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setStep2PasswordError(typeof data.error === 'string' ? data.error : 'Could not clear override')
+        return
+      }
+      applyStep2PasswordStatus(data)
+      setStep2CurrentPassword('')
+      setStep2NewPassword('')
+      setStep2ConfirmPassword('')
+      setStep2PasswordMessage(typeof data.message === 'string' ? data.message : 'Override cleared')
+    } catch (error) {
+      console.error('Error clearing Step 2 password override:', error)
+      setStep2PasswordError('Could not clear override')
+    } finally {
+      setStep2PasswordSaving(false)
     }
   }
 
@@ -2395,7 +2504,7 @@ export default function AdminPage() {
               <p className="text-gray-400 text-xs leading-snug mb-3">
                 Use the <strong className="text-gray-300">search box</strong> above to filter by path, IP, email, name, referrer, session id, user agent, country/city, or method (matches any column). Column filters and time range combine with search.
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
-                Rows with <span className="text-amber-400/90">security flags</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and now also include payload/header anomalies. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. For <strong className="text-gray-300">127.0.0.1</strong> / private IP traffic, use the <strong className="text-gray-300">IP debug</strong> button to inspect proxy headers (<code className="text-gray-500">X-Forwarded-For</code>, Azure <code className="text-gray-500">X-ARR-*</code>, etc.) and determine whether the request is internal, mis-attributed external, or platform health traffic. Use <strong className="text-gray-300">Block IP</strong> in each row to add that address to the blocklist. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—use the <strong className="text-gray-300">Blocked IPs</strong> tab for the full list and enforcement. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
+                Rows highlighted for <span className="text-amber-400/90">security signals</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and also include payload/header anomalies. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. For <strong className="text-gray-300">127.0.0.1</strong> / private IP traffic, use the <strong className="text-gray-300">IP debug</strong> button to inspect proxy headers (<code className="text-gray-500">X-Forwarded-For</code>, Azure <code className="text-gray-500">X-ARR-*</code>, etc.) and determine whether the request is internal, mis-attributed external, or platform health traffic. Use <strong className="text-gray-300">Block IP</strong> in each row to add that address to the blocklist. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—use the <strong className="text-gray-300">Blocked IPs</strong> tab for the full list and enforcement. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs leading-tight">
@@ -2410,7 +2519,6 @@ export default function AdminPage() {
                       <ColumnFilter compact label="OS" options={alDistinct.oses} selected={alOsFilter} onApply={(v) => { setAlOsFilter(v); setAccessLogsPage(1) }} />
                       <ColumnFilter compact label="Country" options={alDistinct.countries} selected={alCountryFilter} onApply={(v) => { setAlCountryFilter(v); setAccessLogsPage(1) }} />
                       <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">Path</th>
-                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap min-w-[140px]">Flags</th>
                       <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap min-w-[120px]">Risk</th>
                       <ColumnFilter compact label="Method" options={alDistinct.methods} selected={alMethodFilter} onApply={(v) => { setAlMethodFilter(v); setAccessLogsPage(1) }} />
                       <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">Referrer</th>
@@ -2419,7 +2527,7 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {accessLogs.length === 0 && !loading && (
-                      <tr><td colSpan={14} className="px-2 py-3 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
+                      <tr><td colSpan={13} className="px-2 py-3 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
                     )}
                     {accessLogs.map((log) => {
                       const rowFlags = parseAccessLogAbnormalFlags(log.abnormalFlags)
@@ -2474,23 +2582,6 @@ export default function AdminPage() {
                         </td>
                         <td className="px-2 py-1 text-gray-300 max-w-[200px] truncate" title={log.path}>{log.path}</td>
                         <td className="px-2 py-1 text-gray-300 align-middle">
-                          {rowFlags.length === 0 ? (
-                            <span className="text-gray-600">—</span>
-                          ) : (
-                            <div className="flex flex-wrap gap-0.5 max-w-[220px]">
-                              {rowFlags.map((code) => (
-                                <span
-                                  key={code}
-                                  className="text-[10px] px-1 py-0 rounded bg-amber-900/50 text-amber-200/95 border border-amber-700/40 leading-tight"
-                                  title={ABNORMAL_FLAG_LABELS[code] || code}
-                                >
-                                  {code}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-2 py-1 text-gray-300 align-middle">
                           <div className="flex flex-wrap items-center gap-1 max-w-[320px]">
                             <span className={`shrink-0 text-[11px] px-1.5 py-0 rounded border leading-tight ${
                               riskScore >= 75
@@ -2522,7 +2613,7 @@ export default function AdminPage() {
                       </tr>
                       {ipDebug && ipDebugOpen && (
                         <tr key={`${log.id}-ip-debug`} className="border-b border-tank-light/10 bg-cyan-950/10">
-                          <td colSpan={14} className="px-2 py-2">
+                          <td colSpan={13} className="px-2 py-2">
                             <div className="text-xs text-cyan-200/90 font-medium mb-1">Proxy / platform headers (localhost investigation)</div>
                             <pre className="text-[11px] leading-snug text-gray-300 font-mono whitespace-pre-wrap break-all bg-black/30 rounded p-2 border border-cyan-800/30 max-h-64 overflow-auto">
                               {Object.entries(ipDebug).map(([key, value]) => `${key}: ${value}`).join('\n')}
@@ -4020,6 +4111,7 @@ export default function AdminPage() {
               {authenticationLoading ? (
                 <div className="flex justify-center py-10"><div className="spinner" /></div>
               ) : (
+                <>
                 <div className="card p-4 md:p-6 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -4083,6 +4175,96 @@ export default function AdminPage() {
                     </button>
                   </div>
                 </div>
+
+                <div className="card p-4 md:p-6 space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Admin Step 2 password</h3>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Passphrase used after admin login (and for content moderation elevation). Separate from the
+                      account login password and from the Admin Panel passphrase.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Status:{' '}
+                      {step2PasswordConfigured
+                        ? step2PasswordSource === 'database'
+                          ? 'configured (database override)'
+                          : 'configured (server environment)'
+                        : 'not configured'}
+                      {step2PasswordEnvConfigured && step2PasswordDatabaseOverride
+                        ? ' · server env still present as fallback after clear'
+                        : ''}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">
+                        {step2PasswordConfigured ? 'Current Step 2 password' : 'Current (if already set)'}
+                      </label>
+                      <input
+                        type="password"
+                        autoComplete="current-password"
+                        value={step2CurrentPassword}
+                        onChange={(e) => setStep2CurrentPassword(e.target.value)}
+                        disabled={step2PasswordSaving}
+                        className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
+                        placeholder={step2PasswordConfigured ? 'Required' : 'Optional if unset'}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">New Step 2 password</label>
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        value={step2NewPassword}
+                        onChange={(e) => setStep2NewPassword(e.target.value)}
+                        disabled={step2PasswordSaving}
+                        className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
+                        placeholder="At least 8 characters"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">Confirm new password</label>
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        value={step2ConfirmPassword}
+                        onChange={(e) => setStep2ConfirmPassword(e.target.value)}
+                        disabled={step2PasswordSaving}
+                        className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {step2PasswordError && (
+                    <p className="text-sm text-red-400">{step2PasswordError}</p>
+                  )}
+                  {step2PasswordMessage && (
+                    <p className="text-sm text-green-400">{step2PasswordMessage}</p>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => void saveAdminUserStep2Password()}
+                      disabled={step2PasswordSaving || !step2NewPassword || !step2ConfirmPassword}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium disabled:opacity-50"
+                    >
+                      {step2PasswordSaving ? 'Saving…' : step2PasswordConfigured ? 'Update Step 2 password' : 'Set Step 2 password'}
+                    </button>
+                    {step2PasswordDatabaseOverride && step2PasswordEnvConfigured && (
+                      <button
+                        type="button"
+                        onClick={() => void clearAdminUserStep2PasswordOverride()}
+                        disabled={step2PasswordSaving || !step2CurrentPassword}
+                        className="px-4 py-2 bg-tank-light/20 hover:bg-tank-light/30 text-gray-200 rounded-lg font-medium disabled:opacity-50"
+                      >
+                        Use server env password
+                      </button>
+                    )}
+                  </div>
+                </div>
+                </>
               )}
             </div>
           )}
