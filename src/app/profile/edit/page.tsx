@@ -289,6 +289,7 @@ export default function EditProfilePage() {
   const [step2PasswordEnvConfigured, setStep2PasswordEnvConfigured] = useState(false)
   const [step2PasswordDatabaseOverride, setStep2PasswordDatabaseOverride] = useState(false)
   const [step2CurrentPassword, setStep2CurrentPassword] = useState('')
+  const [step2AccountPassword, setStep2AccountPassword] = useState('')
   const [step2NewPassword, setStep2NewPassword] = useState('')
   const [step2ConfirmPassword, setStep2ConfirmPassword] = useState('')
   const [step2PasswordSaving, setStep2PasswordSaving] = useState(false)
@@ -485,6 +486,7 @@ export default function EditProfilePage() {
           action: 'set',
           data: {
             currentPassword: step2CurrentPassword,
+            accountPassword: step2AccountPassword,
             newPassword: step2NewPassword,
             confirmPassword: step2ConfirmPassword,
           },
@@ -497,6 +499,7 @@ export default function EditProfilePage() {
       }
       applyStep2PasswordStatus(data)
       setStep2CurrentPassword('')
+      setStep2AccountPassword('')
       setStep2NewPassword('')
       setStep2ConfirmPassword('')
       setStep2PasswordMessage(typeof data.message === 'string' ? data.message : 'Admin Account Step 2 password updated')
@@ -533,6 +536,7 @@ export default function EditProfilePage() {
       }
       applyStep2PasswordStatus(data)
       setStep2CurrentPassword('')
+      setStep2AccountPassword('')
       setStep2NewPassword('')
       setStep2ConfirmPassword('')
       setStep2PasswordMessage(typeof data.message === 'string' ? data.message : 'Override cleared')
@@ -1488,6 +1492,21 @@ export default function EditProfilePage() {
                   />
                 </div>
 
+                <label className="form-field-label">Account login password</label>
+                <div className="min-w-0">
+                  <PasswordField
+                    value={step2AccountPassword}
+                    onChange={(e) => setStep2AccountPassword(e.target.value)}
+                    placeholder="Use this if you forgot the current Step 2 password"
+                    autoComplete="current-password"
+                    disabled={step2PasswordSaving}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Fill either the current Step 2 password or your account login password.
+                  </p>
+                </div>
+
                 <label className="form-field-label">New Step 2 password</label>
                 <div className="min-w-0">
                   <PasswordField
@@ -1520,7 +1539,12 @@ export default function EditProfilePage() {
                 <button
                   type="button"
                   onClick={() => void saveAdminUserStep2Password()}
-                  disabled={step2PasswordSaving || !step2NewPassword || !step2ConfirmPassword}
+                  disabled={
+                    step2PasswordSaving ||
+                    !step2NewPassword ||
+                    !step2ConfirmPassword ||
+                    (step2PasswordConfigured && !step2CurrentPassword && !step2AccountPassword)
+                  }
                   className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium disabled:opacity-50"
                 >
                   {step2PasswordSaving

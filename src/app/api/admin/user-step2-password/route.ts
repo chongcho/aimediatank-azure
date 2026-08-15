@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { compare } from 'bcryptjs'
 import { authOptions } from '@/lib/auth'
 import {
   clearAdminUserStep2PasswordDbOverride,
@@ -13,6 +14,21 @@ export const dynamic = 'force-dynamic'
 function sessionUserIsAdmin(session: { user?: { role?: string | null } } | null): boolean {
   const r = session?.user?.role
   return typeof r === 'string' && r.trim().toUpperCase() === 'ADMIN'
+}
+
+/** Account login password is an alternate identity proof when the current Step 2 value is lost. */
+async function accountPasswordMatches(userId: string, accountPassword: string): Promise<boolean> {
+  if (!accountPassword) return false
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { password: true },
+  })
+  if (!user?.password) return false
+  try {
+    return await compare(accountPassword, user.password)
+  } catch {
+    return false
+  }
 }
 
 async function logAdminAction(
@@ -72,10 +88,18 @@ export async function POST(request: Request) {
     const data = body?.data && typeof body.data === 'object' ? body.data : {}
 
     if (action === 'set') {
+      const accountPassword = typeof data.accountPassword === 'string' ? data.accountPassword : ''
+      const recoveredByAccountPassword = accountPassword
+        ? await accountPasswordMatches(session.user.id, accountPassword)
+        : false
+      if (accountPassword && !recoveredByAccountPassword) {
+        return NextResponse.json({ error: 'Account login password is incorrect' }, { status: 400 })
+      }
       const result = await setAdminUserStep2Password({
         currentPassword: typeof data.currentPassword === 'string' ? data.currentPassword : '',
         newPassword: typeof data.newPassword === 'string' ? data.newPassword : '',
         confirmPassword: typeof data.confirmPassword === 'string' ? data.confirmPassword : '',
+        skipCurrentPasswordCheck: recoveredByAccountPassword,
       })
       if (!result.ok) {
         return NextResponse.json({ error: result.error }, { status: 400 })
@@ -84,7 +108,7 @@ export async function POST(request: Request) {
       await logAdminAction(session.user.id, 'SET_ADMIN_USER_STEP2_PASSWORD', 'AUTHENTICATION', session.user.id, {
         source: status.source,
         databaseOverride: status.databaseOverride,
-        via: 'profile',
+        via: recoveredByAccountPassword ? 'profile-account-password' : 'profile',
       })
       return NextResponse.json({
         message: 'Admin Account Step 2 password updated',

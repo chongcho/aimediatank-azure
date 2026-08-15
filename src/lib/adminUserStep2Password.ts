@@ -113,12 +113,14 @@ export type SetAdminUserStep2PasswordResult =
 
 /**
  * Change the Step 2 passphrase. Stores a bcrypt hash in DB (overrides env until cleared).
- * Requires current password when any Step 2 secret is already configured.
+ * Requires current password when any Step 2 secret is already configured, unless the caller
+ * already proved identity another way (e.g. account login password on Profile Edit).
  */
 export async function setAdminUserStep2Password(params: {
   currentPassword: string
   newPassword: string
   confirmPassword: string
+  skipCurrentPasswordCheck?: boolean
 }): Promise<SetAdminUserStep2PasswordResult> {
   const currentPassword = typeof params.currentPassword === 'string' ? params.currentPassword : ''
   const newPassword = typeof params.newPassword === 'string' ? params.newPassword : ''
@@ -132,7 +134,7 @@ export async function setAdminUserStep2Password(params: {
   }
 
   const configured = await isAdminUserStep2PasswordConfigured()
-  if (configured) {
+  if (configured && !params.skipCurrentPasswordCheck) {
     const currentOk = await verifyAdminUserStep2Password(currentPassword)
     if (!currentOk) {
       return { ok: false, error: 'Current Step 2 password is incorrect' }
