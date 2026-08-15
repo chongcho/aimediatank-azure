@@ -122,7 +122,7 @@ export default function AdminReauthGate({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ channel: reauthChannel }),
+        body: JSON.stringify({ channel: reauthChannel, verifyMode }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -244,8 +244,8 @@ export default function AdminReauthGate({
         </p>
         <p className="form-compact-subtitle text-gray-400 text-sm mb-3 sm:mb-6">
           {verifyMode === 'adminUser'
-            ? "Step 2 uses the Admin Step 2 password (Admin → Authentication, or ADMIN_USER_STEP2_PASSWORD_HASH on the server)—not your account login password. Completing this step sets a short-lived cookie needed to moderate or edit other users' content. The Admin Panel uses a separate passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH)."
-            : 'Enter the Admin Panel passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH on the server—not your account login password) and complete two-step verification. This is not the Admin Step 2 password from Admin → Authentication; it can only be changed on the server.'}
+            ? "Step 2 uses the Admin Account passphrase (Profile Edit → Admin Account Step 2, or ADMIN_USER_STEP2_PASSWORD_HASH on the server)—not your account login password. Completing this step sets a short-lived cookie needed to moderate or edit other users' content. The Admin Panel uses a separate passphrase (Admin → Authentication)."
+            : 'Enter the Admin Panel passphrase (Admin → Authentication, or ADMIN_PANEL_ACCESS_PASSWORD_HASH on the server—not your account login password) and complete two-step verification. This is not the Admin Account Step 2 password from Profile Edit.'}
         </p>
         {verifyMode === 'adminUser' &&
           bootstrappedFromServer &&
@@ -255,7 +255,7 @@ export default function AdminReauthGate({
               <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_USER_STEP2_PASSWORD_HASH</code> (or for
               local dev only{' '}
               <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_USER_STEP2_PASSWORD</code>
-              ).
+              ), or set it under Profile Edit → Admin Account Step 2.
             </div>
           )}
         {verifyMode === 'adminPanel' && dedicatedPasswordRequired && !adminPanelPasswordConfigured && (
@@ -287,8 +287,8 @@ export default function AdminReauthGate({
               className="input w-full"
               placeholder={
                 verifyMode === 'adminUser'
-                  ? 'Server-configured Step 2 passphrase'
-                  : 'Dedicated Admin Panel passphrase'
+                  ? 'Admin Account Step 2 passphrase'
+                  : 'Admin Panel passphrase'
               }
               autoComplete="off"
             />

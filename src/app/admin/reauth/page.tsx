@@ -33,7 +33,7 @@ export default async function AdminReauthPage() {
   return (
     <AdminReauthClient
       initialAdminUsername={adminUsername}
-      initialAdminPanelPasswordConfigured={isAdminPanelAccessPasswordConfigured()}
+      initialAdminPanelPasswordConfigured={await isAdminPanelAccessPasswordConfigured()}
       initialDedicatedPasswordRequired={isDedicatedAdminPanelPasswordRequired()}
     />
   )

@@ -12,6 +12,7 @@ import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
 import BirthdayInput from '@/components/BirthdayInput'
 import PasswordField from '@/components/PasswordField'
 import SmsOptInDisclosure from '@/components/SmsOptInDisclosure'
+import { isAppAdminRole } from '@/lib/adminFreshStep2'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
 
 const EDIT_PROFILE_STRINGS = [
@@ -188,6 +189,7 @@ interface ProfileData {
 export default function EditProfilePage() {
   const { data: session, status, update: updateSession } = useSession()
   const accountDeactivatedSession = Boolean(session?.user?.accountDeactivated)
+  const isAdminAccount = isAppAdminRole(session?.user?.role)
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -282,6 +284,22 @@ export default function EditProfilePage() {
     selfServiceDeactivateAccountEnabled: true,
     ageRequirement: 13,
   })
+  const [step2PasswordConfigured, setStep2PasswordConfigured] = useState(false)
+  const [step2PasswordSource, setStep2PasswordSource] = useState<'database' | 'environment' | 'none'>('none')
+  const [step2PasswordEnvConfigured, setStep2PasswordEnvConfigured] = useState(false)
+  const [step2PasswordDatabaseOverride, setStep2PasswordDatabaseOverride] = useState(false)
+  const [step2CurrentPassword, setStep2CurrentPassword] = useState('')
+  const [step2NewPassword, setStep2NewPassword] = useState('')
+  const [step2ConfirmPassword, setStep2ConfirmPassword] = useState('')
+  const [step2PasswordSaving, setStep2PasswordSaving] = useState(false)
+  const [step2PasswordMessage, setStep2PasswordMessage] = useState<string | null>(null)
+  const [step2PasswordError, setStep2PasswordError] = useState<string | null>(null)
+  const [panelAccountPassword, setPanelAccountPassword] = useState('')
+  const [panelNewPassword, setPanelNewPassword] = useState('')
+  const [panelConfirmPassword, setPanelConfirmPassword] = useState('')
+  const [panelPasswordSaving, setPanelPasswordSaving] = useState(false)
+  const [panelPasswordMessage, setPanelPasswordMessage] = useState<string | null>(null)
+  const [panelPasswordError, setPanelPasswordError] = useState<string | null>(null)
   const [selectedMembership, setSelectedMembership] = useState('viewer')
   const [originalMembership, setOriginalMembership] = useState('viewer')
   const [showMembershipBillingModal, setShowMembershipBillingModal] = useState(false)
@@ -411,6 +429,152 @@ export default function EditProfilePage() {
       window.removeEventListener('authenticationSettingsUpdated', onUpdated)
     }
   }, [])
+
+  useEffect(() => {
+    if (!isAdminAccount) return
+    let cancelled = false
+    const loadStep2Status = async () => {
+      try {
+        const res = await fetch('/api/admin/user-step2-password', { credentials: 'include', cache: 'no-store' })
+        const data = await res.json().catch(() => ({}))
+        if (cancelled || !res.ok) return
+        setStep2PasswordConfigured(data.adminUserStep2Configured === true)
+        setStep2PasswordSource(
+          data.adminUserStep2Source === 'database' || data.adminUserStep2Source === 'environment'
+            ? data.adminUserStep2Source
+            : 'none'
+        )
+        setStep2PasswordEnvConfigured(data.adminUserStep2EnvConfigured === true)
+        setStep2PasswordDatabaseOverride(data.adminUserStep2DatabaseOverride === true)
+      } catch {
+        // Keep defaults when endpoint is unavailable.
+      }
+    }
+    void loadStep2Status()
+    return () => {
+      cancelled = true
+    }
+  }, [isAdminAccount])
+
+  const applyStep2PasswordStatus = (data: {
+    adminUserStep2Configured?: boolean
+    adminUserStep2Source?: string
+    adminUserStep2EnvConfigured?: boolean
+    adminUserStep2DatabaseOverride?: boolean
+  }) => {
+    setStep2PasswordConfigured(data.adminUserStep2Configured === true)
+    setStep2PasswordSource(
+      data.adminUserStep2Source === 'database' || data.adminUserStep2Source === 'environment'
+        ? data.adminUserStep2Source
+        : 'none'
+    )
+    setStep2PasswordEnvConfigured(data.adminUserStep2EnvConfigured === true)
+    setStep2PasswordDatabaseOverride(data.adminUserStep2DatabaseOverride === true)
+  }
+
+  const saveAdminUserStep2Password = async () => {
+    setStep2PasswordSaving(true)
+    setStep2PasswordMessage(null)
+    setStep2PasswordError(null)
+    try {
+      const res = await fetch('/api/admin/user-step2-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'set',
+          data: {
+            currentPassword: step2CurrentPassword,
+            newPassword: step2NewPassword,
+            confirmPassword: step2ConfirmPassword,
+          },
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setStep2PasswordError(typeof data.error === 'string' ? data.error : 'Could not update Admin Account Step 2 password')
+        return
+      }
+      applyStep2PasswordStatus(data)
+      setStep2CurrentPassword('')
+      setStep2NewPassword('')
+      setStep2ConfirmPassword('')
+      setStep2PasswordMessage(typeof data.message === 'string' ? data.message : 'Admin Account Step 2 password updated')
+    } catch (error) {
+      console.error('Error saving Admin Account Step 2 password:', error)
+      setStep2PasswordError('Could not update Admin Account Step 2 password')
+    } finally {
+      setStep2PasswordSaving(false)
+    }
+  }
+
+  const clearAdminUserStep2PasswordOverride = async () => {
+    if (!step2PasswordDatabaseOverride) return
+    if (!window.confirm('Clear the database Admin Account Step 2 password and use the server environment password again?')) {
+      return
+    }
+    setStep2PasswordSaving(true)
+    setStep2PasswordMessage(null)
+    setStep2PasswordError(null)
+    try {
+      const res = await fetch('/api/admin/user-step2-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'clear',
+          data: { currentPassword: step2CurrentPassword },
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setStep2PasswordError(typeof data.error === 'string' ? data.error : 'Could not clear override')
+        return
+      }
+      applyStep2PasswordStatus(data)
+      setStep2CurrentPassword('')
+      setStep2NewPassword('')
+      setStep2ConfirmPassword('')
+      setStep2PasswordMessage(typeof data.message === 'string' ? data.message : 'Override cleared')
+    } catch (error) {
+      console.error('Error clearing Admin Account Step 2 password override:', error)
+      setStep2PasswordError('Could not clear override')
+    } finally {
+      setStep2PasswordSaving(false)
+    }
+  }
+
+  const saveAdminPanelAccessPasswordFromProfile = async () => {
+    setPanelPasswordSaving(true)
+    setPanelPasswordMessage(null)
+    setPanelPasswordError(null)
+    try {
+      const res = await fetch('/api/admin/panel-access-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          accountPassword: panelAccountPassword,
+          newPassword: panelNewPassword,
+          confirmPassword: panelConfirmPassword,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setPanelPasswordError(typeof data.error === 'string' ? data.error : 'Could not update Admin Panel password')
+        return
+      }
+      setPanelAccountPassword('')
+      setPanelNewPassword('')
+      setPanelConfirmPassword('')
+      setPanelPasswordMessage(typeof data.message === 'string' ? data.message : 'Admin Panel password updated')
+    } catch (error) {
+      console.error('Error saving Admin Panel password from profile:', error)
+      setPanelPasswordError('Could not update Admin Panel password')
+    } finally {
+      setPanelPasswordSaving(false)
+    }
+  }
 
   const fetchProfile = async () => {
     try {
@@ -1287,6 +1451,167 @@ export default function EditProfilePage() {
               </div>
             </div>
           </div>
+
+          {isAdminAccount && (
+            <div className="border-t border-tank-light pt-4 space-y-3">
+              <div>
+                <h3 className="text-lg font-semibold mb-0">Admin Account Step 2 password</h3>
+                <p className="text-sm text-gray-400 mb-1">
+                  Passphrase used right after admin login (and for content moderation). Separate from your account
+                  login password above and from the Admin Panel password (Admin → Authentication).
+                </p>
+                <p className="text-xs text-gray-500">
+                  Status:{' '}
+                  {step2PasswordConfigured
+                    ? step2PasswordSource === 'database'
+                      ? 'configured (database override)'
+                      : 'configured (server environment)'
+                    : 'not configured'}
+                  {step2PasswordEnvConfigured && step2PasswordDatabaseOverride
+                    ? ' · server env still present as fallback after clear'
+                    : ''}
+                </p>
+              </div>
+
+              <div className="form-fields-grid">
+                <label className="form-field-label">
+                  {step2PasswordConfigured ? 'Current Step 2 password' : 'Current (if already set)'}
+                </label>
+                <div className="min-w-0">
+                  <PasswordField
+                    value={step2CurrentPassword}
+                    onChange={(e) => setStep2CurrentPassword(e.target.value)}
+                    placeholder={step2PasswordConfigured ? 'Required' : 'Optional if unset'}
+                    autoComplete="off"
+                    disabled={step2PasswordSaving}
+                    className="w-full"
+                  />
+                </div>
+
+                <label className="form-field-label">New Step 2 password</label>
+                <div className="min-w-0">
+                  <PasswordField
+                    value={step2NewPassword}
+                    onChange={(e) => setStep2NewPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    autoComplete="new-password"
+                    disabled={step2PasswordSaving}
+                    className="w-full"
+                  />
+                </div>
+
+                <label className="form-field-label">Confirm new password</label>
+                <div className="min-w-0">
+                  <PasswordField
+                    value={step2ConfirmPassword}
+                    onChange={(e) => setStep2ConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                    disabled={step2PasswordSaving}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              {step2PasswordError && <p className="text-sm text-red-400">{step2PasswordError}</p>}
+              {step2PasswordMessage && <p className="text-sm text-green-400">{step2PasswordMessage}</p>}
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void saveAdminUserStep2Password()}
+                  disabled={step2PasswordSaving || !step2NewPassword || !step2ConfirmPassword}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium disabled:opacity-50"
+                >
+                  {step2PasswordSaving
+                    ? 'Saving…'
+                    : step2PasswordConfigured
+                      ? 'Update Step 2 password'
+                      : 'Set Step 2 password'}
+                </button>
+                {step2PasswordDatabaseOverride && step2PasswordEnvConfigured && (
+                  <button
+                    type="button"
+                    onClick={() => void clearAdminUserStep2PasswordOverride()}
+                    disabled={step2PasswordSaving || !step2CurrentPassword}
+                    className="px-4 py-2 bg-tank-light/20 hover:bg-tank-light/30 text-gray-200 rounded-lg font-medium disabled:opacity-50"
+                  >
+                    Use server env password
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {isAdminAccount && (
+            <div className="border-t border-tank-light pt-4 space-y-3">
+              <div>
+                <h3 className="text-lg font-semibold mb-0">Admin Panel password</h3>
+                <p className="text-sm text-gray-400 mb-1">
+                  Passphrase used to open the Admin Panel. Separate from account login and from Admin Account Step 2
+                  above. Confirm with your account login password to set or reset it (works even if you forgot the
+                  previous panel passphrase). You can also change it later under Admin → Authentication.
+                </p>
+              </div>
+
+              <div className="form-fields-grid">
+                <label className="form-field-label">Account login password</label>
+                <div className="min-w-0">
+                  <PasswordField
+                    value={panelAccountPassword}
+                    onChange={(e) => setPanelAccountPassword(e.target.value)}
+                    placeholder="Your account password"
+                    autoComplete="current-password"
+                    disabled={panelPasswordSaving}
+                    className="w-full"
+                  />
+                </div>
+
+                <label className="form-field-label">New Admin Panel password</label>
+                <div className="min-w-0">
+                  <PasswordField
+                    value={panelNewPassword}
+                    onChange={(e) => setPanelNewPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    autoComplete="new-password"
+                    disabled={panelPasswordSaving}
+                    className="w-full"
+                  />
+                </div>
+
+                <label className="form-field-label">Confirm new password</label>
+                <div className="min-w-0">
+                  <PasswordField
+                    value={panelConfirmPassword}
+                    onChange={(e) => setPanelConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                    disabled={panelPasswordSaving}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              {panelPasswordError && <p className="text-sm text-red-400">{panelPasswordError}</p>}
+              {panelPasswordMessage && <p className="text-sm text-green-400">{panelPasswordMessage}</p>}
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void saveAdminPanelAccessPasswordFromProfile()}
+                  disabled={
+                    panelPasswordSaving ||
+                    !panelAccountPassword ||
+                    !panelNewPassword ||
+                    !panelConfirmPassword
+                  }
+                  className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium disabled:opacity-50"
+                >
+                  {panelPasswordSaving ? 'Saving…' : 'Set Admin Panel password'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Membership Selection */}
           <div className="border-t border-tank-light pt-6">

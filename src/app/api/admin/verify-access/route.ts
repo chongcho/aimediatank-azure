@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     if (!session?.user || !sessionUserIsAdmin(session)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    const adminPanelPasswordConfigured = isAdminPanelAccessPasswordConfigured()
+    const adminPanelPasswordConfigured = await isAdminPanelAccessPasswordConfigured()
     const dedicatedPasswordRequired = isDedicatedAdminPanelPasswordRequired()
     const adminUserStep2Configured = await isAdminUserStep2PasswordConfigured()
 
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error:
-              'Admin login Step 2 requires a Step 2 password (set in Admin → Authentication, or ADMIN_USER_STEP2_PASSWORD_HASH / ADMIN_USER_STEP2_PASSWORD on the server)—separate from your account login password.',
+              'Admin login Step 2 requires a Step 2 password (set in Profile Edit, or ADMIN_USER_STEP2_PASSWORD_HASH / ADMIN_USER_STEP2_PASSWORD on the server)—separate from your account login password.',
           },
           { status: 503 }
         )
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Invalid admin login passphrase' }, { status: 400 })
       }
     } else {
-      if (isDedicatedAdminPanelPasswordRequired() && !isAdminPanelAccessPasswordConfigured()) {
+      if (isDedicatedAdminPanelPasswordRequired() && !(await isAdminPanelAccessPasswordConfigured())) {
         return NextResponse.json(
           {
             error:
@@ -139,11 +139,11 @@ export async function POST(request: Request) {
           { status: 503 }
         )
       }
-      if (!isAdminPanelAccessPasswordConfigured()) {
+      if (!(await isAdminPanelAccessPasswordConfigured())) {
         return NextResponse.json(
           {
             error:
-              'Admin Panel access requires ADMIN_PANEL_ACCESS_PASSWORD_HASH (or ADMIN_PANEL_ACCESS_PASSWORD for local dev)—a passphrase separate from your account login password.',
+              'Admin Panel access requires an Admin Panel passphrase (set in Admin → Authentication, or ADMIN_PANEL_ACCESS_PASSWORD_HASH / ADMIN_PANEL_ACCESS_PASSWORD on the server)—a passphrase separate from your account login password and from Admin Account Step 2.',
           },
           { status: 503 }
         )

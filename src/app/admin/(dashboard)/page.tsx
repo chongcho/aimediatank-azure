@@ -461,16 +461,16 @@ export default function AdminPage() {
   const [ageRequirement, setAgeRequirement] = useState<AgeRequirement>(13)
   const [authenticationLoading, setAuthenticationLoading] = useState(false)
   const [authenticationSaving, setAuthenticationSaving] = useState(false)
-  const [step2PasswordConfigured, setStep2PasswordConfigured] = useState(false)
-  const [step2PasswordSource, setStep2PasswordSource] = useState<'database' | 'environment' | 'none'>('none')
-  const [step2PasswordEnvConfigured, setStep2PasswordEnvConfigured] = useState(false)
-  const [step2PasswordDatabaseOverride, setStep2PasswordDatabaseOverride] = useState(false)
-  const [step2CurrentPassword, setStep2CurrentPassword] = useState('')
-  const [step2NewPassword, setStep2NewPassword] = useState('')
-  const [step2ConfirmPassword, setStep2ConfirmPassword] = useState('')
-  const [step2PasswordSaving, setStep2PasswordSaving] = useState(false)
-  const [step2PasswordMessage, setStep2PasswordMessage] = useState<string | null>(null)
-  const [step2PasswordError, setStep2PasswordError] = useState<string | null>(null)
+  const [panelPasswordConfigured, setPanelPasswordConfigured] = useState(false)
+  const [panelPasswordSource, setPanelPasswordSource] = useState<'database' | 'environment' | 'none'>('none')
+  const [panelPasswordEnvConfigured, setPanelPasswordEnvConfigured] = useState(false)
+  const [panelPasswordDatabaseOverride, setPanelPasswordDatabaseOverride] = useState(false)
+  const [panelCurrentPassword, setPanelCurrentPassword] = useState('')
+  const [panelNewPassword, setPanelNewPassword] = useState('')
+  const [panelConfirmPassword, setPanelConfirmPassword] = useState('')
+  const [panelPasswordSaving, setPanelPasswordSaving] = useState(false)
+  const [panelPasswordMessage, setPanelPasswordMessage] = useState<string | null>(null)
+  const [panelPasswordError, setPanelPasswordError] = useState<string | null>(null)
   const [selfServiceDeactivateAccountEnabled, setSelfServiceDeactivateAccountEnabled] = useState(true)
   const [manageAccountLoading, setManageAccountLoading] = useState(false)
   const [manageAccountSaving, setManageAccountSaving] = useState(false)
@@ -1131,19 +1131,19 @@ export default function AdminPage() {
           setEmailVerificationEnabled(data.emailVerificationEnabled !== false)
           setPhoneVerificationEnabled(data.phoneVerificationEnabled !== false)
           setAgeRequirement(normalizeAgeRequirement(data.ageRequirement))
-          setStep2PasswordConfigured(data.adminUserStep2Configured === true)
-          setStep2PasswordSource(
-            data.adminUserStep2Source === 'database' || data.adminUserStep2Source === 'environment'
-              ? data.adminUserStep2Source
+          setPanelPasswordConfigured(data.adminPanelAccessConfigured === true)
+          setPanelPasswordSource(
+            data.adminPanelAccessSource === 'database' || data.adminPanelAccessSource === 'environment'
+              ? data.adminPanelAccessSource
               : 'none'
           )
-          setStep2PasswordEnvConfigured(data.adminUserStep2EnvConfigured === true)
-          setStep2PasswordDatabaseOverride(data.adminUserStep2DatabaseOverride === true)
-          setStep2CurrentPassword('')
-          setStep2NewPassword('')
-          setStep2ConfirmPassword('')
-          setStep2PasswordMessage(null)
-          setStep2PasswordError(null)
+          setPanelPasswordEnvConfigured(data.adminPanelAccessEnvConfigured === true)
+          setPanelPasswordDatabaseOverride(data.adminPanelAccessDatabaseOverride === true)
+          setPanelCurrentPassword('')
+          setPanelNewPassword('')
+          setPanelConfirmPassword('')
+          setPanelPasswordMessage(null)
+          setPanelPasswordError(null)
         } finally {
           setAuthenticationLoading(false)
         }
@@ -1745,89 +1745,89 @@ export default function AdminPage() {
     }
   }
 
-  const applyStep2PasswordStatus = (data: {
-    adminUserStep2Configured?: boolean
-    adminUserStep2Source?: string
-    adminUserStep2EnvConfigured?: boolean
-    adminUserStep2DatabaseOverride?: boolean
+  const applyPanelPasswordStatus = (data: {
+    adminPanelAccessConfigured?: boolean
+    adminPanelAccessSource?: string
+    adminPanelAccessEnvConfigured?: boolean
+    adminPanelAccessDatabaseOverride?: boolean
   }) => {
-    setStep2PasswordConfigured(data.adminUserStep2Configured === true)
-    setStep2PasswordSource(
-      data.adminUserStep2Source === 'database' || data.adminUserStep2Source === 'environment'
-        ? data.adminUserStep2Source
+    setPanelPasswordConfigured(data.adminPanelAccessConfigured === true)
+    setPanelPasswordSource(
+      data.adminPanelAccessSource === 'database' || data.adminPanelAccessSource === 'environment'
+        ? data.adminPanelAccessSource
         : 'none'
     )
-    setStep2PasswordEnvConfigured(data.adminUserStep2EnvConfigured === true)
-    setStep2PasswordDatabaseOverride(data.adminUserStep2DatabaseOverride === true)
+    setPanelPasswordEnvConfigured(data.adminPanelAccessEnvConfigured === true)
+    setPanelPasswordDatabaseOverride(data.adminPanelAccessDatabaseOverride === true)
   }
 
-  const saveAdminUserStep2Password = async () => {
-    setStep2PasswordSaving(true)
-    setStep2PasswordMessage(null)
-    setStep2PasswordError(null)
+  const saveAdminPanelAccessPassword = async () => {
+    setPanelPasswordSaving(true)
+    setPanelPasswordMessage(null)
+    setPanelPasswordError(null)
     try {
       const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'setAdminUserStep2Password',
+          action: 'setAdminPanelAccessPassword',
           data: {
-            currentPassword: step2CurrentPassword,
-            newPassword: step2NewPassword,
-            confirmPassword: step2ConfirmPassword,
+            currentPassword: panelCurrentPassword,
+            newPassword: panelNewPassword,
+            confirmPassword: panelConfirmPassword,
           },
         }),
       })
       const data = await res.json()
       if (!res.ok) {
-        setStep2PasswordError(typeof data.error === 'string' ? data.error : 'Could not update Step 2 password')
+        setPanelPasswordError(typeof data.error === 'string' ? data.error : 'Could not update Admin Panel password')
         return
       }
-      applyStep2PasswordStatus(data)
-      setStep2CurrentPassword('')
-      setStep2NewPassword('')
-      setStep2ConfirmPassword('')
-      setStep2PasswordMessage(typeof data.message === 'string' ? data.message : 'Step 2 password updated')
+      applyPanelPasswordStatus(data)
+      setPanelCurrentPassword('')
+      setPanelNewPassword('')
+      setPanelConfirmPassword('')
+      setPanelPasswordMessage(typeof data.message === 'string' ? data.message : 'Admin Panel password updated')
     } catch (error) {
-      console.error('Error saving Step 2 password:', error)
-      setStep2PasswordError('Could not update Step 2 password')
+      console.error('Error saving Admin Panel password:', error)
+      setPanelPasswordError('Could not update Admin Panel password')
     } finally {
-      setStep2PasswordSaving(false)
+      setPanelPasswordSaving(false)
     }
   }
 
-  const clearAdminUserStep2PasswordOverride = async () => {
-    if (!step2PasswordDatabaseOverride) return
-    if (!window.confirm('Clear the database Step 2 password and use the server environment password again?')) {
+  const clearAdminPanelAccessPasswordOverride = async () => {
+    if (!panelPasswordDatabaseOverride) return
+    if (!window.confirm('Clear the database Admin Panel password and use the server environment password again?')) {
       return
     }
-    setStep2PasswordSaving(true)
-    setStep2PasswordMessage(null)
-    setStep2PasswordError(null)
+    setPanelPasswordSaving(true)
+    setPanelPasswordMessage(null)
+    setPanelPasswordError(null)
     try {
       const res = await adminFetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'clearAdminUserStep2PasswordDbOverride',
-          data: { currentPassword: step2CurrentPassword },
+          action: 'clearAdminPanelAccessPasswordDbOverride',
+          data: { currentPassword: panelCurrentPassword },
         }),
       })
       const data = await res.json()
       if (!res.ok) {
-        setStep2PasswordError(typeof data.error === 'string' ? data.error : 'Could not clear override')
+        setPanelPasswordError(typeof data.error === 'string' ? data.error : 'Could not clear override')
         return
       }
-      applyStep2PasswordStatus(data)
-      setStep2CurrentPassword('')
-      setStep2NewPassword('')
-      setStep2ConfirmPassword('')
-      setStep2PasswordMessage(typeof data.message === 'string' ? data.message : 'Override cleared')
+      applyPanelPasswordStatus(data)
+      setPanelCurrentPassword('')
+      setPanelNewPassword('')
+      setPanelConfirmPassword('')
+      setPanelPasswordMessage(typeof data.message === 'string' ? data.message : 'Override cleared')
     } catch (error) {
-      console.error('Error clearing Step 2 password override:', error)
-      setStep2PasswordError('Could not clear override')
+      console.error('Error clearing Admin Panel password override:', error)
+      setPanelPasswordError('Could not clear override')
     } finally {
-      setStep2PasswordSaving(false)
+      setPanelPasswordSaving(false)
     }
   }
 
@@ -4105,7 +4105,9 @@ export default function AdminPage() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">Authentication</h2>
-                <p className="text-gray-400 text-sm">Verification and age requirements for registration</p>
+                <p className="text-gray-400 text-sm">
+                  Registration verification, age, and Admin Panel password (Admin Account Step 2 is on Profile Edit)
+                </p>
               </div>
 
               {authenticationLoading ? (
@@ -4178,51 +4180,52 @@ export default function AdminPage() {
 
                 <div className="card p-4 md:p-6 space-y-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-white">Admin Step 2 password</h3>
+                    <h3 className="text-lg font-semibold text-white">Admin Panel password</h3>
                     <p className="text-sm text-gray-400 mt-1">
-                      Passphrase used after admin login (and for content moderation elevation). Separate from the
-                      account login password and from the Admin Panel passphrase.
+                      Passphrase used to open the Admin Panel (separate from the account login password and from the
+                      Admin Account Step 2 password on Profile Edit).
                     </p>
                     <p className="text-xs text-gray-500 mt-2">
                       Status:{' '}
-                      {step2PasswordConfigured
-                        ? step2PasswordSource === 'database'
+                      {panelPasswordConfigured
+                        ? panelPasswordSource === 'database'
                           ? 'configured (database override)'
                           : 'configured (server environment)'
                         : 'not configured'}
-                      {step2PasswordEnvConfigured && step2PasswordDatabaseOverride
+                      {panelPasswordEnvConfigured && panelPasswordDatabaseOverride
                         ? ' · server env still present as fallback after clear'
                         : ''}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       Saved in this site&apos;s database only. Staging and production use separate databases, so a
-                      change here does not apply to the other site.
+                      change here does not apply to the other site. The Admin Account Step 2 password is managed on
+                      Profile Edit.
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm text-gray-300 mb-2">
-                        {step2PasswordConfigured ? 'Current Step 2 password' : 'Current (if already set)'}
+                        {panelPasswordConfigured ? 'Current Admin Panel password' : 'Current (if already set)'}
                       </label>
                       <input
                         type="password"
                         autoComplete="current-password"
-                        value={step2CurrentPassword}
-                        onChange={(e) => setStep2CurrentPassword(e.target.value)}
-                        disabled={step2PasswordSaving}
+                        value={panelCurrentPassword}
+                        onChange={(e) => setPanelCurrentPassword(e.target.value)}
+                        disabled={panelPasswordSaving}
                         className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
-                        placeholder={step2PasswordConfigured ? 'Required' : 'Optional if unset'}
+                        placeholder={panelPasswordConfigured ? 'Required' : 'Optional if unset'}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-300 mb-2">New Step 2 password</label>
+                      <label className="block text-sm text-gray-300 mb-2">New Admin Panel password</label>
                       <input
                         type="password"
                         autoComplete="new-password"
-                        value={step2NewPassword}
-                        onChange={(e) => setStep2NewPassword(e.target.value)}
-                        disabled={step2PasswordSaving}
+                        value={panelNewPassword}
+                        onChange={(e) => setPanelNewPassword(e.target.value)}
+                        disabled={panelPasswordSaving}
                         className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
                         placeholder="At least 8 characters"
                       />
@@ -4232,35 +4235,35 @@ export default function AdminPage() {
                       <input
                         type="password"
                         autoComplete="new-password"
-                        value={step2ConfirmPassword}
-                        onChange={(e) => setStep2ConfirmPassword(e.target.value)}
-                        disabled={step2PasswordSaving}
+                        value={panelConfirmPassword}
+                        onChange={(e) => setPanelConfirmPassword(e.target.value)}
+                        disabled={panelPasswordSaving}
                         className="w-full bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-white"
                       />
                     </div>
                   </div>
 
-                  {step2PasswordError && (
-                    <p className="text-sm text-red-400">{step2PasswordError}</p>
+                  {panelPasswordError && (
+                    <p className="text-sm text-red-400">{panelPasswordError}</p>
                   )}
-                  {step2PasswordMessage && (
-                    <p className="text-sm text-green-400">{step2PasswordMessage}</p>
+                  {panelPasswordMessage && (
+                    <p className="text-sm text-green-400">{panelPasswordMessage}</p>
                   )}
 
                   <div className="flex flex-wrap gap-2 pt-1">
                     <button
                       type="button"
-                      onClick={() => void saveAdminUserStep2Password()}
-                      disabled={step2PasswordSaving || !step2NewPassword || !step2ConfirmPassword}
+                      onClick={() => void saveAdminPanelAccessPassword()}
+                      disabled={panelPasswordSaving || !panelNewPassword || !panelConfirmPassword}
                       className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium disabled:opacity-50"
                     >
-                      {step2PasswordSaving ? 'Saving…' : step2PasswordConfigured ? 'Update Step 2 password' : 'Set Step 2 password'}
+                      {panelPasswordSaving ? 'Saving…' : panelPasswordConfigured ? 'Update Admin Panel password' : 'Set Admin Panel password'}
                     </button>
-                    {step2PasswordDatabaseOverride && step2PasswordEnvConfigured && (
+                    {panelPasswordDatabaseOverride && panelPasswordEnvConfigured && (
                       <button
                         type="button"
-                        onClick={() => void clearAdminUserStep2PasswordOverride()}
-                        disabled={step2PasswordSaving || !step2CurrentPassword}
+                        onClick={() => void clearAdminPanelAccessPasswordOverride()}
+                        disabled={panelPasswordSaving || !panelCurrentPassword}
                         className="px-4 py-2 bg-tank-light/20 hover:bg-tank-light/30 text-gray-200 rounded-lg font-medium disabled:opacity-50"
                       >
                         Use server env password

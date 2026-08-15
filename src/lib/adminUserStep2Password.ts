@@ -10,7 +10,7 @@ import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
  *
  * Resolution order for verify:
  * 1. DB override hash in MediaDetailSetting.shareAppsEnabled.__auth.adminUserStep2PasswordHash
- *    (set from Admin → Authentication)
+ *    (set from Profile Edit for admin accounts)
  * 2. ADMIN_USER_STEP2_PASSWORD_HASH (bcrypt env)
  * 3. ADMIN_USER_STEP2_PASSWORD (plain env, local/dev only)
  */
