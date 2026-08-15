@@ -5,6 +5,7 @@ import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import { prisma } from '@/lib/prisma'
 import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
 import { parseBirthdayToIso, parseBirthdayToDate, isBirthdayAtLeastAge, normalizeAgeRequirement } from '@/lib/birthday'
+import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
 import bcrypt from 'bcryptjs'
 
 export const dynamic = 'force-dynamic'
@@ -170,7 +171,7 @@ export async function PUT(request: Request) {
         }
         let ageRequirement = 13
         try {
-          const setting = await prisma.mediaDetailSetting.findFirst()
+          const setting = await getFirstMediaDetailSetting()
           const raw = (setting as { shareAppsEnabled?: unknown } | null)?.shareAppsEnabled
           const auth =
             raw && typeof raw === 'object' && !Array.isArray(raw) && (raw as Record<string, unknown>).__auth &&

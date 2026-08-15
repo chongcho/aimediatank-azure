@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
 import { DEFAULT_SHARE_APPS, normalizeShareAppsEnabled } from './shareAppsConfig'
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +13,7 @@ async function getOrCreateSetting(): Promise<{
   aiToolEnabled: boolean
   shareAppsEnabled: Record<string, boolean>
 }> {
-  let row = await prisma.mediaDetailSetting.findFirst()
+  let row = await getFirstMediaDetailSetting()
   if (!row) {
     row = await prisma.mediaDetailSetting.create({
       data: {},

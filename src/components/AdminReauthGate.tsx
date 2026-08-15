@@ -230,7 +230,9 @@ export default function AdminReauthGate({
         </div>
       )}
       <div className="form-compact-card w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-4 sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-1 sm:mb-2">Step 2 of 2</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-1 sm:mb-2">
+          {verifyMode === 'adminUser' ? 'Step 2 of 2' : 'Admin Panel access'}
+        </p>
         <h1 className="form-compact-title text-xl sm:text-2xl font-bold text-white mb-1">
           {verifyMode === 'adminUser' ? 'Admin account verification' : 'Admin Panel access'}
         </h1>
@@ -243,7 +245,7 @@ export default function AdminReauthGate({
         <p className="form-compact-subtitle text-gray-400 text-sm mb-3 sm:mb-6">
           {verifyMode === 'adminUser'
             ? "Step 2 uses the Admin Step 2 password (Admin → Authentication, or ADMIN_USER_STEP2_PASSWORD_HASH on the server)—not your account login password. Completing this step sets a short-lived cookie needed to moderate or edit other users' content. The Admin Panel uses a separate passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH)."
-            : 'Enter the Admin Panel passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH on the server—not your account login password) and complete two-step verification.'}
+            : 'Enter the Admin Panel passphrase (ADMIN_PANEL_ACCESS_PASSWORD_HASH on the server—not your account login password) and complete two-step verification. This is not the Admin Step 2 password from Admin → Authentication; it can only be changed on the server.'}
         </p>
         {verifyMode === 'adminUser' &&
           bootstrappedFromServer &&

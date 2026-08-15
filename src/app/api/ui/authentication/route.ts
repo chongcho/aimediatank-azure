@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
 import { normalizeAgeRequirement, type AgeRequirement } from '@/lib/birthday'
 
 export const dynamic = 'force-dynamic'
@@ -10,7 +11,7 @@ async function getOrCreateSetting(): Promise<{
   selfServiceDeactivateAccountEnabled: boolean
   ageRequirement: AgeRequirement
 }> {
-  let row = await prisma.mediaDetailSetting.findFirst()
+  let row = await getFirstMediaDetailSetting()
   if (!row) {
     row = await prisma.mediaDetailSetting.create({ data: {} })
   }

@@ -4194,6 +4194,10 @@ export default function AdminPage() {
                         ? ' · server env still present as fallback after clear'
                         : ''}
                     </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Saved in this site&apos;s database only. Staging and production use separate databases, so a
+                      change here does not apply to the other site.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -1,9 +1,9 @@
-import { prisma } from '@/lib/prisma'
+import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
 
 /** Admin "Manage Account" toggle: when false, users cannot self-deactivate. Default true if unset. */
 export async function isSelfServiceAccountDeactivationEnabled(): Promise<boolean> {
   try {
-    const row = await prisma.mediaDetailSetting.findFirst()
+    const row = await getFirstMediaDetailSetting()
     if (!row) return true
     const raw = (row as { shareAppsEnabled?: unknown }).shareAppsEnabled
     const auth =

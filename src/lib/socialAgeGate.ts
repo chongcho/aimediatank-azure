@@ -1,5 +1,6 @@
 import { isBirthdayAtLeastAge, normalizeAgeRequirement, type AgeRequirement } from '@/lib/birthday'
 import { prisma } from '@/lib/prisma'
+import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
 
 /** Apple App Store: social media capabilities must be disabled for anyone under 13. */
 export const SOCIAL_MEDIA_MIN_AGE = 13
@@ -14,7 +15,7 @@ export type SocialAgeAccess = {
 
 export async function getPlatformAgeRequirement(): Promise<AgeRequirement> {
   try {
-    const setting = await prisma.mediaDetailSetting.findFirst()
+    const setting = await getFirstMediaDetailSetting()
     const raw = (setting as { shareAppsEnabled?: unknown } | null)?.shareAppsEnabled
     const auth =
       raw &&

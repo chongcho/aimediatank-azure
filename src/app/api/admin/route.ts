@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getFirstHomeLayoutSetting } from '@/lib/homeLayoutSetting'
+import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
 import { requireAdminPanelElevation } from '@/lib/requireAdminElevation'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
 import { deriveAuthMethods, isSocialAuthLabel, SOCIAL_PROVIDER_IDS, adminSetProviderAccountId } from '@/lib/authMethodLabel'
@@ -962,7 +963,7 @@ export async function GET(request: Request) {
     // Get media detail page settings (Download/Share visibility + share apps)
     if (action === 'mediaDetailSettings') {
       try {
-        let row = await prisma.mediaDetailSetting.findFirst()
+        let row = await getFirstMediaDetailSetting()
         if (!row) {
           row = await prisma.mediaDetailSetting.create({ data: {} })
         }
@@ -994,7 +995,7 @@ export async function GET(request: Request) {
     // Get authentication verification settings for admin management
     if (action === 'authenticationSettings') {
       try {
-        let row = await prisma.mediaDetailSetting.findFirst()
+        let row = await getFirstMediaDetailSetting()
         if (!row) {
           row = await prisma.mediaDetailSetting.create({ data: {} })
         }
@@ -2686,7 +2687,7 @@ export async function POST(request: Request) {
         const shareAppsObj = shareAppsPayload && typeof shareAppsPayload === 'object' && !Array.isArray(shareAppsPayload)
           ? (shareAppsPayload as Record<string, boolean>)
           : undefined
-        let row = await prisma.mediaDetailSetting.findFirst()
+        let row = await getFirstMediaDetailSetting()
         const existingRaw =
           row && (row as { shareAppsEnabled?: unknown }).shareAppsEnabled &&
           typeof (row as { shareAppsEnabled?: unknown }).shareAppsEnabled === 'object' &&
@@ -2765,7 +2766,7 @@ export async function POST(request: Request) {
             ? undefined
             : normalizeAgeRequirement(agePayload)
 
-        let row = await prisma.mediaDetailSetting.findFirst()
+        let row = await getFirstMediaDetailSetting()
         if (!row) {
           row = await prisma.mediaDetailSetting.create({ data: {} })
         }
@@ -2870,7 +2871,7 @@ export async function POST(request: Request) {
           )
         }
 
-        let row = await prisma.mediaDetailSetting.findFirst()
+        let row = await getFirstMediaDetailSetting()
         if (!row) {
           row = await prisma.mediaDetailSetting.create({ data: {} })
         }

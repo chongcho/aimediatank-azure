@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'crypto'
 import { compare, hash } from 'bcryptjs'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
 
 /**
  * Second step after admin credentials (or OAuth) sign-in: passphrase distinct from
@@ -26,17 +27,23 @@ function readAuthBlob(raw: unknown): AuthBlob {
   return auth as AuthBlob
 }
 
-async function getDbAdminUserStep2PasswordHash(): Promise<string | null> {
+/** `unreadable` keeps a DB outage from silently falling back to the env password. */
+type DbHashLookup = { readable: true; hash: string | null } | { readable: false; hash: null }
+
+async function lookupDbAdminUserStep2PasswordHash(): Promise<DbHashLookup> {
   try {
-    const row = await prisma.mediaDetailSetting.findFirst({
-      select: { shareAppsEnabled: true },
-    })
+    const row = await getFirstMediaDetailSetting()
     const auth = readAuthBlob(row?.shareAppsEnabled)
     const h = auth[AUTH_HASH_KEY]
-    return typeof h === 'string' && h.trim() ? h.trim() : null
-  } catch {
-    return null
+    return { readable: true, hash: typeof h === 'string' && h.trim() ? h.trim() : null }
+  } catch (e) {
+    console.error('Admin Step 2 password: database override lookup failed:', e)
+    return { readable: false, hash: null }
   }
+}
+
+async function getDbAdminUserStep2PasswordHash(): Promise<string | null> {
+  return (await lookupDbAdminUserStep2PasswordHash()).hash
 }
 
 function isEnvAdminUserStep2PasswordConfigured(): boolean {
@@ -72,10 +79,12 @@ export async function verifyAdminUserStep2Password(plain: string): Promise<boole
   const input = typeof plain === 'string' ? plain : ''
   if (!input) return false
 
-  const dbHash = await getDbAdminUserStep2PasswordHash()
-  if (dbHash) {
+  const lookup = await lookupDbAdminUserStep2PasswordHash()
+  // Deny rather than accept a superseded env password when the override cannot be read.
+  if (!lookup.readable) return false
+  if (lookup.hash) {
     try {
-      return await compare(input, dbHash)
+      return await compare(input, lookup.hash)
     } catch {
       return false
     }
@@ -132,7 +141,7 @@ export async function setAdminUserStep2Password(params: {
 
   const passwordHash = await hash(newPassword, 12)
 
-  let row = await prisma.mediaDetailSetting.findFirst()
+  let row = await getFirstMediaDetailSetting()
   if (!row) {
     row = await prisma.mediaDetailSetting.create({ data: {} })
   }
@@ -180,7 +189,7 @@ export async function clearAdminUserStep2PasswordDbOverride(
     }
   }
 
-  let row = await prisma.mediaDetailSetting.findFirst()
+  let row = await getFirstMediaDetailSetting()
   if (!row) {
     return { ok: false, error: 'Settings row not found' }
   }

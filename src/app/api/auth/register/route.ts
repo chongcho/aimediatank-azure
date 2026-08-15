@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
 import { BlobServiceClient } from '@azure/storage-blob'
 import { parseBirthdayToIso, parseBirthdayToDate, isBirthdayAtLeastAge, normalizeAgeRequirement } from '@/lib/birthday'
+import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
 
 // Function to generate verification token
 function generateVerificationToken() {
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
 
     let ageRequirement = 13
     try {
-      const setting = await prisma.mediaDetailSetting.findFirst()
+      const setting = await getFirstMediaDetailSetting()
       const raw = (setting as { shareAppsEnabled?: unknown } | null)?.shareAppsEnabled
       const auth =
         raw && typeof raw === 'object' && !Array.isArray(raw) && (raw as Record<string, unknown>).__auth &&
