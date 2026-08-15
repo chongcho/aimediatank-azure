@@ -258,8 +258,7 @@ export async function GET(
       try {
         const watermarked = await createWatermarkedDownloadFile(
           downloadBlobUrl,
-          media.type,
-          media.user.username
+          media.type
         )
         return watermarkedDownloadResponse(watermarked, fileName)
       } catch (err) {

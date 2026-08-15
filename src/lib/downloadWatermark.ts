@@ -196,13 +196,7 @@ export function guestWatermarkDiagnostics(): Record<string, string | boolean> {
   }
 }
 
-export function buildGuestWatermarkLines(username: string): { line1: string; line2: string } {
-  const safeUser = (username || 'creator').replace(/[^\w.-]/g, '_').slice(0, 40)
-  return {
-    line1: `Copyright@${safeUser}`,
-    line2: 'Register AiMediaTank.com for no watermark',
-  }
-}
+export const GUEST_WATERMARK_TEXT = 'Register AiMediaTank.com for no watermark'
 
 async function ensureFontInWorkDir(workDir: string): Promise<string> {
   await mkdir(workDir, { recursive: true })
@@ -215,12 +209,11 @@ async function ensureFontInWorkDir(workDir: string): Promise<string> {
 }
 
 /** drawtext filter chain (no textfile=; no color@alpha — older Linux ffmpeg-static rejects those). */
-async function buildDrawtextFilter(username: string, workDir: string): Promise<string> {
+async function buildDrawtextFilter(workDir: string): Promise<string> {
   const fontPath = await ensureFontInWorkDir(workDir)
-  const { line1, line2 } = buildGuestWatermarkLines(username)
   const fontOpt = `fontfile=${ffmpegFilterPath(fontPath)}:`
-  const multiLine = escapeDrawtextLiteral(`${line1}\n${line2}`)
-  const t = `text='${multiLine}':`
+  const text = escapeDrawtextLiteral(GUEST_WATERMARK_TEXT)
+  const t = `text='${text}':`
   const fs = WATERMARK_FONT_SIZE
   const fc = WATERMARK_FONT_COLOR
   return `format=yuv420p,drawtext=${fontOpt}${t}fontsize=${fs}:fontcolor=${fc}:x=(w-text_w)/2:y=(h-text_h)/2`
@@ -231,11 +224,10 @@ function escapeAssText(text: string): string {
 }
 
 /** ASS/subtitles burn-in — works on Azure linux ffmpeg-static where drawtext often exits 8. */
-async function buildAssSubtitleFilter(username: string, workDir: string): Promise<string> {
+async function buildAssSubtitleFilter(workDir: string): Promise<string> {
   await ensureFontInWorkDir(workDir)
-  const { line1, line2 } = buildGuestWatermarkLines(username)
   const assPath = join(workDir, `${uuidv4()}.ass`)
-  const assText = `${escapeAssText(line1)}\\N${escapeAssText(line2)}`
+  const assText = escapeAssText(GUEST_WATERMARK_TEXT)
   const ass = `[Script Info]
 ScriptType: v4.00+
 PlayResX: 1280
@@ -256,15 +248,15 @@ Dialogue: 0,0:00:00.00,99:00:00.00,W,,0,0,0,,${assText}
   return `subtitles=${assFile}:fontsdir=${fontsDir}`
 }
 
-async function buildVideoWatermarkFilter(username: string, workDir: string): Promise<string> {
+async function buildVideoWatermarkFilter(workDir: string): Promise<string> {
   if (process.platform === 'linux') {
-    return buildAssSubtitleFilter(username, workDir)
+    return buildAssSubtitleFilter(workDir)
   }
-  return buildDrawtextFilter(username, workDir)
+  return buildDrawtextFilter(workDir)
 }
 
-async function buildImageWatermarkFilter(username: string, workDir: string): Promise<string> {
-  return buildDrawtextFilter(username, workDir)
+async function buildImageWatermarkFilter(workDir: string): Promise<string> {
+  return buildDrawtextFilter(workDir)
 }
 
 interface StreamProbe {
@@ -389,8 +381,7 @@ export type WatermarkedFileResult = {
  */
 export async function createWatermarkedDownloadFile(
   sourceBlobUrl: string,
-  mediaType: string,
-  username: string
+  mediaType: string
 ): Promise<WatermarkedFileResult> {
   const { inputPath, ext: inExt } = await downloadBlobToTemp(sourceBlobUrl)
   const dir = join(tmpdir(), 'download-watermark')
@@ -399,15 +390,12 @@ export async function createWatermarkedDownloadFile(
   try {
     if (type === 'MUSIC') {
       const outPath = join(dir, `${uuidv4()}.${inExt || 'mp3'}`)
-      const { line1, line2 } = buildGuestWatermarkLines(username)
       await runFfmpeg([
         '-y',
         '-i',
         inputPath,
         '-metadata',
-        `comment=${line1} - ${line2}`,
-        '-metadata',
-        `copyright=${line1}`,
+        `comment=${GUEST_WATERMARK_TEXT}`,
         '-codec',
         'copy',
         outPath,
@@ -425,8 +413,8 @@ export async function createWatermarkedDownloadFile(
     const outExt = isVideo ? (inExt === 'webm' ? 'mp4' : inExt || 'mp4') : inExt || 'jpg'
     const outputPath = join(dir, `${uuidv4()}.${outExt}`)
     const filter = isVideo
-      ? await buildVideoWatermarkFilter(username, dir)
-      : await buildImageWatermarkFilter(username, dir)
+      ? await buildVideoWatermarkFilter(dir)
+      : await buildImageWatermarkFilter(dir)
 
     if (isVideo) {
       await runVideoWatermark(inputPath, outputPath, filter)
