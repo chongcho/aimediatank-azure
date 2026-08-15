@@ -6,6 +6,12 @@ export const dynamic = 'force-dynamic'
 // GET - Fetch enabled games (public endpoint)
 export async function GET() {
   try {
+    // Keep Play-page title in sync for existing installs
+    await prisma.gameSetting.updateMany({
+      where: { gameId: 'pong', name: 'Pong' },
+      data: { name: 'Table Tennis' },
+    })
+
     let games = await prisma.gameSetting.findMany({
       where: { isEnabled: true },
       orderBy: { sortOrder: 'asc' },
@@ -23,7 +29,7 @@ export async function GET() {
           { id: '3', gameId: 'donkeykong', name: 'Donkey Kong', isEnabled: true, sortOrder: 2, createdAt: new Date(), updatedAt: new Date() },
           { id: '4', gameId: 'pacman', name: 'Pac-Man', isEnabled: true, sortOrder: 3, createdAt: new Date(), updatedAt: new Date() },
           { id: '5', gameId: 'breakout', name: 'Block Breaker', isEnabled: true, sortOrder: 4, createdAt: new Date(), updatedAt: new Date() },
-          { id: '6', gameId: 'pong', name: 'Pong', isEnabled: true, sortOrder: 5, createdAt: new Date(), updatedAt: new Date() },
+          { id: '6', gameId: 'pong', name: 'Table Tennis', isEnabled: true, sortOrder: 5, createdAt: new Date(), updatedAt: new Date() },
         ]
       }
     }

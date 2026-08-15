@@ -483,7 +483,7 @@ export default function PongPage() {
           {gameState === 'start' && (
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm rounded-lg flex flex-col items-center justify-center gap-3">
               <div className="text-4xl font-black text-white tracking-widest" style={{ fontFamily: 'monospace' }}>
-                PONG
+                TABLE TENNIS
               </div>
               <div className="text-gray-300 text-xs text-center px-6">
                 Move paddle to keep ball in play.<br />

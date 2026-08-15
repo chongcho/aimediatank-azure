@@ -92,7 +92,7 @@ const features = [
   { icon: '📱', title: 'Web, PWA & Native Apps', desc: 'Use AMT in the browser, install as a Progressive Web App, or download the native iOS (TestFlight) and Android (Play internal testing) apps.' },
   { icon: '🔐', title: 'Enterprise Security', desc: 'Azure-backed cloud storage, encrypted transfers, SAS-token authentication, and role-based access control protect every asset.' },
   { icon: '🎞️', title: 'Video Processing', desc: 'Automated multi-resolution transcoding via Azure Functions ensures smooth playback across bandwidth conditions.' },
-  { icon: '🎮', title: 'Interactive Games', desc: 'Built-in retro games — Pac-Man, Tetris, Pong, Breakout, Donkey Kong, and Minesweeper — for a fun break between creating.' },
+  { icon: '🎮', title: 'Interactive Games', desc: 'Built-in retro games — Pac-Man, Tetris, Table Tennis, Breakout, Donkey Kong, and Minesweeper — for a fun break between creating.' },
   { icon: '🛡️', title: 'Admin Controls', desc: 'Full admin panel with user and media management, chat moderation, access logs, badge and navbar toggles, home layout, and translation settings.' },
 ]
 

@@ -212,7 +212,7 @@ export default function PlayPage() {
           { gameId: 'donkeykong', name: 'Donkey Kong', isEnabled: true },
           { gameId: 'pacman', name: 'Pac-Man', isEnabled: true },
           { gameId: 'breakout', name: 'Block Breaker', isEnabled: true },
-          { gameId: 'pong', name: 'Pong', isEnabled: true },
+          { gameId: 'pong', name: 'Table Tennis', isEnabled: true },
         ])
       } finally {
         setLoading(false)
