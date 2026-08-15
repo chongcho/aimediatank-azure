@@ -805,8 +805,8 @@ export async function GET(request: Request) {
     // Get game settings for admin management
     if (action === 'gameSettings') {
       await prisma.gameSetting.updateMany({
-        where: { gameId: 'pong', name: 'Pong' },
-        data: { name: 'Table Tennis' },
+        where: { gameId: 'pong', name: { in: ['Pong', 'Table Tennis'] } },
+        data: { name: 'Racquetball' },
       })
 
       let games = await prisma.gameSetting.findMany({
@@ -821,7 +821,7 @@ export async function GET(request: Request) {
           { gameId: 'donkeykong', name: 'Donkey Kong', isEnabled: true, sortOrder: 2 },
           { gameId: 'pacman', name: 'Pac-Man', isEnabled: true, sortOrder: 3 },
           { gameId: 'breakout', name: 'Block Breaker', isEnabled: true, sortOrder: 4 },
-          { gameId: 'pong', name: 'Table Tennis', isEnabled: true, sortOrder: 5 },
+          { gameId: 'pong', name: 'Racquetball', isEnabled: true, sortOrder: 5 },
         ]
         
         for (const game of defaultGames) {

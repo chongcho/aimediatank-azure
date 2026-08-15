@@ -13,6 +13,16 @@ const INITIAL_BALL_SPEED = 7
 const MAX_BALL_SPEED = 15
 const CONTROL_AREA_HEIGHT = 50
 const MOUSE_SENSITIVITY = 1.5
+const HANDLE_LENGTH = 34
+// The racquet moves freely inside this vertical band (it can't camp on the scoring wall).
+const PADDLE_MAX_Y = GAME_HEIGHT - CONTROL_AREA_HEIGHT - PADDLE_HEIGHT - 10
+const PADDLE_MIN_Y = 200
+
+const clampPaddleX = (x: number) => Math.max(0, Math.min(GAME_WIDTH - PADDLE_WIDTH, x))
+const clampPaddleY = (y: number) => Math.max(PADDLE_MIN_Y, Math.min(PADDLE_MAX_Y, y))
+// Physics runs at a fixed 60Hz so 90/120/144Hz screens don't play faster.
+const STEP_MS = 1000 / 60
+const MAX_CATCH_UP_MS = 100
 
 // Retro sound effects
 const playSound = (frequency: number, duration: number, type: OscillatorType = 'square', volume: number = 0.15) => {
@@ -66,6 +76,7 @@ export default function PongPage() {
   const [isPointerLocked, setIsPointerLocked] = useState(false)
   
   const paddleXRef = useRef(GAME_WIDTH / 2 - PADDLE_WIDTH / 2)
+  const paddleYRef = useRef(PADDLE_MAX_Y)
   const ballRef = useRef<Ball>({
     x: GAME_WIDTH / 2,
     y: GAME_HEIGHT / 2,
@@ -76,6 +87,8 @@ export default function PongPage() {
   
   const keysRef = useRef<Set<string>>(new Set())
   const gameLoopRef = useRef<number | null>(null)
+  const lastFrameTimeRef = useRef<number | null>(null)
+  const accumulatorRef = useRef(0)
   const rallyCountRef = useRef(0)
   const gameStateRef = useRef(gameState)
 
@@ -83,9 +96,6 @@ export default function PongPage() {
   useEffect(() => {
     gameStateRef.current = gameState
   }, [gameState])
-
-  // Paddle Y position (above control area)
-  const PADDLE_Y = GAME_HEIGHT - CONTROL_AREA_HEIGHT - PADDLE_HEIGHT - 10
 
   // Load high score
   useEffect(() => {
@@ -145,28 +155,35 @@ export default function PongPage() {
     const angle = (Math.random() - 0.5) * Math.PI / 4 // -22.5 to 22.5 degrees
     ballRef.current = {
       x: paddleXRef.current + PADDLE_WIDTH / 2 - BALL_SIZE / 2,
-      y: PADDLE_Y - BALL_SIZE - 5,
+      y: paddleYRef.current - BALL_SIZE - 5,
       dx: Math.sin(angle) * INITIAL_BALL_SPEED,
       dy: -INITIAL_BALL_SPEED, // Go up toward the wall
       speed: INITIAL_BALL_SPEED,
     }
     rallyCountRef.current = 0
-  }, [PADDLE_Y])
+  }, [])
 
-  const updateGame = useCallback(() => {
-    const paddleX = paddleXRef.current
+  const updateGame = useCallback((): boolean => {
     const ball = ballRef.current
     const keys = keysRef.current
 
-    // Move paddle with keyboard
+    // Move racquet with keyboard (any direction)
     if (keys.has('ArrowLeft') || keys.has('a') || keys.has('A')) {
-      paddleXRef.current = Math.max(0, paddleX - PADDLE_SPEED)
+      paddleXRef.current = clampPaddleX(paddleXRef.current - PADDLE_SPEED)
     }
     if (keys.has('ArrowRight') || keys.has('d') || keys.has('D')) {
-      paddleXRef.current = Math.min(GAME_WIDTH - PADDLE_WIDTH, paddleX + PADDLE_SPEED)
+      paddleXRef.current = clampPaddleX(paddleXRef.current + PADDLE_SPEED)
+    }
+    if (keys.has('ArrowUp') || keys.has('w') || keys.has('W')) {
+      paddleYRef.current = clampPaddleY(paddleYRef.current - PADDLE_SPEED)
+    }
+    if (keys.has('ArrowDown') || keys.has('s') || keys.has('S')) {
+      paddleYRef.current = clampPaddleY(paddleYRef.current + PADDLE_SPEED)
     }
 
     // Move ball
+    const prevX = ball.x
+    const prevY = ball.y
     ball.x += ball.dx
     ball.y += ball.dy
 
@@ -197,30 +214,49 @@ export default function PongPage() {
       }
     }
 
-    // Player paddle collision
-    if (
-      ball.y + BALL_SIZE >= PADDLE_Y &&
-      ball.y + BALL_SIZE <= PADDLE_Y + PADDLE_HEIGHT + 10 &&
-      ball.x + BALL_SIZE >= paddleXRef.current &&
-      ball.x <= paddleXRef.current + PADDLE_WIDTH &&
-      ball.dy > 0
-    ) {
-      // Calculate bounce angle based on where ball hits paddle
-      const hitPos = (ball.x + BALL_SIZE / 2 - paddleXRef.current) / PADDLE_WIDTH
-      const angle = (hitPos - 0.5) * Math.PI * 0.6 // -54 to 54 degrees
-      
-      ball.dx = Math.sin(angle) * ball.speed
-      ball.dy = -Math.cos(angle) * ball.speed
-      ball.y = PADDLE_Y - BALL_SIZE - 1
-      sounds.paddle()
+    // Racquet collision - the racquet moves in 2D, so any face can be struck
+    const paddleX = paddleXRef.current
+    const paddleY = paddleYRef.current
+    const paddleTop = paddleY
+    const paddleBottom = paddleY + PADDLE_HEIGHT
+    const overlapsX = ball.x + BALL_SIZE > paddleX && ball.x < paddleX + PADDLE_WIDTH
+
+    if (overlapsX) {
+      // Compare against the previous position so a fast ball can't skip past the face
+      const crossedTop = prevY + BALL_SIZE <= paddleTop && ball.y + BALL_SIZE >= paddleTop
+      const crossedBottom = prevY >= paddleBottom && ball.y <= paddleBottom
+      const overlapsY = ball.y + BALL_SIZE > paddleTop && ball.y < paddleBottom
+
+      if (ball.dy > 0 && crossedTop) {
+        // Calculate bounce angle based on where ball hits paddle
+        const hitPos = (ball.x + BALL_SIZE / 2 - paddleX) / PADDLE_WIDTH
+        const angle = (hitPos - 0.5) * Math.PI * 0.6 // -54 to 54 degrees
+
+        ball.dx = Math.sin(angle) * ball.speed
+        ball.dy = -Math.cos(angle) * ball.speed
+        ball.y = paddleTop - BALL_SIZE - 1
+        sounds.paddle()
+      } else if (ball.dy < 0 && crossedBottom) {
+        ball.dy = Math.abs(ball.dy)
+        ball.y = paddleBottom + 1
+        sounds.paddle()
+      } else if (overlapsY) {
+        const fromLeft = prevX + BALL_SIZE / 2 < paddleX + PADDLE_WIDTH / 2
+        ball.dx = fromLeft ? -Math.abs(ball.dx) : Math.abs(ball.dx)
+        ball.x = fromLeft ? paddleX - BALL_SIZE - 1 : paddleX + PADDLE_WIDTH + 1
+        sounds.paddle()
+      }
     }
 
     // Ball passed paddle - Game Over (check against control area top)
     if (ball.y > GAME_HEIGHT - CONTROL_AREA_HEIGHT) {
       sounds.lose()
       setGameState('lost')
+      return false
     }
-  }, [level, PADDLE_Y])
+
+    return true
+  }, [level])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -229,6 +265,7 @@ export default function PongPage() {
     if (!ctx) return
 
     const paddleX = paddleXRef.current
+    const paddleY = paddleYRef.current
     const ball = ballRef.current
 
     // Clear with dark blue background
@@ -269,20 +306,20 @@ export default function PongPage() {
     ctx.fillRect(0, 0, GAME_WIDTH, 8)
     ctx.shadowBlur = 0
 
-    // Draw player paddle (cyan) - T-shaped with handle
+    // Draw player racquet (cyan) - T-shaped with handle
     ctx.fillStyle = '#06b6d4'
     ctx.shadowColor = '#06b6d4'
     ctx.shadowBlur = 15
-    // Paddle head
-    ctx.fillRect(paddleX, PADDLE_Y, PADDLE_WIDTH, PADDLE_HEIGHT)
-    // Paddle stem/handle extending down
+    // Racquet head
+    ctx.fillRect(paddleX, paddleY, PADDLE_WIDTH, PADDLE_HEIGHT)
+    // Racquet stem/handle extending down
     const stemWidth = 8
     const stemX = paddleX + PADDLE_WIDTH / 2 - stemWidth / 2
-    ctx.fillRect(stemX, PADDLE_Y + PADDLE_HEIGHT, stemWidth, CONTROL_AREA_HEIGHT - 15)
+    ctx.fillRect(stemX, paddleY + PADDLE_HEIGHT, stemWidth, HANDLE_LENGTH)
     ctx.shadowBlur = 0
     
     // Draw hand icon at bottom of stem
-    const handY = GAME_HEIGHT - 30
+    const handY = paddleY + PADDLE_HEIGHT + HANDLE_LENGTH
     const handX = paddleX + PADDLE_WIDTH / 2
     ctx.strokeStyle = '#06b6d4'
     ctx.lineWidth = 2
@@ -317,15 +354,37 @@ export default function PongPage() {
     ctx.font = '12px monospace'
     ctx.textAlign = 'left'
     ctx.fillText(`Rally: ${rallyCountRef.current}`, 15, 30)
-  }, [score, level, PADDLE_Y, isPointerLocked])
+  }, [score, level, isPointerLocked])
 
-  const gameLoop = useCallback(() => {
+  const gameLoop = useCallback((timestamp: number) => {
     if (gameState === 'playing') {
-      updateGame()
+      const lastTimestamp = lastFrameTimeRef.current
+      lastFrameTimeRef.current = timestamp
+
+      if (lastTimestamp !== null) {
+        accumulatorRef.current = Math.min(
+          accumulatorRef.current + (timestamp - lastTimestamp),
+          MAX_CATCH_UP_MS
+        )
+        while (accumulatorRef.current >= STEP_MS) {
+          accumulatorRef.current -= STEP_MS
+          if (!updateGame()) {
+            accumulatorRef.current = 0
+            break
+          }
+        }
+      }
+
       draw()
     }
     gameLoopRef.current = requestAnimationFrame(gameLoop)
   }, [gameState, updateGame, draw])
+
+  // Reset frame timing so a pause or tab switch doesn't fast-forward the ball
+  useEffect(() => {
+    lastFrameTimeRef.current = null
+    accumulatorRef.current = 0
+  }, [gameState])
 
   // Game loop
   useEffect(() => {
@@ -340,7 +399,7 @@ export default function PongPage() {
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['ArrowLeft', 'ArrowRight', 'a', 'd', 'A', 'D', ' ', 'p', 'P', 'Escape'].includes(e.key)) {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'a', 'd', 'A', 'D', 'w', 's', 'W', 'S', ' ', 'p', 'P', 'Escape'].includes(e.key)) {
         e.preventDefault()
         keysRef.current.add(e.key)
         
@@ -373,16 +432,17 @@ export default function PongPage() {
     const handleMouseMove = (e: MouseEvent) => {
       if (gameStateRef.current !== 'playing') return
       
-      // Use movementX for pointer-locked control (relative movement)
+      // Use movementX/movementY for pointer-locked control (relative movement)
       if (document.pointerLockElement === canvas) {
-        const movement = e.movementX * MOUSE_SENSITIVITY
-        paddleXRef.current = Math.max(0, Math.min(GAME_WIDTH - PADDLE_WIDTH, paddleXRef.current + movement))
+        paddleXRef.current = clampPaddleX(paddleXRef.current + e.movementX * MOUSE_SENSITIVITY)
+        paddleYRef.current = clampPaddleY(paddleYRef.current + e.movementY * MOUSE_SENSITIVITY)
       } else {
         // Fallback: absolute position when not locked
         const rect = canvas.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const scaledX = (x / rect.width) * GAME_WIDTH
-        paddleXRef.current = Math.max(0, Math.min(GAME_WIDTH - PADDLE_WIDTH, scaledX - PADDLE_WIDTH / 2))
+        const scaledX = ((e.clientX - rect.left) / rect.width) * GAME_WIDTH
+        const scaledY = ((e.clientY - rect.top) / rect.height) * GAME_HEIGHT
+        paddleXRef.current = clampPaddleX(scaledX - PADDLE_WIDTH / 2)
+        paddleYRef.current = clampPaddleY(scaledY - PADDLE_HEIGHT / 2)
       }
     }
 
@@ -412,9 +472,11 @@ export default function PongPage() {
       if (e.touches.length > 0) {
         e.preventDefault()
         const rect = canvas.getBoundingClientRect()
-        const x = e.touches[0].clientX - rect.left
-        const scaledX = (x / rect.width) * GAME_WIDTH
-        paddleXRef.current = Math.max(0, Math.min(GAME_WIDTH - PADDLE_WIDTH, scaledX - PADDLE_WIDTH / 2))
+        const scaledX = ((e.touches[0].clientX - rect.left) / rect.width) * GAME_WIDTH
+        const scaledY = ((e.touches[0].clientY - rect.top) / rect.height) * GAME_HEIGHT
+        paddleXRef.current = clampPaddleX(scaledX - PADDLE_WIDTH / 2)
+        // Grip sits under the finger so the racquet head stays visible above it
+        paddleYRef.current = clampPaddleY(scaledY - PADDLE_HEIGHT - HANDLE_LENGTH)
       }
     }
 
@@ -432,6 +494,7 @@ export default function PongPage() {
     setScore(0)
     setLevel(1)
     paddleXRef.current = GAME_WIDTH / 2 - PADDLE_WIDTH / 2
+    paddleYRef.current = PADDLE_MAX_Y
     resetBall()
     setGameState('playing')
     // Request pointer lock after a short delay to ensure game state is set
@@ -483,10 +546,10 @@ export default function PongPage() {
           {gameState === 'start' && (
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm rounded-lg flex flex-col items-center justify-center gap-3">
               <div className="text-4xl font-black text-white tracking-widest" style={{ fontFamily: 'monospace' }}>
-                TABLE TENNIS
+                RACQUETBALL
               </div>
               <div className="text-gray-300 text-xs text-center px-6">
-                Move paddle to keep ball in play.<br />
+                Move the racquet any direction to keep the ball in play.<br />
                 Hit the green wall to score!
               </div>
               <button
@@ -535,7 +598,7 @@ export default function PongPage() {
 
         {/* Controls Info - Desktop only */}
         <div className="hidden sm:block mt-4 text-center text-gray-500 text-sm">
-          <p>Mouse to move paddle • ←→ / A D keys • P to pause • Hit the green wall to score!</p>
+          <p>Mouse moves the racquet freely • ←↑↓→ / W A S D keys • P to pause • Hit the green wall to score!</p>
         </div>
 
       </div>
