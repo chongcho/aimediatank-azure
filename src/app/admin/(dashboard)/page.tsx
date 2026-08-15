@@ -4200,7 +4200,7 @@ export default function AdminPage() {
                     <p className="text-xs text-gray-500 mt-1">
                       Saved in this site&apos;s database only. Staging and production use separate databases, so a
                       change here does not apply to the other site. You can also set or reset it from Profile Edit
-                      (confirm with your account login password).
+                      (confirm with the current Admin Panel password).
                     </p>
                   </div>
 

@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { compare, hash } from 'bcryptjs'
-import { Prisma } from '@prisma/client'
 import { authOptions } from '@/lib/auth'
-import { getAdminPanelAccessPasswordStatus } from '@/lib/adminPanelAccessPassword'
-import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
+import {
+  getAdminPanelAccessPasswordStatus,
+  setAdminPanelAccessPassword,
+} from '@/lib/adminPanelAccessPassword'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
-
-const AUTH_HASH_KEY = 'adminPanelAccessPasswordHash'
 
 function sessionUserIsAdmin(session: { user?: { role?: string | null } } | null): boolean {
   const r = session?.user?.role
@@ -18,8 +16,7 @@ function sessionUserIsAdmin(session: { user?: { role?: string | null } } | null)
 
 /**
  * POST: set Admin Panel passphrase from Profile Edit.
- * Proves identity with the account login password (not the current panel passphrase),
- * so a forgotten panel passphrase is not a permanent lockout.
+ * Requires the current Admin Panel passphrase when one is already configured.
  * Does not require Admin Panel elevation.
  */
 export async function POST(request: Request) {
@@ -30,66 +27,23 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const accountPassword = typeof body?.accountPassword === 'string' ? body.accountPassword : ''
+    const currentPassword =
+      typeof body?.currentPassword === 'string'
+        ? body.currentPassword
+        : typeof body?.accountPassword === 'string'
+          ? body.accountPassword
+          : ''
     const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : ''
     const confirmPassword = typeof body?.confirmPassword === 'string' ? body.confirmPassword : ''
 
-    if (!accountPassword) {
-      return NextResponse.json({ error: 'Account login password is required' }, { status: 400 })
-    }
-    if (newPassword.length < 8) {
-      return NextResponse.json({ error: 'New password must be at least 8 characters' }, { status: 400 })
-    }
-    if (newPassword !== confirmPassword) {
-      return NextResponse.json({ error: 'New password and confirmation do not match' }, { status: 400 })
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { id: true, password: true },
+    const result = await setAdminPanelAccessPassword({
+      currentPassword,
+      newPassword,
+      confirmPassword,
     })
-    if (!user?.password) {
-      return NextResponse.json(
-        {
-          error:
-            'This account has no login password set. Use Azure app settings to set ADMIN_PANEL_ACCESS_PASSWORD_HASH.',
-        },
-        { status: 400 }
-      )
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 400 })
     }
-    const accountOk = await compare(accountPassword, user.password)
-    if (!accountOk) {
-      return NextResponse.json({ error: 'Account login password is incorrect' }, { status: 400 })
-    }
-
-    const passwordHash = await hash(newPassword, 12)
-    let row = await getFirstMediaDetailSetting()
-    if (!row) {
-      row = await prisma.mediaDetailSetting.create({ data: {} })
-    }
-    const raw =
-      row.shareAppsEnabled &&
-      typeof row.shareAppsEnabled === 'object' &&
-      !Array.isArray(row.shareAppsEnabled)
-        ? ({ ...(row.shareAppsEnabled as Record<string, unknown>) } as Record<string, unknown>)
-        : {}
-    const prevAuth =
-      raw.__auth && typeof raw.__auth === 'object' && !Array.isArray(raw.__auth)
-        ? (raw.__auth as Record<string, unknown>)
-        : {}
-
-    await prisma.mediaDetailSetting.update({
-      where: { id: row.id },
-      data: {
-        shareAppsEnabled: {
-          ...raw,
-          __auth: {
-            ...prevAuth,
-            [AUTH_HASH_KEY]: passwordHash,
-          },
-        } as Prisma.InputJsonValue,
-      },
-    })
 
     const status = await getAdminPanelAccessPasswordStatus()
     try {
@@ -102,7 +56,7 @@ export async function POST(request: Request) {
           details: JSON.stringify({
             source: status.source,
             databaseOverride: status.databaseOverride,
-            via: 'profile-account-password',
+            via: 'profile',
           }),
         },
       })

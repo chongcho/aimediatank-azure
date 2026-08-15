@@ -284,7 +284,7 @@ export default function EditProfilePage() {
     selfServiceDeactivateAccountEnabled: true,
     ageRequirement: 13,
   })
-  const [panelAccountPassword, setPanelAccountPassword] = useState('')
+  const [panelCurrentPassword, setPanelCurrentPassword] = useState('')
   const [panelNewPassword, setPanelNewPassword] = useState('')
   const [panelConfirmPassword, setPanelConfirmPassword] = useState('')
   const [panelPasswordSaving, setPanelPasswordSaving] = useState(false)
@@ -430,7 +430,7 @@ export default function EditProfilePage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          accountPassword: panelAccountPassword,
+          currentPassword: panelCurrentPassword,
           newPassword: panelNewPassword,
           confirmPassword: panelConfirmPassword,
         }),
@@ -440,7 +440,7 @@ export default function EditProfilePage() {
         setPanelPasswordError(typeof data.error === 'string' ? data.error : 'Could not update Admin Panel password')
         return
       }
-      setPanelAccountPassword('')
+      setPanelCurrentPassword('')
       setPanelNewPassword('')
       setPanelConfirmPassword('')
       setPanelPasswordMessage(typeof data.message === 'string' ? data.message : 'Admin Panel password updated')
@@ -1334,19 +1334,19 @@ export default function EditProfilePage() {
                 <h3 className="text-lg font-semibold mb-0">Admin Panel password</h3>
                 <p className="text-sm text-gray-400 mb-1">
                   Passphrase for Admin Panel access and elevated admin features across the app. Separate from your
-                  account login password above (admins sign in like other users). Confirm with your account login
-                  password to set or reset it. You can also change it under Admin → Authentication.
+                  account login password above (admins sign in like other users). Enter the current Admin Panel
+                  password to set a new one. You can also change it under Admin → Authentication.
                 </p>
               </div>
 
               <div className="form-fields-grid">
-                <label className="form-field-label">Account login password</label>
+                <label className="form-field-label">Current Admin Panel password</label>
                 <div className="min-w-0">
                   <PasswordField
-                    value={panelAccountPassword}
-                    onChange={(e) => setPanelAccountPassword(e.target.value)}
-                    placeholder="Your account password"
-                    autoComplete="current-password"
+                    value={panelCurrentPassword}
+                    onChange={(e) => setPanelCurrentPassword(e.target.value)}
+                    placeholder="Current Admin Panel password"
+                    autoComplete="off"
                     disabled={panelPasswordSaving}
                     className="w-full"
                   />
@@ -1386,7 +1386,7 @@ export default function EditProfilePage() {
                   onClick={() => void saveAdminPanelAccessPasswordFromProfile()}
                   disabled={
                     panelPasswordSaving ||
-                    !panelAccountPassword ||
+                    !panelCurrentPassword ||
                     !panelNewPassword ||
                     !panelConfirmPassword
                   }
