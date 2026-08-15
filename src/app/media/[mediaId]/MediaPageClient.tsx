@@ -638,7 +638,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         const data = await res.json()
         if (res.status === 403 && data.code === 'ADMIN_CONTENT_ELEVATION_REQUIRED') {
           const next = encodeURIComponent(`/media/${mediaId}`)
-          window.location.href = `/login/admin-verify?next=${next}`
+          window.location.href = `/admin/reauth?next=${next}`
           return
         }
         alert(data.error || tMedia('deleteFail'))
@@ -811,7 +811,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     if (!res.ok) {
                       if (res.status === 403 && data.code === 'ADMIN_CONTENT_ELEVATION_REQUIRED') {
                         const next = encodeURIComponent(`/media/${mediaId}`)
-                        window.location.href = `/login/admin-verify?next=${next}`
+                        window.location.href = `/admin/reauth?next=${next}`
                         return
                       }
                       alert(data.error || tMedia('retryFailed'))

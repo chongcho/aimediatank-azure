@@ -4106,7 +4106,7 @@ export default function AdminPage() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">Authentication</h2>
                 <p className="text-gray-400 text-sm">
-                  Registration verification, age, and Admin Panel password (Admin Account Step 2 is on Profile Edit)
+                  Registration verification, age, and Admin Panel password
                 </p>
               </div>
 
@@ -4182,8 +4182,9 @@ export default function AdminPage() {
                   <div>
                     <h3 className="text-lg font-semibold text-white">Admin Panel password</h3>
                     <p className="text-sm text-gray-400 mt-1">
-                      Passphrase used to open the Admin Panel (separate from the account login password and from the
-                      Admin Account Step 2 password on Profile Edit).
+                      Passphrase for Admin Panel access and elevated admin features across the app (separate from the
+                      account login password). Admins sign in like other users; this passphrase is only for Admin Panel
+                      / elevated actions.
                     </p>
                     <p className="text-xs text-gray-500 mt-2">
                       Status:{' '}
@@ -4198,8 +4199,8 @@ export default function AdminPage() {
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       Saved in this site&apos;s database only. Staging and production use separate databases, so a
-                      change here does not apply to the other site. The Admin Account Step 2 password is managed on
-                      Profile Edit.
+                      change here does not apply to the other site. You can also set or reset it from Profile Edit
+                      (confirm with your account login password).
                     </p>
                   </div>
 

@@ -6,12 +6,14 @@ type Props = {
   initialAdminUsername: string
   initialAdminPanelPasswordConfigured: boolean
   initialDedicatedPasswordRequired: boolean
+  nextPath?: string
 }
 
 export default function AdminReauthClient({
   initialAdminUsername,
   initialAdminPanelPasswordConfigured,
   initialDedicatedPasswordRequired,
+  nextPath = '/admin',
 }: Props) {
   return (
     <AdminReauthGate
@@ -21,8 +23,13 @@ export default function AdminReauthClient({
       initialAdminPanelPasswordConfigured={initialAdminPanelPasswordConfigured}
       initialDedicatedPasswordRequired={initialDedicatedPasswordRequired}
       onVerified={() => {
-        // Plain /admin so middleware does not clear admin_reauth (?ar=1) right after verify sets it.
-        window.location.assign('/admin')
+        // Prefer an in-app return path (e.g. media moderation). Default to /admin without ?ar=1
+        // so middleware does not clear admin_reauth right after verify sets it.
+        const dest =
+          typeof nextPath === 'string' && nextPath.startsWith('/') && !nextPath.startsWith('//')
+            ? nextPath
+            : '/admin'
+        window.location.assign(dest)
       }}
     />
   )

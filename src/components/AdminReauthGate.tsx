@@ -231,31 +231,28 @@ export default function AdminReauthGate({
       )}
       <div className="form-compact-card w-full max-w-md rounded-2xl bg-tank-gray border border-tank-light p-4 sm:p-8">
         <p className="text-xs font-semibold uppercase tracking-wide text-tank-accent mb-1 sm:mb-2">
-          {verifyMode === 'adminUser' ? 'Step 2 of 2' : 'Admin Panel access'}
+          Admin Panel access
         </p>
         <h1 className="form-compact-title text-xl sm:text-2xl font-bold text-white mb-1">
-          {verifyMode === 'adminUser' ? 'Admin account verification' : 'Admin Panel access'}
+          Admin Panel access
         </h1>
         <p className="form-compact-subtitle text-gray-300 text-sm mb-1">
           Logged in as <span className="font-medium text-white">{adminUsername}</span>.
-          {verifyMode === 'adminUser'
-            ? ' Enter the admin login passphrase and a verification code to finish logging in.'
-            : ' App login is complete; use the Admin Panel passphrase and a verification code to open the panel.'}
+          {' '}App login is complete; use the Admin Panel passphrase and a verification code to open the panel and use elevated admin features.
         </p>
         <p className="form-compact-subtitle text-gray-400 text-sm mb-3 sm:mb-6">
-          {verifyMode === 'adminUser'
-            ? "Step 2 uses the Admin Account passphrase (Profile Edit → Admin Account Step 2, or ADMIN_USER_STEP2_PASSWORD_HASH on the server)—not your account login password. Completing this step sets a short-lived cookie needed to moderate or edit other users' content. The Admin Panel uses a separate passphrase (Admin → Authentication)."
-            : 'Enter the Admin Panel passphrase (Admin → Authentication, or ADMIN_PANEL_ACCESS_PASSWORD_HASH on the server—not your account login password) and complete two-step verification. This is not the Admin Account Step 2 password from Profile Edit.'}
+          Enter the Admin Panel passphrase (Admin → Authentication or Profile Edit, or ADMIN_PANEL_ACCESS_PASSWORD_HASH
+          on the server—not your account login password) and complete two-step verification.
         </p>
         {verifyMode === 'adminUser' &&
           bootstrappedFromServer &&
           !initialAdminUserStep2Configured && (
             <div className="mb-4 p-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-200 text-sm">
-              Admin login Step 2 is not configured. Set{' '}
-              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_USER_STEP2_PASSWORD_HASH</code> (or for
-              local dev only{' '}
-              <code className="text-xs bg-tank-black/50 px-1 rounded">ADMIN_USER_STEP2_PASSWORD</code>
-              ), or set it under Profile Edit → Admin Account Step 2.
+              This flow is no longer used. Open{' '}
+              <a href="/admin/reauth" className="underline text-red-100">
+                Admin Panel access
+              </a>{' '}
+              instead.
             </div>
           )}
         {verifyMode === 'adminPanel' && dedicatedPasswordRequired && !adminPanelPasswordConfigured && (
@@ -276,7 +273,7 @@ export default function AdminReauthGate({
         <form onSubmit={handleVerify} className="form-compact-stack space-y-3 sm:space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
-              {verifyMode === 'adminUser' ? 'Admin login passphrase' : 'Admin Panel passphrase'}
+              Admin Panel passphrase
             </label>
             <PasswordField
               value={reauthPassword}
@@ -285,11 +282,7 @@ export default function AdminReauthGate({
                 setReauthError('')
               }}
               className="input w-full"
-              placeholder={
-                verifyMode === 'adminUser'
-                  ? 'Admin Account Step 2 passphrase'
-                  : 'Admin Panel passphrase'
-              }
+              placeholder="Admin Panel passphrase"
               autoComplete="off"
             />
           </div>
@@ -344,11 +337,7 @@ export default function AdminReauthGate({
           </div>
           {reauthError && <p className="text-red-400 text-sm">{reauthError}</p>}
           <button type="submit" disabled={reauthVerifyLoading} className="btn-primary w-full">
-            {reauthVerifyLoading
-              ? 'Verifying…'
-              : verifyMode === 'adminUser'
-                ? 'Verify and continue'
-                : 'Verify and enter Admin Panel'}
+            {reauthVerifyLoading ? 'Verifying…' : 'Verify and continue'}
           </button>
         </form>
       </div>

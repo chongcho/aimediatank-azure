@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { signIn, getSession } from 'next-auth/react'
+import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import PasswordField from '@/components/PasswordField'
@@ -9,7 +9,6 @@ import { SocialSignIn } from '@/components/SocialSignIn'
 import {
   appendAdminFreshStep2Param,
   ADMIN_FORCE_STEP2_STORAGE_KEY,
-  isAppAdminRole,
 } from '@/lib/adminFreshStep2'
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -123,11 +122,6 @@ function LoginContent() {
     let dest = safeCallbackUrl
     if (safeCallbackUrl === '/admin' || safeCallbackUrl.startsWith('/admin?')) {
       dest = appendAdminFreshStep2Param(safeCallbackUrl)
-    } else {
-      const s = await getSession()
-      if (isAppAdminRole(s?.user?.role)) {
-        dest = `/login/admin-verify?next=${encodeURIComponent(safeCallbackUrl)}`
-      }
     }
     try {
       if (dest.startsWith('/admin')) {

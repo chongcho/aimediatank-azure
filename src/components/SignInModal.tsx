@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { signIn, getSession } from 'next-auth/react'
+import { signIn } from 'next-auth/react'
 import Link from 'next/link'
 import { SocialSignIn } from '@/components/SocialSignIn'
 import PasswordField from '@/components/PasswordField'
-import { isAppAdminRole } from '@/lib/adminFreshStep2'
 
 interface SignInModalProps {
   isOpen: boolean
@@ -54,11 +53,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
         setLoading(false)
       } else if (result?.ok) {
         onClose()
-        const s = await getSession()
-        const dest = isAppAdminRole(s?.user?.role)
-          ? '/login/admin-verify?next=%2F'
-          : '/'
-        window.location.replace(dest)
+        window.location.replace('/')
         return
       } else {
         setError('An error occurred. Please try again.')

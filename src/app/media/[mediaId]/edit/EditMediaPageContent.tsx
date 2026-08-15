@@ -139,7 +139,7 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
       const data = await res.json()
       if (res.status === 403 && data.code === 'ADMIN_CONTENT_ELEVATION_REQUIRED') {
         const next = encodeURIComponent(`/media/${mediaId}/edit`)
-        window.location.href = `/login/admin-verify?next=${next}`
+        window.location.href = `/admin/reauth?next=${next}`
         return
       }
       setError(data.error || 'Failed to update media')
@@ -168,7 +168,7 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
         const data = await res.json()
         if (res.status === 403 && data.code === 'ADMIN_CONTENT_ELEVATION_REQUIRED') {
           const next = encodeURIComponent(`/media/${mediaId}/edit`)
-          window.location.href = `/login/admin-verify?next=${next}`
+          window.location.href = `/admin/reauth?next=${next}`
           return
         }
         setError(data.error || 'Failed to delete media')

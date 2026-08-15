@@ -143,7 +143,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error:
-              'Admin Panel access requires an Admin Panel passphrase (set in Admin → Authentication, or ADMIN_PANEL_ACCESS_PASSWORD_HASH / ADMIN_PANEL_ACCESS_PASSWORD on the server)—a passphrase separate from your account login password and from Admin Account Step 2.',
+              'Admin Panel access requires an Admin Panel passphrase (set in Admin → Authentication or Profile Edit, or ADMIN_PANEL_ACCESS_PASSWORD_HASH / ADMIN_PANEL_ACCESS_PASSWORD on the server)—separate from your account login password.',
           },
           { status: 503 }
         )
