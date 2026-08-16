@@ -27,6 +27,8 @@ const MAX_SWING_BOOST = 6
 /** Soften the ball a bit if you hit while pulling back. */
 const BACKSWING_SPEED_LOSS = 0.25
 const MIN_BALL_SPEED = 4
+/** Steps to ignore racquet contact after a hit, so one swing can't strike twice. */
+const HIT_COOLDOWN_STEPS = 3
 
 /** 0 at the back of the court, 1 at the front wall. */
 const racquetForwardFactor = (paddleY: number) => {
@@ -116,6 +118,7 @@ export default function PongPage() {
   const lastPaddleYRef = useRef(PADDLE_MAX_Y)
   const scorePopupsRef = useRef<ScorePopup[]>([])
   const popupIdRef = useRef(0)
+  const hitCooldownRef = useRef(0)
   const ballRef = useRef<Ball>({
     x: GAME_WIDTH / 2,
     y: GAME_HEIGHT / 2,
@@ -274,20 +277,35 @@ export default function PongPage() {
       }
     }
 
-    // Racquet collision - the racquet moves in 2D, so any face can be struck
+    // Racquet collision - both the ball and the racquet move between steps, so the
+    // faces are tested in the racquet's frame of reference. Without this a fast
+    // forward swing can jump straight past the ball.
     const paddleX = paddleXRef.current
     const paddleY = paddleYRef.current
     const paddleTop = paddleY
     const paddleBottom = paddleY + PADDLE_HEIGHT
-    const overlapsX = ball.x + BALL_SIZE > paddleX && ball.x < paddleX + PADDLE_WIDTH
+    const prevPaddleTop = prevPaddleY
+    const prevPaddleBottom = prevPaddleY + PADDLE_HEIGHT
 
-    if (overlapsX) {
-      // Compare against the previous position so a fast ball can't skip past the face
-      const crossedTop = prevY + BALL_SIZE <= paddleTop && ball.y + BALL_SIZE >= paddleTop
-      const crossedBottom = prevY >= paddleBottom && ball.y <= paddleBottom
+    // Sweep both bodies horizontally - swinging the racquet through the ball counts
+    const ballLeft = Math.min(prevX, ball.x)
+    const ballRight = Math.max(prevX, ball.x) + BALL_SIZE
+    const padLeft = Math.min(prevPaddleX, paddleX)
+    const padRight = Math.max(prevPaddleX, paddleX) + PADDLE_WIDTH
+    const overlapsX = ballRight > padLeft && ballLeft < padRight
+
+    if (hitCooldownRef.current > 0) {
+      hitCooldownRef.current--
+    } else if (overlapsX) {
+      // Relative crossing: was the ball on one side of the face before, and the
+      // other side after, once the racquet's own movement is accounted for?
+      const crossedTop =
+        prevY + BALL_SIZE <= prevPaddleTop && ball.y + BALL_SIZE >= paddleTop
+      const crossedBottom =
+        prevY >= prevPaddleBottom && ball.y <= paddleBottom
       const overlapsY = ball.y + BALL_SIZE > paddleTop && ball.y < paddleBottom
 
-      if (ball.dy > 0 && crossedTop) {
+      if (crossedTop) {
         // Calculate bounce angle based on where ball hits paddle
         const hitPos = (ball.x + BALL_SIZE / 2 - paddleX) / PADDLE_WIDTH
         const angle = (hitPos - 0.5) * Math.PI * 0.6 // -54 to 54 degrees
@@ -310,20 +328,23 @@ export default function PongPage() {
         ball.dx = (ball.dx / leaveSpeed) * ball.speed
         ball.dy = (ball.dy / leaveSpeed) * ball.speed
         ball.y = paddleTop - BALL_SIZE - 1
+        hitCooldownRef.current = HIT_COOLDOWN_STEPS
         sounds.paddle()
         spawnScorePopup(
           ball.x + BALL_SIZE / 2,
           paddleTop - 8,
           scoreForWallHit(level, paddleY)
         )
-      } else if (ball.dy < 0 && crossedBottom) {
+      } else if (crossedBottom) {
         ball.dy = Math.abs(ball.dy)
         ball.y = paddleBottom + 1
+        hitCooldownRef.current = HIT_COOLDOWN_STEPS
         sounds.paddle()
       } else if (overlapsY) {
         const fromLeft = prevX + BALL_SIZE / 2 < paddleX + PADDLE_WIDTH / 2
         ball.dx = fromLeft ? -Math.abs(ball.dx) : Math.abs(ball.dx)
         ball.x = fromLeft ? paddleX - BALL_SIZE - 1 : paddleX + PADDLE_WIDTH + 1
+        hitCooldownRef.current = HIT_COOLDOWN_STEPS
         sounds.paddle()
       }
     }
@@ -592,6 +613,7 @@ export default function PongPage() {
     lastPaddleXRef.current = paddleXRef.current
     lastPaddleYRef.current = paddleYRef.current
     scorePopupsRef.current = []
+    hitCooldownRef.current = 0
     resetBall()
     setGameState('playing')
     // Request pointer lock after a short delay to ensure game state is set
