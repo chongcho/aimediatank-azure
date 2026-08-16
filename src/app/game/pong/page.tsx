@@ -14,9 +14,9 @@ const MAX_BALL_SPEED = 15
 const CONTROL_AREA_HEIGHT = 50
 const MOUSE_SENSITIVITY = 1.5
 const HANDLE_LENGTH = 34
-// The racquet moves freely inside this vertical band (it can't camp on the scoring wall).
+// Racquet can advance almost to the front scoring wall.
 const PADDLE_MAX_Y = GAME_HEIGHT - CONTROL_AREA_HEIGHT - PADDLE_HEIGHT - 10
-const PADDLE_MIN_Y = 200
+const PADDLE_MIN_Y = 20
 
 const clampPaddleX = (x: number) => Math.max(0, Math.min(GAME_WIDTH - PADDLE_WIDTH, x))
 const clampPaddleY = (y: number) => Math.max(PADDLE_MIN_Y, Math.min(PADDLE_MAX_Y, y))
@@ -91,6 +91,17 @@ interface Ball {
   speed: number
 }
 
+interface ScorePopup {
+  id: number
+  x: number
+  y: number
+  points: number
+  ageMs: number
+}
+
+const POPUP_LIFE_MS = 900
+const POPUP_RISE_PX = 48
+
 export default function PongPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'start' | 'playing' | 'paused' | 'lost'>('start')
@@ -103,6 +114,8 @@ export default function PongPage() {
   const paddleYRef = useRef(PADDLE_MAX_Y)
   const lastPaddleXRef = useRef(GAME_WIDTH / 2 - PADDLE_WIDTH / 2)
   const lastPaddleYRef = useRef(PADDLE_MAX_Y)
+  const scorePopupsRef = useRef<ScorePopup[]>([])
+  const popupIdRef = useRef(0)
   const ballRef = useRef<Ball>({
     x: GAME_WIDTH / 2,
     y: GAME_HEIGHT / 2,
@@ -176,6 +189,17 @@ export default function PongPage() {
       exitPointerLock()
     }
   }, [gameState, exitPointerLock])
+
+  const spawnScorePopup = useCallback((x: number, y: number, points: number) => {
+    popupIdRef.current += 1
+    scorePopupsRef.current.push({
+      id: popupIdRef.current,
+      x,
+      y,
+      points,
+      ageMs: 0,
+    })
+  }, [])
 
   const resetBall = useCallback(() => {
     const angle = (Math.random() - 0.5) * Math.PI / 4 // -22.5 to 22.5 degrees
@@ -287,6 +311,11 @@ export default function PongPage() {
         ball.dy = (ball.dy / leaveSpeed) * ball.speed
         ball.y = paddleTop - BALL_SIZE - 1
         sounds.paddle()
+        spawnScorePopup(
+          ball.x + BALL_SIZE / 2,
+          paddleTop - 8,
+          scoreForWallHit(level, paddleY)
+        )
       } else if (ball.dy < 0 && crossedBottom) {
         ball.dy = Math.abs(ball.dy)
         ball.y = paddleBottom + 1
@@ -307,7 +336,7 @@ export default function PongPage() {
     }
 
     return true
-  }, [level])
+  }, [level, spawnScorePopup])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -336,19 +365,6 @@ export default function PongPage() {
     ctx.lineTo(GAME_WIDTH, GAME_HEIGHT - CONTROL_AREA_HEIGHT)
     ctx.stroke()
     ctx.setLineDash([])
-
-
-    // Draw score in center (retro style)
-    ctx.fillStyle = '#222'
-    ctx.font = 'bold 100px monospace'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(score.toString(), GAME_WIDTH / 2, (GAME_HEIGHT - CONTROL_AREA_HEIGHT) / 2)
-
-    // Draw level indicator
-    ctx.fillStyle = '#333'
-    ctx.font = 'bold 14px monospace'
-    ctx.fillText(`LEVEL ${level}`, GAME_WIDTH / 2, (GAME_HEIGHT - CONTROL_AREA_HEIGHT) / 2 + 60)
 
     // Draw top wall (target wall with glow)
     ctx.fillStyle = '#22c55e'
@@ -405,7 +421,24 @@ export default function PongPage() {
     ctx.font = '12px monospace'
     ctx.textAlign = 'left'
     ctx.fillText(`Rally: ${rallyCountRef.current}`, 15, 30)
-  }, [score, level, isPointerLocked])
+
+    // Floating green +points popups (racquet contact / wall score)
+    for (const popup of scorePopupsRef.current) {
+      const t = Math.min(1, popup.ageMs / POPUP_LIFE_MS)
+      const rise = POPUP_RISE_PX * t
+      const alpha = 1 - t
+      ctx.save()
+      ctx.globalAlpha = Math.max(0, alpha)
+      ctx.fillStyle = '#22c55e'
+      ctx.shadowColor = '#22c55e'
+      ctx.shadowBlur = 12
+      ctx.font = 'bold 22px monospace'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(`+${popup.points}`, popup.x, popup.y - rise)
+      ctx.restore()
+    }
+  }, [isPointerLocked])
 
   const gameLoop = useCallback((timestamp: number) => {
     if (gameState === 'playing') {
@@ -413,8 +446,9 @@ export default function PongPage() {
       lastFrameTimeRef.current = timestamp
 
       if (lastTimestamp !== null) {
+        const frameDelta = Math.min(timestamp - lastTimestamp, MAX_CATCH_UP_MS)
         accumulatorRef.current = Math.min(
-          accumulatorRef.current + (timestamp - lastTimestamp),
+          accumulatorRef.current + frameDelta,
           MAX_CATCH_UP_MS
         )
         while (accumulatorRef.current >= STEP_MS) {
@@ -423,6 +457,13 @@ export default function PongPage() {
             accumulatorRef.current = 0
             break
           }
+        }
+
+        // Age score popups in real time so they keep floating after a hit
+        if (scorePopupsRef.current.length > 0) {
+          scorePopupsRef.current = scorePopupsRef.current
+            .map((popup) => ({ ...popup, ageMs: popup.ageMs + frameDelta }))
+            .filter((popup) => popup.ageMs < POPUP_LIFE_MS)
         }
       }
 
@@ -550,6 +591,7 @@ export default function PongPage() {
     paddleYRef.current = PADDLE_MAX_Y
     lastPaddleXRef.current = paddleXRef.current
     lastPaddleYRef.current = paddleYRef.current
+    scorePopupsRef.current = []
     resetBall()
     setGameState('playing')
     // Request pointer lock after a short delay to ensure game state is set
