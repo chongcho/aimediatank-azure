@@ -119,6 +119,7 @@ export default function PongPage() {
   const scorePopupsRef = useRef<ScorePopup[]>([])
   const popupIdRef = useRef(0)
   const hitCooldownRef = useRef(0)
+  const usingTouchRef = useRef(false)
   const ballRef = useRef<Ball>({
     x: GAME_WIDTH / 2,
     y: GAME_HEIGHT / 2,
@@ -155,6 +156,7 @@ export default function PongPage() {
 
   // Request pointer lock
   const requestPointerLock = useCallback(() => {
+    if (usingTouchRef.current) return
     const canvas = canvasRef.current
     if (canvas && document.pointerLockElement !== canvas) {
       canvas.requestPointerLock()
@@ -546,6 +548,9 @@ export default function PongPage() {
 
     const handleMouseMove = (e: MouseEvent) => {
       if (gameStateRef.current !== 'playing') return
+      // Touch devices emit compatibility mouse events; they use a different grip
+      // offset and would yank the racquet up under the finger.
+      if (usingTouchRef.current) return
       
       // Use movementX/movementY for pointer-locked control (relative movement)
       if (document.pointerLockElement === canvas) {
@@ -563,6 +568,7 @@ export default function PongPage() {
 
     // Click to lock pointer during gameplay
     const handleClick = () => {
+      if (usingTouchRef.current) return
       if (gameStateRef.current === 'playing' && document.pointerLockElement !== canvas) {
         requestPointerLock()
       }
@@ -583,6 +589,7 @@ export default function PongPage() {
     if (!canvas) return
 
     const handleTouchMove = (e: TouchEvent) => {
+      usingTouchRef.current = true
       if (gameStateRef.current !== 'playing') return
       if (e.touches.length > 0) {
         e.preventDefault()
@@ -597,12 +604,51 @@ export default function PongPage() {
 
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false })
     canvas.addEventListener('touchstart', handleTouchMove, { passive: false })
-    
     return () => {
       canvas.removeEventListener('touchmove', handleTouchMove)
       canvas.removeEventListener('touchstart', handleTouchMove)
     }
   }, [])
+
+  // Any touch marks this as a touch session, so mouse handlers and pointer lock stay off
+  useEffect(() => {
+    const markTouch = () => {
+      usingTouchRef.current = true
+    }
+    document.addEventListener('touchstart', markTouch, { passive: true, capture: true })
+    return () => {
+      document.removeEventListener('touchstart', markTouch, { capture: true })
+    }
+  }, [])
+
+  // Keep the page still while playing - dragging outside the court must not scroll it
+  useEffect(() => {
+    if (gameState !== 'playing') return
+
+    const { body, documentElement } = document
+    const prevBodyOverflow = body.style.overflow
+    const prevBodyOverscroll = body.style.overscrollBehavior
+    const prevHtmlOverflow = documentElement.style.overflow
+    const prevHtmlOverscroll = documentElement.style.overscrollBehavior
+
+    body.style.overflow = 'hidden'
+    body.style.overscrollBehavior = 'none'
+    documentElement.style.overflow = 'hidden'
+    documentElement.style.overscrollBehavior = 'none'
+
+    const blockScroll = (e: TouchEvent) => {
+      e.preventDefault()
+    }
+    document.addEventListener('touchmove', blockScroll, { passive: false })
+
+    return () => {
+      body.style.overflow = prevBodyOverflow
+      body.style.overscrollBehavior = prevBodyOverscroll
+      documentElement.style.overflow = prevHtmlOverflow
+      documentElement.style.overscrollBehavior = prevHtmlOverscroll
+      document.removeEventListener('touchmove', blockScroll)
+    }
+  }, [gameState])
 
   const startGame = () => {
     resumeAudio()
@@ -657,8 +703,8 @@ export default function PongPage() {
             ref={canvasRef}
             width={GAME_WIDTH}
             height={GAME_HEIGHT}
-            className="rounded-lg max-w-full cursor-none"
-            style={{ imageRendering: 'pixelated' }}
+            className="rounded-lg max-w-full cursor-none touch-none select-none"
+            style={{ imageRendering: 'pixelated', touchAction: 'none' }}
           />
 
           {/* Overlays - on top of game canvas */}
