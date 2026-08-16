@@ -20,6 +20,30 @@ const PADDLE_MIN_Y = 200
 
 const clampPaddleX = (x: number) => Math.max(0, Math.min(GAME_WIDTH - PADDLE_WIDTH, x))
 const clampPaddleY = (y: number) => Math.max(PADDLE_MIN_Y, Math.min(PADDLE_MAX_Y, y))
+/** Ball speed gained per pixel of forward racquet swing on contact. */
+const SWING_SPEED_GAIN = 0.4
+/** Cap how much one hit can add from racquet swing (keeps mouse flicks fair). */
+const MAX_SWING_BOOST = 6
+/** Soften the ball a bit if you hit while pulling back. */
+const BACKSWING_SPEED_LOSS = 0.25
+const MIN_BALL_SPEED = 4
+
+/** 0 at the back of the court, 1 at the front wall. */
+const racquetForwardFactor = (paddleY: number) => {
+  const travel = PADDLE_MAX_Y - PADDLE_MIN_Y
+  if (travel <= 0) return 0
+  return Math.max(0, Math.min(1, (PADDLE_MAX_Y - paddleY) / travel))
+}
+
+/**
+ * Points for hitting the scoring wall.
+ * Back of court ≈ base (10 × level); full forward ≈ base × 16 (2^4).
+ */
+const scoreForWallHit = (level: number, paddleY: number) => {
+  const forward = racquetForwardFactor(paddleY)
+  const multiplier = Math.pow(2, forward * 4)
+  return Math.max(1, Math.round(10 * level * multiplier))
+}
 // Physics runs at a fixed 60Hz so 90/120/144Hz screens don't play faster.
 const STEP_MS = 1000 / 60
 const MAX_CATCH_UP_MS = 100
@@ -77,6 +101,8 @@ export default function PongPage() {
   
   const paddleXRef = useRef(GAME_WIDTH / 2 - PADDLE_WIDTH / 2)
   const paddleYRef = useRef(PADDLE_MAX_Y)
+  const lastPaddleXRef = useRef(GAME_WIDTH / 2 - PADDLE_WIDTH / 2)
+  const lastPaddleYRef = useRef(PADDLE_MAX_Y)
   const ballRef = useRef<Ball>({
     x: GAME_WIDTH / 2,
     y: GAME_HEIGHT / 2,
@@ -166,6 +192,8 @@ export default function PongPage() {
   const updateGame = useCallback((): boolean => {
     const ball = ballRef.current
     const keys = keysRef.current
+    const prevPaddleX = lastPaddleXRef.current
+    const prevPaddleY = lastPaddleYRef.current
 
     // Move racquet with keyboard (any direction)
     if (keys.has('ArrowLeft') || keys.has('a') || keys.has('A')) {
@@ -180,6 +208,13 @@ export default function PongPage() {
     if (keys.has('ArrowDown') || keys.has('s') || keys.has('S')) {
       paddleYRef.current = clampPaddleY(paddleYRef.current + PADDLE_SPEED)
     }
+
+    // Racquet velocity this step (mouse/touch between frames + keyboard this frame).
+    // Negative velY = swinging toward the front wall.
+    const paddleVelX = paddleXRef.current - prevPaddleX
+    const paddleVelY = paddleYRef.current - prevPaddleY
+    lastPaddleXRef.current = paddleXRef.current
+    lastPaddleYRef.current = paddleYRef.current
 
     // Move ball
     const prevX = ball.x
@@ -200,10 +235,11 @@ export default function PongPage() {
       ball.y = 0
       sounds.wall()
       
-      // Score point for reaching the wall
+      // Score scales exponentially the farther forward the racquet is
       rallyCountRef.current++
       sounds.point()
-      setScore(s => s + 10 * level)
+      const points = scoreForWallHit(level, paddleYRef.current)
+      setScore(s => s + points)
       
       // Level up every 10 bounces
       if (rallyCountRef.current % 10 === 0) {
@@ -232,8 +268,23 @@ export default function PongPage() {
         const hitPos = (ball.x + BALL_SIZE / 2 - paddleX) / PADDLE_WIDTH
         const angle = (hitPos - 0.5) * Math.PI * 0.6 // -54 to 54 degrees
 
-        ball.dx = Math.sin(angle) * ball.speed
+        // Forward swing (toward the front wall) adds speed; pulling back softens it.
+        const forwardSwing = Math.max(0, -paddleVelY)
+        const backSwing = Math.max(0, paddleVelY)
+        const swingBoost = Math.min(MAX_SWING_BOOST, forwardSwing * SWING_SPEED_GAIN)
+        const swingLoss = backSwing * BACKSWING_SPEED_LOSS
+        ball.speed = Math.min(
+          MAX_BALL_SPEED,
+          Math.max(MIN_BALL_SPEED, ball.speed + swingBoost - swingLoss)
+        )
+
+        // Blend a bit of sideways racquet motion into the leave angle
+        ball.dx = Math.sin(angle) * ball.speed + paddleVelX * 0.15
         ball.dy = -Math.cos(angle) * ball.speed
+        // Keep total speed consistent after the sideways blend
+        const leaveSpeed = Math.hypot(ball.dx, ball.dy) || ball.speed
+        ball.dx = (ball.dx / leaveSpeed) * ball.speed
+        ball.dy = (ball.dy / leaveSpeed) * ball.speed
         ball.y = paddleTop - BALL_SIZE - 1
         sounds.paddle()
       } else if (ball.dy < 0 && crossedBottom) {
@@ -384,6 +435,8 @@ export default function PongPage() {
   useEffect(() => {
     lastFrameTimeRef.current = null
     accumulatorRef.current = 0
+    lastPaddleXRef.current = paddleXRef.current
+    lastPaddleYRef.current = paddleYRef.current
   }, [gameState])
 
   // Game loop
@@ -495,6 +548,8 @@ export default function PongPage() {
     setLevel(1)
     paddleXRef.current = GAME_WIDTH / 2 - PADDLE_WIDTH / 2
     paddleYRef.current = PADDLE_MAX_Y
+    lastPaddleXRef.current = paddleXRef.current
+    lastPaddleYRef.current = paddleYRef.current
     resetBall()
     setGameState('playing')
     // Request pointer lock after a short delay to ensure game state is set
@@ -550,7 +605,7 @@ export default function PongPage() {
               </div>
               <div className="text-gray-300 text-xs text-center px-6">
                 Move the racquet any direction to keep the ball in play.<br />
-                Hit the green wall to score!
+                Swing forward to hit harder — and score more near the wall!
               </div>
               <button
                 onClick={startGame}
@@ -598,7 +653,7 @@ export default function PongPage() {
 
         {/* Controls Info - Desktop only */}
         <div className="hidden sm:block mt-4 text-center text-gray-500 text-sm">
-          <p>Mouse moves the racquet freely • ←↑↓→ / W A S D keys • P to pause • Hit the green wall to score!</p>
+          <p>Mouse moves the racquet freely • Swing forward to add speed • Forward position scores exponentially more • P to pause</p>
         </div>
 
       </div>
