@@ -82,10 +82,14 @@ export async function POST(request: Request) {
 
     const pathStored = path.substring(0, 2048)
     const methodStored = method.substring(0, 16)
+    const sc =
+      typeof statusCode === 'number' && statusCode >= 100 && statusCode <= 599
+        ? Math.round(statusCode)
+        : null
     const pathFlags = detectAbnormalAccess({
       path: pathStored,
       method: methodStored,
-      statusCode: statusCode ?? null,
+      statusCode: sc,
       query: query ? String(query).substring(0, 2048) : null,
       referrer: referrer ? String(referrer).substring(0, 2048) : null,
       userAgent: userAgent ?? null,
@@ -111,7 +115,7 @@ export async function POST(request: Request) {
         userId: userId ?? null,
         userName: userName ?? null,
         userEmail: userEmail ?? null,
-        statusCode: statusCode ?? null,
+        statusCode: sc,
         abnormalFlags: abnormalFlagsArr.length ? JSON.stringify(abnormalFlagsArr) : null,
         ipDebugHeaders:
           typeof ipDebugHeaders === 'string' && ipDebugHeaders.trim()

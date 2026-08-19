@@ -73,6 +73,56 @@ function enqueueAutoBlockSecurity(params: {
   }).catch(() => {})
 }
 
+function enqueueAccessLog(request: NextRequest, extra: {
+  clientIp: string | null
+  pathname: string
+  statusCode?: number
+  sessionId?: string
+  userId?: string
+  userName?: string
+  userEmail?: string
+}) {
+  const userAgent = request.headers.get('user-agent') ?? undefined
+  const referrer = request.headers.get('referer') ?? undefined
+  const payload = {
+    ipAddress: extra.clientIp ?? undefined,
+    userAgent,
+    path: extra.pathname,
+    method: request.method,
+    query: request.nextUrl.search ? request.nextUrl.search.slice(1) : undefined,
+    referrer,
+    ...(typeof extra.statusCode === 'number' ? { statusCode: extra.statusCode } : {}),
+    sessionId: extra.sessionId,
+    userId: extra.userId,
+    userName: extra.userName,
+    userEmail: extra.userEmail,
+    ...(shouldCaptureIpDebugHeaders(extra.clientIp)
+      ? { ipDebugHeaders: serializeIpDebugHeaders(collectIpDebugHeaders(request.headers)) }
+      : {}),
+  }
+
+  const logUrl =
+    (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin) +
+    LOG_ACCESS_PATH
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const logAccessSecret = process.env.LOG_ACCESS_SECRET
+  if (logAccessSecret) {
+    headers['x-log-access-secret'] = logAccessSecret
+  }
+  fetch(logUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  }).catch(() => {})
+}
+
+function forbiddenResponse(): NextResponse {
+  return new NextResponse('Forbidden', {
+    status: 403,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  })
+}
+
 function getClientIp(request: NextRequest): string | null {
   return getClientIpFromHeaders(request.headers)
 }
@@ -91,10 +141,7 @@ export async function middleware(request: NextRequest) {
   if (!isSecurityExemptPath(pathname) && clientIp) {
     const blocked = await isClientIpBlocked(clientIp, request.nextUrl.origin)
     if (blocked) {
-      return new NextResponse('Forbidden', {
-        status: 403,
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      })
+      return forbiddenResponse()
     }
   }
 
@@ -108,10 +155,8 @@ export async function middleware(request: NextRequest) {
         origin: request.nextUrl.origin,
         category: 'probe',
       })
-      return new NextResponse('Forbidden', {
-        status: 403,
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      })
+      enqueueAccessLog(request, { clientIp, pathname, statusCode: 403 })
+      return forbiddenResponse()
     }
 
     const botFlags = detectBadBotUserAgent(request.headers.get('user-agent'))
@@ -124,10 +169,8 @@ export async function middleware(request: NextRequest) {
         category: 'bad_bot',
         userAgent: request.headers.get('user-agent'),
       })
-      return new NextResponse('Forbidden', {
-        status: 403,
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      })
+      enqueueAccessLog(request, { clientIp, pathname, statusCode: 403 })
+      return forbiddenResponse()
     }
   }
 
@@ -169,6 +212,7 @@ export async function middleware(request: NextRequest) {
     }
     const gameAccess = await fetchGameRouteAccess(request.nextUrl.origin)
     if (!isGameRouteAllowed(gamePath, gameAccess, { isAdmin })) {
+      enqueueAccessLog(request, { clientIp, pathname, statusCode: 404 })
       return new NextResponse('Not Found', {
         status: 404,
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -177,8 +221,6 @@ export async function middleware(request: NextRequest) {
   }
 
   const ip = clientIp
-  const method = request.method
-  const query = request.nextUrl.search ? request.nextUrl.search.slice(1) : undefined
 
   let sessionId = request.cookies.get(SESSION_COOKIE)?.value
   if (!sessionId && typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -197,22 +239,6 @@ export async function middleware(request: NextRequest) {
     }
   } catch {}
 
-  const payload = {
-    ipAddress: ip ?? undefined,
-    userAgent,
-    path: pathname,
-    method,
-    query,
-    referrer,
-    sessionId: sessionId ?? undefined,
-    userId,
-    userName,
-    userEmail,
-    ...(shouldCaptureIpDebugHeaders(clientIp)
-      ? { ipDebugHeaders: serializeIpDebugHeaders(collectIpDebugHeaders(request.headers)) }
-      : {}),
-  }
-
   const response = NextResponse.next()
 
   if (sessionId) {
@@ -225,21 +251,14 @@ export async function middleware(request: NextRequest) {
     })
   }
 
-  const logUrl =
-    (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin) +
-    LOG_ACCESS_PATH
-
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  const logAccessSecret = process.env.LOG_ACCESS_SECRET
-  if (logAccessSecret) {
-    headers['x-log-access-secret'] = logAccessSecret
-  }
-
-  fetch(logUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-  }).catch(() => {})
+  enqueueAccessLog(request, {
+    clientIp: ip,
+    pathname,
+    sessionId: sessionId ?? undefined,
+    userId,
+    userName,
+    userEmail,
+  })
 
   return response
 }
