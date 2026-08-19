@@ -162,8 +162,8 @@ const ENV_RES = [
   /(^|\/)rootkey\.csv$/i,
   /^\/secrets\n/i,
   /(^|\/)api-keys\.json$/i,
-  /(^|\/)api_keys\.ya?ml$/i,
-  /(^|\/)keys\.json$/i,
+  /(^|\/)api[-_]keys\.ya?ml$/i,
+  /(^|\/)keys\.(?:json|ya?ml)$/i,
   /(^|\/)config\/keys\.json$/i,
   /(^|\/)private\.json$/i,
   /(^|\/)secret\.json$/i,
@@ -212,6 +212,16 @@ const ENV_RES = [
   // --- Package-manager caches ---
   /(^|\/)\.(?:npm|yarn|pnpm)(?:\/|$)/i,
   /(^|\/)\.pnp\.js$/i,
+  // SMTP / mail credential dumps (common in empty-UA dictionary scans).
+  /(?:^|\/)(?:smtp|nodemailer|mailer|sendmail)(?:[-.]config)?\.(?:js|ts|json|ya?ml|cf)$/i,
+  /(?:^|\/)(?:mail|email)[-.](?:credentials|keys|config)\.(?:js|ts|json|ya?ml)$/i,
+  /(?:^|\/)(?:settings|config|configuration|credentials|public|modules|libraries|assets|mail|email)\/(?:smtp|mail|email|mailer)\.(?:js|ts|json|ya?ml)$/i,
+  /(?:^|\/)(?:src|backend|admin)\/config\/(?:smtp|mail|email|mailer|aws)\.(?:js|ts|json|ya?ml)$/i,
+  /(?:^|\/)(?:dashboard|control|clients?|public|assets)\/(?:smtp|mail|aws)\.config\.(?:js|ts|json|ya?ml)$/i,
+  /(^|\/)usr\/lib\/sendmail\.cf$/i,
+  /(^|\/)google-services\.(?:json|plist)$/i,
+  /(^|\/)\.gcp\/credentials(?:\/|$)/i,
+  /(^|\/)\.secrets(?:\/|$)/i,
 ]
 
 const AWS_RES = [
@@ -223,8 +233,9 @@ const AWS_RES = [
   /(^|\/)aws\.ya?ml$/i,
   /(^|\/)config\/aws(?:\.(?:ya?ml|json|php|ini))?$/i,
   /(^|\/)aws-secret\.ya?ml$/i,
-  /(^|\/)aws[-.]config\.js$/i,
+  /(^|\/)aws[-.]config\.(?:js|ts|json|ya?ml)$/i,
   /(^|\/)aws-exports\.(?:js|json)$/i,
+  /(^|\/)aws-keys\.(?:json|ya?ml)$/i,
   /(^|\/)aws(?:[-_]credentials)?\.json$/i,
   /(^|\/)aws[-_]credentials(?:\.\w+)?$/i,
   /(^|\/)config\/aws\.json$/i,
@@ -286,8 +297,9 @@ const PHP_RES = [
   /\.cgi$/i, // any CGI endpoint probe
   /\.exe$/i, // xampp/php-cgi.exe etc.
   /(^|\/)php-fpm(?:\.d)?(?:\/[\w.-]+)?\.conf$/i, // php-fpm.conf, php-fpm.d/www.conf
-  /(^|\/)php\.ini$/i, // php.ini anywhere (etc/php/.../php.ini)
+  /(^|\/)php\.ini(?:-(?:production|development))?$/i,
   /(^|\/)laravel\.ini$/i,
+  /(^|\/)server\/php(?:\/|$)/i,
   /(^|\/)php-info(?:\/|$)/i,
 ]
 
@@ -316,6 +328,34 @@ const CONFIG_RES = [
   /^\/(?:signin|dashboard|portal|workspace|account|settings|my)\n/i,
   // Scanner canary / debug-trigger stubs (e.g. /z9x8c7v6b5-debug-trigger-aimediatank.com).
   /-debug-trigger-/i,
+  // Literal glob/wildcard dictionary paths (e.g. /workspaces/*, /*update.cgi*).
+  /\/\*|\*/,
+  // Next.js placeholder-segment probes.
+  /%5B(?:slug|id)%5D/i,
+  /^\/webhook\n/i,
+  /(^|\/)controlpanel(?:\/|$)/i,
+  /(^|\/)configmap\.ya?ml$/i,
+  /(^|\/)config\/(?:test|staging|production|development|default)\.json$/i,
+  /(^|\/)config\/(?:smtp|services|mailer|email|parameters)\.(?:ya?ml|ini)$/i,
+  /(^|\/)config\/master\.key$/i,
+  /(^|\/)gitlab\/config\/gitlab\.ya?ml$/i,
+  /(^|\/)application-(?:prod|dev)\.properties$/i,
+  /(^|\/)apache2\.conf$/i,
+  /(^|\/)Procfile$/i,
+  /(^|\/)Pipfile(?:\.lock)?$/i,
+  /(^|\/)Gemfile(?:\.lock)?$/i,
+  /(^|\/)Dockerfile\.(?:prod|dev)$/i,
+  /(^|\/)\.terraformrc$/i,
+  /(^|\/)\.direnv(?:\/|$)/i,
+  /(^|\/)\.cache(?:\/|$)/i,
+  /(^|\/)\.netlify\/functions(?:\/|$)/i,
+  /(^|\/)\.vercel\/functions(?:\/|$)/i,
+  /(^|\/)\.firebase\/hosting/i,
+  /(^|\/)_vti_bin(?:\/|$)/i,
+  /(^|\/)_layouts(?:\/|$)/i,
+  /(^|\/)_react\/(?:data|action)(?:\/|$)/i,
+  /(^|\/)_nuxt(?:\/|$)/i,
+  /(^|\/)__nextjs_action(?:\/|$)/i,
   // Vite /@fs absolute filesystem exposure probes.
   /(^|\/)@fs(?:\/|$)/i,
   /(^|\/)graphql(?:\/|$)/i,
