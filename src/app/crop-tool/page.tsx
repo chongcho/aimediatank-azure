@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { compressImage, type QualitySettings } from '@/lib/mediaCompression'
 import {
+  getMetaAiWatermarkOutputRect,
+  getMetaAiWatermarkRectInVideoSpace,
+  META_AI_WATERMARK_VISIBLE_SEC_DEFAULT,
+  type MetaAiWatermarkCorner,
+} from '@/lib/metaAiWatermark'
+import {
   applyPrivacyMasksAfterDraw,
   collectPrivacyRectsNative,
   getCroppedOutputMaskRects,
@@ -220,6 +226,12 @@ export default function CropToolPage() {
     Array<{ x: number; y: number; width: number; height: number }>
   >([])
 
+  const [removeMetaAiWatermark, setRemoveMetaAiWatermark] = useState(false)
+  const [metaAiWatermarkVisibleSec, setMetaAiWatermarkVisibleSec] = useState(
+    META_AI_WATERMARK_VISIBLE_SEC_DEFAULT
+  )
+  const [metaAiWatermarkCorner, setMetaAiWatermarkCorner] = useState<MetaAiWatermarkCorner>('bottom-left')
+
   const [lastSavedName, setLastSavedName] = useState<string | null>(null)
 
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -344,6 +356,9 @@ export default function CropToolPage() {
     setPrivacyMaskStyle('blur')
     setPreviewPrivacyFaces([])
     setPreviewPrivacyPlates([])
+    setRemoveMetaAiWatermark(false)
+    setMetaAiWatermarkVisibleSec(META_AI_WATERMARK_VISIBLE_SEC_DEFAULT)
+    setMetaAiWatermarkCorner('bottom-left')
     setPreviewPlaying(false)
     setPreviewTime(0)
     try {
@@ -407,6 +422,14 @@ export default function CropToolPage() {
 
     return items
   }, [cropSettings, isSubscriber, effectiveAutoCapHeight])
+
+  const previewMetaAiWatermarkRect = useMemo(() => {
+    if (!removeMetaAiWatermark || mediaType !== 'video' || !mediaSize) return null
+    return getMetaAiWatermarkRectInVideoSpace(mediaSize.width, mediaSize.height, metaAiWatermarkCorner)
+  }, [removeMetaAiWatermark, mediaType, mediaSize, metaAiWatermarkCorner])
+
+  const showMetaAiWatermarkPreview =
+    removeMetaAiWatermark && previewTime < metaAiWatermarkVisibleSec && previewMetaAiWatermarkRect != null
 
   // Keep crop area consistent with insets and min crop size.
   useEffect(() => {
@@ -784,6 +807,9 @@ export default function CropToolPage() {
     setPrivacyMaskStyle('blur')
     setPreviewPrivacyFaces([])
     setPreviewPrivacyPlates([])
+    setRemoveMetaAiWatermark(false)
+    setMetaAiWatermarkVisibleSec(META_AI_WATERMARK_VISIBLE_SEC_DEFAULT)
+    setMetaAiWatermarkCorner('bottom-left')
   }
 
   const downloadFile = (blob: Blob, filename: string) => {
@@ -865,7 +891,8 @@ export default function CropToolPage() {
     settings: QualitySettings,
     output: { width: number; height: number },
     onProgress: (pct: number) => void,
-    privacy?: { maskFaces: boolean; maskPlates: boolean; style: PrivacyMaskStyle }
+    privacy?: { maskFaces: boolean; maskPlates: boolean; style: PrivacyMaskStyle },
+    metaAiWatermark?: { visibleSec: number; corner: MetaAiWatermarkCorner }
   ): Promise<File> => {
     const inputUrl = URL.createObjectURL(source)
     const video = document.createElement('video')
@@ -968,7 +995,9 @@ export default function CropToolPage() {
       if (targetEnd <= startSec) throw new Error('Trim end must be greater than trim start')
 
       const usePrivacy = !!(privacy?.maskFaces || privacy?.maskPlates)
+      const useMetaAiWatermark = !!metaAiWatermark
       let cachedPrivacyRects: Array<{ x: number; y: number; width: number; height: number }> = []
+      let metaAiOutputRect: { x: number; y: number; width: number; height: number } | null = null
       let privacyGen = 0
       let privacyFrameCount = 0
       const privacyDetectEvery = 3
@@ -1052,6 +1081,15 @@ export default function CropToolPage() {
             applyPrivacyMasksAfterDraw(ctx, canvas, cachedPrivacyRects, privacy.style)
           }
 
+          if (
+            useMetaAiWatermark &&
+            metaAiWatermark &&
+            metaAiOutputRect &&
+            video.currentTime < metaAiWatermark.visibleSec
+          ) {
+            applyPrivacyMasksAfterDraw(ctx, canvas, [metaAiOutputRect], 'blur')
+          }
+
           const pct = Math.round(((video.currentTime - startSec) / total) * 100)
           onProgress(clamp(pct, 0, 100))
         }
@@ -1073,6 +1111,16 @@ export default function CropToolPage() {
               } catch {
                 cachedPrivacyRects = []
               }
+            }
+            if (useMetaAiWatermark && metaAiWatermark) {
+              metaAiOutputRect = getMetaAiWatermarkOutputRect(
+                crop,
+                canvas.width,
+                canvas.height,
+                video.videoWidth || 0,
+                video.videoHeight || 0,
+                metaAiWatermark.corner
+              )
             }
             recorder.start(500)
             onProgress(0)
@@ -1158,7 +1206,13 @@ export default function CropToolPage() {
           encodingQuality,
           { width: outputDims.width, height: outputDims.height },
           setProgress,
-          privacyRequest
+          privacyRequest,
+          removeMetaAiWatermark
+            ? {
+                visibleSec: metaAiWatermarkVisibleSec,
+                corner: metaAiWatermarkCorner,
+              }
+            : undefined
         )
 
         await saveFileToIndexedDB(out)
@@ -1379,6 +1433,57 @@ export default function CropToolPage() {
                             </div>
                           </div>
                         )}
+
+                        {mediaType === 'video' && (
+                          <div className="border-t border-tank-light/25 pt-4 mt-2 space-y-3">
+                            <h4 className="text-sm font-semibold text-white">Meta AI watermark</h4>
+                            <p className="text-xs text-gray-400 leading-relaxed">
+                              Meta AI videos show an &ldquo;Imagined with AI&rdquo; corner badge for the first few
+                              seconds, then it disappears. When enabled, blurs that region only while the badge is
+                              still visible in the source — later frames stay untouched.
+                            </p>
+                            <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={removeMetaAiWatermark}
+                                onChange={(e) => setRemoveMetaAiWatermark(e.target.checked)}
+                                className="rounded border-tank-light"
+                              />
+                              Remove Meta AI watermark
+                            </label>
+                            <div>
+                              <label className="block text-sm text-gray-300 mb-1">Badge visible for (seconds)</label>
+                              <input
+                                type="number"
+                                min={0.5}
+                                max={15}
+                                step={0.5}
+                                value={metaAiWatermarkVisibleSec}
+                                onChange={(e) =>
+                                  setMetaAiWatermarkVisibleSec(
+                                    clamp(parseFloat(e.target.value) || META_AI_WATERMARK_VISIBLE_SEC_DEFAULT, 0.5, 15)
+                                  )
+                                }
+                                disabled={!removeMetaAiWatermark}
+                                className="w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded disabled:opacity-50"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm text-gray-300 mb-1">Badge corner</label>
+                              <select
+                                value={metaAiWatermarkCorner}
+                                onChange={(e) =>
+                                  setMetaAiWatermarkCorner(e.target.value as MetaAiWatermarkCorner)
+                                }
+                                disabled={!removeMetaAiWatermark}
+                                className="w-full bg-tank-gray border border-tank-light px-3 py-2 text-white rounded disabled:opacity-50"
+                              >
+                                <option value="bottom-left">Bottom left</option>
+                                <option value="bottom-right">Bottom right</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1574,6 +1679,35 @@ export default function CropToolPage() {
                             />
                           )
                         })}
+                      </div>
+                    )}
+
+                  {mediaType === 'video' &&
+                    cropArea &&
+                    mediaSize &&
+                    renderBox &&
+                    showMetaAiWatermarkPreview &&
+                    previewMetaAiWatermarkRect && (
+                      <div
+                        className="absolute left-0 right-0 top-0 z-[8] pointer-events-none overflow-hidden"
+                        style={{ bottom: 0 }}
+                        aria-hidden="true"
+                      >
+                        {(() => {
+                          const r = previewMetaAiWatermarkRect
+                          const scaleX = renderBox.width / mediaSize.width
+                          const scaleY = renderBox.height / mediaSize.height
+                          const left = renderBox.offsetX + r.x * scaleX
+                          const top = renderBox.offsetY + r.y * scaleY
+                          const width = r.width * scaleX
+                          const height = r.height * scaleY
+                          return (
+                            <div
+                              className="absolute border-2 border-dashed border-sky-400/90 rounded-sm"
+                              style={{ left, top, width, height }}
+                            />
+                          )
+                        })()}
                       </div>
                     )}
 
