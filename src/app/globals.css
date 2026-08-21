@@ -520,13 +520,17 @@ html.capacitor-native.android video.home-preplay-video::-webkit-media-controls-e
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* Form inputs */
+/* Form inputs — include .input so className="input" works even when type is omitted
+   (bare <input> does not match input[type="text"] in CSS). */
+.input,
 input[type="text"],
 input[type="email"],
 input[type="password"],
 input[type="tel"],
 input[type="number"],
 input[type="date"],
+input[type="search"],
+input[type="url"],
 textarea,
 select {
   @apply w-full px-2 py-1.5 bg-tank-dark border border-tank-light rounded-xl 

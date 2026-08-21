@@ -2094,7 +2094,7 @@ export default function AdminPage() {
     if (!ipAddress?.trim()) return
     if (
       !confirm(
-        `Block ${ipAddress}? Routine traffic from that IP will be hidden from Access Logs and return 403 when IP blocking enforcement is active. Probe/abnormal rows stay visible for audit (see Blocked IPs tab).`
+        `Block ${ipAddress}? Their traffic will be hidden from Access Logs and return 403 when IP blocking enforcement is active (see Blocked IPs tab).`
       )
     ) {
       return
@@ -2504,7 +2504,7 @@ export default function AdminPage() {
               <p className="text-gray-400 text-xs leading-snug mb-3">
                 Use the <strong className="text-gray-300">search box</strong> above to filter by path, IP, email, name, referrer, session id, user agent, country/city, or method (matches any column). Column filters and time range combine with search.
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
-                Rows highlighted for <span className="text-amber-400/90">security signals</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and also include payload/header anomalies. The <strong className="text-gray-300">Status</strong> column is the HTTP status when middleware logged it (403 for blocked probes, 404 for hidden games); normal page views are blank because the origin response is not known at the edge. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. For <strong className="text-gray-300">127.0.0.1</strong> / private IP traffic, use the <strong className="text-gray-300">IP debug</strong> button to inspect proxy headers (<code className="text-gray-500">X-Forwarded-For</code>, Azure <code className="text-gray-500">X-ARR-*</code>, etc.) and determine whether the request is internal, mis-attributed external, or platform health traffic. Use <strong className="text-gray-300">Block IP</strong> in each row to add that address to the blocklist. Routine traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here, but probe/abnormal rows stay visible for audit—use the <strong className="text-gray-300">Blocked IPs</strong> tab for the full list and enforcement. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
+                Rows highlighted for <span className="text-amber-400/90">security signals</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and also include payload/header anomalies. The <strong className="text-gray-300">Status</strong> column is the HTTP status when middleware logged it (403 for blocked probes, 404 for hidden games); normal page views are blank because the origin response is not known at the edge. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. For <strong className="text-gray-300">127.0.0.1</strong> / private IP traffic, use the <strong className="text-gray-300">IP debug</strong> button to inspect proxy headers (<code className="text-gray-500">X-Forwarded-For</code>, Azure <code className="text-gray-500">X-ARR-*</code>, etc.) and determine whether the request is internal, mis-attributed external, or platform health traffic. Use <strong className="text-gray-300">Block IP</strong> in each row to add that address to the blocklist. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—use the <strong className="text-gray-300">Blocked IPs</strong> tab for the full list and enforcement. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs leading-tight">
@@ -2665,7 +2665,7 @@ export default function AdminPage() {
             <div className="card overflow-hidden">
               <h2 className="text-xl font-bold text-white mb-2">Blocked IPs</h2>
               <p className="text-gray-400 text-sm mb-4">
-                Blocked IPs are listed only here. Routine requests from those addresses no longer appear in <strong className="text-gray-300">Access Logs</strong>; probe and other abnormal rows remain visible for audit.
+                Blocked IPs are listed only here; their requests no longer appear in <strong className="text-gray-300">Access Logs</strong>.
                 Blocked addresses get <strong className="text-gray-300">403 Forbidden</strong> on pages and API routes, except auth, Stripe webhooks, cron, health, and internal list/auto-block endpoints.
                 Requests that match <strong className="text-gray-300">abnormal probe paths</strong> or <strong className="text-gray-300">known bad-bot User-Agents</strong> (sqlmap, nuclei, shodan, etc.; same flags as Access Logs) get 403; when <code className="text-gray-500">BLOCKED_IP_LIST_SECRET</code> is set, the IP is added with <code className="text-gray-500">Auto (probe): …</code> or <code className="text-gray-500">Auto (bad-bot): …</code>. Optional: set <code className="text-gray-500">BLOCK_EMPTY_USER_AGENT=true</code> to also treat missing/empty User-Agent as a bot (can block odd legitimate clients).
                 {ipBlockingActive ? (
@@ -2678,6 +2678,7 @@ export default function AdminPage() {
                 <div className="flex-1 min-w-[140px]">
                   <label className="block text-sm text-gray-400 mb-1">IP address</label>
                   <input
+                    type="text"
                     className="input w-full font-mono text-sm"
                     value={blockIpInput}
                     onChange={(e) => setBlockIpInput(e.target.value)}
@@ -2688,6 +2689,7 @@ export default function AdminPage() {
                 <div className="flex-[2] min-w-[180px]">
                   <label className="block text-sm text-gray-400 mb-1">Note (optional)</label>
                   <input
+                    type="text"
                     className="input w-full text-sm"
                     value={blockIpNote}
                     onChange={(e) => setBlockIpNote(e.target.value)}

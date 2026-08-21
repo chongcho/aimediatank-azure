@@ -1,6 +1,6 @@
 # Native Android voice calls (FCM + ConnectionService)
 
-AiMediaTank can ring on the **Android lock screen** when installed as the **native Capacitor app** from Google Play internal testing (not the home-screen PWA).
+AiMediaTank can ring on the **Android lock screen** when installed as the **native Capacitor app** from Google Play closed testing (not the home-screen PWA).
 
 This mirrors the iPhone path documented in [native-ios-callkit.md](./native-ios-callkit.md).
 
@@ -18,7 +18,7 @@ This mirrors the iPhone path documented in [native-ios-callkit.md](./native-ios-
 - **Firebase project** with Cloud Messaging enabled
 - Android app **`com.aimediatank.app`** registered in Firebase (matches Play Console draft)
 - **`google-services.json`** in `android/app/`
-- Google Play **internal testing** track (or sideload debug APK for dev)
+- Google Play **closed testing** track (or sideload debug APK for dev)
 
 ## Azure / server environment variables
 
@@ -36,7 +36,7 @@ Existing APNS vars for iOS are unchanged. Voice calls use **both** paths when to
 
 ## Build the Android app
 
-CI upload to Play **Internal testing**: [Android Internal Testing CI](./android-internal-ci.md) (`npm run icons:generate` bundles the AiMediaTank logo).
+CI upload to Play **Closed testing**: [Android Closed Testing CI](./android-internal-ci.md) (`npm run icons:generate` bundles the AiMediaTank logo).
 
 ```bash
 npm install
@@ -72,7 +72,7 @@ npm run cap:sync
 
 ## Test flow
 
-1. Upload `.aab` to Play **Internal testing**; install on callee phone (YoungCloud).
+1. Upload `.aab` to Play **Closed testing**; install on callee phone (YoungCloud).
 2. Sign in once → allow notifications → confirm `VoipPushToken` row with `platform=android`.
 3. Caller (LionKing) places voice call.
 4. Callee should see **system incoming call UI** on lock screen (like KakaoTalk / phone app).

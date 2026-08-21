@@ -1,4 +1,4 @@
-name: Android Internal Testing
+name: Android Closed Testing
 
 on:
   workflow_dispatch:
@@ -7,6 +7,10 @@ on:
         description: Remote URL loaded by the native shell
         required: false
         default: https://aimediatank.com
+      play_track:
+        description: Play Console closed-testing track name (exact, case-sensitive)
+        required: false
+        default: AiMediaTank
 
 jobs:
   build-and-upload:
@@ -91,11 +95,11 @@ jobs:
           path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 14
 
-      - name: Upload to Play Internal testing
+      - name: Upload to Play Closed testing
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.aimediatank.app
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: internal
+          tracks: ${{ inputs.play_track != '' && inputs.play_track || 'AiMediaTank' }}
           status: completed

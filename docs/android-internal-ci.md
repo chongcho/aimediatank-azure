@@ -1,8 +1,8 @@
-# Android Internal Testing via GitHub Actions
+# Android Closed Testing via GitHub Actions
 
-Build the Capacitor Android app with the **AiMediaTank logo** and upload to **Google Play Internal testing**.
+Build the Capacitor Android app with the **AiMediaTank logo** and upload to **Google Play Closed testing** (track **AiMediaTank**). Internal testing is not used.
 
-Workflow: `.github/workflows/android-internal.yml` → **Run workflow** (manual).
+Workflow: `.github/workflows/android-internal.yml` → **Android Closed Testing** → **Run workflow** (manual).
 
 ## One-time GitHub secrets
 
@@ -35,16 +35,18 @@ Paste the one-line contents of `android-keystore.b64.txt` into `ANDROID_KEYSTORE
 
 1. Bump **`android/version.properties`** → `VERSION_NAME` (single source of truth for Play + app Settings).
 2. Commit and push to `main` (or run from that branch).
-3. **Actions** → **Android Internal Testing** → **Run workflow**
-4. Default `capacitor_server_url`: `https://aimediatank.com`
+3. **Actions** → **Android Closed Testing** → **Run workflow**
+4. Defaults:
+   - `capacitor_server_url`: `https://aimediatank.com`
+   - `play_track`: `AiMediaTank` (must match the Closed testing track name exactly)
 5. `versionCode` is set automatically from the workflow run number (`run_number + 10`; must always increase on Play)
 
-After the workflow completes, the phone **Settings → Apps → AiMediaTank** version should match `VERSION_NAME` in that file.
+After the workflow completes, the phone **Settings → Apps → AiMediaTank** version should match `VERSION_NAME` in that file (once Play finishes rolling out and the device updates).
 
 ## After upload
 
-1. Play Console → **Testing** → **Internal testing** → confirm new release
-2. Testers (e.g. `youngkcloud@gmail.com`) open the **opt-in link** → update from Play Store
+1. Play Console → **Testing** → **Closed testing** → confirm new release is available to testers
+2. Testers open the **Closed testing opt-in link** → update from Play Store
 3. Home screen should show the **AiMediaTank logo** (not the default Capacitor icon)
 
 ## Local build (without CI)
@@ -55,7 +57,7 @@ npm run icons:generate
 npm run cap:sync
 ```
 
-Android Studio → **Build** → **Generate Signed Bundle / APK** → upload `.aab` to Internal testing manually.
+Android Studio → **Build** → **Generate Signed Bundle / APK** → upload `.aab` to Closed testing manually.
 
 ## Troubleshooting
 
@@ -63,5 +65,7 @@ Android Studio → **Build** → **Generate Signed Bundle / APK** → upload `.a
 |--------|--------|
 | Workflow fails at keystore step | Add all `ANDROID_*` secrets |
 | Upload fails `403` | Service account invited in Play Console API access |
+| Upload fails unknown track | Set `play_track` to the exact Closed testing track name in Play Console |
 | `versionCode` already used | Re-run workflow (run number increases) or bump in `build.gradle` |
-| Old icon on phone | Uninstall app → reinstall from Play after new internal release |
+| Phone still on old version | Confirm Closed testing shows the new release; use Closed opt-in account; Update in Play Store |
+| Old icon on phone | Uninstall app → reinstall from Play after new closed release |

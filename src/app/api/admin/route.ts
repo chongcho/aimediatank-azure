@@ -28,18 +28,14 @@ async function blockedIpAddressList(): Promise<string[]> {
   return rows.map((r) => r.ipAddress)
 }
 
-/** Hide routine traffic from blocked IPs; keep probe/abnormal rows visible for audit. */
+/** Hide all Access Log rows for blocked IPs (use Blocked IPs tab for the list). */
 function whereExcludingBlockedIps(baseWhere: Record<string, unknown>, blocked: string[]): Record<string, unknown> {
   if (blocked.length === 0) return baseWhere
   return {
     AND: [
       baseWhere,
       {
-        OR: [
-          { ipAddress: null },
-          { ipAddress: { notIn: blocked } },
-          { abnormalFlags: { not: null } },
-        ],
+        OR: [{ ipAddress: null }, { ipAddress: { notIn: blocked } }],
       },
     ],
   }
