@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { sendNativeCallCancelPushBurstToUser } from '@/lib/nativeCallPush'
 import { getIceServers } from '@/lib/voiceCallConfig'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 import { verifyVoiceCallDeclineToken } from '@/lib/voiceCallDeclineToken'
 import { VOICE_CALL_USER_SELECT } from '@/lib/voiceCallUser'
+import { sendVoiceCallDismissPushToUser } from '@/lib/webPush'
 
 export const dynamic = 'force-dynamic'
 
@@ -144,11 +146,13 @@ export async function POST(request: Request) {
   }
 
   if (body.action === 'end') {
+    const wasOpen = call.status === 'ringing' || call.status === 'active'
     const finalStatus = call.status === 'ringing' ? 'rejected' : 'ended'
     await prisma.voiceCall.update({
       where: { id: callId },
       data: { status: finalStatus, endedAt: new Date() },
     })
+    // Decline token is callee-scoped — hangup is always callee → caller from this route.
     await prisma.voiceCallSignal.create({
       data: {
         callId,
@@ -158,7 +162,16 @@ export async function POST(request: Request) {
         payload: '{}',
       },
     })
-    console.info(`[VoIP] native-callkit end call=${callId} status=${finalStatus}`)
+    // Wake the caller immediately — hangup poll alone left caller video UI up ~20s (ICE grace).
+    if (wasOpen) {
+      try {
+        await sendNativeCallCancelPushBurstToUser(call.callerId, call.id)
+        await sendVoiceCallDismissPushToUser(call.callerId, call.id, call.calleeId)
+      } catch (err) {
+        console.error(`[VoIP] native-callkit end peer notify failed call=${callId}:`, err)
+      }
+    }
+    console.info(`[VoIP] native-callkit end call=${callId} status=${finalStatus} peerNotify=${wasOpen}`)
     return NextResponse.json({ ok: true, status: finalStatus })
   }
 

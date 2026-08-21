@@ -549,7 +549,10 @@ export async function POST(request: Request) {
         },
       })
 
-      if (call.callerId === userId && (call.status === 'ringing' || call.status === 'active')) {
+      // Notify peer on either side ending — callee hangup used to skip cancel push, so the
+      // caller stayed on video UI until ICE disconnect (~20s), then cancel back to callee
+      // briefly re-flashed Accept on an already-ended iPhone.
+      if (call.status === 'ringing' || call.status === 'active') {
         try {
           await sendNativeCallCancelPushBurstToUser(peerId, call.id)
           await sendVoiceCallDismissPushToUser(peerId, call.id, userId)
@@ -561,7 +564,15 @@ export async function POST(request: Request) {
               plannedAttempts: plannedVoipCancelPushAttempts(),
             })
           }
-          await logVoipPipelineSummary(call.id, call.status === 'ringing' ? 'caller_end_ring' : 'caller_end_active')
+          const who =
+            call.callerId === userId
+              ? call.status === 'ringing'
+                ? 'caller_end_ring'
+                : 'caller_end_active'
+              : call.status === 'ringing'
+                ? 'callee_end_ring'
+                : 'callee_end_active'
+          await logVoipPipelineSummary(call.id, who)
         } catch (err) {
           console.error('VoIP cancel push failed:', err)
         }

@@ -452,8 +452,14 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     func endCallFromPluginRequest(callId: String) {
         let normalized = callId.lowercased()
         guard let uuid = UUID(uuidString: normalized) else { return }
-        // End CallKit first; endCallKitCall tears down native WebRTC when activeCallId matches.
-        endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: true)
+        // Native video End never goes through CXEndCallAction — must sync hangup + JS here
+        // or the peer waits on ICE (~20s) and later cancel VoIP re-flashes Accept on this device.
+        Self.markCallCancelled(normalized)
+        syncCallEndToServer(callId: normalized)
+        injectCallCancelToWebView(callId: normalized)
+        // End CallKit; endCallKitCall tears down native WebRTC when activeCallId matches.
+        // notifyJs=false — already injected aimediatank-callkit-end above.
+        endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: false)
     }
 
     /// CallKit owns incoming Accept/Decline on iOS (foreground + lock) — do not dismiss for in-app overlay.
@@ -2321,6 +2327,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         let alreadyHandled = endedCallKitCallIds.contains(callId)
         if !alreadyHandled {
             endedCallKitCallIds.insert(callId)
+            // Block late cancel VoIP from re-creating Accept UI after local hangup.
+            Self.markCallCancelled(callId)
             if engineOwnsThisCall {
                 NativeVoiceCallEngine.shared.endCall(reason: "callkit_end", syncServer: false)
             }
