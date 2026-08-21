@@ -257,19 +257,19 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
 
     func audioSessionActivated() {
         audioSessionReady = true
-        // Config must already be applied (prepareAnswer). Only notify + enable here.
-        prepareWebRtcAudioConfigurationIfNeeded()
+        // CallKit already activated AVAudioSession — never setConfiguration here (one-way audio
+        // / engine restart). Only notify WebRTC and enable I/O, then unlock before any other work.
         let rtc = RTCAudioSession.sharedInstance()
         rtc.lockForConfiguration()
-        defer { rtc.unlockForConfiguration() }
         rtc.audioSessionDidActivate(AVAudioSession.sharedInstance())
         rtc.isAudioEnabled = true
-        // Enable every local audio sender — weak localAudioTrack alone can miss the live track.
+        rtc.unlockForConfiguration()
+
+        // Must run AFTER unlock — beginAnswerIfNeeded / track enable can re-enter RTCAudioSession
+        // and crashed 1.0.108 when nested under lockForConfiguration during didActivate.
         setLocalAudioMuted(false)
-        // If Accept raced ahead of didActivate, finish any deferred start (should be rare now).
         beginAnswerIfNeeded()
-        // Defer speaker override — same-turn override after didActivate can stall CallKit UI
-        // on "Connecting…" for audio-only calls.
+        // Defer speaker override — same-turn override after didActivate can stall CallKit UI.
         DispatchQueue.main.async { [weak self] in
             self?.forceLoudspeakerOutput()
         }
