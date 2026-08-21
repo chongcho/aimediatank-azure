@@ -2573,11 +2573,54 @@ if (fs.existsSync(pluginPath)) {
         val muted = call.getBoolean("muted", false) ?: false
         callManager?.setMuted(muted)
         call.resolve()
+    }
+
+    @PluginMethod
+    fun requestCallMediaPermissions(call: PluginCall) {
+        val hasVideo = call.getBoolean("hasVideo", false) ?: false
+        val baseUrl = bridge.serverUrl.toString().trimEnd('/')
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent)
+            .requestCallMediaPermissions(hasVideo)
+        call.resolve()
     }`,
     )
     fs.writeFileSync(pluginPath, pluginSource)
     changed = true
     console.log('[patch-android-fcm] CapacitorVoipCallsPlugin native WebRTC methods')
+  }
+
+  // Upgrade: expose requestCallMediaPermissions for Talk pre-call OS dialogs.
+  pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (
+    pluginSource.includes('fun setNativeWebRtcMuted(call: PluginCall)') &&
+    !pluginSource.includes('fun requestCallMediaPermissions(call: PluginCall)')
+  ) {
+    pluginSource = pluginSource.replace(
+      `    @PluginMethod
+    fun setNativeWebRtcMuted(call: PluginCall) {
+        val muted = call.getBoolean("muted", false) ?: false
+        callManager?.setMuted(muted)
+        call.resolve()
+    }`,
+      `    @PluginMethod
+    fun setNativeWebRtcMuted(call: PluginCall) {
+        val muted = call.getBoolean("muted", false) ?: false
+        callManager?.setMuted(muted)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun requestCallMediaPermissions(call: PluginCall) {
+        val hasVideo = call.getBoolean("hasVideo", false) ?: false
+        val baseUrl = bridge.serverUrl.toString().trimEnd('/')
+        NativeVoiceWebRtcEngine.shared(context, baseUrl, ::emitEvent)
+            .requestCallMediaPermissions(hasVideo)
+        call.resolve()
+    }`,
+    )
+    fs.writeFileSync(pluginPath, pluginSource)
+    changed = true
+    console.log('[patch-android-fcm] CapacitorVoipCallsPlugin requestCallMediaPermissions')
   }
 }
 

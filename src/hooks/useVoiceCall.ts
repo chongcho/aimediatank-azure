@@ -19,6 +19,7 @@ import {
   endNativeCall,
   endNativeWebRtc,
   enforceNativeSystemEffectsContainment,
+  ensureTalkMediaPermissions,
   getCachedNativeDeclineToken,
   initNativeCallBridge,
   isNativeAndroidCallApp,
@@ -1017,6 +1018,20 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     callStateRef.current = 'connecting'
     setCallState('connecting')
     stopVoiceCallRingtone()
+
+    // CallKit already activated audio — skip duplicate prompts on lock-screen Accept.
+    if (!opts?.fromCallKit) {
+      const media = await ensureTalkMediaPermissions(Boolean(hasVideoRef.current))
+      if (!media.ok) {
+        answeringRef.current = false
+        const message = media.message || 'Microphone access is required for Talk calls'
+        reportError(message)
+        if (typeof window !== 'undefined') window.alert(message)
+        await endCall()
+        return false
+      }
+    }
+
     const acceptIdempotent = async () => {
       if (opts?.fromCallKit && declineToken) {
         try {
@@ -1200,6 +1215,15 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       markVoiceCallUserGesture()
       const wantVideo = Boolean(opts?.video)
       hangupRequestedRef.current = false
+
+      const media = await ensureTalkMediaPermissions(wantVideo)
+      if (!media.ok) {
+        const message = media.message || 'Microphone access is required for Talk calls'
+        reportError(message)
+        if (typeof window !== 'undefined') window.alert(message)
+        return
+      }
+
       try {
         setRemoteUser(peer)
         setHasVideo(wantVideo)

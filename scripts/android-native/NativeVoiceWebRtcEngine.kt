@@ -582,23 +582,35 @@ class NativeVoiceWebRtcEngine private constructor(
         ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED
 
-    private fun requestCameraPermissionIfNeeded() {
-        if (hasCameraPermission()) return
+    private fun hasMicPermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+
+    /** Show system allowance dialogs for mic / camera before a Talk call starts. */
+    fun requestCallMediaPermissions(wantVideo: Boolean) {
+        val needed = mutableListOf<String>()
+        if (!hasMicPermission()) needed.add(Manifest.permission.RECORD_AUDIO)
+        if (wantVideo && !hasCameraPermission()) needed.add(Manifest.permission.CAMERA)
+        if (needed.isEmpty()) return
         val work = Runnable {
-            if (hasCameraPermission()) return@Runnable
             val activity = resolveActivity()
             if (activity == null) {
-                Log.w(TAG, "CAMERA permission request skipped — no activity")
+                Log.w(TAG, "media permission request skipped — no activity")
                 return@Runnable
             }
-            ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.CAMERA), 0xA11C)
-            Log.i(TAG, "requested CAMERA permission")
+            ActivityCompat.requestPermissions(activity, needed.toTypedArray(), 0xA11C)
+            Log.i(TAG, "requested media permissions ${needed.joinToString()}")
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             work.run()
         } else {
             mainHandler.post(work)
         }
+    }
+
+    private fun requestCameraPermissionIfNeeded() {
+        if (hasCameraPermission()) return
+        requestCallMediaPermissions(wantVideo = true)
     }
 
     private fun resolveActivity(): Activity? {

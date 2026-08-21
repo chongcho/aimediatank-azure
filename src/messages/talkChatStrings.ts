@@ -101,6 +101,10 @@ export const TALK_CHAT_MAP = {
   voiceMore: 'More',
   voiceRemindMe: 'Remind Me',
   voiceMicRequired: 'Microphone access is required for voice calls',
+  voiceCameraRequired:
+    'Camera access is required for video calls. Enable Camera for AiMediaTank in Settings, then try again.',
+  voiceMediaPermissionHint:
+    'Allow Microphone and Camera when prompted so Talk calls can connect.',
   voiceUserBusy: 'User is busy',
   voiceCallFailed: 'Voice call failed',
   voiceCallInAppHint:
@@ -220,6 +224,8 @@ const ORDER: readonly TalkChatKey[] = [
   'voiceMore',
   'voiceRemindMe',
   'voiceMicRequired',
+  'voiceCameraRequired',
+  'voiceMediaPermissionHint',
   'voiceUserBusy',
   'voiceCallFailed',
   'voiceCallInAppHint',
@@ -343,6 +349,9 @@ const KO: Pack = {
   voiceMore: '더보기',
   voiceRemindMe: '나중에 알림',
   voiceMicRequired: '음성 통화에는 마이크 권한이 필요합니다',
+  voiceCameraRequired:
+    '영상 통화에는 카메라 권한이 필요합니다. 설정에서 AiMediaTank 카메라를 허용한 뒤 다시 시도하세요.',
+  voiceMediaPermissionHint: '안내에 따라 마이크와 카메라를 허용해야 Talk 통화를 할 수 있습니다.',
   voiceUserBusy: '상대방이 통화 중입니다',
   voiceCallFailed: '음성 통화에 실패했습니다',
   voiceCallInAppHint:
@@ -460,6 +469,9 @@ const JA: Pack = {
   voiceMore: 'その他',
   voiceRemindMe: '後で通知',
   voiceMicRequired: '音声通話にはマイクの許可が必要です',
+  voiceCameraRequired:
+    'ビデオ通話にはカメラの許可が必要です。設定でAiMediaTankのカメラを許可してから再試行してください。',
+  voiceMediaPermissionHint: 'Talk通話にはマイクとカメラの許可が必要です。表示されたダイアログで許可してください。',
   voiceUserBusy: '相手は通話中です',
   voiceCallFailed: '音声通話に失敗しました',
   voiceCallInAppHint:
@@ -577,6 +589,8 @@ const ZH: Pack = {
   voiceMore: '更多',
   voiceRemindMe: '稍后提醒',
   voiceMicRequired: '语音通话需要麦克风权限',
+  voiceCameraRequired: '视频通话需要相机权限。请在设置中允许 AiMediaTank 使用相机后重试。',
+  voiceMediaPermissionHint: '开始 Talk 通话前，请在系统提示中允许麦克风和相机。',
   voiceUserBusy: '对方正在通话中',
   voiceCallFailed: '语音通话失败',
   voiceCallInAppHint:

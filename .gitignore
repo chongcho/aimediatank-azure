@@ -40,6 +40,10 @@ publish-profile.xml
 docs/session-*.md
 docs/session-log-*.md
 
+# Local scratch / downloaded logs (do not commit)
+tmp-*
+pickleball-game.html
+
 # Native app builds
 /ios/App/Pods/
 # Firebase Admin SDK keys — use Azure FIREBASE_SERVICE_ACCOUNT_JSON only

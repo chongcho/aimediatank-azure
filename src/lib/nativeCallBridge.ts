@@ -680,6 +680,78 @@ type NativeWebRtcPlugin = {
 }
 
 /**
+ * Prompt for mic (and camera when video) before Talk calls.
+ * Triggers the device/browser allowance popup when permission is not yet granted.
+ * Stops probe tracks immediately. On Android native video, camera is requested by
+ * the native engine (WebView camera probe breaks Camera2).
+ */
+export async function ensureTalkMediaPermissions(wantVideo: boolean): Promise<{
+  ok: boolean
+  message?: string
+}> {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    return { ok: true }
+  }
+
+  const stop = (stream: MediaStream) => {
+    stream.getTracks().forEach((track) => {
+      try {
+        track.stop()
+      } catch {
+        // ignore
+      }
+    })
+  }
+
+  try {
+    const audio = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    stop(audio)
+  } catch (error) {
+    console.warn('[NativeCall] microphone permission denied:', error)
+    return {
+      ok: false,
+      message:
+        'Microphone access is required for Talk calls. Enable Microphone for AiMediaTank in your device settings, then try again.',
+    }
+  }
+
+  if (!wantVideo) return { ok: true }
+
+  // Android native owns Camera2 — request CAMERA via ActivityCompat (not WebView).
+  if (isNativeAndroidCallApp()) {
+    try {
+      const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+      const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & {
+        requestCallMediaPermissions?: (options: { hasVideo?: boolean }) => Promise<void>
+      }
+      if (typeof plugin.requestCallMediaPermissions === 'function') {
+        await plugin.requestCallMediaPermissions({ hasVideo: true })
+      }
+    } catch (error) {
+      console.warn('[NativeCall] Android camera permission request failed:', error)
+    }
+    return { ok: true }
+  }
+
+  try {
+    const video = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: 'user' },
+    })
+    stop(video)
+  } catch (error) {
+    console.warn('[NativeCall] camera permission denied:', error)
+    return {
+      ok: false,
+      message:
+        'Camera access is required for video calls. Enable Camera for AiMediaTank in your device settings, then try again.',
+    }
+  }
+
+  return { ok: true }
+}
+
+/**
  * Android: unlock mic via getUserMedia (user gesture). Do NOT open the camera
  * in the WebView — stopping tracks often leaves Camera2 unable to start, which
  * yields a black native preview even when Settings shows CAMERA allowed.
@@ -703,8 +775,7 @@ export async function ensureAndroidNativeMediaAccess(wantVideo: boolean): Promis
     // Camera permission is requested/used by the native engine when wantVideo.
     return true
   } catch (error) {
-    console.warn('[NativeCall] Android mic permission failed:', error)
-    // Still allow video attempt — native may already have CAMERA from Settings.
+    console.warn('[NativeCall] Android mic permission denied:', error)
     return wantVideo
   }
 }
