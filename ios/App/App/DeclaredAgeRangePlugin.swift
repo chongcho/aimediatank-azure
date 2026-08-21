@@ -60,7 +60,13 @@ public class DeclaredAgeRangePlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         do {
-            let eligible = try await AgeRangeService.shared.isEligibleForAgeFeatures
+            // isEligibleForAgeFeatures landed in iOS 26.2 (SDK marks it stricter than 26.0).
+            let eligible: Bool
+            if #available(iOS 26.2, *) {
+                eligible = try await AgeRangeService.shared.isEligibleForAgeFeatures
+            } else {
+                eligible = true
+            }
             if !eligible {
                 call.resolve([
                     "available": true,
@@ -74,7 +80,7 @@ public class DeclaredAgeRangePlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
 
-        let g0 = ageGates.count > 0 ? ageGates[0] : 13
+            let g0 = ageGates.count > 0 ? ageGates[0] : 13
             let g1 = ageGates.count > 1 ? ageGates[1] : 16
             let g2 = ageGates.count > 2 ? ageGates[2] : 18
             let response: AgeRangeService.Response
