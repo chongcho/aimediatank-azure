@@ -76,6 +76,7 @@ interface PollIncomingCall {
   caller: VoiceCallUser
   conversationId: string | null
   hasVideo?: boolean
+  declineToken?: string
 }
 
 async function voiceApi(action: string, body: Record<string, unknown> = {}) {
@@ -1525,15 +1526,28 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           hasVideoRef.current = wantVideo
           setHasVideo(wantVideo)
           setIsCameraOff(false)
-          // iOS: lock-screen + foreground rings use CallKit only — poll must not drive in-app incoming UI.
+          // iOS: never show in-app Accept/Decline — CallKit only. If VoIP missed (common when
+          // the app is already foreground), poll must still ask the App bridge to report CallKit.
           if (isNativeIosCallApp()) {
+            const label = voiceCallNickname(incoming.caller) || 'AiMediaTank'
+            const declineToken = incoming.declineToken?.trim() || undefined
+            if (declineToken) {
+              cacheNativeDeclineToken(incoming.id, declineToken)
+            }
+            void reportIncomingCallToNativeUi({
+              callId: incoming.id,
+              handle: incoming.caller.username || incoming.caller.id,
+              displayName: label,
+              declineToken,
+              video: wantVideo,
+              caller: incoming.caller,
+            })
             return
           }
           setCallState('incoming')
-          if (!isNativeIosCallApp()) {
+          {
             const label = voiceCallNickname(incoming.caller) || 'AiMediaTank'
-            const declineToken =
-              (incoming as { declineToken?: string }).declineToken?.trim() || undefined
+            const declineToken = incoming.declineToken?.trim() || undefined
             if (declineToken) {
               cacheNativeDeclineToken(incoming.id, declineToken)
             }

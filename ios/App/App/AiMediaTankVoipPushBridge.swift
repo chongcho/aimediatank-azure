@@ -1561,12 +1561,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             print("[AiMediaTankVoipPushBridge] foreground JS fallback — VoIP not on screen yet \(normalizedCallId)")
         }
 
+        let video = (userInfo["video"] as? Bool)
+            ?? ((userInfo["video"] as? String)?.lowercased() == "true")
+            ?? false
+        Self.noteCallHasVideo(normalizedCallId, hasVideo: video)
+
         reportIncomingToCallKit(
             callId: callId,
             handle: handle,
             displayName: displayName,
             handleType: handleType(from: handleTypeString),
-            video: false
+            video: video
         ) { [weak self] reported in
             if reported {
                 Self.noteIncomingCallReported(callIdString)
@@ -1577,6 +1582,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                     announcement: announcement,
                     lang: lang
                 )
+                if let token = userInfo["declineToken"] as? String, !token.isEmpty {
+                    self?.startCallStatusWatch(callId: normalizedCallId, token: token)
+                }
                 NotificationCenter.default.post(
                     name: Notification.Name("AiMediaTankNoteIncomingCall"),
                     object: nil,

@@ -1566,7 +1566,44 @@ if (pluginSwift && pluginSwift.includes('handleIncomingCall') && !pluginSwift.in
             return
         }
 
-        callManager?.reportIncomingCall(
+        callManager?.trackIncomingCall(
+            uuid: callId,
+            handle: handle,
+            displayName: displayName,
+            declineToken: declineToken
+        )
+        // Route through App bridge CXProvider (not CallManager) so Accept uses NativeVoiceCallEngine.
+        var bridgeInfo: [String: Any] = [
+            "callId": callIdString,
+            "handle": handle,
+            "displayName": displayName,
+            "handleType": handleTypeString,
+            "video": video,
+        ]
+        if let declineToken, !declineToken.isEmpty {
+            bridgeInfo["declineToken"] = declineToken
+        }
+        NotificationCenter.default.post(
+            name: NSNotification.Name("AiMediaTankJsIncomingCallReport"),
+            object: nil,
+            userInfo: bridgeInfo
+        )
+        finishIncomingCall()`,
+  )
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+  console.log('[patch-voip-callkit] avoid second CallKit ring from JS handleIncomingCall')
+}
+
+// Upgrade already-patched trees that still call CallManager.reportIncomingCall from JS.
+const JS_INCOMING_VIA_BRIDGE = 'JS handleIncomingCall via App bridge CallKit'
+if (
+  pluginSwift &&
+  pluginSwift.includes(JS_INCOMING_TRACK_ONLY) &&
+  !pluginSwift.includes(JS_INCOMING_VIA_BRIDGE) &&
+  pluginSwift.includes('callManager?.reportIncomingCall(')
+) {
+  pluginSwift = pluginSwift.replace(
+    `        callManager?.reportIncomingCall(
             uuid: callId,
             handle: handle,
             displayName: displayName,
@@ -1580,9 +1617,32 @@ if (pluginSwift && pluginSwift.includes('handleIncomingCall') && !pluginSwift.in
             }
             finishIncomingCall()
         }`,
+    `        // ${JS_INCOMING_VIA_BRIDGE}
+        callManager?.trackIncomingCall(
+            uuid: callId,
+            handle: handle,
+            displayName: displayName,
+            declineToken: declineToken
+        )
+        var bridgeInfo: [String: Any] = [
+            "callId": callIdString,
+            "handle": handle,
+            "displayName": displayName,
+            "handleType": handleTypeString,
+            "video": video,
+        ]
+        if let declineToken, !declineToken.isEmpty {
+            bridgeInfo["declineToken"] = declineToken
+        }
+        NotificationCenter.default.post(
+            name: NSNotification.Name("AiMediaTankJsIncomingCallReport"),
+            object: nil,
+            userInfo: bridgeInfo
+        )
+        finishIncomingCall()`,
   )
   fs.writeFileSync(pluginSwiftPath, pluginSwift)
-  console.log('[patch-voip-callkit] avoid second CallKit ring from JS handleIncomingCall')
+  console.log('[patch-voip-callkit] JS handleIncomingCall → App bridge CallKit')
 }
 
 const BRIDGE_CONNECTED_MARKER = 'AiMediaTankReportCallConnected'
