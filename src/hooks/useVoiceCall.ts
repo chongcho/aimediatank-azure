@@ -1077,9 +1077,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         }
       }
 
-      // Android native video Dialog/Camera2/EGL aborts on Samsung — WebView WebRTC for video.
-      // Lock-screen (fromCallKit) still uses native until a dedicated Activity UI exists.
-      if (isNativeAndroidCallApp() && !(hasVideoRef.current && !opts?.fromCallKit)) {
+      // Android native video Dialog/Camera2/EGL aborts on Samsung — WebView WebRTC for all
+      // Android video (lock-screen Accept included). Voice-only still uses native WebRTC.
+      if (isNativeAndroidCallApp() && !hasVideoRef.current) {
         nativeWebRtcAndroidRef.current = true
         void dismissVoiceCallPushNotifications(id)
         // In-app Accept: start native WebRTC here. answerNativeCall only reaches Telecom
@@ -1109,8 +1109,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             setHasVideo(false)
             setNativeOwnsVideo(false)
           }
-        } else if (hasVideoRef.current) {
-          setNativeOwnsVideo(true)
         }
         pendingOfferRef.current = null
         // Native video Dialog owns UI — do not open TalkChat (dismisses Dialog / crashes retry).
@@ -1186,7 +1184,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           void markNativeCallConnected(id)
           void setNativeVoiceCallAudioActive(true)
           void setNativeAudioRoute('speaker')
-          void clearNativeCallScreenPresentation()
+          // Keep show-when-locked while answering from the keyguard so VoiceCallOverlay
+          // stays visible; unlocked Accept can clear presentation flags.
+          if (!opts?.fromCallKit) {
+            void clearNativeCallScreenPresentation()
+          }
         })()
       } else if (isNativeIosCallApp()) {
         // CallKit owns in-call UI — do not open TalkChat / home WebView.
@@ -1790,6 +1792,75 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           ) {
             return
           }
+
+          // Android lock-screen video: native CallVideo Dialog is disabled (Samsung EGL).
+          // Hand off to WebView VoiceCallOverlay — same as unlocked Accept.
+          if (isNativeAndroidCallApp()) {
+            void (async () => {
+              let isVideo = Boolean(options?.hasVideo) || hasVideoRef.current
+              if (!isVideo && token) {
+                try {
+                  const bootstrap = await fetchNativeCallKitBootstrap(normalizedId, token)
+                  if (bootstrap?.hasVideo) isVideo = true
+                } catch {
+                  /* ignore */
+                }
+              }
+
+              callIdRef.current = normalizedId
+              setCallId(normalizedId)
+              isCallerRef.current = false
+              void ensureIncomingCall(callId)
+
+              if (isVideo) {
+                hasVideoRef.current = true
+                setHasVideo(true)
+                setNativeOwnsVideo(false)
+                nativeWebRtcAndroidRef.current = false
+                if (callStateRef.current !== 'connected') {
+                  setCallState('connecting')
+                }
+                // Bring WebView over the keyguard so VoiceCallOverlay can paint.
+                requestOpenTalkChat()
+                try {
+                  await answerNativeCall(normalizedId, { skipNativeWebRtc: true })
+                } catch {
+                  /* markWebOwns / Telecom answer */
+                }
+                try {
+                  await endNativeWebRtc()
+                } catch {
+                  /* ignore if never started */
+                }
+                const answered = await answerCallRef.current({
+                  fromCallKit: true,
+                  declineToken: token,
+                })
+                if (answered) {
+                  reattachRemoteAudioRef.current()
+                }
+                return
+              }
+
+              // Voice-only lock-screen Accept — native WebRTC owns media.
+              nativeWebRtcAndroidRef.current = true
+              if (callStateRef.current !== 'connected') {
+                setCallState('connecting')
+              }
+              requestOpenTalkChat()
+              try {
+                if (token) {
+                  await nativeCallKitApi('accept', normalizedId, token)
+                } else {
+                  await voiceApi('accept', { callId: normalizedId })
+                }
+              } catch (err) {
+                console.warn('[VoiceCall] Android native accept sync failed:', err)
+              }
+            })()
+            return
+          }
+
           if (isNativeIosCallApp()) {
             nativeWebRtcCalleeRef.current = true
           } else {
@@ -1801,16 +1872,12 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           if (options?.hasVideo) {
             hasVideoRef.current = true
             setHasVideo(true)
-            if (isNativeIosCallApp() || isNativeAndroidCallApp()) setNativeOwnsVideo(true)
+            if (isNativeIosCallApp()) setNativeOwnsVideo(true)
           }
           // Prefer hasVideo from bootstrap when available (native inject may not include it).
           void (async () => {
             if (!token || hasVideoRef.current) {
-              if (
-                hasVideoRef.current &&
-                ((isNativeIosCallApp() && nativeWebRtcCalleeRef.current) ||
-                  (isNativeAndroidCallApp() && nativeWebRtcAndroidRef.current))
-              ) {
+              if (hasVideoRef.current && isNativeIosCallApp() && nativeWebRtcCalleeRef.current) {
                 setNativeOwnsVideo(true)
               }
               return
@@ -1820,7 +1887,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
               if (bootstrap?.hasVideo) {
                 hasVideoRef.current = true
                 setHasVideo(true)
-                if (isNativeIosCallApp() || isNativeAndroidCallApp()) setNativeOwnsVideo(true)
+                if (isNativeIosCallApp()) setNativeOwnsVideo(true)
               }
             } catch {
               /* ignore */
@@ -1830,23 +1897,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             setCallState('connecting')
           }
           void ensureIncomingCall(callId)
-          if (isNativeAndroidCallApp()) {
-            // Voice-only: bring TalkChat forward. Video: native Dialog owns UI.
-            if (!hasVideoRef.current) {
-              requestOpenTalkChat()
-            }
-            void (async () => {
-              try {
-                if (token) {
-                  await nativeCallKitApi('accept', normalizedId, token)
-                } else {
-                  await voiceApi('accept', { callId: normalizedId })
-                }
-              } catch (err) {
-                console.warn('[VoiceCall] Android native accept sync failed:', err)
-              }
-            })()
-          }
           return
         }
 

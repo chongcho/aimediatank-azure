@@ -5137,3 +5137,159 @@ if (fs.existsSync(incomingCallUiPath)) {
   }
 }
 
+// Lock-screen video Accept: skip native audio-only PC and tell JS hasVideo so WebView
+// VoiceCallOverlay paints (native CallVideo Dialog is disabled on Samsung).
+const lockScreenVideoWebRtcMarker = 'AiMediaTank lock-screen video uses WebView WebRTC'
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  if (
+    callManager.includes('fun notifyCallAnswered(callId: String)') &&
+    !callManager.includes(lockScreenVideoWebRtcMarker)
+  ) {
+    // Persist FCM/Telecom video flag when the incoming call is reported.
+    if (
+      callManager.includes('reportedIncomingCallIds.add(normalized)') &&
+      !callManager.includes('incoming_video_')
+    ) {
+      callManager = callManager.replace(
+        `        reportedIncomingCallIds.add(normalized)
+        val phoneAccount = VoipConnectionService.getPhoneAccount(context)`,
+        `        reportedIncomingCallIds.add(normalized)
+        context.getSharedPreferences("amt_voice", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("incoming_video_" + normalized, video)
+            .apply()
+        val phoneAccount = VoipConnectionService.getPhoneAccount(context)`,
+      )
+    }
+
+    // Current notifyCallAnswered always starts native prepareAnswer — skip for video.
+    const notifyOld = `    fun notifyCallAnswered(callId: String) {
+        val normalized = callId.lowercase()
+        // AiMediaTank always start native WebRTC on Accept
+        var token = declineTokensByCallId[normalized]
+        if (token.isNullOrBlank()) {
+            token = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                .getString("decline_" + normalized, null)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+            if (token != null) declineTokensByCallId[normalized] = token
+        }
+        val data = JSObject().apply {
+            put("callId", callId)
+            put("nativeWebRtc", true)
+            if (token != null) put("declineToken", token)
+        }
+        eventEmitter?.invoke("callAnswered", data)
+        // Always start prepareAnswer — do not require eventEmitter (cold lock-screen Accept).
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            startNativeWebRtcAnswer(callId, token)
+        }
+    }`
+
+    const notifyNew = `    fun notifyCallAnswered(callId: String) {
+        val normalized = callId.lowercase()
+        // AiMediaTank always start native WebRTC on Accept
+        var token = declineTokensByCallId[normalized]
+        if (token.isNullOrBlank()) {
+            token = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+                .getString("decline_" + normalized, null)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+            if (token != null) declineTokensByCallId[normalized] = token
+        }
+        val prefs = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+        val incomingVideo = prefs.getBoolean("incoming_video_" + normalized, false)
+        val webOwnsVideo = prefs.getBoolean("web_video_" + normalized, false)
+        val isVideo = incomingVideo || webOwnsVideo
+        // ${lockScreenVideoWebRtcMarker}
+        if (isVideo) {
+            prefs.edit().putBoolean("web_video_" + normalized, true).apply()
+        }
+        val data = JSObject().apply {
+            put("callId", callId)
+            put("nativeWebRtc", true)
+            if (isVideo) put("hasVideo", true)
+            if (token != null) put("declineToken", token)
+        }
+        eventEmitter?.invoke("callAnswered", data)
+        if (isVideo) {
+            try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+            // WebView owns Android video — do not start native audio-only PeerConnection.
+            return
+        }
+        // Always start prepareAnswer — do not require eventEmitter (cold lock-screen Accept).
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            startNativeWebRtcAnswer(callId, token)
+        }
+    }`
+
+    if (callManager.includes(notifyOld)) {
+      callManager = callManager.replace(notifyOld, notifyNew)
+    } else if (
+      callManager.includes('Always start prepareAnswer') &&
+      callManager.includes('startNativeWebRtcAnswer(callId, token)')
+    ) {
+      // Fallback: inject video gate before the main-looper post.
+      callManager = callManager.replace(
+        `        eventEmitter?.invoke("callAnswered", data)
+        // Always start prepareAnswer — do not require eventEmitter (cold lock-screen Accept).
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            startNativeWebRtcAnswer(callId, token)
+        }`,
+        `        val prefs = context.getSharedPreferences("amt_voice", Context.MODE_PRIVATE)
+        val incomingVideo = prefs.getBoolean("incoming_video_" + normalized, false)
+        val webOwnsVideo = prefs.getBoolean("web_video_" + normalized, false)
+        val isVideo = incomingVideo || webOwnsVideo
+        // ${lockScreenVideoWebRtcMarker}
+        if (isVideo) {
+            prefs.edit().putBoolean("web_video_" + normalized, true).apply()
+            if (!data.has("hasVideo")) data.put("hasVideo", true)
+        }
+        eventEmitter?.invoke("callAnswered", data)
+        if (isVideo) {
+            try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+            return
+        }
+        // Always start prepareAnswer — do not require eventEmitter (cold lock-screen Accept).
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            startNativeWebRtcAnswer(callId, token)
+        }`,
+      )
+      // Fix: data is built before prefs check in fallback — also patch data builder.
+      if (
+        callManager.includes(lockScreenVideoWebRtcMarker) &&
+        callManager.includes('put("nativeWebRtc", true)') &&
+        !callManager.includes('if (isVideo) put("hasVideo", true)')
+      ) {
+        // Prefer full replace path next run; for now ensure emit payload has hasVideo via prefs before build.
+      }
+    }
+
+    const clearMarker = 'AiMediaTank clear incoming_video on end'
+    if (
+      callManager.includes(lockScreenVideoWebRtcMarker) &&
+      callManager.includes('declineTokensByCallId.remove(callId.lowercase())') &&
+      !callManager.includes(clearMarker)
+    ) {
+      callManager = callManager.replace(
+        `        declineTokensByCallId.remove(callId.lowercase())`,
+        `        declineTokensByCallId.remove(callId.lowercase())
+        // ${clearMarker}
+        context.getSharedPreferences("amt_voice", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .remove("incoming_video_" + callId.lowercase())
+            .apply()`,
+      )
+    }
+
+    if (callManager.includes(lockScreenVideoWebRtcMarker)) {
+      fs.writeFileSync(callManagerPath, callManager)
+      changed = true
+      console.log('[patch-android-fcm] lock-screen video Accept uses WebView WebRTC')
+    } else {
+      console.warn('[patch-android-fcm] lock-screen video patch: notifyCallAnswered shape not matched')
+    }
+  }
+}
+
