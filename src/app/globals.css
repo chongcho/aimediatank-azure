@@ -241,6 +241,17 @@ html.capacitor-native.ios .home-hero {
   padding-right: 10px;
 }
 
+/*
+ * Body already applies --app-safe-top padding; main used to add the full safe-area
+ * again, which left a large empty band under the navbar. Keep 40% of that extra
+ * gap (a 60% reduction) so the title sits closer without sitting flush.
+ */
+html.capacitor-native.ios main.pt-16 {
+  padding-top: calc(
+    4rem + (0.4 * var(--app-safe-top, var(--app-safe-top-fallback, 0px)))
+  ) !important;
+}
+
 html.capacitor-native.ios body {
   padding-bottom: 0;
 }
