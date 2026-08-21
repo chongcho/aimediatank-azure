@@ -374,13 +374,22 @@ export async function GET(request: Request) {
       const blocked = await blockedIpAddressList()
       const whereDistinct = whereExcludingBlockedIps(dateWhere, blocked)
 
-      const [browsers, oses, countries, methods] = await Promise.all([
+      const [browsers, oses, countries, methods, statusCodes] = await Promise.all([
         prisma.siteAccessLog.groupBy({ by: ['browser'], where: { ...whereDistinct, browser: { not: null } } }).then(r => r.map(x => x.browser!).sort()),
         prisma.siteAccessLog.groupBy({ by: ['os'], where: { ...whereDistinct, os: { not: null } } }).then(r => r.map(x => x.os!).sort()),
         prisma.siteAccessLog.groupBy({ by: ['country'], where: { ...whereDistinct, country: { not: null } } }).then(r => r.map(x => x.country!).sort()),
         prisma.siteAccessLog.groupBy({ by: ['method'], where: whereDistinct }).then(r => r.map(x => x.method).sort()),
+        prisma.siteAccessLog
+          .groupBy({ by: ['statusCode'], where: { ...whereDistinct, statusCode: { not: null } } })
+          .then((r) =>
+            r
+              .map((x) => x.statusCode)
+              .filter((n): n is number => typeof n === 'number')
+              .sort((a, b) => a - b)
+              .map(String)
+          ),
       ])
-      return NextResponse.json({ browsers, oses, countries, methods })
+      return NextResponse.json({ browsers, oses, countries, methods, statusCodes })
     }
 
     if (action === 'accessLogs') {
@@ -396,6 +405,7 @@ export async function GET(request: Request) {
       const osFilter = searchParams.get('os') || ''
       const countryFilter = searchParams.get('country') || ''
       const methodFilter = searchParams.get('method') || ''
+      const statusCodeFilter = searchParams.get('statusCode') || ''
       const abnormalOnly =
         searchParams.get('abnormalOnly') === '1' || searchParams.get('abnormalOnly') === 'true'
       const privateIpOnly =
@@ -448,6 +458,13 @@ export async function GET(request: Request) {
       if (methodFilter) {
         const list = methodFilter.split(',').filter(Boolean)
         if (list.length) parts.push({ method: { in: list } })
+      }
+      if (statusCodeFilter) {
+        const list = statusCodeFilter
+          .split(',')
+          .map((s) => parseInt(s.trim(), 10))
+          .filter((n) => Number.isInteger(n) && n >= 100 && n <= 599)
+        if (list.length) parts.push({ statusCode: { in: list } })
       }
 
       if (q) {

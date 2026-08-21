@@ -623,11 +623,12 @@ export default function AdminPage() {
   const [alOsFilter, setAlOsFilter] = useState<string[]>([])
   const [alCountryFilter, setAlCountryFilter] = useState<string[]>([])
   const [alMethodFilter, setAlMethodFilter] = useState<string[]>([])
+  const [alStatusCodeFilter, setAlStatusCodeFilter] = useState<string[]>([])
   const [alAbnormalOnly, setAlAbnormalOnly] = useState(false)
   const [alPrivateIpOnly, setAlPrivateIpOnly] = useState(false)
   const [alIpDebugOnly, setAlIpDebugOnly] = useState(false)
   const [accessLogIpDebugExpanded, setAccessLogIpDebugExpanded] = useState<string | null>(null)
-  const [alDistinct, setAlDistinct] = useState<{ browsers: string[]; oses: string[]; countries: string[]; methods: string[] }>({ browsers: [], oses: [], countries: [], methods: [] })
+  const [alDistinct, setAlDistinct] = useState<{ browsers: string[]; oses: string[]; countries: string[]; methods: string[]; statusCodes: string[] }>({ browsers: [], oses: [], countries: [], methods: [], statusCodes: [] })
 
   const [blockedIps, setBlockedIps] = useState<Array<{
     id: string
@@ -974,7 +975,7 @@ export default function AdminPage() {
     if (isAppAdminRole(session?.user?.role)) {
       fetchData()
     }
-  }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsSearchDebounced, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter, alAbnormalOnly, alPrivateIpOnly, alIpDebugOnly])
+  }, [session, activeTab, userSearchDebounced, userFilter, mediaSearchDebounced, mediaTypeFilter, mediaStatusFilter, chatSearchDebounced, chatFilter, accessLogsPage, accessLogsSearchDebounced, accessLogsFrom, accessLogsTo, alTimePeriod, alBrowserFilter, alOsFilter, alCountryFilter, alMethodFilter, alStatusCodeFilter, alAbnormalOnly, alPrivateIpOnly, alIpDebugOnly])
 
   const adminFetch = async (input: string, init?: RequestInit): Promise<Response> => {
     const res = await fetch(input, { ...init, credentials: init?.credentials ?? 'include' })
@@ -1046,6 +1047,7 @@ export default function AdminPage() {
         if (alOsFilter.length) params.set('os', alOsFilter.join(','))
         if (alCountryFilter.length) params.set('country', alCountryFilter.join(','))
         if (alMethodFilter.length) params.set('method', alMethodFilter.join(','))
+        if (alStatusCodeFilter.length) params.set('statusCode', alStatusCodeFilter.join(','))
         if (alAbnormalOnly) params.set('abnormalOnly', '1')
         if (alPrivateIpOnly) params.set('privateIpOnly', '1')
         if (alIpDebugOnly) params.set('ipDebugOnly', '1')
@@ -1062,7 +1064,7 @@ export default function AdminPage() {
         setAccessLogsTotal(data.pagination?.total ?? 0)
         setAccessLogsTotalPages(data.pagination?.totalPages ?? 1)
         setAccessLogsSummary(data.summary ?? null)
-        setAlDistinct({ browsers: dData.browsers || [], oses: dData.oses || [], countries: dData.countries || [], methods: dData.methods || [] })
+        setAlDistinct({ browsers: dData.browsers || [], oses: dData.oses || [], countries: dData.countries || [], methods: dData.methods || [], statusCodes: dData.statusCodes || [] })
       } else if (activeTab === 'blockedIps') {
         const res = await adminFetch('/api/admin?action=blockedIps')
         const data = await res.json()
@@ -2461,7 +2463,7 @@ export default function AdminPage() {
                   />
                   IP debug
                 </label>
-                {(accessLogsSearch.trim() || alTimePeriod || alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0 || alAbnormalOnly || alPrivateIpOnly || alIpDebugOnly) && (
+                {(accessLogsSearch.trim() || alTimePeriod || alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0 || alStatusCodeFilter.length > 0 || alAbnormalOnly || alPrivateIpOnly || alIpDebugOnly) && (
                   <button
                     onClick={() => {
                       setAccessLogsSearch('')
@@ -2471,6 +2473,7 @@ export default function AdminPage() {
                       setAlOsFilter([])
                       setAlCountryFilter([])
                       setAlMethodFilter([])
+                      setAlStatusCodeFilter([])
                       setAlAbnormalOnly(false)
                       setAlPrivateIpOnly(false)
                       setAlIpDebugOnly(false)
@@ -2519,7 +2522,7 @@ export default function AdminPage() {
                       <ColumnFilter compact label="OS" options={alDistinct.oses} selected={alOsFilter} onApply={(v) => { setAlOsFilter(v); setAccessLogsPage(1) }} />
                       <ColumnFilter compact label="Country" options={alDistinct.countries} selected={alCountryFilter} onApply={(v) => { setAlCountryFilter(v); setAccessLogsPage(1) }} />
                       <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">Path</th>
-                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">Status</th>
+                      <ColumnFilter compact label="Status" options={alDistinct.statusCodes} selected={alStatusCodeFilter} onApply={(v) => { setAlStatusCodeFilter(v); setAccessLogsPage(1) }} />
                       <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap min-w-[120px]">Risk</th>
                       <ColumnFilter compact label="Method" options={alDistinct.methods} selected={alMethodFilter} onApply={(v) => { setAlMethodFilter(v); setAccessLogsPage(1) }} />
                       <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">Referrer</th>
