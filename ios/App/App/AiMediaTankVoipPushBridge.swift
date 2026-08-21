@@ -290,6 +290,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         ringSpeech.delegate = self
         NativeVoiceCallEngine.shared.delegate = self
         RTCAudioSession.sharedInstance().useManualAudio = true
+        RTCAudioSession.sharedInstance().isAudioEnabled = false
         installInAppRingAnnouncementObservers()
     }
 

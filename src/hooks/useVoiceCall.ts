@@ -1019,6 +1019,13 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     setCallState('connecting')
     stopVoiceCallRingtone()
 
+    // iOS CallKit + native engine: do not start a second WKWebView PeerConnection
+    // (double answer leaves CallKit on "Connecting…").
+    if (opts?.fromCallKit && isNativeIosCallApp() && nativeWebRtcCalleeRef.current) {
+      answeringRef.current = false
+      return true
+    }
+
     // CallKit already activated audio — skip duplicate prompts on lock-screen Accept.
     if (!opts?.fromCallKit) {
       const media = await ensureTalkMediaPermissions(Boolean(hasVideoRef.current))

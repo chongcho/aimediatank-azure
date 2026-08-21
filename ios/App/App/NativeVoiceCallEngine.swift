@@ -27,6 +27,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
     private var remoteDescriptionReady = false
     private var isAnswering = false
     private var audioSessionReady = false
+    private var didApplyWebRtcAudioConfig = false
     private var pendingStart = false
     private var icePollGeneration: UUID?
     private var bootstrapGeneration: UUID?
@@ -223,40 +224,64 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         print("[NativeVoiceCallEngine] prepare answer \(normalized) prefetch=\(prefetchedBootstrap?.offerSdp != nil) audioReady=\(audioSessionReady) video=\(wantsVideo)")
         postTrace(callId: normalized, token: token, event: "native_webrtc_prepare")
 
+        // Bind WebRTC audio category before CallKit activates (never after didActivate).
+        prepareWebRtcAudioConfigurationIfNeeded()
+
         // Start SDP/ICE immediately on Accept — do not wait for CallKit didActivate.
         beginAnswerIfNeeded()
     }
 
+    /// Apply WebRTC category/mode BEFORE CallKit didActivate. Never call after activate —
+    /// post-activate setConfiguration caused one-way audio; skipping it entirely left voice
+    /// calls stuck on CallKit "Connecting…" (VoiceProcessing IO never bound).
+    private func prepareWebRtcAudioConfigurationIfNeeded() {
+        guard !didApplyWebRtcAudioConfig else { return }
+        let rtc = RTCAudioSession.sharedInstance()
+        rtc.lockForConfiguration()
+        defer { rtc.unlockForConfiguration() }
+        let config = RTCAudioSessionConfiguration.webRTC()
+        config.category = AVAudioSession.Category.playAndRecord.rawValue
+        config.mode = AVAudioSession.Mode.voiceChat.rawValue
+        config.categoryOptions = [
+            .allowBluetoothHFP,
+            .allowBluetoothA2DP,
+        ]
+        do {
+            try rtc.setConfiguration(config)
+            didApplyWebRtcAudioConfig = true
+            print("[NativeVoiceCallEngine] RTCAudioSession configuration applied (pre-activate)")
+        } catch {
+            print("[NativeVoiceCallEngine] RTCAudioSession setConfiguration failed: \(error.localizedDescription)")
+        }
+    }
+
     func audioSessionActivated() {
         audioSessionReady = true
-        applyWebRtcAudioSession(callKitDidActivate: true)
+        // Config must already be applied (prepareAnswer). Only notify + enable here.
+        prepareWebRtcAudioConfigurationIfNeeded()
+        let rtc = RTCAudioSession.sharedInstance()
+        rtc.lockForConfiguration()
+        defer { rtc.unlockForConfiguration() }
+        rtc.audioSessionDidActivate(AVAudioSession.sharedInstance())
+        rtc.isAudioEnabled = true
         // Enable every local audio sender — weak localAudioTrack alone can miss the live track.
         setLocalAudioMuted(false)
         // If Accept raced ahead of didActivate, finish any deferred start (should be rare now).
         beginAnswerIfNeeded()
+        // Defer speaker override — same-turn override after didActivate can stall CallKit UI
+        // on "Connecting…" for audio-only calls.
+        DispatchQueue.main.async { [weak self] in
+            self?.forceLoudspeakerOutput()
+        }
     }
 
     private func ensureWebRtcAudioEnabled() {
         guard audioSessionReady else { return }
-        applyWebRtcAudioSession(callKitDidActivate: false)
-    }
-
-    /// Keep WebRTC VoiceProcessing IO able to play remote audio (mic alone is not enough).
-    private func applyWebRtcAudioSession(callKitDidActivate: Bool) {
         let rtc = RTCAudioSession.sharedInstance()
         rtc.lockForConfiguration()
         defer { rtc.unlockForConfiguration() }
-
-        // CallKit already owns the live AVAudioSession (see bridge configureAudioSession).
-        // Do NOT call RTCAudioSession.setConfiguration / setCategory after didActivate —
-        // that reconfigures the shared session and can leave capture working while remote
-        // playback stays silent (iPhone callee hears nothing; caller still hears callee).
-        if callKitDidActivate {
-            rtc.audioSessionDidActivate(AVAudioSession.sharedInstance())
-        }
+        // Already activated by CallKit — do not setConfiguration again.
         rtc.isAudioEnabled = true
-        // Speaker route only via override — preserves Speaker OFF → earpiece.
-        forceLoudspeakerOutput()
     }
 
     private func forceLoudspeakerOutput() {
@@ -297,6 +322,8 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
         isMediaConnected = false
         wantsVideo = false
         prefersSpeaker = true
+        didApplyWebRtcAudioConfig = false
+        audioSessionReady = false
 
         let endedCallId = callId
         let authToken = token
@@ -596,6 +623,7 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             guard let track = receiver.track as? RTCAudioTrack else { return }
             track.isEnabled = true
         }
+        forceLoudspeakerOutput()
         print("[NativeVoiceCallEngine] connected \(callId)")
         postTrace(callId: callId, token: token ?? "", event: "native_webrtc_connected")
         if wantsVideo {
