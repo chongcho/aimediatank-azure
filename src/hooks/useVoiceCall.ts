@@ -1896,6 +1896,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           if (callStateRef.current !== 'connected') {
             setCallState('connecting')
           }
+          // iOS voice-only: native owns media; still open TalkChat so floating overlay paints
+          // after CallKit collapses its full-screen UI on connect.
+          if (isNativeIosCallApp()) {
+            requestOpenTalkChat()
+          }
           void ensureIncomingCall(callId)
           return
         }
@@ -1972,14 +1977,12 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             await setNativeVoiceCallMediaVolume(getVoiceCallVoiceVolume())
           })()
         }
-        // Android native video Dialog owns in-call UI. Opening TalkChat here recreates /
-        // resumes the Capacitor Activity and dismisses that Dialog while PeerConnection
-        // stays live — PC remains in-call, Android UI vanishes ~1s after connect, and the
-        // next dial crashes into the system clear-cache dialog.
-        if (
-          !isNativeIosCallApp() &&
-          !(isNativeAndroidCallApp() && (hasVideoRef.current || nativeWebRtcAndroidRef.current))
-        ) {
+        // iOS voice: bring chrome forward once native media is up (CallKit drops full-screen UI).
+        // Android: skip when native video Dialog / native voice engine owns the Activity chrome —
+        // opening TalkChat there can dismiss Dialog mid-call.
+        const skipTalkChatForAndroidNative =
+          isNativeAndroidCallApp() && (hasVideoRef.current || nativeWebRtcAndroidRef.current)
+        if (isNativeIosCallApp() || !skipTalkChatForAndroidNative) {
           requestOpenTalkChat()
         }
         void markNativeCallConnected(normalizedId)
@@ -2054,6 +2057,28 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       document.removeEventListener('visibilitychange', syncNativeCallUi)
       window.removeEventListener('pageshow', syncNativeCallUi)
       window.removeEventListener('focus', syncNativeCallUi)
+    }
+  }, [enabled])
+
+  // iOS: after unlock / foreground, ensure TalkChat + overlay when native voice is live.
+  useEffect(() => {
+    if (!enabled || !isNativeIosCallApp() || typeof document === 'undefined') return
+
+    const onVisible = () => {
+      if (document.hidden) return
+      const state = callStateRef.current
+      if (state !== 'connecting' && state !== 'connected') return
+      if (!nativeWebRtcCalleeRef.current) return
+      requestOpenTalkChat()
+    }
+
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pageshow', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pageshow', onVisible)
+      window.removeEventListener('focus', onVisible)
     }
   }, [enabled])
 

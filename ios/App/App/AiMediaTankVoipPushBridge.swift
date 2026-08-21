@@ -2272,9 +2272,11 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         reportCallKitHasVideo(callId: callId)
         scheduleJsAnswerDeliveryRetries(callId: callId)
         if Self.canDeliverToWebView() {
+            activateAppWindow()
             deliverLockScreenCallUiToJs(callId: callId, declineToken: token.isEmpty ? nil : token)
         }
         DispatchQueue.main.async { [weak self] in
+            self?.activateAppWindow()
             self?.beginAcceptCover()
             // Full-screen CallVideoViewController presents when tracks are ready.
         }
@@ -2397,8 +2399,17 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 extension AiMediaTankVoipPushBridge: NativeVoiceCallEngineDelegate {
     func nativeVoiceCallEngineDidConnect(callId: String, caller: [String: Any]?) {
         print("[AiMediaTankVoipPushBridge] native WebRTC connected \(callId)")
-        // Do not unveil here — wait for data-amt-call-active so home feed cannot flash.
+        activateAppWindow()
         reportCallConnected(callId: callId)
+        // Video keeps accept cover until CallVideoViewController / JS chrome is ready.
+        // Voice-only: CallKit drops its full-screen UI once connected — unveil WebView
+        // ActiveCallScreen immediately or the user hears audio with no End controls.
+        let voiceOnly = !Self.callHasVideo(callId) && !NativeVoiceCallEngine.shared.shouldShowVideoOverlay
+        if voiceOnly {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                self?.endAcceptCover(reason: "voice_connected")
+            }
+        }
     }
 
     func nativeVoiceCallEngineDidFail(callId: String, error: String) {

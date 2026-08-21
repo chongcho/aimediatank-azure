@@ -634,11 +634,17 @@ final class NativeVoiceCallEngine: NSObject, RTCPeerConnectionDelegate {
             }
         }
         let caller = cachedCaller
+        let voiceOnly = !wantsVideo
         runOnMain { [weak self] in
             guard let self, self.isMediaConnected, self.callId == callId.lowercased() else { return }
             self.callVideoViewController?.updateStatus("Connected")
             if let name = caller?["name"] as? String, !name.isEmpty {
                 self.callVideoViewController?.updateDisplayName(name)
+            }
+            // Voice-only has no CallVideoViewController — mark WebView active so accept cover
+            // can drop and VoiceCallOverlay can paint (1.0.109: audio up, no in-app UI).
+            if voiceOnly {
+                self.markCallUiActiveInWebView()
             }
             self.delegate?.nativeVoiceCallEngineDidConnect(callId: callId, caller: caller)
             self.scheduleConnectedUiSync(callId: callId, caller: caller)
