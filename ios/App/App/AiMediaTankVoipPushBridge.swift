@@ -466,10 +466,21 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// CallKit owns incoming Accept/Decline on iOS (foreground + lock) — do not dismiss for in-app overlay.
     func reconcileForegroundIncomingUi() {}
 
-    /// WebRTC connected — clear pending answer state. Do not call reportOutgoingCall on incoming UUIDs (CallKit crash).
+    /// WebRTC connected — clear pending answer state and tell CallKit media is live.
+    /// Without `reportOutgoingCall(connectedAt:)`, answered incoming calls stay on
+    /// "Connecting…" / "연결 중…" instead of "AiMediaTank Audio — mm:ss" (outgoing already shows the timer).
     func reportCallConnected(callId: String) {
         let normalized = callId.lowercased()
         reportCallKitHasVideo(callId: normalized)
+        if let uuid = UUID(uuidString: normalized) {
+            let stillLive = CXCallObserver().calls.contains { $0.uuid == uuid && !$0.hasEnded }
+            if stillLive {
+                // Despite the name, this is the CallKit API that starts the in-call timer after
+                // answer fulfill + media up. Guard with stillLive so we never report on a dead UUID.
+                provider.reportOutgoingCall(with: uuid, connectedAt: Date())
+                print("[AiMediaTankVoipPushBridge] CallKit connectedAt \(normalized)")
+            }
+        }
         Self.noteCallDismissed(normalized)
         Self.clearLockScreenNativeAnswer(callId: normalized)
         endAnswerBackgroundSupport()
