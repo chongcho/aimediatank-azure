@@ -815,7 +815,9 @@ video::cue {
   background: transparent !important;
 }
 video::-webkit-media-text-track-display,
-video::-webkit-media-text-track-container {
+video::-webkit-media-text-track-container,
+video::-webkit-media-controls-subtitle-button,
+video::-webkit-media-controls-closed-captions-button {
   display: none !important;
   max-height: 0 !important;
   overflow: hidden !important;

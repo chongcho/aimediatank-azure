@@ -12,7 +12,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { stopAllMedia } from '@/lib/mediaStop'
-import { disableVideoTextTracks } from '@/lib/disableVideoTextTracks'
+import { disableVideoTextTracks, isTouchVideoDevice } from '@/lib/disableVideoTextTracks'
 import { isInstalledPWA } from '@/lib/appBadge'
 import type { VideoStreamRendition } from '@/lib/videoStreamRenditions'
 import { bufferAheadSeconds, pickInitialRenditionIndex, sortRenditions } from '@/lib/adaptiveVideoTier'
@@ -199,8 +199,11 @@ function FullscreenImageOverlay({
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 bg-black flex items-center justify-center touch-none overscroll-none select-none"
-      style={{ zIndex: IMAGE_FULLSCREEN_Z_INDEX }}
+      className="fixed inset-0 bg-black flex items-center justify-center overscroll-none select-none"
+      style={{
+        zIndex: IMAGE_FULLSCREEN_Z_INDEX,
+        touchAction: isGesturing ? 'none' : 'manipulation',
+      }}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -310,7 +313,11 @@ export default function MediaPlayer({
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
+  const [isVideoFullscreen, setIsVideoFullscreen] = useState(false)
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768
+  )
+  const [isTouchDevice, setIsTouchDevice] = useState(() => isTouchVideoDevice())
   const [isMounted, setIsMounted] = useState(false)
   // On media detail (autoUnmuteOnMount): start unmuted. Else mobile browser: start muted for autoplay; desktop/PWA: unmuted.
   const [isMuted, setIsMuted] = useState(
@@ -326,6 +333,7 @@ export default function MediaPlayer({
   const [isBuffering, setIsBuffering] = useState(type === 'VIDEO')
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const fullscreenVideoRef = useRef<HTMLVideoElement>(null)
   const fullscreenRef = useRef<HTMLDivElement>(null)
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null)
   const playbackSuspendedRef = useRef(playbackSuspended)
@@ -380,10 +388,11 @@ export default function MediaPlayer({
     }
   }, [])
 
-  // Detect mobile screens on mount
+  // Detect mobile / touch screens on mount
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
+      setIsTouchDevice(isTouchVideoDevice())
     }
     checkMobile()
     setIsMounted(true)
@@ -602,13 +611,20 @@ export default function MediaPlayer({
   }, [type, effectiveVideoUrl, isMounted, showMobileControls])
 
   useEffect(() => {
+    if (!isVideoFullscreen) return
+    const video = fullscreenVideoRef.current
+    if (!video) return
+    return disableVideoTextTracks(video)
+  }, [isVideoFullscreen, effectiveVideoUrl])
+
+  useEffect(() => {
     if (!isFullscreen) return
     // Native Fullscreen API is unreliable on iOS; overlay-only is the mobile path.
     const canRequestNative =
       typeof document !== 'undefined' &&
       typeof Element !== 'undefined' &&
       'requestFullscreen' in Element.prototype &&
-      !/iPhone|iPad|iPod/i.test(navigator.userAgent)
+      !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
     if (!canRequestNative) return
     const element = fullscreenRef.current
     if (!element || document.fullscreenElement) return
@@ -618,7 +634,8 @@ export default function MediaPlayer({
   }, [isFullscreen])
 
   useEffect(() => {
-    if (isFullscreen) {
+    const active = isFullscreen || isVideoFullscreen
+    if (active) {
       document.body.dataset.mediaFullscreen = 'true'
       document.documentElement.dataset.mediaFullscreen = 'true'
     } else {
@@ -630,46 +647,69 @@ export default function MediaPlayer({
       delete document.body.dataset.mediaFullscreen
       delete document.documentElement.dataset.mediaFullscreen
     }
-  }, [isFullscreen])
+  }, [isFullscreen, isVideoFullscreen])
 
   useEffect(() => {
-    if (!isFullscreen) return
+    const active = isFullscreen || isVideoFullscreen
+    if (!active) return
     const previousOverflow = document.body.style.overflow
-    const previousTouchAction = document.body.style.touchAction
     document.body.style.overflow = 'hidden'
-    document.body.style.touchAction = 'none'
+    // Do not set body touchAction or block document touchmove — breaks mobile pinch/fullscreen.
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsFullscreen(false)
+        setIsVideoFullscreen(false)
         if (document.fullscreenElement) {
           document.exitFullscreen?.().catch(() => {})
         }
       }
     }
-    const preventTouchScroll = (e: TouchEvent) => {
-      e.preventDefault()
-    }
 
     window.addEventListener('keydown', onKeyDown)
-    document.addEventListener('touchmove', preventTouchScroll, { passive: false })
 
     return () => {
       document.body.style.overflow = previousOverflow
-      document.body.style.touchAction = previousTouchAction
       window.removeEventListener('keydown', onKeyDown)
-      document.removeEventListener('touchmove', preventTouchScroll)
       if (document.fullscreenElement) {
         document.exitFullscreen?.().catch(() => {})
       }
     }
-  }, [isFullscreen])
+  }, [isFullscreen, isVideoFullscreen])
 
   const closeFullscreen = () => {
     setIsFullscreen(false)
     if (document.fullscreenElement) {
       document.exitFullscreen?.().catch(() => {})
     }
+  }
+
+  const openVideoFullscreen = () => {
+    const inline = videoRef.current
+    if (!inline) return
+    const wasPlaying = !inline.paused
+    inline.pause()
+    setIsVideoFullscreen(true)
+    requestAnimationFrame(() => {
+      const fs = fullscreenVideoRef.current
+      if (!fs) return
+      fs.currentTime = inline.currentTime
+      fs.muted = inline.muted
+      if (wasPlaying) fs.play().catch(() => {})
+    })
+  }
+
+  const closeVideoFullscreen = () => {
+    const inline = videoRef.current
+    const fs = fullscreenVideoRef.current
+    const wasPlaying = Boolean(fs && !fs.paused)
+    if (inline && fs) {
+      inline.currentTime = fs.currentTime
+      inline.muted = fs.muted
+      fs.pause()
+    }
+    setIsVideoFullscreen(false)
+    if (wasPlaying && inline) inline.play().catch(() => {})
   }
 
   const formatTime = (time: number) => {
@@ -686,14 +726,24 @@ export default function MediaPlayer({
             <img
               src={url}
               alt={title}
-              className="block max-w-full max-h-[90vh] lg:max-h-[65vh] object-contain cursor-pointer"
+              role="button"
+              tabIndex={0}
+              className="block max-w-full max-h-[90vh] lg:max-h-[65vh] object-contain cursor-pointer touch-manipulation"
               onClick={() => setIsFullscreen(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setIsFullscreen(true)
+                }
+              }}
             />
-            {/* Fullscreen button */}
+            {/* Fullscreen button — always visible on touch; hover on desktop */}
             <button
+              type="button"
               onClick={() => setIsFullscreen(true)}
-              className="absolute bottom-3 right-3 w-10 h-10 rounded-lg bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+              className={`absolute bottom-3 right-3 w-10 h-10 rounded-lg bg-black/50 backdrop-blur-sm flex items-center justify-center transition-opacity hover:bg-black/70 touch-manipulation ${isTouchDevice ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
               title="View fullscreen"
+              aria-label="View fullscreen"
             >
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
@@ -720,8 +770,8 @@ export default function MediaPlayer({
 
   if (type === 'VIDEO') {
     const handleVideoTap = () => {
-      // Native Android controls expose embedded MP4 captions on touch/scrub — use tap-to-play instead.
-      if (isMobile) {
+      // Native controls on touch devices expose embedded MP4 captions on Android scrub.
+      if (isTouchDevice) {
         const video = videoRef.current
         if (!video) return
         if (video.paused) {
@@ -760,19 +810,35 @@ export default function MediaPlayer({
             ref={videoRef}
             src={effectiveVideoUrl}
             poster={thumbnailUrl || undefined}
-            controls={!isMobile && showMobileControls}
+            controls={!isTouchDevice && showMobileControls}
             playsInline
             preload="auto"
             autoPlay={!isMobile}
             loop
             muted={isMuted}
             disablePictureInPicture
+            controlsList="nodownload noremoteplayback"
             className="w-full max-h-[90vh] lg:max-h-[65vh]"
             style={{ zIndex: 1 }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onClick={handleVideoTap}
           />
+          {isTouchDevice && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                openVideoFullscreen()
+              }}
+              className="absolute bottom-3 right-3 z-[3] w-10 h-10 rounded-lg bg-black/50 backdrop-blur-sm flex items-center justify-center touch-manipulation hover:bg-black/70"
+              aria-label="View fullscreen"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
+          )}
           {/* YouTube-style loading spinner — shown during initial load and mid-stream buffering */}
           {isBuffering && (
             <div
@@ -801,6 +867,51 @@ export default function MediaPlayer({
             </div>
           )}
         </div>
+        {isVideoFullscreen &&
+          typeof document !== 'undefined' &&
+          createPortal(
+            <div
+              className="fixed inset-0 bg-black flex items-center justify-center overscroll-none"
+              style={{ zIndex: IMAGE_FULLSCREEN_Z_INDEX, touchAction: 'manipulation' }}
+              role="dialog"
+              aria-modal="true"
+              aria-label={title}
+            >
+              <button
+                type="button"
+                onClick={closeVideoFullscreen}
+                className="absolute z-10 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors touch-manipulation"
+                style={{
+                  top: 'max(1rem, env(safe-area-inset-top, 0px))',
+                  right: 'max(1rem, env(safe-area-inset-right, 0px))',
+                }}
+                aria-label="Close fullscreen"
+              >
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <video
+                ref={fullscreenVideoRef}
+                src={effectiveVideoUrl}
+                poster={thumbnailUrl || undefined}
+                controls={false}
+                playsInline
+                loop
+                muted={isMuted}
+                disablePictureInPicture
+                controlsList="nodownload noremoteplayback"
+                className="max-w-full max-h-full w-auto h-auto object-contain touch-manipulation"
+                onClick={() => {
+                  const video = fullscreenVideoRef.current
+                  if (!video) return
+                  if (video.paused) video.play().catch(() => {})
+                  else video.pause()
+                }}
+              />
+            </div>,
+            document.body
+          )}
       </div>
     )
   }

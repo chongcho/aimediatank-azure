@@ -431,6 +431,7 @@ async function transcodeVideo(
         '-preset', 'veryfast',
         '-crf', firstTarget <= 480 ? '26' : '23',
         ...audioOpts,
+        '-sn',
         '-movflags', '+faststart',
         '-max_muxing_queue_size', '1024',
         outPath,
@@ -524,6 +525,7 @@ async function transcodeVideo(
           '-preset', 'fast',
           '-crf', '23',
           ...(withAudio ? ['-map', `[a${i}]`, '-c:a', 'aac', '-b:a', '128k'] : ['-an']),
+          '-sn',
           '-movflags', '+faststart',
           outPath,
         )
@@ -578,6 +580,7 @@ async function transcodeVideo(
       ...buildVideoFilter(),
       '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
       ...tail,
+      '-sn',
       '-movflags', '+faststart', '-max_muxing_queue_size', '1024',
       hqPath,
     ]
