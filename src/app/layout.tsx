@@ -5,7 +5,6 @@ import Providers from '@/components/Providers'
 import Navbar from '@/components/Navbar'
 import InstallPrompt from '@/components/InstallPrompt'
 import RouteChangeMediaStopper from '@/components/RouteChangeMediaStopper'
-import VideoCaptionGuard from '@/components/VideoCaptionGuard'
 import ScrollbarEdgeReveal from '@/components/ScrollbarEdgeReveal'
 import KakaoScript from '@/components/KakaoScript'
 import { KakaoConfigProvider } from '@/components/KakaoConfigProvider'
@@ -99,7 +98,6 @@ export default function RootLayout({
             <KakaoScript />
             <ScrollbarEdgeReveal />
           <RouteChangeMediaStopper />
-          <VideoCaptionGuard />
           <Navbar />
           <main className="pt-16 m-0 p-0">
             {children}
