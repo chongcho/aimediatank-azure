@@ -12,6 +12,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { stopAllMedia } from '@/lib/mediaStop'
+import { disableVideoTextTracks } from '@/lib/disableVideoTextTracks'
 import { isInstalledPWA } from '@/lib/appBadge'
 import type { VideoStreamRendition } from '@/lib/videoStreamRenditions'
 import { bufferAheadSeconds, pickInitialRenditionIndex, sortRenditions } from '@/lib/adaptiveVideoTier'
@@ -591,6 +592,14 @@ export default function MediaPlayer({
       video.removeEventListener('loadedmetadata', onMetadataLoaded)
     }
   }, [type, effectiveVideoUrl, isMounted, autoUnmuteOnMount])
+
+  // Hide embedded captions that Android Chrome shows when scrubbing / opening controls.
+  useEffect(() => {
+    if (type !== 'VIDEO') return
+    const video = videoRef.current
+    if (!video) return
+    return disableVideoTextTracks(video)
+  }, [type, effectiveVideoUrl, isMounted, showMobileControls])
 
   useEffect(() => {
     if (!isFullscreen) return

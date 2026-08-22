@@ -807,6 +807,23 @@ input[type="number"]::-webkit-outer-spin-button {
   scrollbar-width: none;
 }
 
+/* Suppress embedded video captions (Android often shows them on touch/scrub). */
+video::cue {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  color: transparent !important;
+  background: transparent !important;
+}
+video::-webkit-media-text-track-display,
+video::-webkit-media-text-track-container {
+  display: none !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 /* Line clamp utilities */
 .line-clamp-1 {
   display: -webkit-box;
