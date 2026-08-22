@@ -720,7 +720,17 @@ export default function MediaPlayer({
 
   if (type === 'VIDEO') {
     const handleVideoTap = () => {
-      // Show controls on tap, hide after 3 seconds
+      // Native Android controls expose embedded MP4 captions on touch/scrub — use tap-to-play instead.
+      if (isMobile) {
+        const video = videoRef.current
+        if (!video) return
+        if (video.paused) {
+          video.play().catch(() => {})
+        } else {
+          video.pause()
+        }
+        return
+      }
       setShowMobileControls(true)
       if (hideControlsTimeout.current) {
         clearTimeout(hideControlsTimeout.current)
@@ -750,18 +760,18 @@ export default function MediaPlayer({
             ref={videoRef}
             src={effectiveVideoUrl}
             poster={thumbnailUrl || undefined}
-            controls={showMobileControls}
+            controls={!isMobile && showMobileControls}
             playsInline
             preload="auto"
             autoPlay={!isMobile}
             loop
             muted={isMuted}
+            disablePictureInPicture
             className="w-full max-h-[90vh] lg:max-h-[65vh]"
             style={{ zIndex: 1 }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onClick={handleVideoTap}
-            onTouchStart={handleVideoTap}
           />
           {/* YouTube-style loading spinner — shown during initial load and mid-stream buffering */}
           {isBuffering && (
