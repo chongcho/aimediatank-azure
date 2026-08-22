@@ -1,6 +1,15 @@
 'use client'
 
-import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
+import {
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  type RefObject,
+  type TouchEvent as ReactTouchEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { stopAllMedia } from '@/lib/mediaStop'
 import { isInstalledPWA } from '@/lib/appBadge'
@@ -9,6 +18,269 @@ import { bufferAheadSeconds, pickInitialRenditionIndex, sortRenditions } from '@
 
 /** Above navbar (100010) and safe-area bars (100005) — same stack as voice call fullscreen. */
 const IMAGE_FULLSCREEN_Z_INDEX = 100050
+const IMAGE_ZOOM_MIN = 1
+const IMAGE_ZOOM_MAX = 5
+const IMAGE_ZOOM_STEP = 0.5
+const IMAGE_DOUBLE_TAP_MS = 280
+
+function clampImageZoom(scale: number) {
+  return Math.min(IMAGE_ZOOM_MAX, Math.max(IMAGE_ZOOM_MIN, scale))
+}
+
+function touchDistance(
+  a: { clientX: number; clientY: number },
+  b: { clientX: number; clientY: number }
+) {
+  const dx = a.clientX - b.clientX
+  const dy = a.clientY - b.clientY
+  return Math.hypot(dx, dy)
+}
+
+function FullscreenImageOverlay({
+  url,
+  title,
+  containerRef,
+  onClose,
+}: {
+  url: string
+  title: string
+  containerRef: RefObject<HTMLDivElement>
+  onClose: () => void
+}) {
+  const [scale, setScale] = useState(1)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [isGesturing, setIsGesturing] = useState(false)
+
+  const scaleRef = useRef(1)
+  const offsetRef = useRef({ x: 0, y: 0 })
+  const pinchRef = useRef<{ startDist: number; startScale: number } | null>(null)
+  const panRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null)
+  const lastTapRef = useRef(0)
+  const movedRef = useRef(false)
+
+  const commitTransform = (nextScale: number, x: number, y: number) => {
+    const clamped = clampImageZoom(nextScale)
+    const nextOffset = clamped <= IMAGE_ZOOM_MIN + 0.001 ? { x: 0, y: 0 } : { x, y }
+    scaleRef.current = clamped
+    offsetRef.current = nextOffset
+    setScale(clamped)
+    setOffset(nextOffset)
+  }
+
+  const zoomBy = (delta: number) => {
+    commitTransform(scaleRef.current + delta, offsetRef.current.x, offsetRef.current.y)
+  }
+
+  const onTouchStart = (e: ReactTouchEvent) => {
+    movedRef.current = false
+    if (e.touches.length === 2) {
+      panRef.current = null
+      setIsGesturing(true)
+      pinchRef.current = {
+        startDist: touchDistance(e.touches[0], e.touches[1]),
+        startScale: scaleRef.current,
+      }
+      return
+    }
+    if (e.touches.length === 1 && scaleRef.current > 1) {
+      pinchRef.current = null
+      setIsGesturing(true)
+      panRef.current = {
+        startX: e.touches[0].clientX,
+        startY: e.touches[0].clientY,
+        originX: offsetRef.current.x,
+        originY: offsetRef.current.y,
+      }
+    }
+  }
+
+  const finishTapOrDoubleTap = () => {
+    if (movedRef.current) return
+    const now = Date.now()
+    if (now - lastTapRef.current < IMAGE_DOUBLE_TAP_MS) {
+      lastTapRef.current = 0
+      if (scaleRef.current > 1.05) {
+        commitTransform(1, 0, 0)
+      } else {
+        commitTransform(2.5, 0, 0)
+      }
+    } else {
+      lastTapRef.current = now
+      window.setTimeout(() => {
+        if (lastTapRef.current !== now) return
+        if (scaleRef.current <= 1.05) onClose()
+      }, IMAGE_DOUBLE_TAP_MS)
+    }
+  }
+
+  const onTouchEnd = (e: ReactTouchEvent) => {
+    if (e.touches.length < 2) pinchRef.current = null
+    if (e.touches.length === 0) {
+      panRef.current = null
+      setIsGesturing(false)
+      finishTapOrDoubleTap()
+    }
+  }
+
+  const onMouseDown = (e: ReactMouseEvent) => {
+    if (e.button !== 0 || scaleRef.current <= 1) return
+    e.preventDefault()
+    movedRef.current = false
+    setIsGesturing(true)
+    panRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: offsetRef.current.x,
+      originY: offsetRef.current.y,
+    }
+  }
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!panRef.current || scaleRef.current <= 1) return
+      const dx = e.clientX - panRef.current.startX
+      const dy = e.clientY - panRef.current.startY
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) movedRef.current = true
+      commitTransform(scaleRef.current, panRef.current.originX + dx, panRef.current.originY + dy)
+    }
+    const onMouseUp = () => {
+      if (!panRef.current) return
+      panRef.current = null
+      setIsGesturing(false)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const delta = e.deltaY > 0 ? -0.2 : 0.2
+      commitTransform(scaleRef.current + delta, offsetRef.current.x, offsetRef.current.y)
+    }
+
+    // Non-passive so pinch/pan can call preventDefault on iOS Safari.
+    const onTouchMoveNative = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchRef.current) {
+        e.preventDefault()
+        movedRef.current = true
+        const dist = touchDistance(e.touches[0], e.touches[1])
+        const ratio = dist / Math.max(1, pinchRef.current.startDist)
+        commitTransform(pinchRef.current.startScale * ratio, offsetRef.current.x, offsetRef.current.y)
+        return
+      }
+      if (e.touches.length === 1 && panRef.current && scaleRef.current > 1) {
+        e.preventDefault()
+        const dx = e.touches[0].clientX - panRef.current.startX
+        const dy = e.touches[0].clientY - panRef.current.startY
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) movedRef.current = true
+        commitTransform(scaleRef.current, panRef.current.originX + dx, panRef.current.originY + dy)
+      }
+    }
+
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('touchmove', onTouchMoveNative, { passive: false })
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('touchmove', onTouchMoveNative)
+    }
+  }, [containerRef, onClose])
+
+  const zoomed = scale > 1.01
+
+  return (
+    <div
+      ref={containerRef}
+      className="fixed inset-0 bg-black flex items-center justify-center touch-none overscroll-none select-none"
+      style={{ zIndex: IMAGE_FULLSCREEN_Z_INDEX }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !zoomed) onClose()
+      }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+      onMouseDown={onMouseDown}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onClose()
+        }}
+        className="absolute z-10 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors"
+        style={{
+          top: 'max(1rem, env(safe-area-inset-top, 0px))',
+          right: 'max(1rem, env(safe-area-inset-right, 0px))',
+        }}
+        aria-label="Close fullscreen"
+      >
+        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <div
+        className="absolute z-10 flex items-center gap-2"
+        style={{
+          bottom: 'max(1rem, env(safe-area-inset-bottom, 0px))',
+          left: '50%',
+          transform: 'translateX(-50%)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => zoomBy(-IMAGE_ZOOM_STEP)}
+          disabled={scale <= IMAGE_ZOOM_MIN}
+          className="w-11 h-11 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors disabled:opacity-40"
+          aria-label="Zoom out"
+        >
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+          </svg>
+        </button>
+        <span className="min-w-[3.25rem] text-center text-sm text-white/90 tabular-nums">
+          {`${Math.round(scale * 100)}%`}
+        </span>
+        <button
+          type="button"
+          onClick={() => zoomBy(IMAGE_ZOOM_STEP)}
+          disabled={scale >= IMAGE_ZOOM_MAX}
+          className="w-11 h-11 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors disabled:opacity-40"
+          aria-label="Zoom in"
+        >
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      </div>
+
+      <img
+        src={url}
+        alt={title}
+        className="max-w-full max-h-full w-auto h-auto object-contain will-change-transform"
+        style={{
+          transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${scale})`,
+          transformOrigin: 'center center',
+          cursor: zoomed ? (isGesturing ? 'grabbing' : 'grab') : 'zoom-in',
+          transition: isGesturing ? undefined : 'transform 120ms ease-out',
+        }}
+        draggable={false}
+      />
+    </div>
+  )
+}
 
 interface MediaPlayerProps {
   type: 'VIDEO' | 'IMAGE' | 'MUSIC'
@@ -421,43 +693,16 @@ export default function MediaPlayer({
           </div>
         </div>
 
-        {/* Fullscreen overlay — portaled above navbar; tap image or X to close */}
+        {/* Fullscreen overlay — pinch / wheel / buttons to zoom; tap to close when not zoomed */}
         {isFullscreen &&
           typeof document !== 'undefined' &&
           createPortal(
-            <div
-              ref={fullscreenRef}
-              className="fixed inset-0 bg-black flex items-center justify-center touch-none overscroll-none"
-              style={{ zIndex: IMAGE_FULLSCREEN_Z_INDEX }}
-              role="dialog"
-              aria-modal="true"
-              aria-label={title}
-              onClick={closeFullscreen}
-            >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  closeFullscreen()
-                }}
-                className="absolute z-10 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors"
-                style={{
-                  top: 'max(1rem, env(safe-area-inset-top, 0px))',
-                  right: 'max(1rem, env(safe-area-inset-right, 0px))',
-                }}
-                aria-label="Close fullscreen"
-              >
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <img
-                src={url}
-                alt={title}
-                className="max-w-full max-h-full w-auto h-auto object-contain pointer-events-none"
-                draggable={false}
-              />
-            </div>,
+            <FullscreenImageOverlay
+              url={url}
+              title={title}
+              containerRef={fullscreenRef}
+              onClose={closeFullscreen}
+            />,
             document.body
           )}
       </>
