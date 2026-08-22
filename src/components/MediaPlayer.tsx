@@ -202,6 +202,8 @@ function FullscreenImageOverlay({
       style={{
         zIndex: IMAGE_FULLSCREEN_Z_INDEX,
         touchAction: isGesturing ? 'none' : 'manipulation',
+        width: '100vw',
+        height: '100dvh',
       }}
       role="dialog"
       aria-modal="true"
@@ -272,7 +274,7 @@ function FullscreenImageOverlay({
       <img
         src={url}
         alt={title}
-        className="max-w-full max-h-full w-auto h-auto object-contain will-change-transform"
+        className="absolute inset-0 w-full h-full object-contain will-change-transform"
         style={{
           transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${scale})`,
           transformOrigin: 'center center',
