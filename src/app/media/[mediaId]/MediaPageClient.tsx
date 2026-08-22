@@ -185,11 +185,25 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   }, [loading, media])
 
   // Trigger overlay opacity after paint so CSS transition runs (avoids flash on router.back()).
+  // Also fall back if transitionend never fires (common on some mobile WebViews).
   useEffect(() => {
     if (!closing) return
     const id = requestAnimationFrame(() => setOverlayReveal(true))
-    return () => cancelAnimationFrame(id)
-  }, [closing])
+    const fallback = window.setTimeout(() => {
+      if (backNavigatingRef.current) return
+      backNavigatingRef.current = true
+      // Hard home on mobile — soft back can leave the intercepted black shell stuck.
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        window.location.assign('/')
+      } else {
+        router.back()
+      }
+    }, 350)
+    return () => {
+      cancelAnimationFrame(id)
+      window.clearTimeout(fallback)
+    }
+  }, [closing, router])
 
   // Prefetch home so Back transition is fast and avoids black screen
   useEffect(() => {
@@ -714,6 +728,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const handleLeaveDetail = () => {
     stopAllMedia()
     if (intercepted) {
+      // Mobile WebViews often keep the @modal black shell after router.back().
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        window.location.assign('/')
+        return
+      }
       setClosing(true)
     } else {
       router.replace('/')
@@ -729,7 +748,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           onTransitionEnd={() => {
             if (backNavigatingRef.current) return
             backNavigatingRef.current = true
-            router.back()
+            if (typeof window !== 'undefined' && window.innerWidth < 768) {
+              window.location.assign('/')
+            } else {
+              router.back()
+            }
           }}
           aria-hidden
         />

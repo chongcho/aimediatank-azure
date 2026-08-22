@@ -164,6 +164,17 @@ function NavbarContent() {
       clearHomeFeed()
       closeTalkChatPanels()
 
+      // Soft nav often leaves intercepted @modal shells (black screen) on mobile WebViews.
+      // If a shell is still mounted — even when pathname is already "/" — hard-reload home.
+      const hasInterceptedShell =
+        typeof document !== 'undefined' &&
+        Boolean(document.querySelector('.intercepted-page-shell'))
+
+      if (hasInterceptedShell) {
+        window.location.assign('/')
+        return
+      }
+
       if (pathname === '/') {
         document.body.scrollTop = 0
         if (options?.refreshIfAlreadyHome) {
@@ -172,10 +183,14 @@ function NavbarContent() {
         return
       }
 
-      // After Post (/upload or /pricing), soft router.push('/') can stall on mobile WebViews.
+      // After Post (/upload or /pricing) or media detail, soft router.push('/') can stall
+      // or keep the @modal overlay on mobile WebViews.
       if (
         isMobileViewport() &&
-        (pathname === '/upload' || pathname === '/pricing' || pathname.startsWith('/upload/'))
+        (pathname === '/upload' ||
+          pathname === '/pricing' ||
+          pathname.startsWith('/upload/') ||
+          pathname.startsWith('/media/'))
       ) {
         window.location.assign('/')
         return

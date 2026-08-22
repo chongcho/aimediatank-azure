@@ -1,10 +1,14 @@
 'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { stopAllMedia } from '@/lib/mediaStop'
 import { isInstalledPWA } from '@/lib/appBadge'
 import type { VideoStreamRendition } from '@/lib/videoStreamRenditions'
 import { bufferAheadSeconds, pickInitialRenditionIndex, sortRenditions } from '@/lib/adaptiveVideoTier'
+
+/** Above navbar (100010) and safe-area bars (100005) — same stack as voice call fullscreen. */
+const IMAGE_FULLSCREEN_Z_INDEX = 100050
 
 interface MediaPlayerProps {
   type: 'VIDEO' | 'IMAGE' | 'MUSIC'
@@ -318,11 +322,17 @@ export default function MediaPlayer({
 
   useEffect(() => {
     if (!isFullscreen) return
+    // Native Fullscreen API is unreliable on iOS; overlay-only is the mobile path.
+    const canRequestNative =
+      typeof document !== 'undefined' &&
+      typeof Element !== 'undefined' &&
+      'requestFullscreen' in Element.prototype &&
+      !/iPhone|iPad|iPod/i.test(navigator.userAgent)
+    if (!canRequestNative) return
     const element = fullscreenRef.current
-    if (!element) return
-    if (document.fullscreenElement) return
+    if (!element || document.fullscreenElement) return
     element.requestFullscreen?.().catch(() => {
-      // If fullscreen API is unavailable or blocked, fallback to overlay only.
+      // Overlay remains as fallback when native fullscreen is blocked.
     })
   }, [isFullscreen])
 
@@ -340,6 +350,46 @@ export default function MediaPlayer({
       delete document.documentElement.dataset.mediaFullscreen
     }
   }, [isFullscreen])
+
+  useEffect(() => {
+    if (!isFullscreen) return
+    const previousOverflow = document.body.style.overflow
+    const previousTouchAction = document.body.style.touchAction
+    document.body.style.overflow = 'hidden'
+    document.body.style.touchAction = 'none'
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsFullscreen(false)
+        if (document.fullscreenElement) {
+          document.exitFullscreen?.().catch(() => {})
+        }
+      }
+    }
+    const preventTouchScroll = (e: TouchEvent) => {
+      e.preventDefault()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    document.addEventListener('touchmove', preventTouchScroll, { passive: false })
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.body.style.touchAction = previousTouchAction
+      window.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('touchmove', preventTouchScroll)
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {})
+      }
+    }
+  }, [isFullscreen])
+
+  const closeFullscreen = () => {
+    setIsFullscreen(false)
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {})
+    }
+  }
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60)
@@ -371,35 +421,45 @@ export default function MediaPlayer({
           </div>
         </div>
 
-        {/* Fullscreen overlay */}
-        {isFullscreen && (
-          <div
-            ref={fullscreenRef}
-            className="fixed inset-0 z-[99999] bg-black flex items-center justify-center"
-            style={{ width: '100vw', height: '100vh', transform: 'translateY(-22px)' }}
-            onClick={() => setIsFullscreen(false)}
-          >
-            <button
-              onClick={() => {
-                setIsFullscreen(false)
-                if (document.fullscreenElement) {
-                  document.exitFullscreen?.()
-                }
-              }}
-              className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors"
+        {/* Fullscreen overlay — portaled above navbar; tap image or X to close */}
+        {isFullscreen &&
+          typeof document !== 'undefined' &&
+          createPortal(
+            <div
+              ref={fullscreenRef}
+              className="fixed inset-0 bg-black flex items-center justify-center touch-none overscroll-none"
+              style={{ zIndex: IMAGE_FULLSCREEN_Z_INDEX }}
+              role="dialog"
+              aria-modal="true"
+              aria-label={title}
+              onClick={closeFullscreen}
             >
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <img
-              src={url}
-              alt={title}
-              className="w-screen h-screen object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  closeFullscreen()
+                }}
+                className="absolute z-10 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors"
+                style={{
+                  top: 'max(1rem, env(safe-area-inset-top, 0px))',
+                  right: 'max(1rem, env(safe-area-inset-right, 0px))',
+                }}
+                aria-label="Close fullscreen"
+              >
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <img
+                src={url}
+                alt={title}
+                className="max-w-full max-h-full w-auto h-auto object-contain pointer-events-none"
+                draggable={false}
+              />
+            </div>,
+            document.body
+          )}
       </>
     )
   }
