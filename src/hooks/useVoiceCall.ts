@@ -15,6 +15,7 @@ import { formatVoiceCallAnnouncementText } from '@/lib/voiceCallAnnouncement'
 import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 import {
   answerNativeCall,
+  applyNativeCallScreenPresentation,
   clearNativeCallScreenPresentation,
   endNativeCall,
   endNativeWebRtc,
@@ -1147,6 +1148,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       remoteDescriptionSetRef.current = true
       await flushPendingIceCandidates(pc)
       await attachLocalTracks(pc, opts?.fromCallKit ? 16 : 0)
+      if (isNativeAndroidCallApp() && hasVideoRef.current) {
+        // Camera permission / getUserMedia can demote the activity behind the keyguard.
+        void applyNativeCallScreenPresentation()
+      }
       // Match Android: force video sendrecv before createAnswer so iPhone remote isn't black.
       if (hasVideoRef.current) {
         for (const t of pc.getTransceivers()) {
@@ -1185,11 +1190,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           void markNativeCallConnected(id)
           void setNativeVoiceCallAudioActive(true)
           void setNativeAudioRoute('speaker')
-          // Keep show-when-locked while answering from the keyguard so VoiceCallOverlay
-          // stays visible; unlocked Accept can clear presentation flags.
-          if (!opts?.fromCallKit) {
-            void clearNativeCallScreenPresentation()
-          }
+          // Keep show-when-locked for the whole video call (same as voice). Clearing here
+          // drops VoiceCallOverlay behind the keyguard after lock-screen Accept.
+          void applyNativeCallScreenPresentation()
         })()
       } else if (isNativeIosCallApp()) {
         // CallKit owns in-call UI — do not open TalkChat / home WebView.
@@ -1851,6 +1854,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
                   declineToken: token,
                 })
                 if (answered) {
+                  void applyNativeCallScreenPresentation()
                   reattachRemoteAudioRef.current()
                 }
                 return

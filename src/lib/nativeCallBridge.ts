@@ -655,6 +655,7 @@ export async function setNativeAudioRoute(route: NativeAudioRoute): Promise<bool
 type NativeVoiceCallAudioPlugin = {
   setVoiceCallAudioActive?: (options: { active: boolean }) => Promise<void>
   clearCallScreenPresentation?: () => Promise<void>
+  applyCallScreenPresentation?: () => Promise<void>
   enforceSystemEffectsContainment?: () => Promise<void>
   startCallRing?: (options: { url: string; incoming?: boolean }) => Promise<void>
   startCallRingAnnouncement?: (options: { text: string; lang?: string }) => Promise<void>
@@ -879,6 +880,19 @@ export async function clearNativeCallScreenPresentation(): Promise<void> {
     await plugin.clearCallScreenPresentation()
   } catch (error) {
     console.error('[NativeCall] clearCallScreenPresentation failed:', error)
+  }
+}
+
+/** Android: keep MainActivity above the keyguard during an active voice/video call. */
+export async function applyNativeCallScreenPresentation(): Promise<void> {
+  if (!isNativeAndroidCallApp()) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
+    if (typeof plugin.applyCallScreenPresentation !== 'function') return
+    await plugin.applyCallScreenPresentation()
+  } catch (error) {
+    console.error('[NativeCall] applyCallScreenPresentation failed:', error)
   }
 }
 

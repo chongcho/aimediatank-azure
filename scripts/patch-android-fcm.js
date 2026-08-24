@@ -2183,6 +2183,7 @@ const callScreenPresentationV2Marker = 'keep-screen-on flags only'
 const callScreenPresentationMainThreadMarker = 'main looper for window flags'
 const callScreenPresentationSleepUnlockMarker = 'reset show-when-locked on clear'
 const callScreenPresentationFlagsOnlyMarker = 'clearWindowFlagsOnly'
+const callScreenPresentationApplyMarker = 'apply show-when-locked for active call'
 const callScreenPresentationSource = `package com.capacitor.voipcalls
 
 import android.app.Activity
@@ -2193,13 +2194,14 @@ import android.os.Handler
 import android.os.Looper
 import android.view.WindowManager
 
-/** Clears window flags that block the system screen-timeout after voice calls end. */
+/** Lock-screen / keep-awake window flags for incoming + active voice/video calls. */
 object CallScreenPresentation {
     // ${callScreenPresentationMarker}
     // ${callScreenPresentationV2Marker}
     // ${callScreenPresentationMainThreadMarker}
     // ${callScreenPresentationSleepUnlockMarker}
     // ${callScreenPresentationFlagsOnlyMarker}
+    // ${callScreenPresentationApplyMarker}
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -2217,12 +2219,32 @@ object CallScreenPresentation {
         }
     }
 
+    /** Keep call UI above the keyguard (incoming ring + connected voice/video). */
+    @JvmStatic
+    fun apply(activity: Activity?) {
+        if (activity == null) return
+        runOnMain {
+            applyWindowFlags(activity)
+        }
+    }
+
     /** Release keep-screen-on without stripping incoming-call deep link params. */
     @JvmStatic
     fun clearWindowFlagsOnly(activity: Activity) {
         runOnMain {
             clearWindowFlags(activity)
         }
+    }
+
+    private fun applyWindowFlags(activity: Activity) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            activity.setShowWhenLocked(true)
+            activity.setTurnScreenOn(true)
+        }
+        activity.window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                or WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+        )
     }
 
     private fun clearWindowFlags(activity: Activity) {
@@ -2260,7 +2282,11 @@ object CallScreenPresentation {
 
 if (fs.existsSync(callScreenPresentationPath)) {
   const existingPresentation = fs.readFileSync(callScreenPresentationPath, 'utf8')
-  if (
+  if (!existingPresentation.includes(callScreenPresentationApplyMarker)) {
+    fs.writeFileSync(callScreenPresentationPath, callScreenPresentationSource)
+    changed = true
+    console.log('[patch-android-fcm] CallScreenPresentation.kt (apply show-when-locked)')
+  } else if (
     !existingPresentation.includes(callScreenPresentationFlagsOnlyMarker) &&
     existingPresentation.includes('fun clear(activity: Activity) {')
   ) {
@@ -2434,6 +2460,115 @@ if (fs.existsSync(pluginPath)) {
     fs.writeFileSync(pluginPath, pluginSource)
     changed = true
     console.log('[patch-android-fcm] clearCallScreenPresentation: force clear after call')
+  }
+}
+
+const applyScreenPluginMarker = 'applyCallScreenPresentation keep UI over lock screen'
+if (fs.existsSync(pluginPath)) {
+  let pluginSource = fs.readFileSync(pluginPath, 'utf8')
+  if (
+    pluginSource.includes('fun clearCallScreenPresentation(call: PluginCall)') &&
+    !pluginSource.includes('fun applyCallScreenPresentation(call: PluginCall)')
+  ) {
+    pluginSource = pluginSource.replace(
+      `    fun clearCallScreenPresentation(call: PluginCall) {
+        // ${forceClearScreenPluginMarker}
+        activity?.let { CallScreenPresentation.clear(it) }
+        call.resolve()
+    }`,
+      `    fun clearCallScreenPresentation(call: PluginCall) {
+        // ${forceClearScreenPluginMarker}
+        activity?.let { CallScreenPresentation.clear(it) }
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun applyCallScreenPresentation(call: PluginCall) {
+        // ${applyScreenPluginMarker}
+        CallScreenPresentation.apply(activity)
+        call.resolve()
+    }`,
+    )
+    if (!pluginSource.includes('fun applyCallScreenPresentation(call: PluginCall)')) {
+      pluginSource = pluginSource.replace(
+        `    fun clearCallScreenPresentation(call: PluginCall) {
+        activity?.let { CallScreenPresentation.clear(it) }
+        call.resolve()
+    }`,
+        `    fun clearCallScreenPresentation(call: PluginCall) {
+        activity?.let { CallScreenPresentation.clear(it) }
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun applyCallScreenPresentation(call: PluginCall) {
+        // ${applyScreenPluginMarker}
+        CallScreenPresentation.apply(activity)
+        call.resolve()
+    }`,
+      )
+    }
+    if (pluginSource.includes('fun applyCallScreenPresentation(call: PluginCall)')) {
+      fs.writeFileSync(pluginPath, pluginSource)
+      changed = true
+      console.log('[patch-android-fcm] applyCallScreenPresentation plugin method')
+    }
+  }
+}
+
+if (fs.existsSync(callManagerPath)) {
+  let callManager = fs.readFileSync(callManagerPath, 'utf8')
+  let cmChanged = false
+  if (
+    callManager.includes('WebView owns Android video') &&
+    !callManager.includes('CallScreenPresentation.apply(CapacitorVoipCallsPlugin.getInstance()?.activity)')
+  ) {
+    callManager = callManager.replace(
+      `        if (isVideo) {
+            try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+            // WebView owns Android video — do not start native audio-only PeerConnection.
+            return
+        }`,
+      `        if (isVideo) {
+            try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+            // Keep WebView call UI above the keyguard after FSI notification is dismissed.
+            CallScreenPresentation.apply(CapacitorVoipCallsPlugin.getInstance()?.activity)
+            // WebView owns Android video — do not start native audio-only PeerConnection.
+            return
+        }`,
+    )
+    cmChanged = true
+  }
+  if (
+    callManager.includes('fun markWebOwnsVideoCall(callId: String)') &&
+    callManager.includes('try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}\n    }') &&
+    !callManager.includes(
+      'try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}\n        CallScreenPresentation.apply(CapacitorVoipCallsPlugin.getInstance()?.activity)\n    }',
+    )
+  ) {
+    callManager = callManager.replace(
+      `    fun markWebOwnsVideoCall(callId: String) {
+        context.getSharedPreferences("amt_voice", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("web_video_" + callId.lowercase(), true)
+            .apply()
+        try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+    }`,
+      `    fun markWebOwnsVideoCall(callId: String) {
+        context.getSharedPreferences("amt_voice", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("web_video_" + callId.lowercase(), true)
+            .apply()
+        try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+        CallScreenPresentation.apply(CapacitorVoipCallsPlugin.getInstance()?.activity)
+    }`,
+    )
+    cmChanged = true
+  }
+  if (cmChanged) {
+    fs.writeFileSync(callManagerPath, callManager)
+    changed = true
+    console.log('[patch-android-fcm] CallManager re-apply lock screen after video accept')
   }
 }
 
@@ -3081,6 +3216,7 @@ if (fs.existsSync(callManagerPath)) {
             .getBoolean("web_video_" + callId.lowercase(), false)
         if (webOwnsVideo) {
             try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+            CallScreenPresentation.apply(CapacitorVoipCallsPlugin.getInstance()?.activity)
             return
         }
         val emitter = eventEmitter ?: return
@@ -3113,6 +3249,7 @@ if (fs.existsSync(callManagerPath)) {
             .putBoolean("web_video_" + callId.lowercase(), true)
             .apply()
         try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+        CallScreenPresentation.apply(CapacitorVoipCallsPlugin.getInstance()?.activity)
     }
 
     fun clearWebOwnsVideoCall(callId: String) {
@@ -5351,6 +5488,8 @@ if (fs.existsSync(callManagerPath)) {
         eventEmitter?.invoke("callAnswered", data)
         if (isVideo) {
             try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+            // Keep WebView call UI above the keyguard after FSI notification is dismissed.
+            CallScreenPresentation.apply(CapacitorVoipCallsPlugin.getInstance()?.activity)
             // WebView owns Android video — do not start native audio-only PeerConnection.
             return
         }
@@ -5385,6 +5524,7 @@ if (fs.existsSync(callManagerPath)) {
         eventEmitter?.invoke("callAnswered", data)
         if (isVideo) {
             try { IncomingCallUiHelper.dismiss(context) } catch (_: Exception) {}
+            CallScreenPresentation.apply(CapacitorVoipCallsPlugin.getInstance()?.activity)
             return
         }
         // Always start prepareAnswer — do not require eventEmitter (cold lock-screen Accept).
