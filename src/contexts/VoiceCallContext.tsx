@@ -41,6 +41,7 @@ import { useSession } from 'next-auth/react'
 import { useVoiceCall, type VoiceCallState, type VoiceCallUser, voiceCallNickname } from '@/hooks/useVoiceCall'
 import { VoiceCallOverlay } from '@/components/VoiceCallOverlay'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
+import { requestCloseTalkChatPanels } from '@/lib/talkChatOpen'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
 
@@ -243,6 +244,7 @@ export function VoiceCallProvider({
   children: ReactNode
 }) {
   const { data: session } = useSession()
+  const isDesktop = useIsDesktop()
   const [callUiHidden, setCallUiHidden] = useState(false)
   const hideCallUi = useCallback(() => setCallUiHidden(true), [])
   const showCallUi = useCallback(() => setCallUiHidden(false), [])
@@ -264,6 +266,14 @@ export function VoiceCallProvider({
       setCallUiHidden(false)
     }
   }, [voiceCall.callState, voiceCall.callId])
+
+  // Voice-only mobile: after accept, stay as a bottom bar over the feed — not fullscreen TalkChat.
+  useEffect(() => {
+    if (isDesktop || voiceCall.hasVideo) return
+    if (voiceCall.callState !== 'connecting' && voiceCall.callState !== 'connected') return
+    setCallUiHidden(true)
+    requestCloseTalkChatPanels()
+  }, [isDesktop, voiceCall.callState, voiceCall.hasVideo])
 
   useEffect(() => {
     installVoiceCallAudioUnlock()
