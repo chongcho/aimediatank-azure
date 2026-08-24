@@ -6,6 +6,7 @@ import { FeedCardTextModeProvider } from '@/contexts/FeedCardTextModeContext'
 import { GuestGeoLocaleProvider } from '@/contexts/GuestGeoLocaleContext'
 import { SocialAgeAccessProvider } from '@/hooks/useSocialAgeAccess'
 import DocumentLang from './DocumentLang'
+import ChunkLoadRecovery from './ChunkLoadRecovery'
 import ServiceWorkerNavigateListener from './ServiceWorkerNavigateListener'
 import SessionLocaleFromProfileSync from './SessionLocaleFromProfileSync'
 import NativeShellClass from './NativeShellClass'
@@ -18,6 +19,7 @@ export default function Providers({ children }: { children: ReactNode }) {
       <SocialAgeAccessProvider>
         <GuestGeoLocaleProvider>
           <NativeShellClass />
+          <ChunkLoadRecovery />
           <SessionLocaleFromProfileSync />
           <ServiceWorkerNavigateListener />
           <DocumentLang />
