@@ -289,12 +289,18 @@ export async function sendAndroidChatMessagePushToUser(
   userId: string,
   payload: ChatMessagePushPayload,
 ): Promise<void> {
-  if (!ensureFirebaseConfigured()) return
+  if (!ensureFirebaseConfigured()) {
+    console.warn(`[FCM] chat_message skipped: Firebase not configured`)
+    return
+  }
 
   const tokens = await prisma.voipPushToken.findMany({
     where: { userId, platform: 'android' },
   })
-  if (tokens.length === 0) return
+  if (tokens.length === 0) {
+    console.warn(`[FCM] chat_message skipped: no Android FCM token for user ${userId}`)
+    return
+  }
 
   const staleTokens: string[] = []
 

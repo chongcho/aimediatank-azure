@@ -265,6 +265,14 @@ function NavbarContent() {
     }
     if (!isNavbarItemEnabled('chat') || !canUseSocialMedia) return
     if (openChatDeepLinkConsumedRef.current) return
+    const conversationId = searchParams.get('conversationId')?.trim()
+    if (conversationId) {
+      try {
+        localStorage.setItem('talkChatLastConversationId', conversationId)
+      } catch {
+        // ignore
+      }
+    }
     setChatPanelOpen(true)
     setFrontPanel('chat')
     openChatDeepLinkConsumedRef.current = true

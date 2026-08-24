@@ -71,13 +71,19 @@ export async function sendIosChatMessageAlertPushToUser(
 ): Promise<void> {
   const primaryProduction = apnsProductionEnabled()
   const client = getAlertApnsClient(primaryProduction)
-  if (!client) return
+  if (!client) {
+    console.warn('[APNsAlert] chat_message skipped: APNS not configured')
+    return
+  }
 
   const tokens = await prisma.voipPushToken.findMany({
     where: { userId, platform: 'ios_alert' },
     orderBy: { updatedAt: 'desc' },
   })
-  if (tokens.length === 0) return
+  if (tokens.length === 0) {
+    console.warn(`[APNsAlert] chat_message skipped: no ios_alert token for user ${userId}`)
+    return
+  }
 
   const topic = process.env.APNS_BUNDLE_ID!
   const notifications = tokens.map(

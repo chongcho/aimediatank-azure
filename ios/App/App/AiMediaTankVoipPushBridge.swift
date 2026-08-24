@@ -682,6 +682,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             UserDefaults.standard.set(registerKey, forKey: Self.nativePushRegisterKeyKey)
             print("[AiMediaTankVoipPushBridge] stored native push credentials for \(userId)")
             self.syncCachedVoipTokenToServerIfNeeded()
+            AiMediaTankAlertPushBridge.shared.syncAlertTokenOnForeground()
         }
 
         replayPendingCallKitAnswerIfNeeded()

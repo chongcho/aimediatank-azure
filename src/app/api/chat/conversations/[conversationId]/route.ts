@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { notifyConversationMessageRecipients } from '@/lib/chatMessagePush'
 import { prisma } from '@/lib/prisma'
 import { socialMediaForbiddenResponse } from '@/lib/socialAgeGate'
 
@@ -149,6 +150,25 @@ export async function POST(
       where: { id: membership.id },
       data: { lastReadAt: new Date() },
     })
+
+    const otherMembers = await prisma.conversationMember.findMany({
+      where: {
+        conversationId,
+        userId: { not: session.user.id },
+      },
+      select: { userId: true },
+    })
+
+    if (otherMembers.length > 0) {
+      const senderName = session.user.username || session.user.name || 'Someone'
+      void notifyConversationMessageRecipients({
+        conversationId,
+        senderId: session.user.id,
+        senderName,
+        content: content.trim(),
+        recipientUserIds: otherMembers.map((m) => m.userId),
+      }).catch((err) => console.error('[ChatPush] conversation push failed:', err))
+    }
 
     return NextResponse.json({ message })
   } catch (error) {
