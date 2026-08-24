@@ -22,8 +22,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     static let callKitEndNotification = Notification.Name("AiMediaTankCallKitEnd")
     static let jsIncomingCallNotification = Notification.Name("AiMediaTankJsIncomingCallReport")
     static let prepareUnlockedIncomingNotification = Notification.Name("AiMediaTankPrepareUnlockedIncoming")
-    static let prepareOutgoingUiNotification = Notification.Name("AiMediaTankPrepareOutgoingUi")
-    static let reportOutgoingCallNotification = Notification.Name("AiMediaTankReportOutgoingCall")
 
     private static let voipTokenHexKey = "AiMediaTank.voipPushTokenHex"
     private static let voipTokenServerSyncedHexKey = "AiMediaTank.voipPushTokenServerSyncedHex"
@@ -118,8 +116,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private var audioActivationFallbackGeneration: UUID?
     /// Prevents duplicate reportCall/CXEndCallAction when JS echoes end back into the plugin.
     private var endedCallKitCallIds = Set<String>()
-    /// WebView-placed outgoing call — guard didActivate from killing outgoing ringback.
-    private var activeOutgoingWebCallId: String?
     /// Lock-screen spoken ring ("Call from Name") — CallKit ringtoneSound is silent.wav.
     private let ringSpeech: AVSpeechSynthesizer = {
         let synth = AVSpeechSynthesizer()
@@ -467,37 +463,8 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         endCallKitCall(uuid: uuid, reason: .remoteEnded, notifyJs: false)
     }
 
-    /// ReconcileForegroundIncomingUi() {}
-
-    /// Drop stale accept cover and bring WebView forward before outgoing UI paints.
-    func prepareOutgoingCallUi() {
-        endAcceptCover(reason: "outgoing_prepare")
-        activateAppWindow()
-    }
-
-    /// JS-placed outgoing call — CallKit chrome + audio priority when WebView is under memory pressure.
-    func reportOutgoingCallStart(callId: String, handle: String, hasVideo: Bool) {
-        let normalized = callId.lowercased()
-        activeOutgoingWebCallId = normalized
-        prepareOutgoingCallUi()
-        Self.noteCallHasVideo(normalized, hasVideo: hasVideo)
-        guard let uuid = UUID(uuidString: normalized) else {
-            print("[AiMediaTankVoipPushBridge] invalid outgoing callId \(normalized)")
-            return
-        }
-        endOrphanedBridgeCallsBeforeIncoming(exceptCallId: normalized)
-        let label = handle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cxHandle = CXHandle(type: .generic, value: label.isEmpty ? "AiMediaTank" : label)
-        let action = CXStartCallAction(call: uuid, handle: cxHandle)
-        action.isVideo = hasVideo
-        callController.request(CXTransaction(action: action)) { error in
-            if let error {
-                print("[AiMediaTankVoipPushBridge] outgoing CXStartCallAction failed: \(error.localizedDescription)")
-            } else {
-                print("[AiMediaTankVoipPushBridge] outgoing CXStartCallAction requested \(normalized)")
-            }
-        }
-    }
+    /// CallKit owns incoming Accept/Decline on iOS (foreground + lock) — do not dismiss for in-app overlay.
+    func reconcileForegroundIncomingUi() {}
 
     /// WebRTC connected — clear pending answer state and tell CallKit media is live.
     /// Without `reportOutgoingCall(connectedAt:)`, answered incoming calls stay on
@@ -520,9 +487,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         clearPendingCallKitAnswer()
         cancelDismissRetries(callId: normalized)
         stopCallStatusWatch(callId: normalized)
-        if activeOutgoingWebCallId?.lowercased() == normalized {
-            activeOutgoingWebCallId = nil
-        }
     }
 
     /// Keep CallKit subtitle/icon in sync with video vs audio for this UUID.
@@ -644,26 +608,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             if let callId = notification.userInfo?["callId"] as? String {
                 Self.noteIncomingCallReported(callId)
             }
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: Self.prepareOutgoingUiNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.prepareOutgoingCallUi()
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: Self.reportOutgoingCallNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self = self,
-                  let callId = notification.userInfo?["callId"] as? String else { return }
-            let handle = notification.userInfo?["handle"] as? String ?? "AiMediaTank"
-            let hasVideo = notification.userInfo?["hasVideo"] as? Bool ?? false
-            self.reportOutgoingCallStart(callId: callId, handle: handle, hasVideo: hasVideo)
         }
 
         NotificationCenter.default.addObserver(
@@ -2428,12 +2372,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     }
 
     func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
-        let update = CXCallUpdate()
-        update.remoteHandle = action.handle
-        update.hasVideo = action.isVideo
-        update.localizedCallerName = action.handle.value
-        provider.reportCall(with: action.callUUID, updated: update)
-        provider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: Date())
         action.fulfill()
     }
 
@@ -2451,11 +2389,9 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
         audioActivationFallbackGeneration = nil
-        // Incoming answer activates CallKit audio — stop lock-screen spoken ring only then.
-        // Outgoing ringback uses the same AVSpeech path; stale didActivate must not silence it.
-        if hasPendingCallKitAnswer() {
-            stopCallKitRingAnnouncement()
-        }
+        // Do not setCategory here — CallKit already activated the session; reconfiguring
+        // after activate can leave capture working but remote playback silent.
+        stopCallKitRingAnnouncement()
         NativeVoiceCallEngine.shared.audioSessionActivated()
         if let callId = UserDefaults.standard.string(forKey: Self.pendingAnswerCallIdKey) {
             postVoiceTrace(callId: callId, event: "callkit_audio_activated")

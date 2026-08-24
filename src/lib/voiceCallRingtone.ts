@@ -601,7 +601,6 @@ async function startRing(kind: RingKind, announcement?: string, lang?: string) {
   lastAnnouncement = spoken
   lastLang = lang
   const generation = loopGeneration
-  const playbackKind = resolveRingKind(kind)
 
   // Prefer spoken "Call from {name}" / "Calling {name}" when provided.
   if (spoken) {
@@ -633,18 +632,13 @@ async function startRing(kind: RingKind, announcement?: string, lang?: string) {
       await unlockVoiceCallAudio()
       return
     }
-    // iOS native: fall back to classic WAV when AVSpeech/plugin fails under memory pressure.
+    // iOS native: do not fall through to classic WAV after spoken-ring failure.
     if (isNativeIosCallApp()) {
-      const buffer = await getRingBuffer(RING_URLS[playbackKind])
-      if (generation !== loopGeneration) return
-      if (buffer) {
-        await beginAudioPlayback(kind, generation, () => playRingLoop(buffer, generation, true))
-        return
-      }
-      activeRingKind = null
       return
     }
   }
+
+  const playbackKind = resolveRingKind(kind)
 
   if (useNativeAndroidWavRing()) {
     nativeRingActive = true
@@ -660,7 +654,7 @@ async function startRing(kind: RingKind, announcement?: string, lang?: string) {
     }
   }
 
-  // iOS native: skip classic WAV ring when spoken announcement owns the ring (handled above).
+  // iOS native: skip classic WAV ring (spoken announcement owns the ring).
   if (isNativeIosCallApp()) {
     return
   }
@@ -688,14 +682,7 @@ export function startOutgoingRingback(announcement?: string, lang?: string) {
 export function retryVoiceCallRingtone() {
   if (!activeRingKind) return
 
-  if (
-    isIosDevice() &&
-    !nativeRingActive &&
-    (ringActiveSource || usingSpeechSynthesis) &&
-    !hasRecentUserGesture()
-  ) {
-    return
-  }
+  if (isIosDevice() && (ringActiveSource || usingSpeechSynthesis) && !hasRecentUserGesture()) return
 
   const kind = activeRingKind
   const announcement = lastAnnouncement

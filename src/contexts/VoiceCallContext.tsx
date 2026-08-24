@@ -147,13 +147,9 @@ export function VoiceCallOverlayPanel({
 
   const isActiveCall = ctx.callState !== 'idle' && ctx.callState !== 'ended'
 
-  // iOS background/lock: CallKit owns Accept/Decline. Foreground home feed: in-app fullscreen
-  // (CallKit is often only a compact banner and looks hidden behind the feed).
+  // iOS: CallKit owns incoming Accept/Decline (#2) — never show in-app incoming screen (#1).
   const iosCallKitIncoming =
-    isNativeIosCallApp() &&
-    ctx.callState === 'incoming' &&
-    typeof document !== 'undefined' &&
-    document.hidden
+    isNativeIosCallApp() && ctx.callState === 'incoming'
 
   // iOS CallKit / Android native video: full-screen native UI owns chrome (not Capacitor overlay).
   // Android video now uses WebView WebRTC (native Dialog/EGL aborted on Samsung) — only hide
@@ -181,14 +177,14 @@ export function VoiceCallOverlayPanel({
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    // Signal native accept-cover poll — include minimized bar (e9fa19d auto-minimize).
-    if (showCallControls || minimizedCallUi || nativeVideoChrome) {
+    // Keep attribute while native video UI is up so accept-cover poll can clear.
+    if (showCallControls || nativeVideoChrome) {
       document.documentElement.setAttribute('data-amt-call-active', '1')
       document.getElementById('aimediatank-accept-shell')?.remove()
     } else {
       document.documentElement.removeAttribute('data-amt-call-active')
     }
-  }, [showCallControls, minimizedCallUi, nativeVideoChrome, ctx.callState])
+  }, [showCallControls, nativeVideoChrome, ctx.callState])
 
   useEffect(() => {
     if (!ctx.hasVideo || !showCallControls) return
@@ -323,8 +319,10 @@ export function VoiceCallProvider({
       return
     }
 
-    // iOS: incoming ring is CallKit; outgoing ring starts immediately in startCall.
-    if (isNativeIosCallApp() && (state === 'incoming' || state === 'outgoing')) {
+    // iOS CallKit owns incoming spoken ring. Outgoing AVSpeech starts only after
+    // getUserMedia in useVoiceCall — starting here raced mic activation and made the
+    // first ~1s of "Calling…" roughly twice as loud before the session ducked.
+    if (isNativeIosCallApp()) {
       return
     }
     const announcement =

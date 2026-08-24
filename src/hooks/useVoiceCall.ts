@@ -28,9 +28,7 @@ import {
   cacheNativeDeclineToken,
   prepareNativeWebRtcAnswer,
   prepareNativeWebRtcCaller,
-  prepareIosOutgoingCallUi,
   reportIncomingCallToNativeUi,
-  reportIosOutgoingCall,
   setNativeAudioRoute,
   setNativeVoiceCallAudioActive,
   setNativeVoiceCallMediaVolume,
@@ -50,9 +48,10 @@ export function voiceCallNickname(user: VoiceCallUser | null | undefined): strin
   return voiceCallDisplayName(user)
 }
 
-/** CallKit owns incoming UI on iOS lock/background — show in-app overlay when feed is visible. */
-function shouldSuppressIosIncomingUi(_call?: NativeIncomingCallPayload): boolean {
+/** CallKit owns the ring on iOS — in-app incoming overlay (#1) must not appear. */
+function shouldSuppressIosIncomingUi(call?: NativeIncomingCallPayload): boolean {
   if (!isNativeIosCallApp()) return false
+  if (call?.callKitOnly) return true
   return typeof document !== 'undefined' && document.hidden
 }
 
@@ -1226,33 +1225,22 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       const wantVideo = Boolean(opts?.video)
       hangupRequestedRef.current = false
 
-      setRemoteUser(peer)
-      setHasVideo(wantVideo)
-      hasVideoRef.current = wantVideo
-      setIsCameraOff(false)
-      setCallState('outgoing')
-      isCallerRef.current = true
-
-      // Show caller UI + ring immediately — do not wait for getUserMedia under memory pressure.
-      if (isNativeIosCallApp()) {
-        void prepareIosOutgoingCallUi()
-        const name = voiceCallNickname(peer) || 'AiMediaTank'
-        const lang =
-          typeof navigator !== 'undefined' ? navigator.language || undefined : undefined
-        startOutgoingRingback(formatVoiceCallAnnouncementText('outgoing', lang, name), lang)
-      }
-
       const media = await ensureTalkMediaPermissions(wantVideo)
       if (!media.ok) {
-        stopVoiceCallRingtone()
         const message = media.message || 'Microphone access is required for Talk calls'
         reportError(message)
         if (typeof window !== 'undefined') window.alert(message)
-        resetCall()
         return
       }
 
       try {
+        setRemoteUser(peer)
+        setHasVideo(wantVideo)
+        hasVideoRef.current = wantVideo
+        setIsCameraOff(false)
+        setCallState('outgoing')
+        isCallerRef.current = true
+
         // Start camera immediately so the outgoing UI shows local preview (not WebView play glyph).
         if (wantVideo && !isNativeIosCallApp()) {
           void ensureLocalAudio(0)
@@ -1267,10 +1255,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         const id = normalizeVoiceCallId(call.id)
         callIdRef.current = id
         setCallId(id)
-        if (isNativeIosCallApp()) {
-          const handle = voiceCallNickname(peer) || peer.username || peer.id
-          void reportIosOutgoingCall(id, handle, wantVideo)
-        }
         // User hung up while initiate was in flight — cancel before any more rings.
         if (hangupRequestedRef.current) {
           try {
@@ -1541,7 +1525,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           hasVideoRef.current = wantVideo
           setHasVideo(wantVideo)
           setIsCameraOff(false)
-          // iOS: report CallKit always; when the home feed is visible also paint in-app Accept/Decline.
+          // iOS: never show in-app Accept/Decline — CallKit only. If VoIP missed (common when
+          // the app is already foreground), poll must still ask the App bridge to report CallKit.
           if (isNativeIosCallApp()) {
             const label = voiceCallNickname(incoming.caller) || 'AiMediaTank'
             const declineToken = incoming.declineToken?.trim() || undefined
@@ -1556,9 +1541,6 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
               video: wantVideo,
               caller: incoming.caller,
             })
-            if (typeof document !== 'undefined' && !document.hidden) {
-              setCallState('incoming')
-            }
             return
           }
           setCallState('incoming')
