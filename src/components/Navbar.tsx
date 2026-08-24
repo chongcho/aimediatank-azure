@@ -16,7 +16,7 @@ import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { useLanguageModeList } from '@/hooks/useLanguageModeText'
 import { useAppUpdate } from '@/hooks/useAppUpdate'
-import { OPEN_TALK_CHAT_EVENT, CLOSE_TALK_CHAT_EVENT } from '@/lib/talkChatOpen'
+import { OPEN_TALK_CHAT_EVENT } from '@/lib/talkChatOpen'
 import { VoiceCallProvider } from '@/contexts/VoiceCallContext'
 import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
 import { navBarT, type NavBarKey } from '@/messages/navBar'
@@ -295,11 +295,6 @@ function NavbarContent() {
     window.addEventListener(OPEN_TALK_CHAT_EVENT, open)
     return () => window.removeEventListener(OPEN_TALK_CHAT_EVENT, open)
   }, [canUseSocialMedia, appleSocialMediaMinAge])
-
-  useEffect(() => {
-    window.addEventListener(CLOSE_TALK_CHAT_EVENT, closeTalkChatPanels)
-    return () => window.removeEventListener(CLOSE_TALK_CHAT_EVENT, closeTalkChatPanels)
-  }, [closeTalkChatPanels])
 
   const handleToggleTalk = useCallback(() => {
     if (!session?.user) {

@@ -12,6 +12,7 @@ import {
   VOICE_CALL_RING_TIMEOUT_MS,
 } from '@/lib/voiceCallRingtone'
 import { formatVoiceCallAnnouncementText } from '@/lib/voiceCallAnnouncement'
+import { requestOpenTalkChat } from '@/lib/talkChatOpen'
 import {
   answerNativeCall,
   clearNativeCallScreenPresentation,
@@ -1113,9 +1114,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         pendingOfferRef.current = null
         // Native video Dialog owns UI — do not open TalkChat (dismisses Dialog / crashes retry).
         if (!hasVideoRef.current) {
-          if (!opts?.fromCallKit) {
-            void clearNativeCallScreenPresentation()
-          }
+          requestOpenTalkChat()
           // Telecom answer for voice (engine already handling → notifyCallAnswered skips duplicate).
           if (!opts?.fromCallKit) {
             void answerNativeCall(id).catch(() => false)
@@ -1194,6 +1193,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         })()
       } else if (isNativeIosCallApp()) {
         // CallKit owns in-call UI — do not open TalkChat / home WebView.
+      } else if (isNativeVoiceCallApp()) {
+        requestOpenTalkChat()
       }
       return true
     } catch (err) {
@@ -1833,6 +1834,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
                 if (callStateRef.current !== 'connected') {
                   setCallState('connecting')
                 }
+                // Bring WebView over the keyguard so VoiceCallOverlay can paint.
+                requestOpenTalkChat()
                 try {
                   await answerNativeCall(normalizedId, { skipNativeWebRtc: true })
                 } catch {
@@ -1858,6 +1861,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
               if (callStateRef.current !== 'connected') {
                 setCallState('connecting')
               }
+              requestOpenTalkChat()
               try {
                 if (token) {
                   await nativeCallKitApi('accept', normalizedId, token)
@@ -1905,6 +1909,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           })()
           if (callStateRef.current !== 'connected') {
             setCallState('connecting')
+          }
+          // iOS voice-only: native owns media; still open TalkChat so floating overlay paints
+          // after CallKit collapses its full-screen UI on connect.
+          if (isNativeIosCallApp()) {
+            requestOpenTalkChat()
           }
           void ensureIncomingCall(callId)
           return
@@ -1982,6 +1991,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
             await setNativeVoiceCallMediaVolume(getVoiceCallVoiceVolume())
           })()
         }
+        // iOS voice: bring chrome forward once native media is up (CallKit drops full-screen UI).
+        // Android: skip when native video Dialog / native voice engine owns the Activity chrome —
+        // opening TalkChat there can dismiss Dialog mid-call.
+        const skipTalkChatForAndroidNative =
+          isNativeAndroidCallApp() && (hasVideoRef.current || nativeWebRtcAndroidRef.current)
+        if (isNativeIosCallApp() || !skipTalkChatForAndroidNative) {
+          requestOpenTalkChat()
+        }
         void markNativeCallConnected(normalizedId)
       },
       onNativeCallNegotiating: (callId) => {
@@ -2034,12 +2051,58 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     })
   }, [currentUserId, enabled, isSuppressedEndedCall, rememberEndedCallId, reportError, resetCallKitWebRtcState])
 
+  // Android lock-screen answer: native WebRTC owns media — open TalkChat when WebView wakes.
+  useEffect(() => {
+    if (!enabled || !isNativeAndroidCallApp() || typeof document === 'undefined') return
+
+    const syncNativeCallUi = () => {
+      if (document.hidden) return
+      if (!nativeWebRtcAndroidRef.current) return
+      if (callStateRef.current === 'connected' || callStateRef.current === 'idle') return
+      // Video Dialog owns chrome — TalkChat resume dismisses it mid-call.
+      if (hasVideoRef.current) return
+      requestOpenTalkChat()
+    }
+
+    document.addEventListener('visibilitychange', syncNativeCallUi)
+    window.addEventListener('pageshow', syncNativeCallUi)
+    window.addEventListener('focus', syncNativeCallUi)
+    return () => {
+      document.removeEventListener('visibilitychange', syncNativeCallUi)
+      window.removeEventListener('pageshow', syncNativeCallUi)
+      window.removeEventListener('focus', syncNativeCallUi)
+    }
+  }, [enabled])
+
+  // iOS: after unlock / foreground, ensure TalkChat + overlay when native voice is live.
+  useEffect(() => {
+    if (!enabled || !isNativeIosCallApp() || typeof document === 'undefined') return
+
+    const onVisible = () => {
+      if (document.hidden) return
+      const state = callStateRef.current
+      if (state !== 'connecting' && state !== 'connected') return
+      if (!nativeWebRtcCalleeRef.current) return
+      requestOpenTalkChat()
+    }
+
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pageshow', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pageshow', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [enabled])
+
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     if (params.get('voiceIncoming') !== '1') return
 
     markOpenedFromCallNotification()
+    requestOpenTalkChat()
 
     const action = params.get('voiceAction')
     if (!isNativeIosCallApp() && (action === 'accept' || action === 'reject')) {
@@ -2133,6 +2196,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (data.type === 'VOICE_CALL_ACCEPT') {
         if (isNativeIosCallApp()) return
         pendingVoiceActionRef.current = 'accept'
+        requestOpenTalkChat()
         if (data.caller) applyIncomingCall(data.callId, data.caller)
         return
       }
@@ -2159,6 +2223,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         ) {
           stopVoiceCallRingtone()
           return
+        }
+        if (!isNativeIosCallApp()) {
+          requestOpenTalkChat()
         }
         applyIncomingCall(data.callId, data.caller)
       }
