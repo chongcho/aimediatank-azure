@@ -20,6 +20,7 @@ import com.capacitor.voipcalls.AndroidAudioCleanup;
 import com.capacitor.voipcalls.AppSystemEffectsGuard;
 import com.capacitor.voipcalls.CallScreenPresentation;
 import com.capacitor.voipcalls.CallVolumeState;
+import com.capacitor.voipcalls.ChatMessageNotificationHelper;
 import com.capacitor.voipcalls.VoipConnectionService;
 import com.getcapacitor.BridgeActivity;
 
@@ -39,6 +40,7 @@ public class MainActivity extends BridgeActivity {
         syncIncomingCallPresentation(getIntent());
         // Required for ConnectionService lock-screen / incoming-call UI (do not remove).
         registerVoipPhoneAccountSafely();
+        ChatMessageNotificationHelper.ensureChannelAtStartup(this);
         AppSystemEffectsGuard.install(getApplicationContext());
         getWindow().getDecorView().post(this::applySystemBars);
     }

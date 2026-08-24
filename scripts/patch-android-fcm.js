@@ -167,10 +167,10 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 
-/** Foreground FCM chat alerts with default message sound (separate from voice-call channel). */
+/** Foreground + background FCM chat alerts with sound and heads-up banner. */
 object ChatMessageNotificationHelper {
     private const val TAG = "ChatMessageNotif"
-    const val CHANNEL_ID = "aimediatank_messages"
+    const val CHANNEL_ID = "aimediatank_messages_v2"
 
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -179,10 +179,11 @@ object ChatMessageNotificationHelper {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Chat messages",
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "AiMediaTank private chat message alerts"
             enableVibration(true)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             setSound(
                 sound,
                 AudioAttributes.Builder()
@@ -192,6 +193,15 @@ object ChatMessageNotificationHelper {
             )
         }
         nm.createNotificationChannel(channel)
+    }
+
+    /** Create channel at app launch so background FCM notifications are not dropped. */
+    fun ensureChannelAtStartup(context: Context) {
+        try {
+            ensureChannel(context.applicationContext)
+        } catch (e: Exception) {
+            Log.e(TAG, "ensureChannelAtStartup failed", e)
+        }
     }
 
     fun show(context: Context, title: String, body: String, url: String?, senderId: String?) {
@@ -222,7 +232,10 @@ object ChatMessageNotificationHelper {
                 .setAutoCancel(true)
                 .setContentIntent(pending)
                 .setCategory(Notification.CATEGORY_MESSAGE)
-                .setPriority(Notification.PRIORITY_DEFAULT)
+                .setPriority(Notification.PRIORITY_HIGH)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                builder.setVisibility(Notification.VISIBILITY_PUBLIC)
+            }
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.notify((senderId ?: title).hashCode(), builder.build())
         } catch (e: Exception) {
@@ -5403,3 +5416,77 @@ if (fs.existsSync(callManagerPath)) {
   }
 }
 
+// Upgrade existing chat notification channel (heads-up + startup ensure).
+if (fs.existsSync(chatMessageNotificationPath)) {
+  let chatHelper = fs.readFileSync(chatMessageNotificationPath, 'utf8')
+  let chatChanged = false
+
+  if (chatHelper.includes('aimediatank_messages"') && !chatHelper.includes('aimediatank_messages_v2')) {
+    chatHelper = chatHelper.replace(/aimediatank_messages/g, 'aimediatank_messages_v2')
+    chatChanged = true
+    console.log('[patch-android-fcm] chat channel id → aimediatank_messages_v2')
+  }
+
+  if (chatHelper.includes('IMPORTANCE_DEFAULT')) {
+    chatHelper = chatHelper.replace(
+      'NotificationManager.IMPORTANCE_DEFAULT',
+      'NotificationManager.IMPORTANCE_HIGH',
+    )
+    chatChanged = true
+    console.log('[patch-android-fcm] chat channel importance → HIGH')
+  }
+
+  if (chatHelper.includes('PRIORITY_DEFAULT')) {
+    chatHelper = chatHelper.replace(
+      'Notification.PRIORITY_DEFAULT',
+      'Notification.PRIORITY_HIGH',
+    )
+    chatChanged = true
+    console.log('[patch-android-fcm] chat notification priority → HIGH')
+  }
+
+  if (!chatHelper.includes('lockscreenVisibility')) {
+    chatHelper = chatHelper.replace(
+      'enableVibration(true)',
+      `enableVibration(true)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC`,
+    )
+    chatChanged = true
+    console.log('[patch-android-fcm] chat channel lockscreen visibility → PUBLIC')
+  }
+
+  if (!chatHelper.includes('ensureChannelAtStartup')) {
+    chatHelper = chatHelper.replace(
+      '    fun show(context: Context, title: String, body: String, url: String?, senderId: String?) {',
+      `    /** Create channel at app launch so background FCM notifications are not dropped. */
+    fun ensureChannelAtStartup(context: Context) {
+        try {
+            ensureChannel(context.applicationContext)
+        } catch (e: Exception) {
+            Log.e(TAG, "ensureChannelAtStartup failed", e)
+        }
+    }
+
+    fun show(context: Context, title: String, body: String, url: String?, senderId: String?) {`,
+    )
+    chatChanged = true
+    console.log('[patch-android-fcm] added ChatMessageNotificationHelper.ensureChannelAtStartup')
+  }
+
+  if (!chatHelper.includes('setVisibility(Notification.VISIBILITY_PUBLIC)')) {
+    chatHelper = chatHelper.replace(
+      '.setPriority(Notification.PRIORITY_HIGH)',
+      `.setPriority(Notification.PRIORITY_HIGH)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                builder.setVisibility(Notification.VISIBILITY_PUBLIC)
+            }`,
+    )
+    chatChanged = true
+    console.log('[patch-android-fcm] chat notification visibility → PUBLIC')
+  }
+
+  if (chatChanged) {
+    fs.writeFileSync(chatMessageNotificationPath, chatHelper)
+    changed = true
+  }
+}

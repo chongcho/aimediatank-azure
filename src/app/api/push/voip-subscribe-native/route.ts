@@ -42,11 +42,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
 
+  const userAgent =
+    platform === 'ios_alert' ? 'ios-native-apns-alert' : 'ios-native-pushkit'
+
   const { changed, seen } = await registerVoipPushTokenForUser({
     userId,
     token,
     platform,
-    userAgent: 'ios-native-pushkit',
+    userAgent,
   })
 
   if (changed) {

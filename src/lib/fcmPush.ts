@@ -282,7 +282,7 @@ export async function sendAndroidCallCancelPushBurstToUser(userId: string, callI
   }
 }
 
-const ANDROID_CHAT_CHANNEL_ID = 'aimediatank_messages'
+const ANDROID_CHAT_CHANNEL_ID = 'aimediatank_messages_v2'
 
 /** FCM notification push for private chat on Android native app. */
 export async function sendAndroidChatMessagePushToUser(
@@ -312,6 +312,8 @@ export async function sendAndroidChatMessagePushToUser(
             type: payload.type,
             senderId: payload.senderId,
             url: payload.url,
+            title: payload.title,
+            body: payload.body,
           },
           android: {
             priority: 'high',
@@ -320,6 +322,7 @@ export async function sendAndroidChatMessagePushToUser(
               channelId: ANDROID_CHAT_CHANNEL_ID,
               sound: 'default',
               notificationCount: 1,
+              visibility: 'public',
             },
           },
         })

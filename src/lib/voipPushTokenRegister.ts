@@ -1,22 +1,26 @@
 import { prisma } from '@/lib/prisma'
 
-export type VoipPushPlatform = 'ios' | 'android'
+export type VoipPushPlatform = 'ios' | 'android' | 'ios_alert'
 
 export function normalizeVoipPushPlatform(raw: string | undefined): VoipPushPlatform {
   const platform = (raw || 'ios').trim().toLowerCase()
-  return platform === 'android' ? 'android' : 'ios'
+  if (platform === 'android') return 'android'
+  if (platform === 'ios_alert' || platform === 'ios-alert') return 'ios_alert'
+  return 'ios'
 }
 
 export function isValidVoipPushToken(token: string, platform: VoipPushPlatform): boolean {
   if (!token) return false
-  if (platform === 'ios') {
+  if (platform === 'ios' || platform === 'ios_alert') {
     return /^[0-9a-f]{32,}$/i.test(token)
   }
   return token.length >= 80 && token.length <= 4096
 }
 
 export function normalizeVoipPushToken(token: string, platform: VoipPushPlatform): string {
-  return platform === 'ios' ? token.trim().toLowerCase() : token.trim()
+  return platform === 'ios' || platform === 'ios_alert'
+    ? token.trim().toLowerCase()
+    : token.trim()
 }
 
 /** Upsert canonical token for user+platform; drop stale rows. Returns whether DB changed. */

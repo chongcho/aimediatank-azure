@@ -10,6 +10,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // VoIP PushKit must register at launch so cancel pushes dismiss CallKit on lock screen.
         AiMediaTankVoipPushBridge.shared.ensureStarted()
         AiMediaTankVoipPushBridge.shared.migratePushKitAfterAppUpdateIfNeeded()
+        // Standard APNs alerts for private chat (banner + sound).
+        AiMediaTankAlertPushBridge.shared.ensureStarted()
         return true
     }
 
@@ -33,6 +35,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         AiMediaTankVoipPushBridge.shared.syncPushTokenOnForeground()
+        AiMediaTankAlertPushBridge.shared.syncAlertTokenOnForeground()
         AiMediaTankVoipPushBridge.shared.reconcileForegroundIncomingUi()
         AiMediaTankVoipPushBridge.shared.prepareUnlockedRingingCallsIfNeeded()
         AiMediaTankVoipPushBridge.shared.syncLockScreenCallUiIfNeeded()
@@ -58,6 +61,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Feel free to add additional processing here, but if you want the App API to support
         // tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        AiMediaTankAlertPushBridge.shared.didRegisterDeviceToken(deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        AiMediaTankAlertPushBridge.shared.didFailToRegister(error: error)
     }
 
 }

@@ -11,6 +11,7 @@
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		C1A2B3C41FED79650016851F /* AiMediaTankVoipPushBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C31FED79650016851F /* AiMediaTankVoipPushBridge.swift */; };
+		A1B2C3D41FED79650016851F /* AiMediaTankAlertPushBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31FED79650016851F /* AiMediaTankAlertPushBridge.swift */; };
 		D2E3F4A51FED79650016851F /* NativeVoiceCallEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2E3F4A41FED79650016851F /* NativeVoiceCallEngine.swift */; };
 		E3F4A5B61FED79650016851F /* CallVideoViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3F4A5B51FED79650016851F /* CallVideoViewController.swift */; };
 		F4A5B6C71FED79650016851F /* DeclaredAgeRangePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6C61FED79650016851F /* DeclaredAgeRangePlugin.swift */; };
@@ -29,6 +30,7 @@
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		C1A2B3C31FED79650016851F /* AiMediaTankVoipPushBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiMediaTankVoipPushBridge.swift; sourceTree = "<group>"; };
+		A1B2C3D31FED79650016851F /* AiMediaTankAlertPushBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiMediaTankAlertPushBridge.swift; sourceTree = "<group>"; };
 		D2E3F4A41FED79650016851F /* NativeVoiceCallEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallEngine.swift; sourceTree = "<group>"; };
 		E3F4A5B51FED79650016851F /* CallVideoViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallVideoViewController.swift; sourceTree = "<group>"; };
 		F4A5B6C61FED79650016851F /* DeclaredAgeRangePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeclaredAgeRangePlugin.swift; sourceTree = "<group>"; };
@@ -89,6 +91,7 @@
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				C1A2B3C31FED79650016851F /* AiMediaTankVoipPushBridge.swift */,
+				A1B2C3D31FED79650016851F /* AiMediaTankAlertPushBridge.swift */,
 				D2E3F4A41FED79650016851F /* NativeVoiceCallEngine.swift */,
 				E3F4A5B51FED79650016851F /* CallVideoViewController.swift */,
 				F4A5B6C61FED79650016851F /* DeclaredAgeRangePlugin.swift */,
@@ -233,6 +236,7 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				C1A2B3C41FED79650016851F /* AiMediaTankVoipPushBridge.swift in Sources */,
+				A1B2C3D41FED79650016851F /* AiMediaTankAlertPushBridge.swift in Sources */,
 				D2E3F4A51FED79650016851F /* NativeVoiceCallEngine.swift in Sources */,
 				E3F4A5B61FED79650016851F /* CallVideoViewController.swift in Sources */,
 				F4A5B6C71FED79650016851F /* DeclaredAgeRangePlugin.swift in Sources */,
