@@ -17,7 +17,7 @@ import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { useLanguageModeList } from '@/hooks/useLanguageModeText'
 import { useAppUpdate } from '@/hooks/useAppUpdate'
-import { OPEN_TALK_CHAT_EVENT } from '@/lib/talkChatOpen'
+import { OPEN_TALK_CHAT_EVENT, OPEN_VOICE_TALK_EVENT } from '@/lib/talkChatOpen'
 import { VoiceCallProvider } from '@/contexts/VoiceCallContext'
 import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
 import { navBarT, type NavBarKey } from '@/messages/navBar'
@@ -297,6 +297,20 @@ function NavbarContent() {
     window.addEventListener(OPEN_TALK_CHAT_EVENT, open)
     return () => window.removeEventListener(OPEN_TALK_CHAT_EVENT, open)
   }, [canUseSocialMedia, appleSocialMediaMinAge])
+
+  // When a voice call is active, open the Talk panel so in-call UI is not stuck behind a closed shell.
+  useEffect(() => {
+    const openVoice = () => {
+      if (!canUseSocialMedia) return
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        setChatPanelOpen(false)
+      }
+      setVoicePanelOpen(true)
+      setFrontPanel('voice')
+    }
+    window.addEventListener(OPEN_VOICE_TALK_EVENT, openVoice)
+    return () => window.removeEventListener(OPEN_VOICE_TALK_EVENT, openVoice)
+  }, [canUseSocialMedia])
 
   const handleToggleTalk = useCallback(() => {
     if (!session?.user) {
@@ -609,22 +623,25 @@ function NavbarContent() {
     }
   }, [session])
 
-  // Fetch notifications
+  // Fetch notifications + chat unread while signed in (sound/badge when counts rise).
+  useEffect(() => {
+    if (!session?.user || !isPageVisible) return
+
+    const poll = () => {
+      fetchNotifications()
+      fetchChatInvites()
+    }
+    poll()
+    const interval = setInterval(poll, 8000)
+    return () => clearInterval(interval)
+  }, [session, isPageVisible])
+
+  // Legacy mount fetch (keeps first paint snappy before interval starts)
   useEffect(() => {
     if (session?.user) {
       fetchNotifications()
     }
   }, [session])
-
-  // Fetch chat invites count
-  useEffect(() => {
-    if (session?.user) {
-      if (!isPageVisible) return
-      fetchChatInvites()
-      const interval = setInterval(fetchChatInvites, 30000) // Check every 30 seconds
-      return () => clearInterval(interval)
-    }
-  }, [session, isPageVisible])
 
   // Request notification permission when user is signed in (helps with badge support)
   useEffect(() => {

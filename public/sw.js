@@ -13,6 +13,7 @@ const PRECACHE_ASSETS = [
   '/logo-192.png',
   '/sounds/incoming-ring.wav?v=' + RING_CACHE_VERSION,
   '/sounds/outgoing-ring.wav?v=' + RING_CACHE_VERSION,
+  '/sounds/message-notification.wav?v=' + RING_CACHE_VERSION,
   '/sounds/silent.wav',
 ];
 
@@ -275,6 +276,7 @@ self.addEventListener('push', (event) => {
     requireInteraction: isVoiceCall,
     vibrate: isVoiceCall ? VOICE_CALL_VIBRATE : [120, 60, 120],
     silent: false,
+    sound: isChatMessage ? originAsset('/sounds/message-notification.wav') : undefined,
     timestamp: Date.now(),
     data: {
       url: isVoiceCall

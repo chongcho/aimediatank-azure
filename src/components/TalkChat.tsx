@@ -16,6 +16,7 @@ import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { TALK_CHAT_MAP, talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
 import { navBarT } from '@/messages/navBar'
 import { useVoiceCallContext } from '@/contexts/VoiceCallContext'
+import { playNotificationSound } from '@/lib/notificationSound'
 
 const TC = talkChatIdx
 
@@ -210,6 +211,7 @@ function TalkChatContent({
     : { position: 'talkChatPosition', size: 'talkChatCustomSize' }
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const lastPolledMessageIdRef = useRef<string | null>(null)
   const [newMessage, setNewMessage] = useState('')
   const [composerHeightPx, setComposerHeightPx] = useState(MESSAGE_COMPOSER_MIN_HEIGHT_PX)
   const [composerFormHeightPx, setComposerFormHeightPx] = useState(0)
@@ -1371,9 +1373,12 @@ function TalkChatContent({
 
   useEffect(() => {
     if (!isVoicePanel) return
-    // Mobile in-call UI lives in this panel; desktop uses VoiceCallOverlay.
-    if (!isActiveVoiceCall || isDesktop) return
-    setShowVoiceCallPicker(true)
+    if (!isActiveVoiceCall) return
+    // In-call UI is portaled fullscreen — hide contact picker and expand panel on mobile.
+    setShowVoiceCallPicker(false)
+    if (!isDesktop) {
+      setChatSize('max')
+    }
   }, [isActiveVoiceCall, isDesktop, isVoicePanel])
 
   const openVoiceCallPickerPanel = useCallback(() => {
@@ -2338,6 +2343,36 @@ function TalkChatContent({
     }
   }
 
+  const alertIfNewIncomingMessages = useCallback(
+    (incoming: ChatMessage[]) => {
+      const userId = session?.user?.id
+      if (!userId || incoming.length === 0) return
+
+      const lastId = lastPolledMessageIdRef.current
+      const newest = incoming[incoming.length - 1]
+      if (!newest?.id) return
+
+      if (!lastId) {
+        lastPolledMessageIdRef.current = newest.id
+        return
+      }
+
+      const lastIdx = incoming.findIndex((m) => m.id === lastId)
+      const newFromOthers =
+        lastIdx === -1
+          ? incoming.filter((m) => m.user.id !== userId)
+          : incoming.slice(lastIdx + 1).filter((m) => m.user.id !== userId)
+
+      lastPolledMessageIdRef.current = newest.id
+
+      if (newFromOthers.length > 0) {
+        playNotificationSound()
+        window.dispatchEvent(new CustomEvent('notificationUpdate'))
+      }
+    },
+    [session?.user?.id],
+  )
+
   // Only fetch when component is mounted and initialized
   const fetchMessages = useCallback(async () => {
     if (!isInitialized) return
@@ -2352,6 +2387,7 @@ function TalkChatContent({
           const data = await res.json()
           // Messages are inside data.conversation.messages
           if (data.conversation && Array.isArray(data.conversation.messages)) {
+            alertIfNewIncomingMessages(data.conversation.messages)
             setMessages(data.conversation.messages)
           }
         }
@@ -2375,13 +2411,14 @@ function TalkChatContent({
       if (res.ok) {
         const data = await res.json()
         if (Array.isArray(data.messages)) {
+          alertIfNewIncomingMessages(data.messages)
           setMessages(data.messages)
         }
       }
     } catch (error) {
       console.error('Error fetching messages:', error)
     }
-  }, [isInitialized, chatMode, selectedRecipients, activeConversation, session?.user?.id, isPageVisible, chatSize])
+  }, [isInitialized, chatMode, selectedRecipients, activeConversation, session?.user?.id, isPageVisible, chatSize, alertIfNewIncomingMessages])
 
   // Initialize after mount
   useEffect(() => {
@@ -2392,7 +2429,7 @@ function TalkChatContent({
   useEffect(() => {
     if (!isInitialized || !isFront) return
     fetchMessages()
-    const interval = setInterval(fetchMessages, 15000)
+    const interval = setInterval(fetchMessages, 8000)
     return () => clearInterval(interval)
   }, [isInitialized, isFront, fetchMessages])
 
@@ -2403,6 +2440,7 @@ function TalkChatContent({
     ignoreInitialScrollRef.current = true
     shouldScrollToBottomOnNextMessagesRef.current = true
     lastAutoScrolledMessageIdRef.current = null
+    lastPolledMessageIdRef.current = null
   }, [chatMode, activeConversation?.id, selectedRecipients.length])
 
   // If user un-minimizes chat, ensure we scroll to bottom once when messages are visible again

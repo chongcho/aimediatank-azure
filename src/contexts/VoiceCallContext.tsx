@@ -11,6 +11,8 @@ import {
   type ReactNode,
 } from 'react'
 import { registerVoiceCallPush, installPushSubscriptionRefresh } from '@/lib/pushSubscriptionClient'
+import { requestOpenVoiceTalkPanel } from '@/lib/talkChatOpen'
+import { unlockNotificationAudio } from '@/lib/notificationSound'
 import {
   answerNativeCall,
   bootstrapNativePush,
@@ -159,15 +161,14 @@ export function VoiceCallOverlayPanel({
     isNativeAndroidCallApp() && ctx.nativeOwnsVideo && ctx.hasVideo
   const nativeVideoChrome = iosNativeVideoChrome || androidNativeVideoChrome
 
-  const popupCallUi =
-    placement === 'floating' && isActiveCall && isDesktop && !ctx.callUiHidden && !iosCallKitIncoming
+  // Full-screen by default on mobile and desktop (popup window was easy to miss / treat as hidden).
   const fullscreenCallUi =
     placement === 'floating' &&
     isActiveCall &&
-    !isDesktop &&
     !ctx.callUiHidden &&
     !iosCallKitIncoming &&
     !nativeVideoChrome
+  const popupCallUi = false
   const minimizedCallUi =
     placement === 'floating' && isActiveCall && ctx.callUiHidden && !nativeVideoChrome
   const showCallControls = popupCallUi || fullscreenCallUi
@@ -256,18 +257,19 @@ export function VoiceCallProvider({
   callStateRef.current = voiceCall.callState
 
   useEffect(() => {
-    if (
-      voiceCall.callState === 'idle' ||
-      voiceCall.callState === 'ended' ||
-      voiceCall.callState === 'incoming'
-    ) {
+    if (voiceCall.callState === 'idle' || voiceCall.callState === 'ended') {
       setCallUiHidden(false)
+      return
     }
+    // Always show full call UI when a call is active (not minimized/hidden by default).
+    setCallUiHidden(false)
+    requestOpenVoiceTalkPanel()
   }, [voiceCall.callState, voiceCall.callId])
 
   useEffect(() => {
     installVoiceCallAudioUnlock()
     applyRingVolume(getVoiceCallRingVolume())
+    unlockNotificationAudio()
   }, [])
 
   useEffect(() => {

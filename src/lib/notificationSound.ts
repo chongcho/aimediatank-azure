@@ -1,7 +1,13 @@
 'use client'
 
+import { RING_ASSET_VERSION } from '@/lib/ringAssetVersion'
+
 /** Short message alert — respects in-app Notifications ON preference. */
 let audioCtx: AudioContext | null = null
+let notificationAudio: HTMLAudioElement | null = null
+let audioUnlocked = false
+
+const MESSAGE_SOUND_URL = `/sounds/message-notification.wav?v=${RING_ASSET_VERSION}`
 
 function notificationsEnabled(): boolean {
   if (typeof window === 'undefined') return false
@@ -14,9 +20,20 @@ function notificationsEnabled(): boolean {
   return true
 }
 
+function getNotificationAudio(): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null
+  if (!notificationAudio) {
+    notificationAudio = new Audio(MESSAGE_SOUND_URL)
+    notificationAudio.preload = 'auto'
+  }
+  return notificationAudio
+}
+
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
-  const Ctx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  const Ctx =
+    window.AudioContext ||
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!Ctx) return null
   if (!audioCtx || audioCtx.state === 'closed') {
     audioCtx = new Ctx()
@@ -24,18 +41,7 @@ function getAudioContext(): AudioContext | null {
   return audioCtx
 }
 
-/** Unlock audio on first user gesture (required on iOS / mobile WebViews). */
-export function unlockNotificationAudio(): void {
-  const ctx = getAudioContext()
-  if (!ctx) return
-  if (ctx.state === 'suspended') {
-    void ctx.resume().catch(() => {})
-  }
-}
-
-export function playNotificationSound(): void {
-  if (!notificationsEnabled()) return
-
+function playWebAudioFallback(): void {
   const ctx = getAudioContext()
   if (!ctx) return
 
@@ -65,4 +71,37 @@ export function playNotificationSound(): void {
     return
   }
   run()
+}
+
+/** Unlock audio on first user gesture (required on iOS / mobile WebViews). */
+export function unlockNotificationAudio(): void {
+  const ctx = getAudioContext()
+  if (ctx?.state === 'suspended') {
+    void ctx.resume().catch(() => {})
+  }
+
+  const audio = getNotificationAudio()
+  if (!audio || audioUnlocked) return
+  audio.volume = 0.001
+  void audio
+    .play()
+    .then(() => {
+      audio.pause()
+      audio.currentTime = 0
+      audio.volume = 1
+      audioUnlocked = true
+    })
+    .catch(() => {})
+}
+
+export function playNotificationSound(): void {
+  if (!notificationsEnabled()) return
+
+  const audio = getNotificationAudio()
+  if (audio) {
+    audio.currentTime = 0
+    void audio.play().catch(() => playWebAudioFallback())
+    return
+  }
+  playWebAudioFallback()
 }

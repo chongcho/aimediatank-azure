@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 
 /** Matches TalkChat desktop breakpoint (md). */
 export function useIsDesktop(breakpoint = 768) {
-  const [isDesktop, setIsDesktop] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= breakpoint,
+  )
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= breakpoint)
