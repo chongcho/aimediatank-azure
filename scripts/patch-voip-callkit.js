@@ -2068,4 +2068,67 @@ if (pluginSwift && !pluginSwift.includes(RING_ANNOUNCE_MARKER)) {
   console.log('[patch-voip-callkit] iOS startCallRingAnnouncement → App bridge AVSpeech')
 }
 
+const OUTGOING_CALL_MARKER = 'AiMediaTankReportOutgoingCall'
+if (pluginSwift && !pluginSwift.includes(OUTGOING_CALL_MARKER)) {
+  pluginSwift = fs.readFileSync(pluginSwiftPath, 'utf8')
+  if (!pluginSwift.includes('CAPPluginMethod(name: "prepareOutgoingCallUi"')) {
+    pluginSwift = pluginSwift.replace(
+      'CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),',
+      `CAPPluginMethod(name: "prepareOutgoingCallUi", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "reportOutgoingCall", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),`,
+    )
+  }
+  if (!pluginSwift.includes('@objc func prepareOutgoingCallUi')) {
+    const insertBefore = '    @objc func isSupported(_ call: CAPPluginCall) {'
+    if (pluginSwift.includes(insertBefore)) {
+      pluginSwift = pluginSwift.replace(
+        insertBefore,
+        `    @objc func prepareOutgoingCallUi(_ call: CAPPluginCall) {
+        NotificationCenter.default.post(
+            name: NSNotification.Name("AiMediaTankPrepareOutgoingUi"),
+            object: nil
+        )
+        call.resolve()
+    }
+
+    @objc func reportOutgoingCall(_ call: CAPPluginCall) {
+        guard let callId = call.getString("callId")?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !callId.isEmpty else {
+            call.reject("Missing callId")
+            return
+        }
+        let handle = call.getString("handle") ?? "AiMediaTank"
+        let hasVideo = call.getBool("hasVideo") ?? false
+        // ${OUTGOING_CALL_MARKER}
+        NotificationCenter.default.post(
+            name: NSNotification.Name("${OUTGOING_CALL_MARKER}"),
+            object: nil,
+            userInfo: ["callId": callId, "handle": handle, "hasVideo": hasVideo]
+        )
+        call.resolve()
+    }
+
+` + insertBefore,
+      )
+    }
+  }
+  fs.writeFileSync(pluginSwiftPath, pluginSwift)
+
+  const pluginM = path.join(pluginDir, 'Plugin.m')
+  if (fs.existsSync(pluginM)) {
+    let pluginMContent = fs.readFileSync(pluginM, 'utf8')
+    if (!pluginMContent.includes('prepareOutgoingCallUi')) {
+      pluginMContent = pluginMContent.replace(
+        'CAP_PLUGIN_METHOD(isSupported, CAPPluginReturnPromise);',
+        `CAP_PLUGIN_METHOD(prepareOutgoingCallUi, CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(reportOutgoingCall, CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(isSupported, CAPPluginReturnPromise);`,
+      )
+      fs.writeFileSync(pluginM, pluginMContent)
+    }
+  }
+  console.log('[patch-voip-callkit] iOS prepareOutgoingCallUi + reportOutgoingCall')
+}
+
 console.log('[patch-voip-callkit] done')

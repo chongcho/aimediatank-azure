@@ -659,6 +659,12 @@ type NativeVoiceCallAudioPlugin = {
   startCallRing?: (options: { url: string; incoming?: boolean }) => Promise<void>
   startCallRingAnnouncement?: (options: { text: string; lang?: string }) => Promise<void>
   stopCallRing?: () => Promise<void>
+  prepareOutgoingCallUi?: () => Promise<void>
+  reportOutgoingCall?: (options: {
+    callId: string
+    handle?: string
+    hasVideo?: boolean
+  }) => Promise<void>
   setCallRingVolume?: (options: { level: number }) => Promise<void>
   setVoiceCallMediaVolume?: (options: { level: number }) => Promise<void>
 }
@@ -954,6 +960,36 @@ export async function stopNativeCallRing(): Promise<void> {
     await plugin.stopCallRing()
   } catch (error) {
     console.error('[NativeCall] stopCallRing failed:', error)
+  }
+}
+
+/** iOS: clear stale accept cover and foreground WebView before outgoing UI. */
+export async function prepareIosOutgoingCallUi(): Promise<void> {
+  if (!isNativeIosCallApp()) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
+    if (typeof plugin.prepareOutgoingCallUi !== 'function') return
+    await plugin.prepareOutgoingCallUi()
+  } catch (error) {
+    console.error('[NativeCall] prepareOutgoingCallUi failed:', error)
+  }
+}
+
+/** iOS: report outgoing call to CallKit so caller UI/audio survive memory pressure. */
+export async function reportIosOutgoingCall(
+  callId: string,
+  handle: string,
+  hasVideo: boolean,
+): Promise<void> {
+  if (!isNativeIosCallApp() || !callId) return
+  try {
+    const { CapacitorPushCalls } = await import('@kapsula-chat/capacitor-push-calls')
+    const plugin = CapacitorPushCalls as typeof CapacitorPushCalls & NativeVoiceCallAudioPlugin
+    if (typeof plugin.reportOutgoingCall !== 'function') return
+    await plugin.reportOutgoingCall({ callId, handle, hasVideo })
+  } catch (error) {
+    console.error('[NativeCall] reportOutgoingCall failed:', error)
   }
 }
 
