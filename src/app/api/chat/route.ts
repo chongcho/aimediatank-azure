@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { inspectMediaForAgeRating } from '@/lib/contentInspection'
+import { sendChatMessagePushToUser } from '@/lib/chatMessagePush'
 import { socialMediaForbiddenResponse } from '@/lib/socialAgeGate'
 
 export const dynamic = 'force-dynamic'
@@ -250,6 +251,16 @@ export async function POST(request: Request) {
           },
         })
       }
+
+      const preview =
+        message.content.length > 120 ? `${message.content.slice(0, 117)}…` : message.content
+      void sendChatMessagePushToUser(recipientId, {
+        type: 'chat_message',
+        senderId: session.user.id,
+        title: senderName,
+        body: preview,
+        url: `/?openChat=1&chatUserId=${encodeURIComponent(session.user.id)}`,
+      }).catch((err) => console.error('[ChatPush] failed:', err))
     }
 
     return NextResponse.json({ message })

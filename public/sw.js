@@ -260,22 +260,30 @@ self.addEventListener('push', (event) => {
   }
 
   const isVoiceCall = data.type === 'voice_call';
+  const isChatMessage = data.type === 'chat_message';
 
   const options = {
     body: data.body,
     icon: resolveNotificationIcon(isVoiceCall ? data.caller?.avatar : null),
     badge: originAsset('/logo.png'),
-    tag: isVoiceCall ? 'voice-call-' + (data.callId || 'incoming') : 'aimediatank-notification',
+    tag: isVoiceCall
+      ? 'voice-call-' + (data.callId || 'incoming')
+      : isChatMessage
+        ? 'chat-' + (data.senderId || 'message')
+        : 'aimediatank-notification',
     renotify: true,
     requireInteraction: isVoiceCall,
-    vibrate: isVoiceCall ? VOICE_CALL_VIBRATE : [100, 50, 100],
+    vibrate: isVoiceCall ? VOICE_CALL_VIBRATE : [120, 60, 120],
     silent: false,
     timestamp: Date.now(),
     data: {
-      url: isVoiceCall ? (data.url || voiceCallDeepLink(data, '')) : (data.url || '/'),
+      url: isVoiceCall
+        ? (data.url || voiceCallDeepLink(data, ''))
+        : (data.url || '/'),
       type: isVoiceCall ? 'voice_call' : (data.type || 'generic'),
       callId: data.callId || null,
       caller: data.caller || null,
+      senderId: data.senderId || null,
     },
   };
 
@@ -293,12 +301,16 @@ self.addEventListener('push', (event) => {
       ? alertIncomingVoiceCall(title, options, data.callId)
       : showCallNotification(title, options)
     ).then(() => {
-        if (!isVoiceCall) return;
-        return notifyOpenClients({
-          type: 'VOICE_CALL_INCOMING',
-          callId: data.callId,
-          caller: data.caller,
-        });
+        if (isVoiceCall) {
+          return notifyOpenClients({
+            type: 'VOICE_CALL_INCOMING',
+            callId: data.callId,
+            caller: data.caller,
+          });
+        }
+        if (isChatMessage) {
+          return notifyOpenClients({ type: 'CHAT_MESSAGE_RECEIVED' });
+        }
       },
     ),
   );

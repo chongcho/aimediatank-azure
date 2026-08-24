@@ -13,6 +13,7 @@ import {
   formatVoiceCallAnnouncementText,
   resolveUserUiLocale,
 } from '@/lib/voiceCallAnnouncement'
+import type { ChatMessagePushPayload } from '@/lib/webPush'
 import type { VoipCallPushPayload } from '@/lib/voipPush'
 
 let firebaseReady = false
@@ -278,5 +279,68 @@ export async function sendAndroidCallCancelPushBurstToUser(userId: string, callI
 
   if (awaitedEnd < CANCEL_PUSH_RETRY_GAPS_MS.length) {
     void runRetriesFrom(awaitedEnd)
+  }
+}
+
+const ANDROID_CHAT_CHANNEL_ID = 'aimediatank_messages'
+
+/** FCM notification push for private chat on Android native app. */
+export async function sendAndroidChatMessagePushToUser(
+  userId: string,
+  payload: ChatMessagePushPayload,
+): Promise<void> {
+  if (!ensureFirebaseConfigured()) return
+
+  const tokens = await prisma.voipPushToken.findMany({
+    where: { userId, platform: 'android' },
+  })
+  if (tokens.length === 0) return
+
+  const staleTokens: string[] = []
+
+  await Promise.all(
+    tokens.map(async (row) => {
+      const tokenPrefix = row.token.slice(0, 12)
+      try {
+        await admin.messaging().send({
+          token: row.token,
+          notification: {
+            title: payload.title,
+            body: payload.body,
+          },
+          data: {
+            type: payload.type,
+            senderId: payload.senderId,
+            url: payload.url,
+          },
+          android: {
+            priority: 'high',
+            ttl: 120_000,
+            notification: {
+              channelId: ANDROID_CHAT_CHANNEL_ID,
+              sound: 'default',
+              notificationCount: 1,
+            },
+          },
+        })
+        console.info(`[FCM] chat_message sent to ${tokenPrefix}…`)
+      } catch (error) {
+        const code = (error as { code?: string }).code
+        if (
+          code === 'messaging/registration-token-not-registered' ||
+          code === 'messaging/invalid-registration-token'
+        ) {
+          staleTokens.push(row.token)
+        } else {
+          console.error(`[FCM] chat_message failed for ${tokenPrefix}…:`, error)
+        }
+      }
+    }),
+  )
+
+  if (staleTokens.length > 0) {
+    await prisma.voipPushToken.deleteMany({
+      where: { token: { in: staleTokens } },
+    })
   }
 }

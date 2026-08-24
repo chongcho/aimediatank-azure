@@ -29,6 +29,14 @@ export interface VoiceCallDismissPushPayload {
   callId: string
 }
 
+export interface ChatMessagePushPayload {
+  type: 'chat_message'
+  senderId: string
+  title: string
+  body: string
+  url: string
+}
+
 let vapidConfigured = false
 
 export function isWebPushConfigured(): boolean {
@@ -247,5 +255,57 @@ export async function sendVoiceCallRingPushBurstToUser(
 
   if (awaitedEnd < RING_PUSH_RETRY_GAPS_MS.length) {
     void runRetriesFrom(awaitedEnd)
+  }
+}
+
+/** Web Push for private chat messages (PWA / browser). */
+export async function sendChatMessageWebPushToUser(
+  userId: string,
+  payload: ChatMessagePushPayload,
+): Promise<void> {
+  if (!isWebPushConfigured()) return
+
+  ensureVapidConfigured()
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { userId },
+  })
+  if (subscriptions.length === 0) return
+
+  const body = JSON.stringify(payload)
+  const staleEndpoints: string[] = []
+
+  await Promise.all(
+    subscriptions.map(async (sub) => {
+      const kind = endpointKind(sub.endpoint)
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
+          body,
+          {
+            TTL: 120,
+            urgency: 'high',
+            topic: 'chat-' + payload.senderId.slice(0, 24),
+          },
+        )
+        console.info(`[WebPush] sent chat_message to user=${userId} ${kind}`)
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode
+        if (status === 404 || status === 410) {
+          staleEndpoints.push(sub.endpoint)
+        } else {
+          console.error(`[WebPush] chat_message failed ${kind} (${status ?? 'unknown'}):`, error)
+        }
+      }
+    }),
+  )
+
+  if (staleEndpoints.length > 0) {
+    await prisma.pushSubscription.deleteMany({
+      where: { endpoint: { in: staleEndpoints } },
+    })
   }
 }

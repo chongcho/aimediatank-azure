@@ -7,6 +7,7 @@ import { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'rea
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
+import { playNotificationSound, unlockNotificationAudio } from '@/lib/notificationSound'
 import { clearHomeFeed } from '@/lib/homePrefetchCache'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
 import { goToAdminPanel } from '@/lib/adminPanelNav'
@@ -119,6 +120,7 @@ function NavbarContent() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [chatInviteCount, setChatInviteCount] = useState(0)
   const [notificationsOn, setNotificationsOn] = useState(true)
+  const prevNotificationTotalRef = useRef<number | null>(null)
   const [expandedNotificationId, setExpandedNotificationId] = useState<string | null>(null)
   const [isSelectMode, setIsSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -658,9 +660,26 @@ function NavbarContent() {
     })
   }
 
+  useEffect(() => {
+    const unlock = () => unlockNotificationAudio()
+    window.addEventListener('pointerdown', unlock, { once: true, passive: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
+  }, [])
+
   // Update app badge when notification counts change (only if notifications are on)
   useEffect(() => {
     const totalCount = notificationsOn ? calculateTotalNotifications(unreadCount, chatInviteCount) : 0
+    if (
+      prevNotificationTotalRef.current !== null &&
+      totalCount > prevNotificationTotalRef.current
+    ) {
+      playNotificationSound()
+    }
+    prevNotificationTotalRef.current = totalCount
     setAppBadge(totalCount)
   }, [unreadCount, chatInviteCount, notificationsOn])
 
@@ -673,6 +692,19 @@ function NavbarContent() {
     
     window.addEventListener('notificationUpdate', handleNotificationUpdate)
     return () => window.removeEventListener('notificationUpdate', handleNotificationUpdate)
+  }, [])
+
+  // Play in-app sound when a chat push arrives while the app is open (PWA / browser).
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+    const onSwMessage = (event: MessageEvent) => {
+      const data = event.data as { type?: string } | null
+      if (data?.type === 'CHAT_MESSAGE_RECEIVED') {
+        playNotificationSound()
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', onSwMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', onSwMessage)
   }, [])
 
   const fetchUserData = async () => {

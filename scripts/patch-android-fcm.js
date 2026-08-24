@@ -26,6 +26,7 @@ const voipConnectionPath = path.join(pluginDir, 'VoipConnection.kt')
 const messagingServicePath = path.join(pluginDir, 'PushRouterMessagingService.kt')
 const fcmDeviceAckPath = path.join(pluginDir, 'FcmDeviceAck.kt')
 const incomingCallUiPath = path.join(pluginDir, 'IncomingCallUiHelper.kt')
+const chatMessageNotificationPath = path.join(pluginDir, 'ChatMessageNotificationHelper.kt')
 const callScreenPresentationPath = path.join(pluginDir, 'CallScreenPresentation.kt')
 
 const incomingCallUiSource = `package com.capacitor.voipcalls
@@ -152,6 +153,85 @@ object IncomingCallUiHelper {
 }
 `
 
+const chatMessageNotificationSource = `package com.capacitor.voipcalls
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.media.AudioAttributes
+import android.media.RingtoneManager
+import android.net.Uri
+import android.os.Build
+import android.util.Log
+
+/** Foreground FCM chat alerts with default message sound (separate from voice-call channel). */
+object ChatMessageNotificationHelper {
+    private const val TAG = "ChatMessageNotif"
+    const val CHANNEL_ID = "aimediatank_messages"
+
+    private fun ensureChannel(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val sound: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Chat messages",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "AiMediaTank private chat message alerts"
+            enableVibration(true)
+            setSound(
+                sound,
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+        }
+        nm.createNotificationChannel(channel)
+    }
+
+    fun show(context: Context, title: String, body: String, url: String?, senderId: String?) {
+        try {
+            ensureChannel(context)
+            val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                ?: return
+            if (!url.isNullOrBlank()) launch.data = Uri.parse(url)
+            launch.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            val pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT or
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+            val pending = PendingIntent.getActivity(
+                context,
+                (senderId ?: title).hashCode(),
+                launch,
+                pendingFlags
+            )
+            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Notification.Builder(context, CHANNEL_ID)
+            } else {
+                @Suppress("DEPRECATION")
+                Notification.Builder(context)
+            }
+            builder
+                .setSmallIcon(context.applicationInfo.icon)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setAutoCancel(true)
+                .setContentIntent(pending)
+                .setCategory(Notification.CATEGORY_MESSAGE)
+                .setPriority(Notification.PRIORITY_DEFAULT)
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify((senderId ?: title).hashCode(), builder.build())
+        } catch (e: Exception) {
+            Log.e(TAG, "show failed", e)
+        }
+    }
+}
+`
+
 const fcmDeviceAckSource = `package com.capacitor.voipcalls
 
 import android.util.Log
@@ -213,6 +293,15 @@ if (!fs.existsSync(incomingCallUiPath) || !fs.readFileSync(incomingCallUiPath, '
   console.log('[patch-android-fcm] added IncomingCallUiHelper.kt')
 }
 
+if (
+  !fs.existsSync(chatMessageNotificationPath) ||
+  !fs.readFileSync(chatMessageNotificationPath, 'utf8').includes('ChatMessageNotificationHelper')
+) {
+  fs.writeFileSync(chatMessageNotificationPath, chatMessageNotificationSource)
+  changed = true
+  console.log('[patch-android-fcm] added ChatMessageNotificationHelper.kt')
+}
+
 let source = fs.readFileSync(pluginPath, 'utf8')
 
 const cancelMarker = 'AiMediaTank FCM cancel push'
@@ -263,6 +352,27 @@ if (
     source = source.replace(oldCancel, newCancel)
     changed = true
     console.log('[patch-android-fcm] FCM cancel remembers cancelled call id')
+  }
+}
+
+const chatRouteMarker = 'AiMediaTank FCM chat message route'
+if (!source.includes(chatRouteMarker)) {
+  const chatRouteAnchor = `            if (type == TYPE_CALL) {`
+  const chatRouteInsert = `            // ${chatRouteMarker}
+            if (data["type"]?.lowercase() == "chat_message") {
+                val chatTitle = title ?: data["title"] ?: "AiMediaTank"
+                val chatBody = body ?: data["body"] ?: "New message"
+                val chatUrl = data["url"]
+                val senderId = data["senderId"]
+                ChatMessageNotificationHelper.show(context, chatTitle, chatBody, chatUrl, senderId)
+                return
+            }
+
+            if (type == TYPE_CALL) {`
+  if (source.includes(chatRouteAnchor)) {
+    source = source.replace(chatRouteAnchor, chatRouteInsert)
+    changed = true
+    console.log('[patch-android-fcm] added FCM chat message route')
   }
 }
 
