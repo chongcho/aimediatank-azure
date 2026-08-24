@@ -196,6 +196,7 @@ object ChatMessageNotificationHelper {
     }
 
     /** Create channel at app launch so background FCM notifications are not dropped. */
+    @JvmStatic
     fun ensureChannelAtStartup(context: Context) {
         try {
             ensureChannel(context.applicationContext)
@@ -5459,6 +5460,7 @@ if (fs.existsSync(chatMessageNotificationPath)) {
     chatHelper = chatHelper.replace(
       '    fun show(context: Context, title: String, body: String, url: String?, senderId: String?) {',
       `    /** Create channel at app launch so background FCM notifications are not dropped. */
+    @JvmStatic
     fun ensureChannelAtStartup(context: Context) {
         try {
             ensureChannel(context.applicationContext)
@@ -5471,6 +5473,15 @@ if (fs.existsSync(chatMessageNotificationPath)) {
     )
     chatChanged = true
     console.log('[patch-android-fcm] added ChatMessageNotificationHelper.ensureChannelAtStartup')
+  }
+
+  if (chatHelper.includes('fun ensureChannelAtStartup') && !chatHelper.includes('@JvmStatic')) {
+    chatHelper = chatHelper.replace(
+      '    fun ensureChannelAtStartup(context: Context)',
+      '    @JvmStatic\n    fun ensureChannelAtStartup(context: Context)',
+    )
+    chatChanged = true
+    console.log('[patch-android-fcm] @JvmStatic on ensureChannelAtStartup')
   }
 
   if (!chatHelper.includes('setVisibility(Notification.VISIBILITY_PUBLIC)')) {

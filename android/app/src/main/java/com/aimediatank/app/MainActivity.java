@@ -40,7 +40,7 @@ public class MainActivity extends BridgeActivity {
         syncIncomingCallPresentation(getIntent());
         // Required for ConnectionService lock-screen / incoming-call UI (do not remove).
         registerVoipPhoneAccountSafely();
-        ChatMessageNotificationHelper.ensureChannelAtStartup(this);
+        ChatMessageNotificationHelper.INSTANCE.ensureChannelAtStartup(this);
         AppSystemEffectsGuard.install(getApplicationContext());
         getWindow().getDecorView().post(this::applySystemBars);
     }
