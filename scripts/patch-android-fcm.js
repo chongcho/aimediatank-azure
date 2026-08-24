@@ -220,6 +220,11 @@ object ChatMessageNotificationHelper {
                 launch,
                 pendingFlags
             )
+            val smallIcon = context.resources.getIdentifier(
+                "ic_stat_notification",
+                "drawable",
+                context.packageName
+            ).let { if (it != 0) it else context.applicationInfo.icon }
             val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 Notification.Builder(context, CHANNEL_ID)
             } else {
@@ -227,13 +232,15 @@ object ChatMessageNotificationHelper {
                 Notification.Builder(context)
             }
             builder
-                .setSmallIcon(context.applicationInfo.icon)
+                .setSmallIcon(smallIcon)
                 .setContentTitle(title)
                 .setContentText(body)
+                .setStyle(Notification.BigTextStyle().bigText(body))
                 .setAutoCancel(true)
                 .setContentIntent(pending)
                 .setCategory(Notification.CATEGORY_MESSAGE)
                 .setPriority(Notification.PRIORITY_HIGH)
+                .setDefaults(Notification.DEFAULT_ALL)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 builder.setVisibility(Notification.VISIBILITY_PUBLIC)
             }
@@ -5488,12 +5495,56 @@ if (fs.existsSync(chatMessageNotificationPath)) {
     chatHelper = chatHelper.replace(
       '.setPriority(Notification.PRIORITY_HIGH)',
       `.setPriority(Notification.PRIORITY_HIGH)
+            .setDefaults(Notification.DEFAULT_ALL)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 builder.setVisibility(Notification.VISIBILITY_PUBLIC)
             }`,
     )
     chatChanged = true
     console.log('[patch-android-fcm] chat notification visibility → PUBLIC')
+  }
+
+  if (chatHelper.includes('setSmallIcon(context.applicationInfo.icon)')) {
+    chatHelper = chatHelper.replace(
+      `            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Notification.Builder(context, CHANNEL_ID)
+            } else {
+                @Suppress("DEPRECATION")
+                Notification.Builder(context)
+            }
+            builder
+                .setSmallIcon(context.applicationInfo.icon)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setAutoCancel(true)`,
+      `            val smallIcon = context.resources.getIdentifier(
+                "ic_stat_notification",
+                "drawable",
+                context.packageName
+            ).let { if (it != 0) it else context.applicationInfo.icon }
+            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Notification.Builder(context, CHANNEL_ID)
+            } else {
+                @Suppress("DEPRECATION")
+                Notification.Builder(context)
+            }
+            builder
+                .setSmallIcon(smallIcon)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(Notification.BigTextStyle().bigText(body))
+                .setAutoCancel(true)`,
+    )
+    chatChanged = true
+    console.log('[patch-android-fcm] chat notification uses ic_stat_notification + BigTextStyle')
+  }
+
+  if (chatHelper.includes('setStyle(Notification.BigTextStyle') && !chatHelper.includes('setDefaults(Notification.DEFAULT_ALL)')) {
+    chatHelper = chatHelper.replace(
+      '.setPriority(Notification.PRIORITY_HIGH)',
+      '.setPriority(Notification.PRIORITY_HIGH)\n                .setDefaults(Notification.DEFAULT_ALL)',
+    )
+    chatChanged = true
   }
 
   if (chatChanged) {
