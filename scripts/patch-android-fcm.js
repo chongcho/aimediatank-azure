@@ -236,16 +236,21 @@ object ChatMessageNotificationHelper {
                 .setContentTitle(title)
                 .setContentText(body)
                 .setStyle(Notification.BigTextStyle().bigText(body))
+                .setShowWhen(true)
+                .setWhen(System.currentTimeMillis())
                 .setAutoCancel(true)
                 .setContentIntent(pending)
                 .setCategory(Notification.CATEGORY_MESSAGE)
                 .setPriority(Notification.PRIORITY_HIGH)
-                .setDefaults(Notification.DEFAULT_ALL)
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                @Suppress("DEPRECATION")
+                builder.setDefaults(Notification.DEFAULT_ALL)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 builder.setVisibility(Notification.VISIBILITY_PUBLIC)
             }
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            nm.notify((senderId ?: title).hashCode(), builder.build())
+            nm.notify("chat_message", (senderId ?: title).hashCode(), builder.build())
         } catch (e: Exception) {
             Log.e(TAG, "show failed", e)
         }
@@ -5495,13 +5500,46 @@ if (fs.existsSync(chatMessageNotificationPath)) {
     chatHelper = chatHelper.replace(
       '.setPriority(Notification.PRIORITY_HIGH)',
       `.setPriority(Notification.PRIORITY_HIGH)
-            .setDefaults(Notification.DEFAULT_ALL)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 builder.setVisibility(Notification.VISIBILITY_PUBLIC)
             }`,
     )
     chatChanged = true
     console.log('[patch-android-fcm] chat notification visibility → PUBLIC')
+  }
+
+  if (!chatHelper.includes('setShowWhen(true)')) {
+    chatHelper = chatHelper.replace(
+      '.setStyle(Notification.BigTextStyle().bigText(body))',
+      `.setStyle(Notification.BigTextStyle().bigText(body))
+                .setShowWhen(true)
+                .setWhen(System.currentTimeMillis())`,
+    )
+    chatChanged = true
+    console.log('[patch-android-fcm] chat notification showWhen + timestamp')
+  }
+
+  if (chatHelper.includes('.setDefaults(Notification.DEFAULT_ALL)') && !chatHelper.includes('Build.VERSION.SDK_INT < Build.VERSION_CODES.O')) {
+    chatHelper = chatHelper.replace(
+      `.setPriority(Notification.PRIORITY_HIGH)
+                .setDefaults(Notification.DEFAULT_ALL)`,
+      `.setPriority(Notification.PRIORITY_HIGH)
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                @Suppress("DEPRECATION")
+                builder.setDefaults(Notification.DEFAULT_ALL)
+            }`,
+    )
+    chatChanged = true
+    console.log('[patch-android-fcm] chat notification defaults only pre-O')
+  }
+
+  if (chatHelper.includes('nm.notify((senderId ?: title).hashCode(), builder.build())')) {
+    chatHelper = chatHelper.replace(
+      'nm.notify((senderId ?: title).hashCode(), builder.build())',
+      'nm.notify("chat_message", (senderId ?: title).hashCode(), builder.build())',
+    )
+    chatChanged = true
+    console.log('[patch-android-fcm] chat notification tagged notify')
   }
 
   if (chatHelper.includes('setSmallIcon(context.applicationInfo.icon)')) {
@@ -5537,14 +5575,6 @@ if (fs.existsSync(chatMessageNotificationPath)) {
     )
     chatChanged = true
     console.log('[patch-android-fcm] chat notification uses ic_stat_notification + BigTextStyle')
-  }
-
-  if (chatHelper.includes('setStyle(Notification.BigTextStyle') && !chatHelper.includes('setDefaults(Notification.DEFAULT_ALL)')) {
-    chatHelper = chatHelper.replace(
-      '.setPriority(Notification.PRIORITY_HIGH)',
-      '.setPriority(Notification.PRIORITY_HIGH)\n                .setDefaults(Notification.DEFAULT_ALL)',
-    )
-    chatChanged = true
   }
 
   if (chatChanged) {

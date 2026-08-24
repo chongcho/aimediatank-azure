@@ -282,7 +282,9 @@ export async function sendAndroidCallCancelPushBurstToUser(userId: string, callI
   }
 }
 
-/** FCM data push for private chat on Android native app (always routed via ChatMessageNotificationHelper). */
+const ANDROID_CHAT_CHANNEL_ID = 'aimediatank_messages_v2'
+
+/** FCM notification + data: system tray/lock screen when background; helper when foreground. */
 export async function sendAndroidChatMessagePushToUser(
   userId: string,
   payload: ChatMessagePushPayload,
@@ -308,6 +310,10 @@ export async function sendAndroidChatMessagePushToUser(
       try {
         await admin.messaging().send({
           token: row.token,
+          notification: {
+            title: payload.title,
+            body: payload.body,
+          },
           data: {
             type: payload.type,
             senderId: payload.senderId,
@@ -319,6 +325,13 @@ export async function sendAndroidChatMessagePushToUser(
             priority: 'high',
             ttl: 120_000,
             directBootOk: true,
+            notification: {
+              channelId: ANDROID_CHAT_CHANNEL_ID,
+              sound: 'default',
+              visibility: 'public',
+              notificationCount: 1,
+              icon: 'ic_stat_notification',
+            },
           },
         })
         console.info(`[FCM] chat_message sent to ${tokenPrefix}…`)
