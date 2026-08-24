@@ -11,6 +11,19 @@ on:
         description: Play Console closed-testing track name (exact, case-sensitive)
         required: false
         default: AiMediaTank
+      firebase_groups:
+        description: Firebase App Distribution tester group alias (emails that group)
+        required: false
+        default: closed-testers
+      release_notes:
+        description: Notes emailed to Firebase testers (and shown in App Tester)
+        required: false
+        default: AiMediaTank closed testing build
+      skip_firebase_distribution:
+        description: Set true to upload Play only (no Firebase email)
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   build-and-upload:
@@ -76,7 +89,7 @@ jobs:
           echo "ANDROID_VERSION_CODE=$((GITHUB_RUN_NUMBER + 10))" >> "$GITHUB_ENV"
           echo "Android release: $VERSION_NAME (versionCode $((GITHUB_RUN_NUMBER + 10)))"
 
-      - name: Build signed App Bundle
+      - name: Build signed AAB + APK
         working-directory: android
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -85,14 +98,23 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew bundleRelease --no-daemon
+          # AAB → Play Closed testing; APK → Firebase App Distribution (email testers).
+          ./gradlew bundleRelease assembleRelease --no-daemon
           ls -la app/build/outputs/bundle/release/
+          ls -la app/build/outputs/apk/release/
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-aab-${{ github.sha }}
           path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 14
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-${{ github.sha }}
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 14
 
       - name: Upload to Play Closed testing
@@ -103,3 +125,38 @@ jobs:
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           tracks: ${{ inputs.play_track != '' && inputs.play_track || 'AiMediaTank' }}
           status: completed
+
+      # TestFlight-style email: Firebase emails the closed-testers group when a build is uploaded.
+      # Requires FIREBASE_SERVICE_ACCOUNT_JSON with Firebase App Distribution Admin (see docs).
+      - name: Decide Firebase App Distribution
+        id: firebase
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          SKIP: ${{ inputs.skip_firebase_distribution }}
+        run: |
+          set -euo pipefail
+          if [ "${SKIP}" = "true" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Firebase App Distribution (workflow input)."
+            exit 0
+          fi
+          if [ -z "${FIREBASE_SERVICE_ACCOUNT_JSON:-}" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::FIREBASE_SERVICE_ACCOUNT_JSON secret missing — Play upload done; no tester email. See docs/android-internal-ci.md"
+            exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to Firebase App Distribution
+        if: steps.firebase.outputs.enabled == 'true'
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          # mobilesdk_app_id from android/app/google-services.json
+          appId: "1:1088256844071:android:3f7322d178a16c002bc902"
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          groups: ${{ inputs.firebase_groups != '' && inputs.firebase_groups || 'closed-testers' }}
+          file: android/app/build/outputs/apk/release/app-release.apk
+          releaseNotes: |
+            ${{ inputs.release_notes }}
+            versionName ${{ env.ANDROID_VERSION_NAME }} · versionCode ${{ env.ANDROID_VERSION_CODE }}
+            sha ${{ github.sha }}

@@ -36,7 +36,7 @@ Existing APNS vars for iOS are unchanged. Voice calls use **both** paths when to
 
 ## Build the Android app
 
-CI upload to Play **Closed testing**: [Android Closed Testing CI](./android-internal-ci.md) (`npm run icons:generate` bundles the AiMediaTank logo).
+CI upload to Play **Closed testing** + Firebase App Distribution email: [Android Closed Testing CI](./android-internal-ci.md) (`npm run icons:generate` bundles the AiMediaTank logo).
 
 ```bash
 npm install

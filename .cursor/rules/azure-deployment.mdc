@@ -23,6 +23,6 @@ Do **not** manually trigger production immediately after pushing `staging`; wait
 ## Manual-only (optional)
 
 - **iOS TestFlight** — `ios-testflight.yml` (not part of the default staging push chain).
-- **Android Closed Testing** — `android-internal.yml` (manual `workflow_dispatch`; uploads to Play Closed testing track `AiMediaTank`).
+- **Android Closed Testing** — `android-internal.yml` (manual `workflow_dispatch`; uploads to Play Closed testing track `AiMediaTank` + Firebase App Distribution email).
 - **Sync main from staging** alone — `workflow_dispatch` on `sync-branches.yml` (rare; normal releases already sync).
 - **Production** — `workflow_dispatch` still available for retries; use `--ref main` after sync when retrying.
