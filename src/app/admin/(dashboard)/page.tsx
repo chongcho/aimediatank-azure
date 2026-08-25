@@ -4169,14 +4169,10 @@ export default function AdminPage() {
                         <option value="18">18+</option>
                       </select>
                       <p className="text-xs text-gray-500 mt-2">
-                        Minimum age for Register and Edit Profile birthday. Enforced from the birthday field.
-                        Aligns with App Store age bands (9+ / 13+ / 16+ / 18+).
-                      </p>
-                      <p className="text-xs text-amber-500/90 mt-2">
-                        Apple App Store: social media (chat, comments, reactions, share, post/upload) is always
-                        disabled for users under 13. On iOS the Declared Age Range API is called before enabling
-                        those features. Setting 9+ still blocks social under 13; 16+ / 18+ raise both registration
-                        and the social floor.
+                        Minimum age for Register and Edit Profile birthday. Enforced from the birthday
+                        field on those forms and on the registration / profile APIs. Aligns with App Store
+                        age bands (9+ / 13+ / 16+ / 18+). Users who do not meet this age cannot create an
+                        account or save a profile birthday.
                       </p>
                     </div>
                   </div>

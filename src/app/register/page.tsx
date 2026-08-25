@@ -9,7 +9,7 @@ import { SocialSignIn } from '@/components/SocialSignIn'
 import AvatarNicknameBioBlock from '@/components/AvatarNicknameBioBlock'
 import SmsOptInDisclosure from '@/components/SmsOptInDisclosure'
 import { compressImage } from '@/lib/mediaCompression'
-import { parseBirthdayToIso, preferDayFirstFromLocation, isBirthdayAtLeastAge, normalizeAgeRequirement, type AgeRequirement } from '@/lib/birthday'
+import { parseBirthdayToIso, preferDayFirstFromLocation, isBirthdayAtLeastAge, normalizeAgeRequirement, maxBirthdayIsoForMinAge, type AgeRequirement } from '@/lib/birthday'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
 import { LanguageModeTrans } from '@/components/LanguageModeTrans'
 import BirthdayInput from '@/components/BirthdayInput'
@@ -746,6 +746,11 @@ export default function RegisterPage() {
 
     const birthdayIso = parseBirthdayToIso(formData.birthday, { preferDayFirst: dayFirstDates })
     if (!birthdayIso) {
+      setError(REGISTER_STRINGS[R.birthdayInvalidHint])
+      return
+    }
+    if (!isBirthdayAtLeastAge(birthdayIso, authSettings.ageRequirement)) {
+      setError(`You must be at least ${authSettings.ageRequirement} years old to register`)
       return
     }
 
@@ -982,11 +987,21 @@ export default function RegisterPage() {
                     setFormData((prev) => ({ ...prev, birthday: value }))
                   }
                   location={formData.location}
+                  max={maxBirthdayIsoForMinAge(authSettings.ageRequirement)}
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Must be {authSettings.ageRequirement}+ years old
+                  Must be {authSettings.ageRequirement}+ years old (Admin age requirement)
                 </p>
+                {formData.birthday.trim() &&
+                parseBirthdayToIso(formData.birthday, { preferDayFirst: dayFirstDates }) &&
+                !isBirthdayAtLeastAge(formData.birthday, authSettings.ageRequirement, {
+                  preferDayFirst: dayFirstDates,
+                }) ? (
+                  <p className="text-xs text-red-400 mt-1" role="alert">
+                    You must be at least {authSettings.ageRequirement} years old to register
+                  </p>
+                ) : null}
               </div>
 
               <label htmlFor="register-email" className="form-field-label">

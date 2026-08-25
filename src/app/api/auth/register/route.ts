@@ -3,8 +3,8 @@ import { hash } from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
 import { BlobServiceClient } from '@azure/storage-blob'
-import { parseBirthdayToIso, parseBirthdayToDate, isBirthdayAtLeastAge, normalizeAgeRequirement } from '@/lib/birthday'
-import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
+import { parseBirthdayToIso, parseBirthdayToDate, isBirthdayAtLeastAge } from '@/lib/birthday'
+import { getPlatformAgeRequirement } from '@/lib/socialAgeGate'
 
 // Function to generate verification token
 function generateVerificationToken() {
@@ -122,20 +122,7 @@ export async function POST(request: Request) {
       )
     }
 
-    let ageRequirement = 13
-    try {
-      const setting = await getFirstMediaDetailSetting()
-      const raw = (setting as { shareAppsEnabled?: unknown } | null)?.shareAppsEnabled
-      const auth =
-        raw && typeof raw === 'object' && !Array.isArray(raw) && (raw as Record<string, unknown>).__auth &&
-        typeof (raw as Record<string, unknown>).__auth === 'object' &&
-        !Array.isArray((raw as Record<string, unknown>).__auth)
-          ? ((raw as Record<string, unknown>).__auth as Record<string, unknown>)
-          : null
-      ageRequirement = normalizeAgeRequirement(auth?.ageRequirement)
-    } catch {
-      ageRequirement = 13
-    }
+    const ageRequirement = await getPlatformAgeRequirement()
     if (!isBirthdayAtLeastAge(birthdayIso, ageRequirement)) {
       return NextResponse.json(
         { error: `You must be at least ${ageRequirement} years old to register` },

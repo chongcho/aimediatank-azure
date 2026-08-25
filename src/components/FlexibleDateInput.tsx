@@ -14,6 +14,8 @@ type Props = {
   autoComplete?: string
   /** Accessible name for the calendar button */
   calendarLabel?: string
+  /** Upper bound for the native date picker (YYYY-MM-DD), e.g. age-requirement max birthday. */
+  max?: string
   /**
    * When typed numeric dates are ambiguous (e.g. 5/3/2026), prefer day/month/year
    * (UK/EU/AU) instead of US month/day/year.
@@ -40,6 +42,7 @@ export default function FlexibleDateInput({
   calendarLabel = 'Open calendar',
   preferDayFirst = false,
   formatDisplay,
+  max,
 }: Props) {
   const [text, setText] = useState(value)
 
@@ -131,6 +134,7 @@ export default function FlexibleDateInput({
         <input
           type="date"
           value={isoForPicker}
+          max={max}
           onChange={(e) => handleDatePicked(e.target.value)}
           aria-label={calendarLabel}
           title={calendarLabel}

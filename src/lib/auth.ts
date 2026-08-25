@@ -10,6 +10,8 @@ import {
   mergeOAuthProfileSources,
   pictureUrlFromOAuthClaims,
 } from './oauthProfile'
+import { isBirthdayAtLeastAge } from './birthday'
+import { getPlatformAgeRequirement } from './socialAgeGate'
 import { canonicalSocialProviderId, adminSetProviderAccountId, resolveAuthMethodLabel, SOCIAL_AUTH_LABELS, type SocialAuthLabel } from './authMethodLabel'
 import {
   isEntraLookupConfigured,
@@ -263,6 +265,13 @@ export const authOptions: NextAuthOptions = {
             displayNameFromIdp && !isPlaceholderLegalName(displayNameFromIdp)
               ? displayNameFromIdp
               : email.split('@')[0]
+          if (derivedBirthday) {
+            const birthdayIso = derivedBirthday.toISOString().slice(0, 10)
+            const ageRequirement = await getPlatformAgeRequirement()
+            if (!isBirthdayAtLeastAge(birthdayIso, ageRequirement)) {
+              throw new Error(`You must be at least ${ageRequirement} years old to register`)
+            }
+          }
           dbUser = await prisma.user.create({
             data: {
               email,
@@ -297,7 +306,11 @@ export const authOptions: NextAuthOptions = {
             backfill.avatar = derivedPicture
           }
           if (!dbUser.birthday && derivedBirthday) {
-            backfill.birthday = derivedBirthday
+            const birthdayIso = derivedBirthday.toISOString().slice(0, 10)
+            const ageRequirement = await getPlatformAgeRequirement()
+            if (isBirthdayAtLeastAge(birthdayIso, ageRequirement)) {
+              backfill.birthday = derivedBirthday
+            }
           }
           if (
             (!(dbUser.name && dbUser.name.trim()) || isPlaceholderLegalName(dbUser.name)) &&

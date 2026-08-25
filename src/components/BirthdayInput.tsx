@@ -19,6 +19,8 @@ type Props = {
   preferDayFirst?: boolean
   /** Registration / profile Location country — drives placeholder + display format */
   location?: string
+  /** Max birthday (YYYY-MM-DD) for age requirement, applied to the calendar picker. */
+  max?: string
 }
 
 /** Birthday field with manual entry + native calendar (iOS/Android). */
@@ -28,6 +30,7 @@ export default function BirthdayInput({
   placeholder,
   preferDayFirst,
   location = '',
+  max,
   ...rest
 }: Props) {
   const dayFirst = preferDayFirst ?? preferDayFirstFromLocation(location)
@@ -45,6 +48,7 @@ export default function BirthdayInput({
       calendarLabel="Open birthday calendar"
       preferDayFirst={dayFirst}
       formatDisplay={formatDisplay}
+      max={max}
       {...rest}
     />
   )

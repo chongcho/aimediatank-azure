@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
-import { parseBirthdayToIso, preferDayFirstFromLocation, isBirthdayAtLeastAge, normalizeAgeRequirement, type AgeRequirement } from '@/lib/birthday'
+import { parseBirthdayToIso, preferDayFirstFromLocation, isBirthdayAtLeastAge, normalizeAgeRequirement, maxBirthdayIsoForMinAge, type AgeRequirement } from '@/lib/birthday'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import { persistFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
@@ -820,9 +820,7 @@ export default function EditProfilePage() {
       return
     }
     if (
-      !isBirthdayAtLeastAge(formData.birthday, authSettings.ageRequirement, {
-        preferDayFirst: dayFirstDates,
-      })
+      !isBirthdayAtLeastAge(birthdayIso, authSettings.ageRequirement)
     ) {
       setError(`You must be at least ${authSettings.ageRequirement} years old`)
       return
@@ -1109,11 +1107,23 @@ export default function EditProfilePage() {
                 value={formData.birthday}
                 onChange={(value) => setFormData({ ...formData, birthday: value })}
                 location={formData.location}
+                max={maxBirthdayIsoForMinAge(authSettings.ageRequirement)}
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                Must be {authSettings.ageRequirement}+ years old
+                Must be {authSettings.ageRequirement}+ years old (Admin age requirement)
               </p>
+              {formData.birthday.trim() &&
+              parseBirthdayToIso(formData.birthday, {
+                preferDayFirst: preferDayFirstFromLocation(formData.location),
+              }) &&
+              !isBirthdayAtLeastAge(formData.birthday, authSettings.ageRequirement, {
+                preferDayFirst: preferDayFirstFromLocation(formData.location),
+              }) ? (
+                <p className="text-xs text-red-400 mt-1" role="alert">
+                  You must be at least {authSettings.ageRequirement} years old
+                </p>
+              ) : null}
             </div>
 
             <label htmlFor="edit-email" className="form-field-label">

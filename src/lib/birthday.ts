@@ -208,3 +208,12 @@ export function isBirthdayAtLeastAge(
   }
   return age >= minAge
 }
+
+/** Latest ISO date (YYYY-MM-DD) that still meets `minAge` as of today (calendar max for birthday pickers). */
+export function maxBirthdayIsoForMinAge(minAge: number, asOf: Date = new Date()): string {
+  const d = new Date(asOf.getFullYear() - minAge, asOf.getMonth(), asOf.getDate())
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}

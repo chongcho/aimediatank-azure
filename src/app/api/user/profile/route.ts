@@ -4,8 +4,8 @@ import { authOptions } from '@/lib/auth'
 import { localeTagFromUserLocation } from '@/lib/localeFromLocation'
 import { prisma } from '@/lib/prisma'
 import { verifyPhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
-import { parseBirthdayToIso, parseBirthdayToDate, isBirthdayAtLeastAge, normalizeAgeRequirement } from '@/lib/birthday'
-import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
+import { parseBirthdayToIso, parseBirthdayToDate, isBirthdayAtLeastAge } from '@/lib/birthday'
+import { getPlatformAgeRequirement } from '@/lib/socialAgeGate'
 import bcrypt from 'bcryptjs'
 
 export const dynamic = 'force-dynamic'
@@ -159,38 +159,27 @@ export async function PUT(request: Request) {
     if (location !== undefined) updateData.location = location
     if (bio !== undefined) updateData.bio = bio
     if (birthday !== undefined) {
-      if (!birthday) {
-        updateData.birthday = null
-      } else {
-        const birthdayIso = parseBirthdayToIso(String(birthday))
-        if (!birthdayIso) {
-          return NextResponse.json(
-            { error: 'Please enter a valid birthday' },
-            { status: 400 }
-          )
-        }
-        let ageRequirement = 13
-        try {
-          const setting = await getFirstMediaDetailSetting()
-          const raw = (setting as { shareAppsEnabled?: unknown } | null)?.shareAppsEnabled
-          const auth =
-            raw && typeof raw === 'object' && !Array.isArray(raw) && (raw as Record<string, unknown>).__auth &&
-            typeof (raw as Record<string, unknown>).__auth === 'object' &&
-            !Array.isArray((raw as Record<string, unknown>).__auth)
-              ? ((raw as Record<string, unknown>).__auth as Record<string, unknown>)
-              : null
-          ageRequirement = normalizeAgeRequirement(auth?.ageRequirement)
-        } catch {
-          ageRequirement = 13
-        }
-        if (!isBirthdayAtLeastAge(birthdayIso, ageRequirement)) {
-          return NextResponse.json(
-            { error: `You must be at least ${ageRequirement} years old` },
-            { status: 400 }
-          )
-        }
-        updateData.birthday = parseBirthdayToDate(birthdayIso)
+      if (!birthday || !String(birthday).trim()) {
+        return NextResponse.json(
+          { error: 'Birthday is required' },
+          { status: 400 }
+        )
       }
+      const birthdayIso = parseBirthdayToIso(String(birthday))
+      if (!birthdayIso) {
+        return NextResponse.json(
+          { error: 'Please enter a valid birthday' },
+          { status: 400 }
+        )
+      }
+      const ageRequirement = await getPlatformAgeRequirement()
+      if (!isBirthdayAtLeastAge(birthdayIso, ageRequirement)) {
+        return NextResponse.json(
+          { error: `You must be at least ${ageRequirement} years old` },
+          { status: 400 }
+        )
+      }
+      updateData.birthday = parseBirthdayToDate(birthdayIso)
     }
     if (avatar !== undefined) updateData.avatar = avatar
 
