@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties, type MutableRefObject,
 import { createPortal } from 'react-dom'
 import type { VoiceCallState, VoiceCallUser } from '@/hooks/useVoiceCall'
 import { voiceCallNickname } from '@/hooks/useVoiceCall'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
 import type { VoiceCallRingtoneId } from '@/lib/voiceCallVolume'
 
 /** Desktop call chrome ≈ phone portrait (≈9:16), same idea as mobile fullscreen. */
@@ -1136,6 +1137,7 @@ function ActiveCallScreen({
   const connected = callState === 'connected'
   const duration = useCallDuration(connected)
   const compact = mode === 'popup'
+  const isDesktop = useIsDesktop()
   const statusText =
     callState === 'outgoing'
       ? formatCallStatus(labels.calling, remoteUser)
@@ -1151,9 +1153,28 @@ function ActiveCallScreen({
         ? labels.connecting
         : `${hasVideo ? 'AiMediaTank Video' : labels.appAudio} - ${formatDuration(duration)}`
 
-  // Android-aligned video UI: edge-to-edge remote, PiP top-right, black footer (Speaker / End / Mute).
+  // Android-aligned video UI: edge-to-edge on phone; PC uses a centered 9:16 stage.
   if (hasVideo && mode === 'fullscreen' && !nativeOwnsVideo) {
     if (typeof document === 'undefined') return null
+    const portraitStage: CSSProperties = isDesktop
+      ? {
+          position: 'relative',
+          height: '100dvh',
+          width: 'auto',
+          maxWidth: '100vw',
+          aspectRatio: '9 / 16',
+          overflow: 'hidden',
+          background: '#111',
+          display: 'flex',
+          flexDirection: 'column',
+        }
+      : {
+          position: 'absolute',
+          inset: 0,
+          background: '#111',
+          display: 'flex',
+          flexDirection: 'column',
+        }
     return createPortal(
       <div
         style={{
@@ -1163,87 +1184,91 @@ function ActiveCallScreen({
           background: '#0a0a0a',
           color: 'white',
           display: 'flex',
-          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
           overflow: 'hidden',
         }}
       >
-        <div style={{ position: 'absolute', inset: 0, background: '#111' }}>
-          <CallSurfaceVideo
-            videoRef={remoteVideoRef}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#111' }}
-          />
-          <CallSurfaceVideo
-            videoRef={localVideoRef}
-            muted
-            mirrored
-            dimmed={isCameraOff}
-            style={{
-              position: 'absolute',
-              top: 'max(12px, env(safe-area-inset-top))',
-              right: 16,
-              width: 100,
-              height: 140,
-              objectFit: 'cover',
-              borderRadius: 0,
-              background: '#222',
-            }}
-          />
-        </div>
-        <div
-          style={{
-            marginTop: 'auto',
-            position: 'relative',
-            zIndex: 2,
-            background: '#000',
-            padding:
-              '16px 24px max(20px, calc(12px + env(safe-area-inset-bottom)))',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-            {name}
+        <div style={portraitStage}>
+          <div style={{ position: 'relative', flex: '1 1 0', minHeight: 0, background: '#111' }}>
+            <CallSurfaceVideo
+              videoRef={remoteVideoRef}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#111' }}
+            />
+            <CallSurfaceVideo
+              videoRef={localVideoRef}
+              muted
+              mirrored
+              dimmed={isCameraOff}
+              style={{
+                position: 'absolute',
+                top: isDesktop ? 12 : 'max(12px, env(safe-area-inset-top))',
+                right: 16,
+                width: 100,
+                height: 140,
+                objectFit: 'cover',
+                borderRadius: 0,
+                background: '#222',
+              }}
+            />
           </div>
-          <div style={{ fontSize: 15, opacity: 0.78, marginTop: 6, marginBottom: 16 }}>{statusText}</div>
           <div
             style={{
+              position: 'relative',
+              zIndex: 2,
+              flexShrink: 0,
+              background: '#000',
+              padding: isDesktop
+                ? '16px 24px 20px'
+                : '16px 24px max(20px, calc(12px + env(safe-area-inset-bottom)))',
               display: 'flex',
-              width: '100%',
-              maxWidth: 360,
-              justifyContent: 'space-around',
+              flexDirection: 'column',
               alignItems: 'center',
+              textAlign: 'center',
             }}
           >
-            <RoundCallButton
-              label={labels.speaker}
-              onClick={onToggleSpeaker}
-              background={isSpeakerOn ? '#2563eb' : 'rgba(255,255,255,0.22)'}
-              disabled={!speakerEnabled}
-              compact
-              showLabel={false}
+            <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+              {name}
+            </div>
+            <div style={{ fontSize: 15, opacity: 0.78, marginTop: 6, marginBottom: 16 }}>{statusText}</div>
+            <div
+              style={{
+                display: 'flex',
+                width: '100%',
+                maxWidth: 360,
+                justifyContent: 'space-around',
+                alignItems: 'center',
+              }}
             >
-              <IconSpeaker muted={!isSpeakerOn} />
-            </RoundCallButton>
-            <RoundCallButton
-              label={labels.endCall}
-              onClick={onEnd}
-              background="#ef4444"
-              compact
-              showLabel={false}
-            >
-              <IconPhoneEnd />
-            </RoundCallButton>
-            <RoundCallButton
-              label={isMuted ? labels.unmute : labels.mute}
-              onClick={onToggleMute}
-              background={isMuted ? '#f59e0b' : 'rgba(255,255,255,0.22)'}
-              compact
-              showLabel={false}
-            >
-              <IconMic muted={isMuted} />
-            </RoundCallButton>
+              <RoundCallButton
+                label={labels.speaker}
+                onClick={onToggleSpeaker}
+                background={isSpeakerOn ? '#2563eb' : 'rgba(255,255,255,0.22)'}
+                disabled={!speakerEnabled}
+                compact
+                showLabel={false}
+              >
+                <IconSpeaker muted={!isSpeakerOn} />
+              </RoundCallButton>
+              <RoundCallButton
+                label={labels.endCall}
+                onClick={onEnd}
+                background="#ef4444"
+                compact
+                showLabel={false}
+              >
+                <IconPhoneEnd />
+              </RoundCallButton>
+              <RoundCallButton
+                label={isMuted ? labels.unmute : labels.mute}
+                onClick={onToggleMute}
+                background={isMuted ? '#f59e0b' : 'rgba(255,255,255,0.22)'}
+                compact
+                showLabel={false}
+              >
+                <IconMic muted={isMuted} />
+              </RoundCallButton>
+            </div>
           </div>
         </div>
       </div>,
