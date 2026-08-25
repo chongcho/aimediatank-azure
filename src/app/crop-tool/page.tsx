@@ -82,6 +82,38 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
 }
 
+/** Ask canvas.captureStream() to emit the frame we just drew (Chrome / Edge). */
+function requestCanvasCaptureFrame(stream: MediaStream) {
+  const track = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void }
+  track?.requestFrame?.()
+}
+
+function waitForVideoSeek(video: HTMLVideoElement, timeSec: number, timeoutMs = 8000): Promise<void> {
+  const target = clamp(timeSec, 0, Math.max(0, (video.duration || timeSec) - 0.001))
+  if (Math.abs(video.currentTime - target) < 0.002 && video.readyState >= 2) {
+    return Promise.resolve()
+  }
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      video.removeEventListener('seeked', onSeeked)
+      reject(new Error('Video seek timed out'))
+    }, timeoutMs)
+    const onSeeked = () => {
+      window.clearTimeout(timeoutId)
+      video.removeEventListener('seeked', onSeeked)
+      resolve()
+    }
+    video.addEventListener('seeked', onSeeked)
+    try {
+      video.currentTime = target
+    } catch (e) {
+      window.clearTimeout(timeoutId)
+      video.removeEventListener('seeked', onSeeked)
+      reject(e instanceof Error ? e : new Error('Video seek failed'))
+    }
+  })
+}
+
 /** Map UI crop coordinates (from preview metadata) to the encoding video's pixel space. */
 function normalizeCropForVideoSpace(
   crop: Area,
@@ -977,6 +1009,7 @@ export default function CropToolPage() {
             const sourceNode = audioCtx.createMediaElementSource(video)
             const dest = audioCtx.createMediaStreamDestination()
             sourceNode.connect(dest)
+            // Do not connect to speakers — avoid audible playback during encode.
 
             video.muted = false
             video.volume = 1
@@ -1076,6 +1109,44 @@ export default function CropToolPage() {
 
       let stopped = false
 
+      const drawFrame = () => {
+        const videoW = video.videoWidth || 0
+        const videoH = video.videoHeight || 0
+
+        const sx = clamp(roundEvenCoord(crop.x), 0, Math.max(0, videoW - 2))
+        const sy = clamp(roundEvenCoord(crop.y), 0, Math.max(0, videoH - 2))
+
+        const maxSw = Math.max(2, videoW - sx)
+        const maxSh = Math.max(2, videoH - sy)
+
+        const sw = roundEvenDim(Math.min(crop.width, maxSw))
+        const sh = roundEvenDim(Math.min(crop.height, maxSh))
+
+        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+
+        if (usePrivacy && privacy) {
+          privacyFrameCount++
+          if (privacyFrameCount % privacyDetectEvery === 0) {
+            schedulePrivacyRefresh()
+          }
+          applyPrivacyMasksAfterDraw(ctx, canvas, cachedPrivacyRects, privacy.style)
+        }
+
+        if (
+          useMetaAiWatermark &&
+          metaAiWatermark &&
+          metaAiOutputRect &&
+          video.currentTime < metaAiWatermark.visibleSec
+        ) {
+          applyPrivacyMasksAfterDraw(ctx, canvas, [metaAiOutputRect], 'blur')
+        }
+
+        requestCanvasCaptureFrame(stream)
+      }
+
+      const totalFrames = Math.max(1, Math.round(total * fps))
+      const frameIntervalMs = Math.max(1, 1000 / fps)
+
       await addAudioTracks()
 
       await new Promise<void>((resolve, reject) => {
@@ -1090,56 +1161,54 @@ export default function CropToolPage() {
           reject(new Error('MediaRecorder failed'))
         }
 
-        const tick = () => {
-          if (stopped) return
+        const runFixedCadenceEncode = async () => {
+          let frameIndex = 0
 
-          // Stop conditions
-          if (video.currentTime >= targetEnd || video.ended) {
-            stop()
-            return
-          }
-
-          const videoW = video.videoWidth || 0
-          const videoH = video.videoHeight || 0
-
-          // Round crop to even coordinates, and clamp so drawImage source rect stays valid.
-          const sx = clamp(roundEvenCoord(crop.x), 0, Math.max(0, videoW - 2))
-          const sy = clamp(roundEvenCoord(crop.y), 0, Math.max(0, videoH - 2))
-
-          const maxSw = Math.max(2, videoW - sx)
-          const maxSh = Math.max(2, videoH - sy)
-
-          const sw = roundEvenDim(Math.min(crop.width, maxSw))
-          const sh = roundEvenDim(Math.min(crop.height, maxSh))
-
-          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
-
-          if (usePrivacy && privacy) {
-            privacyFrameCount++
-            if (privacyFrameCount % privacyDetectEvery === 0) {
-              schedulePrivacyRefresh()
+          const emitFrame = () => {
+            if (stopped) return
+            drawFrame()
+            frameIndex++
+            onProgress(clamp(Math.round((frameIndex / totalFrames) * 100), 0, 100))
+            if (frameIndex >= totalFrames) {
+              stop()
             }
-            applyPrivacyMasksAfterDraw(ctx, canvas, cachedPrivacyRects, privacy.style)
           }
 
-          if (
-            useMetaAiWatermark &&
-            metaAiWatermark &&
-            metaAiOutputRect &&
-            video.currentTime < metaAiWatermark.visibleSec
-          ) {
-            applyPrivacyMasksAfterDraw(ctx, canvas, [metaAiOutputRect], 'blur')
+          // Real-time cadence: exactly totalFrames draws over trim duration (keeps audio in sync).
+          video.ontimeupdate = () => {
+            if (video.currentTime >= targetEnd - 0.01) {
+              try {
+                video.pause()
+              } catch {}
+            }
           }
 
-          const pct = Math.round(((video.currentTime - startSec) / total) * 100)
-          onProgress(clamp(pct, 0, 100))
+          recorder.start(500)
+          onProgress(0)
+          emitFrame()
+          intervalId = window.setInterval(emitFrame, frameIntervalMs)
+          await video.play()
         }
 
-        intervalId = window.setInterval(tick, Math.max(1, Math.round(1000 / fps)))
+        const runFrameStepEncode = async () => {
+          recorder.start(500)
+          onProgress(0)
 
-        video.currentTime = Math.max(0, startSec)
-        video.onseeked = async () => {
+          for (let i = 0; i < totalFrames; i++) {
+            if (stopped) break
+            const t = Math.min(startSec + i / fps, targetEnd - 0.001)
+            await waitForVideoSeek(video, t)
+            drawFrame()
+            onProgress(clamp(Math.round(((i + 1) / totalFrames) * 100), 0, 100))
+          }
+
+          stop()
+        }
+
+        void (async () => {
           try {
+            await waitForVideoSeek(video, startSec)
+
             if (usePrivacy && privacy) {
               try {
                 cachedPrivacyRects = await getCroppedOutputMaskRects(
@@ -1163,15 +1232,19 @@ export default function CropToolPage() {
                 metaAiWatermark.corner
               )
             }
-            recorder.start(500)
-            onProgress(0)
-            await video.play()
-            tick()
+
+            const hasAudioTrack = stream.getAudioTracks().length > 0
+            if (hasAudioTrack) {
+              await runFixedCadenceEncode()
+            } else {
+              // No audio — frame-step for exact fps without real-time playback drift.
+              await runFrameStepEncode()
+            }
           } catch (e) {
             stop()
-            reject(new Error('Unable to play video for client processing'))
+            reject(e instanceof Error ? e : new Error('Unable to encode video'))
           }
-        }
+        })()
       })
 
       const outputType = recorder.mimeType || mime
@@ -1354,6 +1427,13 @@ export default function CropToolPage() {
 
                     <div>
                       <h3 className="font-medium text-white mb-3">Crop Tool Setting</h3>
+                      {mediaType === 'video' && (
+                        <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                          Frame rate is enforced on export (frame-step when silent, real-time cadence when audio is
+                          present). Video and audio bitrates are targets — the browser encoder may average lower.
+                          Audio is included only when the source has an audible track.
+                        </p>
+                      )}
 
                       <div className="space-y-3">
                         {mediaType === 'image' && (
@@ -1376,7 +1456,7 @@ export default function CropToolPage() {
                         {mediaType === 'video' && (
                           <>
                             <div>
-                              <label className="text-sm text-gray-300">Frame Rate</label>
+                              <label className="text-sm text-gray-300">Target frame rate</label>
                               <div className="flex items-center gap-3">
                                 <input
                                   type="number"
@@ -1394,7 +1474,7 @@ export default function CropToolPage() {
                             </div>
 
                             <div>
-                              <label className="text-sm text-gray-300">Video Bitrate</label>
+                              <label className="text-sm text-gray-300">Target video bitrate</label>
                               <div className="flex items-center gap-3">
                                 <input
                                   type="number"
@@ -1412,7 +1492,7 @@ export default function CropToolPage() {
                             </div>
 
                             <div>
-                              <label className="text-sm text-gray-300">Audio Bitrate</label>
+                              <label className="text-sm text-gray-300">Target audio bitrate</label>
                               <div className="flex items-center gap-3">
                                 <input
                                   type="number"
