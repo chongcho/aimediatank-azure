@@ -82,6 +82,26 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
 }
 
+/** Map UI crop coordinates (from preview metadata) to the encoding video's pixel space. */
+function normalizeCropForVideoSpace(
+  crop: Area,
+  uiMediaSize: { width: number; height: number },
+  videoW: number,
+  videoH: number
+): Area {
+  if (videoW <= 0 || videoH <= 0) return crop
+  if (videoW === uiMediaSize.width && videoH === uiMediaSize.height) return crop
+
+  const scaleX = videoW / uiMediaSize.width
+  const scaleY = videoH / uiMediaSize.height
+  return {
+    x: crop.x * scaleX,
+    y: crop.y * scaleY,
+    width: crop.width * scaleX,
+    height: crop.height * scaleY,
+  }
+}
+
 function formatTimeSec(t: number) {
   if (!Number.isFinite(t) || t < 0) return '0:00:00'
   const totalSeconds = Math.floor(t)
@@ -861,31 +881,48 @@ export default function CropToolPage() {
 
   const computeOutputDims = (crop: Area) => {
     const aspect = crop.width / crop.height
-
     const autoCapH = effectiveAutoCapHeight
 
+    let outW: number
     let outH: number
-    if (outputResolution === 'auto') {
-      outH = Number.isFinite(autoCapH) ? Math.min(crop.height, autoCapH as number) : crop.height
-    } else if (outputResolution === 'hq') {
-      outH = crop.height
-    } else {
-      outH = Number(outputResolution)
-    }
 
-    let outW = Math.round(outH * aspect)
+    // Custom W×H defines both crop aspect and target output size when Auto is selected.
+    if (
+      cropRatio === 'custom' &&
+      customRatioWidth > 0 &&
+      customRatioHeight > 0 &&
+      outputResolution === 'auto'
+    ) {
+      outW = customRatioWidth
+      outH = customRatioHeight
+    } else {
+      if (outputResolution === 'auto') {
+        outH = Number.isFinite(autoCapH) ? Math.min(crop.height, autoCapH as number) : crop.height
+      } else if (outputResolution === 'hq') {
+        outH = crop.height
+      } else {
+        outH = Number(outputResolution)
+      }
+      outW = Math.round(outH * aspect)
+    }
 
     // Canvas limits: avoid crashes on very large crops.
     const scale = Math.min(1, CANVAS_MAX_DIM / outW, CANVAS_MAX_DIM / outH)
     outW = outW * scale
     outH = outH * scale
 
-    return { width: Math.max(2, Math.round(outW)), height: Math.max(2, Math.round(outH)) }
+    return { width: roundEvenDim(outW), height: roundEvenDim(outH) }
   }
+
+  const previewOutputDims = useMemo(() => {
+    if (!cropArea) return null
+    return computeOutputDims(cropArea)
+  }, [cropArea, cropRatio, customRatioWidth, customRatioHeight, outputResolution, effectiveAutoCapHeight])
 
   const processVideoClientSide = async (
     source: File,
     crop: Area,
+    uiMediaSize: { width: number; height: number },
     startSec: number,
     endSec: number,
     settings: QualitySettings,
@@ -904,6 +941,10 @@ export default function CropToolPage() {
         video.onloadedmetadata = () => resolve()
         video.onerror = () => reject(new Error('Failed to load video metadata'))
       })
+
+      const videoW = video.videoWidth || 0
+      const videoH = video.videoHeight || 0
+      crop = normalizeCropForVideoSpace(crop, uiMediaSize, videoW, videoH)
 
       const canvas = document.createElement('canvas')
       canvas.width = roundEvenDim(output.width)
@@ -1201,6 +1242,7 @@ export default function CropToolPage() {
         const out = await processVideoClientSide(
           file,
           cropArea,
+          mediaSize ?? { width: cropArea.width, height: cropArea.height },
           trimStart,
           trimEnd || videoDuration,
           encodingQuality,
@@ -1538,10 +1580,20 @@ export default function CropToolPage() {
                         placeholder="Vertical"
                         className="w-24 bg-tank-gray border border-tank-light px-3 py-2 text-white"
                       />
-                      <span className="text-xs text-gray-500">px ratio</span>
+                      <span className="text-xs text-gray-500">target output px</span>
                     </div>
                   )}
                 </div>
+
+                {previewOutputDims && (
+                  <p className="text-xs text-gray-400">
+                    Output size:{' '}
+                    <span className="text-white font-medium tabular-nums">
+                      {previewOutputDims.width}×{previewOutputDims.height}
+                    </span>
+                    {outputResolution !== 'auto' ? ` (${outputResolution === 'hq' ? 'HQ crop' : `${outputResolution}p`})` : ''}
+                  </p>
+                )}
 
                 <div className="flex items-center gap-3">
                   <button
