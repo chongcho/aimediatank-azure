@@ -104,7 +104,7 @@ export default function SocialSubscriptionPrompt({ open, anchorEl, onClose }: Pr
             className="font-medium text-blue-600 underline hover:text-blue-800"
             onClick={onClose}
           >
-            Register
+            Subscribe
           </Link>
         </p>
       </div>

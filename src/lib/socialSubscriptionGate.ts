@@ -2,7 +2,7 @@
 export const SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE =
   'Talk, Chat, and related social features are available to subscription members only. Please upgrade your membership to use them.'
 
-/** Register link in the subscription prompt — membership plans. */
+/** Subscribe link in the subscription prompt — membership plans. */
 export const SOCIAL_SUBSCRIPTION_REGISTER_HREF = '/pricing'
 
 export const OPEN_SOCIAL_SUBSCRIPTION_PROMPT_EVENT = 'open-social-subscription-prompt'

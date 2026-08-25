@@ -24,6 +24,7 @@ const PRICING_STRINGS = [
   'Processing...',
   'Current Plan',
   'Buy/Change Plan',
+  'Subscribe',
   'Viewer Plan',
   'Basic Plan',
   'Advanced Plan',
@@ -107,68 +108,69 @@ const S = {
   processing: 15,
   currentPlan: 16,
   buyChangePlan: 17,
-  viewerPlan: 18,
-  basicPlan: 19,
-  advancedPlan: 20,
-  premiumPlan: 21,
-  descOccasional: 22,
-  descModerate: 23,
-  descScale: 24,
-  fiveFreeUploads: 25,
-  onePerUploadAfter: 26,
-  halfPerUploadAfter: 27,
-  fiveFreeShort: 28,
-  fiveFreePlusOne: 29,
-  fiveFreePlusHalf: 30,
-  unlimitedFreeShort: 31,
-  free: 32,
-  perMonth: 33,
-  or: 34,
-  perYear: 35,
-  viewContents: 36,
-  buyContents: 37,
-  planComparison: 38,
-  feature: 39,
-  viewer: 40,
-  basic: 41,
-  advanced: 42,
-  premium: 43,
-  monthlyPrice: 44,
-  yearlyPrice: 45,
-  freeUploads: 46,
-  afterFreeUploads: 47,
-  fiveUploads: 48,
-  unlimited: 49,
-  emDash: 50,
-  onePerUpload: 51,
-  halfPerUpload: 52,
-  viewContentsTitle: 53,
-  buyContentsTitle: 54,
-  sellContentsTitle: 55,
-  faqTitle: 56,
-  faqCancelQ: 57,
-  faqCancelA: 58,
-  faqPaymentQ: 59,
-  faqPaymentA: 60,
-  faqUploadsQ: 61,
-  faqUploadsA: 62,
-  faqChangeQ: 63,
-  faqChangeA: 64,
-  chooseBillingPeriod: 65,
-  youSelected: 66,
-  monthly: 67,
-  billedMonthly: 68,
-  yearly: 69,
-  billedAnnually: 70,
-  billingCancelNote: 71,
-  manageSubscription: 72,
-  downgradeToBasic: 73,
-  keepSubscription: 74,
-  manageChangesNote: 75,
-  back: 76,
-  uploadCreditsSingular: 77,
-  uploadCreditsPlural: 78,
-  uploadCreditsBreakdown: 79,
+  subscribe: 18,
+  viewerPlan: 19,
+  basicPlan: 20,
+  advancedPlan: 21,
+  premiumPlan: 22,
+  descOccasional: 23,
+  descModerate: 24,
+  descScale: 25,
+  fiveFreeUploads: 26,
+  onePerUploadAfter: 27,
+  halfPerUploadAfter: 28,
+  fiveFreeShort: 29,
+  fiveFreePlusOne: 30,
+  fiveFreePlusHalf: 31,
+  unlimitedFreeShort: 32,
+  free: 33,
+  perMonth: 34,
+  or: 35,
+  perYear: 36,
+  viewContents: 37,
+  buyContents: 38,
+  planComparison: 39,
+  feature: 40,
+  viewer: 41,
+  basic: 42,
+  advanced: 43,
+  premium: 44,
+  monthlyPrice: 45,
+  yearlyPrice: 46,
+  freeUploads: 47,
+  afterFreeUploads: 48,
+  fiveUploads: 49,
+  unlimited: 50,
+  emDash: 51,
+  onePerUpload: 52,
+  halfPerUpload: 53,
+  viewContentsTitle: 54,
+  buyContentsTitle: 55,
+  sellContentsTitle: 56,
+  faqTitle: 57,
+  faqCancelQ: 58,
+  faqCancelA: 59,
+  faqPaymentQ: 60,
+  faqPaymentA: 61,
+  faqUploadsQ: 62,
+  faqUploadsA: 63,
+  faqChangeQ: 64,
+  faqChangeA: 65,
+  chooseBillingPeriod: 66,
+  youSelected: 67,
+  monthly: 68,
+  billedMonthly: 69,
+  yearly: 70,
+  billedAnnually: 71,
+  billingCancelNote: 72,
+  manageSubscription: 73,
+  downgradeToBasic: 74,
+  keepSubscription: 75,
+  manageChangesNote: 76,
+  back: 77,
+  uploadCreditsSingular: 78,
+  uploadCreditsPlural: 79,
+  uploadCreditsBreakdown: 80,
 } as const
 
 function fillPricingTemplate(template: string, vars: Record<string, string | number>): string {
@@ -434,6 +436,8 @@ function PricingPageContent() {
   }
 
   const isCurrentPlan = (planId: string) => {
+    // Guests have no membership — do not treat Viewer (or any plan) as current.
+    if (!session?.user) return false
     return currentMembership.toLowerCase() === planId.toLowerCase()
   }
 
@@ -614,8 +618,8 @@ function PricingPageContent() {
                 <p className="text-gray-300">{tr[S.buyContents]}</p>
               </div>
 
-              {/* Button: hide Buy/Change on free Viewer; always show Current Plan when selected */}
-              {(current || !plan.isFree) && (
+              {/* Button: Current Plan when selected; Subscribe for guests on Viewer; Buy/Change for paid */}
+              {(current || !plan.isFree || !session?.user) && (
                 <button
                   onClick={() => handleBuyPlanClick(plan)}
                   disabled={loading !== null || current}
@@ -637,6 +641,8 @@ function PricingPageContent() {
                       </svg>
                       {tr[S.currentPlan]}
                     </span>
+                  ) : !session?.user && plan.isFree ? (
+                    tr[S.subscribe]
                   ) : (
                     tr[S.buyChangePlan]
                   )}
