@@ -89,10 +89,7 @@ export async function requestDeclaredAgeRangeForSocial(options?: {
  * Combine Apple Declared Age Range (when present) with account birthday social access.
  */
 export function combineSocialAccess(accountAllowed: boolean, declared: DeclaredAgeRangeResult | null): boolean {
-  if (!accountAllowed) return false
-  if (!declared || !declared.available) return accountAllowed
-  if (!declared.eligibleForAgeFeatures) return accountAllowed
-  if (declared.status === 'declinedSharing') return false
-  if (declared.status === 'error') return false
-  return declared.meetsSocialMinAge
+  // Declared Age Range no longer gates social UGC; subscription membership does.
+  void declared
+  return accountAllowed
 }

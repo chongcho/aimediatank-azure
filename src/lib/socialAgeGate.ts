@@ -1,4 +1,4 @@
-import { isBirthdayAtLeastAge, normalizeAgeRequirement, type AgeRequirement } from '@/lib/birthday'
+import { normalizeAgeRequirement, type AgeRequirement } from '@/lib/birthday'
 import { prisma } from '@/lib/prisma'
 import { getFirstMediaDetailSetting } from '@/lib/mediaDetailSetting'
 
@@ -51,43 +51,24 @@ export async function getSocialAgeAccessForUser(userId: string | null | undefine
     }
   }
 
+  // Social UGC is no longer age-gated; subscription membership gates Talk/Chat in the UI/API.
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { birthday: true },
   })
   const birthdayIso = user?.birthday ? user.birthday.toISOString().slice(0, 10) : null
-  if (!birthdayIso) {
-    return {
-      socialMediaAllowed: false,
-      accountMeetsMinAge: false,
-      ageRequirement,
-      birthdayPresent: false,
-      reason: 'no_birthday',
-    }
-  }
-
-  const minAge = socialMediaMinAge(ageRequirement)
-  const accountMeetsMinAge = isBirthdayAtLeastAge(birthdayIso, minAge)
   return {
-    socialMediaAllowed: accountMeetsMinAge,
-    accountMeetsMinAge,
+    socialMediaAllowed: true,
+    accountMeetsMinAge: true,
     ageRequirement,
-    birthdayPresent: true,
-    reason: accountMeetsMinAge ? 'allowed' : 'under_social_min_age',
+    birthdayPresent: Boolean(birthdayIso),
+    reason: 'allowed',
   }
 }
 
 /** Returns a 403 JSON response when the user may not use social / UGC features. */
 export async function socialMediaForbiddenResponse(userId: string | null | undefined) {
-  const access = await getSocialAgeAccessForUser(userId)
-  if (access.socialMediaAllowed) return null
-  const minAge = socialMediaMinAge(access.ageRequirement)
-  return Response.json(
-    {
-      error: `Social media features are unavailable under age ${minAge}.`,
-      code: 'SOCIAL_AGE_RESTRICTED',
-      ...access,
-    },
-    { status: 403 }
-  )
+  // Age-based social blocking disabled — Talk/Chat/UGC are gated by subscription membership instead.
+  void userId
+  return null
 }

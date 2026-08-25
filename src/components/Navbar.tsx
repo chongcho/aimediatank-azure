@@ -24,7 +24,9 @@ import { navBarT, type NavBarKey } from '@/messages/navBar'
 import { localLanguageModeLabel } from '@/lib/localeFromLocation'
 import { calendarLocaleFromUiTag } from '@/lib/localeUi'
 import { LanguageModeTrans } from '@/components/LanguageModeTrans'
-import { useSocialAgeAccess } from '@/hooks/useSocialAgeAccess'
+import {
+  SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE,
+} from '@/lib/socialSubscriptionGate'
 
 /** Version panel — follows language mode (Local) like Membership/Pricing. */
 const VERSION_PANEL_STRINGS = [
@@ -80,10 +82,7 @@ function NavbarContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { data: session, status, update: updateSession } = useSession()
-  const { socialMediaAllowed, loading: socialAgeLoading, appleSocialMediaMinAge } = useSocialAgeAccess()
-  /** Chat / voice / post — disabled for authenticated users under Apple’s social floor (13+) or platform age. */
-  const canUseSocialMedia =
-    status !== 'authenticated' || (!socialAgeLoading && socialMediaAllowed)
+  // Age-based social hiding removed — Talk/Chat stay visible; subscription checked on click.
   const [restoreLoading, setRestoreLoading] = useState(false)
   const { localeTag, tNavbar: t } = useUiLocale()
   const trVersion = useLanguageModeList(VERSION_PANEL_STRINGS)
@@ -243,10 +242,10 @@ function NavbarContent() {
 
   // If an interactive navbar item is disabled via Navbar Control, force-close it.
   useEffect(() => {
-    if (!isNavbarItemEnabled('chat') || !canUseSocialMedia) {
+    if (!isNavbarItemEnabled('chat')) {
       setChatPanelOpen(false)
     }
-    if (!isNavbarItemEnabled('phone') || !canUseSocialMedia) {
+    if (!isNavbarItemEnabled('phone')) {
       setVoicePanelOpen(false)
     }
     if (!isNavbarItemEnabled('notification')) {
@@ -255,28 +254,7 @@ function NavbarContent() {
       setIsSelectMode(false)
       setSelectedIds(new Set())
     }
-  }, [isNavbarItemEnabled, canUseSocialMedia])
-
-  // Deep link: /?openChat=1 (e.g. from /open-chat) opens TalkChat once while the param stays; not on every navbar refetch.
-  useEffect(() => {
-    if (searchParams.get('openChat') !== '1') {
-      openChatDeepLinkConsumedRef.current = false
-      return
-    }
-    if (!isNavbarItemEnabled('chat') || !canUseSocialMedia) return
-    if (openChatDeepLinkConsumedRef.current) return
-    const conversationId = searchParams.get('conversationId')?.trim()
-    if (conversationId) {
-      try {
-        localStorage.setItem('talkChatLastConversationId', conversationId)
-      } catch {
-        // ignore
-      }
-    }
-    setChatPanelOpen(true)
-    setFrontPanel('chat')
-    openChatDeepLinkConsumedRef.current = true
-  }, [searchParams, isNavbarItemEnabled, canUseSocialMedia])
+  }, [isNavbarItemEnabled])
 
   // Keep front panel valid when only one TalkChat panel remains open.
   useEffect(() => {
@@ -289,11 +267,27 @@ function NavbarContent() {
     }
   }, [chatPanelOpen, voicePanelOpen])
 
+  const accountDeactivated = Boolean(
+    userData?.accountDeactivatedAt || session?.user?.accountDeactivated,
+  )
+
+  // Check subscriber status from fetched data (more reliable than session)
+  const isSubscriber =
+    !accountDeactivated &&
+    (userData?.role === 'SUBSCRIBER' ||
+      userData?.role === 'ADMIN' ||
+      userData?.membershipType === 'BASIC' ||
+      userData?.membershipType === 'ADVANCED' ||
+      userData?.membershipType === 'PREMIUM' ||
+      session?.user?.role === 'SUBSCRIBER' ||
+      session?.user?.role === 'ADMIN')
+
   // Homepage media card Chat button (and other callers) open TalkChat without toggling navbar button.
   useEffect(() => {
     const open = () => {
-      if (!canUseSocialMedia) {
-        alert(`Social media features are unavailable under age ${appleSocialMediaMinAge}.`)
+      if (!isSubscriber) {
+        alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
+        router.push('/pricing')
         return
       }
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -304,12 +298,39 @@ function NavbarContent() {
     }
     window.addEventListener(OPEN_TALK_CHAT_EVENT, open)
     return () => window.removeEventListener(OPEN_TALK_CHAT_EVENT, open)
-  }, [canUseSocialMedia, appleSocialMediaMinAge])
+  }, [isSubscriber, router])
+
+  // Deep link: /?openChat=1 (e.g. from /open-chat) opens TalkChat once while the param stays; not on every navbar refetch.
+  useEffect(() => {
+    if (searchParams.get('openChat') !== '1') {
+      openChatDeepLinkConsumedRef.current = false
+      return
+    }
+    if (!isNavbarItemEnabled('chat')) return
+    if (openChatDeepLinkConsumedRef.current) return
+    if (!isSubscriber) {
+      openChatDeepLinkConsumedRef.current = true
+      alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
+      router.push('/pricing')
+      return
+    }
+    const conversationId = searchParams.get('conversationId')?.trim()
+    if (conversationId) {
+      try {
+        localStorage.setItem('talkChatLastConversationId', conversationId)
+      } catch {
+        // ignore
+      }
+    }
+    setChatPanelOpen(true)
+    setFrontPanel('chat')
+    openChatDeepLinkConsumedRef.current = true
+  }, [searchParams, isNavbarItemEnabled, isSubscriber, router])
 
   // When a voice call is active, open the Talk panel so in-call UI is not stuck behind a closed shell.
   useEffect(() => {
     const openVoice = () => {
-      if (!canUseSocialMedia) return
+      if (!isSubscriber) return
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
         setChatPanelOpen(false)
       }
@@ -318,15 +339,12 @@ function NavbarContent() {
     }
     window.addEventListener(OPEN_VOICE_TALK_EVENT, openVoice)
     return () => window.removeEventListener(OPEN_VOICE_TALK_EVENT, openVoice)
-  }, [canUseSocialMedia])
+  }, [isSubscriber])
 
   const handleToggleTalk = useCallback(() => {
-    if (!session?.user) {
-      router.push('/login')
-      return
-    }
-    if (!canUseSocialMedia) {
-      alert(`Social media features are unavailable under age ${appleSocialMediaMinAge}.`)
+    if (!isSubscriber) {
+      alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
+      router.push('/pricing')
       return
     }
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
@@ -347,11 +365,12 @@ function NavbarContent() {
     }
     setVoicePanelOpen(true)
     setFrontPanel('voice')
-  }, [router, session?.user, voicePanelOpen, chatPanelOpen, frontPanel, canUseSocialMedia, appleSocialMediaMinAge])
+  }, [router, isSubscriber, voicePanelOpen, chatPanelOpen, frontPanel])
 
   const handleToggleChat = useCallback(() => {
-    if (status === 'authenticated' && !canUseSocialMedia) {
-      alert(`Social media features are unavailable under age ${appleSocialMediaMinAge}.`)
+    if (!isSubscriber) {
+      alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
+      router.push('/pricing')
       return
     }
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
@@ -371,11 +390,7 @@ function NavbarContent() {
     }
     setChatPanelOpen(true)
     setFrontPanel('chat')
-  }, [chatPanelOpen, voicePanelOpen, frontPanel, status, canUseSocialMedia, appleSocialMediaMinAge])
-
-  const accountDeactivated = Boolean(
-    userData?.accountDeactivatedAt || session?.user?.accountDeactivated,
-  )
+  }, [chatPanelOpen, voicePanelOpen, frontPanel, isSubscriber, router])
 
   const handleRestoreAccount = useCallback(async () => {
     setRestoreLoading(true)
@@ -401,26 +416,17 @@ function NavbarContent() {
     }
   }, [updateSession])
 
-  // Check subscriber status from fetched data (more reliable than session)
-  const isSubscriber =
-    !accountDeactivated &&
-    (userData?.role === 'SUBSCRIBER' ||
-      userData?.role === 'ADMIN' ||
-      userData?.membershipType === 'BASIC' ||
-      userData?.membershipType === 'ADVANCED' ||
-      userData?.membershipType === 'PREMIUM' ||
-      session?.user?.role === 'SUBSCRIBER' ||
-      session?.user?.role === 'ADMIN')
   const isAdmin = isAppAdminRole(userData?.role) || isAppAdminRole(session?.user?.role)
 
   const handlePostClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>) => {
-      if (status === 'authenticated' && !canUseSocialMedia) {
+      if (!isSubscriber) {
         e.preventDefault()
-        alert(`Social media features are unavailable under age ${appleSocialMediaMinAge}.`)
+        alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
+        router.push('/pricing')
         return
       }
-      const href = isSubscriber ? '/upload' : '/pricing'
+      const href = '/upload'
       if (!isMobileViewport()) {
         if (talkChatPanelsOpen) closeTalkChatPanels()
         return
@@ -435,9 +441,6 @@ function NavbarContent() {
       router,
       isSubscriber,
       isMobileViewport,
-      status,
-      canUseSocialMedia,
-      appleSocialMediaMinAge,
     ]
   )
 
@@ -906,7 +909,7 @@ function NavbarContent() {
 
           {/* Right Side */}
           <div className="navbar-actions flex items-center gap-2 flex-shrink-0">
-            {isNavbarItemEnabled('phone') && canUseSocialMedia && (
+            {isNavbarItemEnabled('phone') && (
               <button
                 type="button"
                 onClick={handleToggleTalk}
@@ -918,7 +921,7 @@ function NavbarContent() {
               </button>
             )}
             {/* Chat (Talk chat) button */}
-            {isNavbarItemEnabled('chat') && canUseSocialMedia && (
+            {isNavbarItemEnabled('chat') && (
               <div className="relative">
                 <button
                   onClick={handleToggleChat}
@@ -941,7 +944,7 @@ function NavbarContent() {
               <div className="w-8 h-8 rounded-full bg-tank-light animate-pulse" />
             ) : session ? (
               <div className="flex items-center gap-2">
-                {isNavbarItemEnabled('upload') && canUseSocialMedia && (
+                {isNavbarItemEnabled('upload') && (
                   <Link
                     href={isSubscriber ? '/upload' : '/pricing'}
                     onClick={handlePostClick}

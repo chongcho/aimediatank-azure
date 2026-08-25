@@ -30,8 +30,8 @@ export type SocialAgeAccessState = {
 const SocialAgeAccessContext = createContext<SocialAgeAccessState | null>(null)
 
 /**
- * Apple compliance: social / UGC only when account age ≥13 (and platform ageRequirement)
- * and, on native iOS when Declared Age Range applies, Apple also reports ≥13.
+ * Social / UGC access for authenticated users. Age no longer blocks;
+ * Talk/Chat require a paid subscription role (enforced in Navbar / APIs).
  */
 export function SocialAgeAccessProvider({ children }: { children: ReactNode }) {
   const { status } = useSession()

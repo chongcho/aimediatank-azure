@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { compressMedia, type QualitySettings } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
-import { useSocialAgeAccess } from '@/hooks/useSocialAgeAccess'
 import { UPLOAD_PAGE_ORIGINALS, U, uploadPageInterpolate } from '@/messages/uploadPageStrings'
 
 type Area = { x: number; y: number; width: number; height: number }
@@ -35,7 +34,6 @@ function UploadPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tr = useLanguageModeList(UPLOAD_PAGE_ORIGINALS)
-  const { socialMediaAllowed, loading: socialAgeLoading, appleSocialMediaMinAge } = useSocialAgeAccess()
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -495,7 +493,7 @@ function UploadPageContent() {
   }
 
   // Redirect if not subscriber
-  if (status === 'loading' || socialAgeLoading) {
+  if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="spinner" />
@@ -528,22 +526,6 @@ function UploadPageContent() {
             className="btn-primary"
           >
             {tr[U.becomeSubscriber]}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  if (!socialMediaAllowed) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <h1 className="text-2xl font-bold mb-2">Posting unavailable</h1>
-          <p className="text-gray-400 mb-4">
-            Social media features are unavailable under age {appleSocialMediaMinAge}.
-          </p>
-          <button type="button" onClick={() => router.push('/')} className="btn-primary">
-            {tr[U.goHome]}
           </button>
         </div>
       </div>

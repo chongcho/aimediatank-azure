@@ -45,7 +45,10 @@ import {
   resetFeedBadgePayloadCache,
 } from '@/lib/feedBadgePayloadClient'
 import { useAdminContentElevation } from '@/hooks/useAdminContentElevation'
-import { useSocialAgeAccess } from '@/hooks/useSocialAgeAccess'
+import {
+  isSocialSubscriberRole,
+  SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE,
+} from '@/lib/socialSubscriptionGate'
 
 interface MediaCardProps {
   media: {
@@ -113,9 +116,13 @@ export default function MediaCard({
   const pathname = usePathname()
   const router = useRouter()
   const { data: session, status: sessionStatus } = useSession()
-  const { socialMediaAllowed, loading: socialAgeLoading, appleSocialMediaMinAge } = useSocialAgeAccess()
-  const canUseSocialMedia =
-    sessionStatus !== 'authenticated' || (!socialAgeLoading && socialMediaAllowed)
+  const isSocialSubscriber = isSocialSubscriberRole(session?.user?.role)
+  const requireSocialSubscription = useCallback(() => {
+    if (isSocialSubscriber) return false
+    alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
+    router.push('/pricing')
+    return true
+  }, [isSocialSubscriber, router])
   const { contentElevated: adminContentElevated } = useAdminContentElevation()
   const { mode: cardTextMode } = useFeedCardTextMode()
   const { localeTag } = useUiLocale()
@@ -257,10 +264,7 @@ export default function MediaCard({
     async (e: React.MouseEvent | React.KeyboardEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      if (sessionStatus === 'authenticated' && !canUseSocialMedia) {
-        alert(`Social media features are unavailable under age ${appleSocialMediaMinAge}.`)
-        return
-      }
+      if (requireSocialSubscription()) return
       if (likePending) return
       setLikePending(true)
 
@@ -302,7 +306,7 @@ export default function MediaCard({
         setLikePending(false)
       }
     },
-    [likePending, likeState, media.id, sessionStatus, canUseSocialMedia, appleSocialMediaMinAge]
+    [likePending, likeState, media.id, requireSocialSubscription]
   )
   const [commentModalOpen, setCommentModalOpen] = useState(false)
   const [commentDraft, setCommentDraft] = useState('')
@@ -904,10 +908,9 @@ export default function MediaCard({
 
   const openCommentModal = (e: React.SyntheticEvent) => {
     if (!isBadgeEnabled('comment')) return
-    if (sessionStatus === 'authenticated' && !canUseSocialMedia) {
+    if (requireSocialSubscription()) {
       e.preventDefault()
       e.stopPropagation()
-      alert(`Social media features are unavailable under age ${appleSocialMediaMinAge}.`)
       return
     }
     e.preventDefault()
@@ -921,10 +924,9 @@ export default function MediaCard({
 
   const openShareModal = (e: React.SyntheticEvent) => {
     if (!shareEnabled || !isBadgeEnabled('share')) return
-    if (sessionStatus === 'authenticated' && !canUseSocialMedia) {
+    if (requireSocialSubscription()) {
       e.preventDefault()
       e.stopPropagation()
-      alert(`Social media features are unavailable under age ${appleSocialMediaMinAge}.`)
       return
     }
     e.preventDefault()
@@ -935,10 +937,9 @@ export default function MediaCard({
 
   const openFeedChat = (e: React.SyntheticEvent) => {
     if (!isBadgeEnabled('feedChat')) return
-    if (sessionStatus === 'authenticated' && !canUseSocialMedia) {
+    if (requireSocialSubscription()) {
       e.preventDefault()
       e.stopPropagation()
-      alert(`Social media features are unavailable under age ${appleSocialMediaMinAge}.`)
       return
     }
     e.preventDefault()
@@ -968,8 +969,8 @@ export default function MediaCard({
     const content = commentDraft.trim()
     if (!content) return
     if (!isBadgeEnabled('comment')) return
-    if (sessionStatus === 'authenticated' && !canUseSocialMedia) {
-      setCommentError(`Social media features are unavailable under age ${appleSocialMediaMinAge}.`)
+    if (requireSocialSubscription()) {
+      setCommentError(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
       return
     }
     setCommentSubmitting(true)
@@ -1671,7 +1672,7 @@ export default function MediaCard({
                 {formatViewCount(displayViews)}
               </span>
             )}
-            {isBadgeEnabled('smileRate') && canUseSocialMedia && (
+            {isBadgeEnabled('smileRate') && (
               <button
                 type="button"
                 data-media-card-like
@@ -1696,13 +1697,7 @@ export default function MediaCard({
                 <span>{likeState.happy}</span>
               </button>
             )}
-            {isBadgeEnabled('smileRate') && !canUseSocialMedia && (
-              <span className="flex items-center gap-1 shrink-0 text-gray-400" aria-label={tMediaCard('like')}>
-                <ThumbsUpIcon className="w-4 h-4 shrink-0 text-gray-400" />
-                <span>{likeState.happy}</span>
-              </span>
-            )}
-            {isBadgeEnabled('comment') && canUseSocialMedia && (
+            {isBadgeEnabled('comment') && (
               <button
                 type="button"
                 data-media-card-comment
@@ -1731,7 +1726,7 @@ export default function MediaCard({
                 <span>{tFeedCard('feedComment')}</span>
               </button>
             )}
-            {hasHomeScrollContext && isBadgeEnabled('feedChat') && canUseSocialMedia && (
+            {hasHomeScrollContext && isBadgeEnabled('feedChat') && (
               <button
                 type="button"
                 data-media-card-chat
@@ -1757,7 +1752,7 @@ export default function MediaCard({
                 <span>{tFeedCard('feedChat')}</span>
               </button>
             )}
-            {hasHomeScrollContext && shareEnabled && isBadgeEnabled('share') && canUseSocialMedia && (
+            {hasHomeScrollContext && shareEnabled && isBadgeEnabled('share') && (
               <button
                 type="button"
                 data-media-card-share
