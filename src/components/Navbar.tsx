@@ -25,8 +25,11 @@ import { localLanguageModeLabel } from '@/lib/localeFromLocation'
 import { calendarLocaleFromUiTag } from '@/lib/localeUi'
 import { LanguageModeTrans } from '@/components/LanguageModeTrans'
 import {
-  SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE,
+  OPEN_SOCIAL_SUBSCRIPTION_PROMPT_EVENT,
+  type SocialSubscriptionAnchor,
+  type SocialSubscriptionPromptDetail,
 } from '@/lib/socialSubscriptionGate'
+import SocialSubscriptionPrompt from '@/components/SocialSubscriptionPrompt'
 
 /** Version panel — follows language mode (Local) like Membership/Pricing. */
 const VERSION_PANEL_STRINGS = [
@@ -145,6 +148,29 @@ function NavbarContent() {
   const versionPanelRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
+  const talkButtonRef = useRef<HTMLButtonElement>(null)
+  const chatButtonRef = useRef<HTMLButtonElement>(null)
+  const postButtonRef = useRef<HTMLAnchorElement>(null)
+  const [socialSubPromptOpen, setSocialSubPromptOpen] = useState(false)
+  const [socialSubPromptAnchor, setSocialSubPromptAnchor] = useState<SocialSubscriptionAnchor | null>(
+    null,
+  )
+
+  const showSocialSubscriptionPrompt = useCallback((anchor?: SocialSubscriptionAnchor | null) => {
+    setSocialSubPromptAnchor(anchor ?? 'chat')
+    setSocialSubPromptOpen(true)
+  }, [])
+
+  const closeSocialSubscriptionPrompt = useCallback(() => {
+    setSocialSubPromptOpen(false)
+  }, [])
+
+  const socialSubPromptAnchorEl =
+    socialSubPromptAnchor === 'talk'
+      ? talkButtonRef.current
+      : socialSubPromptAnchor === 'post'
+        ? postButtonRef.current
+        : chatButtonRef.current
 
   const closeTalkChatPanels = useCallback(() => {
     setChatPanelOpen(false)
@@ -286,8 +312,7 @@ function NavbarContent() {
   useEffect(() => {
     const open = () => {
       if (!isSubscriber) {
-        alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
-        router.push('/pricing')
+        showSocialSubscriptionPrompt('chat')
         return
       }
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -298,7 +323,7 @@ function NavbarContent() {
     }
     window.addEventListener(OPEN_TALK_CHAT_EVENT, open)
     return () => window.removeEventListener(OPEN_TALK_CHAT_EVENT, open)
-  }, [isSubscriber, router])
+  }, [isSubscriber, showSocialSubscriptionPrompt])
 
   // Deep link: /?openChat=1 (e.g. from /open-chat) opens TalkChat once while the param stays; not on every navbar refetch.
   useEffect(() => {
@@ -310,8 +335,7 @@ function NavbarContent() {
     if (openChatDeepLinkConsumedRef.current) return
     if (!isSubscriber) {
       openChatDeepLinkConsumedRef.current = true
-      alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
-      router.push('/pricing')
+      showSocialSubscriptionPrompt('chat')
       return
     }
     const conversationId = searchParams.get('conversationId')?.trim()
@@ -325,7 +349,7 @@ function NavbarContent() {
     setChatPanelOpen(true)
     setFrontPanel('chat')
     openChatDeepLinkConsumedRef.current = true
-  }, [searchParams, isNavbarItemEnabled, isSubscriber, router])
+  }, [searchParams, isNavbarItemEnabled, isSubscriber, showSocialSubscriptionPrompt])
 
   // When a voice call is active, open the Talk panel so in-call UI is not stuck behind a closed shell.
   useEffect(() => {
@@ -341,10 +365,19 @@ function NavbarContent() {
     return () => window.removeEventListener(OPEN_VOICE_TALK_EVENT, openVoice)
   }, [isSubscriber])
 
+  // MediaCard / other callers: open the same subscription prompt (anchored under Talk/Chat on PC).
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      const detail = (e as CustomEvent<SocialSubscriptionPromptDetail>).detail
+      showSocialSubscriptionPrompt(detail?.anchor ?? 'chat')
+    }
+    window.addEventListener(OPEN_SOCIAL_SUBSCRIPTION_PROMPT_EVENT, onPrompt)
+    return () => window.removeEventListener(OPEN_SOCIAL_SUBSCRIPTION_PROMPT_EVENT, onPrompt)
+  }, [showSocialSubscriptionPrompt])
+
   const handleToggleTalk = useCallback(() => {
     if (!isSubscriber) {
-      alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
-      router.push('/pricing')
+      showSocialSubscriptionPrompt('talk')
       return
     }
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
@@ -365,12 +398,11 @@ function NavbarContent() {
     }
     setVoicePanelOpen(true)
     setFrontPanel('voice')
-  }, [router, isSubscriber, voicePanelOpen, chatPanelOpen, frontPanel])
+  }, [isSubscriber, voicePanelOpen, chatPanelOpen, frontPanel, showSocialSubscriptionPrompt])
 
   const handleToggleChat = useCallback(() => {
     if (!isSubscriber) {
-      alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
-      router.push('/pricing')
+      showSocialSubscriptionPrompt('chat')
       return
     }
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
@@ -390,7 +422,7 @@ function NavbarContent() {
     }
     setChatPanelOpen(true)
     setFrontPanel('chat')
-  }, [chatPanelOpen, voicePanelOpen, frontPanel, isSubscriber, router])
+  }, [chatPanelOpen, voicePanelOpen, frontPanel, isSubscriber, showSocialSubscriptionPrompt])
 
   const handleRestoreAccount = useCallback(async () => {
     setRestoreLoading(true)
@@ -422,8 +454,7 @@ function NavbarContent() {
     (e: React.MouseEvent<HTMLAnchorElement>) => {
       if (!isSubscriber) {
         e.preventDefault()
-        alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
-        router.push('/pricing')
+        showSocialSubscriptionPrompt('post')
         return
       }
       const href = '/upload'
@@ -441,6 +472,7 @@ function NavbarContent() {
       router,
       isSubscriber,
       isMobileViewport,
+      showSocialSubscriptionPrompt,
     ]
   )
 
@@ -911,6 +943,7 @@ function NavbarContent() {
           <div className="navbar-actions flex items-center gap-2 flex-shrink-0">
             {isNavbarItemEnabled('phone') && (
               <button
+                ref={talkButtonRef}
                 type="button"
                 onClick={handleToggleTalk}
                 className="inline-flex h-9 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg bg-emerald-600 px-px text-center hover:bg-emerald-700 transition-colors [-webkit-tap-highlight-color:transparent]"
@@ -924,6 +957,8 @@ function NavbarContent() {
             {isNavbarItemEnabled('chat') && (
               <div className="relative">
                 <button
+                  ref={chatButtonRef}
+                  type="button"
                   onClick={handleToggleChat}
                   className="inline-flex h-9 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg bg-yellow-300 px-px text-center hover:bg-yellow-400 transition-colors [-webkit-tap-highlight-color:transparent]"
                   aria-label={t('kong')}
@@ -946,6 +981,7 @@ function NavbarContent() {
               <div className="flex items-center gap-2">
                 {isNavbarItemEnabled('upload') && (
                   <Link
+                    ref={postButtonRef}
                     href={isSubscriber ? '/upload' : '/pricing'}
                     onClick={handlePostClick}
                     className="relative z-[2] inline-flex h-9 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg bg-blue-600 px-px text-center hover:bg-blue-700 transition-colors [-webkit-tap-highlight-color:transparent]"
@@ -1591,6 +1627,12 @@ function NavbarContent() {
           panelMode="voice"
         />
       )}
+
+      <SocialSubscriptionPrompt
+        open={socialSubPromptOpen}
+        anchorEl={socialSubPromptAnchorEl}
+        onClose={closeSocialSubscriptionPrompt}
+      />
 
     </nav>
     </VoiceCallProvider>

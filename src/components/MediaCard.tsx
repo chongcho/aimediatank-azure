@@ -47,6 +47,7 @@ import {
 import { useAdminContentElevation } from '@/hooks/useAdminContentElevation'
 import {
   isSocialSubscriberRole,
+  openSocialSubscriptionPrompt,
   SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE,
 } from '@/lib/socialSubscriptionGate'
 
@@ -119,10 +120,9 @@ export default function MediaCard({
   const isSocialSubscriber = isSocialSubscriberRole(session?.user?.role)
   const requireSocialSubscription = useCallback(() => {
     if (isSocialSubscriber) return false
-    alert(SOCIAL_SUBSCRIPTION_REQUIRED_MESSAGE)
-    router.push('/pricing')
+    openSocialSubscriptionPrompt({ anchor: 'chat' })
     return true
-  }, [isSocialSubscriber, router])
+  }, [isSocialSubscriber])
   const { contentElevated: adminContentElevated } = useAdminContentElevation()
   const { mode: cardTextMode } = useFeedCardTextMode()
   const { localeTag } = useUiLocale()
