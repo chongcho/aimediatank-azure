@@ -91,7 +91,7 @@ function requestCanvasCaptureFrame(stream: MediaStream) {
 /**
  * Browser MediaRecorder (esp. Windows H.264) treats videoBitsPerSecond as a soft
  * hint and often snaps to coarse ladders — e.g. request 19.5M → ~10M avg, 20M → ~13M.
- * Over-request so a UI target of 10–12 Mbps is more likely to land in that range.
+ * Over-request so the UI target Mbps is more likely to land near the average.
  */
 function requestVideoBitsPerSecond(targetMbps: number): number {
   const t = clamp(targetMbps, 1, 50)
@@ -103,6 +103,25 @@ function requestVideoBitsPerSecond(targetMbps: number): number {
     requestMbps = Math.max(requestMbps, t + 2)
   }
   return Math.round(clamp(requestMbps, 1, 55) * 1_000_000)
+}
+
+/** Prefer H.264 MP4 (High Profile Level 4.0 when supported); WebM only if MP4 is unavailable. */
+function pickExportMimeType(): string {
+  // avc1.640028 = High Profile, Level 4.0; mp4a.40.2 = AAC-LC
+  const preferred = [
+    'video/mp4;codecs="avc1.640028,mp4a.40.2"',
+    'video/mp4;codecs=avc1.640028,mp4a.40.2',
+    'video/mp4;codecs="avc1.640028"',
+    'video/mp4;codecs=avc1.640028',
+    'video/mp4;codecs="avc1.4D4028,mp4a.40.2"',
+    'video/mp4;codecs="avc1.4D401E,mp4a.40.2"',
+    'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+    'video/mp4',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ]
+  return preferred.find((m) => MediaRecorder.isTypeSupported(m)) || 'video/webm'
 }
 
 /** True when the source element appears to have a real audio stream (not silent mux). */
@@ -1082,17 +1101,8 @@ export default function CropToolPage() {
         }
       }
 
-      // VP9/WebM usually follows bitrate more linearly than Windows H.264 MP4 ladders.
-      const preferred = [
-        'video/webm;codecs=vp9',
-        'video/webm;codecs=vp9,opus',
-        'video/webm;codecs=vp8,opus',
-        'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
-        'video/mp4;codecs="avc1.4D401E,mp4a.40.2"',
-        'video/mp4',
-        'video/webm',
-      ]
-      const mime = preferred.find((m) => MediaRecorder.isTypeSupported(m)) || 'video/webm'
+      // Prefer MP4/H.264; WebM only when the browser cannot record MP4.
+      const mime = pickExportMimeType()
       const usingAvc = mime.includes('mp4') || mime.includes('avc1')
       const hasSourceAudio = videoElementHasAudio(video)
 
@@ -1481,10 +1491,9 @@ export default function CropToolPage() {
                       <h3 className="font-medium text-white mb-3">Crop Tool Setting</h3>
                       {mediaType === 'video' && (
                         <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                          Frame rate is enforced on export. For ~10–12 Mbps average, set target about 10–12 (the tool
-                          over-requests so browser H.264 ladders land closer). Tiny changes like 19.5 vs 20 can still
-                          jump a lot on MP4; Chrome may export WebM/VP9 when that follows bitrate more accurately.
-                          Audio is included only when the source has an audible track.
+                          Frame rate is enforced on export. Prefer MP4/H.264 when the browser supports it (WebM only as
+                          fallback). Video/audio bitrates follow the targets below — browser encoders may average
+                          lower or snap to coarse steps. Audio is included only when the source has an audible track.
                         </p>
                       )}
 
