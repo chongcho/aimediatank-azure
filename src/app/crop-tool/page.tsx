@@ -88,6 +88,42 @@ function requestCanvasCaptureFrame(stream: MediaStream) {
   track?.requestFrame?.()
 }
 
+/**
+ * Browser MediaRecorder (esp. Windows H.264) treats videoBitsPerSecond as a soft
+ * hint and often snaps to coarse ladders — e.g. request 19.5M → ~10M avg, 20M → ~13M.
+ * Over-request so a UI target of 10–12 Mbps is more likely to land in that range.
+ */
+function requestVideoBitsPerSecond(targetMbps: number): number {
+  const t = clamp(targetMbps, 1, 50)
+  let requestMbps = t * 1.7
+  // Mid targets need to clear the common ~20 Mbps request floor on Chrome/Edge.
+  if (t >= 8 && t <= 14) {
+    requestMbps = Math.max(requestMbps, 20.5)
+  } else if (t > 14 && t < 20) {
+    requestMbps = Math.max(requestMbps, t + 2)
+  }
+  return Math.round(clamp(requestMbps, 1, 55) * 1_000_000)
+}
+
+/** True when the source element appears to have a real audio stream (not silent mux). */
+function videoElementHasAudio(video: HTMLVideoElement): boolean {
+  const anyV = video as HTMLVideoElement & {
+    mozHasAudio?: boolean
+    audioTracks?: { length: number }
+    captureStream?: () => MediaStream
+    mozCaptureStream?: () => MediaStream
+  }
+  if (typeof anyV.mozHasAudio === 'boolean') return anyV.mozHasAudio
+  if (anyV.audioTracks && anyV.audioTracks.length > 0) return true
+  try {
+    const s = anyV.captureStream?.() || anyV.mozCaptureStream?.()
+    if (s && s.getAudioTracks().some((t) => t.enabled && t.readyState !== 'ended')) return true
+  } catch {
+    // ignore
+  }
+  return false
+}
+
 function waitForVideoSeek(video: HTMLVideoElement, timeSec: number, timeoutMs = 8000): Promise<void> {
   const target = clamp(timeSec, 0, Math.max(0, (video.duration || timeSec) - 0.001))
   if (Math.abs(video.currentTime - target) < 0.002 && video.readyState >= 2) {
@@ -993,8 +1029,11 @@ export default function CropToolPage() {
       // cut the destination tracks (resulting in silent recordings).
       let audioCtxToClose: AudioContext | null = null
 
-      // Prefer WebAudio routing for audio tracks.
+      // Prefer WebAudio routing for audio tracks — only when source has real audio.
+      // Empty destination tracks (silent mux) force 0 kbps audio and worsen bitrate ladders.
       const addAudioTracks = async () => {
+        if (!videoElementHasAudio(video)) return
+
         let audioTracksAdded = false
 
         try {
@@ -1031,7 +1070,10 @@ export default function CropToolPage() {
         if (audioTracksAdded) return
 
         try {
-          const audioStream = (video as any).captureStream?.() as MediaStream | undefined
+          const audioStream =
+            ((video as any).captureStream?.() || (video as any).mozCaptureStream?.()) as
+              | MediaStream
+              | undefined
           if (audioStream) {
             audioStream.getAudioTracks().forEach((t) => stream.addTrack(t))
           }
@@ -1040,22 +1082,32 @@ export default function CropToolPage() {
         }
       }
 
+      // VP9/WebM usually follows bitrate more linearly than Windows H.264 MP4 ladders.
       const preferred = [
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
         'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
         'video/mp4;codecs="avc1.4D401E,mp4a.40.2"',
         'video/mp4',
-        'video/webm;codecs=vp8,opus',
         'video/webm',
       ]
       const mime = preferred.find((m) => MediaRecorder.isTypeSupported(m)) || 'video/webm'
+      const usingAvc = mime.includes('mp4') || mime.includes('avc1')
+      const hasSourceAudio = videoElementHasAudio(video)
 
-      const videoBitsPerSecond = (settings.videoBitrateMbps ?? 8) * 1_000_000
+      const targetMbps = settings.videoBitrateMbps ?? 8
+      const videoBitsPerSecond = usingAvc
+        ? requestVideoBitsPerSecond(targetMbps)
+        : Math.round(clamp(targetMbps, 1, 50) * 1_000_000)
       const audioBitsPerSecond = (settings.audioBitrateKbps ?? 256) * 1000
 
+      // Do not set bitsPerSecond together with videoBitsPerSecond — Chrome may re-split
+      // overall budget and ignore the video target.
       const recorder = new MediaRecorder(stream, {
         mimeType: mime,
-        videoBitsPerSecond: videoBitsPerSecond,
-        audioBitsPerSecond: audioBitsPerSecond,
+        videoBitsPerSecond,
+        ...(hasSourceAudio ? { audioBitsPerSecond } : {}),
       })
 
       const chunks: Blob[] = []
@@ -1429,8 +1481,9 @@ export default function CropToolPage() {
                       <h3 className="font-medium text-white mb-3">Crop Tool Setting</h3>
                       {mediaType === 'video' && (
                         <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                          Frame rate is enforced on export (frame-step when silent, real-time cadence when audio is
-                          present). Video and audio bitrates are targets — the browser encoder may average lower.
+                          Frame rate is enforced on export. For ~10–12 Mbps average, set target about 10–12 (the tool
+                          over-requests so browser H.264 ladders land closer). Tiny changes like 19.5 vs 20 can still
+                          jump a lot on MP4; Chrome may export WebM/VP9 when that follows bitrate more accurately.
                           Audio is included only when the source has an audible track.
                         </p>
                       )}
