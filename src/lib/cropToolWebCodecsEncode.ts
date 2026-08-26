@@ -60,22 +60,25 @@ function prefersSoftwareQuantizer(width: number, height: number): boolean {
  */
 function qpFromTargetMbps(targetMbps: number): number {
   const t = clamp(targetMbps, 1, 50)
-  // 12 Mbps → QP 12; 8 Mbps → QP 16; 4 Mbps → QP 20
-  return clamp(Math.round(24 - t), 8, 28)
+  // 12 Mbps → QP 10; 8 Mbps → QP 14; 4 Mbps → QP 18
+  return clamp(Math.round(22 - t), 6, 28)
 }
 
 /**
- * GOP length from target Mbps. Calibrated on 886×1920 UI preview (Windows):
- * long GOP (~2s) → ~3 Mbps; all-intra → ~62 Mbps.
- * bitrate ≈ 3 + 59 / kfEvery  →  kfEvery ≈ 59 / (target - 3)
+ * GOP length from target Mbps. Calibrated on 886×1920 UI preview (Windows OpenH264):
+ * kf=60 → ~3 Mbps, kf=7 → ~7.1 Mbps, kf=1 → ~62 Mbps.
+ * bitrate ≈ 3 + 59 / kf^1.4  →  kf ≈ ((59)/(target-3))^(1/1.4)
  */
 function keyFrameInterval(fps: number, targetMbps: number, useGopControl: boolean): number {
   const maxGop = Math.max(1, Math.round(fps * 2))
   if (!useGopControl) return maxGop
   const floorMbps = 3
   const ceilingMbps = 62
-  const t = clamp(targetMbps, floorMbps + 0.5, ceilingMbps)
-  const kf = Math.round((ceilingMbps - floorMbps) / (t - floorMbps))
+  const exponent = 1.4
+  // Aim slightly above the UI target — measured curve undershoots a bit.
+  const t = clamp(targetMbps * 1.08, floorMbps + 0.5, ceilingMbps)
+  const ratio = (ceilingMbps - floorMbps) / (t - floorMbps)
+  const kf = Math.round(Math.pow(ratio, 1 / exponent))
   return clamp(kf, 1, maxGop)
 }
 
