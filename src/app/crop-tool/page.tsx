@@ -82,12 +82,6 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
 }
 
-/** Ask canvas.captureStream(0) to emit the frame we just drew (Chrome / Edge). */
-function requestCanvasCaptureFrame(stream: MediaStream) {
-  const track = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void }
-  track?.requestFrame?.()
-}
-
 /**
  * Browser MediaRecorder (esp. Windows H.264) treats videoBitsPerSecond as a soft
  * hint and often snaps to coarse ladders — e.g. request 19.5M → ~10M avg, 20M → ~13M.
@@ -142,19 +136,26 @@ function videoElementHasAudio(video: HTMLVideoElement): boolean {
   return false
 }
 
-/** Silent stereo track so MP4 exports include AAC (App Store preview requires an audio track). */
+/**
+ * Near-silent stereo track so MP4 exports include real AAC (App Store wants an audio track).
+ * Gain must be > 0 or MediaRecorder often writes 0 kbps / empty audio.
+ */
 function attachSilentAudioTrack(
   stream: MediaStream
 ): { audioCtx: AudioContext; oscillator: OscillatorNode } | null {
   try {
     const AudioContextCtor =
-      (window.AudioContext || (window as any).webkitAudioContext) as (new () => AudioContext) | undefined
+      (window.AudioContext || (window as any).webkitAudioContext) as
+        | (new (opts?: AudioContextOptions) => AudioContext)
+        | undefined
     if (!AudioContextCtor) return null
-    const audioCtx = new AudioContextCtor()
+    const audioCtx = new AudioContextCtor({ sampleRate: 48000 })
     const dest = audioCtx.createMediaStreamDestination()
     const oscillator = audioCtx.createOscillator()
     const gain = audioCtx.createGain()
-    gain.gain.value = 0
+    // ~−80 dB — inaudible, but enough energy for AAC to encode a non-zero bitrate.
+    oscillator.frequency.value = 20
+    gain.gain.value = 0.0001
     oscillator.connect(gain)
     gain.connect(dest)
     oscillator.start()
@@ -1063,9 +1064,9 @@ export default function CropToolPage() {
       if (!ctx) throw new Error('Cannot create canvas context')
 
       const fps = settings.videoFps ?? 30
-      // frameRate 0 = manual frames only (via requestFrame / canvas paints).
-      // Passing fps here AND calling requestFrame() doubles frames → ~2× duration.
-      const stream = canvas.captureStream(0)
+      // Timed captureStream drives container CFR (e.g. 30). Do NOT also call requestFrame —
+      // that doubles frames. Keep canvas updated via rAF while the video plays at 1×.
+      const stream = canvas.captureStream(fps)
 
       // When we route audio through WebAudio -> MediaStream, we must keep the
       // AudioContext alive until MediaRecorder finishes; closing it early can
@@ -1202,7 +1203,8 @@ export default function CropToolPage() {
           })
       }
 
-      let intervalId: number | null = null
+      let rafId: number | null = null
+      let stopTimerId: number | null = null
       const cleanupAudio = () => {
         try {
           silentOscillator?.stop()
@@ -1214,7 +1216,10 @@ export default function CropToolPage() {
       const stop = () => {
         if (stopped) return
         stopped = true
-        if (intervalId != null) clearInterval(intervalId)
+        if (rafId != null) cancelAnimationFrame(rafId)
+        rafId = null
+        if (stopTimerId != null) window.clearTimeout(stopTimerId)
+        stopTimerId = null
         try {
           video.pause()
         } catch {}
@@ -1256,12 +1261,7 @@ export default function CropToolPage() {
         ) {
           applyPrivacyMasksAfterDraw(ctx, canvas, [metaAiOutputRect], 'blur')
         }
-
-        requestCanvasCaptureFrame(stream)
       }
-
-      const totalFrames = Math.max(1, Math.round(total * fps))
-      const frameIntervalMs = Math.max(1, 1000 / fps)
 
       // Mute source when we are not capturing its audio (silent AAC is on the stream instead).
       // Muted also helps browsers allow play() during encode without a gesture race.
@@ -1280,20 +1280,20 @@ export default function CropToolPage() {
           reject(new Error('MediaRecorder failed'))
         }
 
-        // Real-time 1× playback + fixed draw cadence. MediaRecorder timestamps follow wall
-        // clock from requestFrame — seek-step encode is slower than 1/fps and stretches
-        // duration (~2× slow-mo). Do not use paced seek for silent sources.
+        // Real-time 1× playback. captureStream(fps) stamps CFR; rAF only refreshes pixels.
         const runRealtimeEncode = async () => {
-          let frameIndex = 0
+          const encodeStart = performance.now()
 
-          const emitFrame = () => {
+          const tick = () => {
             if (stopped) return
             drawFrame()
-            frameIndex++
-            onProgress(clamp(Math.round((frameIndex / totalFrames) * 100), 0, 100))
-            if (frameIndex >= totalFrames || video.currentTime >= targetEnd - 0.01 || video.ended) {
+            const elapsed = (performance.now() - encodeStart) / 1000
+            onProgress(clamp(Math.round((elapsed / total) * 100), 0, 100))
+            if (video.currentTime >= targetEnd - 0.01 || video.ended) {
               stop()
+              return
             }
+            rafId = requestAnimationFrame(tick)
           }
 
           video.ontimeupdate = () => {
@@ -1303,11 +1303,16 @@ export default function CropToolPage() {
             }
           }
 
+          // Hard stop slightly after trim length so captureStream cannot run forever.
+          stopTimerId = window.setTimeout(() => {
+            if (!stopped) stop()
+          }, Math.ceil((total + 0.35) * 1000))
+
           recorder.start(500)
           onProgress(0)
-          emitFrame()
-          intervalId = window.setInterval(emitFrame, frameIntervalMs)
+          drawFrame()
           await video.play()
+          rafId = requestAnimationFrame(tick)
         }
 
         void (async () => {
@@ -1528,9 +1533,9 @@ export default function CropToolPage() {
                       <h3 className="font-medium text-white mb-3">Crop Tool Setting</h3>
                       {mediaType === 'video' && (
                         <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                          Export plays the trim at 1× while capturing frames (use 30 fps for App Store previews). Prefer
-                          MP4/H.264 when the browser supports it (WebM only as fallback). Video bitrate is a target —
-                          encoders may average lower. Silent sources get a muted AAC track so the container stays valid.
+                          Export plays the trim at 1×; the browser stamps the target frame rate into the file (use 30 for
+                          App Store previews). Prefer MP4/H.264 when supported (WebM only as fallback). Video bitrate is
+                          a target — encoders may average lower. Silent sources get a near-silent AAC track.
                         </p>
                       )}
 
