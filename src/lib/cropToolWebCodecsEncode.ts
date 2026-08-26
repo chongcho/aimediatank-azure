@@ -25,6 +25,9 @@ type HardwarePreference = 'no-preference' | 'prefer-hardware' | 'prefer-software
 type AvcPick = {
   codec: string
   hardwareAcceleration?: HardwarePreference
+  /** Bitrate targets work on HW; Windows OpenH264 soft path needs quantizer. */
+  rateControl: 'bitrate' | 'quantizer'
+  quantizer?: number
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -37,61 +40,97 @@ function waitMs(ms: number) {
   })
 }
 
-/**
- * Software AVC often lands ~15–20% under the configured bitrate
- * (e.g. 12 Mbps UI → ~9.9 Mbps average with VBR). Over-request so the file average
- * is nearer the target. Do NOT use bitrateMode:'constant' on Windows soft AVC —
- * it can collapse output to ~1 Mbps.
- */
 function requestWebCodecsVideoBitrate(targetMbps: number): number {
   const t = clamp(targetMbps, 1, 50)
-  return Math.round(clamp(t * 1.25, 1, 55) * 1_000_000)
+  // Mild over-request for hardware VBR (soft path uses quantizer instead).
+  return Math.round(clamp(t * 1.15, 1, 55) * 1_000_000)
+}
+
+/**
+ * Map UI Mbps → H.264 QP for software OpenH264 (bitrate mode is ignored there).
+ * Lower QP = higher quality / bitrate. Tuned for ~886×1920@30 screen captures:
+ * QP 18 ≈ 10–15 Mbps; QP 22 ≈ 5–8 Mbps; QP 28 ≈ 2–4 Mbps.
+ */
+function qpFromTargetMbps(targetMbps: number): number {
+  const t = clamp(targetMbps, 1, 50)
+  return clamp(Math.round(30 - t), 12, 36)
+}
+
+async function configSupported(config: VideoEncoderConfig): Promise<boolean> {
+  try {
+    const { supported } = await VideoEncoder.isConfigSupported(config)
+    return !!supported
+  } catch {
+    return false
+  }
 }
 
 async function pickAvcCodec(
   width: number,
   height: number,
   bitrate: number,
-  fps: number
+  fps: number,
+  quantizer: number
 ): Promise<AvcPick | null> {
   if (typeof VideoEncoder === 'undefined' || !VideoEncoder.isConfigSupported) return null
 
-  // Prefer High@L4.0 (App Store), then step down. Soft-first helps odd App Store sizes (e.g. 886×1920).
   const codecs = ['avc1.640028', 'avc1.64001F', 'avc1.4D4028', 'avc1.42E01E']
-  const accelOptions: Array<HardwarePreference | undefined> = [
-    'prefer-software',
-    'no-preference',
-    'prefer-hardware',
-    undefined,
-  ]
 
+  // 1) Hardware / default with real bitrate — honors Mbps when the size is accepted.
   for (const codec of codecs) {
-    for (const hardwareAcceleration of accelOptions) {
+    for (const hardwareAcceleration of ['prefer-hardware', 'no-preference', undefined] as const) {
       const base: VideoEncoderConfig = {
         codec,
         width,
         height,
         bitrate,
         framerate: fps,
+        avc: { format: 'avc' },
       }
       if (hardwareAcceleration) base.hardwareAcceleration = hardwareAcceleration
-
-      const variants: VideoEncoderConfig[] = [
-        // Prefer default VBR — constant mode on Windows OpenH264 can ignore the bitrate floor.
-        { ...base, avc: { format: 'avc' } },
-        { ...base },
-      ]
-
-      for (const config of variants) {
-        try {
-          const { supported } = await VideoEncoder.isConfigSupported(config)
-          if (supported) return { codec, hardwareAcceleration }
-        } catch {
-          // try next
-        }
+      if (await configSupported(base)) {
+        return { codec, hardwareAcceleration, rateControl: 'bitrate' }
       }
     }
   }
+
+  // 2) Software + quantizer — OpenH264 on Windows ignores bitrate (~1 Mbps); QP controls size.
+  for (const codec of codecs) {
+    const qConfig: VideoEncoderConfig = {
+      codec,
+      width,
+      height,
+      framerate: fps,
+      bitrateMode: 'quantizer',
+      hardwareAcceleration: 'prefer-software',
+      avc: { format: 'avc' },
+    }
+    if (await configSupported(qConfig)) {
+      return {
+        codec,
+        hardwareAcceleration: 'prefer-software',
+        rateControl: 'quantizer',
+        quantizer,
+      }
+    }
+  }
+
+  // 3) Last resort: software VBR (often ~1 Mbps on Windows — better than failing entirely).
+  for (const codec of codecs) {
+    const soft: VideoEncoderConfig = {
+      codec,
+      width,
+      height,
+      bitrate,
+      framerate: fps,
+      hardwareAcceleration: 'prefer-software',
+      avc: { format: 'avc' },
+    }
+    if (await configSupported(soft)) {
+      return { codec, hardwareAcceleration: 'prefer-software', rateControl: 'bitrate' }
+    }
+  }
+
   return null
 }
 
@@ -178,18 +217,21 @@ function configureVideoEncoder(
   bitrate: number,
   fps: number
 ) {
-  // Default VBR only. bitrateMode:'constant' + latencyMode:'quality' regressed
-  // App Store exports from ~10 Mbps down to ~1 Mbps on Windows software AVC.
   const base: VideoEncoderConfig = {
     codec: pick.codec,
     width,
     height,
-    bitrate,
     framerate: fps,
     avc: { format: 'avc' },
   }
   if (pick.hardwareAcceleration) base.hardwareAcceleration = pick.hardwareAcceleration
-  encoder.configure(base)
+
+  if (pick.rateControl === 'quantizer') {
+    encoder.configure({ ...base, bitrateMode: 'quantizer' })
+    return
+  }
+
+  encoder.configure({ ...base, bitrate })
 }
 
 async function encodeSilentOrPcmAac(opts: {
@@ -290,20 +332,24 @@ export async function encodeCroppedVideoWebCodecs(opts: WebCodecsEncodeOptions):
   const totalFrames = Math.max(1, Math.round(total * fps))
   const frameDurationUs = Math.round(1_000_000 / fps)
   const videoBitrate = requestWebCodecsVideoBitrate(videoBitrateMbps)
+  const quantizer = qpFromTargetMbps(videoBitrateMbps)
   const audioBitrate = Math.round(clamp(audioBitrateKbps, 64, 512) * 1000)
   const sampleRate = 48000
   const channels = 2
 
-  console.info(
-    `[crop-tool] WebCodecs target ${videoBitrateMbps} Mbps → encoder request ${(videoBitrate / 1_000_000).toFixed(2)} Mbps @ ${width}×${height} ${fps}fps`
-  )
-
-  const pick = await pickAvcCodec(width, height, videoBitrate, fps)
+  const pick = await pickAvcCodec(width, height, videoBitrate, fps, quantizer)
   if (!pick) {
     throw new Error(
       `No H.264 VideoEncoder config for ${width}×${height}@${fps}. Use Chrome/Edge, or check console for encoder support.`
     )
   }
+
+  console.info(
+    `[crop-tool] WebCodecs ${width}×${height}@${fps} target ${videoBitrateMbps} Mbps → ` +
+      (pick.rateControl === 'quantizer'
+        ? `software QP ${pick.quantizer} (${pick.codec})`
+        : `bitrate ${(videoBitrate / 1_000_000).toFixed(2)} Mbps (${pick.codec}, ${pick.hardwareAcceleration ?? 'default'})`)
+  )
 
   const wantAudio =
     typeof AudioEncoder !== 'undefined' &&
@@ -361,7 +407,13 @@ export async function encodeCroppedVideoWebCodecs(opts: WebCodecsEncodeOptions):
       duration: frameDurationUs,
     })
     try {
-      videoEncoder.encode(frame, { keyFrame: i === 0 || i % Math.max(1, fps * 2) === 0 })
+      const encodeOpts: VideoEncoderEncodeOptions = {
+        keyFrame: i === 0 || i % Math.max(1, fps * 2) === 0,
+      }
+      if (pick.rateControl === 'quantizer' && pick.quantizer != null) {
+        encodeOpts.avc = { quantizer: pick.quantizer }
+      }
+      videoEncoder.encode(frame, encodeOpts)
     } finally {
       frame.close()
     }
