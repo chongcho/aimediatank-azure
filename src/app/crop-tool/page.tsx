@@ -1159,30 +1159,27 @@ export default function CropToolPage() {
 
       // Preferred path: WebCodecs stamps exact CFR + real AAC (MediaRecorder cannot on Windows).
       if (canUseWebCodecsVideoEncode()) {
-        try {
-          video.muted = true
-          await preparePrivacyAndWatermark()
-          return await encodeCroppedVideoWebCodecs({
-            video,
-            canvas,
-            drawFrame,
-            startSec,
-            endSec: targetEnd,
-            fps,
-            videoBitrateMbps: settings.videoBitrateMbps ?? 8,
-            audioBitrateKbps: settings.audioBitrateKbps ?? 256,
-            sourceFile: source,
-            outputBaseName: source.name,
-            onProgress,
-            waitForVideoSeek,
-          })
-        } catch (e) {
-          console.warn('[crop-tool] WebCodecs encode failed; falling back to MediaRecorder', e)
-          onProgress(0)
-        }
+        video.muted = true
+        await preparePrivacyAndWatermark()
+        // Do not silently fall back — MediaRecorder output fails App Store fps/audio checks.
+        return await encodeCroppedVideoWebCodecs({
+          video,
+          canvas,
+          drawFrame,
+          startSec,
+          endSec: targetEnd,
+          fps,
+          videoBitrateMbps: settings.videoBitrateMbps ?? 8,
+          audioBitrateKbps: settings.audioBitrateKbps ?? 256,
+          sourceFile: source,
+          outputBaseName: source.name,
+          onProgress,
+          waitForVideoSeek,
+        })
       }
 
-      // Fallback: MediaRecorder (best-effort; fps/audio often wrong on Windows).
+      // Fallback only when WebCodecs API is missing (e.g. older Safari).
+      console.warn('[crop-tool] WebCodecs unavailable; using MediaRecorder (fps/audio may be wrong)')
       const stream = canvas.captureStream(fps)
 
       // When we route audio through WebAudio -> MediaStream, we must keep the
@@ -1563,9 +1560,9 @@ export default function CropToolPage() {
                       <h3 className="font-medium text-white mb-3">Crop Tool Setting</h3>
                       {mediaType === 'video' && (
                         <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                          Export uses WebCodecs when available so frame rate and duration match the targets (use 30 fps
-                          for App Store previews). Falls back to MediaRecorder if needed. Prefer Chrome/Edge for best
-                          H.264 + AAC results.
+                          Export uses WebCodecs (Chrome/Edge recommended) so frame rate and duration match the targets —
+                          use 30 fps for App Store previews. If export fails, open the browser console for the encoder
+                          error; MediaRecorder is only used when WebCodecs is unavailable.
                         </p>
                       )}
 

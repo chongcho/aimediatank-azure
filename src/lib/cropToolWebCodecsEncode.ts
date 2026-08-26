@@ -20,6 +20,13 @@ export type WebCodecsEncodeOptions = {
   waitForVideoSeek: (video: HTMLVideoElement, timeSec: number) => Promise<void>
 }
 
+type HardwarePreference = 'no-preference' | 'prefer-hardware' | 'prefer-software'
+
+type AvcPick = {
+  codec: string
+  hardwareAcceleration?: HardwarePreference
+}
+
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
 }
@@ -35,36 +42,56 @@ async function pickAvcCodec(
   height: number,
   bitrate: number,
   fps: number
-): Promise<string | null> {
+): Promise<AvcPick | null> {
   if (typeof VideoEncoder === 'undefined' || !VideoEncoder.isConfigSupported) return null
-  // Prefer High@L4.0 (App Store preview guidance), then step down.
-  const candidates = ['avc1.640028', 'avc1.64001F', 'avc1.4D4028', 'avc1.42E01E']
-  for (const codec of candidates) {
-    try {
-      const { supported } = await VideoEncoder.isConfigSupported({
+
+  // Prefer High@L4.0 (App Store), then step down. Soft-first helps odd App Store sizes (e.g. 886×1920).
+  const codecs = ['avc1.640028', 'avc1.64001F', 'avc1.4D4028', 'avc1.42E01E']
+  const accelOptions: Array<HardwarePreference | undefined> = [
+    'prefer-software',
+    'no-preference',
+    'prefer-hardware',
+    undefined,
+  ]
+
+  for (const codec of codecs) {
+    for (const hardwareAcceleration of accelOptions) {
+      const base: VideoEncoderConfig = {
         codec,
         width,
         height,
         bitrate,
         framerate: fps,
-        avc: { format: 'avc' },
-      })
-      if (supported) return codec
-    } catch {
-      // try next
+      }
+      if (hardwareAcceleration) base.hardwareAcceleration = hardwareAcceleration
+
+      const variants: VideoEncoderConfig[] = [
+        { ...base, avc: { format: 'avc' } },
+        { ...base, avc: { format: 'avc' }, bitrateMode: 'constant' },
+        { ...base },
+      ]
+
+      for (const config of variants) {
+        try {
+          const { supported } = await VideoEncoder.isConfigSupported(config)
+          if (supported) return { codec, hardwareAcceleration }
+        } catch {
+          // try next
+        }
+      }
     }
   }
   return null
 }
 
-async function audioEncoderSupported(): Promise<boolean> {
+async function audioEncoderSupported(bitrate: number): Promise<boolean> {
   if (typeof AudioEncoder === 'undefined' || !AudioEncoder.isConfigSupported) return false
   try {
     const { supported } = await AudioEncoder.isConfigSupported({
       codec: 'mp4a.40.2',
       numberOfChannels: 2,
       sampleRate: 48000,
-      bitrate: 128_000,
+      bitrate,
     })
     return !!supported
   } catch {
@@ -132,6 +159,96 @@ export function canUseWebCodecsVideoEncode(): boolean {
   return typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined'
 }
 
+function configureVideoEncoder(
+  encoder: VideoEncoder,
+  pick: AvcPick,
+  width: number,
+  height: number,
+  bitrate: number,
+  fps: number
+) {
+  const base: VideoEncoderConfig = {
+    codec: pick.codec,
+    width,
+    height,
+    bitrate,
+    framerate: fps,
+    avc: { format: 'avc' },
+  }
+  if (pick.hardwareAcceleration) base.hardwareAcceleration = pick.hardwareAcceleration
+
+  try {
+    encoder.configure({ ...base, bitrateMode: 'constant' })
+  } catch {
+    encoder.configure(base)
+  }
+}
+
+async function encodeSilentOrPcmAac(opts: {
+  pcm: Float32Array | null
+  totalSec: number
+  sampleRate: number
+  channels: number
+  bitrate: number
+}): Promise<Array<{ chunk: EncodedAudioChunk; meta?: EncodedAudioChunkMetadata }>> {
+  const { pcm, totalSec, sampleRate, channels, bitrate } = opts
+  const chunks: Array<{ chunk: EncodedAudioChunk; meta?: EncodedAudioChunkMetadata }> = []
+
+  const audioEncoder = new AudioEncoder({
+    output: (chunk, meta) => {
+      chunks.push({ chunk, meta })
+    },
+    error: (e) => {
+      throw e instanceof Error ? e : new Error(String(e))
+    },
+  })
+  audioEncoder.configure({
+    codec: 'mp4a.40.2',
+    numberOfChannels: channels,
+    sampleRate,
+    bitrate,
+  })
+
+  const aacFrame = 1024
+  const totalSamples = Math.max(aacFrame, Math.round(totalSec * sampleRate))
+  const pcmInterleaved =
+    pcm && pcm.length >= totalSamples * channels ? pcm : new Float32Array(totalSamples * channels)
+  if (!pcm || pcm.length < totalSamples * channels) {
+    for (let i = 0; i < Math.min(sampleRate, pcmInterleaved.length); i++) {
+      pcmInterleaved[i] = (Math.random() * 2 - 1) * 3e-5
+    }
+  }
+
+  let sample = 0
+  let audioTsUs = 0
+  while (sample < totalSamples) {
+    const frames = Math.min(aacFrame, totalSamples - sample)
+    const planeSize = aacFrame
+    const planar = new Float32Array(planeSize * channels)
+    for (let i = 0; i < frames; i++) {
+      planar[i] = pcmInterleaved[(sample + i) * 2] ?? 0
+      planar[planeSize + i] = pcmInterleaved[(sample + i) * 2 + 1] ?? 0
+    }
+    const audioData = new AudioData({
+      format: 'f32-planar',
+      sampleRate,
+      numberOfFrames: planeSize,
+      numberOfChannels: channels,
+      timestamp: audioTsUs,
+      data: planar,
+    })
+    audioEncoder.encode(audioData)
+    audioData.close()
+    sample += frames
+    audioTsUs += Math.round((planeSize / sampleRate) * 1_000_000)
+    while (audioEncoder.encodeQueueSize > 10) await waitMs(8)
+  }
+
+  await audioEncoder.flush()
+  audioEncoder.close()
+  return chunks
+}
+
 /**
  * Encode cropped canvas frames to MP4 with exact CFR timestamps (+ AAC when supported).
  */
@@ -153,6 +270,10 @@ export async function encodeCroppedVideoWebCodecs(opts: WebCodecsEncodeOptions):
 
   const width = canvas.width
   const height = canvas.height
+  if (width < 2 || height < 2 || width % 2 !== 0 || height % 2 !== 0) {
+    throw new Error(`Canvas size must be even (got ${width}×${height})`)
+  }
+
   const total = Math.max(0.1, endSec - startSec)
   const totalFrames = Math.max(1, Math.round(total * fps))
   const frameDurationUs = Math.round(1_000_000 / fps)
@@ -161,13 +282,74 @@ export async function encodeCroppedVideoWebCodecs(opts: WebCodecsEncodeOptions):
   const sampleRate = 48000
   const channels = 2
 
-  const codec = await pickAvcCodec(width, height, videoBitrate, fps)
-  if (!codec) throw new Error('No supported H.264 VideoEncoder config')
+  const pick = await pickAvcCodec(width, height, videoBitrate, fps)
+  if (!pick) {
+    throw new Error(
+      `No H.264 VideoEncoder config for ${width}×${height}@${fps}. Use Chrome/Edge, or check console for encoder support.`
+    )
+  }
 
-  const wantAudio = await audioEncoderSupported()
+  const wantAudio = await audioEncoderSupported(audioBitrate)
   const pcm = wantAudio ? await extractPcmStereo(sourceFile, startSec, endSec, sampleRate) : null
-  // Always include AAC when encoder exists — silence if source has no usable audio.
-  const includeAudio = wantAudio
+
+  let audioChunks: Array<{ chunk: EncodedAudioChunk; meta?: EncodedAudioChunkMetadata }> = []
+  if (wantAudio) {
+    try {
+      audioChunks = await encodeSilentOrPcmAac({
+        pcm,
+        totalSec: total,
+        sampleRate,
+        channels,
+        bitrate: audioBitrate,
+      })
+    } catch (e) {
+      console.warn('[crop-tool] AAC encode failed; writing video-only MP4', e)
+      audioChunks = []
+    }
+  }
+  const audioOk = audioChunks.length > 0
+
+  const videoChunks: Array<{ chunk: EncodedVideoChunk; meta?: EncodedVideoChunkMetadata }> = []
+  let videoEncodeError: Error | null = null
+  const videoEncoder = new VideoEncoder({
+    output: (chunk, meta) => {
+      videoChunks.push({ chunk, meta })
+    },
+    error: (e) => {
+      videoEncodeError = e instanceof Error ? e : new Error(String(e))
+    },
+  })
+  configureVideoEncoder(videoEncoder, pick, width, height, videoBitrate, fps)
+
+  onProgress(0)
+  video.muted = true
+  for (let i = 0; i < totalFrames; i++) {
+    if (videoEncodeError) throw videoEncodeError
+    const t = Math.min(startSec + i / fps, Math.max(startSec, endSec - 0.001))
+    await waitForVideoSeek(video, t)
+    drawFrame()
+
+    const frame = new VideoFrame(canvas, {
+      timestamp: i * frameDurationUs,
+      duration: frameDurationUs,
+    })
+    try {
+      videoEncoder.encode(frame, { keyFrame: i === 0 || i % Math.max(1, fps * 2) === 0 })
+    } finally {
+      frame.close()
+    }
+
+    onProgress(clamp(Math.round(((i + 1) / totalFrames) * 100), 0, 100))
+    while (videoEncoder.encodeQueueSize > 8) await waitMs(8)
+  }
+
+  await videoEncoder.flush()
+  if (videoEncodeError) throw videoEncodeError
+  videoEncoder.close()
+
+  if (videoChunks.length === 0) {
+    throw new Error('WebCodecs produced no video frames')
+  }
 
   const target = new ArrayBufferTarget()
   const muxer = new Muxer({
@@ -178,7 +360,7 @@ export async function encodeCroppedVideoWebCodecs(opts: WebCodecsEncodeOptions):
       height,
       frameRate: fps,
     },
-    ...(includeAudio
+    ...(audioOk
       ? {
           audio: {
             codec: 'aac' as const,
@@ -190,110 +372,17 @@ export async function encodeCroppedVideoWebCodecs(opts: WebCodecsEncodeOptions):
     fastStart: 'in-memory',
   })
 
-  let videoEncodeError: Error | null = null
-  const videoEncoder = new VideoEncoder({
-    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error: (e) => {
-      videoEncodeError = e instanceof Error ? e : new Error(String(e))
-    },
-  })
-  videoEncoder.configure({
-    codec,
-    width,
-    height,
-    bitrate: videoBitrate,
-    framerate: fps,
-    avc: { format: 'avc' },
-    bitrateMode: 'constant',
-  })
-
-  let audioEncoder: AudioEncoder | null = null
-  let audioEncodeError: Error | null = null
-  if (includeAudio) {
-    audioEncoder = new AudioEncoder({
-      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-      error: (e) => {
-        audioEncodeError = e instanceof Error ? e : new Error(String(e))
-      },
-    })
-    audioEncoder.configure({
-      codec: 'mp4a.40.2',
-      numberOfChannels: channels,
-      sampleRate,
-      bitrate: audioBitrate,
-    })
+  for (const { chunk, meta } of videoChunks) {
+    muxer.addVideoChunk(chunk, meta)
   }
-
-  // Encode audio first (or interleaved). Silent / PCM in AAC frames of 1024 samples.
-  if (audioEncoder) {
-    const aacFrame = 1024
-    const totalSamples = Math.max(aacFrame, Math.round(total * sampleRate))
-    const pcmInterleaved = pcm && pcm.length >= totalSamples * channels
-      ? pcm
-      : new Float32Array(totalSamples * channels) // silence (or pad)
-    // Tiny dither so AAC is not metadata-only 0 kbps on some remuxers/players.
-    if (!pcm || pcm.length < totalSamples * channels) {
-      for (let i = 0; i < Math.min(4800, pcmInterleaved.length); i++) {
-        pcmInterleaved[i] = (Math.random() * 2 - 1) * 1e-5
-      }
+  if (audioOk) {
+    for (const { chunk, meta } of audioChunks) {
+      muxer.addAudioChunk(chunk, meta)
     }
-
-    let sample = 0
-    let audioTsUs = 0
-    while (sample < totalSamples) {
-      if (audioEncodeError) throw audioEncodeError
-      const frames = Math.min(aacFrame, totalSamples - sample)
-      const planeSize = frames
-      const planar = new Float32Array(planeSize * channels)
-      for (let i = 0; i < frames; i++) {
-        planar[i] = pcmInterleaved[(sample + i) * 2] ?? 0
-        planar[planeSize + i] = pcmInterleaved[(sample + i) * 2 + 1] ?? 0
-      }
-      const audioData = new AudioData({
-        format: 'f32-planar',
-        sampleRate,
-        numberOfFrames: frames,
-        numberOfChannels: channels,
-        timestamp: audioTsUs,
-        data: planar,
-      })
-      audioEncoder.encode(audioData)
-      audioData.close()
-      sample += frames
-      audioTsUs += Math.round((frames / sampleRate) * 1_000_000)
-      while (audioEncoder.encodeQueueSize > 10) await waitMs(8)
-    }
-    await audioEncoder.flush()
-    if (audioEncodeError) throw audioEncodeError
   }
-
-  onProgress(0)
-  for (let i = 0; i < totalFrames; i++) {
-    if (videoEncodeError) throw videoEncodeError
-    const t = Math.min(startSec + i / fps, endSec - 0.001)
-    await waitForVideoSeek(video, t)
-    drawFrame()
-
-    const frame = new VideoFrame(canvas, {
-      timestamp: i * frameDurationUs,
-      duration: frameDurationUs,
-    })
-    videoEncoder.encode(frame, { keyFrame: i % Math.max(1, fps * 2) === 0 || i === 0 })
-    frame.close()
-
-    onProgress(clamp(Math.round(((i + 1) / totalFrames) * 100), 0, 100))
-    while (videoEncoder.encodeQueueSize > 8) await waitMs(8)
-  }
-
-  await videoEncoder.flush()
-  if (videoEncodeError) throw videoEncodeError
-
-  videoEncoder.close()
-  audioEncoder?.close()
 
   muxer.finalize()
-  const buffer = target.buffer
-  return new File([buffer], outputBaseName.replace(/\.[^.]+$/, '') + '.mp4', {
+  return new File([target.buffer], outputBaseName.replace(/\.[^.]+$/, '') + '.mp4', {
     type: 'video/mp4',
     lastModified: Date.now(),
   })
