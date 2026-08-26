@@ -47,14 +47,21 @@ function requestWebCodecsVideoBitrate(targetMbps: number): number {
 }
 
 /**
- * Map UI Mbps → H.264 QP for software OpenH264 (bitrate mode is ignored there).
- * Lower QP = higher quality / bitrate. Calibrated on Windows @ 886×1920@30 UI captures:
- * QP 18 landed ~3 Mbps (not ~12); use much lower QP for high targets.
+ * Odd output widths (e.g. App Store 886×1920) make hardware H.264 accept the config
+ * but ignore both bitrate and quantizer — ~3 Mbps regardless of settings.
+ */
+function prefersSoftwareQuantizer(width: number, height: number): boolean {
+  return width % 16 !== 0 || height % 16 !== 0
+}
+
+/**
+ * Map UI Mbps → H.264 QP for software OpenH264 quantizer mode.
+ * Lower QP = higher quality / bitrate.
  */
 function qpFromTargetMbps(targetMbps: number): number {
   const t = clamp(targetMbps, 1, 50)
-  // 12 Mbps → QP 9; 8 Mbps → QP 13; 4 Mbps → QP 18
-  return clamp(Math.round(22 - t * 1.1), 6, 32)
+  // 12 Mbps → QP 4; 8 Mbps → QP 8; 4 Mbps → QP 13
+  return clamp(Math.round(18 - t * 1.2), 2, 28)
 }
 
 async function configSupported(config: VideoEncoderConfig): Promise<boolean> {
@@ -76,47 +83,66 @@ async function pickAvcCodec(
   if (typeof VideoEncoder === 'undefined' || !VideoEncoder.isConfigSupported) return null
 
   const codecs = ['avc1.640028', 'avc1.64001F', 'avc1.4D4028', 'avc1.42E01E']
+  const tryQuantizerFirst = prefersSoftwareQuantizer(width, height)
 
-  // 1) Hardware / default with real bitrate — honors Mbps when the size is accepted.
-  for (const codec of codecs) {
-    for (const hardwareAcceleration of ['prefer-hardware', 'no-preference', undefined] as const) {
-      const base: VideoEncoderConfig = {
+  const trySoftwareQuantizer = async (): Promise<AvcPick | null> => {
+    for (const codec of codecs) {
+      const qConfig: VideoEncoderConfig = {
         codec,
         width,
         height,
-        bitrate,
         framerate: fps,
+        bitrateMode: 'quantizer',
+        hardwareAcceleration: 'prefer-software',
         avc: { format: 'avc' },
       }
-      if (hardwareAcceleration) base.hardwareAcceleration = hardwareAcceleration
-      if (await configSupported(base)) {
-        return { codec, hardwareAcceleration, rateControl: 'bitrate' }
+      if (await configSupported(qConfig)) {
+        return {
+          codec,
+          hardwareAcceleration: 'prefer-software',
+          rateControl: 'quantizer',
+          quantizer,
+        }
       }
     }
+    return null
   }
 
-  // 2) Software + quantizer — OpenH264 on Windows ignores bitrate (~1 Mbps); QP controls size.
-  for (const codec of codecs) {
-    const qConfig: VideoEncoderConfig = {
-      codec,
-      width,
-      height,
-      framerate: fps,
-      bitrateMode: 'quantizer',
-      hardwareAcceleration: 'prefer-software',
-      avc: { format: 'avc' },
-    }
-    if (await configSupported(qConfig)) {
-      return {
-        codec,
-        hardwareAcceleration: 'prefer-software',
-        rateControl: 'quantizer',
-        quantizer,
+  const tryHardwareBitrate = async (): Promise<AvcPick | null> => {
+    for (const codec of codecs) {
+      for (const hardwareAcceleration of ['prefer-hardware', 'no-preference', undefined] as const) {
+        const base: VideoEncoderConfig = {
+          codec,
+          width,
+          height,
+          bitrate,
+          framerate: fps,
+          avc: { format: 'avc' },
+        }
+        if (hardwareAcceleration) base.hardwareAcceleration = hardwareAcceleration
+        if (await configSupported(base)) {
+          return { codec, hardwareAcceleration, rateControl: 'bitrate' }
+        }
       }
     }
+    return null
   }
 
-  // 3) Last resort: software VBR (often ~1 Mbps on Windows — better than failing entirely).
+  // Odd sizes: hardware accepts config but caps ~3 Mbps and ignores quantizer — soft QP first.
+  if (tryQuantizerFirst) {
+    const q = await trySoftwareQuantizer()
+    if (q) return q
+  }
+
+  const hw = await tryHardwareBitrate()
+  if (hw) return hw
+
+  if (!tryQuantizerFirst) {
+    const q = await trySoftwareQuantizer()
+    if (q) return q
+  }
+
+  // Last resort: software VBR (bitrate often ignored on Windows).
   for (const codec of codecs) {
     const soft: VideoEncoderConfig = {
       codec,
