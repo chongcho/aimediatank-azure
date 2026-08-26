@@ -48,12 +48,13 @@ function requestWebCodecsVideoBitrate(targetMbps: number): number {
 
 /**
  * Map UI Mbps → H.264 QP for software OpenH264 (bitrate mode is ignored there).
- * Lower QP = higher quality / bitrate. Tuned for ~886×1920@30 screen captures:
- * QP 18 ≈ 10–15 Mbps; QP 22 ≈ 5–8 Mbps; QP 28 ≈ 2–4 Mbps.
+ * Lower QP = higher quality / bitrate. Calibrated on Windows @ 886×1920@30 UI captures:
+ * QP 18 landed ~3 Mbps (not ~12); use much lower QP for high targets.
  */
 function qpFromTargetMbps(targetMbps: number): number {
   const t = clamp(targetMbps, 1, 50)
-  return clamp(Math.round(30 - t), 12, 36)
+  // 12 Mbps → QP 9; 8 Mbps → QP 13; 4 Mbps → QP 18
+  return clamp(Math.round(22 - t * 1.1), 6, 32)
 }
 
 async function configSupported(config: VideoEncoderConfig): Promise<boolean> {
@@ -461,6 +462,11 @@ export async function encodeCroppedVideoWebCodecs(opts: WebCodecsEncodeOptions):
   }
 
   muxer.finalize()
+  const outBytes = target.buffer.byteLength
+  const estVideoMbps = ((outBytes * 8) / total / 1_000_000).toFixed(2)
+  console.info(
+    `[crop-tool] WebCodecs output ${(outBytes / 1_024 / 1_024).toFixed(2)} MB, ~${estVideoMbps} Mbps total (target ${videoBitrateMbps} Mbps)`
+  )
   return new File([target.buffer], outputBaseName.replace(/\.[^.]+$/, '') + '.mp4', {
     type: 'video/mp4',
     lastModified: Date.now(),
