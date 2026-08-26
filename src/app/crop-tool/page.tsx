@@ -142,12 +142,6 @@ function videoElementHasAudio(video: HTMLVideoElement): boolean {
   return false
 }
 
-function waitMs(ms: number) {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, Math.max(0, ms))
-  })
-}
-
 /** Silent stereo track so MP4 exports include AAC (App Store preview requires an audio track). */
 function attachSilentAudioTrack(
   stream: MediaStream
@@ -1269,6 +1263,13 @@ export default function CropToolPage() {
       const totalFrames = Math.max(1, Math.round(total * fps))
       const frameIntervalMs = Math.max(1, 1000 / fps)
 
+      // Mute source when we are not capturing its audio (silent AAC is on the stream instead).
+      // Muted also helps browsers allow play() during encode without a gesture race.
+      if (!hasSourceAudio) {
+        video.muted = true
+        video.volume = 0
+      }
+
       await new Promise<void>((resolve, reject) => {
         recorder.onstop = () => {
           cleanupAudio()
@@ -1279,7 +1280,10 @@ export default function CropToolPage() {
           reject(new Error('MediaRecorder failed'))
         }
 
-        const runFixedCadenceEncode = async () => {
+        // Real-time 1× playback + fixed draw cadence. MediaRecorder timestamps follow wall
+        // clock from requestFrame — seek-step encode is slower than 1/fps and stretches
+        // duration (~2× slow-mo). Do not use paced seek for silent sources.
+        const runRealtimeEncode = async () => {
           let frameIndex = 0
 
           const emitFrame = () => {
@@ -1287,17 +1291,15 @@ export default function CropToolPage() {
             drawFrame()
             frameIndex++
             onProgress(clamp(Math.round((frameIndex / totalFrames) * 100), 0, 100))
-            if (frameIndex >= totalFrames) {
+            if (frameIndex >= totalFrames || video.currentTime >= targetEnd - 0.01 || video.ended) {
               stop()
             }
           }
 
-          // Real-time cadence: exactly totalFrames draws over trim duration (keeps audio in sync).
           video.ontimeupdate = () => {
-            if (video.currentTime >= targetEnd - 0.01) {
-              try {
-                video.pause()
-              } catch {}
+            if (stopped) return
+            if (video.currentTime >= targetEnd - 0.01 || video.ended) {
+              stop()
             }
           }
 
@@ -1306,28 +1308,6 @@ export default function CropToolPage() {
           emitFrame()
           intervalId = window.setInterval(emitFrame, frameIntervalMs)
           await video.play()
-        }
-
-        // Wall-clock paced seek+draw so MediaRecorder timestamps ≈ target CFR (e.g. 30 fps).
-        // Unpaced seek loops finish too fast and land ~23–28 fps — App Store rejects those.
-        const runPacedFrameStepEncode = async () => {
-          recorder.start(500)
-          onProgress(0)
-          const encodeStart = performance.now()
-
-          for (let i = 0; i < totalFrames; i++) {
-            if (stopped) break
-            const t = Math.min(startSec + i / fps, targetEnd - 0.001)
-            await waitForVideoSeek(video, t)
-            drawFrame()
-            onProgress(clamp(Math.round(((i + 1) / totalFrames) * 100), 0, 100))
-
-            const dueAt = encodeStart + (i + 1) * frameIntervalMs
-            const delay = dueAt - performance.now()
-            if (delay > 1) await waitMs(delay)
-          }
-
-          stop()
         }
 
         void (async () => {
@@ -1358,12 +1338,7 @@ export default function CropToolPage() {
               )
             }
 
-            if (hasSourceAudio) {
-              await runFixedCadenceEncode()
-            } else {
-              // Silent / silent-mux sources: paced frame-step for exact container fps.
-              await runPacedFrameStepEncode()
-            }
+            await runRealtimeEncode()
           } catch (e) {
             stop()
             reject(e instanceof Error ? e : new Error('Unable to encode video'))
@@ -1553,9 +1528,9 @@ export default function CropToolPage() {
                       <h3 className="font-medium text-white mb-3">Crop Tool Setting</h3>
                       {mediaType === 'video' && (
                         <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                          Frame rate is paced on export (use 30 for App Store previews). Prefer MP4/H.264 when the
-                          browser supports it (WebM only as fallback). Video bitrate is a target — encoders may
-                          average lower. Silent sources get a muted AAC track so the container stays valid.
+                          Export plays the trim at 1× while capturing frames (use 30 fps for App Store previews). Prefer
+                          MP4/H.264 when the browser supports it (WebM only as fallback). Video bitrate is a target —
+                          encoders may average lower. Silent sources get a muted AAC track so the container stays valid.
                         </p>
                       )}
 
