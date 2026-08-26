@@ -82,7 +82,7 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
 }
 
-/** Ask canvas.captureStream() to emit the frame we just drew (Chrome / Edge). */
+/** Ask canvas.captureStream(0) to emit the frame we just drew (Chrome / Edge). */
 function requestCanvasCaptureFrame(stream: MediaStream) {
   const track = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void }
   track?.requestFrame?.()
@@ -1069,7 +1069,9 @@ export default function CropToolPage() {
       if (!ctx) throw new Error('Cannot create canvas context')
 
       const fps = settings.videoFps ?? 30
-      const stream = canvas.captureStream(fps)
+      // frameRate 0 = manual frames only (via requestFrame / canvas paints).
+      // Passing fps here AND calling requestFrame() doubles frames → ~2× duration.
+      const stream = canvas.captureStream(0)
 
       // When we route audio through WebAudio -> MediaStream, we must keep the
       // AudioContext alive until MediaRecorder finishes; closing it early can
