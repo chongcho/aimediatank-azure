@@ -38,12 +38,13 @@ function waitMs(ms: number) {
 }
 
 /**
- * Software AVC (prefer-software) often lands ~15–20% under the configured bitrate
- * (e.g. 12 Mbps UI → ~9.9 Mbps average). Over-request so the file average is nearer the target.
+ * Software AVC often lands ~15–20% under the configured bitrate
+ * (e.g. 12 Mbps UI → ~9.9 Mbps average with VBR). Over-request so the file average
+ * is nearer the target. Do NOT use bitrateMode:'constant' on Windows soft AVC —
+ * it can collapse output to ~1 Mbps.
  */
 function requestWebCodecsVideoBitrate(targetMbps: number): number {
   const t = clamp(targetMbps, 1, 50)
-  // Empirically ~1.21× brings ~9.9 → ~12 for Mid-tier soft encodes; use 1.25 for headroom.
   return Math.round(clamp(t * 1.25, 1, 55) * 1_000_000)
 }
 
@@ -76,8 +77,8 @@ async function pickAvcCodec(
       if (hardwareAcceleration) base.hardwareAcceleration = hardwareAcceleration
 
       const variants: VideoEncoderConfig[] = [
+        // Prefer default VBR — constant mode on Windows OpenH264 can ignore the bitrate floor.
         { ...base, avc: { format: 'avc' } },
-        { ...base, avc: { format: 'avc' }, bitrateMode: 'constant' },
         { ...base },
       ]
 
@@ -177,6 +178,8 @@ function configureVideoEncoder(
   bitrate: number,
   fps: number
 ) {
+  // Default VBR only. bitrateMode:'constant' + latencyMode:'quality' regressed
+  // App Store exports from ~10 Mbps down to ~1 Mbps on Windows software AVC.
   const base: VideoEncoderConfig = {
     codec: pick.codec,
     width,
@@ -184,22 +187,9 @@ function configureVideoEncoder(
     bitrate,
     framerate: fps,
     avc: { format: 'avc' },
-    // Prefer quality over realtime pacing — better bitrate adherence for offline export.
-    latencyMode: 'quality',
   }
   if (pick.hardwareAcceleration) base.hardwareAcceleration = pick.hardwareAcceleration
-
-  try {
-    encoder.configure({ ...base, bitrateMode: 'constant' })
-  } catch {
-    try {
-      encoder.configure(base)
-    } catch {
-      // Older Chromium: drop latencyMode if unsupported.
-      const { latencyMode: _omit, ...legacy } = base
-      encoder.configure(legacy)
-    }
-  }
+  encoder.configure(base)
 }
 
 async function encodeSilentOrPcmAac(opts: {
