@@ -1561,9 +1561,8 @@ export default function CropToolPage() {
                       {mediaType === 'video' && (
                         <p className="text-xs text-gray-500 mb-3 leading-relaxed">
                           Export uses WebCodecs (Chrome/Edge recommended) so frame rate and duration match the targets —
-                          use 30 fps for App Store previews. Odd sizes (e.g. 886×1920) use software H.264 with short
-                          GOPs so bitrate can approach the target on flat UI captures; MediaRecorder is only used when
-                          WebCodecs is unavailable.
+                          use 30 fps for App Store previews. Odd sizes (e.g. 886×1920) tune H.264 GOP length toward the
+                          target bitrate; MediaRecorder is only used when WebCodecs is unavailable.
                         </p>
                       )}
 

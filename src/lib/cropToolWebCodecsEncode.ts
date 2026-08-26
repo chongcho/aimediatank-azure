@@ -56,69 +56,27 @@ function prefersSoftwareQuantizer(width: number, height: number): boolean {
 
 /**
  * Map UI Mbps → H.264 QP for software OpenH264 quantizer mode.
- * Lower QP = higher quality / bitrate. UI captures are low-entropy — QP alone
- * often stalls ~3 Mbps; keyframe density (below) does most of the lifting.
+ * Bitrate on flat UI is driven mainly by GOP length (below); QP is a soft quality knob.
  */
 function qpFromTargetMbps(targetMbps: number): number {
   const t = clamp(targetMbps, 1, 50)
-  // 12 Mbps → QP 1; 8 Mbps → QP 4; 4 Mbps → QP 10
-  return clamp(Math.round(14 - t * 1.1), 1, 28)
+  // 12 Mbps → QP 12; 8 Mbps → QP 16; 4 Mbps → QP 20
+  return clamp(Math.round(24 - t), 8, 28)
 }
 
 /**
- * How often to force IDR. Flat UI previews compress to ~3 Mbps even at QP 1
- * unless GOPs are short; all-intra (every frame) is needed for high Mbps targets.
+ * GOP length from target Mbps. Calibrated on 886×1920 UI preview (Windows):
+ * long GOP (~2s) → ~3 Mbps; all-intra → ~62 Mbps.
+ * bitrate ≈ 3 + 59 / kfEvery  →  kfEvery ≈ 59 / (target - 3)
  */
-function keyFrameInterval(fps: number, targetMbps: number, forceHighBitrate: boolean): number {
-  if (!forceHighBitrate) return Math.max(1, Math.round(fps * 2))
-  if (targetMbps >= 10) return 1
-  if (targetMbps >= 6) return 2
-  return Math.max(1, Math.round(fps / 2))
-}
-
-/**
- * Imperceptible luma dither so H.264 cannot collapse flat UI panels to tiny residuals.
- * Uses a tiled noise pattern (fast) instead of per-frame getImageData.
- */
-function applyBitrateDither(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  targetMbps: number,
-  noisePattern: CanvasPattern | null
-) {
-  if (!noisePattern) return
-  const alpha = clamp((targetMbps - 3) / 18, 0, 0.12)
-  if (alpha <= 0) return
-  ctx.save()
-  ctx.globalAlpha = alpha
-  ctx.globalCompositeOperation = 'overlay'
-  ctx.fillStyle = noisePattern
-  ctx.fillRect(0, 0, width, height)
-  ctx.restore()
-}
-
-function createNoisePattern(ctx: CanvasRenderingContext2D): CanvasPattern | null {
-  try {
-    const tile = document.createElement('canvas')
-    tile.width = 64
-    tile.height = 64
-    const tctx = tile.getContext('2d')
-    if (!tctx) return null
-    const img = tctx.createImageData(64, 64)
-    const d = img.data
-    for (let i = 0; i < d.length; i += 4) {
-      const v = Math.floor(Math.random() * 256)
-      d[i] = v
-      d[i + 1] = v
-      d[i + 2] = v
-      d[i + 3] = 255
-    }
-    tctx.putImageData(img, 0, 0)
-    return ctx.createPattern(tile, 'repeat')
-  } catch {
-    return null
-  }
+function keyFrameInterval(fps: number, targetMbps: number, useGopControl: boolean): number {
+  const maxGop = Math.max(1, Math.round(fps * 2))
+  if (!useGopControl) return maxGop
+  const floorMbps = 3
+  const ceilingMbps = 62
+  const t = clamp(targetMbps, floorMbps + 0.5, ceilingMbps)
+  const kf = Math.round((ceilingMbps - floorMbps) / (t - floorMbps))
+  return clamp(kf, 1, maxGop)
 }
 
 async function configSupported(config: VideoEncoderConfig): Promise<boolean> {
@@ -428,8 +386,8 @@ export async function encodeCroppedVideoWebCodecs(opts: WebCodecsEncodeOptions):
     )
   }
 
-  const forceHighBitrate = prefersSoftwareQuantizer(width, height) || videoBitrateMbps >= 8
-  const kfEvery = keyFrameInterval(fps, videoBitrateMbps, forceHighBitrate)
+  const useGopControl = prefersSoftwareQuantizer(width, height) || videoBitrateMbps >= 8
+  const kfEvery = keyFrameInterval(fps, videoBitrateMbps, useGopControl)
   console.info(
     `[crop-tool] WebCodecs ${width}×${height}@${fps} target ${videoBitrateMbps} Mbps → ` +
       (pick.rateControl === 'quantizer'
@@ -483,24 +441,12 @@ export async function encodeCroppedVideoWebCodecs(opts: WebCodecsEncodeOptions):
 
   onProgress(0)
   video.muted = true
-  const ditherCtx =
-    forceHighBitrate && videoBitrateMbps > 3
-      ? (canvas.getContext('2d') as CanvasRenderingContext2D | null)
-      : null
-  let noisePattern = ditherCtx ? createNoisePattern(ditherCtx) : null
 
   for (let i = 0; i < totalFrames; i++) {
     if (videoEncodeError) throw videoEncodeError
     const t = Math.min(startSec + i / fps, Math.max(startSec, endSec - 0.001))
     await waitForVideoSeek(video, t)
     drawFrame()
-    if (ditherCtx && noisePattern) {
-      // New tile every few frames so consecutive frames don't share residuals.
-      if (i > 0 && i % 6 === 0) {
-        noisePattern = createNoisePattern(ditherCtx) ?? noisePattern
-      }
-      applyBitrateDither(ditherCtx, width, height, videoBitrateMbps, noisePattern)
-    }
 
     const frame = new VideoFrame(canvas, {
       timestamp: i * frameDurationUs,
