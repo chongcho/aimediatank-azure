@@ -16,6 +16,10 @@ import {
   preloadPrivacyModels,
   type PrivacyMaskStyle,
 } from '@/lib/privacyMask'
+import {
+  canUseWebCodecsVideoEncode,
+  encodeCroppedVideoWebCodecs,
+} from '@/lib/cropToolWebCodecsEncode'
 
 type Area = { x: number; y: number; width: number; height: number }
 
@@ -1064,8 +1068,121 @@ export default function CropToolPage() {
       if (!ctx) throw new Error('Cannot create canvas context')
 
       const fps = settings.videoFps ?? 30
-      // Timed captureStream drives container CFR (e.g. 30). Do NOT also call requestFrame —
-      // that doubles frames. Keep canvas updated via rAF while the video plays at 1×.
+      const targetEnd = Math.max(0, Math.min(endSec, video.duration || endSec))
+      if (targetEnd <= startSec) throw new Error('Trim end must be greater than trim start')
+
+      const usePrivacy = !!(privacy?.maskFaces || privacy?.maskPlates)
+      const useMetaAiWatermark = !!metaAiWatermark
+      let cachedPrivacyRects: Array<{ x: number; y: number; width: number; height: number }> = []
+      let metaAiOutputRect: { x: number; y: number; width: number; height: number } | null = null
+      let privacyGen = 0
+      let privacyFrameCount = 0
+      const privacyDetectEvery = 3
+
+      const schedulePrivacyRefresh = () => {
+        if (!usePrivacy || !privacy) return
+        const g = ++privacyGen
+        void getCroppedOutputMaskRects(
+          video,
+          crop,
+          canvas.width,
+          canvas.height,
+          { maskFaces: privacy.maskFaces, maskPlates: privacy.maskPlates }
+        )
+          .then((rects) => {
+            if (g === privacyGen) cachedPrivacyRects = rects
+          })
+          .catch(() => {
+            if (g === privacyGen) cachedPrivacyRects = []
+          })
+      }
+
+      const drawFrame = () => {
+        const vw = video.videoWidth || 0
+        const vh = video.videoHeight || 0
+
+        const sx = clamp(roundEvenCoord(crop.x), 0, Math.max(0, vw - 2))
+        const sy = clamp(roundEvenCoord(crop.y), 0, Math.max(0, vh - 2))
+
+        const maxSw = Math.max(2, vw - sx)
+        const maxSh = Math.max(2, vh - sy)
+
+        const sw = roundEvenDim(Math.min(crop.width, maxSw))
+        const sh = roundEvenDim(Math.min(crop.height, maxSh))
+
+        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+
+        if (usePrivacy && privacy) {
+          privacyFrameCount++
+          if (privacyFrameCount % privacyDetectEvery === 0) {
+            schedulePrivacyRefresh()
+          }
+          applyPrivacyMasksAfterDraw(ctx, canvas, cachedPrivacyRects, privacy.style)
+        }
+
+        if (
+          useMetaAiWatermark &&
+          metaAiWatermark &&
+          metaAiOutputRect &&
+          video.currentTime < metaAiWatermark.visibleSec
+        ) {
+          applyPrivacyMasksAfterDraw(ctx, canvas, [metaAiOutputRect], 'blur')
+        }
+      }
+
+      const preparePrivacyAndWatermark = async () => {
+        await waitForVideoSeek(video, startSec)
+        if (usePrivacy && privacy) {
+          try {
+            cachedPrivacyRects = await getCroppedOutputMaskRects(
+              video,
+              crop,
+              canvas.width,
+              canvas.height,
+              { maskFaces: privacy.maskFaces, maskPlates: privacy.maskPlates }
+            )
+          } catch {
+            cachedPrivacyRects = []
+          }
+        }
+        if (useMetaAiWatermark && metaAiWatermark) {
+          metaAiOutputRect = getMetaAiWatermarkOutputRect(
+            crop,
+            canvas.width,
+            canvas.height,
+            video.videoWidth || 0,
+            video.videoHeight || 0,
+            metaAiWatermark.corner
+          )
+        }
+      }
+
+      // Preferred path: WebCodecs stamps exact CFR + real AAC (MediaRecorder cannot on Windows).
+      if (canUseWebCodecsVideoEncode()) {
+        try {
+          video.muted = true
+          await preparePrivacyAndWatermark()
+          return await encodeCroppedVideoWebCodecs({
+            video,
+            canvas,
+            drawFrame,
+            startSec,
+            endSec: targetEnd,
+            fps,
+            videoBitrateMbps: settings.videoBitrateMbps ?? 8,
+            audioBitrateKbps: settings.audioBitrateKbps ?? 256,
+            sourceFile: source,
+            outputBaseName: source.name,
+            onProgress,
+            waitForVideoSeek,
+          })
+        } catch (e) {
+          console.warn('[crop-tool] WebCodecs encode failed; falling back to MediaRecorder', e)
+          onProgress(0)
+        }
+      }
+
+      // Fallback: MediaRecorder (best-effort; fps/audio often wrong on Windows).
       const stream = canvas.captureStream(fps)
 
       // When we route audio through WebAudio -> MediaStream, we must keep the
@@ -1172,36 +1289,7 @@ export default function CropToolPage() {
         if (e.data.size > 0) chunks.push(e.data)
       }
 
-      const targetEnd = Math.max(0, Math.min(endSec, video.duration || endSec))
       const total = Math.max(0.1, targetEnd - startSec)
-
-      if (targetEnd <= startSec) throw new Error('Trim end must be greater than trim start')
-
-      const usePrivacy = !!(privacy?.maskFaces || privacy?.maskPlates)
-      const useMetaAiWatermark = !!metaAiWatermark
-      let cachedPrivacyRects: Array<{ x: number; y: number; width: number; height: number }> = []
-      let metaAiOutputRect: { x: number; y: number; width: number; height: number } | null = null
-      let privacyGen = 0
-      let privacyFrameCount = 0
-      const privacyDetectEvery = 3
-
-      const schedulePrivacyRefresh = () => {
-        if (!usePrivacy || !privacy) return
-        const g = ++privacyGen
-        void getCroppedOutputMaskRects(
-          video,
-          crop,
-          canvas.width,
-          canvas.height,
-          { maskFaces: privacy.maskFaces, maskPlates: privacy.maskPlates }
-        )
-          .then((rects) => {
-            if (g === privacyGen) cachedPrivacyRects = rects
-          })
-          .catch(() => {
-            if (g === privacyGen) cachedPrivacyRects = []
-          })
-      }
 
       let rafId: number | null = null
       let stopTimerId: number | null = null
@@ -1229,39 +1317,6 @@ export default function CropToolPage() {
       }
 
       let stopped = false
-
-      const drawFrame = () => {
-        const videoW = video.videoWidth || 0
-        const videoH = video.videoHeight || 0
-
-        const sx = clamp(roundEvenCoord(crop.x), 0, Math.max(0, videoW - 2))
-        const sy = clamp(roundEvenCoord(crop.y), 0, Math.max(0, videoH - 2))
-
-        const maxSw = Math.max(2, videoW - sx)
-        const maxSh = Math.max(2, videoH - sy)
-
-        const sw = roundEvenDim(Math.min(crop.width, maxSw))
-        const sh = roundEvenDim(Math.min(crop.height, maxSh))
-
-        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
-
-        if (usePrivacy && privacy) {
-          privacyFrameCount++
-          if (privacyFrameCount % privacyDetectEvery === 0) {
-            schedulePrivacyRefresh()
-          }
-          applyPrivacyMasksAfterDraw(ctx, canvas, cachedPrivacyRects, privacy.style)
-        }
-
-        if (
-          useMetaAiWatermark &&
-          metaAiWatermark &&
-          metaAiOutputRect &&
-          video.currentTime < metaAiWatermark.visibleSec
-        ) {
-          applyPrivacyMasksAfterDraw(ctx, canvas, [metaAiOutputRect], 'blur')
-        }
-      }
 
       // Mute source when we are not capturing its audio (silent AAC is on the stream instead).
       // Muted also helps browsers allow play() during encode without a gesture race.
@@ -1317,32 +1372,7 @@ export default function CropToolPage() {
 
         void (async () => {
           try {
-            await waitForVideoSeek(video, startSec)
-
-            if (usePrivacy && privacy) {
-              try {
-                cachedPrivacyRects = await getCroppedOutputMaskRects(
-                  video,
-                  crop,
-                  canvas.width,
-                  canvas.height,
-                  { maskFaces: privacy.maskFaces, maskPlates: privacy.maskPlates }
-                )
-              } catch {
-                cachedPrivacyRects = []
-              }
-            }
-            if (useMetaAiWatermark && metaAiWatermark) {
-              metaAiOutputRect = getMetaAiWatermarkOutputRect(
-                crop,
-                canvas.width,
-                canvas.height,
-                video.videoWidth || 0,
-                video.videoHeight || 0,
-                metaAiWatermark.corner
-              )
-            }
-
+            await preparePrivacyAndWatermark()
             await runRealtimeEncode()
           } catch (e) {
             stop()
@@ -1533,9 +1563,9 @@ export default function CropToolPage() {
                       <h3 className="font-medium text-white mb-3">Crop Tool Setting</h3>
                       {mediaType === 'video' && (
                         <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                          Export plays the trim at 1×; the browser stamps the target frame rate into the file (use 30 for
-                          App Store previews). Prefer MP4/H.264 when supported (WebM only as fallback). Video bitrate is
-                          a target — encoders may average lower. Silent sources get a near-silent AAC track.
+                          Export uses WebCodecs when available so frame rate and duration match the targets (use 30 fps
+                          for App Store previews). Falls back to MediaRecorder if needed. Prefer Chrome/Edge for best
+                          H.264 + AAC results.
                         </p>
                       )}
 
