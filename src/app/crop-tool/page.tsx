@@ -128,19 +128,47 @@ function pickExportMimeType(): string {
 function videoElementHasAudio(video: HTMLVideoElement): boolean {
   const anyV = video as HTMLVideoElement & {
     mozHasAudio?: boolean
+    webkitAudioDecodedByteCount?: number
     audioTracks?: { length: number }
-    captureStream?: () => MediaStream
-    mozCaptureStream?: () => MediaStream
   }
+  // Avoid captureStream() — many silent files still expose empty audio tracks.
   if (typeof anyV.mozHasAudio === 'boolean') return anyV.mozHasAudio
-  if (anyV.audioTracks && anyV.audioTracks.length > 0) return true
-  try {
-    const s = anyV.captureStream?.() || anyV.mozCaptureStream?.()
-    if (s && s.getAudioTracks().some((t) => t.enabled && t.readyState !== 'ended')) return true
-  } catch {
-    // ignore
+  if (typeof anyV.webkitAudioDecodedByteCount === 'number') {
+    return anyV.webkitAudioDecodedByteCount > 0
+  }
+  if (anyV.audioTracks && typeof anyV.audioTracks.length === 'number') {
+    return anyV.audioTracks.length > 0
   }
   return false
+}
+
+function waitMs(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, Math.max(0, ms))
+  })
+}
+
+/** Silent stereo track so MP4 exports include AAC (App Store preview requires an audio track). */
+function attachSilentAudioTrack(
+  stream: MediaStream
+): { audioCtx: AudioContext; oscillator: OscillatorNode } | null {
+  try {
+    const AudioContextCtor =
+      (window.AudioContext || (window as any).webkitAudioContext) as (new () => AudioContext) | undefined
+    if (!AudioContextCtor) return null
+    const audioCtx = new AudioContextCtor()
+    const dest = audioCtx.createMediaStreamDestination()
+    const oscillator = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+    gain.gain.value = 0
+    oscillator.connect(gain)
+    gain.connect(dest)
+    oscillator.start()
+    dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t))
+    return { audioCtx, oscillator }
+  } catch {
+    return null
+  }
 }
 
 function waitForVideoSeek(video: HTMLVideoElement, timeSec: number, timeoutMs = 8000): Promise<void> {
@@ -1047,11 +1075,22 @@ export default function CropToolPage() {
       // AudioContext alive until MediaRecorder finishes; closing it early can
       // cut the destination tracks (resulting in silent recordings).
       let audioCtxToClose: AudioContext | null = null
+      let silentOscillator: OscillatorNode | null = null
+      const hasSourceAudio = videoElementHasAudio(video)
 
-      // Prefer WebAudio routing for audio tracks — only when source has real audio.
-      // Empty destination tracks (silent mux) force 0 kbps audio and worsen bitrate ladders.
+      // Prefer WebAudio routing for real audio; otherwise attach silent AAC for container completeness.
       const addAudioTracks = async () => {
-        if (!videoElementHasAudio(video)) return
+        if (!hasSourceAudio) {
+          const silent = attachSilentAudioTrack(stream)
+          if (silent) {
+            audioCtxToClose = silent.audioCtx
+            silentOscillator = silent.oscillator
+            if (audioCtxToClose.state === 'suspended') {
+              await audioCtxToClose.resume().catch(() => {})
+            }
+          }
+          return
+        }
 
         let audioTracksAdded = false
 
@@ -1099,12 +1138,23 @@ export default function CropToolPage() {
         } catch {
           // ignore
         }
+
+        // Still no usable audio — fall back to silent track.
+        if (stream.getAudioTracks().length === 0) {
+          const silent = attachSilentAudioTrack(stream)
+          if (silent) {
+            audioCtxToClose = silent.audioCtx
+            silentOscillator = silent.oscillator
+          }
+        }
       }
+
+      await addAudioTracks()
 
       // Prefer MP4/H.264; WebM only when the browser cannot record MP4.
       const mime = pickExportMimeType()
       const usingAvc = mime.includes('mp4') || mime.includes('avc1')
-      const hasSourceAudio = videoElementHasAudio(video)
+      const hasAudioTrack = stream.getAudioTracks().length > 0
 
       const targetMbps = settings.videoBitrateMbps ?? 8
       const videoBitsPerSecond = usingAvc
@@ -1117,7 +1167,7 @@ export default function CropToolPage() {
       const recorder = new MediaRecorder(stream, {
         mimeType: mime,
         videoBitsPerSecond,
-        ...(hasSourceAudio ? { audioBitsPerSecond } : {}),
+        ...(hasAudioTrack ? { audioBitsPerSecond } : {}),
       })
 
       const chunks: Blob[] = []
@@ -1157,6 +1207,14 @@ export default function CropToolPage() {
       }
 
       let intervalId: number | null = null
+      const cleanupAudio = () => {
+        try {
+          silentOscillator?.stop()
+        } catch {}
+        silentOscillator = null
+        audioCtxToClose?.close().catch(() => {})
+        audioCtxToClose = null
+      }
       const stop = () => {
         if (stopped) return
         stopped = true
@@ -1209,17 +1267,13 @@ export default function CropToolPage() {
       const totalFrames = Math.max(1, Math.round(total * fps))
       const frameIntervalMs = Math.max(1, 1000 / fps)
 
-      await addAudioTracks()
-
       await new Promise<void>((resolve, reject) => {
         recorder.onstop = () => {
-          audioCtxToClose?.close().catch(() => {})
-          audioCtxToClose = null
+          cleanupAudio()
           resolve()
         }
         recorder.onerror = () => {
-          audioCtxToClose?.close().catch(() => {})
-          audioCtxToClose = null
+          cleanupAudio()
           reject(new Error('MediaRecorder failed'))
         }
 
@@ -1252,9 +1306,12 @@ export default function CropToolPage() {
           await video.play()
         }
 
-        const runFrameStepEncode = async () => {
+        // Wall-clock paced seek+draw so MediaRecorder timestamps ≈ target CFR (e.g. 30 fps).
+        // Unpaced seek loops finish too fast and land ~23–28 fps — App Store rejects those.
+        const runPacedFrameStepEncode = async () => {
           recorder.start(500)
           onProgress(0)
+          const encodeStart = performance.now()
 
           for (let i = 0; i < totalFrames; i++) {
             if (stopped) break
@@ -1262,6 +1319,10 @@ export default function CropToolPage() {
             await waitForVideoSeek(video, t)
             drawFrame()
             onProgress(clamp(Math.round(((i + 1) / totalFrames) * 100), 0, 100))
+
+            const dueAt = encodeStart + (i + 1) * frameIntervalMs
+            const delay = dueAt - performance.now()
+            if (delay > 1) await waitMs(delay)
           }
 
           stop()
@@ -1295,12 +1356,11 @@ export default function CropToolPage() {
               )
             }
 
-            const hasAudioTrack = stream.getAudioTracks().length > 0
-            if (hasAudioTrack) {
+            if (hasSourceAudio) {
               await runFixedCadenceEncode()
             } else {
-              // No audio — frame-step for exact fps without real-time playback drift.
-              await runFrameStepEncode()
+              // Silent / silent-mux sources: paced frame-step for exact container fps.
+              await runPacedFrameStepEncode()
             }
           } catch (e) {
             stop()
@@ -1491,9 +1551,9 @@ export default function CropToolPage() {
                       <h3 className="font-medium text-white mb-3">Crop Tool Setting</h3>
                       {mediaType === 'video' && (
                         <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                          Frame rate is enforced on export. Prefer MP4/H.264 when the browser supports it (WebM only as
-                          fallback). Video/audio bitrates follow the targets below — browser encoders may average
-                          lower or snap to coarse steps. Audio is included only when the source has an audible track.
+                          Frame rate is paced on export (use 30 for App Store previews). Prefer MP4/H.264 when the
+                          browser supports it (WebM only as fallback). Video bitrate is a target — encoders may
+                          average lower. Silent sources get a muted AAC track so the container stays valid.
                         </p>
                       )}
 
