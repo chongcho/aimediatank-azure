@@ -37,6 +37,16 @@ function waitMs(ms: number) {
   })
 }
 
+/**
+ * Software AVC (prefer-software) often lands ~15–20% under the configured bitrate
+ * (e.g. 12 Mbps UI → ~9.9 Mbps average). Over-request so the file average is nearer the target.
+ */
+function requestWebCodecsVideoBitrate(targetMbps: number): number {
+  const t = clamp(targetMbps, 1, 50)
+  // Empirically ~1.21× brings ~9.9 → ~12 for Mid-tier soft encodes; use 1.25 for headroom.
+  return Math.round(clamp(t * 1.25, 1, 55) * 1_000_000)
+}
+
 async function pickAvcCodec(
   width: number,
   height: number,
@@ -174,13 +184,21 @@ function configureVideoEncoder(
     bitrate,
     framerate: fps,
     avc: { format: 'avc' },
+    // Prefer quality over realtime pacing — better bitrate adherence for offline export.
+    latencyMode: 'quality',
   }
   if (pick.hardwareAcceleration) base.hardwareAcceleration = pick.hardwareAcceleration
 
   try {
     encoder.configure({ ...base, bitrateMode: 'constant' })
   } catch {
-    encoder.configure(base)
+    try {
+      encoder.configure(base)
+    } catch {
+      // Older Chromium: drop latencyMode if unsupported.
+      const { latencyMode: _omit, ...legacy } = base
+      encoder.configure(legacy)
+    }
   }
 }
 
@@ -212,10 +230,14 @@ async function encodeSilentOrPcmAac(opts: {
   const aacFrame = 1024
   const totalSamples = Math.max(aacFrame, Math.round(totalSec * sampleRate))
   const pcmInterleaved =
-    pcm && pcm.length >= totalSamples * channels ? pcm : new Float32Array(totalSamples * channels)
+    pcm && pcm.length >= totalSamples * channels
+      ? pcm
+      : new Float32Array(totalSamples * channels)
+  // Near-silent dither across the whole clip so AAC writes a real non-zero track
+  // (empty PCM often yields a missing / 0 kbps audio stream in Properties).
   if (!pcm || pcm.length < totalSamples * channels) {
-    for (let i = 0; i < Math.min(sampleRate, pcmInterleaved.length); i++) {
-      pcmInterleaved[i] = (Math.random() * 2 - 1) * 3e-5
+    for (let i = 0; i < pcmInterleaved.length; i++) {
+      pcmInterleaved[i] = (Math.random() * 2 - 1) * 5e-5
     }
   }
 
@@ -277,10 +299,14 @@ export async function encodeCroppedVideoWebCodecs(opts: WebCodecsEncodeOptions):
   const total = Math.max(0.1, endSec - startSec)
   const totalFrames = Math.max(1, Math.round(total * fps))
   const frameDurationUs = Math.round(1_000_000 / fps)
-  const videoBitrate = Math.round(clamp(videoBitrateMbps, 1, 50) * 1_000_000)
+  const videoBitrate = requestWebCodecsVideoBitrate(videoBitrateMbps)
   const audioBitrate = Math.round(clamp(audioBitrateKbps, 64, 512) * 1000)
   const sampleRate = 48000
   const channels = 2
+
+  console.info(
+    `[crop-tool] WebCodecs target ${videoBitrateMbps} Mbps → encoder request ${(videoBitrate / 1_000_000).toFixed(2)} Mbps @ ${width}×${height} ${fps}fps`
+  )
 
   const pick = await pickAvcCodec(width, height, videoBitrate, fps)
   if (!pick) {
@@ -289,23 +315,34 @@ export async function encodeCroppedVideoWebCodecs(opts: WebCodecsEncodeOptions):
     )
   }
 
-  const wantAudio = await audioEncoderSupported(audioBitrate)
+  const wantAudio =
+    typeof AudioEncoder !== 'undefined' &&
+    (await audioEncoderSupported(audioBitrate) || (await audioEncoderSupported(128_000)))
   const pcm = wantAudio ? await extractPcmStereo(sourceFile, startSec, endSec, sampleRate) : null
 
   let audioChunks: Array<{ chunk: EncodedAudioChunk; meta?: EncodedAudioChunkMetadata }> = []
   if (wantAudio) {
-    try {
-      audioChunks = await encodeSilentOrPcmAac({
-        pcm,
-        totalSec: total,
-        sampleRate,
-        channels,
-        bitrate: audioBitrate,
-      })
-    } catch (e) {
-      console.warn('[crop-tool] AAC encode failed; writing video-only MP4', e)
-      audioChunks = []
+    const aacBitrates = [audioBitrate, 192_000, 128_000]
+    for (const br of aacBitrates) {
+      try {
+        audioChunks = await encodeSilentOrPcmAac({
+          pcm,
+          totalSec: total,
+          sampleRate,
+          channels,
+          bitrate: br,
+        })
+        if (audioChunks.length > 0) break
+      } catch (e) {
+        console.warn(`[crop-tool] AAC encode failed @ ${br} bps; retrying`, e)
+        audioChunks = []
+      }
     }
+    if (audioChunks.length === 0) {
+      console.warn('[crop-tool] AAC unavailable; writing video-only MP4 (App Store may reject)')
+    }
+  } else {
+    console.warn('[crop-tool] AudioEncoder not supported; writing video-only MP4')
   }
   const audioOk = audioChunks.length > 0
 
