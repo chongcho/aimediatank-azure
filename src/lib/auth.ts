@@ -11,6 +11,7 @@ import {
   pictureUrlFromOAuthClaims,
 } from './oauthProfile'
 import { isBirthdayAtLeastAge } from './birthday'
+import { consumeNativeAuthHandoffCode, NATIVE_HANDOFF_PROVIDER_ID } from './nativeAuthHandoff'
 import { getPlatformAgeRequirement } from './socialAgeGate'
 import { canonicalSocialProviderId, adminSetProviderAccountId, resolveAuthMethodLabel, SOCIAL_AUTH_LABELS, type SocialAuthLabel } from './authMethodLabel'
 import {
@@ -190,6 +191,80 @@ export const authOptions: NextAuthOptions = {
         if (user.accountDeactivatedAt) {
           throw new Error(
             'This account has been deactivated. Enter your password and tap Activate to log in, or contact support for help.',
+          )
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          legalName: user.legalName,
+          username: user.username,
+          role: user.role,
+          avatar: user.avatar,
+          location: user.location,
+          locale: localeTagFromUserLocation(user.location),
+        }
+      },
+    }),
+    // Native app only: redeems the one-time code produced after social sign-in completed in the
+    // system browser. No secret is accepted here — the code itself is the single-use proof.
+    CredentialsProvider({
+      id: NATIVE_HANDOFF_PROVIDER_ID,
+      name: 'Native app handoff',
+      credentials: {
+        code: { label: 'Handoff code', type: 'text' },
+      },
+      async authorize(credentials) {
+        const userId = await consumeNativeAuthHandoffCode(credentials?.code ?? '')
+        if (!userId) {
+          throw new Error('This sign-in link has expired. Please try again.')
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            legalName: true,
+            username: true,
+            role: true,
+            avatar: true,
+            location: true,
+            isSuspended: true,
+            suspendedUntil: true,
+            suspendReason: true,
+            accountDeactivatedAt: true,
+          },
+        })
+        if (!user) {
+          throw new Error('No user found for this sign-in')
+        }
+
+        if (user.isSuspended) {
+          if (user.suspendedUntil && new Date(user.suspendedUntil) < new Date()) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                isSuspended: false,
+                suspendedAt: null,
+                suspendedUntil: null,
+                suspendReason: null,
+              },
+            })
+          } else {
+            const reason = user.suspendReason || 'Policy violation'
+            const until = user.suspendedUntil
+              ? ` until ${new Date(user.suspendedUntil).toLocaleDateString()}`
+              : ''
+            throw new Error(`Account suspended${until}: ${reason}`)
+          }
+        }
+
+        if (user.accountDeactivatedAt) {
+          throw new Error(
+            'This account has been deactivated. Log in with email and password and tap Activate, or contact support for help.',
           )
         }
 

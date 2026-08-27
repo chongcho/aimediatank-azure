@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { signIn, getProviders } from 'next-auth/react'
 import { ADMIN_FORCE_STEP2_STORAGE_KEY } from '@/lib/adminFreshStep2'
+import { shouldUseNativeSocialAuth, startNativeSocialSignIn } from '@/lib/nativeSocialAuth'
 
 const SOCIAL_BUTTONS: { id: string; label: string; icon: 'google' | 'facebook' | 'apple' | 'microsoft' }[] = [
   { id: 'entra-external-id-google', label: 'Google', icon: 'google' },
@@ -56,6 +57,7 @@ function SocialIcon({ icon }: { icon: 'google' | 'facebook' | 'apple' | 'microso
 export function SocialSignIn({ mode, callbackUrl = '/', hideDividerAbove = false }: Props) {
   const [availableIds, setAvailableIds] = useState<Set<string>>(new Set())
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     getProviders().then((providers) => {
@@ -72,8 +74,9 @@ export function SocialSignIn({ mode, callbackUrl = '/', hideDividerAbove = false
     })
   }, [])
 
-  const handleSocialSignIn = (providerId: string) => {
+  const handleSocialSignIn = async (providerId: string) => {
     setLoadingId(providerId)
+    setError(null)
     const dest = callbackUrl ?? '/'
     if (/^\/admin(\?|$)/.test(dest)) {
       try {
@@ -82,6 +85,18 @@ export function SocialSignIn({ mode, callbackUrl = '/', hideDividerAbove = false
         /* private mode */
       }
     }
+
+    // In the app the OAuth flow must run in the system browser — Google rejects WebViews.
+    if (shouldUseNativeSocialAuth()) {
+      try {
+        await startNativeSocialSignIn(providerId, dest)
+      } catch (e) {
+        setLoadingId(null)
+        setError(e instanceof Error ? e.message : 'Could not open sign-in. Please try again.')
+      }
+      return
+    }
+
     signIn(providerId, { callbackUrl })
   }
 
@@ -113,12 +128,18 @@ export function SocialSignIn({ mode, callbackUrl = '/', hideDividerAbove = false
         </div>
       )}
 
+      {error && (
+        <p className="mb-2 text-sm text-red-400" role="alert">
+          {error}
+        </p>
+      )}
+
       <div className="space-y-1.5 sm:space-y-2">
         {buttons.map((btn) => (
           <button
             key={btn.id}
             type="button"
-            onClick={() => handleSocialSignIn(btn.id)}
+            onClick={() => void handleSocialSignIn(btn.id)}
             disabled={!!loadingId}
             className="w-full flex items-center justify-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors disabled:opacity-50"
           >

@@ -91,6 +91,7 @@ model User {
   voiceCallsAsCallee VoiceCall[] @relation("VoiceCallsAsCallee")
   pushSubscriptions    PushSubscription[]
   voipPushTokens       VoipPushToken[]
+  nativeAuthHandoffs   NativeAuthHandoff[]
 }
 
 model Media {
@@ -501,6 +502,24 @@ model VoipPushToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// Single-use codes that move a social sign-in from the system browser (Chrome Custom Tabs /
+// ASWebAuthenticationSession) into the native app WebView, which has a separate cookie jar.
+// Google blocks OAuth inside embedded WebViews, so the native app must sign in externally.
+model NativeAuthHandoff {
+  id         String    @id @default(uuid())
+  userId     String
+  codeHash   String    @unique
+  platform   String    @default("unknown")
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model VoiceCallSignal {

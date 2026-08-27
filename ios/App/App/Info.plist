@@ -57,5 +57,16 @@
 	<string>AiMediaTank needs camera access for TalkChat calls. The voice-call library references camera APIs even when only audio is used.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>aimediatank</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

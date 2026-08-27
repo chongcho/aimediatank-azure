@@ -68,6 +68,41 @@ You can set **either** Option A **or** Option B. If both are set, Option A (`ENT
 - NextAuth redirects to `/login?error=...` on failure; the login page shows friendly messages for codes like `OAuthCallback`, `CredentialsSignin`, etc.
 - **Cookie warning “Mark cross-site cookies as Secure”**: The cookie `esctx-*` on `.aimediatank.ciamlogin.com` is set by **Microsoft Entra** (CIAM), not by your app. Ensure the app and redirects use **HTTPS**. If the warning persists, it is on Microsoft’s side; sign-in may still work in many browsers.
 
+## Native apps (Android Play / iOS TestFlight)
+
+Google refuses OAuth inside embedded WebViews (`403 disallowed_useragent`). The Capacitor shell loads
+`https://aimediatank.com` in a WebView, so "Continue with Google" fails there even though it works in
+a normal browser — NextAuth reports it as `OAuthCallback` on `/login`. Facebook / Apple / Microsoft do
+not block WebViews, which is why only Google was affected.
+
+The app therefore runs social sign-in in an **external user agent**, as required by Google's OAuth 2.0
+for Native Apps policy (RFC 8252) and recommended by Apple:
+
+- **Android** — Chrome Custom Tabs (`@capacitor/browser`).
+- **iOS** — `ASWebAuthenticationSession` (`ios/App/App/NativeAuthSessionPlugin.swift`), which shares
+  Safari's cookies so returning users get account selection instead of a password prompt.
+
+Because the OAuth session cookie lands in the system browser rather than the WebView, the session is
+handed back with a **single-use code**:
+
+1. App opens `/auth/native-start?provider=…` in the system browser.
+2. Normal NextAuth OAuth runs there and returns to `/auth/native-complete`.
+3. That page calls `POST /api/auth/native-handoff`, which mints a one-time code (`NativeAuthHandoff`
+   table, SHA-256 hashed, 2-minute TTL, deleted on redemption).
+4. The browser redirects to `aimediatank://auth-return?code=…`, which reopens the app.
+5. The WebView loads `/auth/native-return`, which redeems the code through the `native-handoff`
+   credentials provider and gets its own session cookie.
+
+**No Entra configuration changes are needed** — the OAuth redirect URI is still
+`https://<domain>/api/auth/callback/entra-external-id-<provider>`; only the browser it runs in changed.
+
+Native wiring that must stay in sync with `src/lib/nativeAuthFlow.ts`:
+
+- Android: `aimediatank://auth-return` intent-filter in `android/app/src/main/AndroidManifest.xml`.
+- iOS: `CFBundleURLSchemes` entry `aimediatank` in `ios/App/App/Info.plist`.
+
+After changing plugins or native config, run `npx cap sync` before building either app.
+
 ## Admin Sign-in column
 
 - New Google / Facebook / Apple / Microsoft / Email registrations store `User.authProvider` automatically.
