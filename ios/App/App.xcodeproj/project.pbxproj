@@ -16,6 +16,7 @@
 		E3F4A5B61FED79650016851F /* CallVideoViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3F4A5B51FED79650016851F /* CallVideoViewController.swift */; };
 		F4A5B6C71FED79650016851F /* DeclaredAgeRangePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6C61FED79650016851F /* DeclaredAgeRangePlugin.swift */; };
 		F4A5B6C91FED79650016851F /* NativeAuthSessionPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6C81FED79650016851F /* NativeAuthSessionPlugin.swift */; };
+		F4A5B6CB1FED79650016851F /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6CA1FED79650016851F /* MainViewController.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -36,6 +37,7 @@
 		E3F4A5B51FED79650016851F /* CallVideoViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallVideoViewController.swift; sourceTree = "<group>"; };
 		F4A5B6C61FED79650016851F /* DeclaredAgeRangePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeclaredAgeRangePlugin.swift; sourceTree = "<group>"; };
 		F4A5B6C81FED79650016851F /* NativeAuthSessionPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAuthSessionPlugin.swift; sourceTree = "<group>"; };
+		F4A5B6CA1FED79650016851F /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -98,6 +100,7 @@
 				E3F4A5B51FED79650016851F /* CallVideoViewController.swift */,
 				F4A5B6C61FED79650016851F /* DeclaredAgeRangePlugin.swift */,
 				F4A5B6C81FED79650016851F /* NativeAuthSessionPlugin.swift */,
+				F4A5B6CA1FED79650016851F /* MainViewController.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -244,6 +247,7 @@
 				E3F4A5B61FED79650016851F /* CallVideoViewController.swift in Sources */,
 				F4A5B6C71FED79650016851F /* DeclaredAgeRangePlugin.swift in Sources */,
 				F4A5B6C91FED79650016851F /* NativeAuthSessionPlugin.swift in Sources */,
+				F4A5B6CB1FED79650016851F /* MainViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
