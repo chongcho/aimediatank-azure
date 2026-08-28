@@ -2113,7 +2113,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     requestOpenTalkChat()
 
     const action = params.get('voiceAction')
-    if (!isNativeIosCallApp() || !isIosCallKitEnabled()) {
+    if (
+      (!isNativeIosCallApp() || !isIosCallKitEnabled()) &&
+      (action === 'accept' || action === 'reject')
+    ) {
       pendingVoiceActionRef.current = action
     }
 
