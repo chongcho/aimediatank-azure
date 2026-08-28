@@ -12,6 +12,7 @@ import { getNativePlatform } from '@/lib/nativeShellBoot'
 import {
   isNativeAndroidCallApp,
   isNativeIosCallApp,
+  isIosCallKitEnabled,
   startNativeCallRing,
   startNativeCallRingAnnouncement,
   stopNativeCallRing,
@@ -383,8 +384,8 @@ function playSpeechLoop(text: string, lang: string | undefined, generation: numb
 /** When speech synthesis fails or stalls, keep ringing with classic WAV. */
 async function fallbackRingToWav(generation: number) {
   if (generation !== loopGeneration || !activeRingKind) return
-  // Native iOS: never fall back to classic WAV after a spoken announcement.
-  if (isNativeIosCallApp() && lastAnnouncement) {
+  // Native iOS CallKit: never fall back to classic WAV after a spoken announcement.
+  if (isNativeIosCallApp() && isIosCallKitEnabled() && lastAnnouncement) {
     if (playSpeechLoop(lastAnnouncement, lastLang, generation)) return
     return
   }
@@ -632,8 +633,8 @@ async function startRing(kind: RingKind, announcement?: string, lang?: string) {
       await unlockVoiceCallAudio()
       return
     }
-    // iOS native: do not fall through to classic WAV after spoken-ring failure.
-    if (isNativeIosCallApp()) {
+    // iOS CallKit: native bridge owns spoken ring. China uses web/TTS path below.
+    if (isNativeIosCallApp() && isIosCallKitEnabled()) {
       return
     }
   }
@@ -654,8 +655,8 @@ async function startRing(kind: RingKind, announcement?: string, lang?: string) {
     }
   }
 
-  // iOS native: skip classic WAV ring (spoken announcement owns the ring).
-  if (isNativeIosCallApp()) {
+  // iOS CallKit: skip classic WAV (spoken announcement owns the ring).
+  if (isNativeIosCallApp() && isIosCallKitEnabled()) {
     return
   }
 

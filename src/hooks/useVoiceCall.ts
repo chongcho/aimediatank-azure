@@ -25,6 +25,7 @@ import {
   initNativeCallBridge,
   isNativeAndroidCallApp,
   isNativeIosCallApp,
+  isIosCallKitEnabled,
   isNativeVoiceCallApp,
   markNativeCallConnected,
   cacheNativeDeclineToken,
@@ -53,6 +54,7 @@ export function voiceCallNickname(user: VoiceCallUser | null | undefined): strin
 /** CallKit owns the ring on iOS — in-app incoming overlay (#1) must not appear. */
 function shouldSuppressIosIncomingUi(call?: NativeIncomingCallPayload): boolean {
   if (!isNativeIosCallApp()) return false
+  if (!isIosCallKitEnabled()) return false
   if (call?.callKitOnly) return true
   return typeof document !== 'undefined' && document.hidden
 }
@@ -827,8 +829,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         return
       }
       storePendingOffer(signal.payload)
-      // iOS: VoIP push + App bridge own CallKit; Android/other use JS native UI fallback.
-      const needsNativeUiFallback = !isNativeVoiceCallApp() || isNativeAndroidCallApp()
+      // iOS CallKit: VoIP push + App bridge own lock-screen UI. China (no CallKit): in-app overlay.
+      const needsNativeUiFallback =
+        !isNativeVoiceCallApp() ||
+        isNativeAndroidCallApp() ||
+        (isNativeIosCallApp() && !isIosCallKitEnabled())
       if (needsNativeUiFallback) {
         const label = voiceCallNickname(caller) || 'AiMediaTank'
         const declineToken = getCachedNativeDeclineToken(signal.callId)
@@ -1471,7 +1476,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           (data.activeCall.status === 'ringing' || data.activeCall.status === 'active')
         const stillIncoming =
           data.incomingCalls?.some((c) => voiceCallIdsMatch(c.id, localCallId)) ?? false
-        if (isNativeIosCallApp() && localState === 'incoming') {
+        if (isNativeIosCallApp() && isIosCallKitEnabled() && localState === 'incoming') {
           // CallKit owns the ring (#1 only) — never tear down native UI from poll heuristics.
           if (ended) {
             resetCall({ endNativeUi: true })
@@ -1529,9 +1534,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           hasVideoRef.current = wantVideo
           setHasVideo(wantVideo)
           setIsCameraOff(false)
-          // iOS: never show in-app Accept/Decline — CallKit only. If VoIP missed (common when
-          // the app is already foreground), poll must still ask the App bridge to report CallKit.
-          if (isNativeIosCallApp()) {
+          // iOS CallKit: never show in-app Accept/Decline. China / missed VoIP: poll + in-app UI.
+          if (isNativeIosCallApp() && isIosCallKitEnabled()) {
             const label = voiceCallNickname(incoming.caller) || 'AiMediaTank'
             const declineToken = incoming.declineToken?.trim() || undefined
             if (declineToken) {
@@ -1581,8 +1585,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const runPendingVoiceAction = useCallback(() => {
     const action = pendingVoiceActionRef.current
     if (!action || callStateRef.current !== 'incoming') return
-    // iOS: Accept/Decline only via system CallKit (#1), not web notification / URL deep links.
-    if (isNativeIosCallApp()) {
+    // iOS CallKit: Accept/Decline only via system UI. China uses in-app controls.
+    if (isNativeIosCallApp() && isIosCallKitEnabled()) {
       pendingVoiceActionRef.current = null
       return
     }
@@ -2109,7 +2113,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     requestOpenTalkChat()
 
     const action = params.get('voiceAction')
-    if (!isNativeIosCallApp() && (action === 'accept' || action === 'reject')) {
+    if (!isNativeIosCallApp() || !isIosCallKitEnabled()) {
       pendingVoiceActionRef.current = action
     }
 
@@ -2178,8 +2182,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     const timer = window.setTimeout(() => {
       if (callStateRef.current === 'outgoing') void endCall()
       else if (callStateRef.current === 'incoming') {
-        // iOS incoming ring is owned by CallKit; server cancel / VoIP push ends it.
-        if (!isNativeIosCallApp()) void rejectCall()
+        // iOS CallKit owns incoming ring; China / other platforms use in-app timeout.
+        if (!isNativeIosCallApp() || !isIosCallKitEnabled()) void rejectCall()
       }
     }, VOICE_CALL_RING_TIMEOUT_MS)
 
@@ -2198,14 +2202,14 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       if (!data?.callId) return
 
       if (data.type === 'VOICE_CALL_ACCEPT') {
-        if (isNativeIosCallApp()) return
+        if (isNativeIosCallApp() && isIosCallKitEnabled()) return
         pendingVoiceActionRef.current = 'accept'
         requestOpenTalkChat()
         if (data.caller) applyIncomingCall(data.callId, data.caller)
         return
       }
       if (data.type === 'VOICE_CALL_REJECT') {
-        if (isNativeIosCallApp()) return
+        if (isNativeIosCallApp() && isIosCallKitEnabled()) return
         pendingVoiceActionRef.current = 'reject'
         if (data.caller) {
           applyIncomingCall(data.callId, data.caller)
@@ -2228,7 +2232,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           stopVoiceCallRingtone()
           return
         }
-        if (!isNativeIosCallApp()) {
+        if (!isNativeIosCallApp() || !isIosCallKitEnabled()) {
           requestOpenTalkChat()
         }
         applyIncomingCall(data.callId, data.caller)

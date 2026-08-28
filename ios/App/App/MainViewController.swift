@@ -12,5 +12,6 @@ class MainViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(NativeAuthSessionPlugin())
+        bridge?.registerPluginInstance(CallKitCompliancePlugin())
     }
 }

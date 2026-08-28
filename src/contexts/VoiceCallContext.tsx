@@ -18,6 +18,7 @@ import {
   bootstrapNativePush,
   isNativeCallApp,
   isNativeIosCallApp,
+  isIosCallKitEnabled,
   isNativeAndroidCallApp,
   isNativeVoiceCallApp,
 } from '@/lib/nativeCallBridge'
@@ -148,9 +149,9 @@ export function VoiceCallOverlayPanel({
 
   const isActiveCall = ctx.callState !== 'idle' && ctx.callState !== 'ended'
 
-  // iOS: CallKit owns incoming Accept/Decline (#2) — never show in-app incoming screen (#1).
+  // iOS CallKit: system UI owns incoming Accept/Decline. China uses in-app overlay.
   const iosCallKitIncoming =
-    isNativeIosCallApp() && ctx.callState === 'incoming'
+    isNativeIosCallApp() && isIosCallKitEnabled() && ctx.callState === 'incoming'
 
   // iOS CallKit / Android native video: full-screen native UI owns chrome (not Capacitor overlay).
   // Android video now uses WebView WebRTC (native Dialog/EGL aborted on Samsung) — only hide
@@ -311,10 +312,8 @@ export function VoiceCallProvider({
       return
     }
 
-    // iOS CallKit owns incoming spoken ring. Outgoing AVSpeech starts only after
-    // getUserMedia in useVoiceCall — starting here raced mic activation and made the
-    // first ~1s of "Calling…" roughly twice as loud before the session ducked.
-    if (isNativeIosCallApp()) {
+    // iOS CallKit owns incoming spoken ring; China / outgoing use web/native ring paths.
+    if (isNativeIosCallApp() && isIosCallKitEnabled()) {
       return
     }
     const announcement =
@@ -347,8 +346,8 @@ export function VoiceCallProvider({
       if (document.hidden) return
       primeVoiceCallAfterNotificationOpen()
       const state = callStateRef.current
-      // iOS incoming on lock screen uses CallKit; retry outgoing (and foreground incoming) ring.
-      if (isNativeIosCallApp() && state === 'incoming') return
+      // iOS CallKit incoming on lock screen uses system UI; retry outgoing (and China incoming).
+      if (isNativeIosCallApp() && isIosCallKitEnabled() && state === 'incoming') return
       if (state === 'incoming' || state === 'outgoing') {
         retryVoiceCallRingtone()
       }

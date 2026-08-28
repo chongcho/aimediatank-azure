@@ -1,8 +1,17 @@
 'use client'
 
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 import { detectNativeShell, getNativePlatform } from '@/lib/nativeShellBoot'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
+
+type CallKitCompliancePlugin = {
+  isCallKitEnabled(): Promise<{ enabled: boolean }>
+}
+
+const NativeCallKitCompliance = registerPlugin<CallKitCompliancePlugin>('CallKitCompliance')
+
+/** Resolved at bootstrap from device region (CallKit disabled when region is CN). */
+let iosCallKitEnabled: boolean | null = null
 
 export interface NativeIncomingCallPayload {
   callId: string
@@ -304,6 +313,30 @@ export function isNativeIosCallApp(): boolean {
   return isNativeCallApp() && getNativePlatform() === 'ios'
 }
 
+/** False on China App Store devices (region CN) where MIIT prohibits CallKit UI. */
+export function isIosCallKitEnabled(): boolean {
+  if (!isNativeIosCallApp()) return false
+  return iosCallKitEnabled ?? true
+}
+
+export async function resolveIosCallKitEnabled(): Promise<boolean> {
+  if (!isNativeIosCallApp()) {
+    iosCallKitEnabled = false
+    return false
+  }
+  if (iosCallKitEnabled !== null) return iosCallKitEnabled
+  try {
+    const { enabled } = await NativeCallKitCompliance.isCallKitEnabled()
+    iosCallKitEnabled = enabled
+    console.info(`[NativeCall] iOS CallKit enabled=${enabled}`)
+    return enabled
+  } catch {
+    iosCallKitEnabled = false
+    console.warn('[NativeCall] CallKit compliance check failed — assuming disabled')
+    return false
+  }
+}
+
 export function isNativeAndroidCallApp(): boolean {
   return isNativeCallApp() && getNativePlatform() === 'android'
 }
@@ -459,6 +492,7 @@ export async function bootstrapNativePush(): Promise<boolean> {
 
     if (isNativeIosCallApp()) {
       await CapacitorPushCalls.registerVoipNotifications()
+      await resolveIosCallKitEnabled()
       console.info('[NativePush] PushKit registration started')
     } else if (isNativeAndroidCallApp()) {
       await CapacitorPushCalls.register()

@@ -12,6 +12,17 @@ import WebRTC
 final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProviderDelegate, AVSpeechSynthesizerDelegate {
     static let shared = AiMediaTankVoipPushBridge()
 
+    /// MIIT / China App Store: CallKit lock-screen UI is not allowed when the device region is CN.
+    static func isCallKitAllowed() -> Bool {
+        if #available(iOS 16, *) {
+            let region = Locale.current.region?.identifier ?? ""
+            if !region.isEmpty {
+                return region.uppercased() != "CN"
+            }
+        }
+        return (Locale.current.regionCode ?? "").uppercased() != "CN"
+    }
+
     static let incomingPushNotification = Notification.Name("AiMediaTankVoipIncomingPush")
     static let startRingAnnouncementNotification = Notification.Name("AiMediaTankStartRingAnnouncement")
     static let stopRingAnnouncementNotification = Notification.Name("AiMediaTankStopRingAnnouncement")
@@ -471,14 +482,16 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     /// "Connecting…" / "연결 중…" instead of "AiMediaTank Audio — mm:ss" (outgoing already shows the timer).
     func reportCallConnected(callId: String) {
         let normalized = callId.lowercased()
-        reportCallKitHasVideo(callId: normalized)
-        if let uuid = UUID(uuidString: normalized) {
-            let stillLive = CXCallObserver().calls.contains { $0.uuid == uuid && !$0.hasEnded }
-            if stillLive {
-                // Despite the name, this is the CallKit API that starts the in-call timer after
-                // answer fulfill + media up. Guard with stillLive so we never report on a dead UUID.
-                provider.reportOutgoingCall(with: uuid, connectedAt: Date())
-                print("[AiMediaTankVoipPushBridge] CallKit connectedAt \(normalized)")
+        if Self.isCallKitAllowed() {
+            reportCallKitHasVideo(callId: normalized)
+            if let uuid = UUID(uuidString: normalized) {
+                let stillLive = CXCallObserver().calls.contains { $0.uuid == uuid && !$0.hasEnded }
+                if stillLive {
+                    // Despite the name, this is the CallKit API that starts the in-call timer after
+                    // answer fulfill + media up. Guard with stillLive so we never report on a dead UUID.
+                    provider.reportOutgoingCall(with: uuid, connectedAt: Date())
+                    print("[AiMediaTankVoipPushBridge] CallKit connectedAt \(normalized)")
+                }
             }
         }
         Self.noteCallDismissed(normalized)
@@ -491,6 +504,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     /// Keep CallKit subtitle/icon in sync with video vs audio for this UUID.
     private func reportCallKitHasVideo(callId: String) {
+        guard Self.isCallKitAllowed() else { return }
         guard let uuid = UUID(uuidString: callId) else { return }
         let update = CXCallUpdate()
         update.hasVideo = Self.callHasVideo(callId)
@@ -1081,6 +1095,10 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         video: Bool,
         completion: @escaping (Bool) -> Void
     ) {
+        guard Self.isCallKitAllowed() else {
+            completion(false)
+            return
+        }
         let update = CXCallUpdate()
         update.remoteHandle = CXHandle(type: handleType, value: handle)
         update.localizedCallerName = displayName
@@ -1548,6 +1566,33 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: normalizedCallId))
         }
 
+        let video = (userInfo["video"] as? Bool)
+            ?? ((userInfo["video"] as? String)?.lowercased() == "true")
+            ?? false
+        Self.noteCallHasVideo(normalizedCallId, hasVideo: video)
+
+        if !Self.isCallKitAllowed() {
+            print("[AiMediaTankVoipPushBridge] JS incoming — CallKit disabled (CN), in-app only \(normalizedCallId)")
+            Self.noteIncomingCallReported(callIdString)
+            let announcement = userInfo["announcement"] as? String
+            let lang = userInfo["lang"] as? String
+            startInAppRingAnnouncement(
+                text: announcement?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                    ? announcement!
+                    : displayName,
+                lang: lang
+            )
+            if let token = userInfo["declineToken"] as? String, !token.isEmpty {
+                startCallStatusWatch(callId: normalizedCallId, token: token)
+            }
+            NotificationCenter.default.post(
+                name: Notification.Name("AiMediaTankNoteIncomingCall"),
+                object: nil,
+                userInfo: ["callId": normalizedCallId]
+            )
+            return
+        }
+
         // VoIP push already reported CallKit; JS fallback only when push did not arrive (usually background).
         if Self.isForegroundActive() {
             let observer = CXCallObserver()
@@ -1561,11 +1606,6 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             }
             print("[AiMediaTankVoipPushBridge] foreground JS fallback — VoIP not on screen yet \(normalizedCallId)")
         }
-
-        let video = (userInfo["video"] as? Bool)
-            ?? ((userInfo["video"] as? String)?.lowercased() == "true")
-            ?? false
-        Self.noteCallHasVideo(normalizedCallId, hasVideo: video)
 
         reportIncomingToCallKit(
             callId: callId,
@@ -1868,7 +1908,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         }
 
         if Self.isWithinIncomingGracePeriod(callId: normalizedCallId) {
-            if Self.hasCallKitIncomingRing(callId: normalizedCallId) {
+            if Self.isCallKitAllowed() && Self.hasCallKitIncomingRing(callId: normalizedCallId) {
                 print("[AiMediaTankVoipPushBridge] duplicate incoming VoIP push for active ring \(normalizedCallId)")
                 postVoiceTrace(callId: normalizedCallId, event: "grace_skip_active_ring")
                 if let token = declineToken(from: payloadDict) {
@@ -1876,6 +1916,23 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 }
                 var info = userInfo(from: payloadDict)
                 info["reportedToCallKit"] = true
+                NotificationCenter.default.post(
+                    name: Self.incomingPushNotification,
+                    object: nil,
+                    userInfo: info
+                )
+                NotificationCenter.default.post(name: Self.incomingPushDoneNotification, object: nil)
+                completeOnce()
+                return
+            }
+            if !Self.isCallKitAllowed() {
+                print("[AiMediaTankVoipPushBridge] duplicate incoming VoIP push for in-app ring \(normalizedCallId)")
+                postVoiceTrace(callId: normalizedCallId, event: "grace_skip_active_ring")
+                if let token = declineToken(from: payloadDict) {
+                    UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: normalizedCallId))
+                }
+                var info = userInfo(from: payloadDict)
+                info["reportedToCallKit"] = false
                 NotificationCenter.default.post(
                     name: Self.incomingPushNotification,
                     object: nil,
@@ -1925,6 +1982,44 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 object: nil,
                 userInfo: info
             )
+        }
+
+        // China App Store: satisfy PushKit without CallKit UI — in-app incoming overlay handles Accept/Decline.
+        if !Self.isCallKitAllowed() {
+            print("[AiMediaTankVoipPushBridge] VoIP push — CallKit disabled (CN), in-app incoming \(normalizedCallId)")
+
+            reportIncomingThenEndHistorically(uuid: callId) { [weak self] in
+                guard let self else {
+                    completeOnce()
+                    return
+                }
+                if Self.isCallCancelled(normalizedCallId) {
+                    completeOnce()
+                    return
+                }
+                self.postVoiceTrace(callId: normalizedCallId, event: "in_app_incoming")
+                let announcement = self.payloadString(payloadDict, key: "announcement")
+                let lang = self.payloadString(payloadDict, key: "lang")
+                self.startCallKitRingAnnouncement(
+                    displayName: displayName,
+                    announcement: announcement,
+                    lang: lang
+                )
+                if let token = self.declineToken(from: payloadDict) ??
+                    UserDefaults.standard.string(forKey: Self.declineTokenKey(for: normalizedCallId)),
+                   !token.isEmpty
+                {
+                    NativeVoiceCallEngine.shared.prefetchBootstrapWhileRinging(
+                        callId: normalizedCallId,
+                        token: token,
+                        baseURL: self.voiceApiBaseURL()
+                    )
+                }
+                Self.noteIncomingCallReported(callIdString)
+                forwardToPlugin(reportedToCallKit: false)
+                completeOnce()
+            }
+            return
         }
 
         // Apple requires reportNewIncomingCall for every VoIP push — CallKit is the only incoming UI on iOS.
@@ -2073,6 +2168,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     /// Step 1→2: user unlocked — cache caller for CallKit ring; do not show in-app incoming UI (#1).
     func prepareUnlockedRingingCallsIfNeeded() {
+        guard Self.isCallKitAllowed() else { return }
         guard Self.isDeviceUnlockedForVoice() else { return }
         guard !hasPendingCallKitAnswer() else { return }
 
