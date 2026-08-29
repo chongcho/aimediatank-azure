@@ -666,10 +666,6 @@ function TalkChatContent({
     setVoiceCallPickTarget(null)
   }
 
-  const togglePanelMinimized = useCallback(() => {
-    setPanelSize((current) => (current === 'min' ? 'medium' : 'min'))
-  }, [])
-
   const switchToVoiceCallRecent = () => {
     setVoiceCallTab('recent')
     setVoiceCallPickTarget(null)
@@ -878,12 +874,55 @@ function TalkChatContent({
     if (!isDesktop || !hasCustomPosition) return
 
     const handleWindowResize = () => {
-      setPosition((prev) => clampDesktopPanelPosition(prev.x, prev.y, size.width, size.height))
+      const height =
+        panelSize === 'min' ? getDesktopPanelHeightPx('min') : size.height
+      setPosition((prev) =>
+        clampDesktopPanelPosition(
+          prev.x,
+          panelSize === 'min' ? window.innerHeight - height : prev.y,
+          size.width,
+          height,
+        ),
+      )
     }
 
     window.addEventListener('resize', handleWindowResize)
     return () => window.removeEventListener('resize', handleWindowResize)
-  }, [isDesktop, hasCustomPosition, size])
+  }, [isDesktop, hasCustomPosition, size, panelSize])
+
+  // Minimized desktop panels always sit on the bottom edge (ignore expanded Y).
+  useEffect(() => {
+    if (!isDesktop || panelSize !== 'min' || !hasCustomPosition) return
+    const minHeight = getDesktopPanelHeightPx('min')
+    const bottomY = window.innerHeight - minHeight
+    setPosition((prev) => {
+      if (prev.y === bottomY) return prev
+      return clampDesktopPanelPosition(prev.x, bottomY, size.width, minHeight)
+    })
+  }, [isDesktop, panelSize, hasCustomPosition, size.width])
+
+  const togglePanelMinimized = useCallback(() => {
+    setPanelSize((current) => {
+      const next = current === 'min' ? 'medium' : 'min'
+      if (!isDesktop || !hasCustomPosition) return next
+      if (next === 'min') {
+        const minHeight = getDesktopPanelHeightPx('min')
+        setPosition((prev) =>
+          clampDesktopPanelPosition(prev.x, window.innerHeight - minHeight, size.width, minHeight),
+        )
+      } else {
+        setPosition((prev) =>
+          clampDesktopPanelPosition(
+            prev.x,
+            window.innerHeight - size.height,
+            size.width,
+            size.height,
+          ),
+        )
+      }
+      return next
+    })
+  }, [isDesktop, hasCustomPosition, size.width, size.height])
 
   useEffect(() => {
     if (isDesktop) {
@@ -910,9 +949,14 @@ function TalkChatContent({
     if (!isDragging) return
 
     const handleMouseMove = (e: MouseEvent) => {
+      const height =
+        panelSize === 'min' ? getDesktopPanelHeightPx('min') : size.height
       const newX = e.clientX - dragOffset.x
-      const newY = e.clientY - dragOffset.y
-      setPosition(clampDesktopPanelPosition(newX, newY, size.width, size.height))
+      const newY =
+        panelSize === 'min'
+          ? window.innerHeight - height
+          : e.clientY - dragOffset.y
+      setPosition(clampDesktopPanelPosition(newX, newY, size.width, height))
     }
 
     const handleMouseUp = () => {
@@ -925,7 +969,7 @@ function TalkChatContent({
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isDragging, dragOffset, size])
+  }, [isDragging, dragOffset, size, panelSize])
 
   // Resize handlers - separate for each edge
   const [resizeDirection, setResizeDirection] = useState<'left' | 'right' | 'top' | 'bottom' | null>(null)
@@ -2880,13 +2924,20 @@ function TalkChatContent({
     }
   }
 
+  const isDesktopMinimized = isDesktop && panelSize === 'min'
+
   return (
     <div 
       className="talkchat-container"
       onContextMenu={(e) => e.preventDefault()} // Disable right-click on entire TalkChat except chat records
       style={{
         position: 'fixed',
-        ...(isDesktop && hasCustomPosition ? {
+        ...(isDesktopMinimized ? {
+          bottom: 0,
+          top: 'auto',
+          left: hasCustomPosition ? position.x : 0,
+          right: hasCustomPosition ? 'auto' : 0,
+        } : isDesktop && hasCustomPosition ? {
           top: position.y,
           left: position.x,
           bottom: 'auto',

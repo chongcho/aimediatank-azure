@@ -7,9 +7,13 @@ export const OPEN_VOICE_TALK_EVENT = 'openVoiceTalkPanel'
 /** Close Talk/Chat panels (Navbar listens and dismisses overlays). */
 export const CLOSE_TALK_CHAT_EVENT = 'closeTalkChat'
 
-/** Above navbar (100010) and feed chrome; below voice-call popup (100050). */
+/** Above navbar (100010) and feed chrome; below navbar dropdowns and voice-call popup. */
 export const TALKCHAT_DESKTOP_Z_BACK = 100025
 export const TALKCHAT_DESKTOP_Z_FRONT = 100026
+
+/** Navbar dropdowns / notifications — above Talk/Chat; below voice-call popup (100050). */
+export const NAVBAR_DROPDOWN_Z_INDEX = 100040
+export const NAVBAR_DROPDOWN_PANEL_Z_INDEX = 100041
 
 const DESKTOP_PANEL_STATE_KEY = 'talkChatDesktopPanels'
 
@@ -63,6 +67,16 @@ export function readTalkChatDesktopPanelState(): TalkChatDesktopPanelState | nul
     }
   } catch {
     return null
+  }
+}
+
+/** Sync init for Navbar — avoids a persist effect clearing sessionStorage before hydrate runs. */
+export function readInitialTalkChatDesktopPanelState(): TalkChatDesktopPanelState {
+  const saved = readTalkChatDesktopPanelState()
+  return {
+    chatPanelOpen: saved?.chatPanelOpen ?? false,
+    voicePanelOpen: saved?.voicePanelOpen ?? false,
+    frontPanel: saved?.frontPanel ?? null,
   }
 }
 
