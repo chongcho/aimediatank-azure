@@ -18,7 +18,7 @@ export const APP_MODAL_DRAG_HANDLE_ATTR = 'data-app-modal-drag-handle'
 
 /** Highlighted title bar — signals the popup can be dragged. */
 export const APP_MODAL_DRAG_HEADER_CLASS =
-  'cursor-grab active:cursor-grabbing border-b border-tank-light/50 bg-tank-light/25 hover:bg-tank-light/35 transition-colors'
+  'cursor-grab active:cursor-grabbing border-b border-tank-light/60 bg-tank-light hover:brightness-110 transition-colors'
 
 export type AppModalOverlayProps = {
   open: boolean
