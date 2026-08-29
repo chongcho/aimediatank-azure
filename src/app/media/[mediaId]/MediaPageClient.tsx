@@ -1217,8 +1217,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
       {/* Send by email modal */}
       {showEmailModal && (
-        <div className="fixed inset-0 bg-black flex items-center justify-center z-50 p-4" onClick={() => !sendingEmail && setShowEmailModal(false)}>
-          <div className="max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-[#1a5c66] relative" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !sendingEmail && setShowEmailModal(false)}>
+          <div className="card max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-tank-light relative p-0" onClick={(e) => e.stopPropagation()}>
             {/* Close button */}
             <button
               type="button"
@@ -1231,25 +1231,25 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               </svg>
             </button>
             {/* FROM */}
-            <div className="bg-[#1a6e7a] px-5 py-3">
-              <p className="text-white font-medium">
-                <span className="text-sm font-semibold text-white/80 uppercase tracking-wide">{tMedia('from')} </span>
-                <span className="bg-[#0f3f47] px-2 py-0.5 rounded text-sm">AI Media Tank (AMT) &lt;aimediatank@aimediatank.com&gt;</span>
+            <div className="px-5 py-3 border-b border-tank-light/40 bg-tank-gray">
+              <p className="text-white font-medium pr-8">
+                <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide">{tMedia('from')} </span>
+                <span className="inline-block mt-1 bg-tank-black/60 border border-tank-light px-2 py-0.5 rounded text-sm text-gray-200">AI Media Tank (AMT) &lt;aimediatank@aimediatank.com&gt;</span>
               </p>
             </div>
 
             {/* TO */}
-            <div className="bg-[#17626c] px-5 py-3 border-t border-[#1a5c66]">
+            <div className="px-5 py-3 border-b border-tank-light/40 bg-tank-gray">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-semibold text-white/80 uppercase tracking-wide shrink-0">{tMedia('to')}</span>
+                <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide shrink-0">{tMedia('to')}</span>
                 <div className="flex gap-1.5">
                   <button
                     type="button"
                     onClick={() => setEmailDeliveryMethod('email')}
                     className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                       emailDeliveryMethod === 'email'
-                        ? 'bg-white text-[#17626c]'
-                        : 'bg-[#1a6e7a] text-white/70 hover:text-white'
+                        ? 'bg-white text-tank-black'
+                        : 'bg-tank-light/40 text-gray-400 hover:text-white'
                     }`}
                   >
                     {tMedia('emailTab')}
@@ -1259,8 +1259,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     onClick={() => setEmailDeliveryMethod('phone')}
                     className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                       emailDeliveryMethod === 'phone'
-                        ? 'bg-white text-[#17626c]'
-                        : 'bg-[#1a6e7a] text-white/70 hover:text-white'
+                        ? 'bg-white text-tank-black'
+                        : 'bg-tank-light/40 text-gray-400 hover:text-white'
                     }`}
                   >
                     {tMedia('phoneTab')}
@@ -1273,7 +1273,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   value={emailTo}
                   onChange={(e) => setEmailTo(e.target.value)}
                   placeholder={tMedia('placeholderEmail')}
-                  className="w-full px-4 py-2.5 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/50"
+                  className="w-full px-4 py-2.5 rounded-lg bg-tank-black/60 border border-tank-light text-white placeholder-gray-500 text-sm focus:outline-none focus:border-tank-accent"
                   disabled={sendingEmail}
                 />
               ) : (
@@ -1282,15 +1282,15 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   value={emailPhone}
                   onChange={(e) => setEmailPhone(e.target.value)}
                   placeholder={tMedia('placeholderPhone')}
-                  className="w-full px-4 py-2.5 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/50"
+                  className="w-full px-4 py-2.5 rounded-lg bg-tank-black/60 border border-tank-light text-white placeholder-gray-500 text-sm focus:outline-none focus:border-tank-accent"
                   disabled={sendingEmail}
                 />
               )}
             </div>
 
             {/* Media preview */}
-            <div className="bg-[#0f3f47] px-5 py-4 border-t border-[#1a5c66]">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-[#17626c]/50 border border-[#1a5c66]">
+            <div className="px-5 py-4 border-b border-tank-light/40 bg-tank-dark/50">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-tank-black/40 border border-tank-light/60">
                 {media.thumbnailUrl ? (
                   <img
                     src={media.thumbnailUrl}
@@ -1298,25 +1298,25 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
                   />
                 ) : (
-                  <div className="w-16 h-16 rounded-lg bg-[#1a5c66] flex items-center justify-center flex-shrink-0">
-                    <svg className="w-7 h-7 text-white/30" fill="currentColor" viewBox="0 0 24 24">
+                  <div className="w-16 h-16 rounded-lg bg-tank-gray border border-tank-light/40 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-7 h-7 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   </div>
                 )}
                 <div className="min-w-0">
                   <p className="text-white text-sm font-semibold truncate">{stripHashtags(displayTitleSource)}</p>
-                  <p className="text-white/50 text-xs mt-0.5">{tMedia('thumbEmailNote')}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">{tMedia('thumbEmailNote')}</p>
                 </div>
               </div>
-              <p className="text-white/50 text-sm mt-3">
+              <p className="text-gray-400 text-sm mt-3">
                 {tMedia('recipientEmailNote')}
               </p>
             </div>
 
             {/* Message */}
-            <div className="bg-[#1a6e7a] px-5 py-4 border-t border-[#1a5c66]">
-              <label className="text-sm font-semibold text-white/80">
+            <div className="px-5 py-4 border-b border-tank-light/40 bg-tank-gray">
+              <label className="text-sm font-semibold text-gray-400">
                 {tMedia('message')}
               </label>
               <textarea
@@ -1324,17 +1324,17 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 onChange={(e) => setEmailMessage(e.target.value)}
                 placeholder={tMedia('messagePlaceholder')}
                 rows={2}
-                className="w-full mt-2 px-4 py-2.5 rounded-lg bg-[#0f3f47] border border-[#1a6e7a] text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/50 resize-none"
+                className="w-full mt-2 px-4 py-2.5 rounded-lg bg-tank-black/60 border border-tank-light text-white placeholder-gray-500 text-sm focus:outline-none focus:border-tank-accent resize-none"
                 disabled={sendingEmail}
               />
             </div>
 
             {/* Cancel / Send buttons */}
-            <div className="flex border-t border-[#1a5c66]">
+            <div className="flex">
               <button
                 type="button"
                 onClick={() => !sendingEmail && setShowEmailModal(false)}
-                className="flex-1 bg-[#14555e] hover:bg-[#175f69] px-5 py-4 text-white/70 hover:text-white font-bold text-lg transition-colors border-r border-[#1a5c66]"
+                className="flex-1 bg-tank-light/30 hover:bg-tank-light/50 px-5 py-4 text-gray-300 hover:text-white font-bold text-lg transition-colors border-r border-tank-light/40"
                 disabled={sendingEmail}
               >
                 {tMedia('cancel')}
@@ -1343,7 +1343,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 type="button"
                 onClick={handleSendByEmail}
                 disabled={sendingEmail || (emailDeliveryMethod === 'email' ? !emailTo.trim() : !emailPhone.trim())}
-                className="flex-1 bg-[#14555e] hover:bg-[#175f69] disabled:opacity-50 px-5 py-4 text-white font-bold text-lg transition-colors"
+                className="flex-1 bg-tank-accent hover:bg-tank-accent/90 disabled:opacity-50 disabled:bg-tank-light/30 disabled:text-gray-500 px-5 py-4 text-tank-black font-bold text-lg transition-colors"
               >
                 {sendingEmail ? tMedia('sending') : tMedia('send')}
               </button>

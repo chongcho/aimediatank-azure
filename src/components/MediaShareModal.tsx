@@ -346,7 +346,7 @@ export default function MediaShareModal({
         onClick={onClose}
       />
       <div
-        className="card relative z-10 max-w-md w-full max-h-[min(90vh,720px)] overflow-y-auto touch-auto overscroll-contain"
+        className="card relative z-10 w-full max-w-md max-h-[min(90vh,720px)] overflow-y-auto touch-auto overscroll-contain shadow-2xl rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="media-share-modal-title"

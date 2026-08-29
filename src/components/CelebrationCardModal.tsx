@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 interface CelebrationCardModalProps {
   mediaId: string
@@ -20,12 +21,25 @@ const SNS_LINKS = (cardUrl: string, message: string) => {
 }
 
 export default function CelebrationCardModal({ mediaId, mediaTitle, onClose }: CelebrationCardModalProps) {
+  const [portalMounted, setPortalMounted] = useState(false)
   const [recipientEmail, setRecipientEmail] = useState('')
   const [cardTitle, setCardTitle] = useState('')
   const [ttsMessage, setTtsMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ cardUrl: string; emailSent: boolean } | null>(null)
+
+  useEffect(() => {
+    setPortalMounted(true)
+  }, [])
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,10 +90,15 @@ export default function CelebrationCardModal({ mediaId, mediaTitle, onClose }: C
 
   const sns = result ? SNS_LINKS(result.cardUrl, ttsMessage.trim() || cardTitle.trim() || 'Check out this celebration card!') : null
 
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+  if (!portalMounted) return null
+
+  return createPortal(
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4" role="presentation">
+      <div className="absolute inset-0 bg-black/50 touch-none" aria-hidden onClick={onClose} />
       <div
-        className="card max-w-md w-full max-h-[90vh] overflow-y-auto"
+        className="card relative z-10 max-w-md w-full max-h-[min(90vh,720px)] overflow-y-auto shadow-2xl"
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -209,6 +228,7 @@ export default function CelebrationCardModal({ mediaId, mediaTitle, onClose }: C
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
