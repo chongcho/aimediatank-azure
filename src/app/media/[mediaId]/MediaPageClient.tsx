@@ -675,7 +675,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
   if (loading) {
     return (
-      <div className="pb-[500px] min-h-screen bg-tank-black">
+      <div className="pb-[500px] lg:pb-0 min-h-screen lg:min-h-0 bg-tank-black media-detail-page">
         <div className="w-full px-4 lg:px-6 pt-5">
           <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-6">
             <div className="w-full lg:w-2/3 min-w-0">
@@ -739,7 +739,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   }
 
   return (
-    <div className="pb-[500px]">
+    <div className="pb-[500px] lg:pb-0 media-detail-page">
       {/* Fade-to-black overlay before router.back() when closing from intercepted modal (avoids flash). */}
       {intercepted && closing && (
         <div
@@ -756,8 +756,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           aria-hidden
         />
       )}
-      <div className="w-full px-4 lg:px-6 pt-5">
-        <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-6">
+      <div className="w-full px-4 lg:px-6 pt-5 lg:h-full lg:overflow-hidden lg:box-border">
+        <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-6 lg:h-full lg:min-h-0 lg:overflow-hidden">
           {/* Media — left 2/3 on desktop */}
           <div className="w-full lg:w-2/3 min-w-0 lg:sticky lg:top-[calc(var(--app-chrome-top,4rem)+1.25rem)] lg:self-start">
             <div className="relative w-full bg-black rounded-xl overflow-hidden border border-tank-light/40 media-detail-split-player">
@@ -878,8 +878,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           </div>
 
           {/* Details — right 1/3 on desktop */}
-          <div className="w-full lg:w-1/3 min-w-0 lg:flex lg:flex-col lg:justify-center space-y-6">
-        <div className="card">
+          <div className="w-full lg:w-1/3 min-w-0 lg:flex lg:flex-col lg:justify-center lg:max-h-full lg:min-h-0 space-y-6 lg:space-y-0">
+        <div className="card lg:max-h-[calc(100vh-var(--app-chrome-top,4rem)-2.5rem)] lg:flex lg:flex-col lg:overflow-hidden lg:min-h-0">
           {/* Title row + close — full width at top of card */}
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="min-w-0 flex-1 flex items-center gap-2 overflow-hidden">
@@ -1105,13 +1105,15 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
           {/* Description + Comment sections — below action row */}
           {(latestCommentPreview.length > 0 || displayDescriptionSource) && (
-            <div className="mt-6 w-full border-t border-tank-light/20 pt-6 space-y-4">
+            <div className="mt-6 w-full border-t border-tank-light/20 pt-6 space-y-4 lg:mt-4 lg:flex-1 lg:min-h-0 lg:flex lg:flex-col lg:overflow-hidden">
               {displayDescriptionSource && (
-                <section className="space-y-2">
-                  <h3 className="text-sm font-semibold text-white/90">{tMedia('description')}</h3>
-                  <p className="text-gray-300 whitespace-pre-wrap break-words">
-                    {displayDescriptionSource}
-                  </p>
+                <section className="space-y-2 lg:flex lg:flex-col lg:min-h-0 lg:flex-1">
+                  <h3 className="text-sm font-semibold text-white/90 shrink-0">{tMedia('description')}</h3>
+                  <div className="lg:flex-1 lg:min-h-0 lg:pr-1 media-detail-description-scroll">
+                    <p className="text-gray-300 whitespace-pre-wrap break-words">
+                      {displayDescriptionSource}
+                    </p>
+                  </div>
                 </section>
               )}
               {latestCommentPreview.length > 0 && (
@@ -1186,7 +1188,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             <button
               type="button"
               onClick={handleLeaveDetail}
-              className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+              className="flex lg:hidden items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
             >
               {tMedia('back')}
             </button>

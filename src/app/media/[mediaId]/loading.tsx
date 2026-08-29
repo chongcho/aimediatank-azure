@@ -4,7 +4,7 @@
  */
 export default function MediaLoading() {
   return (
-    <div className="pb-[500px] min-h-screen bg-tank-black" data-initial-content>
+    <div className="pb-[500px] lg:pb-0 min-h-screen lg:min-h-0 bg-tank-black media-detail-page" data-initial-content>
       <div className="w-full px-4 lg:px-6 pt-5">
         <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-6">
           <div className="w-full lg:w-2/3 min-w-0">

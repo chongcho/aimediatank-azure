@@ -862,6 +862,11 @@ input[type="number"]::-webkit-outer-spin-button {
 
 /* Media detail page — desktop split: media left 2/3, fill column width and viewport height */
 @media (min-width: 1024px) {
+  .media-detail-page {
+    height: calc(100vh - var(--app-chrome-top, 4rem));
+    overflow: hidden;
+  }
+
   .media-detail-split-player {
     width: 100%;
     min-height: calc(100vh - var(--app-chrome-top, 4rem) - 3rem);
@@ -882,5 +887,21 @@ input[type="number"]::-webkit-outer-spin-button {
     max-height: calc(100vh - var(--app-chrome-top, 4rem) - 3rem) !important;
     object-fit: contain;
     display: block;
+  }
+
+  .media-detail-description-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+  }
+
+  .media-detail-description-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .media-detail-description-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.28);
+    border-radius: 9999px;
   }
 }
