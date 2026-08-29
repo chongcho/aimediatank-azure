@@ -1255,6 +1255,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         onClose={() => !sendingEmail && setShowEmailModal(false)}
       >
           <div className="card max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-tank-light relative p-0">
+            <div
+              className="flex justify-center py-2 cursor-grab active:cursor-grabbing border-b border-tank-light/30 bg-tank-gray"
+              data-app-modal-drag-handle
+              aria-hidden
+            >
+              <div className="h-1 w-10 rounded-full bg-tank-light/50" />
+            </div>
             {/* Close button */}
             <button
               type="button"
@@ -1398,7 +1405,10 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       {/* Delete Confirmation Modal */}
       <AppModalOverlay open={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
           <div className="card max-w-md w-full">
-            <div className="flex items-center gap-3 mb-4">
+            <div
+              className="flex items-center gap-3 mb-4 cursor-grab active:cursor-grabbing"
+              data-app-modal-drag-handle
+            >
               <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
                 <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path

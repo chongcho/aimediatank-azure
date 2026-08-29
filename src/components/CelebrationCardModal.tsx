@@ -79,7 +79,10 @@ export default function CelebrationCardModal({ mediaId, mediaTitle, onClose }: C
   return (
     <AppModalOverlay open onClose={onClose}>
       <div className="card relative w-full max-w-md max-h-[min(90vh,720px)] overflow-y-auto shadow-2xl rounded-2xl">
-        <div className="flex items-center justify-between mb-4">
+        <div
+          className="flex items-center justify-between mb-4 cursor-grab active:cursor-grabbing"
+          data-app-modal-drag-handle
+        >
           <h3 className="text-lg font-semibold text-white">Send celebration card</h3>
           <button
             type="button"

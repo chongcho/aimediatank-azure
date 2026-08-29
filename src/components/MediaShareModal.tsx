@@ -328,7 +328,10 @@ export default function MediaShareModal({
       }}
     >
       <div className="card relative w-full max-w-md max-h-[min(90vh,720px)] overflow-y-auto overscroll-contain shadow-2xl rounded-2xl">
-        <div className="flex items-center justify-between mb-4">
+        <div
+          className="flex items-center justify-between mb-4 cursor-grab active:cursor-grabbing"
+          data-app-modal-drag-handle
+        >
           <h3 id="media-share-modal-title" className="text-lg font-semibold text-white">
             {tMedia('shareModalTitle')}
           </h3>
