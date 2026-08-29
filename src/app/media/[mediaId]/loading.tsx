@@ -5,7 +5,7 @@
 export default function MediaLoading() {
   return (
     <div className="pb-[500px] min-h-screen bg-tank-black" data-initial-content>
-      <div className="max-w-7xl mx-auto px-4 pt-5">
+      <div className="w-full px-4 lg:px-6 pt-5">
         <div className="flex flex-col lg:flex-row lg:items-start gap-5 lg:gap-6">
           <div className="w-full lg:w-2/3 min-w-0">
             <div className="relative w-full aspect-video max-h-[70vh] lg:max-h-[calc(100vh-var(--app-chrome-top,4rem)-3rem)] bg-tank-gray rounded-xl overflow-hidden border border-tank-light/40">
