@@ -1253,7 +1253,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       <AppModalOverlay
         open={showEmailModal}
         onClose={() => !sendingEmail && setShowEmailModal(false)}
-        closeOnBackdrop={!sendingEmail}
       >
           <div className="card max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-tank-light relative p-0">
             {/* Close button */}
