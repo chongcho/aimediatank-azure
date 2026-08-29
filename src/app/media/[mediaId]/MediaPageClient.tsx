@@ -677,13 +677,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     return (
       <div className="pb-[500px] min-h-screen bg-tank-black">
         <div className="w-full px-4 lg:px-6 pt-5">
-          <div className="flex flex-col lg:flex-row lg:items-start gap-5 lg:gap-6">
+          <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-6">
             <div className="w-full lg:w-2/3 min-w-0">
               <div className="relative w-full aspect-video max-h-[70vh] lg:max-h-[calc(100vh-var(--app-chrome-top,4rem)-3rem)] bg-tank-gray rounded-xl overflow-hidden border border-tank-light/40">
                 <div className="absolute inset-0 skeleton" />
               </div>
             </div>
-            <div className="w-full lg:w-1/3 min-w-0">
+            <div className="w-full lg:w-1/3 min-w-0 lg:flex lg:flex-col lg:justify-center">
               <div className="card space-y-4">
                 <div className="h-6 skeleton w-3/4 rounded" />
                 <div className="flex flex-wrap gap-3">
@@ -757,9 +757,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         />
       )}
       <div className="w-full px-4 lg:px-6 pt-5">
-        <div className="flex flex-col lg:flex-row lg:items-start gap-5 lg:gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-6">
           {/* Media — left 2/3 on desktop */}
-          <div className="w-full lg:w-2/3 min-w-0 lg:sticky lg:top-[calc(var(--app-chrome-top,4rem)+1.25rem)] self-start">
+          <div className="w-full lg:w-2/3 min-w-0 lg:sticky lg:top-[calc(var(--app-chrome-top,4rem)+1.25rem)] lg:self-start">
             <div className="relative w-full bg-black rounded-xl overflow-hidden border border-tank-light/40 media-detail-split-player">
         {downloading && <MediaDownloadingOverlay label={tMedia('downloading')} />}
         {media.processingStatus === 'pending' || (media.processingStatus === 'processing' && !hasPreviewStream) ? (
@@ -878,7 +878,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           </div>
 
           {/* Details — right 1/3 on desktop */}
-          <div className="w-full lg:w-1/3 min-w-0 space-y-6">
+          <div className="w-full lg:w-1/3 min-w-0 lg:flex lg:flex-col lg:justify-center space-y-6">
         <div className="card">
           {/* Title row + close — full width at top of card */}
           <div className="flex items-start justify-between gap-3 mb-2">
