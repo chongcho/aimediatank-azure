@@ -26,9 +26,12 @@ import {
   NAVBAR_DROPDOWN_PANEL_Z_INDEX,
   NAVBAR_DROPDOWN_Z_INDEX,
   readInitialTalkChatDesktopPanelState,
+  readTalkChatPanelMinimized,
   requestCloseTalkChat,
+  requestRestoreTalkChatPanel,
   stripTalkChatDeepLinkParams,
   writeTalkChatDesktopPanelState,
+  requestTalkChatDesktopLayoutSync,
 } from '@/lib/talkChatOpen'
 import { VoiceCallProvider } from '@/contexts/VoiceCallContext'
 import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
@@ -291,6 +294,7 @@ function NavbarContent() {
       voicePanelOpen,
       frontPanel,
     })
+    requestTalkChatDesktopLayoutSync()
   }, [chatPanelOpen, voicePanelOpen, frontPanel])
 
   const fetchNavbarMenuSettings = useCallback(async () => {
@@ -444,6 +448,11 @@ function NavbarContent() {
       return
     }
     if (voicePanelOpen) {
+      if (readTalkChatPanelMinimized('voice')) {
+        requestRestoreTalkChatPanel('voice')
+        setFrontPanel('voice')
+        return
+      }
       setVoicePanelOpen(false)
       return
     }
@@ -464,6 +473,11 @@ function NavbarContent() {
       return
     }
     if (chatPanelOpen) {
+      if (readTalkChatPanelMinimized('chat')) {
+        requestRestoreTalkChatPanel('chat')
+        setFrontPanel('chat')
+        return
+      }
       setChatPanelOpen(false)
       return
     }
@@ -1716,6 +1730,7 @@ function NavbarContent() {
           isFront={chatIsFront}
           onClose={() => setChatPanelOpen(false)}
           panelMode="chat"
+          otherPanelOpen={voicePanelOpen}
         />
       )}
       {voicePanelOpen && (
@@ -1725,6 +1740,7 @@ function NavbarContent() {
           isFront={voiceIsFront}
           onClose={() => setVoicePanelOpen(false)}
           panelMode="voice"
+          otherPanelOpen={chatPanelOpen}
         />
       )}
 

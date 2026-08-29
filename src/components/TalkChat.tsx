@@ -19,12 +19,20 @@ import { useVoiceCallContext } from '@/contexts/VoiceCallContext'
 import { playNotificationSound } from '@/lib/notificationSound'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 import {
+  TALKCHAT_DESKTOP_LAYOUT_EVENT,
   TALKCHAT_DESKTOP_Z_BACK,
   TALKCHAT_DESKTOP_Z_FRONT,
+  TALKCHAT_MINIMIZED_EDGE_INSET_PX,
   getTalkChatDesktopMaxWidth,
   getTalkChatDesktopPanelHeightPx,
+  getTalkChatMinimizedDockLayout,
   getTalkVoiceDesktopDefaultWidth,
   isTalkChatNarrowDesktop,
+  readTalkChatPanelMinimized,
+  requestTalkChatDesktopLayoutSync,
+  isTalkChatDesktopViewport,
+  RESTORE_TALK_CHAT_PANEL_EVENT,
+  type TalkChatPanelKind,
 } from '@/lib/talkChatOpen'
 
 const TC = talkChatIdx
@@ -172,6 +180,8 @@ interface TalkChatProps {
   panelMode?: 'chat' | 'voice'
   /** When both Chat and Talk are open, the front panel stacks above the other. */
   isFront?: boolean
+  /** Whether the other Talk/Chat panel is open (for minimized dock layout). */
+  otherPanelOpen?: boolean
 }
 
 // Common emojis organized by category
@@ -242,10 +252,12 @@ function TalkChatContent({
   onClose,
   panelMode = 'chat',
   isFront = true,
+  otherPanelOpen = false,
 }: {
   onClose: () => void
   panelMode?: 'chat' | 'voice'
   isFront?: boolean
+  otherPanelOpen?: boolean
 }) {
   const isVoicePanel = panelMode === 'voice'
   const layoutStorageKeys = isVoicePanel
@@ -363,6 +375,7 @@ function TalkChatContent({
 
   useEffect(() => {
     localStorage.setItem(panelSizeStorageKey, panelSize)
+    if (isTalkChatDesktopViewport()) requestTalkChatDesktopLayoutSync()
   }, [panelSize, panelSizeStorageKey])
 
   // Pause polling when tab is hidden (major perf win)
@@ -894,15 +907,10 @@ function TalkChatContent({
     if (!isDesktop || !hasCustomPosition) return
 
     const handleWindowResize = () => {
-      const height =
-        panelSize === 'min' ? getDesktopPanelHeightPx('min') : size.height
+      if (panelSize === 'min') return
+      const height = size.height
       setPosition((prev) =>
-        clampDesktopPanelPosition(
-          prev.x,
-          panelSize === 'min' ? window.innerHeight - height : prev.y,
-          size.width,
-          height,
-        ),
+        clampDesktopPanelPosition(prev.x, prev.y, size.width, height),
       )
     }
 
@@ -910,27 +918,83 @@ function TalkChatContent({
     return () => window.removeEventListener('resize', handleWindowResize)
   }, [isDesktop, hasCustomPosition, size, panelSize])
 
-  // Minimized desktop panels always sit on the bottom edge (ignore expanded Y).
-  useEffect(() => {
-    if (!isDesktop || panelSize !== 'min' || !hasCustomPosition) return
+  const syncMinimizedDockPosition = useCallback(() => {
+    if (!isDesktop || panelSize !== 'min') return
+
+    const viewportW = window.innerWidth
     const minHeight = getDesktopPanelHeightPx('min')
     const bottomY = window.innerHeight - minHeight
-    setPosition((prev) => {
-      if (prev.y === bottomY) return prev
-      return clampDesktopPanelPosition(prev.x, bottomY, size.width, minHeight)
+    const chatOpen = !isVoicePanel
+    const voiceOpen = isVoicePanel || otherPanelOpen
+    const chatMin = chatOpen && readTalkChatPanelMinimized('chat')
+    const voiceMin = voiceOpen && readTalkChatPanelMinimized('voice')
+    const bothMin = chatMin && voiceMin
+    const dock = bothMin ? getTalkChatMinimizedDockLayout(viewportW) : null
+
+    if (isVoicePanel) {
+      const width = dock ? dock.voiceWidth : size.width
+      const x = dock
+        ? dock.voiceX
+        : viewportW - size.width - TALKCHAT_MINIMIZED_EDGE_INSET_PX
+      setPosition(clampDesktopPanelPosition(x, bottomY, width, minHeight))
+      return
+    }
+
+    const width = dock ? dock.chatWidth : size.width
+    const x = dock ? dock.chatX : TALKCHAT_MINIMIZED_EDGE_INSET_PX
+    setPosition(clampDesktopPanelPosition(x, bottomY, width, minHeight))
+  }, [isDesktop, panelSize, isVoicePanel, otherPanelOpen, size.width])
+
+  // Minimized desktop panels dock to the bottom edge (Chat left, Talk right).
+  useEffect(() => {
+    syncMinimizedDockPosition()
+  }, [syncMinimizedDockPosition])
+
+  useEffect(() => {
+    const onLayoutSync = () => syncMinimizedDockPosition()
+    window.addEventListener(TALKCHAT_DESKTOP_LAYOUT_EVENT, onLayoutSync)
+    return () => window.removeEventListener(TALKCHAT_DESKTOP_LAYOUT_EVENT, onLayoutSync)
+  }, [syncMinimizedDockPosition])
+
+  useEffect(() => {
+    if (!isDesktop) return
+    requestTalkChatDesktopLayoutSync()
+  }, [isDesktop, otherPanelOpen])
+
+  useEffect(() => {
+    if (!isDesktop) return
+    const handleWindowResize = () => {
+      if (panelSize === 'min') syncMinimizedDockPosition()
+    }
+    window.addEventListener('resize', handleWindowResize)
+    return () => window.removeEventListener('resize', handleWindowResize)
+  }, [isDesktop, panelSize, syncMinimizedDockPosition])
+
+  const restorePanelFromMinimized = useCallback(() => {
+    setPanelSize((current) => {
+      if (current !== 'min') return current
+      if (isDesktop && hasCustomPosition) {
+        setPosition((prev) =>
+          clampDesktopPanelPosition(
+            prev.x,
+            window.innerHeight - size.height,
+            size.width,
+            size.height,
+          ),
+        )
+      }
+      return 'medium'
     })
-  }, [isDesktop, panelSize, hasCustomPosition, size.width])
+  }, [isDesktop, hasCustomPosition, size.width, size.height])
 
   const togglePanelMinimized = useCallback(() => {
     setPanelSize((current) => {
       const next = current === 'min' ? 'medium' : 'min'
-      if (!isDesktop || !hasCustomPosition) return next
+      if (!isDesktop) return next
       if (next === 'min') {
-        const minHeight = getDesktopPanelHeightPx('min')
-        setPosition((prev) =>
-          clampDesktopPanelPosition(prev.x, window.innerHeight - minHeight, size.width, minHeight),
-        )
-      } else {
+        localStorage.setItem(panelSizeStorageKey, 'min')
+        requestTalkChatDesktopLayoutSync()
+      } else if (hasCustomPosition) {
         setPosition((prev) =>
           clampDesktopPanelPosition(
             prev.x,
@@ -942,7 +1006,18 @@ function TalkChatContent({
       }
       return next
     })
-  }, [isDesktop, hasCustomPosition, size.width, size.height])
+  }, [isDesktop, hasCustomPosition, size.width, size.height, panelSizeStorageKey])
+
+  useEffect(() => {
+    const panelKind: TalkChatPanelKind = isVoicePanel ? 'voice' : 'chat'
+    const onRestore = (e: Event) => {
+      const target = (e as CustomEvent<{ panel?: TalkChatPanelKind }>).detail?.panel
+      if (target !== panelKind) return
+      restorePanelFromMinimized()
+    }
+    window.addEventListener(RESTORE_TALK_CHAT_PANEL_EVENT, onRestore)
+    return () => window.removeEventListener(RESTORE_TALK_CHAT_PANEL_EVENT, onRestore)
+  }, [isVoicePanel, restorePanelFromMinimized])
 
   useEffect(() => {
     if (isDesktop) {
@@ -2945,6 +3020,17 @@ function TalkChatContent({
   }
 
   const isDesktopMinimized = isDesktop && panelSize === 'min'
+  const otherPanelMinimized =
+    otherPanelOpen && readTalkChatPanelMinimized(isVoicePanel ? 'chat' : 'voice')
+  const bothPanelsMinimized = isDesktopMinimized && otherPanelMinimized
+  const minimizedDockLayout = bothPanelsMinimized
+    ? getTalkChatMinimizedDockLayout(viewportSize.width)
+    : null
+  const effectivePanelWidth = minimizedDockLayout
+    ? isVoicePanel
+      ? minimizedDockLayout.voiceWidth
+      : minimizedDockLayout.chatWidth
+    : size.width
   const desktopChatMaxWidth = getTalkChatDesktopMaxWidth(viewportSize.width)
   const narrowDesktopDock =
     isDesktop && isTalkChatNarrowDesktop(viewportSize.width) && !hasCustomPosition
@@ -2958,8 +3044,8 @@ function TalkChatContent({
         ...(isDesktopMinimized ? {
           bottom: 0,
           top: 'auto',
-          left: hasCustomPosition ? position.x : 0,
-          right: hasCustomPosition ? 'auto' : 0,
+          left: position.x,
+          right: 'auto',
         } : isDesktop && hasCustomPosition ? {
           top: position.y,
           left: position.x,
@@ -2988,7 +3074,7 @@ function TalkChatContent({
         left: 0,
         right: 0,
         height: isDesktop ? undefined : '100%',
-        display: isDesktop && hasCustomPosition ? 'block' : 'flex',
+        display: isDesktop && (hasCustomPosition || isDesktopMinimized) ? 'block' : 'flex',
         justifyContent: narrowDesktopDock ? 'flex-start' : 'center',
         paddingLeft: narrowDesktopDock ? 12 : 0,
         background: 'transparent',
@@ -3014,8 +3100,8 @@ function TalkChatContent({
             position: 'relative',
             height: getPanelContainerHeight(),
             minHeight: isDesktop ? 'auto' : 0,
-            width: isDesktop && hasCustomPosition ? size.width : '100%',
-            maxWidth: isDesktop && hasCustomPosition ? 'none' : desktopChatMaxWidth,
+            width: isDesktop && (hasCustomPosition || isDesktopMinimized) ? effectivePanelWidth : '100%',
+            maxWidth: isDesktop && (hasCustomPosition || isDesktopMinimized) ? 'none' : desktopChatMaxWidth,
             display: 'flex',
             flexDirection: 'column',
             borderRadius: 0,
@@ -5349,6 +5435,7 @@ export default function TalkChat({
   onClose,
   panelMode = 'chat',
   isFront = true,
+  otherPanelOpen = false,
 }: TalkChatProps) {
   const isDesktop = useIsDesktop()
   const [mounted, setMounted] = useState(false)
@@ -5388,6 +5475,7 @@ export default function TalkChat({
       onClose={onClose}
       panelMode={panelMode}
       isFront={isFront}
+      otherPanelOpen={otherPanelOpen}
     />,
     document.body
   )
