@@ -677,9 +677,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     return (
       <div className="pb-[500px] lg:pb-0 min-h-screen lg:min-h-0 bg-tank-black media-detail-page">
         <div className="w-full px-4 lg:px-6 pt-5 media-detail-page-inner">
-          <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-6">
-            <div className="w-full lg:w-2/3 min-w-0">
-              <div className="relative w-full aspect-video max-h-[70vh] lg:max-h-[calc((100vh-var(--app-chrome-top,4rem)-2*var(--media-detail-v-gap,10px))*var(--media-detail-media-scale,0.9))] bg-tank-gray rounded-xl overflow-hidden border border-tank-light/40">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-6">
+            <div className="w-full lg:w-2/3 min-w-0 media-detail-media-col lg:self-start">
+              <div className="relative w-full aspect-video max-h-[70vh] lg:max-h-[var(--media-detail-max-media-h)] lg:h-full lg:min-h-0 lg:aspect-auto bg-tank-gray rounded-xl overflow-hidden border border-tank-light/40">
                 <div className="absolute inset-0 skeleton" />
               </div>
             </div>
@@ -757,13 +757,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         />
       )}
       <div className="w-full px-4 lg:px-6 pt-5 media-detail-page-inner lg:h-full lg:overflow-hidden lg:box-border">
-        <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-6 lg:h-full lg:min-h-0 lg:overflow-hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-6 lg:h-full lg:min-h-0 lg:overflow-hidden">
           {/* Media — left 2/3 on desktop */}
-          <div className="w-full lg:w-2/3 min-w-0 lg:sticky lg:top-[calc(var(--app-chrome-top,4rem)+var(--media-detail-v-gap,10px))] lg:self-start">
+          <div className="w-full lg:w-2/3 min-w-0 media-detail-media-col lg:self-start">
             <div className="relative w-full bg-black rounded-xl overflow-hidden border border-tank-light/40 media-detail-split-player">
         {downloading && <MediaDownloadingOverlay label={tMedia('downloading')} />}
         {media.processingStatus === 'pending' || (media.processingStatus === 'processing' && !hasPreviewStream) ? (
-          <div className="relative w-full aspect-video max-h-[70vh] lg:max-h-[calc((100vh-var(--app-chrome-top,4rem)-2*var(--media-detail-v-gap,10px))*var(--media-detail-media-scale,0.9))] bg-black overflow-hidden">
+          <div className="relative w-full max-h-[70vh] lg:max-h-[var(--media-detail-max-media-h)] lg:h-full lg:min-h-0 aspect-video lg:aspect-auto bg-black overflow-hidden">
               {/* Processing thumbnail: uploader can check status here; hidden from homepage until completed */}
               {media.thumbnailUrl ? (
                 <img
@@ -879,7 +879,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
           {/* Details — right 1/3 on desktop */}
           <div className="w-full lg:w-1/3 min-w-0 lg:flex lg:flex-col lg:justify-center lg:max-h-full lg:min-h-0 space-y-6 lg:space-y-0">
-        <div className="card lg:max-h-[calc((100vh-var(--app-chrome-top,4rem)-2*var(--media-detail-v-gap,10px))*var(--media-detail-media-scale,0.9))] lg:flex lg:flex-col lg:overflow-hidden lg:min-h-0">
+        <div className="card lg:max-h-[var(--media-detail-max-media-h)] lg:flex lg:flex-col lg:overflow-hidden lg:min-h-0">
           {/* Title row + close — full width at top of card */}
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="min-w-0 flex-1 flex items-center gap-2 overflow-hidden">

@@ -8,6 +8,7 @@ import RouteChangeMediaStopper from '@/components/RouteChangeMediaStopper'
 import ScrollbarEdgeReveal from '@/components/ScrollbarEdgeReveal'
 import KakaoScript from '@/components/KakaoScript'
 import { KakaoConfigProvider } from '@/components/KakaoConfigProvider'
+import SiteFooter from '@/components/SiteFooter'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -106,11 +107,7 @@ export default function RootLayout({
             {children}
             {modal}
           </main>
-          <footer className="w-full py-6 mt-8 border-t border-tank-light">
-            <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
-              © {new Date().getFullYear()} AI Media Tank, LLC (AMT). All rights reserved.
-            </div>
-          </footer>
+          <SiteFooter />
           <InstallPrompt />
           </KakaoConfigProvider>
         </Providers>

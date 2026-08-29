@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, Suspense } from 'react'
+import SiteFooter from '@/components/SiteFooter'
 
 export default function InterceptedPageWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -16,6 +17,8 @@ export default function InterceptedPageWrapper({ children }: { children: React.R
       data-initial-content
     >
       <Suspense>{children}</Suspense>
+      {/* Layout footer sits outside this shell; include it here so soft-nav routes can scroll to it. */}
+      <SiteFooter />
     </div>
   )
 }

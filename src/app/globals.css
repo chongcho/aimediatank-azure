@@ -15,7 +15,7 @@
   --talkchat-desktop-z-front: 100026;
   --navbar-dropdown-z: 100040;
   --navbar-dropdown-panel-z: 100041;
-  /* 1 on mobile / ultra-wide; 0.8 on ~1080p-class desktop (see media query below). */
+  /* 1 on mobile / high-res panels; 0.8 on ~1080p-class desktop (see media query below). */
   --desktop-ui-scale: 1;
 }
 
@@ -50,11 +50,24 @@ body {
   text-size-adjust: 100%;
 }
 
-/* ~1080p-class desktop (1024–2199px): render entire UI at 80% — matches browser zoom 80%. */
-@media (min-width: 1024px) and (max-width: 2199px) {
+/*
+ * ~1080p-class desktop: render UI at 80% (like browser zoom).
+ * Uses device-width (physical pixels) so 2560×1440 + OS scaling (e.g. 150% → ~1707 CSS px)
+ * does not incorrectly match. High-res panels (device-width ≥ 2200) stay at 100%.
+ * Body width is expanded before zoom so content still fills the viewport (no right black bar).
+ */
+@media (min-width: 1024px) and (max-width: 2199px) and (max-device-width: 2199px) {
   html:not(.capacitor-native) {
     --desktop-ui-scale: 0.8;
     zoom: var(--desktop-ui-scale);
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  html:not(.capacitor-native) body {
+    width: calc(100% / var(--desktop-ui-scale));
+    min-height: calc(100% / var(--desktop-ui-scale));
+    max-width: none;
   }
 }
 
@@ -874,7 +887,11 @@ input[type="number"]::-webkit-outer-spin-button {
 @media (min-width: 1024px) {
   .media-detail-page {
     --media-detail-v-gap: 10px;
-    --media-detail-media-scale: 0.9;
+    --media-detail-media-scale: 1;
+    --media-detail-max-media-h: calc(
+      (100vh - var(--app-chrome-top, 4rem) - 2 * var(--media-detail-v-gap))
+        * var(--media-detail-media-scale)
+    );
     height: calc(100vh - var(--app-chrome-top, 4rem));
     overflow: hidden;
   }
@@ -884,26 +901,39 @@ input[type="number"]::-webkit-outer-spin-button {
     padding-bottom: var(--media-detail-v-gap);
   }
 
+  .media-detail-media-col {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
   .media-detail-split-player {
     width: 100%;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
   }
 
   .media-detail-split-player > .no-touch-callout,
   .media-detail-split-player > .no-touch-callout > div {
     width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .media-detail-split-player video,
   .media-detail-split-player img {
     width: 100% !important;
     max-width: 100% !important;
-    max-height: calc(
-      (100vh - var(--app-chrome-top, 4rem) - 2 * var(--media-detail-v-gap))
-        * var(--media-detail-media-scale)
-    ) !important;
+    max-height: var(--media-detail-max-media-h) !important;
+    height: auto;
     object-fit: contain;
     display: block;
   }
