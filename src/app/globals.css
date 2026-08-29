@@ -15,6 +15,8 @@
   --talkchat-desktop-z-front: 100026;
   --navbar-dropdown-z: 100040;
   --navbar-dropdown-panel-z: 100041;
+  /* 1 on mobile / ultra-wide; 0.8 on ~1080p-class desktop (see media query below). */
+  --desktop-ui-scale: 1;
 }
 
 * {
@@ -46,6 +48,14 @@ body {
   color: #ffffff;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+/* ~1080p-class desktop (1024–2199px): render entire UI at 80% — matches browser zoom 80%. */
+@media (min-width: 1024px) and (max-width: 2199px) {
+  html:not(.capacitor-native) {
+    --desktop-ui-scale: 0.8;
+    zoom: var(--desktop-ui-scale);
+  }
 }
 
 /*
