@@ -31,6 +31,11 @@ import {
   mediaPageT,
   type MediaPageKey,
 } from '@/messages/mediaPage'
+import {
+  captureDetailMediaPreview,
+  resolveMediaThumbnailSrc,
+} from '@/lib/mediaThumbnail'
+import AppModalOverlay from '@/components/AppModalOverlay'
 
 interface MediaDetail {
   id: string
@@ -127,6 +132,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
   const [showShareModal, setShowShareModal] = useState(false)
   const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailThumbSrc, setEmailThumbSrc] = useState<string | null>(null)
+  const [emailThumbFailed, setEmailThumbFailed] = useState(false)
   const [emailDeliveryMethod, setEmailDeliveryMethod] = useState<'email' | 'phone'>('email')
   const [emailTo, setEmailTo] = useState('')
   const [emailPhone, setEmailPhone] = useState('')
@@ -539,6 +546,32 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     pauseAllMedia()
     setShowShareModal(true)
   }
+
+  const refreshEmailThumbnailPreview = useCallback(() => {
+    if (!media) {
+      setEmailThumbSrc(null)
+      setEmailThumbFailed(false)
+      return
+    }
+    setEmailThumbFailed(false)
+    setEmailThumbSrc(
+      resolveMediaThumbnailSrc({
+        type: media.type,
+        thumbnailUrl: media.thumbnailUrl,
+        url: media.url,
+        streamUrl: (media as { streamUrl?: string }).streamUrl,
+      }) ?? captureDetailMediaPreview()
+    )
+  }, [media])
+
+  useEffect(() => {
+    if (!showEmailModal) {
+      setEmailThumbSrc(null)
+      setEmailThumbFailed(false)
+      return
+    }
+    refreshEmailThumbnailPreview()
+  }, [showEmailModal, refreshEmailThumbnailPreview])
 
   // After paint, pause again so feed-card / preplay videos (intercepted modal) stop even if something raced play().
   useLayoutEffect(() => {
@@ -1064,6 +1097,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                               ? mediaPageInterpolate(tMedia('emailThoughtLine'), { who })
                               : tMedia('emailThoughtAnonymous')
                           )
+                          refreshEmailThumbnailPreview()
                           setShowEmailModal(true)
                         }}
                         className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap bg-tank-gray border border-tank-light text-white hover:bg-tank-light"
@@ -1216,9 +1250,12 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       )}
 
       {/* Send by email modal */}
-      {showEmailModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !sendingEmail && setShowEmailModal(false)}>
-          <div className="card max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-tank-light relative p-0" onClick={(e) => e.stopPropagation()}>
+      <AppModalOverlay
+        open={showEmailModal}
+        onClose={() => !sendingEmail && setShowEmailModal(false)}
+        closeOnBackdrop={!sendingEmail}
+      >
+          <div className="card max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-tank-light relative p-0">
             {/* Close button */}
             <button
               type="button"
@@ -1291,11 +1328,19 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             {/* Media preview */}
             <div className="px-5 py-4 border-b border-tank-light/40 bg-tank-dark/50">
               <div className="flex items-center gap-3 p-3 rounded-lg bg-tank-black/40 border border-tank-light/60">
-                {media.thumbnailUrl ? (
+                {emailThumbSrc && !emailThumbFailed ? (
                   <img
-                    src={media.thumbnailUrl}
+                    src={emailThumbSrc}
                     alt={stripHashtags(displayTitleSource)}
-                    className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                    className="w-16 h-16 object-cover rounded-lg flex-shrink-0 bg-tank-black"
+                    onError={() => {
+                      const frame = captureDetailMediaPreview()
+                      if (frame && frame !== emailThumbSrc) {
+                        setEmailThumbSrc(frame)
+                        return
+                      }
+                      setEmailThumbFailed(true)
+                    }}
                   />
                 ) : (
                   <div className="w-16 h-16 rounded-lg bg-tank-gray border border-tank-light/40 flex items-center justify-center flex-shrink-0">
@@ -1349,12 +1394,10 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </AppModalOverlay>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <AppModalOverlay open={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
           <div className="card max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
@@ -1390,8 +1433,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </AppModalOverlay>
 
     </div>
   )

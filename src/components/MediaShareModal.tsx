@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
+import AppModalOverlay from '@/components/AppModalOverlay'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
@@ -59,7 +59,6 @@ export type MediaShareModalProps = {
   shareAppsEnabled: Record<string, boolean>
   /** When set, detail-page Share button can show "Copied" after copy from modal. */
   onCopyStatusChange?: (status: 'idle' | 'copied') => void
-  className?: string
 }
 
 export default function MediaShareModal({
@@ -71,7 +70,6 @@ export default function MediaShareModal({
   thumbnailUrl = null,
   shareAppsEnabled,
   onCopyStatusChange,
-  className = 'z-[100]',
 }: MediaShareModalProps) {
   const { localeTag } = useUiLocale()
   const autoTranslationEnabled = useAutoTranslationEnabled()
@@ -86,25 +84,11 @@ export default function MediaShareModal({
     [chromeLocaleTag]
   )
   const kakaoJsKey = useKakaoJsKey()
-  const [portalMounted, setPortalMounted] = useState(false)
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
   const [kakaoNotice, setKakaoNotice] = useState<string | null>(null)
   const [kakaoComposeOpen, setKakaoComposeOpen] = useState(false)
   const [kakaoTitle, setKakaoTitle] = useState('')
   const [kakaoMessage, setKakaoMessage] = useState('')
-
-  useEffect(() => {
-    setPortalMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (!open) return
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
-  }, [open])
 
   useEffect(() => {
     if (open) {
@@ -333,25 +317,17 @@ export default function MediaShareModal({
 
   const kakaoShareOverLimit = kakaoCombinedCharCount > KAKAO_SHARE_TEXT_MAX
 
-  if (!open || !portalMounted) return null
+  if (!open) return null
 
-  return createPortal(
-    <div
-      className={`fixed inset-0 flex items-center justify-center p-4 ${className}`}
-      role="presentation"
+  return (
+    <AppModalOverlay
+      open={open}
+      onClose={onClose}
+      dialogProps={{
+        'aria-labelledby': 'media-share-modal-title',
+      }}
     >
-      <div
-        className="absolute inset-0 bg-black/50 touch-none overscroll-none"
-        aria-hidden
-        onClick={onClose}
-      />
-      <div
-        className="card relative z-10 w-full max-w-md max-h-[min(90vh,720px)] overflow-y-auto touch-auto overscroll-contain shadow-2xl rounded-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="media-share-modal-title"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="card relative w-full max-w-md max-h-[min(90vh,720px)] overflow-y-auto overscroll-contain shadow-2xl rounded-2xl">
         <div className="flex items-center justify-between mb-4">
           <h3 id="media-share-modal-title" className="text-lg font-semibold text-white">
             {tMedia('shareModalTitle')}
@@ -626,7 +602,6 @@ export default function MediaShareModal({
         </div>
         )}
       </div>
-    </div>,
-    document.body
+    </AppModalOverlay>
   )
 }
