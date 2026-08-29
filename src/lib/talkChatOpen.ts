@@ -323,27 +323,54 @@ export function getTalkVoiceDesktopDefaultWidth(viewportWidth: number): number {
 
 export type TalkChatDesktopSizePreset = 'tall' | 'max' | 'medium' | 'min'
 
+/** Matches desktop navbar height (`h-16`). */
+export const TALKCHAT_DESKTOP_NAVBAR_BOTTOM_PX = 64
+
+/** Keep floating panel bottom above viewport edge (e.g. 1920×1080 + taskbar). */
+export const TALKCHAT_DESKTOP_BOTTOM_INSET_PX = 12
+
+/** Max panel height that fits below the navbar with a bottom inset. */
+export function getTalkChatDesktopMaxPanelHeightPx(
+  viewportHeight: number,
+  navbarBottomPx: number = TALKCHAT_DESKTOP_NAVBAR_BOTTOM_PX,
+): number {
+  return Math.max(
+    240,
+    viewportHeight - navbarBottomPx - TALKCHAT_DESKTOP_BOTTOM_INSET_PX,
+  )
+}
+
+export function clampTalkChatDesktopPanelHeightPx(
+  heightPx: number,
+  viewportHeight: number,
+  navbarBottomPx: number = TALKCHAT_DESKTOP_NAVBAR_BOTTOM_PX,
+): number {
+  return Math.min(heightPx, getTalkChatDesktopMaxPanelHeightPx(viewportHeight, navbarBottomPx))
+}
+
 /** Viewport-aware panel height (px) for floating desktop panels. */
 export function getTalkChatDesktopPanelHeightPx(
   size: TalkChatDesktopSizePreset,
   viewportHeight: number,
   viewportWidth: number,
+  navbarBottomPx: number = TALKCHAT_DESKTOP_NAVBAR_BOTTOM_PX,
 ): number {
   if (size === 'min') return 72
   const narrow = viewportWidth < 2100
   const fraction =
     size === 'tall'
       ? narrow
-        ? 0.58
-        : 0.7
+        ? 0.52
+        : 0.63
       : size === 'max'
         ? narrow
-          ? 0.32
-          : 0.4
+          ? 0.29
+          : 0.36
         : narrow
-          ? 0.24
-          : 0.3
-  return Math.round(viewportHeight * fraction)
+          ? 0.22
+          : 0.27
+  const raw = Math.round(viewportHeight * fraction)
+  return clampTalkChatDesktopPanelHeightPx(raw, viewportHeight, navbarBottomPx)
 }
 
 export function readTalkChatDesktopPanelState(): TalkChatDesktopPanelState | null {

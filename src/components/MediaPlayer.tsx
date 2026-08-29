@@ -679,7 +679,7 @@ export default function MediaPlayer({
   }
 
   const mediaMaxHeightClass = detailSplit
-    ? 'max-h-[70vh] lg:max-h-[calc(100vh-var(--app-chrome-top,4rem)-2*var(--media-detail-v-gap,0.625rem))]'
+    ? 'max-h-[70vh] lg:max-h-[calc((100vh-var(--app-chrome-top,4rem)-2*var(--media-detail-v-gap,0.625rem))*var(--media-detail-media-scale,0.9))]'
     : 'max-h-[90vh] lg:max-h-[65vh]'
 
   if (type === 'IMAGE') {

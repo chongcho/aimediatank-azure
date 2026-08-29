@@ -23,9 +23,11 @@ import {
   TALKCHAT_DESKTOP_Z_BACK,
   TALKCHAT_DESKTOP_Z_FRONT,
   TALKCHAT_MINIMIZED_EDGE_INSET_PX,
+  clampTalkChatDesktopPanelHeightPx,
   clampTalkChatDesktopPanelPosition,
   clampTalkChatMinimizedPanelX,
   getTalkChatAppDisplayBounds,
+  getTalkChatDesktopMaxPanelHeightPx,
   getTalkChatDesktopMaxWidth,
   getTalkChatDesktopPanelHeightPx,
   getTalkChatMinimizedDockLayout,
@@ -128,7 +130,12 @@ function getDesktopPanelHeightPx(size: TalkChatSizePreset, viewportWidth?: numbe
   if (typeof window === 'undefined') return 400
   const w = viewportWidth ?? window.innerWidth
   const h = viewportHeight ?? window.innerHeight
-  return getTalkChatDesktopPanelHeightPx(size, h, w)
+  return getTalkChatDesktopPanelHeightPx(size, h, w, getDesktopNavbarBottom())
+}
+
+function clampDesktopPanelHeight(heightPx: number): number {
+  if (typeof window === 'undefined') return heightPx
+  return clampTalkChatDesktopPanelHeightPx(heightPx, window.innerHeight, getDesktopNavbarBottom())
 }
 
 function clampDesktopPanelPosition(
@@ -462,7 +469,7 @@ function TalkChatContent({
     if (panelSize === 'min') {
       return isDesktop ? getDesktopPanelHeightPx('min') : 'auto'
     }
-    if (isDesktop && hasCustomPosition) return size.height
+    if (isDesktop && hasCustomPosition) return clampDesktopPanelHeight(size.height)
     if (isDesktop) return getChatHeight()
     return '100%'
   }
@@ -891,8 +898,8 @@ function TalkChatContent({
         try {
           const s = JSON.parse(savedSize)
           loadedWidth = s.width || 500
-          loadedHeight = s.height || loadedHeight
-          setSize(s)
+          loadedHeight = clampDesktopPanelHeight(s.height || loadedHeight)
+          setSize({ width: loadedWidth, height: loadedHeight })
         } catch {}
       }
       
@@ -926,6 +933,17 @@ function TalkChatContent({
       localStorage.setItem(layoutStorageKeys.position, JSON.stringify(position))
     }
   }, [position, isDesktop, hasCustomPosition, layoutStorageKeys.position])
+
+  // Keep panel height within viewport when window is resized
+  useEffect(() => {
+    if (!isDesktop || panelSize === 'min') return
+    const maxHeight = getTalkChatDesktopMaxPanelHeightPx(window.innerHeight, getDesktopNavbarBottom())
+    setSize((prev) => {
+      if (prev.height <= maxHeight) return prev
+      const nextHeight = clampDesktopPanelHeight(prev.height)
+      return prev.height === nextHeight ? prev : { ...prev, height: nextHeight }
+    })
+  }, [isDesktop, panelSize, viewportSize.height])
 
   // Keep chat visible when window is resized
   useEffect(() => {
@@ -1001,7 +1019,8 @@ function TalkChatContent({
 
   useEffect(() => {
     if (!isDesktop || !hasCustomPosition) return
-    const height = panelSize === 'min' ? getDesktopPanelHeightPx('min') : size.height
+    const height =
+      panelSize === 'min' ? getDesktopPanelHeightPx('min') : clampDesktopPanelHeight(size.height)
     setPosition((prev) => clampPosition(prev.x, prev.y, size.width, height))
   }, [appDisplayBounds.left, appDisplayBounds.width, isDesktop, hasCustomPosition, panelSize, size.width, size.height, clampPosition])
 
@@ -1085,13 +1104,21 @@ function TalkChatContent({
     if (!isDesktop) return
     e.preventDefault()
     setIsDragging(true)
-    setHasCustomPosition(true)
     const rect = chatContainerRef.current?.getBoundingClientRect()
     if (rect) {
+      const nextHeight = clampDesktopPanelHeight(Math.round(rect.height))
+      const nextWidth = Math.round(rect.width)
       setDragOffset({
         x: e.clientX - rect.left,
-        y: e.clientY - rect.top
+        y: e.clientY - rect.top,
       })
+      if (!hasCustomPosition) {
+        setSize({ width: nextWidth, height: nextHeight })
+        setPosition(
+          clampDesktopPanelPosition(rect.left, rect.top, nextWidth, nextHeight),
+        )
+      }
+      setHasCustomPosition(true)
     }
   }
 
@@ -1100,7 +1127,7 @@ function TalkChatContent({
 
     const handleMouseMove = (e: MouseEvent) => {
       const height =
-        panelSize === 'min' ? getDesktopPanelHeightPx('min') : size.height
+        panelSize === 'min' ? getDesktopPanelHeightPx('min') : clampDesktopPanelHeight(size.height)
       const rect = chatContainerRef.current?.getBoundingClientRect()
       const width = rect && rect.width > 0 ? rect.width : size.width
       const newX = e.clientX - dragOffset.x
@@ -1214,7 +1241,8 @@ function TalkChatContent({
         // Top edge - drag up to make taller, bottom edge stays fixed
         const bottomEdge = hasCustomPosition ? position.y + size.height : rect.bottom
         const minY = getDesktopNavbarBottom()
-        const newHeight = Math.max(250, Math.min(700, bottomEdge - e.clientY))
+        const maxHeight = getTalkChatDesktopMaxPanelHeightPx(window.innerHeight, minY)
+        const newHeight = Math.max(250, Math.min(maxHeight, bottomEdge - e.clientY))
         if (hasCustomPosition) {
           const newY = Math.max(minY, bottomEdge - newHeight)
           const clampedHeight = bottomEdge - newY
@@ -1227,8 +1255,8 @@ function TalkChatContent({
         // Bottom edge - drag down to make taller, top edge stays fixed
         const topEdge = hasCustomPosition ? position.y : rect.top
         const minY = getDesktopNavbarBottom()
-        const maxBottomHeight = window.innerHeight - Math.max(minY, topEdge)
-        const newHeight = Math.max(250, Math.min(700, maxBottomHeight, e.clientY - topEdge))
+        const maxBottomHeight = getTalkChatDesktopMaxPanelHeightPx(window.innerHeight, minY)
+        const newHeight = Math.max(250, Math.min(maxBottomHeight, e.clientY - topEdge))
         setSize(prev => ({ ...prev, height: newHeight }))
       }
     }

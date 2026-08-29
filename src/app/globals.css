@@ -864,6 +864,7 @@ input[type="number"]::-webkit-outer-spin-button {
 @media (min-width: 1024px) {
   .media-detail-page {
     --media-detail-v-gap: 0.625rem;
+    --media-detail-media-scale: 0.9;
     height: calc(100vh - var(--app-chrome-top, 4rem));
     overflow: hidden;
   }
@@ -871,7 +872,8 @@ input[type="number"]::-webkit-outer-spin-button {
   .media-detail-split-player {
     width: 100%;
     min-height: calc(
-      100vh - var(--app-chrome-top, 4rem) - 2 * var(--media-detail-v-gap)
+      (100vh - var(--app-chrome-top, 4rem) - 2 * var(--media-detail-v-gap))
+        * var(--media-detail-media-scale)
     );
     display: flex;
     align-items: center;
@@ -888,7 +890,8 @@ input[type="number"]::-webkit-outer-spin-button {
     width: 100% !important;
     max-width: 100% !important;
     max-height: calc(
-      100vh - var(--app-chrome-top, 4rem) - 2 * var(--media-detail-v-gap)
+      (100vh - var(--app-chrome-top, 4rem) - 2 * var(--media-detail-v-gap))
+        * var(--media-detail-media-scale)
     ) !important;
     object-fit: contain;
     display: block;
