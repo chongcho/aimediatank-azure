@@ -794,7 +794,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               </div>
             </div>
         ) : hasPreviewStream ? (
-          <div className="no-touch-callout" onContextMenu={(e) => e.preventDefault()}>
+          <div className="no-touch-callout w-full" onContextMenu={(e) => e.preventDefault()}>
             <MediaPlayer
               type={media.type}
               url={(media as any).streamUrl ?? media.url}
@@ -803,6 +803,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               thumbnailUrl={media.thumbnailUrl}
               autoUnmuteOnMount
               playbackSuspended={showShareModal}
+              detailSplit
             />
           </div>
         ) : media.processingStatus === 'failed' ? (
@@ -860,7 +861,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             )}
           </div>
         ) : (
-          <div className="no-touch-callout" onContextMenu={(e) => e.preventDefault()}>
+          <div className="no-touch-callout w-full" onContextMenu={(e) => e.preventDefault()}>
             <MediaPlayer
               type={media.type}
               url={(media as any).streamUrl ?? media.url}
@@ -869,6 +870,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               thumbnailUrl={media.thumbnailUrl}
               autoUnmuteOnMount
               playbackSuspended={showShareModal}
+              detailSplit
             />
           </div>
         )}

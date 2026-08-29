@@ -298,6 +298,8 @@ interface MediaPlayerProps {
   autoUnmuteOnMount?: boolean
   /** When true, pause immediately (e.g. share modal open). Ref-synced so async autoplay cannot resume playback. */
   playbackSuspended?: boolean
+  /** Media detail page desktop split — fill the left column (2/3 width, viewport height). */
+  detailSplit?: boolean
 }
 
 export default function MediaPlayer({
@@ -308,6 +310,7 @@ export default function MediaPlayer({
   streamRenditions,
   autoUnmuteOnMount,
   playbackSuspended = false,
+  detailSplit = false,
 }: MediaPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -675,17 +678,21 @@ export default function MediaPlayer({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
+  const mediaMaxHeightClass = detailSplit
+    ? 'max-h-[70vh] lg:max-h-[calc(100vh-var(--app-chrome-top,4rem)-3rem)]'
+    : 'max-h-[90vh] lg:max-h-[65vh]'
+
   if (type === 'IMAGE') {
     return (
       <>
-        <div className="relative w-full bg-black group flex justify-center">
-          <div className="relative max-h-[90vh] lg:max-h-[65vh]">
+        <div className={`relative w-full bg-black group ${detailSplit ? '' : 'flex justify-center'}`}>
+          <div className={`relative w-full ${detailSplit ? '' : 'max-h-[90vh] lg:max-h-[65vh]'}`}>
             <img
               src={url}
               alt={title}
               role="button"
               tabIndex={0}
-              className="block max-w-full max-h-[90vh] lg:max-h-[65vh] object-contain cursor-pointer touch-manipulation"
+              className={`block w-full ${mediaMaxHeightClass} object-contain cursor-pointer touch-manipulation`}
               onClick={() => setIsFullscreen(true)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -738,8 +745,8 @@ export default function MediaPlayer({
     }
 
     return (
-      <div className="w-full flex justify-center bg-black">
-        <div className="relative w-full max-w-fit">
+      <div className={`w-full bg-black ${detailSplit ? '' : 'flex justify-center'}`}>
+        <div className={`relative w-full ${detailSplit ? '' : 'max-w-fit'}`}>
           {/* Gradient placeholder shown behind video when no thumbnail */}
           {!thumbnailUrl && (
             <div 
@@ -763,7 +770,7 @@ export default function MediaPlayer({
             autoPlay={!isMobile}
             loop
             muted={isMuted}
-            className="w-full max-h-[90vh] lg:max-h-[65vh]"
+            className={`w-full ${mediaMaxHeightClass}${detailSplit ? ' object-contain' : ''}`}
             style={{ zIndex: 1 }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
