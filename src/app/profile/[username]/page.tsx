@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 import { formatViewCount } from '@/lib/formatViewCount'
 import { useLanguageModeList } from '@/hooks/useLanguageModeText'
+import { useMediaGridColumns } from '@/hooks/useMediaGridColumns'
 
 const PROFILE_STRINGS = [
   'Close',
@@ -124,24 +125,10 @@ export default function ProfilePage() {
   const [savedLoading, setSavedLoading] = useState(false)
   const [selectedSaved, setSelectedSaved] = useState<Set<string>>(new Set())
   const [unsaving, setUnsaving] = useState(false)
-  const [columns, setColumns] = useState(1)
+  const gridSectionRef = useRef<HTMLDivElement>(null)
+  const { columns, gridStyle } = useMediaGridColumns(gridSectionRef)
 
   const tr = useLanguageModeList(PROFILE_STRINGS)
-
-  useEffect(() => {
-    const getColumns = () => {
-      const w = typeof window !== 'undefined' ? window.innerWidth : 640
-      if (w >= 1920) return 5
-      if (w >= 1280) return 4
-      if (w >= 1024) return 3
-      if (w >= 640) return 2
-      return 1
-    }
-    setColumns(getColumns())
-    const onResize = () => setColumns(getColumns())
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
 
   function columnMajorOrder<T>(arr: T[], n: number): T[] {
     if (arr.length <= 1 || n <= 1) return arr
@@ -444,7 +431,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-0 m-0 pb-[500px]">
+    <div ref={gridSectionRef} className="max-w-7xl mx-auto p-0 m-0 pb-[500px]">
       {/* Profile Header */}
       <div className="card mb-8 relative mt-3">
         <button
@@ -588,7 +575,7 @@ export default function ProfilePage() {
 
           {/* Media Grid — masonry + column-major for correct sort order (match homepage) */}
           {filteredMedia && filteredMedia.length > 0 ? (
-            <div className="media-grid">
+            <div className="media-grid" style={gridStyle}>
               {filteredMediaForGrid.map((media) => (
                 <MediaCard key={media.id} media={media} />
               ))}
@@ -620,7 +607,7 @@ export default function ProfilePage() {
               <div className="spinner" />
             </div>
           ) : purchases.length > 0 ? (
-            <div className="media-grid">
+            <div className="media-grid" style={gridStyle}>
               {purchasesForGrid.map((purchase) => (
                 <div key={purchase.id} className="card group relative overflow-hidden">
                   {/* Purchased Badge */}
@@ -774,7 +761,7 @@ export default function ProfilePage() {
               </div>
 
               {/* Saved Media Grid — masonry + column-major (match homepage) */}
-              <div className="media-grid">
+              <div className="media-grid" style={gridStyle}>
                 {savedMediaForGrid.map((item) => (
                   <div 
                     key={item.id} 

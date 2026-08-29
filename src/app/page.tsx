@@ -11,6 +11,7 @@ import { getHomeFeed, saveHomeFeed } from '@/lib/homePrefetchCache'
 import { getNativePlatform } from '@/lib/nativeShellBoot'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { useFeedGridAutoTranslation } from '@/hooks/useFeedGridAutoTranslation'
+import { useMediaGridColumns } from '@/hooks/useMediaGridColumns'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { homeHeroInterpolate, homeHeroT, type HomeHeroKey } from '@/messages/homeHero'
@@ -165,9 +166,9 @@ function HomeContent() {
       return false
     }
   })
-  // Column count for masonry: use grid container width so reorder matches visible layout (same breakpoints as globals.css)
-  const [columns, setColumns] = useState(1)
+  // Column count for masonry: fluid by container width (see mediaGridLayout.ts).
   const gridSectionRef = useRef<HTMLDivElement>(null)
+  const { columns, gridStyle } = useMediaGridColumns(gridSectionRef)
   const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid_top' | 'grid_center'>('masonry')
   const [homePreplay, setHomePreplay] = useState(true)
   const [homePreplaySound, setHomePreplaySound] = useState(true)
@@ -245,32 +246,6 @@ function HomeContent() {
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
   }, [refreshHomeLayoutUi])
-
-  useEffect(() => {
-    const getColumnsFromWidth = (w: number) => {
-      if (w >= 1920) return 5
-      if (w >= 1280) return 4
-      if (w >= 1024) return 3
-      if (w >= 640) return 2
-      return 1
-    }
-    const updateColumns = () => {
-      const w = gridSectionRef.current?.clientWidth ?? (typeof window !== 'undefined' ? window.innerWidth : 640)
-      setColumns((prev) => {
-        const next = getColumnsFromWidth(w)
-        return next !== prev ? next : prev
-      })
-    }
-    updateColumns()
-    const el = gridSectionRef.current
-    const ro = el ? new ResizeObserver(updateColumns) : null
-    if (el) ro?.observe(el)
-    window.addEventListener('resize', updateColumns)
-    return () => {
-      ro?.disconnect()
-      window.removeEventListener('resize', updateColumns)
-    }
-  }, [])
 
   // Masonry: column-major order so CSS columns show top row as 1st, 2nd, 3rd... Grid: row-major (no reorder).
   const isGridLayout = homeLayout === 'grid_top' || homeLayout === 'grid_center'
@@ -1092,7 +1067,7 @@ function HomeContent() {
       {loading ? (
         <div
           className={`media-grid min-h-screen${isGridLayout ? ` media-grid--grid${homeLayout === 'grid_center' ? ' media-grid--grid--center' : ''}` : ''}`}
-          style={isGridLayout ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
+          style={gridStyle}
         >
           {[...Array(12)].map((_, i) => {
             // Varied skeleton heights to preview the masonry layout
@@ -1128,7 +1103,7 @@ function HomeContent() {
               {restoringScroll && (
                 <div
                   className={`absolute inset-0 z-10 media-grid min-h-screen pointer-events-none${isGridLayout ? ` media-grid--grid${homeLayout === 'grid_center' ? ' media-grid--grid--center' : ''}` : ''}`}
-                  style={isGridLayout ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
+                  style={gridStyle}
                 >
                   {[...Array(12)].map((_, i) => {
                     const ratios = ['aspect-video', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-video', 'aspect-[3/4]',
@@ -1147,7 +1122,7 @@ function HomeContent() {
               )}
               <div
                 className={`media-grid${restoringScroll ? ' invisible' : ''}${isGridLayout ? ` media-grid--grid${homeLayout === 'grid_center' ? ' media-grid--grid--center' : ''}` : ''}`}
-                style={isGridLayout ? ({ '--media-grid-cols': columns } as React.CSSProperties) : undefined}
+                style={gridStyle}
               >
                 {mediaForGrid.map((item) => (
                   <MediaCard

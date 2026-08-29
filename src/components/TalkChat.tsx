@@ -18,7 +18,14 @@ import { navBarT } from '@/messages/navBar'
 import { useVoiceCallContext } from '@/contexts/VoiceCallContext'
 import { playNotificationSound } from '@/lib/notificationSound'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
-import { TALKCHAT_DESKTOP_Z_BACK, TALKCHAT_DESKTOP_Z_FRONT } from '@/lib/talkChatOpen'
+import {
+  TALKCHAT_DESKTOP_Z_BACK,
+  TALKCHAT_DESKTOP_Z_FRONT,
+  getTalkChatDesktopMaxWidth,
+  getTalkChatDesktopPanelHeightPx,
+  getTalkVoiceDesktopDefaultWidth,
+  isTalkChatNarrowDesktop,
+} from '@/lib/talkChatOpen'
 
 const TC = talkChatIdx
 
@@ -105,11 +112,11 @@ function parseTalkChatSizePreset(raw: string | null): TalkChatSizePreset {
   return 'medium'
 }
 
-function getDesktopPanelHeightPx(size: TalkChatSizePreset): number {
+function getDesktopPanelHeightPx(size: TalkChatSizePreset, viewportWidth?: number, viewportHeight?: number): number {
   if (typeof window === 'undefined') return 400
-  if (size === 'min') return 72
-  const fraction = size === 'tall' ? 0.7 : size === 'max' ? 0.4 : 0.3
-  return Math.round(window.innerHeight * fraction)
+  const w = viewportWidth ?? window.innerWidth
+  const h = viewportHeight ?? window.innerHeight
+  return getTalkChatDesktopPanelHeightPx(size, h, w)
 }
 
 function clampDesktopPanelPosition(
@@ -399,6 +406,9 @@ function TalkChatContent({
   
   // Size control functions (desktop floating panel heights)
   const getChatHeight = () => {
+    if (isDesktop) {
+      return `${getDesktopPanelHeightPx(panelSize, viewportSize.width, viewportSize.height)}px`
+    }
     switch (panelSize) {
       case 'tall': return '70vh'
       case 'max': return '40vh'
@@ -408,10 +418,11 @@ function TalkChatContent({
   }
 
   const getChatMinHeight = () => {
+    const narrowDesktop = isDesktop && viewportSize.width < 2100
     switch (panelSize) {
-      case 'tall': return '400px'
-      case 'max': return '250px'
-      case 'medium': return '200px'
+      case 'tall': return narrowDesktop ? '320px' : '400px'
+      case 'max': return narrowDesktop ? '200px' : '250px'
+      case 'medium': return narrowDesktop ? '160px' : '200px'
       case 'min': return 'auto'
     }
   }
@@ -793,6 +804,7 @@ function TalkChatContent({
 
   // Desktop drag and resize state
   const [isDesktop, setIsDesktop] = useState(false)
+  const [viewportSize, setViewportSize] = useState({ width: 1920, height: 1080 })
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [size, setSize] = useState({ width: 500, height: 400 })
   const [isDragging, setIsDragging] = useState(false)
@@ -801,10 +813,13 @@ function TalkChatContent({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [hasCustomPosition, setHasCustomPosition] = useState(false)
 
-  // Detect desktop
+  // Detect desktop + track viewport for adaptive panel sizing
   useEffect(() => {
     const checkDesktop = () => {
-      setIsDesktop(window.innerWidth >= 768)
+      const width = window.innerWidth
+      const height = window.innerHeight
+      setIsDesktop(width >= 768)
+      setViewportSize({ width, height })
     }
     checkDesktop()
     window.addEventListener('resize', checkDesktop)
@@ -822,12 +837,17 @@ function TalkChatContent({
       const savedSize = localStorage.getItem(layoutStorageKeys.size)
       
       // First load size (needed for position constraint)
-      let loadedWidth = 500
+      const viewportW = window.innerWidth
+      let loadedWidth = isVoicePanel
+        ? getTalkVoiceDesktopDefaultWidth(viewportW)
+        : 500
       let loadedHeight = getDesktopPanelHeightPx(
         parseTalkChatSizePreset(
           localStorage.getItem(panelSizeStorageKey) ??
             (!isVoicePanel ? localStorage.getItem('talkChatSize') : null),
         ),
+        viewportW,
+        window.innerHeight,
       )
       if (savedSize) {
         try {
@@ -2925,6 +2945,9 @@ function TalkChatContent({
   }
 
   const isDesktopMinimized = isDesktop && panelSize === 'min'
+  const desktopChatMaxWidth = getTalkChatDesktopMaxWidth(viewportSize.width)
+  const narrowDesktopDock =
+    isDesktop && isTalkChatNarrowDesktop(viewportSize.width) && !hasCustomPosition
 
   return (
     <div 
@@ -2966,7 +2989,8 @@ function TalkChatContent({
         right: 0,
         height: isDesktop ? undefined : '100%',
         display: isDesktop && hasCustomPosition ? 'block' : 'flex',
-        justifyContent: 'center',
+        justifyContent: narrowDesktopDock ? 'flex-start' : 'center',
+        paddingLeft: narrowDesktopDock ? 12 : 0,
         background: 'transparent',
       }}>
         <style>{`
@@ -2991,7 +3015,7 @@ function TalkChatContent({
             height: getPanelContainerHeight(),
             minHeight: isDesktop ? 'auto' : 0,
             width: isDesktop && hasCustomPosition ? size.width : '100%',
-            maxWidth: isDesktop && hasCustomPosition ? 'none' : '1000px',
+            maxWidth: isDesktop && hasCustomPosition ? 'none' : desktopChatMaxWidth,
             display: 'flex',
             flexDirection: 'column',
             borderRadius: 0,

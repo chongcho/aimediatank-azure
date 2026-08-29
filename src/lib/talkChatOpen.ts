@@ -50,6 +50,46 @@ export function isTalkChatDesktopViewport(): boolean {
   return typeof window !== 'undefined' && window.innerWidth >= 768
 }
 
+/** Narrow desktop: dock panels to sides so the feed stays visible (e.g. 1920×1080). */
+export function isTalkChatNarrowDesktop(viewportWidth: number): boolean {
+  return viewportWidth >= 768 && viewportWidth < 2200
+}
+
+/** Default centered Chat panel max width — scales down on smaller desktops. */
+export function getTalkChatDesktopMaxWidth(viewportWidth: number): number {
+  return Math.min(1000, Math.max(360, Math.round(viewportWidth * 0.42)))
+}
+
+/** Default Talk panel width before user resize. */
+export function getTalkVoiceDesktopDefaultWidth(viewportWidth: number): number {
+  return Math.min(500, Math.max(300, Math.round(viewportWidth * 0.26)))
+}
+
+export type TalkChatDesktopSizePreset = 'tall' | 'max' | 'medium' | 'min'
+
+/** Viewport-aware panel height (px) for floating desktop panels. */
+export function getTalkChatDesktopPanelHeightPx(
+  size: TalkChatDesktopSizePreset,
+  viewportHeight: number,
+  viewportWidth: number,
+): number {
+  if (size === 'min') return 72
+  const narrow = viewportWidth < 2100
+  const fraction =
+    size === 'tall'
+      ? narrow
+        ? 0.58
+        : 0.7
+      : size === 'max'
+        ? narrow
+          ? 0.32
+          : 0.4
+        : narrow
+          ? 0.24
+          : 0.3
+  return Math.round(viewportHeight * fraction)
+}
+
 export function readTalkChatDesktopPanelState(): TalkChatDesktopPanelState | null {
   if (!isTalkChatDesktopViewport()) return null
   try {
