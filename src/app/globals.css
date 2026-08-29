@@ -863,20 +863,21 @@ input[type="number"]::-webkit-outer-spin-button {
 /* Media detail page — desktop split: media left 2/3, fill column width and viewport height */
 @media (min-width: 1024px) {
   .media-detail-page {
-    --media-detail-v-gap: 0.625rem;
+    --media-detail-v-gap: 10px;
     --media-detail-media-scale: 0.9;
     height: calc(100vh - var(--app-chrome-top, 4rem));
     overflow: hidden;
   }
 
+  .media-detail-page .media-detail-page-inner {
+    padding-top: var(--media-detail-v-gap);
+    padding-bottom: var(--media-detail-v-gap);
+  }
+
   .media-detail-split-player {
     width: 100%;
-    min-height: calc(
-      (100vh - var(--app-chrome-top, 4rem) - 2 * var(--media-detail-v-gap))
-        * var(--media-detail-media-scale)
-    );
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
   }
 

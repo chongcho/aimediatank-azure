@@ -5,10 +5,10 @@
 export default function MediaLoading() {
   return (
     <div className="pb-[500px] lg:pb-0 min-h-screen lg:min-h-0 bg-tank-black media-detail-page" data-initial-content>
-      <div className="w-full px-4 lg:px-6 pt-5 lg:pt-2.5 lg:pb-2.5">
+      <div className="w-full px-4 lg:px-6 pt-5 media-detail-page-inner">
         <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-6">
           <div className="w-full lg:w-2/3 min-w-0">
-            <div className="relative w-full aspect-video max-h-[70vh] lg:max-h-[calc((100vh-var(--app-chrome-top,4rem)-2*var(--media-detail-v-gap,0.625rem))*var(--media-detail-media-scale,0.9))] bg-tank-gray rounded-xl overflow-hidden border border-tank-light/40">
+            <div className="relative w-full aspect-video max-h-[70vh] lg:max-h-[calc((100vh-var(--app-chrome-top,4rem)-2*var(--media-detail-v-gap,10px))*var(--media-detail-media-scale,0.9))] bg-tank-gray rounded-xl overflow-hidden border border-tank-light/40">
               <div className="absolute inset-0 skeleton" />
             </div>
           </div>
