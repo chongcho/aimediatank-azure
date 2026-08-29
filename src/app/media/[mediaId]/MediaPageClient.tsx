@@ -676,24 +676,23 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   if (loading) {
     return (
       <div className="pb-[500px] min-h-screen bg-tank-black">
-        {/* Skeleton: media area - matches real page layout to avoid black flash */}
-        <div className="w-full bg-black pt-5">
-          <div className="w-full max-w-4xl mx-auto px-4">
-            <div className="relative w-full aspect-video max-h-[70vh] bg-tank-gray rounded-xl overflow-hidden">
-              <div className="absolute inset-0 skeleton" />
+        <div className="max-w-7xl mx-auto px-4 pt-5">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-5 lg:gap-6">
+            <div className="w-full lg:w-2/3 min-w-0">
+              <div className="relative w-full aspect-video max-h-[70vh] lg:max-h-[calc(100vh-var(--app-chrome-top,4rem)-3rem)] bg-tank-gray rounded-xl overflow-hidden border border-tank-light/40">
+                <div className="absolute inset-0 skeleton" />
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="max-w-4xl mx-auto px-4 pt-5 space-y-6">
-          <div className="card">
-            <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-8">
-              <div className="min-w-0 lg:flex-1 space-y-4">
+            <div className="w-full lg:w-1/3 min-w-0">
+              <div className="card space-y-4">
                 <div className="h-6 skeleton w-3/4 rounded" />
                 <div className="flex flex-wrap gap-3">
                   <div className="h-4 skeleton w-16 rounded" />
                   <div className="h-4 skeleton w-24 rounded" />
                   <div className="h-4 skeleton w-20 rounded" />
                 </div>
+                <div className="h-10 skeleton w-full rounded-xl" />
+                <div className="h-10 skeleton w-full rounded-xl" />
               </div>
             </div>
           </div>
@@ -757,12 +756,14 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           aria-hidden
         />
       )}
-      {/* Media Player - Full Width with top padding, content aligned to top */}
-      <div className="relative w-full bg-black pt-5">
+      <div className="max-w-7xl mx-auto px-4 pt-5">
+        <div className="flex flex-col lg:flex-row lg:items-start gap-5 lg:gap-6">
+          {/* Media — left 2/3 on desktop */}
+          <div className="w-full lg:w-2/3 min-w-0 lg:sticky lg:top-[calc(var(--app-chrome-top,4rem)+1.25rem)] self-start">
+            <div className="relative w-full bg-black rounded-xl overflow-hidden border border-tank-light/40 media-detail-split-player">
         {downloading && <MediaDownloadingOverlay label={tMedia('downloading')} />}
         {media.processingStatus === 'pending' || (media.processingStatus === 'processing' && !hasPreviewStream) ? (
-          <div className="flex justify-center px-4">
-            <div className="relative w-full max-w-2xl aspect-video bg-black overflow-hidden rounded-xl border border-tank-light">
+          <div className="relative w-full aspect-video max-h-[70vh] lg:max-h-[calc(100vh-var(--app-chrome-top,4rem)-3rem)] bg-black overflow-hidden">
               {/* Processing thumbnail: uploader can check status here; hidden from homepage until completed */}
               {media.thumbnailUrl ? (
                 <img
@@ -792,7 +793,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 )}
               </div>
             </div>
-          </div>
         ) : hasPreviewStream ? (
           <div className="no-touch-callout" onContextMenu={(e) => e.preventDefault()}>
             <MediaPlayer
@@ -872,11 +872,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             />
           </div>
         )}
-      </div>
+            </div>
+          </div>
 
-      {/* Content below media */}
-      <div className="max-w-4xl mx-auto px-4 pt-5 space-y-6">
-        {/* Info Card - Two Column Layout */}
+          {/* Details — right 1/3 on desktop */}
+          <div className="w-full lg:w-1/3 min-w-0 space-y-6">
         <div className="card">
           {/* Title row + close — full width at top of card */}
           <div className="flex items-start justify-between gap-3 mb-2">
@@ -909,9 +909,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </button>
           </div>
 
-          <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-8">
-            {/* Left Column: Metadata, Views, Reactions */}
-            <div className="min-w-0 lg:flex-1">
               {/* Metadata Row - Diamond, Type, Date, Creator, AI Tool */}
               <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 mb-4">
                 {media.price && media.price > 0 && (
@@ -974,15 +971,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   <span>{reactions.happy}</span>
                 </button>
               </div>
-            </div>
 
-            {/* Right Column: Save, Download */}
-            <div className="flex flex-col gap-3 lg:items-start">
+            <div className="flex flex-col gap-3 w-full">
               {/* Save Button */}
               <button
                 onClick={handleToggleSave}
                 disabled={savingMedia}
-                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap ${
+                className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap ${
                   isSaved
                     ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
                     : 'bg-tank-gray border border-tank-light text-white hover:bg-tank-light'
@@ -1105,7 +1100,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 )}
               </div>
             </div>
-          </div>
 
           {/* Description + Comment sections — below action row */}
           {(latestCommentPreview.length > 0 || displayDescriptionSource) && (
@@ -1185,6 +1179,16 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               {mediaPageInterpolate(tMedia('yourPriceWithAmount'), { price: `$${media.price.toFixed(2)}` })}
             </div>
           )}
+        </div>
+
+            <button
+              type="button"
+              onClick={handleLeaveDetail}
+              className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+            >
+              {tMedia('back')}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1385,16 +1389,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         </div>
       )}
 
-      {/* Back Button - when intercepted, fade out then router.back() to avoid flash; else go to homepage */}
-      <div className="max-w-4xl mx-auto px-4 mt-8">
-        <button
-          type="button"
-          onClick={handleLeaveDetail}
-          className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
-        >
-          {tMedia('back')}
-        </button>
-      </div>
     </div>
   )
 }

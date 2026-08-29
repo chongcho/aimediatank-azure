@@ -16,7 +16,54 @@ export const TALKCHAT_DESKTOP_LAYOUT_EVENT = 'talkChatDesktopLayoutSync'
 export const TALKCHAT_MINIMIZED_EDGE_INSET_PX = 12
 export const TALKCHAT_MINIMIZED_GAP_PX = 12
 
+/** Matches Tailwind `max-w-7xl` — primary app content column (navbar, profile, footer). */
+export const APP_DISPLAY_MAX_WIDTH_PX = 1280
+
+export const APP_DISPLAY_BOUNDS_SELECTOR = '[data-app-display-bounds]'
+
 export type TalkChatPanelKind = 'chat' | 'voice'
+
+export type TalkChatAppDisplayBounds = {
+  left: number
+  right: number
+  width: number
+}
+
+/** Centered max-w-7xl column; measured from navbar when available. */
+export function getTalkChatAppDisplayBounds(): TalkChatAppDisplayBounds {
+  if (typeof window === 'undefined') {
+    return { left: 0, right: APP_DISPLAY_MAX_WIDTH_PX, width: APP_DISPLAY_MAX_WIDTH_PX }
+  }
+  const el = document.querySelector(APP_DISPLAY_BOUNDS_SELECTOR)
+  if (el instanceof HTMLElement) {
+    const rect = el.getBoundingClientRect()
+    if (rect.width > 0) {
+      return { left: rect.left, right: rect.right, width: rect.width }
+    }
+  }
+  const vw = window.innerWidth
+  const width = Math.min(APP_DISPLAY_MAX_WIDTH_PX, vw)
+  const left = Math.max(0, (vw - width) / 2)
+  return { left, right: left + width, width }
+}
+
+/** Keep floating desktop panels inside the app content column. */
+export function clampTalkChatDesktopPanelPosition(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  minY: number,
+): { x: number; y: number } {
+  const bounds = getTalkChatAppDisplayBounds()
+  const minX = bounds.left
+  const maxX = Math.max(minX, bounds.right - width)
+  const maxY = Math.max(minY, window.innerHeight - height)
+  return {
+    x: Math.max(minX, Math.min(x, maxX)),
+    y: Math.max(minY, Math.min(y, maxY)),
+  }
+}
 
 /** Above navbar (100010) and feed chrome; below navbar dropdowns and voice-call popup. */
 export const TALKCHAT_DESKTOP_Z_BACK = 100025
@@ -106,13 +153,13 @@ export type TalkChatMinimizedDockLayout = {
 
 /** Side-by-side minimized Chat (left) and Talk (right) without overlap. */
 export function getTalkChatMinimizedDockLayout(
-  viewportWidth: number,
+  bounds: TalkChatAppDisplayBounds = getTalkChatAppDisplayBounds(),
 ): TalkChatMinimizedDockLayout {
   const edge = TALKCHAT_MINIMIZED_EDGE_INSET_PX
   const gap = TALKCHAT_MINIMIZED_GAP_PX
-  let chatWidth = readTalkChatPanelWidth('chat', viewportWidth)
-  let voiceWidth = readTalkChatPanelWidth('voice', viewportWidth)
-  const available = Math.max(0, viewportWidth - edge * 2 - gap)
+  let chatWidth = readTalkChatPanelWidth('chat', bounds.width)
+  let voiceWidth = readTalkChatPanelWidth('voice', bounds.width)
+  const available = Math.max(0, bounds.width - edge * 2 - gap)
 
   if (chatWidth + voiceWidth > available && available > 0) {
     const scale = available / (chatWidth + voiceWidth)
@@ -130,11 +177,129 @@ export function getTalkChatMinimizedDockLayout(
   }
 
   return {
-    chatX: edge,
-    voiceX: viewportWidth - voiceWidth - edge,
+    chatX: bounds.left + edge,
+    voiceX: bounds.left + bounds.width - voiceWidth - edge,
     chatWidth,
     voiceWidth,
   }
+}
+
+export type TalkChatMinimizedPanelRect = {
+  x: number
+  width: number
+}
+
+function talkChatPanelPositionKey(panel: TalkChatPanelKind): string {
+  return panel === 'voice' ? 'talkChatVoicePosition' : 'talkChatPosition'
+}
+
+/** Live minimized bar rect from the portaled TalkChat container. */
+export function readTalkChatMinimizedPanelRectFromDom(
+  panel: TalkChatPanelKind,
+): TalkChatMinimizedPanelRect | null {
+  if (typeof document === 'undefined') return null
+  const el = document.querySelector(
+    `.talkchat-container[data-talkchat-panel="${panel}"]`,
+  )
+  if (!(el instanceof HTMLElement)) return null
+  const rect = el.getBoundingClientRect()
+  if (rect.width <= 0) return null
+  return { x: rect.left, width: rect.width }
+}
+
+export function readTalkChatMinimizedPanelRect(
+  panel: TalkChatPanelKind,
+  bounds: TalkChatAppDisplayBounds = getTalkChatAppDisplayBounds(),
+): TalkChatMinimizedPanelRect | null {
+  if (!readTalkChatPanelMinimized(panel)) return null
+  const fromDom = readTalkChatMinimizedPanelRectFromDom(panel)
+  if (fromDom) return fromDom
+
+  const width = readTalkChatPanelWidth(panel, bounds.width)
+  const posKey = talkChatPanelPositionKey(panel)
+  try {
+    const raw = localStorage.getItem(posKey)
+    if (raw) {
+      const pos = JSON.parse(raw) as { x?: number }
+      if (typeof pos.x === 'number') return { x: pos.x, width }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  const dock = getTalkChatMinimizedDockLayout(bounds)
+  if (panel === 'chat') return { x: dock.chatX, width: dock.chatWidth }
+  return { x: dock.voiceX, width: dock.voiceWidth }
+}
+
+function minimizedRectsOverlap(
+  aLeft: number,
+  aWidth: number,
+  bLeft: number,
+  bWidth: number,
+  gap: number = TALKCHAT_MINIMIZED_GAP_PX,
+): boolean {
+  const aRight = aLeft + aWidth
+  const bRight = bLeft + bWidth
+  return !(aRight + gap <= bLeft || aLeft >= bRight + gap)
+}
+
+function resolveMinimizedPanelOverlapX(
+  x: number,
+  width: number,
+  other: TalkChatMinimizedPanelRect,
+  minX: number,
+  maxX: number,
+): number {
+  const gap = TALKCHAT_MINIMIZED_GAP_PX
+  const clamped = Math.max(minX, Math.min(x, maxX))
+  if (!minimizedRectsOverlap(clamped, width, other.x, other.width, gap)) {
+    return clamped
+  }
+
+  const otherRight = other.x + other.width
+  const leftOption = Math.max(minX, Math.min(other.x - width - gap, maxX))
+  const rightOption = Math.max(minX, Math.min(otherRight + gap, maxX))
+
+  const leftValid = !minimizedRectsOverlap(leftOption, width, other.x, other.width, gap)
+  const rightValid = !minimizedRectsOverlap(rightOption, width, other.x, other.width, gap)
+
+  if (leftValid && rightValid) {
+    return Math.abs(clamped - leftOption) <= Math.abs(clamped - rightOption)
+      ? leftOption
+      : rightOption
+  }
+  if (leftValid) return leftOption
+  if (rightValid) return rightOption
+  return Math.abs(clamped - minX) <= Math.abs(clamped - maxX) ? minX : maxX
+}
+
+/** Prevent minimized Chat/Talk header bars from overlapping when dragged. */
+export function clampTalkChatMinimizedPanelX(
+  panel: TalkChatPanelKind,
+  proposedX: number,
+  width: number,
+  otherPanelOpen: boolean,
+): number {
+  const bounds = getTalkChatAppDisplayBounds()
+  const minX = bounds.left
+  const maxX = Math.max(minX, bounds.right - width)
+
+  if (!otherPanelOpen) {
+    return Math.max(minX, Math.min(proposedX, maxX))
+  }
+
+  const otherPanel: TalkChatPanelKind = panel === 'chat' ? 'voice' : 'chat'
+  if (!readTalkChatPanelMinimized(otherPanel)) {
+    return Math.max(minX, Math.min(proposedX, maxX))
+  }
+
+  const other = readTalkChatMinimizedPanelRect(otherPanel, bounds)
+  if (!other) {
+    return Math.max(minX, Math.min(proposedX, maxX))
+  }
+
+  return resolveMinimizedPanelOverlapX(proposedX, width, other, minX, maxX)
 }
 
 export function isTalkChatDesktopViewport(): boolean {

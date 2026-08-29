@@ -23,6 +23,9 @@ import {
   TALKCHAT_DESKTOP_Z_BACK,
   TALKCHAT_DESKTOP_Z_FRONT,
   TALKCHAT_MINIMIZED_EDGE_INSET_PX,
+  clampTalkChatDesktopPanelPosition,
+  clampTalkChatMinimizedPanelX,
+  getTalkChatAppDisplayBounds,
   getTalkChatDesktopMaxWidth,
   getTalkChatDesktopPanelHeightPx,
   getTalkChatMinimizedDockLayout,
@@ -32,6 +35,7 @@ import {
   requestTalkChatDesktopLayoutSync,
   isTalkChatDesktopViewport,
   RESTORE_TALK_CHAT_PANEL_EVENT,
+  type TalkChatAppDisplayBounds,
   type TalkChatPanelKind,
 } from '@/lib/talkChatOpen'
 
@@ -132,14 +136,28 @@ function clampDesktopPanelPosition(
   y: number,
   width: number,
   height: number,
+  options?: {
+    minimized?: boolean
+    panel?: TalkChatPanelKind
+    otherPanelOpen?: boolean
+  },
 ): { x: number; y: number } {
-  const minY = getDesktopNavbarBottom()
-  const maxX = Math.max(0, window.innerWidth - width)
-  const maxY = Math.max(minY, window.innerHeight - height)
-  return {
-    x: Math.max(0, Math.min(x, maxX)),
-    y: Math.max(minY, Math.min(y, maxY)),
+  let nextX = x
+  if (options?.minimized && options.panel) {
+    nextX = clampTalkChatMinimizedPanelX(
+      options.panel,
+      x,
+      width,
+      options.otherPanelOpen ?? false,
+    )
   }
+  return clampTalkChatDesktopPanelPosition(
+    nextX,
+    y,
+    width,
+    height,
+    getDesktopNavbarBottom(),
+  )
 }
 
 interface ChatMessage {
@@ -818,6 +836,11 @@ function TalkChatContent({
   // Desktop drag and resize state
   const [isDesktop, setIsDesktop] = useState(false)
   const [viewportSize, setViewportSize] = useState({ width: 1920, height: 1080 })
+  const [appDisplayBounds, setAppDisplayBounds] = useState<TalkChatAppDisplayBounds>(() =>
+    typeof window !== 'undefined'
+      ? getTalkChatAppDisplayBounds()
+      : { left: 0, right: 1280, width: 1280 },
+  )
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [size, setSize] = useState({ width: 500, height: 400 })
   const [isDragging, setIsDragging] = useState(false)
@@ -833,6 +856,7 @@ function TalkChatContent({
       const height = window.innerHeight
       setIsDesktop(width >= 768)
       setViewportSize({ width, height })
+      setAppDisplayBounds(getTalkChatAppDisplayBounds())
     }
     checkDesktop()
     window.addEventListener('resize', checkDesktop)
@@ -851,8 +875,9 @@ function TalkChatContent({
       
       // First load size (needed for position constraint)
       const viewportW = window.innerWidth
+      const displayBounds = getTalkChatAppDisplayBounds()
       let loadedWidth = isVoicePanel
-        ? getTalkVoiceDesktopDefaultWidth(viewportW)
+        ? getTalkVoiceDesktopDefaultWidth(displayBounds.width)
         : 500
       let loadedHeight = getDesktopPanelHeightPx(
         parseTalkChatSizePreset(
@@ -878,10 +903,10 @@ function TalkChatContent({
           setHasCustomPosition(true)
         } catch {}
       } else if (isVoicePanel) {
-        // Default Talk window bottom-right, bottom edge flush with Chat panel.
+        // Default Talk window bottom-right inside the app content column.
         setPosition(
           clampDesktopPanelPosition(
-            window.innerWidth - loadedWidth - 24,
+            displayBounds.right - loadedWidth - 24,
             window.innerHeight - loadedHeight,
             loadedWidth,
             loadedHeight,
@@ -918,10 +943,22 @@ function TalkChatContent({
     return () => window.removeEventListener('resize', handleWindowResize)
   }, [isDesktop, hasCustomPosition, size, panelSize])
 
+  const panelKind: TalkChatPanelKind = isVoicePanel ? 'voice' : 'chat'
+  const clampPosition = useCallback(
+    (x: number, y: number, width: number, height: number) =>
+      clampDesktopPanelPosition(x, y, width, height, {
+        minimized: panelSize === 'min',
+        panel: panelKind,
+        otherPanelOpen,
+      }),
+    [panelSize, panelKind, otherPanelOpen],
+  )
+
   const syncMinimizedDockPosition = useCallback(() => {
     if (!isDesktop || panelSize !== 'min') return
 
-    const viewportW = window.innerWidth
+    const bounds = getTalkChatAppDisplayBounds()
+    setAppDisplayBounds(bounds)
     const minHeight = getDesktopPanelHeightPx('min')
     const bottomY = window.innerHeight - minHeight
     const chatOpen = !isVoicePanel
@@ -929,26 +966,44 @@ function TalkChatContent({
     const chatMin = chatOpen && readTalkChatPanelMinimized('chat')
     const voiceMin = voiceOpen && readTalkChatPanelMinimized('voice')
     const bothMin = chatMin && voiceMin
-    const dock = bothMin ? getTalkChatMinimizedDockLayout(viewportW) : null
+    const dock = bothMin ? getTalkChatMinimizedDockLayout(bounds) : null
 
     if (isVoicePanel) {
       const width = dock ? dock.voiceWidth : size.width
       const x = dock
         ? dock.voiceX
-        : viewportW - size.width - TALKCHAT_MINIMIZED_EDGE_INSET_PX
-      setPosition(clampDesktopPanelPosition(x, bottomY, width, minHeight))
+        : bounds.right - size.width - TALKCHAT_MINIMIZED_EDGE_INSET_PX
+      setPosition(clampPosition(x, bottomY, width, minHeight))
       return
     }
 
     const width = dock ? dock.chatWidth : size.width
-    const x = dock ? dock.chatX : TALKCHAT_MINIMIZED_EDGE_INSET_PX
-    setPosition(clampDesktopPanelPosition(x, bottomY, width, minHeight))
-  }, [isDesktop, panelSize, isVoicePanel, otherPanelOpen, size.width])
+    const x = dock ? dock.chatX : bounds.left + TALKCHAT_MINIMIZED_EDGE_INSET_PX
+    setPosition(clampPosition(x, bottomY, width, minHeight))
+  }, [isDesktop, panelSize, isVoicePanel, otherPanelOpen, size.width, clampPosition])
 
   // Minimized desktop panels dock to the bottom edge (Chat left, Talk right).
   useEffect(() => {
     syncMinimizedDockPosition()
   }, [syncMinimizedDockPosition])
+
+  useEffect(() => {
+    if (!isDesktop) return
+    const updateBounds = () => setAppDisplayBounds(getTalkChatAppDisplayBounds())
+    updateBounds()
+    window.addEventListener('resize', updateBounds)
+    window.addEventListener(TALKCHAT_DESKTOP_LAYOUT_EVENT, updateBounds)
+    return () => {
+      window.removeEventListener('resize', updateBounds)
+      window.removeEventListener(TALKCHAT_DESKTOP_LAYOUT_EVENT, updateBounds)
+    }
+  }, [isDesktop])
+
+  useEffect(() => {
+    if (!isDesktop || !hasCustomPosition) return
+    const height = panelSize === 'min' ? getDesktopPanelHeightPx('min') : size.height
+    setPosition((prev) => clampPosition(prev.x, prev.y, size.width, height))
+  }, [appDisplayBounds.left, appDisplayBounds.width, isDesktop, hasCustomPosition, panelSize, size.width, size.height, clampPosition])
 
   useEffect(() => {
     const onLayoutSync = () => syncMinimizedDockPosition()
@@ -1046,15 +1101,23 @@ function TalkChatContent({
     const handleMouseMove = (e: MouseEvent) => {
       const height =
         panelSize === 'min' ? getDesktopPanelHeightPx('min') : size.height
+      const rect = chatContainerRef.current?.getBoundingClientRect()
+      const width = rect && rect.width > 0 ? rect.width : size.width
       const newX = e.clientX - dragOffset.x
       const newY =
         panelSize === 'min'
           ? window.innerHeight - height
           : e.clientY - dragOffset.y
-      setPosition(clampDesktopPanelPosition(newX, newY, size.width, height))
+      setPosition(clampPosition(newX, newY, width, height))
     }
 
     const handleMouseUp = () => {
+      if (panelSize === 'min') {
+        const height = getDesktopPanelHeightPx('min')
+        const rect = chatContainerRef.current?.getBoundingClientRect()
+        const width = rect && rect.width > 0 ? rect.width : size.width
+        setPosition((prev) => clampPosition(prev.x, prev.y, width, height))
+      }
       setIsDragging(false)
     }
 
@@ -1064,7 +1127,7 @@ function TalkChatContent({
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isDragging, dragOffset, size, panelSize])
+  }, [isDragging, dragOffset, size, panelSize, clampPosition])
 
   // Resize handlers - separate for each edge
   const [resizeDirection, setResizeDirection] = useState<'left' | 'right' | 'top' | 'bottom' | null>(null)
@@ -3024,20 +3087,22 @@ function TalkChatContent({
     otherPanelOpen && readTalkChatPanelMinimized(isVoicePanel ? 'chat' : 'voice')
   const bothPanelsMinimized = isDesktopMinimized && otherPanelMinimized
   const minimizedDockLayout = bothPanelsMinimized
-    ? getTalkChatMinimizedDockLayout(viewportSize.width)
+    ? getTalkChatMinimizedDockLayout(appDisplayBounds)
     : null
   const effectivePanelWidth = minimizedDockLayout
     ? isVoicePanel
       ? minimizedDockLayout.voiceWidth
       : minimizedDockLayout.chatWidth
     : size.width
-  const desktopChatMaxWidth = getTalkChatDesktopMaxWidth(viewportSize.width)
+  const desktopChatMaxWidth = getTalkChatDesktopMaxWidth(appDisplayBounds.width)
   const narrowDesktopDock =
-    isDesktop && isTalkChatNarrowDesktop(viewportSize.width) && !hasCustomPosition
+    isDesktop && isTalkChatNarrowDesktop(appDisplayBounds.width) && !hasCustomPosition
+  const appDisplayRightInset = Math.max(0, viewportSize.width - appDisplayBounds.right)
 
   return (
     <div 
       className="talkchat-container"
+      data-talkchat-panel={isVoicePanel ? 'voice' : 'chat'}
       onContextMenu={(e) => e.preventDefault()} // Disable right-click on entire TalkChat except chat records
       style={{
         position: 'fixed',
@@ -3052,10 +3117,11 @@ function TalkChatContent({
           bottom: 'auto',
           right: 'auto',
         } : isDesktop ? {
-          // Desktop: bottom-anchored floating panel (full bleed; safe area on bottom chrome)
+          // Desktop: bottom-anchored within the max-w-7xl app content column
           bottom: 0,
-          left: 0,
-          right: 0,
+          top: 'auto',
+          left: appDisplayBounds.left,
+          right: appDisplayRightInset,
         } : {
           // Mobile: fill from navbar bottom to screen bottom (safe area padded inside chrome)
           top: 'var(--talkchat-mobile-top, calc(4rem + env(safe-area-inset-top, 0px)))',

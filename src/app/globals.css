@@ -859,3 +859,11 @@ input[type="number"]::-webkit-outer-spin-button {
 .media-grid--grid > * {
   margin-bottom: 0;
 }
+
+/* Media detail page — desktop split: media left 2/3, taller player in left column */
+@media (min-width: 1024px) {
+  .media-detail-split-player video,
+  .media-detail-split-player img {
+    max-height: calc(100vh - var(--app-chrome-top, 4rem) - 3rem) !important;
+  }
+}
