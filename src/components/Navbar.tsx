@@ -435,16 +435,12 @@ function NavbarContent() {
       return
     }
     if (voicePanelOpen) {
-      if (frontPanel !== 'voice') {
-        setFrontPanel('voice')
-      } else {
-        setVoicePanelOpen(false)
-      }
+      setVoicePanelOpen(false)
       return
     }
     setVoicePanelOpen(true)
     setFrontPanel('voice')
-  }, [isSubscriber, voicePanelOpen, chatPanelOpen, frontPanel, showSocialSubscriptionPrompt])
+  }, [isSubscriber, voicePanelOpen, chatPanelOpen, showSocialSubscriptionPrompt])
 
   const handleToggleChat = useCallback(() => {
     if (!isSubscriber) {
@@ -459,16 +455,12 @@ function NavbarContent() {
       return
     }
     if (chatPanelOpen) {
-      if (frontPanel !== 'chat') {
-        setFrontPanel('chat')
-      } else {
-        setChatPanelOpen(false)
-      }
+      setChatPanelOpen(false)
       return
     }
     setChatPanelOpen(true)
     setFrontPanel('chat')
-  }, [chatPanelOpen, voicePanelOpen, frontPanel, isSubscriber, showSocialSubscriptionPrompt])
+  }, [chatPanelOpen, voicePanelOpen, isSubscriber, showSocialSubscriptionPrompt])
 
   const handleRestoreAccount = useCallback(async () => {
     setRestoreLoading(true)

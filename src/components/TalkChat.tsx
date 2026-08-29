@@ -244,6 +244,7 @@ function TalkChatContent({
   const layoutStorageKeys = isVoicePanel
     ? { position: 'talkChatVoicePosition', size: 'talkChatVoiceCustomSize' }
     : { position: 'talkChatPosition', size: 'talkChatCustomSize' }
+  const panelSizeStorageKey = isVoicePanel ? 'talkVoicePanelSize' : 'talkChatPanelSize'
   const { data: session } = useSession()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const lastPolledMessageIdRef = useRef<string | null>(null)
@@ -274,8 +275,8 @@ function TalkChatContent({
   const [mentionQuery, setMentionQuery] = useState('')
   const [mentionUsers, setMentionUsers] = useState<UserSuggestion[]>([])
   const [mentionIndex, setMentionIndex] = useState(0)
-  // Chat size state: 'tall' (align with navbar) | 'max' (40vh) | 'medium' (30vh) | 'min' (hidden)
-  const [chatSize, setChatSize] = useState<'tall' | 'max' | 'medium' | 'min'>('medium')
+  // Panel size: 'tall' | 'max' | 'medium' | 'min' (header-only strip)
+  const [panelSize, setPanelSize] = useState<TalkChatSizePreset>('medium')
   const [isPageVisible, setIsPageVisible] = useState(true)
   // Detect if running as PWA (standalone mode)
   const [isPWA, setIsPWA] = useState(false)
@@ -341,21 +342,21 @@ function TalkChatContent({
     return false
   }, [session?.user?.id, currentUsername])
 
-  // Load chat size from localStorage on mount
+  // Load panel size from localStorage on mount (separate keys for Talk vs Chat windows)
   useEffect(() => {
-    const savedSize = localStorage.getItem('talkChatSize')
+    const savedSize =
+      localStorage.getItem(panelSizeStorageKey) ??
+      (!isVoicePanel ? localStorage.getItem('talkChatSize') : null)
     if (savedSize === 'tall' || savedSize === 'max' || savedSize === 'medium' || savedSize === 'min') {
-      setChatSize(savedSize)
+      setPanelSize(savedSize)
     } else if (savedSize === 'fullscreen') {
-      // Convert old fullscreen setting to tall
-      setChatSize('tall')
+      setPanelSize('tall')
     }
-  }, [])
-  
-  // Save chat size to localStorage when it changes
+  }, [panelSizeStorageKey, isVoicePanel])
+
   useEffect(() => {
-    localStorage.setItem('talkChatSize', chatSize)
-  }, [chatSize])
+    localStorage.setItem(panelSizeStorageKey, panelSize)
+  }, [panelSize, panelSizeStorageKey])
 
   // Pause polling when tab is hidden (major perf win)
   useEffect(() => {
@@ -398,21 +399,30 @@ function TalkChatContent({
   
   // Size control functions (desktop floating panel heights)
   const getChatHeight = () => {
-    switch (chatSize) {
-      case 'tall': return '70vh' // Desktop tall
+    switch (panelSize) {
+      case 'tall': return '70vh'
       case 'max': return '40vh'
       case 'medium': return '30vh'
       case 'min': return 'auto'
     }
   }
-  
+
   const getChatMinHeight = () => {
-    switch (chatSize) {
+    switch (panelSize) {
       case 'tall': return '400px'
       case 'max': return '250px'
       case 'medium': return '200px'
       case 'min': return 'auto'
     }
+  }
+
+  const getPanelContainerHeight = (): string | number => {
+    if (panelSize === 'min') {
+      return isDesktop ? getDesktopPanelHeightPx('min') : 'auto'
+    }
+    if (isDesktop && hasCustomPosition) return size.height
+    if (isDesktop) return getChatHeight()
+    return '100%'
   }
   
   // Chat mode: 'open' or 'private'
@@ -454,6 +464,8 @@ function TalkChatContent({
   const [voiceCallContacts, setVoiceCallContacts] = useState<UserSuggestion[]>([])
   const [loadingVoiceCallRecords, setLoadingVoiceCallRecords] = useState(false)
   const [loadingVoiceCallContacts, setLoadingVoiceCallContacts] = useState(false)
+  const voiceCallRecordsLoadedRef = useRef(false)
+  const voiceCallContactsLoadedRef = useRef(false)
   const [searchingVoiceCallUsers, setSearchingVoiceCallUsers] = useState(false)
   const chatOverlayOpen = showUserPicker || showVoiceCallPicker
   const [userSearchQuery, setUserSearchQuery] = useState('')
@@ -550,7 +562,7 @@ function TalkChatContent({
       clearScrollSettleTimers()
 
       const tryScroll = (b: ScrollBehavior) => {
-        if (chatSize === 'min') return
+        if (panelSize === 'min') return
         if (chatOverlayOpen) return
         if (!isAutoScrollEnabledRef.current) return
         messagesEndRef.current?.scrollIntoView({ behavior: b })
@@ -565,7 +577,7 @@ function TalkChatContent({
         window.setTimeout(() => tryScroll('auto'), 900)
       )
     },
-    [chatSize, chatOverlayOpen, clearScrollSettleTimers]
+    [panelSize, chatOverlayOpen, clearScrollSettleTimers]
   )
 
   // Keep bottom pinned while auto-scroll is enabled, even when thumbnails/images load later.
@@ -575,7 +587,7 @@ function TalkChatContent({
 
     const obs = new ResizeObserver(() => {
       if (!isAutoScrollEnabledRef.current) return
-      if (chatSize === 'min' || chatOverlayOpen) return
+      if (panelSize === 'min' || chatOverlayOpen) return
       if (resizeScrollRafRef.current !== null) return
       resizeScrollRafRef.current = requestAnimationFrame(() => {
         resizeScrollRafRef.current = null
@@ -592,7 +604,7 @@ function TalkChatContent({
         resizeScrollRafRef.current = null
       }
     }
-  }, [chatSize, chatOverlayOpen])
+  }, [panelSize, chatOverlayOpen])
 
   const isSignedIn = !!session?.user
 
@@ -654,8 +666,8 @@ function TalkChatContent({
     setVoiceCallPickTarget(null)
   }
 
-  const toggleChatMinimized = useCallback(() => {
-    setChatSize((current) => (current === 'min' ? 'medium' : 'min'))
+  const togglePanelMinimized = useCallback(() => {
+    setPanelSize((current) => (current === 'min' ? 'medium' : 'min'))
   }, [])
 
   const switchToVoiceCallRecent = () => {
@@ -816,7 +828,10 @@ function TalkChatContent({
       // First load size (needed for position constraint)
       let loadedWidth = 500
       let loadedHeight = getDesktopPanelHeightPx(
-        parseTalkChatSizePreset(localStorage.getItem('talkChatSize')),
+        parseTalkChatSizePreset(
+          localStorage.getItem(panelSizeStorageKey) ??
+            (!isVoicePanel ? localStorage.getItem('talkChatSize') : null),
+        ),
       )
       if (savedSize) {
         try {
@@ -1415,11 +1430,23 @@ function TalkChatContent({
     // In-call UI is portaled fullscreen — hide contact picker and expand panel on mobile.
     setShowVoiceCallPicker(false)
     if (!isDesktop) {
-      setChatSize('max')
+      setPanelSize('max')
     }
   }, [isActiveVoiceCall, isDesktop, isVoicePanel])
 
-  const openVoiceCallPickerPanel = useCallback(() => {
+  const voicePickerPrimedRef = useRef(false)
+
+  useEffect(() => {
+    if (panelMode !== 'voice') {
+      voicePickerPrimedRef.current = false
+      if (!isVoicePanel) {
+        setShowVoiceCallPicker(false)
+        setVoiceCallPickTarget(null)
+        setVoiceCallSearchQuery('')
+        setVoiceCallSearchedUsers([])
+      }
+      return
+    }
     if (!isSignedIn) {
       setInlineNotice(TALK_CHAT_MAP.noticeSignInMyKong)
       return
@@ -1428,78 +1455,81 @@ function TalkChatContent({
       setShowVoiceCallPicker(true)
       return
     }
-    setShowUserPicker(false)
-    setSelectedRecipients([])
-    setActiveConversation(null)
-    setMessages([])
-    setVoiceCallPickTarget(null)
-    setVoiceCallSearchQuery('')
-    setVoiceCallSearchedUsers([])
-    setVoiceCallRecords([])
-    setVoiceCallContacts([])
-    setVoiceCallTab('recent')
-    setShowVoiceCallPicker(true)
-  }, [isActiveVoiceCall, isSignedIn])
-
-  useEffect(() => {
-    if (panelMode === 'voice') {
-      openVoiceCallPickerPanel()
-      return
-    }
-    if (!isVoicePanel) {
-      setShowVoiceCallPicker(false)
+    if (!voicePickerPrimedRef.current) {
+      voicePickerPrimedRef.current = true
+      setShowUserPicker(false)
+      setSelectedRecipients([])
+      setActiveConversation(null)
+      setMessages([])
       setVoiceCallPickTarget(null)
       setVoiceCallSearchQuery('')
       setVoiceCallSearchedUsers([])
+      setVoiceCallTab('recent')
     }
-  }, [panelMode, openVoiceCallPickerPanel, isVoicePanel])
+    setShowVoiceCallPicker(true)
+  }, [panelMode, isVoicePanel, isSignedIn, isActiveVoiceCall])
 
   useEffect(() => {
-    if (!isFront || !showVoiceCallPicker || !session?.user?.id) return
+    if (!showVoiceCallPicker || !session?.user?.id) return
     let cancelled = false
-    setLoadingVoiceCallRecords(true)
+    const showLoading = !voiceCallRecordsLoadedRef.current
+    if (showLoading) setLoadingVoiceCallRecords(true)
     void (async () => {
       try {
         const res = await fetch('/api/chat/voice/records')
         if (cancelled || !res.ok) return
         const data = await res.json()
-        if (!cancelled) setVoiceCallRecords(data.records || [])
+        if (!cancelled) {
+          setVoiceCallRecords((prev) => {
+            const next = data.records || []
+            if (
+              prev.length === next.length &&
+              prev.every((row, i) => row.callId === next[i]?.callId)
+            ) {
+              return prev
+            }
+            return next
+          })
+          voiceCallRecordsLoadedRef.current = true
+        }
       } catch (error) {
         if (!cancelled) console.error('Error loading voice call records:', error)
       } finally {
-        setLoadingVoiceCallRecords(false)
+        if (!cancelled && showLoading) setLoadingVoiceCallRecords(false)
       }
     })()
     return () => {
       cancelled = true
-      setLoadingVoiceCallRecords(false)
     }
-  }, [isFront, showVoiceCallPicker, session?.user?.id, voiceCall?.callState])
+  }, [showVoiceCallPicker, session?.user?.id, voiceCall?.callState])
 
   useEffect(() => {
-    if (!isFront || !showVoiceCallPicker || voiceCallTab !== 'contacts' || !session?.user?.id) return
+    if (!showVoiceCallPicker || voiceCallTab !== 'contacts' || !session?.user?.id) return
     let cancelled = false
-    setLoadingVoiceCallContacts(true)
+    const showLoading = !voiceCallContactsLoadedRef.current
+    if (showLoading) setLoadingVoiceCallContacts(true)
     void (async () => {
       try {
         const res = await fetch('/api/users/search?listAll=1&limit=500')
         if (cancelled || !res.ok) return
         const data = await res.json()
-        if (!cancelled) setVoiceCallContacts(data.users || [])
+        if (!cancelled) {
+          setVoiceCallContacts(data.users || [])
+          voiceCallContactsLoadedRef.current = true
+        }
       } catch (error) {
         if (!cancelled) console.error('Error loading voice call contacts:', error)
       } finally {
-        setLoadingVoiceCallContacts(false)
+        if (!cancelled && showLoading) setLoadingVoiceCallContacts(false)
       }
     })()
     return () => {
       cancelled = true
-      setLoadingVoiceCallContacts(false)
     }
-  }, [isFront, showVoiceCallPicker, voiceCallTab, session?.user?.id])
+  }, [showVoiceCallPicker, voiceCallTab, session?.user?.id])
 
   useEffect(() => {
-    if (!isFront || !showVoiceCallPicker) return
+    if (!showVoiceCallPicker) return
     const q = voiceCallSearchQuery.trim()
     if (!q) {
       setVoiceCallSearchedUsers([])
@@ -1527,7 +1557,7 @@ function TalkChatContent({
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [isFront, showVoiceCallPicker, voiceCallSearchQuery])
+  }, [showVoiceCallPicker, voiceCallSearchQuery])
 
   // Toggle new chat picker (renamed from chat records)
   const toggleNewChat = () => {
@@ -2306,7 +2336,7 @@ function TalkChatContent({
   }, [newMessage, syncComposerHeight, attachedMediaIds.length])
 
   useEffect(() => {
-    if (chatOverlayOpen || chatSize === 'min') return
+    if (chatOverlayOpen || panelSize === 'min') return
 
     const formEl = composerFormRef.current
     const chatEl = chatContainerRef.current
@@ -2320,7 +2350,7 @@ function TalkChatContent({
     remeasure()
 
     return () => observer.disconnect()
-  }, [chatOverlayOpen, chatSize, syncComposerHeight, attachedMediaIds.length])
+  }, [chatOverlayOpen, panelSize, syncComposerHeight, attachedMediaIds.length])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
@@ -2415,7 +2445,7 @@ function TalkChatContent({
   const fetchMessages = useCallback(async () => {
     if (!isInitialized) return
     if (!isPageVisible) return
-    if (chatSize === 'min') return
+    if (panelSize === 'min') return
     
     try {
       // If we have an active conversation, use the conversation API
@@ -2456,7 +2486,7 @@ function TalkChatContent({
     } catch (error) {
       console.error('Error fetching messages:', error)
     }
-  }, [isInitialized, chatMode, selectedRecipients, activeConversation, session?.user?.id, isPageVisible, chatSize, alertIfNewIncomingMessages])
+  }, [isInitialized, chatMode, selectedRecipients, activeConversation, session?.user?.id, isPageVisible, panelSize, alertIfNewIncomingMessages])
 
   // Initialize after mount
   useEffect(() => {
@@ -2483,29 +2513,29 @@ function TalkChatContent({
 
   // If user un-minimizes chat, ensure we scroll to bottom once when messages are visible again
   useEffect(() => {
-    if (chatSize !== 'min') {
+    if (panelSize !== 'min') {
       shouldScrollToBottomOnNextMessagesRef.current = true
       isAutoScrollEnabledRef.current = true
     }
-  }, [chatSize])
+  }, [panelSize])
 
   // Fetch chat invites periodically
   useEffect(() => {
     if (!isInitialized || !session?.user?.id || !isFront) return
-    if (!isPageVisible || chatSize === 'min') return
+    if (!isPageVisible || panelSize === 'min') return
     fetchChatInvites()
     const interval = setInterval(fetchChatInvites, 30000) // Check every 30 seconds
     return () => clearInterval(interval)
-  }, [isInitialized, isFront, session?.user?.id, fetchChatInvites, isPageVisible, chatSize])
+  }, [isInitialized, isFront, session?.user?.id, fetchChatInvites, isPageVisible, panelSize])
 
   // Fetch unread count periodically
   useEffect(() => {
     if (!isInitialized || !session?.user?.id || !isFront) return
-    if (!isPageVisible || chatSize === 'min') return
+    if (!isPageVisible || panelSize === 'min') return
     fetchUnreadCount()
     const interval = setInterval(fetchUnreadCount, 30000) // Check every 30 seconds
     return () => clearInterval(interval)
-  }, [isInitialized, isFront, session?.user?.id, fetchUnreadCount, isPageVisible, chatSize])
+  }, [isInitialized, isFront, session?.user?.id, fetchUnreadCount, isPageVisible, panelSize])
 
   // Fetch chat records when in private mode without any recipients
   useEffect(() => {
@@ -2521,7 +2551,7 @@ function TalkChatContent({
 
     // On open / chat switch: force one scroll-to-bottom once we have messages rendered.
     if (shouldScrollToBottomOnNextMessagesRef.current) {
-      if (chatSize !== 'min' && !chatOverlayOpen) {
+      if (panelSize !== 'min' && !chatOverlayOpen) {
         shouldScrollToBottomOnNextMessagesRef.current = false
         isAutoScrollEnabledRef.current = true
         lastAutoScrolledMessageIdRef.current = lastId
@@ -2548,11 +2578,11 @@ function TalkChatContent({
       lastAutoScrolledMessageIdRef.current = lastId
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [messages, chatSize, chatOverlayOpen, settleScrollToBottom])
+  }, [messages, panelSize, chatOverlayOpen, settleScrollToBottom])
 
   useLayoutEffect(() => {
     if (didInitialScroll || messages.length === 0) return
-    if (chatOverlayOpen || chatSize === 'min') return
+    if (chatOverlayOpen || panelSize === 'min') return
     ignoreInitialScrollRef.current = true
     scrollToBottomInstant()
     const raf = requestAnimationFrame(() => {
@@ -2561,7 +2591,7 @@ function TalkChatContent({
       setDidInitialScroll(true)
     })
     return () => cancelAnimationFrame(raf)
-  }, [messages.length, didInitialScroll, chatOverlayOpen, chatSize, scrollToBottomInstant])
+  }, [messages.length, didInitialScroll, chatOverlayOpen, panelSize, scrollToBottomInstant])
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -2907,7 +2937,7 @@ function TalkChatContent({
           onPointerDown={(e) => e.stopPropagation()}
           style={{
             position: 'relative',
-            height: isDesktop && hasCustomPosition ? size.height : isDesktop ? getChatHeight() : '100%',
+            height: getPanelContainerHeight(),
             minHeight: isDesktop ? 'auto' : 0,
             width: isDesktop && hasCustomPosition ? size.width : '100%',
             maxWidth: isDesktop && hasCustomPosition ? 'none' : '1000px',
@@ -3094,13 +3124,13 @@ function TalkChatContent({
           
           {/* Hide (minimize) + Close — square header actions (desktop + mobile) */}
           <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-            {panelMode === 'chat' && !showVoiceCallPicker && (
+            {(panelMode === 'chat' && !showVoiceCallPicker) || panelMode === 'voice' ? (
               <button
                 type="button"
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation()
-                  toggleChatMinimized()
+                  togglePanelMinimized()
                 }}
                 style={{
                   width: `${BOTTOM_BAR_ACTION_BTN_PX}px`,
@@ -3114,8 +3144,8 @@ function TalkChatContent({
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
-                title={chatSize === 'min' ? tr[TC.titleMediumSize] : tr[TC.titleMinimize]}
-                aria-label={chatSize === 'min' ? tr[TC.titleMediumSize] : tr[TC.titleMinimize]}
+                title={panelSize === 'min' ? tr[TC.titleMediumSize] : tr[TC.titleMinimize]}
+                aria-label={panelSize === 'min' ? tr[TC.titleMediumSize] : tr[TC.titleMinimize]}
               >
                 <svg
                   width={20}
@@ -3125,14 +3155,14 @@ function TalkChatContent({
                   viewBox="0 0 24 24"
                   strokeWidth={2.5}
                 >
-                  {chatSize === 'min' ? (
+                  {panelSize === 'min' ? (
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
                   ) : (
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   )}
                 </svg>
               </button>
-            )}
+            ) : null}
             <button
               type="button"
               onMouseDown={(e) => e.stopPropagation()}
@@ -3368,7 +3398,7 @@ function TalkChatContent({
         )}
 
         {/* Voice call picker — select one user, then Call */}
-        {showVoiceCallPicker && (
+        {showVoiceCallPicker && panelSize !== 'min' && (
           <div
             style={{
               flex: 1,
@@ -3637,7 +3667,7 @@ function TalkChatContent({
         )}
 
         {/* Messages — hidden when minimized or when New Chat picker is open */}
-        {!chatOverlayOpen && chatSize !== 'min' && (
+        {!chatOverlayOpen && panelSize !== 'min' && (
         <div 
           ref={messagesContainerRef}
           className="chat-messages-scroll"
@@ -4501,7 +4531,7 @@ function TalkChatContent({
         {/* Mobile uses portaled fullscreen + minimized bar; embedded banner removed to avoid duplicate UI */}
 
         {/* Composer — hidden when minimized or when New Chat picker is open */}
-        {!chatOverlayOpen && chatSize !== 'min' && (
+        {!chatOverlayOpen && panelSize !== 'min' && (
         <form 
           ref={composerFormRef}
           onSubmit={sendMessage} 
