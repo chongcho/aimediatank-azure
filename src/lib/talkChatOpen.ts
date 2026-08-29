@@ -113,6 +113,16 @@ export function readTalkChatPanelMinimized(panel: TalkChatPanelKind): boolean {
   return raw === 'min'
 }
 
+/** Navbar / deep-link open — full panel, not the minimized strip from a prior close. */
+export function prepareTalkChatPanelOpenFull(panel: TalkChatPanelKind): void {
+  if (typeof window === 'undefined') return
+  const key = panel === 'voice' ? 'talkVoicePanelSize' : 'talkChatPanelSize'
+  localStorage.setItem(key, 'medium')
+  if (panel === 'chat') {
+    localStorage.setItem('talkChatSize', 'medium')
+  }
+}
+
 export function requestRestoreTalkChatPanel(panel: TalkChatPanelKind): void {
   if (typeof window === 'undefined') return
   window.dispatchEvent(

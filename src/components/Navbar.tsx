@@ -28,6 +28,7 @@ import {
   readInitialTalkChatDesktopPanelState,
   readTalkChatPanelMinimized,
   requestCloseTalkChat,
+  prepareTalkChatPanelOpenFull,
   requestRestoreTalkChatPanel,
   stripTalkChatDeepLinkParams,
   writeTalkChatDesktopPanelState,
@@ -376,6 +377,8 @@ function NavbarContent() {
       }
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
         setVoicePanelOpen(false)
+      } else {
+        prepareTalkChatPanelOpenFull('chat')
       }
       setChatPanelOpen(true)
       setFrontPanel('chat')
@@ -405,6 +408,9 @@ function NavbarContent() {
         // ignore
       }
     }
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      prepareTalkChatPanelOpenFull('chat')
+    }
     setChatPanelOpen(true)
     setFrontPanel('chat')
     openChatDeepLinkConsumedRef.current = true
@@ -416,6 +422,8 @@ function NavbarContent() {
       if (!isSubscriber) return
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
         setChatPanelOpen(false)
+      } else {
+        prepareTalkChatPanelOpenFull('voice')
       }
       setVoicePanelOpen(true)
       setFrontPanel('voice')
@@ -456,6 +464,7 @@ function NavbarContent() {
       setVoicePanelOpen(false)
       return
     }
+    prepareTalkChatPanelOpenFull('voice')
     setVoicePanelOpen(true)
     setFrontPanel('voice')
   }, [isSubscriber, voicePanelOpen, chatPanelOpen, showSocialSubscriptionPrompt])
@@ -481,6 +490,7 @@ function NavbarContent() {
       setChatPanelOpen(false)
       return
     }
+    prepareTalkChatPanelOpenFull('chat')
     setChatPanelOpen(true)
     setFrontPanel('chat')
   }, [chatPanelOpen, voicePanelOpen, isSubscriber, showSocialSubscriptionPrompt])
