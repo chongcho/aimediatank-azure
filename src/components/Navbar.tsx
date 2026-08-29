@@ -21,8 +21,11 @@ import {
   CLOSE_TALK_CHAT_EVENT,
   OPEN_TALK_CHAT_EVENT,
   OPEN_VOICE_TALK_EVENT,
+  clearTalkChatDesktopPanelState,
+  readTalkChatDesktopPanelState,
   requestCloseTalkChat,
   stripTalkChatDeepLinkParams,
+  writeTalkChatDesktopPanelState,
 } from '@/lib/talkChatOpen'
 import { VoiceCallProvider } from '@/contexts/VoiceCallContext'
 import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
@@ -148,6 +151,7 @@ function NavbarContent() {
 
   /** Once per `?openChat=1` in the URL — avoids re-opening TalkChat when navbar settings refetch changes `isNavbarItemEnabled`. */
   const openChatDeepLinkConsumedRef = useRef(false)
+  const desktopPanelsHydratedRef = useRef(false)
   const navRef = useRef<HTMLElement>(null)
   const profileRef = useRef<HTMLDivElement>(null)
   const alertsPanelRef = useRef<HTMLDivElement>(null)
@@ -182,6 +186,7 @@ function NavbarContent() {
     setChatPanelOpen(false)
     setVoicePanelOpen(false)
     setFrontPanel(null)
+    clearTalkChatDesktopPanelState()
   }, [])
 
   const talkChatPanelsOpen = chatPanelOpen || voicePanelOpen
@@ -256,6 +261,28 @@ function NavbarContent() {
     window.addEventListener(CLOSE_TALK_CHAT_EVENT, onClose)
     return () => window.removeEventListener(CLOSE_TALK_CHAT_EVENT, onClose)
   }, [dismissTalkChatForHomeNav])
+
+  // Desktop: restore Talk/Chat panel open state after refresh or heavy UI re-renders (e.g. language mode).
+  useEffect(() => {
+    if (desktopPanelsHydratedRef.current) return
+    if (typeof window === 'undefined' || window.innerWidth < 768) return
+    desktopPanelsHydratedRef.current = true
+    const saved = readTalkChatDesktopPanelState()
+    if (!saved) return
+    if (saved.chatPanelOpen) setChatPanelOpen(true)
+    if (saved.voicePanelOpen) setVoicePanelOpen(true)
+    if (saved.frontPanel) setFrontPanel(saved.frontPanel)
+  }, [])
+
+  // Desktop: persist panel state so language-mode / feed chrome changes do not lose open windows.
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth < 768) return
+    writeTalkChatDesktopPanelState({
+      chatPanelOpen,
+      voicePanelOpen,
+      frontPanel,
+    })
+  }, [chatPanelOpen, voicePanelOpen, frontPanel])
 
   const fetchNavbarMenuSettings = useCallback(async () => {
     try {

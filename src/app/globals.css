@@ -10,6 +10,9 @@
   --app-navbar-height: 4rem;
   --app-chrome-top: var(--app-navbar-height);
   --talkchat-mobile-top: calc(4rem + env(safe-area-inset-top, 0px));
+  /* Desktop Talk/Chat floats above navbar (100010); below voice-call popup (100050). */
+  --talkchat-desktop-z-back: 100025;
+  --talkchat-desktop-z-front: 100026;
 }
 
 * {

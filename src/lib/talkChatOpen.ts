@@ -7,6 +7,18 @@ export const OPEN_VOICE_TALK_EVENT = 'openVoiceTalkPanel'
 /** Close Talk/Chat panels (Navbar listens and dismisses overlays). */
 export const CLOSE_TALK_CHAT_EVENT = 'closeTalkChat'
 
+/** Above navbar (100010) and feed chrome; below voice-call popup (100050). */
+export const TALKCHAT_DESKTOP_Z_BACK = 100025
+export const TALKCHAT_DESKTOP_Z_FRONT = 100026
+
+const DESKTOP_PANEL_STATE_KEY = 'talkChatDesktopPanels'
+
+export type TalkChatDesktopPanelState = {
+  chatPanelOpen: boolean
+  voicePanelOpen: boolean
+  frontPanel: 'chat' | 'voice' | null
+}
+
 const TALK_CHAT_URL_PARAMS = [
   'openChat',
   'conversationId',
@@ -28,6 +40,52 @@ export function requestOpenVoiceTalkPanel(): void {
 export function requestCloseTalkChat(): void {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new Event(CLOSE_TALK_CHAT_EVENT))
+}
+
+export function isTalkChatDesktopViewport(): boolean {
+  return typeof window !== 'undefined' && window.innerWidth >= 768
+}
+
+export function readTalkChatDesktopPanelState(): TalkChatDesktopPanelState | null {
+  if (!isTalkChatDesktopViewport()) return null
+  try {
+    const raw = window.sessionStorage.getItem(DESKTOP_PANEL_STATE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as TalkChatDesktopPanelState
+    if (typeof parsed !== 'object' || parsed === null) return null
+    return {
+      chatPanelOpen: Boolean(parsed.chatPanelOpen),
+      voicePanelOpen: Boolean(parsed.voicePanelOpen),
+      frontPanel:
+        parsed.frontPanel === 'chat' || parsed.frontPanel === 'voice'
+          ? parsed.frontPanel
+          : null,
+    }
+  } catch {
+    return null
+  }
+}
+
+export function writeTalkChatDesktopPanelState(state: TalkChatDesktopPanelState): void {
+  if (!isTalkChatDesktopViewport()) return
+  try {
+    if (!state.chatPanelOpen && !state.voicePanelOpen) {
+      window.sessionStorage.removeItem(DESKTOP_PANEL_STATE_KEY)
+      return
+    }
+    window.sessionStorage.setItem(DESKTOP_PANEL_STATE_KEY, JSON.stringify(state))
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearTalkChatDesktopPanelState(): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.sessionStorage.removeItem(DESKTOP_PANEL_STATE_KEY)
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Remove chat/voice deep-link query params so home navigation does not reopen TalkChat. */

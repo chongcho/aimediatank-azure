@@ -17,6 +17,8 @@ import { TALK_CHAT_MAP, talkChatIdx, talkChatTr } from '@/messages/talkChatStrin
 import { navBarT } from '@/messages/navBar'
 import { useVoiceCallContext } from '@/contexts/VoiceCallContext'
 import { playNotificationSound } from '@/lib/notificationSound'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
+import { TALKCHAT_DESKTOP_Z_BACK, TALKCHAT_DESKTOP_Z_FRONT } from '@/lib/talkChatOpen'
 
 const TC = talkChatIdx
 
@@ -2835,7 +2837,7 @@ function TalkChatContent({
           left: 0,
           right: 0,
         }),
-        zIndex: isDesktop ? (isFront ? 100001 : 100000) : (isFront ? 9990 : 9989),
+        zIndex: isDesktop ? (isFront ? TALKCHAT_DESKTOP_Z_FRONT : TALKCHAT_DESKTOP_Z_BACK) : (isFront ? 9990 : 9989),
         pointerEvents: 'none',
         ...(!isDesktop && !isFront ? { visibility: 'hidden' as const } : {}),
       }}>
@@ -5159,6 +5161,7 @@ export default function TalkChat({
   panelMode = 'chat',
   isFront = true,
 }: TalkChatProps) {
+  const isDesktop = useIsDesktop()
   const [mounted, setMounted] = useState(false)
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
 
@@ -5172,7 +5175,8 @@ export default function TalkChat({
     const updateFullscreenState = () => {
       const isNativeFullscreen = Boolean(document.fullscreenElement)
       const isMediaFullscreen = document.body.dataset.mediaFullscreen === 'true'
-      setIsFullscreenActive(isNativeFullscreen || isMediaFullscreen)
+      // Desktop: keep Talk/Chat above the feed when language mode or in-tile video toggles fullscreen.
+      setIsFullscreenActive(isNativeFullscreen || (!isDesktop && isMediaFullscreen))
     }
 
     updateFullscreenState()
@@ -5183,7 +5187,7 @@ export default function TalkChat({
       document.removeEventListener('fullscreenchange', updateFullscreenState)
       observer.disconnect()
     }
-  }, [mounted, isOpen])
+  }, [mounted, isOpen, isDesktop])
 
   // Check isOpen to allow toggling visibility
   if (!mounted || !isOpen || isFullscreenActive) {
