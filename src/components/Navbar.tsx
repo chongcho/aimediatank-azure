@@ -218,7 +218,13 @@ function NavbarContent() {
     (options?: { refreshIfAlreadyHome?: boolean }) => {
       sessionStorage.removeItem('homeScrollState')
       clearHomeFeed()
-      dismissTalkChatForHomeNav()
+      // Mobile: dismiss overlays immediately. Desktop keeps Talk/Chat open (match All/Videos nav).
+      if (isMobileViewport()) {
+        dismissTalkChatForHomeNav()
+      } else {
+        stripTalkChatDeepLinkParams()
+        openChatDeepLinkConsumedRef.current = true
+      }
 
       // Soft nav often leaves intercepted @modal shells (black screen) on mobile WebViews.
       // If a shell is still mounted — even when pathname is already "/" — hard-reload home.
