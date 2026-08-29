@@ -491,13 +491,15 @@ function getDesktopNavbarBottom(): number {
   return FALLBACK
 }
 
-function defaultPopupPosition(width = CALL_POPUP_DEFAULT.width) {
+function defaultPopupPosition(
+  width = CALL_POPUP_DEFAULT.width,
+  height = CALL_POPUP_DEFAULT.height,
+) {
   if (typeof window === 'undefined') return { x: 24, y: 64 }
   const minY = getDesktopNavbarBottom()
-  return {
-    x: Math.max(24, window.innerWidth - width - 24),
-    y: minY + 8,
-  }
+  const x = Math.max(24, Math.round((window.innerWidth - width) / 2))
+  const y = Math.max(minY + 8, window.innerHeight - height - 16)
+  return clampCallPopupPosition(x, y, width, height)
 }
 
 function clampPopupSize(width: number, height: number, topY?: number) {
@@ -545,7 +547,9 @@ function CallPopupShell({
   const containerRef = useRef<HTMLDivElement>(null)
   const defaultSize = hasVideo ? CALL_POPUP_VIDEO_DEFAULT : CALL_POPUP_DEFAULT
   const [size, setSize] = useState(defaultSize)
-  const [position, setPosition] = useState(() => defaultPopupPosition(defaultSize.width))
+  const [position, setPosition] = useState(() =>
+    defaultPopupPosition(defaultSize.width, defaultSize.height),
+  )
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [hasCustomPosition, setHasCustomPosition] = useState(false)
@@ -592,7 +596,7 @@ function CallPopupShell({
         // ignore invalid saved position
       }
     } else {
-      setPosition(defaultPopupPosition(nextSize.width))
+      setPosition(defaultPopupPosition(nextSize.width, nextSize.height))
     }
     // Initial layout only — don't reset when hasVideo flips mid-call.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -635,7 +639,7 @@ function CallPopupShell({
     const next = hasVideo ? CALL_POPUP_VIDEO_DEFAULT : CALL_POPUP_DEFAULT
     const sized = clampPopupSize(next.width, next.height)
     setSize(sized)
-    setPosition(defaultPopupPosition(sized.width))
+    setPosition(defaultPopupPosition(sized.width, sized.height))
     setHasCustomPosition(false)
     setHasCustomSize(false)
     localStorage.removeItem(POPUP_POS_STORAGE_KEY)

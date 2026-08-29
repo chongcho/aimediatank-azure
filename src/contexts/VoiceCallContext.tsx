@@ -162,14 +162,16 @@ export function VoiceCallOverlayPanel({
     isNativeAndroidCallApp() && ctx.nativeOwnsVideo && ctx.hasVideo
   const nativeVideoChrome = iosNativeVideoChrome || androidNativeVideoChrome
 
-  // Full-screen by default on mobile and desktop (popup window was easy to miss / treat as hidden).
-  const fullscreenCallUi =
+  const floatingCallShellActive =
     placement === 'floating' &&
     isActiveCall &&
     !ctx.callUiHidden &&
     !iosCallKitIncoming &&
     !nativeVideoChrome
-  const popupCallUi = false
+
+  // Mobile: full-screen call UI. Desktop: draggable popup (TalkChat-style), not viewport takeover.
+  const fullscreenCallUi = floatingCallShellActive && !isDesktop
+  const popupCallUi = floatingCallShellActive && isDesktop
   const minimizedCallUi =
     placement === 'floating' && isActiveCall && ctx.callUiHidden && !nativeVideoChrome
   const showCallControls = popupCallUi || fullscreenCallUi

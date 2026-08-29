@@ -27,6 +27,7 @@ export async function GET(request: Request) {
 
     // When profile owner requests their own media with includeProcessing=1, include pending/processing/failed so they can see upload progress
     let allowProcessingStatuses = false
+    let viewingOwnProfile = false
     if (user && includeProcessing) {
       const session = await getServerSession(authOptions)
       const requestedUser = decodeURIComponent(user)
@@ -34,16 +35,18 @@ export async function GET(request: Request) {
         const su = session.user as { username?: string; email?: string; id?: string }
         if (su.username === requestedUser || su.email === requestedUser) {
           allowProcessingStatuses = true
+          viewingOwnProfile = true
         }
       }
     }
 
     // Build where clause
     // Show all public, approved, non-deleted items. Include completed OR processing-with-preview (480p ready) so 480p shows on feed as soon as ready.
+    // Owner profile / TalkChat picker: include private uploads (e.g. chat attachments) but never the public home feed.
     const where: any = {
-      isPublic: true,
       isApproved: true,
       isDeleted: false,
+      ...(viewingOwnProfile ? {} : { isPublic: true }),
     }
     if (!allowProcessingStatuses) {
       where.AND = [publicHomeFeedMediaReadyClause]

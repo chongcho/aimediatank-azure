@@ -17,7 +17,13 @@ import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
 import { useLanguageModeList } from '@/hooks/useLanguageModeText'
 import { useAppUpdate } from '@/hooks/useAppUpdate'
-import { OPEN_TALK_CHAT_EVENT, OPEN_VOICE_TALK_EVENT } from '@/lib/talkChatOpen'
+import {
+  CLOSE_TALK_CHAT_EVENT,
+  OPEN_TALK_CHAT_EVENT,
+  OPEN_VOICE_TALK_EVENT,
+  requestCloseTalkChat,
+  stripTalkChatDeepLinkParams,
+} from '@/lib/talkChatOpen'
 import { VoiceCallProvider } from '@/contexts/VoiceCallContext'
 import { feedCardT, type FeedCardKey } from '@/messages/feedCard'
 import { navBarT, type NavBarKey } from '@/messages/navBar'
@@ -185,11 +191,17 @@ function NavbarContent() {
     [],
   )
 
+  const dismissTalkChatForHomeNav = useCallback(() => {
+    closeTalkChatPanels()
+    stripTalkChatDeepLinkParams()
+    openChatDeepLinkConsumedRef.current = true
+  }, [closeTalkChatPanels])
+
   const goHome = useCallback(
     (options?: { refreshIfAlreadyHome?: boolean }) => {
       sessionStorage.removeItem('homeScrollState')
       clearHomeFeed()
-      closeTalkChatPanels()
+      dismissTalkChatForHomeNav()
 
       // Soft nav often leaves intercepted @modal shells (black screen) on mobile WebViews.
       // If a shell is still mounted — even when pathname is already "/" — hard-reload home.
@@ -230,13 +242,20 @@ function NavbarContent() {
 
       window.location.href = '/'
     },
-    [pathname, closeTalkChatPanels, router, isMobileViewport],
+    [pathname, dismissTalkChatForHomeNav, router, isMobileViewport],
   )
 
   // Close Talk/Chat when navigating away so panels do not block the next screen.
   useEffect(() => {
     closeTalkChatPanels()
   }, [pathname, closeTalkChatPanels])
+
+  // NavLink / MobileNavLink and other callers can dismiss overlays without Navbar state access.
+  useEffect(() => {
+    const onClose = () => dismissTalkChatForHomeNav()
+    window.addEventListener(CLOSE_TALK_CHAT_EVENT, onClose)
+    return () => window.removeEventListener(CLOSE_TALK_CHAT_EVENT, onClose)
+  }, [dismissTalkChatForHomeNav])
 
   const fetchNavbarMenuSettings = useCallback(async () => {
     try {
@@ -483,6 +502,11 @@ function NavbarContent() {
     },
     [goHome]
   )
+
+  const handleHomeNavPointerDown = useCallback(() => {
+    // Dismiss immediately on touch so mobile WebViews cannot show feed under an open chat shell.
+    dismissTalkChatForHomeNav()
+  }, [dismissTalkChatForHomeNav])
   
   // Display name - show Nickname (username) in navbar
   const displayName = userData?.username || session?.user?.username || 'User'
@@ -907,6 +931,7 @@ function NavbarContent() {
             <Link
               href="/"
               className="relative z-[2] flex touch-manipulation items-center [-webkit-tap-highlight-color:transparent]"
+              onPointerDown={handleHomeNavPointerDown}
               onClick={(e) => handleHomeNavClick(e)}
             >
             <img 
@@ -920,6 +945,7 @@ function NavbarContent() {
             <Link 
               href="/" 
               className="relative z-[2] ml-[20px] touch-manipulation text-gray-400 hover:text-white transition-colors [-webkit-tap-highlight-color:transparent]"
+              onPointerDown={handleHomeNavPointerDown}
               onClick={(e) => handleHomeNavClick(e, true)}
               title={t('home')}
             >
@@ -1639,6 +1665,11 @@ function NavbarContent() {
   )
 }
 
+function dismissTalkChatBeforeHomeNav() {
+  requestCloseTalkChat()
+  stripTalkChatDeepLinkParams()
+}
+
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -1679,6 +1710,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
     if (pathname === '/crop-tool' && href !== '/crop-tool') {
       e.preventDefault()
       if (href === '/' || href.startsWith('/?')) {
+        dismissTalkChatBeforeHomeNav()
         sessionStorage.removeItem('homeScrollState')
         clearHomeFeed()
       }
@@ -1688,6 +1720,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 
     if (href === '/' || href.startsWith('/?')) {
       e.preventDefault()
+      dismissTalkChatBeforeHomeNav()
 
       if (isOnHomePage) {
         window.history.replaceState(window.history.state, '', href)
@@ -1735,6 +1768,7 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
 
     if (pathname === '/crop-tool' && href !== '/crop-tool') {
       if (href === '/' || href.startsWith('/?')) {
+        dismissTalkChatBeforeHomeNav()
         sessionStorage.removeItem('homeScrollState')
         clearHomeFeed()
       }
@@ -1745,6 +1779,7 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
     const isOnHomePage = window.location.pathname === '/'
 
     if ((href === '/' || href.startsWith('/?')) && isOnHomePage) {
+      dismissTalkChatBeforeHomeNav()
       window.history.replaceState(window.history.state, '', href)
 
       sessionStorage.removeItem('homeScrollState')
@@ -1757,6 +1792,7 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
       }))
     } else {
       if (href === '/') {
+        dismissTalkChatBeforeHomeNav()
         sessionStorage.removeItem('homeScrollState')
         clearHomeFeed()
       }

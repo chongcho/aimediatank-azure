@@ -2013,7 +2013,7 @@ function TalkChatContent({
           type: mediaKind,
           url: blobUrl,
           thumbnailUrl: null,
-          isPublic: true,
+          isPublic: false,
         }),
       })
       const result = await completeRes.json()

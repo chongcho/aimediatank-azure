@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getChatAccessibleMediaIds } from '@/lib/chatMediaAccess'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
@@ -42,8 +43,21 @@ export async function GET(
       })
     }
 
-    // Otherwise, only preview if the signed-in user can access it (owner/admin/purchased/saved).
     const session = await getServerSession(authOptions)
+    const chatAccessible = (await getChatAccessibleMediaIds(session?.user?.id, [media.id])).has(
+      media.id,
+    )
+    if (chatAccessible) {
+      return NextResponse.json({
+        id: media.id,
+        title: media.title,
+        url: media.url,
+        thumbnailUrl: media.thumbnailUrl,
+        type: media.type,
+      })
+    }
+
+    // Otherwise, only preview if the signed-in user can access it (owner/admin/purchased/saved).
     if (!session?.user) {
       return NextResponse.json({ missing: true }, { status: 404 })
     }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getChatAccessibleMediaIds } from '@/lib/chatMediaAccess'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
@@ -71,9 +72,25 @@ export async function POST(request: Request) {
 
     const session = await getServerSession(authOptions)
     const user = session?.user
+
+    const chatAccessibleIds = await getChatAccessibleMediaIds(user?.id, needsAuthIds)
+    for (const id of needsAuthIds) {
+      if (!chatAccessibleIds.has(id)) continue
+      const m = byId.get(id)
+      if (!m) continue
+      publicApproved.push({
+        id: m.id,
+        title: m.title,
+        url: m.url,
+        thumbnailUrl: m.thumbnailUrl,
+        type: m.type,
+      })
+    }
+    const stillNeedsAuth = needsAuthIds.filter((id) => !chatAccessibleIds.has(id))
+
     if (!user) {
-      // For non-public media, do not reveal existence when unauthenticated.
-      const missing = cleaned.filter((id) => !publicApproved.some((p) => p.id === id))
+      const previewed = new Set(publicApproved.map((p) => p.id))
+      const missing = cleaned.filter((id) => !previewed.has(id))
       return NextResponse.json({ previews: publicApproved, missing })
     }
 
@@ -90,13 +107,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ previews: all, missing })
     }
 
+    if (stillNeedsAuth.length === 0) {
+      const previewed = new Set(publicApproved.map((p) => p.id))
+      const missing = cleaned.filter((id) => !previewed.has(id))
+      return NextResponse.json({ previews: publicApproved, missing })
+    }
+
     const [purchases, saved] = await Promise.all([
       prisma.purchase.findMany({
-        where: { buyerId: user.id, mediaId: { in: needsAuthIds }, status: 'completed' },
+        where: { buyerId: user.id, mediaId: { in: stillNeedsAuth }, status: 'completed' },
         select: { mediaId: true },
       }),
       prisma.savedMedia.findMany({
-        where: { userId: user.id, mediaId: { in: needsAuthIds } },
+        where: { userId: user.id, mediaId: { in: stillNeedsAuth } },
         select: { mediaId: true },
       }),
     ])
@@ -105,7 +128,7 @@ export async function POST(request: Request) {
     const savedSet = new Set(saved.map((s) => s.mediaId))
 
     const previews: Preview[] = [...publicApproved]
-    for (const id of needsAuthIds) {
+    for (const id of stillNeedsAuth) {
       const m = byId.get(id)
       if (!m) continue
       if (m.userId === user.id || purchasedSet.has(id) || savedSet.has(id)) {
