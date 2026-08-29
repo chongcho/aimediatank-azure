@@ -16,6 +16,10 @@ export const APP_MODAL_Z_CLASS = 'z-[100060]'
 /** Put on a title bar (or grip strip) to enable dragging the popup. */
 export const APP_MODAL_DRAG_HANDLE_ATTR = 'data-app-modal-drag-handle'
 
+/** Highlighted title bar — signals the popup can be dragged. */
+export const APP_MODAL_DRAG_HEADER_CLASS =
+  'cursor-grab active:cursor-grabbing border-b border-tank-light/50 bg-tank-light/25 hover:bg-tank-light/35 transition-colors'
+
 export type AppModalOverlayProps = {
   open: boolean
   onClose?: () => void

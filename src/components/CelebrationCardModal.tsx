@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import AppModalOverlay from '@/components/AppModalOverlay'
+import AppModalOverlay, { APP_MODAL_DRAG_HEADER_CLASS } from '@/components/AppModalOverlay'
 
 interface CelebrationCardModalProps {
   mediaId: string
@@ -80,7 +80,7 @@ export default function CelebrationCardModal({ mediaId, mediaTitle, onClose }: C
     <AppModalOverlay open onClose={onClose}>
       <div className="card relative w-full max-w-md max-h-[min(90vh,720px)] overflow-y-auto shadow-2xl rounded-2xl">
         <div
-          className="flex items-center justify-between mb-4 cursor-grab active:cursor-grabbing"
+          className={`flex items-center justify-between -mx-3 -mt-3 px-5 py-3 mb-4 rounded-t-2xl ${APP_MODAL_DRAG_HEADER_CLASS}`}
           data-app-modal-drag-handle
         >
           <h3 className="text-lg font-semibold text-white">Send celebration card</h3>

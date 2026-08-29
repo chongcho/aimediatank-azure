@@ -35,7 +35,7 @@ import {
   captureDetailMediaPreview,
   resolveMediaThumbnailSrc,
 } from '@/lib/mediaThumbnail'
-import AppModalOverlay from '@/components/AppModalOverlay'
+import AppModalOverlay, { APP_MODAL_DRAG_HEADER_CLASS } from '@/components/AppModalOverlay'
 
 interface MediaDetail {
   id: string
@@ -1253,29 +1253,32 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       <AppModalOverlay
         open={showEmailModal}
         onClose={() => !sendingEmail && setShowEmailModal(false)}
+        dialogProps={{
+          'aria-labelledby': 'media-email-modal-title',
+        }}
       >
           <div className="card max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-tank-light relative p-0">
             <div
-              className="flex justify-center py-2 cursor-grab active:cursor-grabbing border-b border-tank-light/30 bg-tank-gray"
+              className={`flex items-center justify-between px-5 py-3 rounded-t-2xl ${APP_MODAL_DRAG_HEADER_CLASS}`}
               data-app-modal-drag-handle
-              aria-hidden
             >
-              <div className="h-1 w-10 rounded-full bg-tank-light/50" />
+              <h3 id="media-email-modal-title" className="text-lg font-semibold text-white">
+                {tMedia('sendByEmail')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => !sendingEmail && setShowEmailModal(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors shrink-0"
+                aria-label={tMedia('close')}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            {/* Close button */}
-            <button
-              type="button"
-              onClick={() => !sendingEmail && setShowEmailModal(false)}
-              className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
-              aria-label={tMedia('close')}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
             {/* FROM */}
             <div className="px-5 py-3 border-b border-tank-light/40 bg-tank-gray">
-              <p className="text-white font-medium pr-8">
+              <p className="text-white font-medium">
                 <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide">{tMedia('from')} </span>
                 <span className="inline-block mt-1 bg-tank-black/60 border border-tank-light px-2 py-0.5 rounded text-sm text-gray-200">AI Media Tank (AMT) &lt;aimediatank@aimediatank.com&gt;</span>
               </p>
@@ -1406,7 +1409,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       <AppModalOverlay open={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
           <div className="card max-w-md w-full">
             <div
-              className="flex items-center gap-3 mb-4 cursor-grab active:cursor-grabbing"
+              className={`flex items-center gap-3 -mx-3 -mt-3 px-5 py-3 mb-4 rounded-t-2xl ${APP_MODAL_DRAG_HEADER_CLASS}`}
               data-app-modal-drag-handle
             >
               <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
