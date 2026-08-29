@@ -70,6 +70,18 @@ html.desktop-ui-compact:not(.capacitor-native) body {
   max-width: none;
 }
 
+/* Zoom on html shrinks layout units — expand media-detail viewport height on ~1080p desktops. */
+@media (min-width: 1024px) {
+  html.desktop-ui-compact:not(.capacitor-native) .media-detail-page {
+    height: calc((100vh - var(--app-chrome-top, 4rem)) / var(--desktop-ui-scale));
+    --media-detail-max-media-h: calc(
+      ((100vh - var(--app-chrome-top, 4rem) - 2 * var(--media-detail-v-gap, 10px))
+        / var(--desktop-ui-scale))
+        * var(--media-detail-media-scale, 1)
+    );
+  }
+}
+
 /*
  * Soft-nav / intercepted routes use position:fixed full-viewport shells.
  * Pad below system status + navbar so titles/forms are not hidden under chrome.
@@ -913,7 +925,7 @@ input[type="number"]::-webkit-outer-spin-button {
     min-height: 0;
     height: 100%;
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
   }
 
@@ -923,7 +935,7 @@ input[type="number"]::-webkit-outer-spin-button {
     height: 100%;
     min-height: 0;
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
   }
 

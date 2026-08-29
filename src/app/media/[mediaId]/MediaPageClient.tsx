@@ -676,9 +676,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   if (loading) {
     return (
       <div className="pb-[500px] lg:pb-0 min-h-screen lg:min-h-0 bg-tank-black media-detail-page">
-        <div className="w-full px-4 lg:px-6 pt-5 media-detail-page-inner">
+        <div className="w-full px-4 lg:px-6 pt-5 lg:pt-0 media-detail-page-inner">
           <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-6">
-            <div className="w-full lg:w-2/3 min-w-0 media-detail-media-col lg:self-start">
+            <div className="w-full lg:w-2/3 min-w-0 media-detail-media-col lg:self-stretch">
               <div className="relative w-full aspect-video max-h-[70vh] lg:max-h-[var(--media-detail-max-media-h)] lg:h-full lg:min-h-0 lg:aspect-auto bg-tank-gray rounded-xl overflow-hidden border border-tank-light/40">
                 <div className="absolute inset-0 skeleton" />
               </div>
@@ -756,10 +756,10 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           aria-hidden
         />
       )}
-      <div className="w-full px-4 lg:px-6 pt-5 media-detail-page-inner lg:h-full lg:overflow-hidden lg:box-border">
+      <div className="w-full px-4 lg:px-6 pt-5 lg:pt-0 media-detail-page-inner lg:h-full lg:min-h-0 lg:overflow-hidden lg:box-border">
         <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-6 lg:h-full lg:min-h-0 lg:overflow-hidden">
           {/* Media — left 2/3 on desktop */}
-          <div className="w-full lg:w-2/3 min-w-0 media-detail-media-col lg:self-start">
+          <div className="w-full lg:w-2/3 min-w-0 media-detail-media-col lg:self-stretch">
             <div className="relative w-full bg-black rounded-xl overflow-hidden border border-tank-light/40 media-detail-split-player">
         {downloading && <MediaDownloadingOverlay label={tMedia('downloading')} />}
         {media.processingStatus === 'pending' || (media.processingStatus === 'processing' && !hasPreviewStream) ? (
@@ -794,7 +794,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               </div>
             </div>
         ) : hasPreviewStream ? (
-          <div className="no-touch-callout w-full" onContextMenu={(e) => e.preventDefault()}>
+          <div className="no-touch-callout w-full h-full min-h-0" onContextMenu={(e) => e.preventDefault()}>
             <MediaPlayer
               type={media.type}
               url={(media as any).streamUrl ?? media.url}
@@ -861,7 +861,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             )}
           </div>
         ) : (
-          <div className="no-touch-callout w-full" onContextMenu={(e) => e.preventDefault()}>
+          <div className="no-touch-callout w-full h-full min-h-0" onContextMenu={(e) => e.preventDefault()}>
             <MediaPlayer
               type={media.type}
               url={(media as any).streamUrl ?? media.url}

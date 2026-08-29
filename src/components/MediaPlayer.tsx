@@ -686,7 +686,7 @@ export default function MediaPlayer({
     return (
       <>
         <div className={`relative w-full bg-black group ${detailSplit ? 'h-full min-h-0 flex flex-col' : 'flex justify-center'}`}>
-          <div className={`relative w-full ${detailSplit ? 'flex-1 min-h-0 h-full flex items-center justify-center' : 'max-h-[90vh] lg:max-h-[65vh]'}`}>
+          <div className={`relative w-full ${detailSplit ? 'flex-1 min-h-0 h-full flex items-stretch justify-center' : 'max-h-[90vh] lg:max-h-[65vh]'}`}>
             <img
               src={url}
               alt={title}
@@ -746,7 +746,7 @@ export default function MediaPlayer({
 
     return (
       <div className={`w-full bg-black ${detailSplit ? 'h-full min-h-0 flex flex-col' : 'flex justify-center'}`}>
-        <div className={`relative w-full ${detailSplit ? 'flex-1 min-h-0 h-full flex items-center justify-center' : 'max-w-fit'}`}>
+        <div className={`relative w-full ${detailSplit ? 'flex-1 min-h-0 h-full flex items-stretch justify-center' : 'max-w-fit'}`}>
           {/* Gradient placeholder shown behind video when no thumbnail */}
           {!thumbnailUrl && (
             <div 
