@@ -2,7 +2,7 @@ name: Sync main from staging
 
 # Release pipeline (push to staging):
 #   1. azure-deploy-staging.yml — deploy staging Azure app
-#   2. This workflow — merge staging → main, then trigger production
+#   2. This workflow — point main at the staging tip (same SHA), then trigger production
 #   3. azure-deploy.yml — deploy production (aimediatank.com)
 #   4. android-internal.yml — manual workflow_dispatch only (Closed testing track AiMediaTank)
 
@@ -42,12 +42,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Syncing main from staging..."
-          git checkout main
-          git merge --no-edit origin/staging
-          git push origin main
-          echo "SYNCED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-          echo "Synced main to $(git rev-parse --short HEAD)"
+          STAGING_SHA="$(git rev-parse origin/staging)"
+          MAIN_SHA="$(git rev-parse origin/main)"
+          echo "Staging tip: ${STAGING_SHA}"
+          echo "Main tip:     ${MAIN_SHA}"
+          if [ "${STAGING_SHA}" = "${MAIN_SHA}" ]; then
+            echo "main already matches staging — nothing to sync"
+          else
+            echo "Pointing main at staging tip (same commit, no merge commit)..."
+            git push --force-with-lease=refs/heads/main:"${MAIN_SHA}" origin "${STAGING_SHA}:refs/heads/main"
+          fi
+          echo "SYNCED_SHA=${STAGING_SHA}" >> "$GITHUB_ENV"
+          echo "Synced main to $(git rev-parse --short "${STAGING_SHA}")"
 
       # GITHUB_TOKEN pushes do not fire `on: push` workflows (GitHub loop guard).
       # Trigger production only after main contains the staging tip — avoids deploying
