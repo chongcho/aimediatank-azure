@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { stripHashtags } from '@/lib/text'
@@ -67,6 +67,19 @@ const BOTTOM_BAR_GAP = 8
 const BOTTOM_BAR_ACTION_BTN_PX = 40
 const BOTTOM_BAR_ROW_MIN_HEIGHT_PX = 44
 const BOTTOM_BAR_MIN_HEIGHT_PX = BOTTOM_BAR_PAD_Y * 2 + BOTTOM_BAR_ROW_MIN_HEIGHT_PX
+/** Shared grey footer strip — min height so Chat and Talk bottom edges align. */
+const BOTTOM_BAR_CHROME_STYLE: CSSProperties = {
+  padding: `${BOTTOM_BAR_PAD_Y}px ${BOTTOM_BAR_PAD_X}px`,
+  paddingBottom: `max(${BOTTOM_BAR_PAD_Y}px, env(safe-area-inset-bottom, 0px))`,
+  background: '#e8e8e8',
+  borderTop: '1px solid #ccc',
+  display: 'flex',
+  alignItems: 'center',
+  gap: `${BOTTOM_BAR_GAP}px`,
+  flexShrink: 0,
+  minHeight: `${BOTTOM_BAR_MIN_HEIGHT_PX}px`,
+  boxSizing: 'border-box',
+}
 const MESSAGE_COMPOSER_MIN_HEIGHT_PX = BOTTOM_BAR_ACTION_BTN_PX
 const MESSAGE_COMPOSER_MAX_HEIGHT_PX =
   MESSAGE_COMPOSER_PAD_Y_PX * 2 + MESSAGE_COMPOSER_LINE_HEIGHT_PX * MESSAGE_COMPOSER_MAX_LINES
@@ -83,6 +96,20 @@ function getDesktopNavbarBottom(): number {
     if (Number.isFinite(bottom) && bottom > 0) return bottom
   }
   return DESKTOP_NAVBAR_BOTTOM_FALLBACK_PX
+}
+
+type TalkChatSizePreset = 'tall' | 'max' | 'medium' | 'min'
+
+function parseTalkChatSizePreset(raw: string | null): TalkChatSizePreset {
+  if (raw === 'tall' || raw === 'max' || raw === 'medium' || raw === 'min') return raw
+  return 'medium'
+}
+
+function getDesktopPanelHeightPx(size: TalkChatSizePreset): number {
+  if (typeof window === 'undefined') return 400
+  if (size === 'min') return 72
+  const fraction = size === 'tall' ? 0.7 : size === 'max' ? 0.4 : 0.3
+  return Math.round(window.innerHeight * fraction)
 }
 
 function clampDesktopPanelPosition(
@@ -788,12 +815,14 @@ function TalkChatContent({
       
       // First load size (needed for position constraint)
       let loadedWidth = 500
-      let loadedHeight = 400
+      let loadedHeight = getDesktopPanelHeightPx(
+        parseTalkChatSizePreset(localStorage.getItem('talkChatSize')),
+      )
       if (savedSize) {
         try {
           const s = JSON.parse(savedSize)
           loadedWidth = s.width || 500
-          loadedHeight = s.height || 400
+          loadedHeight = s.height || loadedHeight
           setSize(s)
         } catch {}
       }
@@ -805,22 +834,19 @@ function TalkChatContent({
           setHasCustomPosition(true)
         } catch {}
       } else if (isVoicePanel) {
-        // Default Talk window to bottom-right so it stays below the navbar.
+        // Default Talk window bottom-right, bottom edge flush with Chat panel.
         setPosition(
           clampDesktopPanelPosition(
             window.innerWidth - loadedWidth - 24,
-            window.innerHeight - loadedHeight - 24,
+            window.innerHeight - loadedHeight,
             loadedWidth,
             loadedHeight,
           ),
         )
+        if (!savedSize) {
+          setSize((prev) => ({ ...prev, width: loadedWidth, height: loadedHeight }))
+        }
         setHasCustomPosition(true)
-      }
-      if (savedSize) {
-        try {
-          const sz = JSON.parse(savedSize)
-          setSize(sz)
-        } catch {}
       }
     }
   }, [isDesktop, isVoicePanel, layoutStorageKeys.position, layoutStorageKeys.size])
@@ -3446,24 +3472,18 @@ function TalkChatContent({
               )}
             </div>
             <div style={{
-              padding: `${BOTTOM_BAR_PAD_Y}px ${BOTTOM_BAR_PAD_X}px`,
-              paddingBottom: `max(${BOTTOM_BAR_PAD_Y}px, env(safe-area-inset-bottom, 0px))`,
-              background: '#e8e8e8',
-              borderTop: '1px solid #ccc',
-              display: 'flex',
-              alignItems: 'center',
+              ...BOTTOM_BAR_CHROME_STYLE,
+              height: `${BOTTOM_BAR_MIN_HEIGHT_PX}px`,
               justifyContent: 'center',
-              gap: `${BOTTOM_BAR_GAP}px`,
-              flexShrink: 0,
-              minHeight: `${BOTTOM_BAR_MIN_HEIGHT_PX}px`,
-              boxSizing: 'border-box',
             }}>
               <button
                 type="button"
                 onClick={() => handleConfirmVoiceCall({ video: true })}
                 disabled={!voiceCallPickTarget || isActiveVoiceCall}
                 style={{
-                  padding: '12px 20px',
+                  flex: 1,
+                  maxWidth: '160px',
+                  padding: `0 ${BOTTOM_BAR_PAD_X}px`,
                   borderRadius: '8px',
                   border: 'none',
                   background: voiceCallPickTarget ? '#2563eb' : '#9ca3af',
@@ -3471,8 +3491,7 @@ function TalkChatContent({
                   fontWeight: 700,
                   cursor: voiceCallPickTarget ? 'pointer' : 'not-allowed',
                   fontSize: '15px',
-                  minWidth: '100px',
-                  minHeight: `${BOTTOM_BAR_ROW_MIN_HEIGHT_PX}px`,
+                  height: `${BOTTOM_BAR_ROW_MIN_HEIGHT_PX}px`,
                   boxSizing: 'border-box',
                 }}
               >
@@ -3483,7 +3502,9 @@ function TalkChatContent({
                 onClick={() => handleConfirmVoiceCall()}
                 disabled={!voiceCallPickTarget || isActiveVoiceCall}
                 style={{
-                  padding: '12px 28px',
+                  flex: 1,
+                  maxWidth: '180px',
+                  padding: `0 ${BOTTOM_BAR_PAD_X}px`,
                   borderRadius: '8px',
                   border: 'none',
                   background: voiceCallPickTarget ? '#059669' : '#9ca3af',
@@ -3491,8 +3512,7 @@ function TalkChatContent({
                   fontWeight: 700,
                   cursor: voiceCallPickTarget ? 'pointer' : 'not-allowed',
                   fontSize: '16px',
-                  minWidth: '120px',
-                  minHeight: `${BOTTOM_BAR_ROW_MIN_HEIGHT_PX}px`,
+                  height: `${BOTTOM_BAR_ROW_MIN_HEIGHT_PX}px`,
                   boxSizing: 'border-box',
                 }}
               >
@@ -4487,17 +4507,11 @@ function TalkChatContent({
           onSubmit={sendMessage} 
           onClick={(e) => e.stopPropagation()}
           style={{
-            padding: `${BOTTOM_BAR_PAD_Y}px ${BOTTOM_BAR_PAD_X}px`,
-            paddingBottom: `max(${BOTTOM_BAR_PAD_Y}px, env(safe-area-inset-bottom, 0px))`,
-            backgroundColor: '#e8e8e8',
-            borderTop: '1px solid #ccc',
             position: 'relative',
             flexShrink: 0,
-            minHeight: `${BOTTOM_BAR_MIN_HEIGHT_PX}px`,
-            boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'center',
+            margin: 0,
           }}
         >
           {/* @Mention Picker */}
@@ -4936,7 +4950,9 @@ function TalkChatContent({
                 display: 'flex',
                 flexWrap: 'wrap',
                 gap: '6px',
-                marginBottom: '6px',
+                padding: `8px ${BOTTOM_BAR_PAD_X}px 0`,
+                background: '#e8e8e8',
+                borderTop: '1px solid #ccc',
               }}
             >
               {attachedMediaIds.map((id) => {
@@ -5013,7 +5029,13 @@ function TalkChatContent({
               })}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: `${BOTTOM_BAR_GAP}px` }}>
+          <div
+            style={{
+              ...BOTTOM_BAR_CHROME_STYLE,
+              ...(attachedMediaIds.length > 0 ? { borderTop: 'none' } : {}),
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: `${BOTTOM_BAR_GAP}px`, width: '100%' }}>
             {/* Media Attach Button */}
             <button
               type="button"
@@ -5145,6 +5167,7 @@ function TalkChatContent({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
               </svg>
             </button>
+          </div>
           </div>
         </form>
         )}

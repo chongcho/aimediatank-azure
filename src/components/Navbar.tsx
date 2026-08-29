@@ -1647,35 +1647,21 @@ function NavbarContent() {
           document.body
         )}
 
-      {/* Chat and Talk — desktop can stack both; mobile shows one at a time. Render back layer first. */}
-      {chatPanelOpen && !chatIsFront && (
+      {/* Chat and Talk — one stable instance per panel; isFront only changes z-index/stacking. */}
+      {chatPanelOpen && (
         <TalkChat
+          key="talkchat-chat"
           isOpen
-          isFront={false}
+          isFront={chatIsFront}
           onClose={() => setChatPanelOpen(false)}
           panelMode="chat"
         />
       )}
-      {voicePanelOpen && !voiceIsFront && (
+      {voicePanelOpen && (
         <TalkChat
+          key="talkchat-voice"
           isOpen
-          isFront={false}
-          onClose={() => setVoicePanelOpen(false)}
-          panelMode="voice"
-        />
-      )}
-      {chatPanelOpen && chatIsFront && (
-        <TalkChat
-          isOpen
-          isFront
-          onClose={() => setChatPanelOpen(false)}
-          panelMode="chat"
-        />
-      )}
-      {voicePanelOpen && voiceIsFront && (
-        <TalkChat
-          isOpen
-          isFront
+          isFront={voiceIsFront}
           onClose={() => setVoicePanelOpen(false)}
           panelMode="voice"
         />
