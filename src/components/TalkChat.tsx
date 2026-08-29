@@ -56,12 +56,18 @@ function ChatWindowBrandIcon({ label }: { label: string }) {
 }
 
 const MESSAGE_COMPOSER_LINE_HEIGHT_PX = 20
-const MESSAGE_COMPOSER_PAD_Y_PX = 6
+const MESSAGE_COMPOSER_PAD_Y_PX = 8
 const MESSAGE_COMPOSER_MIN_LINES = 1
 /** Grow from 1 line up; then scroll inside the box. */
 const MESSAGE_COMPOSER_MAX_LINES = 8
-const MESSAGE_COMPOSER_MIN_HEIGHT_PX =
-  MESSAGE_COMPOSER_PAD_Y_PX * 2 + MESSAGE_COMPOSER_LINE_HEIGHT_PX * MESSAGE_COMPOSER_MIN_LINES
+/** Shared footer chrome — chat composer row matches Talk Video/Call bar height. */
+const BOTTOM_BAR_PAD_Y = 10
+const BOTTOM_BAR_PAD_X = 12
+const BOTTOM_BAR_GAP = 8
+const BOTTOM_BAR_ACTION_BTN_PX = 40
+const BOTTOM_BAR_ROW_MIN_HEIGHT_PX = 44
+const BOTTOM_BAR_MIN_HEIGHT_PX = BOTTOM_BAR_PAD_Y * 2 + BOTTOM_BAR_ROW_MIN_HEIGHT_PX
+const MESSAGE_COMPOSER_MIN_HEIGHT_PX = BOTTOM_BAR_ACTION_BTN_PX
 const MESSAGE_COMPOSER_MAX_HEIGHT_PX =
   MESSAGE_COMPOSER_PAD_Y_PX * 2 + MESSAGE_COMPOSER_LINE_HEIGHT_PX * MESSAGE_COMPOSER_MAX_LINES
 const MESSAGE_COMPOSER_PICKER_GAP_PX = 16
@@ -620,6 +626,10 @@ function TalkChatContent({
     })
     setVoiceCallPickTarget(null)
   }
+
+  const toggleChatMinimized = useCallback(() => {
+    setChatSize((current) => (current === 'min' ? 'medium' : 'min'))
+  }, [])
 
   const switchToVoiceCallRecent = () => {
     setVoiceCallTab('recent')
@@ -3056,14 +3066,54 @@ function TalkChatContent({
             )}
           </div>
           
-          {/* Close button — square blue X (desktop + mobile) */}
-          <div style={{ display: 'flex', gap: '1px', flexShrink: 0 }}>
+          {/* Hide (minimize) + Close — square header actions (desktop + mobile) */}
+          <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+            {panelMode === 'chat' && !showVoiceCallPicker && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleChatMinimized()
+                }}
+                style={{
+                  width: `${BOTTOM_BAR_ACTION_BTN_PX}px`,
+                  height: `${BOTTOM_BAR_ACTION_BTN_PX}px`,
+                  borderRadius: '4px',
+                  border: 'none',
+                  background: '#6b7280',
+                  color: 'white',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title={chatSize === 'min' ? tr[TC.titleMediumSize] : tr[TC.titleMinimize]}
+                aria-label={chatSize === 'min' ? tr[TC.titleMediumSize] : tr[TC.titleMinimize]}
+              >
+                <svg
+                  width={20}
+                  height={20}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2.5}
+                >
+                  {chatSize === 'min' ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  )}
+                </svg>
+              </button>
+            )}
             <button
               type="button"
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={onClose}
               style={{
-                width: '40px',
-                height: '40px',
+                width: `${BOTTOM_BAR_ACTION_BTN_PX}px`,
+                height: `${BOTTOM_BAR_ACTION_BTN_PX}px`,
                 borderRadius: '4px',
                 border: 'none',
                 background: '#2563eb',
@@ -3396,15 +3446,17 @@ function TalkChatContent({
               )}
             </div>
             <div style={{
-              padding: '10px 12px',
-              paddingBottom: 'max(10px, env(safe-area-inset-bottom, 0px))',
+              padding: `${BOTTOM_BAR_PAD_Y}px ${BOTTOM_BAR_PAD_X}px`,
+              paddingBottom: `max(${BOTTOM_BAR_PAD_Y}px, env(safe-area-inset-bottom, 0px))`,
               background: '#e8e8e8',
               borderTop: '1px solid #ccc',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
+              gap: `${BOTTOM_BAR_GAP}px`,
               flexShrink: 0,
+              minHeight: `${BOTTOM_BAR_MIN_HEIGHT_PX}px`,
+              boxSizing: 'border-box',
             }}>
               <button
                 type="button"
@@ -3420,6 +3472,8 @@ function TalkChatContent({
                   cursor: voiceCallPickTarget ? 'pointer' : 'not-allowed',
                   fontSize: '15px',
                   minWidth: '100px',
+                  minHeight: `${BOTTOM_BAR_ROW_MIN_HEIGHT_PX}px`,
+                  boxSizing: 'border-box',
                 }}
               >
                 Video
@@ -3438,6 +3492,8 @@ function TalkChatContent({
                   cursor: voiceCallPickTarget ? 'pointer' : 'not-allowed',
                   fontSize: '16px',
                   minWidth: '120px',
+                  minHeight: `${BOTTOM_BAR_ROW_MIN_HEIGHT_PX}px`,
+                  boxSizing: 'border-box',
                 }}
               >
                 {tr[TC.voiceCallStartButton]}
@@ -4431,12 +4487,17 @@ function TalkChatContent({
           onSubmit={sendMessage} 
           onClick={(e) => e.stopPropagation()}
           style={{
-            padding: '4px 12px',
-            paddingBottom: 'max(4px, env(safe-area-inset-bottom, 0px))',
+            padding: `${BOTTOM_BAR_PAD_Y}px ${BOTTOM_BAR_PAD_X}px`,
+            paddingBottom: `max(${BOTTOM_BAR_PAD_Y}px, env(safe-area-inset-bottom, 0px))`,
             backgroundColor: '#e8e8e8',
             borderTop: '1px solid #ccc',
             position: 'relative',
             flexShrink: 0,
+            minHeight: `${BOTTOM_BAR_MIN_HEIGHT_PX}px`,
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
           }}
         >
           {/* @Mention Picker */}
@@ -4952,15 +5013,15 @@ function TalkChatContent({
               })}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: `${BOTTOM_BAR_GAP}px` }}>
             {/* Media Attach Button */}
             <button
               type="button"
               onClick={toggleMediaPicker}
               disabled={!isSignedIn}
               style={{
-                width: '32px',
-                height: '32px',
+                width: `${BOTTOM_BAR_ACTION_BTN_PX}px`,
+                height: `${BOTTOM_BAR_ACTION_BTN_PX}px`,
                 borderRadius: '6px',
                 border: 'none',
                 backgroundColor: isSignedIn ? '#1e3a8a' : '#ddd',
@@ -4985,8 +5046,8 @@ function TalkChatContent({
                 onClick={toggleEmojiPicker}
                 disabled={!isSignedIn}
                 style={{
-                  width: '32px',
-                  height: '32px',
+                  width: `${BOTTOM_BAR_ACTION_BTN_PX}px`,
+                  height: `${BOTTOM_BAR_ACTION_BTN_PX}px`,
                   borderRadius: '6px',
                   border: 'none',
                   backgroundColor:
@@ -5034,7 +5095,7 @@ function TalkChatContent({
                 overflowWrap: 'anywhere',
                 wordBreak: 'break-word',
                 fontFamily: 'inherit',
-                alignSelf: 'flex-end',
+                alignSelf: 'center',
               }}
             />
             <button
@@ -5050,8 +5111,8 @@ function TalkChatContent({
                 // Form submit will handle it, but log for debugging
               }}
               style={{
-                width: '32px',
-                height: '32px',
+                width: `${BOTTOM_BAR_ACTION_BTN_PX}px`,
+                height: `${BOTTOM_BAR_ACTION_BTN_PX}px`,
                 borderRadius: '6px',
                 border: 'none',
                 backgroundColor:
