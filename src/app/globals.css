@@ -52,23 +52,22 @@ body {
 
 /*
  * ~1080p-class desktop: render UI at 80% (like browser zoom).
- * Uses device-width (physical pixels) so 2560×1440 + OS scaling (e.g. 150% → ~1707 CSS px)
- * does not incorrectly match. High-res panels (device-width ≥ 2200) stay at 100%.
- * Body width is expanded before zoom so content still fills the viewport (no right black bar).
+ * Class `desktop-ui-compact` is set in layout.tsx from physical screen width
+ * (screen.width × devicePixelRatio). CSS max-device-width is unreliable on
+ * Windows display scaling (2560×1440 @ 150% reports ~1707px and wrongly matches).
+ * Body width is expanded before zoom so content still fills the viewport.
  */
-@media (min-width: 1024px) and (max-width: 2199px) and (max-device-width: 2199px) {
-  html:not(.capacitor-native) {
-    --desktop-ui-scale: 0.8;
-    zoom: var(--desktop-ui-scale);
-    width: 100%;
-    overflow-x: hidden;
-  }
+html.desktop-ui-compact:not(.capacitor-native) {
+  --desktop-ui-scale: 0.8;
+  zoom: var(--desktop-ui-scale);
+  width: 100%;
+  overflow-x: hidden;
+}
 
-  html:not(.capacitor-native) body {
-    width: calc(100% / var(--desktop-ui-scale));
-    min-height: calc(100% / var(--desktop-ui-scale));
-    max-width: none;
-  }
+html.desktop-ui-compact:not(.capacitor-native) body {
+  width: calc(100% / var(--desktop-ui-scale));
+  min-height: calc(100% / var(--desktop-ui-scale));
+  max-width: none;
 }
 
 /*
@@ -930,10 +929,10 @@ input[type="number"]::-webkit-outer-spin-button {
 
   .media-detail-split-player video,
   .media-detail-split-player img {
-    width: 100% !important;
+    width: auto !important;
+    height: 100% !important;
     max-width: 100% !important;
-    max-height: var(--media-detail-max-media-h) !important;
-    height: auto;
+    max-height: 100% !important;
     object-fit: contain;
     display: block;
   }

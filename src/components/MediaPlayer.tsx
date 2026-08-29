@@ -679,20 +679,20 @@ export default function MediaPlayer({
   }
 
   const mediaMaxHeightClass = detailSplit
-    ? 'max-h-[70vh] lg:max-h-[var(--media-detail-max-media-h)]'
+    ? 'lg:max-h-full lg:h-full lg:w-auto lg:max-w-full'
     : 'max-h-[90vh] lg:max-h-[65vh]'
 
   if (type === 'IMAGE') {
     return (
       <>
         <div className={`relative w-full bg-black group ${detailSplit ? 'h-full min-h-0 flex flex-col' : 'flex justify-center'}`}>
-          <div className={`relative w-full ${detailSplit ? 'flex-1 min-h-0 flex items-center justify-center' : 'max-h-[90vh] lg:max-h-[65vh]'}`}>
+          <div className={`relative w-full ${detailSplit ? 'flex-1 min-h-0 h-full flex items-center justify-center' : 'max-h-[90vh] lg:max-h-[65vh]'}`}>
             <img
               src={url}
               alt={title}
               role="button"
               tabIndex={0}
-              className={`block w-full ${mediaMaxHeightClass} object-contain cursor-pointer touch-manipulation`}
+              className={`block object-contain cursor-pointer touch-manipulation ${detailSplit ? `w-full max-h-[70vh] ${mediaMaxHeightClass}` : `w-full ${mediaMaxHeightClass}`}`}
               onClick={() => setIsFullscreen(true)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -746,7 +746,7 @@ export default function MediaPlayer({
 
     return (
       <div className={`w-full bg-black ${detailSplit ? 'h-full min-h-0 flex flex-col' : 'flex justify-center'}`}>
-        <div className={`relative w-full ${detailSplit ? 'flex-1 min-h-0 flex items-center justify-center' : 'max-w-fit'}`}>
+        <div className={`relative w-full ${detailSplit ? 'flex-1 min-h-0 h-full flex items-center justify-center' : 'max-w-fit'}`}>
           {/* Gradient placeholder shown behind video when no thumbnail */}
           {!thumbnailUrl && (
             <div 
@@ -770,7 +770,7 @@ export default function MediaPlayer({
             autoPlay={!isMobile}
             loop
             muted={isMuted}
-            className={`w-full ${mediaMaxHeightClass}${detailSplit ? ' object-contain' : ''}`}
+            className={`${detailSplit ? `w-full max-h-[70vh] lg:object-contain ${mediaMaxHeightClass}` : `w-full ${mediaMaxHeightClass}`}`}
             style={{ zIndex: 1 }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
