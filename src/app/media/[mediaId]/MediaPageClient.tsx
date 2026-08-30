@@ -36,9 +36,10 @@ import {
   resolveMediaThumbnailSrc,
 } from '@/lib/mediaThumbnail'
 import AppModalOverlay, {
-  APP_MODAL_DRAG_HEADER_CLASS,
+  APP_MODAL_BODY_CLASS,
+  APP_MODAL_DRAG_HEADER_ICON_ROW_CLASS,
   APP_MODAL_DRAG_HEADER_ROW_CLASS,
-  APP_MODAL_PANEL_CLASS,
+  APP_MODAL_SHELL_CLASS,
 } from '@/components/AppModalOverlay'
 
 interface MediaDetail {
@@ -541,10 +542,12 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     () => (i18nMedia?.title ?? media?.title) || '',
     [i18nMedia, media?.title]
   )
-  const displayDescriptionSource = useMemo(
-    () => (i18nMedia ? i18nMedia.description : media?.description ?? null) as string | null,
-    [i18nMedia, media?.description]
-  )
+  const displayDescriptionSource = useMemo(() => {
+    const translated = i18nMedia?.description?.trim()
+    if (translated) return translated
+    const original = media?.description?.trim()
+    return original || null
+  }, [i18nMedia, media?.description])
 
   const handleShareClick = () => {
     pauseAllMedia()
@@ -1261,7 +1264,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           'aria-labelledby': 'media-email-modal-title',
         }}
       >
-          <div className={`card relative w-full max-w-md overflow-hidden shadow-2xl rounded-2xl ${APP_MODAL_PANEL_CLASS}`}>
+          <div className={`${APP_MODAL_SHELL_CLASS} max-w-md`}>
             <div
               className={APP_MODAL_DRAG_HEADER_ROW_CLASS}
               data-app-modal-drag-handle
@@ -1280,7 +1283,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 </svg>
               </button>
             </div>
-            <div className="-mx-3 divide-y divide-tank-light/40">
+            <div className="divide-y divide-tank-light/40">
             {/* FROM */}
             <div className="px-5 py-3">
               <p className="text-white font-medium">
@@ -1415,9 +1418,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
       {/* Delete Confirmation Modal */}
       <AppModalOverlay open={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
-          <div className={`card max-w-md w-full ${APP_MODAL_PANEL_CLASS}`}>
+          <div className={`${APP_MODAL_SHELL_CLASS} max-w-md w-full`}>
             <div
-              className={`flex items-center gap-3 -mx-3 -mt-3 px-5 py-3 mb-4 rounded-t-2xl ${APP_MODAL_DRAG_HEADER_CLASS}`}
+              className={APP_MODAL_DRAG_HEADER_ICON_ROW_CLASS}
               data-app-modal-drag-handle
             >
               <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
@@ -1435,6 +1438,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 <p className="text-sm text-gray-400">{tMedia('cannotUndo')}</p>
               </div>
             </div>
+            <div className={APP_MODAL_BODY_CLASS}>
             <p className="text-gray-300 mb-6">
               {mediaPageInterpolate(tMedia('deleteConfirm'), {
                 title: stripHashtags(displayTitleSource),
@@ -1451,6 +1455,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               >
                 {deleting ? tMedia('deleting') : tMedia('delete')}
               </button>
+            </div>
             </div>
           </div>
       </AppModalOverlay>

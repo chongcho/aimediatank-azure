@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import AppModalOverlay, {
   APP_MODAL_DRAG_HEADER_ROW_CLASS,
-  APP_MODAL_PANEL_CLASS,
+  APP_MODAL_SCROLL_BODY_CLASS,
+  APP_MODAL_SHELL_CLASS,
 } from '@/components/AppModalOverlay'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
@@ -304,9 +305,15 @@ export default function MediaShareModal({
   }, [shareUrl, shareTitle, handleCopyLink, recordShareAction, onClose])
 
   const mailBody = useMemo(() => {
-    if (thumbnailUrl) return `${shareTitle}\n\n${thumbnailUrl}\n\n${shareUrl}`
-    return shareUrl
-  }, [shareTitle, thumbnailUrl, shareUrl])
+    const title = shareTitle.trim()
+    const desc = shareDescription?.trim()
+    const parts: string[] = []
+    if (title) parts.push(title)
+    if (shareUrl) parts.push(shareUrl)
+    if (desc) parts.push(desc)
+    // CRLF between lines — Outlook mailto compose (title, link, then description).
+    return parts.join('\r\n')
+  }, [shareTitle, shareUrl, shareDescription])
 
   const kakaoCombinedCharCount = useMemo(() => {
     const trimmedTitle = kakaoTitle.trim()
@@ -330,7 +337,7 @@ export default function MediaShareModal({
         'aria-labelledby': 'media-share-modal-title',
       }}
     >
-      <div className={`card relative w-full max-w-md max-h-[min(90vh,720px)] overflow-y-auto overscroll-contain shadow-2xl rounded-2xl ${APP_MODAL_PANEL_CLASS}`}>
+      <div className={`${APP_MODAL_SHELL_CLASS} max-w-md max-h-[min(90vh,720px)] flex flex-col`}>
         <div
           className={APP_MODAL_DRAG_HEADER_ROW_CLASS}
           data-app-modal-drag-handle
@@ -349,6 +356,7 @@ export default function MediaShareModal({
             </svg>
           </button>
         </div>
+        <div className={APP_MODAL_SCROLL_BODY_CLASS}>
         <p className="text-gray-300 text-sm truncate mb-1" title={shareTitle}>
           {shareTitle}
         </p>
@@ -607,6 +615,7 @@ export default function MediaShareModal({
           )}
         </div>
         )}
+        </div>
       </div>
     </AppModalOverlay>
   )

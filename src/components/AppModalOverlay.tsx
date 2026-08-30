@@ -19,12 +19,26 @@ export const APP_MODAL_DRAG_HANDLE_ATTR = 'data-app-modal-drag-handle'
 /** Popup panel background (former header highlight color). */
 export const APP_MODAL_PANEL_CLASS = 'bg-tank-light'
 
+/** Outer shell — tank-light bg + overflow clip so header corners don't reveal .card dark bleed. */
+export const APP_MODAL_SHELL_CLASS =
+  'relative w-full min-w-0 overflow-hidden rounded-2xl border border-tank-light bg-tank-light shadow-2xl'
+
+/** Padded body below a flush header. */
+export const APP_MODAL_BODY_CLASS = 'p-3'
+
+/** Scrollable padded body (use with flex flex-col + max-h on shell). */
+export const APP_MODAL_SCROLL_BODY_CLASS =
+  'overflow-y-auto overscroll-contain flex-1 min-h-0 p-3'
+
 /** Highlighted draggable title bar — light gray on tank-light panel. */
 export const APP_MODAL_DRAG_HEADER_CLASS =
   'cursor-grab active:cursor-grabbing border-b border-gray-400/50 bg-gray-500 hover:bg-gray-400 transition-colors'
 
 /** Title row with close button — Share, Card, Email. */
-export const APP_MODAL_DRAG_HEADER_ROW_CLASS = `flex items-center justify-between -mx-3 -mt-3 px-5 py-3 mb-4 rounded-t-2xl ${APP_MODAL_DRAG_HEADER_CLASS}`
+export const APP_MODAL_DRAG_HEADER_ROW_CLASS = `flex shrink-0 items-center justify-between px-5 py-3 ${APP_MODAL_DRAG_HEADER_CLASS}`
+
+/** Title row with leading icon — delete confirm, etc. */
+export const APP_MODAL_DRAG_HEADER_ICON_ROW_CLASS = `flex shrink-0 items-center gap-3 px-5 py-3 ${APP_MODAL_DRAG_HEADER_CLASS}`
 
 export type AppModalOverlayProps = {
   open: boolean

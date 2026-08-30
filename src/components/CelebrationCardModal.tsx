@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import AppModalOverlay, {
   APP_MODAL_DRAG_HEADER_ROW_CLASS,
-  APP_MODAL_PANEL_CLASS,
+  APP_MODAL_SCROLL_BODY_CLASS,
+  APP_MODAL_SHELL_CLASS,
 } from '@/components/AppModalOverlay'
 
 interface CelebrationCardModalProps {
@@ -81,7 +82,7 @@ export default function CelebrationCardModal({ mediaId, mediaTitle, onClose }: C
 
   return (
     <AppModalOverlay open onClose={onClose}>
-      <div className={`card relative w-full max-w-md max-h-[min(90vh,720px)] overflow-y-auto shadow-2xl rounded-2xl ${APP_MODAL_PANEL_CLASS}`}>
+      <div className={`${APP_MODAL_SHELL_CLASS} max-w-md max-h-[min(90vh,720px)] flex flex-col`}>
         <div
           className={APP_MODAL_DRAG_HEADER_ROW_CLASS}
           data-app-modal-drag-handle
@@ -98,6 +99,7 @@ export default function CelebrationCardModal({ mediaId, mediaTitle, onClose }: C
             </svg>
           </button>
         </div>
+        <div className={APP_MODAL_SCROLL_BODY_CLASS}>
         <p className="text-sm text-gray-400 mb-4">
           Share this media as an e-card with an optional personal message (read aloud on the card page). Send by email and/or share the link on social.
         </p>
@@ -211,6 +213,7 @@ export default function CelebrationCardModal({ mediaId, mediaTitle, onClose }: C
             </button>
           </div>
         )}
+        </div>
       </div>
     </AppModalOverlay>
   )
