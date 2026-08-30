@@ -1,6 +1,10 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { prisma } from '@/lib/prisma'
+import {
+  buildSocialCardImageUrl,
+  truncateForSocialCard,
+} from '@/lib/socialCardMeta'
 import MediaPageClient from './MediaPageClient'
 
 const getBaseUrl = () => {
@@ -72,12 +76,10 @@ export async function generateMetadata({
 
   const title = cleanTitle(media.title)
   const description = media.description?.trim() || `Explore ${title} on AI Media Tank (AMT).`
+  const socialDescription = truncateForSocialCard(description)
   const canonical = `${baseUrl}/media/${media.id}`
   const contentUrl = toAbsoluteUrl(baseUrl, media.url)
-  const thumbnailUrl =
-    toAbsoluteUrl(baseUrl, media.thumbnailUrl) ||
-    toAbsoluteUrl(baseUrl, media.type === 'IMAGE' ? media.url : null) ||
-    `${baseUrl}/logo.png`
+  const cardImageUrl = buildSocialCardImageUrl(baseUrl, media.id)
   const keywords = Array.from(
     new Set(
       ['AI media', 'AI Media Tank (AMT)', media.type?.toLowerCase(), media.aiTool, media.realDevice].filter(
@@ -93,7 +95,7 @@ export async function generateMetadata({
     alternates: { canonical },
     openGraph: {
       title,
-      description,
+      description: socialDescription,
       url: canonical,
       siteName: 'AI Media Tank, LLC (AMT)',
       type:
@@ -104,7 +106,8 @@ export async function generateMetadata({
             : 'article',
       images: [
         {
-          url: thumbnailUrl,
+          url: cardImageUrl,
+          alt: title,
         },
       ],
       videos:
@@ -119,8 +122,8 @@ export async function generateMetadata({
     twitter: {
       card: 'summary_large_image',
       title,
-      description,
-      images: [thumbnailUrl],
+      description: socialDescription,
+      images: [{ url: cardImageUrl, alt: title }],
     },
   }
 }

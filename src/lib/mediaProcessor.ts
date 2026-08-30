@@ -27,7 +27,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 let ffmpegPath: string | null = null
 
-function getFfmpegPath(): string {
+export function getFfmpegPath(): string {
   if (ffmpegPath) return ffmpegPath
 
   try {
