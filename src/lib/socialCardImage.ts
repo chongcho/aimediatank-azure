@@ -4,9 +4,9 @@ import { unlink, writeFile, readFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { getFfmpegPath } from '@/lib/mediaProcessor'
-import { probeImageDimensionsFromFile } from '@/lib/socialImageDimensions'
 import {
-  SOCIAL_CARD_IMAGE_MAX_WIDTH,
+  SOCIAL_CARD_IMAGE_HEIGHT,
+  SOCIAL_CARD_IMAGE_WIDTH,
 } from '@/lib/socialCardMeta'
 
 /** WhatsApp silently drops preview images above ~300KB (stricter than X/Facebook). */
@@ -14,8 +14,8 @@ export const SOCIAL_CARD_IMAGE_MAX_BYTES = 280_000
 
 const SOCIAL_CARD_CACHE = 'public, max-age=86400, s-maxage=86400'
 
-/** Max width 1200; height follows native aspect (portrait → tall card on X). */
-const ASPECT_SCALE_FILTER = `scale=${SOCIAL_CARD_IMAGE_MAX_WIDTH}:-2`
+/** 1.91:1 letterbox — LinkedIn full-width cards require ~1200×627 landscape og:image. */
+const LANDSCAPE_LETTERBOX_FILTER = `scale=${SOCIAL_CARD_IMAGE_WIDTH}:${SOCIAL_CARD_IMAGE_HEIGHT}:force_original_aspect_ratio=decrease,pad=${SOCIAL_CARD_IMAGE_WIDTH}:${SOCIAL_CARD_IMAGE_HEIGHT}:(ow-iw)/2:(oh-ih)/2:black`
 
 function runFfmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -46,7 +46,7 @@ async function renderSocialCardJpeg(
       '-i',
       inPath,
       '-vf',
-      ASPECT_SCALE_FILTER,
+      LANDSCAPE_LETTERBOX_FILTER,
       '-frames:v',
       '1',
       '-q:v',
@@ -54,11 +54,10 @@ async function renderSocialCardJpeg(
       outPath,
     ])
     const body = await readFile(outPath)
-    const dimensions = await probeImageDimensionsFromFile(outPath)
     return {
       body,
-      width: dimensions?.width ?? SOCIAL_CARD_IMAGE_MAX_WIDTH,
-      height: dimensions?.height ?? SOCIAL_CARD_IMAGE_MAX_WIDTH,
+      width: SOCIAL_CARD_IMAGE_WIDTH,
+      height: SOCIAL_CARD_IMAGE_HEIGHT,
     }
   } finally {
     await unlink(inPath).catch(() => {})
@@ -66,7 +65,7 @@ async function renderSocialCardJpeg(
   }
 }
 
-/** Scale to max width 1200 (aspect preserved) and compress for WhatsApp / strict crawlers. */
+/** Letterbox to 1200×630 JPEG for LinkedIn/OG large link-preview cards. */
 export async function optimizeSocialCardImage(
   body: ArrayBuffer,
   _contentType: string | null

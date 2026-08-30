@@ -1,7 +1,7 @@
 /** Standard max width for OG link-preview images (height follows aspect ratio). */
 export const SOCIAL_CARD_IMAGE_MAX_WIDTH = 1200
 
-/** Legacy 1.91:1 target — used only where a fixed box is required (e.g. Kakao). */
+/** 1.91:1 landscape JPEG at /media/{id}/card-image — LinkedIn large cards + Kakao. */
 export const SOCIAL_CARD_IMAGE_WIDTH = 1200
 export const SOCIAL_CARD_IMAGE_HEIGHT = 630
 
@@ -9,7 +9,7 @@ export const SOCIAL_CARD_IMAGE_HEIGHT = 630
 export const SOCIAL_CARD_DESCRIPTION_MAX = 200
 
 /** Bump when card-image output changes so WhatsApp re-fetches cached previews. */
-export const SOCIAL_CARD_IMAGE_CACHE_VERSION = '10'
+export const SOCIAL_CARD_IMAGE_CACHE_VERSION = '11'
 
 export function truncateForSocialCard(text: string, max = SOCIAL_CARD_DESCRIPTION_MAX): string {
   const trimmed = text.trim()

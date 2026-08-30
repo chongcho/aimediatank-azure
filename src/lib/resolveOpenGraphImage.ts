@@ -1,10 +1,12 @@
 import {
-  meetsDirectBlobOgThreshold,
+  meetsSocialPreviewMinimum,
   probeImageDimensionsFromUrl,
 } from '@/lib/socialImageDimensions'
 import {
   buildSocialCardImageUrl,
+  SOCIAL_CARD_IMAGE_HEIGHT,
   SOCIAL_CARD_IMAGE_MAX_WIDTH,
+  SOCIAL_CARD_IMAGE_WIDTH,
   type SocialPreviewImage,
 } from '@/lib/socialCardMeta'
 
@@ -35,8 +37,22 @@ export function dimensionsAfterCardScale(
   }
 }
 
-/** OG image — native blob when ≥1200px wide; otherwise on-domain card-image (LinkedIn large cards). */
-export async function resolveOpenGraphImageUrl(
+/** LinkedIn/Facebook OG — always 1200×630 landscape card (portrait blobs → small side thumbnail). */
+export function resolveOpenGraphImageUrl(
+  media: { id: string },
+  baseUrl: string
+): SocialPreviewImage {
+  return {
+    url: buildSocialCardImageUrl(baseUrl, media.id),
+    width: SOCIAL_CARD_IMAGE_WIDTH,
+    height: SOCIAL_CARD_IMAGE_HEIGHT,
+    type: 'image/jpeg',
+    isCardImage: true,
+  }
+}
+
+/** X/Twitter — native aspect from blob when large enough; else scaled card dimensions. */
+export async function resolveTwitterImageUrl(
   media: {
     id: string
     type: string
@@ -49,7 +65,7 @@ export async function resolveOpenGraphImageUrl(
   let dimensions: { width: number; height: number } | null = null
   if (blob) {
     dimensions = await probeImageDimensionsFromUrl(blob)
-    if (dimensions && meetsDirectBlobOgThreshold(dimensions.width, dimensions.height)) {
+    if (dimensions && meetsSocialPreviewMinimum(dimensions.width, dimensions.height)) {
       return {
         url: blob,
         width: dimensions.width,
@@ -64,6 +80,8 @@ export async function resolveOpenGraphImageUrl(
     url: buildSocialCardImageUrl(baseUrl, media.id),
     type: 'image/jpeg',
     isCardImage: true,
+    width: SOCIAL_CARD_IMAGE_WIDTH,
+    height: SOCIAL_CARD_IMAGE_HEIGHT,
   }
   if (dimensions) {
     const scaled = dimensionsAfterCardScale(dimensions.width, dimensions.height)

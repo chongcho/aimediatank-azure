@@ -5,7 +5,10 @@ import { parseMediaIdFromRouteParam } from '@/lib/mediaShareUrl'
 import {
   truncateForSocialCard,
 } from '@/lib/socialCardMeta'
-import { resolveOpenGraphImageUrl } from '@/lib/resolveOpenGraphImage'
+import {
+  resolveOpenGraphImageUrl,
+  resolveTwitterImageUrl,
+} from '@/lib/resolveOpenGraphImage'
 import MediaPageClient from './MediaPageClient'
 
 const getBaseUrl = () => {
@@ -80,7 +83,8 @@ export async function generateMetadata({
   const description = media.description?.trim() || `Explore ${title} on AI Media Tank (AMT).`
   const socialDescription = truncateForSocialCard(description)
   const canonical = `${baseUrl}/media/${media.id}`
-  const previewImage = await resolveOpenGraphImageUrl(media, baseUrl)
+  const previewImage = resolveOpenGraphImageUrl(media, baseUrl)
+  const twitterImage = await resolveTwitterImageUrl(media, baseUrl)
   const keywords = Array.from(
     new Set(
       ['AI media', 'AI Media Tank (AMT)', media.type?.toLowerCase(), media.aiTool, media.realDevice].filter(
@@ -122,12 +126,12 @@ export async function generateMetadata({
       description: socialDescription,
       images: [
         {
-          url: previewImage.url,
+          url: twitterImage.url,
           alt: title,
-          ...(previewImage.width && previewImage.height
+          ...(twitterImage.width && twitterImage.height
             ? {
-                width: previewImage.width,
-                height: previewImage.height,
+                width: twitterImage.width,
+                height: twitterImage.height,
               }
             : {}),
         },

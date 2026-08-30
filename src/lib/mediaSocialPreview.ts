@@ -50,7 +50,7 @@ export async function buildMediaSocialPreview(
   const description = media.description?.trim() || `Explore ${title} on AI Media Tank (AMT).`
   const socialDescription = truncateForSocialCard(description)
   const canonical = `${baseUrl.replace(/\/$/, '')}/media/${media.id}`
-  const previewImage = await resolveOpenGraphImageUrl(media, baseUrl)
+  const previewImage = resolveOpenGraphImageUrl(media, baseUrl)
   const ogType = media.type === 'MUSIC' ? 'music.song' : 'article'
 
   return { title, socialDescription, canonical, previewImage, ogType }

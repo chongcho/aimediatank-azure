@@ -4,9 +4,6 @@ import { getFfprobePath } from '@/lib/mediaProcessor'
 /** X large-image cards require at least 300×157; width is the usual failure mode. */
 export const SOCIAL_PREVIEW_MIN_DIMENSION = 300
 
-/** LinkedIn full-width link cards need ~1200px-wide og:image; narrower → small side thumbnail. */
-export const SOCIAL_PREVIEW_LARGE_CARD_MIN_WIDTH = 1200
-
 const TTL_MS = 86_400_000
 const MAX_ENTRIES = 500
 const FETCH_PREFIX_BYTES = 65_536
@@ -240,11 +237,4 @@ export async function probeImageDimensionsFromFile(
 
 export function meetsSocialPreviewMinimum(width: number, height: number): boolean {
   return width >= SOCIAL_PREVIEW_MIN_DIMENSION && height >= SOCIAL_PREVIEW_MIN_DIMENSION
-}
-
-/** Direct blob og:image — only when wide enough for LinkedIn large cards and X minimums. */
-export function meetsDirectBlobOgThreshold(width: number, height: number): boolean {
-  return (
-    width >= SOCIAL_PREVIEW_LARGE_CARD_MIN_WIDTH && meetsSocialPreviewMinimum(width, height)
-  )
 }
