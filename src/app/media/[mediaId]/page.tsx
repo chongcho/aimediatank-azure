@@ -3,9 +3,9 @@ import { headers } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { parseMediaIdFromRouteParam } from '@/lib/mediaShareUrl'
 import {
-  resolveOpenGraphImageUrl,
   truncateForSocialCard,
 } from '@/lib/socialCardMeta'
+import { resolveOpenGraphImageUrl } from '@/lib/resolveOpenGraphImage'
 import MediaPageClient from './MediaPageClient'
 
 const getBaseUrl = () => {

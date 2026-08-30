@@ -1,8 +1,3 @@
-import {
-  meetsSocialPreviewMinimum,
-  probeImageDimensionsFromUrl,
-} from '@/lib/socialImageDimensions'
-
 /** Standard max width for OG link-preview images (height follows aspect ratio). */
 export const SOCIAL_CARD_IMAGE_MAX_WIDTH = 1200
 
@@ -35,71 +30,6 @@ export type SocialPreviewImage = {
   type?: string
   /** On-domain card-image (scaled, aspect preserved) vs direct blob URL. */
   isCardImage: boolean
-}
-
-function blobMimeType(url: string): string {
-  const lower = url.toLowerCase()
-  if (lower.includes('.png')) return 'image/png'
-  if (lower.includes('.webp')) return 'image/webp'
-  return 'image/jpeg'
-}
-
-function resolveBlobSource(media: {
-  type: string
-  url: string | null
-  thumbnailUrl: string | null
-}): string | null {
-  if (media.thumbnailUrl?.startsWith('https://')) return media.thumbnailUrl
-  if (media.type === 'IMAGE' && media.url?.startsWith('https://')) return media.url
-  return null
-}
-
-/** Expected card-image output size after scale-to-1200 (for OG meta when blob is too small). */
-export function dimensionsAfterCardScale(
-  sourceWidth: number,
-  sourceHeight: number
-): { width: number; height: number } {
-  return {
-    width: SOCIAL_CARD_IMAGE_MAX_WIDTH,
-    height: Math.max(1, Math.round((sourceHeight * SOCIAL_CARD_IMAGE_MAX_WIDTH) / sourceWidth)),
-  }
-}
-
-export async function resolveOpenGraphImageUrl(
-  media: {
-    id: string
-    type: string
-    url: string | null
-    thumbnailUrl: string | null
-  },
-  baseUrl: string
-): Promise<SocialPreviewImage> {
-  const blob = resolveBlobSource(media)
-  let dimensions: { width: number; height: number } | null = null
-  if (blob) {
-    dimensions = await probeImageDimensionsFromUrl(blob)
-    if (dimensions && meetsSocialPreviewMinimum(dimensions.width, dimensions.height)) {
-      return {
-        url: blob,
-        width: dimensions.width,
-        height: dimensions.height,
-        type: blobMimeType(blob),
-        isCardImage: false,
-      }
-    }
-  }
-
-  const cardPreview: SocialPreviewImage = {
-    url: buildSocialCardImageUrl(baseUrl, media.id),
-    type: 'image/jpeg',
-    isCardImage: true,
-  }
-  if (dimensions) {
-    const scaled = dimensionsAfterCardScale(dimensions.width, dimensions.height)
-    cardPreview.width = scaled.width
-    cardPreview.height = scaled.height
-  }
-  return cardPreview
 }
 
 /** Sync helper when dimensions are already known (card-image handler). */
