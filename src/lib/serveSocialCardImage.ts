@@ -4,6 +4,11 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseMediaIdFromRouteParam } from '@/lib/mediaShareUrl'
 import { optimizeSocialCardImage } from '@/lib/socialCardImage'
+import {
+  getCachedSocialCardImage,
+  setCachedSocialCardImage,
+  type CachedSocialCardImage,
+} from '@/lib/socialCardImageCache'
 
 async function resolvePublicImageUrl(mediaId: string): Promise<string | null> {
   const media = await prisma.media.findFirst({
@@ -30,31 +35,78 @@ function toAbsolute(origin: string, url: string): string {
   return `${origin.replace(/\/$/, '')}/${url}`
 }
 
-async function fallbackLogoResponse(origin: string): Promise<NextResponse> {
-  try {
-    const logo = await readFile(join(process.cwd(), 'public', 'logo.png'))
-    return new NextResponse(new Uint8Array(logo), {
-      status: 200,
-      headers: {
-        'Content-Type': 'image/png',
-        'Content-Length': String(logo.length),
-        'Cache-Control': 'public, max-age=86400, s-maxage=86400',
-      },
-    })
-  } catch {
-    return NextResponse.redirect(`${origin}/logo.png`, 302)
+let logoBytesPromise: Promise<Buffer> | null = null
+
+function getLogoBytes(): Promise<Buffer> {
+  if (!logoBytesPromise) {
+    logoBytesPromise = readFile(join(process.cwd(), 'public', 'logo.png'))
   }
+  return logoBytesPromise
 }
 
-function imageResponse(body: Buffer, contentType: string, cacheControl: string): NextResponse {
-  return new NextResponse(new Uint8Array(body), {
+/** Always HTTP 200 — X and other crawlers do not follow redirects for card images. */
+async function fallbackLogoResponse(): Promise<NextResponse> {
+  const logo = await getLogoBytes()
+  return new NextResponse(new Uint8Array(logo), {
     status: 200,
     headers: {
-      'Content-Type': contentType,
-      'Content-Length': String(body.length),
-      'Cache-Control': cacheControl,
+      'Content-Type': 'image/png',
+      'Content-Length': String(logo.length),
+      'Cache-Control': 'public, max-age=86400, s-maxage=86400',
     },
   })
+}
+
+function imageResponse(image: CachedSocialCardImage): NextResponse {
+  return new NextResponse(new Uint8Array(image.body), {
+    status: 200,
+    headers: {
+      'Content-Type': image.contentType,
+      'Content-Length': String(image.body.length),
+      'Cache-Control': image.cacheControl,
+    },
+  })
+}
+
+const inFlight = new Map<string, Promise<CachedSocialCardImage | null>>()
+
+async function renderSocialCardImage(
+  mediaId: string,
+  origin: string
+): Promise<CachedSocialCardImage | null> {
+  const cached = getCachedSocialCardImage(mediaId)
+  if (cached) return cached
+
+  let pending = inFlight.get(mediaId)
+  if (!pending) {
+    pending = (async () => {
+      const source = await resolvePublicImageUrl(mediaId)
+      if (!source) return null
+
+      const absolute = toAbsolute(origin, source)
+      const upstream = await fetch(absolute, { redirect: 'follow' })
+      if (!upstream.ok) return null
+
+      const raw = await upstream.arrayBuffer()
+      const optimized = await optimizeSocialCardImage(
+        raw,
+        upstream.headers.get('content-type')
+      )
+
+      const image: CachedSocialCardImage = {
+        body: optimized.body,
+        contentType: optimized.contentType,
+        cacheControl: optimized.cacheControl,
+      }
+      setCachedSocialCardImage(mediaId, image)
+      return image
+    })().finally(() => {
+      inFlight.delete(mediaId)
+    })
+    inFlight.set(mediaId, pending)
+  }
+
+  return pending
 }
 
 /** Shared handler for public social-card image routes (not under /api — crawlers can fetch). */
@@ -64,28 +116,13 @@ export async function serveSocialCardImage(
 ): Promise<NextResponse> {
   const origin = new URL(request.url).origin
   const mediaId = parseMediaIdFromRouteParam(rawMediaId)
-  const source = await resolvePublicImageUrl(mediaId)
-
-  if (!source) {
-    return fallbackLogoResponse(origin)
-  }
-
-  const absolute = toAbsolute(origin, source)
 
   try {
-    const upstream = await fetch(absolute, { redirect: 'follow' })
-    if (!upstream.ok) {
-      return fallbackLogoResponse(origin)
-    }
-
-    const raw = await upstream.arrayBuffer()
-    const optimized = await optimizeSocialCardImage(
-      raw,
-      upstream.headers.get('content-type')
-    )
-
-    return imageResponse(optimized.body, optimized.contentType, optimized.cacheControl)
+    const image = await renderSocialCardImage(mediaId, origin)
+    if (image) return imageResponse(image)
   } catch {
-    return fallbackLogoResponse(origin)
+    // fall through to logo
   }
+
+  return fallbackLogoResponse()
 }

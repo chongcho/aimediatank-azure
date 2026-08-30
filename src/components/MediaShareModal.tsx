@@ -11,47 +11,12 @@ import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
+import {
+  buildKakaoSharePayload,
+  KAKAO_SHARE_TEXT_MAX,
+  resolveKakaoShareImageUrl,
+} from '@/lib/kakaoShare'
 import { mediaPageInterpolate, mediaPageT, type MediaPageKey } from '@/messages/mediaPage'
-
-const KAKAO_SHARE_TEXT_MAX = 200
-/** Feed cards truncate description in KakaoTalk; use text template above this length. */
-const KAKAO_FEED_TEXT_MAX = 100
-
-function buildKakaoSharePayload(
-  title: string,
-  message: string,
-  shareUrl: string,
-  imageUrl: string | null | undefined,
-  fallbackTitle: string
-) {
-  const trimmedTitle = title.trim() || fallbackTitle
-  const trimmedMessage = message.trim() || trimmedTitle
-  const link = { mobileWebUrl: shareUrl, webUrl: shareUrl }
-  const combined =
-    trimmedMessage !== trimmedTitle && trimmedTitle
-      ? `${trimmedTitle}\n\n${trimmedMessage}`
-      : trimmedMessage || trimmedTitle
-  const text = combined.slice(0, KAKAO_SHARE_TEXT_MAX)
-  const secureImage = imageUrl && imageUrl.startsWith('https://') ? imageUrl : undefined
-
-  if (text.length <= KAKAO_FEED_TEXT_MAX && secureImage) {
-    return {
-      objectType: 'feed' as const,
-      content: {
-        title: trimmedTitle.slice(0, 80),
-        description: trimmedMessage.slice(0, KAKAO_SHARE_TEXT_MAX),
-        imageUrl: secureImage,
-        link,
-      },
-    }
-  }
-
-  return {
-    objectType: 'text' as const,
-    text,
-    link,
-  }
-}
 
 export type MediaShareModalProps = {
   open: boolean
@@ -110,6 +75,11 @@ export default function MediaShareModal({
 
   const shareUrl =
     typeof window !== 'undefined' ? `${window.location.origin}/media/${mediaId}` : ''
+
+  const kakaoShareImageUrl = useMemo(
+    () => (shareUrl ? resolveKakaoShareImageUrl(shareUrl, mediaId, thumbnailUrl) : undefined),
+    [shareUrl, mediaId, thumbnailUrl]
+  )
 
   const setCopied = useCallback(
     (copied: boolean) => {
@@ -172,7 +142,13 @@ export default function MediaShareModal({
       const trimmedMessage = description.trim() || trimmedTitle
       try {
         shareApi.sendDefault(
-          buildKakaoSharePayload(trimmedTitle, trimmedMessage, shareUrl, thumbnailUrl, shareTitle)
+          buildKakaoSharePayload(
+            trimmedTitle,
+            trimmedMessage,
+            shareUrl,
+            kakaoShareImageUrl,
+            shareTitle
+          )
         )
         recordShareAction()
         onClose()
@@ -185,7 +161,7 @@ export default function MediaShareModal({
     [
       shareUrl,
       shareTitle,
-      thumbnailUrl,
+      kakaoShareImageUrl,
       tMedia,
       handleCopyLink,
       recordShareAction,
@@ -435,11 +411,11 @@ export default function MediaShareModal({
                 })}
               </p>
             </div>
-            {thumbnailUrl && thumbnailUrl.startsWith('https://') ? (
+            {kakaoShareImageUrl ? (
               <div className="flex items-center gap-3 rounded-lg border border-tank-light/60 bg-tank-black/40 p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={thumbnailUrl}
+                  src={kakaoShareImageUrl}
                   alt=""
                   className="w-14 h-14 rounded object-cover shrink-0"
                 />

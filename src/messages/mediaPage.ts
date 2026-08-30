@@ -175,7 +175,7 @@ const EN: Pack = {
   kakaoShareFailed:
     'KakaoTalk share could not open. Link copied — paste it in KakaoTalk. If this keeps happening, register this site domain in Kakao Developers (Platform Web + Talk Share Domain).',
   kakaoComposeHint:
-    'Edit your message below, then choose who to send it to in KakaoTalk. Up to 200 characters are shown in full (no View button).',
+    'Edit your message below, then choose who to send it to in KakaoTalk. A media thumbnail is included when sharing from this site.',
   kakaoShareSend: 'Share on KakaoTalk',
   kakaoTitleLabel: 'Title',
   kakaoCharLimit: '{count}/200 characters',
@@ -269,7 +269,7 @@ const KO: Pack = {
   kakaoShareFailed:
     '카카오톡 공유를 열 수 없습니다. 링크가 복사되었습니다 — 카카오톡에 붙여넣으세요. 계속 실패하면 Kakao Developers에서 이 사이트 도메인을 등록하세요.',
   kakaoComposeHint:
-    '아래 메시지를 수정한 뒤 카카오톡에서 보낼 대상을 선택하세요. 최대 200자까지 전체 표시됩니다(보기 버튼 없음).',
+    '아래 메시지를 수정한 뒤 카카오톡에서 보낼 대상을 선택하세요. 이 사이트에서 공유하면 미디어 썸네일이 함께 표시됩니다.',
   kakaoShareSend: '카카오톡으로 공유',
   kakaoTitleLabel: '제목',
   kakaoCharLimit: '{count}/200자',

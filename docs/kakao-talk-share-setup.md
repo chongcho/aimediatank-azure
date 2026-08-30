@@ -102,7 +102,7 @@ Next.js inlines `NEXT_PUBLIC_*` variables at **`npm run build`**. Setting the ke
   Check the browser console. Ensure the JavaScript key is the **Web (JavaScript)** key, not the REST API or Admin key. The key must be the one shown on the Kakao app whose domains you registered.
 
 - **Image not appearing in the Kakao card**  
-  The image URL must be HTTPS and reachable from the public internet (Kakao's scraper fetches it server-side). Private/firewalled URLs and `http://` are rejected. The app already filters `imageUrl` to require `https://`.
+  The image URL must be HTTPS and reachable from the public internet (Kakao's scraper fetches it server-side). Private/firewalled URLs and `http://` are rejected. Shares use the on-domain card image at `/media/{id}/card-image` (optimized JPEG, same domain as the link). Ensure that domain is registered in Kakao Developers (§2). Long messages still use the feed template so the thumbnail shows; Kakao may truncate title/description to ~2 lines each in the card.
 
 - **Docs**  
   [Kakao Talk Share – JavaScript](https://developers.kakao.com/docs/latest/en/kakaotalk-share/js-link), [JavaScript SDK](https://developers.kakao.com/docs/latest/en/javascript/getting-started), [Kakao Talk Share troubleshooting](https://developers.kakao.com/docs/en/kakaotalk-share/trouble-shooting).

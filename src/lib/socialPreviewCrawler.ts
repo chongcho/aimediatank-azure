@@ -1,3 +1,15 @@
+/** robots.txt user-agent tokens for link-preview crawlers (must stay in sync with patterns below). */
+export const SOCIAL_PREVIEW_CRAWLER_ROBOTS_AGENTS = [
+  'WhatsApp',
+  'facebookexternalhit',
+  'Twitterbot',
+  'LinkedInBot',
+  'Slackbot',
+  'TelegramBot',
+  'Discordbot',
+  'Pinterestbot',
+] as const
+
 /** User-agents used by Meta/WhatsApp Web and other link-preview fetchers. */
 const SOCIAL_PREVIEW_CRAWLER_PATTERNS: RegExp[] = [
   /facebookexternalhit/i,

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { SOCIAL_PREVIEW_CRAWLER_ROBOTS_AGENTS } from '@/lib/socialPreviewCrawler'
 import { getSiteUrl } from '@/lib/siteUrl'
 
 /** Serves /robots.txt (text/plain). */
@@ -12,7 +13,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/admin', '/api/'],
       },
       {
-        userAgent: ['WhatsApp', 'facebookexternalhit'],
+        userAgent: [...SOCIAL_PREVIEW_CRAWLER_ROBOTS_AGENTS],
         allow: '/',
         disallow: ['/admin'],
       },
