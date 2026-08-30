@@ -67,10 +67,6 @@ const nextConfig = {
         // camera/microphone=(self) allow getUserMedia on this origin (avatar photo, TalkChat voice calls).
         value: 'camera=(self), microphone=(self), geolocation=()',
       },
-      {
-        key: 'Cache-Control',
-        value: 'public, max-age=0, must-revalidate',
-      },
     ]
     // HSTS: enforce HTTPS for 1 year (production only; Azure serves HTTPS)
     if (process.env.NODE_ENV === 'production') {
@@ -81,8 +77,25 @@ const nextConfig = {
     }
     return [
       {
+        // OG card images — single Cache-Control (global max-age=0 breaks X/Twitter image fetch).
+        source: '/media/:mediaId/card-image',
+        headers: [
+          ...securityHeaders,
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, s-maxage=86400',
+          },
+        ],
+      },
+      {
         source: '/:path*',
-        headers: securityHeaders,
+        headers: [
+          ...securityHeaders,
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
+          },
+        ],
       },
       {
         // Cache static assets longer

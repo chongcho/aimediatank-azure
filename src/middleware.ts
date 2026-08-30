@@ -21,6 +21,7 @@ import {
   shouldCaptureIpDebugHeaders,
 } from '@/lib/ipDebugHeaders'
 import {
+  isPublicCardImagePath,
   isSocialPreviewCrawler,
   parseMediaDetailPath,
 } from '@/lib/socialPreviewCrawler'
@@ -139,6 +140,10 @@ export async function middleware(request: NextRequest) {
   // Otherwise a 403 or failed check can flip "Ads.txt status" to Not found after a later recrawl.
   // Same for Digital Asset Links — Google/Android must fetch assetlinks.json for App Links.
   if (pathname === '/ads.txt' || pathname === '/.well-known/assetlinks.json') {
+    return NextResponse.next()
+  }
+
+  if (isPublicCardImagePath(pathname)) {
     return NextResponse.next()
   }
 

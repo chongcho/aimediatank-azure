@@ -79,9 +79,10 @@ export function buildMediaOgPreviewHtml(
 <meta name="twitter:title" content="${title}"/>
 <meta name="twitter:description" content="${description}"/>
 <meta name="twitter:image" content="${image}"/>
+<meta name="twitter:image:width" content="${w}"/>
+<meta name="twitter:image:height" content="${h}"/>
 <title>${title} | AI Media Tank (AMT)</title>
 <link rel="canonical" href="${canonical}"/>
-<meta http-equiv="refresh" content="0;url=${canonical}"/>
 </head>
 <body><p><a href="${canonical}">${title}</a></p></body>
 </html>`

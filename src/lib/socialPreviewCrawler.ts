@@ -33,3 +33,8 @@ export function parseMediaDetailPath(pathname: string): string | null {
   const match = pathname.match(/^\/media\/([^/]+)$/)
   return match ? match[1] : null
 }
+
+/** Public OG image route — skip middleware cookies/logging so crawlers get a clean response. */
+export function isPublicCardImagePath(pathname: string): boolean {
+  return /^\/media\/[^/]+\/card-image$/.test(pathname)
+}

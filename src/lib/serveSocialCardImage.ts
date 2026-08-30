@@ -44,28 +44,29 @@ function getLogoBytes(): Promise<Buffer> {
   return logoBytesPromise
 }
 
+const CARD_IMAGE_CACHE_CONTROL = 'public, max-age=86400, s-maxage=86400'
+
+function finalizeCrawlerImageResponse(body: Buffer, contentType: string): NextResponse {
+  const response = new NextResponse(new Uint8Array(body), {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Content-Length': String(body.length),
+      'Cache-Control': CARD_IMAGE_CACHE_CONTROL,
+    },
+  })
+  response.headers.delete('vary')
+  return response
+}
+
 /** Always HTTP 200 — X and other crawlers do not follow redirects for card images. */
 async function fallbackLogoResponse(): Promise<NextResponse> {
   const logo = await getLogoBytes()
-  return new NextResponse(new Uint8Array(logo), {
-    status: 200,
-    headers: {
-      'Content-Type': 'image/png',
-      'Content-Length': String(logo.length),
-      'Cache-Control': 'public, max-age=86400, s-maxage=86400',
-    },
-  })
+  return finalizeCrawlerImageResponse(logo, 'image/png')
 }
 
 function imageResponse(image: CachedSocialCardImage): NextResponse {
-  return new NextResponse(new Uint8Array(image.body), {
-    status: 200,
-    headers: {
-      'Content-Type': image.contentType,
-      'Content-Length': String(image.body.length),
-      'Cache-Control': image.cacheControl,
-    },
-  })
+  return finalizeCrawlerImageResponse(image.body, image.contentType)
 }
 
 const inFlight = new Map<string, Promise<CachedSocialCardImage | null>>()
