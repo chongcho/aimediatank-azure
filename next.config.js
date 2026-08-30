@@ -77,18 +77,13 @@ const nextConfig = {
     }
     return [
       {
-        // OG card images — single Cache-Control (global max-age=0 breaks X/Twitter image fetch).
+        // OG card-image — security only; Cache-Control is set by the route handler.
         source: '/media/:mediaId/card-image',
-        headers: [
-          ...securityHeaders,
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=86400, s-maxage=86400',
-          },
-        ],
+        headers: [...securityHeaders],
       },
       {
-        source: '/:path*',
+        // Exclude card-image — that route sets its own Cache-Control (see rule above).
+        source: '/((?!media/[^/]+/card-image$).*)',
         headers: [
           ...securityHeaders,
           {

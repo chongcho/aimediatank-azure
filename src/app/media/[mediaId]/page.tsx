@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { parseMediaIdFromRouteParam } from '@/lib/mediaShareUrl'
 import {
-  buildSocialCardImageUrl,
+  resolveOpenGraphImageUrl,
   SOCIAL_CARD_IMAGE_HEIGHT,
   SOCIAL_CARD_IMAGE_WIDTH,
   truncateForSocialCard,
@@ -82,7 +82,7 @@ export async function generateMetadata({
   const description = media.description?.trim() || `Explore ${title} on AI Media Tank (AMT).`
   const socialDescription = truncateForSocialCard(description)
   const canonical = `${baseUrl}/media/${media.id}`
-  const cardImageUrl = buildSocialCardImageUrl(baseUrl, media.id)
+  const previewImage = resolveOpenGraphImageUrl(media, baseUrl)
   const keywords = Array.from(
     new Set(
       ['AI media', 'AI Media Tank (AMT)', media.type?.toLowerCase(), media.aiTool, media.realDevice].filter(
@@ -104,11 +104,17 @@ export async function generateMetadata({
       type: media.type === 'MUSIC' ? 'music.song' : 'article',
       images: [
         {
-          url: cardImageUrl,
+          url: previewImage.url,
           alt: title,
-          width: SOCIAL_CARD_IMAGE_WIDTH,
-          height: SOCIAL_CARD_IMAGE_HEIGHT,
-          type: 'image/jpeg',
+          ...(previewImage.isCardImage
+            ? {
+                width: SOCIAL_CARD_IMAGE_WIDTH,
+                height: SOCIAL_CARD_IMAGE_HEIGHT,
+                type: 'image/jpeg' as const,
+              }
+            : previewImage.type
+              ? { type: previewImage.type as 'image/jpeg' | 'image/png' }
+              : {}),
         },
       ],
     },
@@ -118,10 +124,14 @@ export async function generateMetadata({
       description: socialDescription,
       images: [
         {
-          url: cardImageUrl,
+          url: previewImage.url,
           alt: title,
-          width: SOCIAL_CARD_IMAGE_WIDTH,
-          height: SOCIAL_CARD_IMAGE_HEIGHT,
+          ...(previewImage.isCardImage
+            ? {
+                width: SOCIAL_CARD_IMAGE_WIDTH,
+                height: SOCIAL_CARD_IMAGE_HEIGHT,
+              }
+            : {}),
         },
       ],
     },

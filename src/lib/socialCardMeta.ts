@@ -19,3 +19,41 @@ export function buildSocialCardImageUrl(baseUrl: string, mediaId: string): strin
   const root = baseUrl.replace(/\/$/, '')
   return `${root}/media/${mediaId}/card-image?v=${SOCIAL_CARD_IMAGE_CACHE_VERSION}`
 }
+
+export type SocialPreviewImage = {
+  url: string
+  width?: number
+  height?: number
+  type?: string
+  /** Letterboxed on-domain card-image — not a direct blob URL. */
+  isCardImage: boolean
+}
+
+/** Prefer Azure blob thumbnails for OG/X (clean CDN headers); fall back to on-domain card-image. */
+export function resolveOpenGraphImageUrl(
+  media: {
+    id: string
+    type: string
+    url: string | null
+    thumbnailUrl: string | null
+  },
+  baseUrl: string
+): SocialPreviewImage {
+  const blob =
+    (media.thumbnailUrl?.startsWith('https://') && media.thumbnailUrl) ||
+    (media.type === 'IMAGE' && media.url?.startsWith('https://') ? media.url : null)
+
+  if (blob) {
+    const lower = blob.toLowerCase()
+    const type = lower.includes('.png') ? 'image/png' : 'image/jpeg'
+    return { url: blob, type, isCardImage: false }
+  }
+
+  return {
+    url: buildSocialCardImageUrl(baseUrl, media.id),
+    width: SOCIAL_CARD_IMAGE_WIDTH,
+    height: SOCIAL_CARD_IMAGE_HEIGHT,
+    type: 'image/jpeg',
+    isCardImage: true,
+  }
+}
