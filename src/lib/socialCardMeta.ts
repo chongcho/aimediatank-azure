@@ -1,4 +1,12 @@
-/** Standard Open Graph link-preview size (1.91:1 — WhatsApp large card). */
+import {
+  meetsSocialPreviewMinimum,
+  probeImageDimensionsFromUrl,
+} from '@/lib/socialImageDimensions'
+
+/** Standard max width for OG link-preview images (height follows aspect ratio). */
+export const SOCIAL_CARD_IMAGE_MAX_WIDTH = 1200
+
+/** Legacy 1.91:1 target — used only where a fixed box is required (e.g. Kakao). */
 export const SOCIAL_CARD_IMAGE_WIDTH = 1200
 export const SOCIAL_CARD_IMAGE_HEIGHT = 630
 
@@ -6,7 +14,7 @@ export const SOCIAL_CARD_IMAGE_HEIGHT = 630
 export const SOCIAL_CARD_DESCRIPTION_MAX = 200
 
 /** Bump when card-image output changes so WhatsApp re-fetches cached previews. */
-export const SOCIAL_CARD_IMAGE_CACHE_VERSION = '7'
+export const SOCIAL_CARD_IMAGE_CACHE_VERSION = '8'
 
 export function truncateForSocialCard(text: string, max = SOCIAL_CARD_DESCRIPTION_MAX): string {
   const trimmed = text.trim()
@@ -25,12 +33,39 @@ export type SocialPreviewImage = {
   width?: number
   height?: number
   type?: string
-  /** Letterboxed on-domain card-image — not a direct blob URL. */
+  /** On-domain card-image (scaled, aspect preserved) vs direct blob URL. */
   isCardImage: boolean
 }
 
-/** Prefer Azure blob thumbnails for OG/X (clean CDN headers); fall back to on-domain card-image. */
-export function resolveOpenGraphImageUrl(
+function blobMimeType(url: string): string {
+  const lower = url.toLowerCase()
+  if (lower.includes('.png')) return 'image/png'
+  if (lower.includes('.webp')) return 'image/webp'
+  return 'image/jpeg'
+}
+
+function resolveBlobSource(media: {
+  type: string
+  url: string | null
+  thumbnailUrl: string | null
+}): string | null {
+  if (media.thumbnailUrl?.startsWith('https://')) return media.thumbnailUrl
+  if (media.type === 'IMAGE' && media.url?.startsWith('https://')) return media.url
+  return null
+}
+
+/** Expected card-image output size after scale-to-1200 (for OG meta when blob is too small). */
+export function dimensionsAfterCardScale(
+  sourceWidth: number,
+  sourceHeight: number
+): { width: number; height: number } {
+  return {
+    width: SOCIAL_CARD_IMAGE_MAX_WIDTH,
+    height: Math.max(1, Math.round((sourceHeight * SOCIAL_CARD_IMAGE_MAX_WIDTH) / sourceWidth)),
+  }
+}
+
+export async function resolveOpenGraphImageUrl(
   media: {
     id: string
     type: string
@@ -38,21 +73,46 @@ export function resolveOpenGraphImageUrl(
     thumbnailUrl: string | null
   },
   baseUrl: string
-): SocialPreviewImage {
-  const blob =
-    (media.thumbnailUrl?.startsWith('https://') && media.thumbnailUrl) ||
-    (media.type === 'IMAGE' && media.url?.startsWith('https://') ? media.url : null)
-
+): Promise<SocialPreviewImage> {
+  const blob = resolveBlobSource(media)
+  let dimensions: { width: number; height: number } | null = null
   if (blob) {
-    const lower = blob.toLowerCase()
-    const type = lower.includes('.png') ? 'image/png' : 'image/jpeg'
-    return { url: blob, type, isCardImage: false }
+    dimensions = await probeImageDimensionsFromUrl(blob)
+    if (dimensions && meetsSocialPreviewMinimum(dimensions.width, dimensions.height)) {
+      return {
+        url: blob,
+        width: dimensions.width,
+        height: dimensions.height,
+        type: blobMimeType(blob),
+        isCardImage: false,
+      }
+    }
   }
 
-  return {
+  const cardPreview: SocialPreviewImage = {
     url: buildSocialCardImageUrl(baseUrl, media.id),
-    width: SOCIAL_CARD_IMAGE_WIDTH,
-    height: SOCIAL_CARD_IMAGE_HEIGHT,
+    type: 'image/jpeg',
+    isCardImage: true,
+  }
+  if (dimensions) {
+    const scaled = dimensionsAfterCardScale(dimensions.width, dimensions.height)
+    cardPreview.width = scaled.width
+    cardPreview.height = scaled.height
+  }
+  return cardPreview
+}
+
+/** Sync helper when dimensions are already known (card-image handler). */
+export function buildCardImagePreview(
+  baseUrl: string,
+  mediaId: string,
+  width: number,
+  height: number
+): SocialPreviewImage {
+  return {
+    url: buildSocialCardImageUrl(baseUrl, mediaId),
+    width,
+    height,
     type: 'image/jpeg',
     isCardImage: true,
   }

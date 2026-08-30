@@ -4,9 +4,9 @@ import { unlink, writeFile, readFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { getFfmpegPath } from '@/lib/mediaProcessor'
+import { probeImageDimensionsFromFile } from '@/lib/socialImageDimensions'
 import {
-  SOCIAL_CARD_IMAGE_HEIGHT,
-  SOCIAL_CARD_IMAGE_WIDTH,
+  SOCIAL_CARD_IMAGE_MAX_WIDTH,
 } from '@/lib/socialCardMeta'
 
 /** WhatsApp silently drops preview images above ~300KB (stricter than X/Facebook). */
@@ -14,7 +14,8 @@ export const SOCIAL_CARD_IMAGE_MAX_BYTES = 280_000
 
 const SOCIAL_CARD_CACHE = 'public, max-age=86400, s-maxage=86400'
 
-const LETTERBOX_FILTER = `scale=${SOCIAL_CARD_IMAGE_WIDTH}:${SOCIAL_CARD_IMAGE_HEIGHT}:force_original_aspect_ratio=decrease,pad=${SOCIAL_CARD_IMAGE_WIDTH}:${SOCIAL_CARD_IMAGE_HEIGHT}:(ow-iw)/2:(oh-ih)/2:black`
+/** Max width 1200; height follows native aspect (portrait → tall card on X). */
+const ASPECT_SCALE_FILTER = `scale=${SOCIAL_CARD_IMAGE_MAX_WIDTH}:-2`
 
 function runFfmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -31,7 +32,10 @@ function runFfmpeg(args: string[]): Promise<void> {
   })
 }
 
-async function renderSocialCardJpeg(input: Buffer, quality: number): Promise<Buffer> {
+async function renderSocialCardJpeg(
+  input: Buffer,
+  quality: number
+): Promise<{ body: Buffer; width: number; height: number }> {
   const id = randomUUID()
   const inPath = join(tmpdir(), `amt-card-in-${id}`)
   const outPath = join(tmpdir(), `amt-card-out-${id}.jpg`)
@@ -42,21 +46,27 @@ async function renderSocialCardJpeg(input: Buffer, quality: number): Promise<Buf
       '-i',
       inPath,
       '-vf',
-      LETTERBOX_FILTER,
+      ASPECT_SCALE_FILTER,
       '-frames:v',
       '1',
       '-q:v',
       String(quality),
       outPath,
     ])
-    return await readFile(outPath)
+    const body = await readFile(outPath)
+    const dimensions = await probeImageDimensionsFromFile(outPath)
+    return {
+      body,
+      width: dimensions?.width ?? SOCIAL_CARD_IMAGE_MAX_WIDTH,
+      height: dimensions?.height ?? SOCIAL_CARD_IMAGE_MAX_WIDTH,
+    }
   } finally {
     await unlink(inPath).catch(() => {})
     await unlink(outPath).catch(() => {})
   }
 }
 
-/** Letterbox to 1200×630 and compress for WhatsApp Web / strict server-side crawlers. */
+/** Scale to max width 1200 (aspect preserved) and compress for WhatsApp / strict crawlers. */
 export async function optimizeSocialCardImage(
   body: ArrayBuffer,
   _contentType: string | null
@@ -74,13 +84,13 @@ export async function optimizeSocialCardImage(
   for (const quality of qualities) {
     try {
       const rendered = await renderSocialCardJpeg(bytes, quality)
-      if (rendered.length <= SOCIAL_CARD_IMAGE_MAX_BYTES || quality === qualities.at(-1)) {
+      if (rendered.body.length <= SOCIAL_CARD_IMAGE_MAX_BYTES || quality === qualities.at(-1)) {
         return {
-          body: rendered,
+          body: rendered.body,
           contentType: 'image/jpeg',
           cacheControl: SOCIAL_CARD_CACHE,
-          width: SOCIAL_CARD_IMAGE_WIDTH,
-          height: SOCIAL_CARD_IMAGE_HEIGHT,
+          width: rendered.width,
+          height: rendered.height,
         }
       }
     } catch (err) {

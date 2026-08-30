@@ -2,8 +2,6 @@ import { prisma } from '@/lib/prisma'
 import { parseMediaIdFromRouteParam } from '@/lib/mediaShareUrl'
 import {
   resolveOpenGraphImageUrl,
-  SOCIAL_CARD_IMAGE_HEIGHT,
-  SOCIAL_CARD_IMAGE_WIDTH,
   truncateForSocialCard,
 } from '@/lib/socialCardMeta'
 
@@ -37,7 +35,7 @@ export async function getPublicMediaForSocialPreview(rawMediaId: string) {
   })
 }
 
-export function buildMediaSocialPreview(
+export async function buildMediaSocialPreview(
   media: {
     id: string
     title: string
@@ -52,27 +50,33 @@ export function buildMediaSocialPreview(
   const description = media.description?.trim() || `Explore ${title} on AI Media Tank (AMT).`
   const socialDescription = truncateForSocialCard(description)
   const canonical = `${baseUrl.replace(/\/$/, '')}/media/${media.id}`
-  const previewImage = resolveOpenGraphImageUrl(media, baseUrl)
+  const previewImage = await resolveOpenGraphImageUrl(media, baseUrl)
   const ogType = media.type === 'MUSIC' ? 'music.song' : 'article'
 
   return { title, socialDescription, canonical, previewImage, ogType }
 }
 
+function buildImageDimensionTags(width?: number, height?: number): string {
+  if (!width || !height) return ''
+  return `<meta property="og:image:width" content="${width}"/>
+<meta property="og:image:height" content="${height}"/>
+<meta name="twitter:image:width" content="${width}"/>
+<meta name="twitter:image:height" content="${height}"/>`
+}
+
 /** Minimal HTML so WhatsApp Web / Meta crawlers see OG tags in the first KB of the response. */
 export function buildMediaOgPreviewHtml(
-  preview: ReturnType<typeof buildMediaSocialPreview>
+  preview: Awaited<ReturnType<typeof buildMediaSocialPreview>>
 ): string {
   const title = escapeHtml(preview.title)
   const description = escapeHtml(preview.socialDescription)
   const canonical = escapeHtml(preview.canonical)
   const image = escapeHtml(preview.previewImage.url)
   const imageType = escapeHtml(preview.previewImage.type ?? 'image/jpeg')
-  const dimensionTags = preview.previewImage.isCardImage
-    ? `<meta property="og:image:width" content="${SOCIAL_CARD_IMAGE_WIDTH}"/>
-<meta property="og:image:height" content="${SOCIAL_CARD_IMAGE_HEIGHT}"/>
-<meta name="twitter:image:width" content="${SOCIAL_CARD_IMAGE_WIDTH}"/>
-<meta name="twitter:image:height" content="${SOCIAL_CARD_IMAGE_HEIGHT}"/>`
-    : ''
+  const dimensionTags = buildImageDimensionTags(
+    preview.previewImage.width,
+    preview.previewImage.height
+  )
 
   return `<!DOCTYPE html>
 <html lang="en">

@@ -50,7 +50,7 @@ export function getFfmpegPath(): string {
 let ffprobePathResolved: string | null = null
 
 /** ffprobe path for stream probing. ffmpeg-static does not ship ffprobe; Azure has no system ffprobe. */
-function getFfprobePath(): string {
+export function getFfprobePath(): string {
   if (ffprobePathResolved) return ffprobePathResolved
 
   const ffmpegBin = getFfmpegPath()

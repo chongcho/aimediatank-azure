@@ -24,7 +24,7 @@ export async function GET(
     return new NextResponse('Not Found', { status: 404 })
   }
 
-  const preview = buildMediaSocialPreview(media, baseUrlFromRequest(request))
+  const preview = await buildMediaSocialPreview(media, baseUrlFromRequest(request))
   const html = buildMediaOgPreviewHtml(preview)
 
   return new NextResponse(html, {

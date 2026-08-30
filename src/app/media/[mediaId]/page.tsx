@@ -4,8 +4,6 @@ import { prisma } from '@/lib/prisma'
 import { parseMediaIdFromRouteParam } from '@/lib/mediaShareUrl'
 import {
   resolveOpenGraphImageUrl,
-  SOCIAL_CARD_IMAGE_HEIGHT,
-  SOCIAL_CARD_IMAGE_WIDTH,
   truncateForSocialCard,
 } from '@/lib/socialCardMeta'
 import MediaPageClient from './MediaPageClient'
@@ -82,7 +80,7 @@ export async function generateMetadata({
   const description = media.description?.trim() || `Explore ${title} on AI Media Tank (AMT).`
   const socialDescription = truncateForSocialCard(description)
   const canonical = `${baseUrl}/media/${media.id}`
-  const previewImage = resolveOpenGraphImageUrl(media, baseUrl)
+  const previewImage = await resolveOpenGraphImageUrl(media, baseUrl)
   const keywords = Array.from(
     new Set(
       ['AI media', 'AI Media Tank (AMT)', media.type?.toLowerCase(), media.aiTool, media.realDevice].filter(
@@ -106,11 +104,11 @@ export async function generateMetadata({
         {
           url: previewImage.url,
           alt: title,
-          ...(previewImage.isCardImage
+          ...(previewImage.width && previewImage.height
             ? {
-                width: SOCIAL_CARD_IMAGE_WIDTH,
-                height: SOCIAL_CARD_IMAGE_HEIGHT,
-                type: 'image/jpeg' as const,
+                width: previewImage.width,
+                height: previewImage.height,
+                type: (previewImage.type ?? 'image/jpeg') as 'image/jpeg' | 'image/png',
               }
             : previewImage.type
               ? { type: previewImage.type as 'image/jpeg' | 'image/png' }
@@ -126,10 +124,10 @@ export async function generateMetadata({
         {
           url: previewImage.url,
           alt: title,
-          ...(previewImage.isCardImage
+          ...(previewImage.width && previewImage.height
             ? {
-                width: SOCIAL_CARD_IMAGE_WIDTH,
-                height: SOCIAL_CARD_IMAGE_HEIGHT,
+                width: previewImage.width,
+                height: previewImage.height,
               }
             : {}),
         },
