@@ -260,8 +260,8 @@ function ColumnFilter({ label, options, selected, onApply, compact }: {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  const isFiltered = selected.length > 0 && selected.length < options.length
-  const allChecked = local.size === options.length
+  const isFiltered = selected.length > 0
+  const allChecked = options.length > 0 && local.size === options.length
 
   const toggle = (val: string) => {
     const next = new Set(local)
@@ -270,8 +270,14 @@ function ColumnFilter({ label, options, selected, onApply, compact }: {
   }
 
   const apply = () => {
-    if (local.size === 0 || local.size === options.length) onApply([])
-    else onApply(Array.from(local))
+    if (local.size === 0) {
+      onApply([])
+    } else if (local.size === options.length && options.length > 1) {
+      // Every distinct value selected — same as no filter.
+      onApply([])
+    } else {
+      onApply(Array.from(local))
+    }
     setOpen(false)
   }
 
