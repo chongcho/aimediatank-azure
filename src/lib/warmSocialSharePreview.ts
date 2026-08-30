@@ -1,4 +1,4 @@
-/** Fire-and-forget requests so X/Twitter scrapes hit warm OG + image caches. */
+/** Fire-and-forget requests so X, LinkedIn, and other OG crawlers hit warm HTML + image caches. */
 export function warmSocialSharePreview(options: {
   mediaId: string
   cardImageUrl?: string
