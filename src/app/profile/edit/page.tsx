@@ -14,6 +14,11 @@ import PasswordField from '@/components/PasswordField'
 import SmsOptInDisclosure from '@/components/SmsOptInDisclosure'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
+import {
+  USERNAME_MIN_LENGTH,
+  usernameSubmitErrorMessage,
+  validateUsernameFormat,
+} from '@/lib/usernameValidation'
 
 const EDIT_PROFILE_STRINGS = [
   'Edit Profile',
@@ -562,8 +567,18 @@ export default function EditProfilePage() {
       return
     }
     
-    if (!username || username.length < 3) {
-      setUsernameStatus({ checking: false, valid: null, available: null, message: '' })
+    if (!username || username.length < USERNAME_MIN_LENGTH) {
+      if (!username) {
+        setUsernameStatus({ checking: false, valid: null, available: null, message: '' })
+        return
+      }
+      const format = validateUsernameFormat(username)
+      setUsernameStatus({
+        checking: false,
+        valid: false,
+        available: false,
+        message: format.message,
+      })
       return
     }
 
@@ -833,7 +848,7 @@ export default function EditProfilePage() {
 
     // Check if username changed and is available
     if (usernameChanged && (!usernameStatus.valid || !usernameStatus.available)) {
-      setError('Please choose an available Nickname')
+      setError(usernameSubmitErrorMessage(usernameStatus))
       return
     }
 

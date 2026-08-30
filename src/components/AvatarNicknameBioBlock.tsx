@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
+import { USERNAME_MAX_LENGTH } from '@/lib/usernameValidation'
 
 export type UsernameAvailabilityState = {
   checking: boolean
@@ -45,6 +46,7 @@ const AVATAR_BLOCK_STRINGS = [
   'No usable camera was found. Use "Choose from file".',
   'The browser blocked camera access (use HTTPS / localhost, or the site may restrict camera). Use "Choose from file".',
   'Could not open the camera. Check permissions or use "Choose from file".',
+  '3–30 characters; letters, numbers, underscores, or hyphens only',
 ] as const
 
 function usernameInputClass(
@@ -341,6 +343,8 @@ export default function AvatarNicknameBioBlock({
                 onChange={(e) => onUsernameChange(e.target.value)}
                 placeholder={tr[5]}
                 required
+                minLength={3}
+                maxLength={USERNAME_MAX_LENGTH}
                 autoComplete="username"
                 className={usernameInputClass(statusHighlightMode, usernameEdited, usernameStatus)}
               />
@@ -378,6 +382,9 @@ export default function AvatarNicknameBioBlock({
                 >
                   {translatedUsernameMessage}
                 </p>
+              )}
+              {!showMessageRow && (
+                <p className="mt-1 text-xs text-gray-500">{tr[15]}</p>
               )}
             </div>
 

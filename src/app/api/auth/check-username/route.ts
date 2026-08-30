@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import {
+  USERNAME_AVAILABLE_MESSAGE,
+  USERNAME_TAKEN_MESSAGE,
+  validateUsernameFormat,
+} from '@/lib/usernameValidation'
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,13 +17,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Validate username format (alphanumeric, underscores, hyphens, 3-30 chars)
-    const usernameRegex = /^[a-zA-Z0-9_-]{3,30}$/
-    if (!usernameRegex.test(username)) {
+    const format = validateUsernameFormat(username)
+    if (!format.valid) {
       return NextResponse.json({
         valid: false,
         available: false,
-        message: 'Username must be 3-30 characters and contain only letters, numbers, underscores, or hyphens',
+        message: format.message,
       })
     }
 
@@ -41,14 +45,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         valid: true,
         available: false,
-        message: 'This Nickname is already taken',
+        message: USERNAME_TAKEN_MESSAGE,
       })
     }
 
     return NextResponse.json({
       valid: true,
       available: true,
-      message: 'Nickname is available',
+      message: USERNAME_AVAILABLE_MESSAGE,
     })
   } catch (error) {
     console.error('Username check error:', error)

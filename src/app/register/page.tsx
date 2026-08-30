@@ -13,6 +13,11 @@ import { parseBirthdayToIso, preferDayFirstFromLocation, isBirthdayAtLeastAge, n
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
 import { LanguageModeTrans } from '@/components/LanguageModeTrans'
 import BirthdayInput from '@/components/BirthdayInput'
+import {
+  USERNAME_MIN_LENGTH,
+  usernameSubmitErrorMessage,
+  validateUsernameFormat,
+} from '@/lib/usernameValidation'
 
 const COUNTRY_VALUES = [
   'United States',
@@ -366,8 +371,18 @@ export default function RegisterPage() {
 
   // Debounced username check
   const checkUsername = useCallback(async (username: string) => {
-    if (!username || username.length < 3) {
-      setUsernameStatus({ checking: false, valid: null, available: null, message: '' })
+    if (!username || username.length < USERNAME_MIN_LENGTH) {
+      if (!username) {
+        setUsernameStatus({ checking: false, valid: null, available: null, message: '' })
+        return
+      }
+      const format = validateUsernameFormat(username)
+      setUsernameStatus({
+        checking: false,
+        valid: false,
+        available: false,
+        message: format.message,
+      })
       return
     }
 
@@ -699,7 +714,7 @@ export default function RegisterPage() {
       blockers.push('Please select your location')
     }
     if (!usernameStatus.valid || !usernameStatus.available) {
-      blockers.push('Please choose an available Nickname')
+      blockers.push(usernameSubmitErrorMessage(usernameStatus))
     }
     if (phoneNeedsVerification) {
       blockers.push('Please verify your phone number first')
@@ -729,6 +744,8 @@ export default function RegisterPage() {
     phoneVerificationState.codeVerified,
     usernameStatus.valid,
     usernameStatus.available,
+    usernameStatus.message,
+    usernameStatus.checking,
     phoneNeedsVerification,
     dayFirstDates,
   ])
