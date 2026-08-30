@@ -116,8 +116,9 @@ export default function MediaShareModal({
       warmSharePreviewCaches()
       recordShareAction()
       window.open(targetUrl, '_blank', 'noopener,noreferrer')
+      onClose()
     },
-    [shareUrl, warmSharePreviewCaches, recordShareAction]
+    [shareUrl, warmSharePreviewCaches, recordShareAction, onClose]
   )
 
   useEffect(() => {
@@ -131,12 +132,13 @@ export default function MediaShareModal({
       await navigator.clipboard.writeText(shareUrl)
       recordShareAction()
       setCopied(true)
+      onClose()
       return true
     } catch {
       window.prompt('Copy this link:', shareUrl)
       return false
     }
-  }, [shareUrl, recordShareAction, setCopied])
+  }, [shareUrl, recordShareAction, setCopied, onClose])
 
   const sendKakaoShare = useCallback(
     (title: string, description: string) => {
@@ -257,6 +259,7 @@ export default function MediaShareModal({
     const intent = `https://www.threads.net/intent/post?text=${encodeURIComponent(body)}`
     window.open(intent, '_blank', 'noopener,noreferrer')
     recordShareAction()
+    onClose()
   }, [shareUrl, shareTitle, recordShareAction, onClose])
 
   const handleTikTokShare = useCallback(async () => {
@@ -280,6 +283,7 @@ export default function MediaShareModal({
       if (!copied) recordShareAction()
     })
     window.open('https://www.tiktok.com/upload', '_blank', 'noopener,noreferrer')
+    onClose()
   }, [shareUrl, shareTitle, handleCopyLink, recordShareAction, onClose])
 
   const handleYouTubeShare = useCallback(async () => {
@@ -303,6 +307,7 @@ export default function MediaShareModal({
       if (!copied) recordShareAction()
     })
     window.open('https://studio.youtube.com/', '_blank', 'noopener,noreferrer')
+    onClose()
   }, [shareUrl, shareTitle, handleCopyLink, recordShareAction, onClose])
 
   const mailBody = useMemo(() => {
@@ -492,7 +497,10 @@ export default function MediaShareModal({
               href={`https://wa.me/?text=${encodeURIComponent(shareTitle + ' ' + shareUrl)}`}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={recordShareAction}
+              onClick={() => {
+                recordShareAction()
+                onClose()
+              }}
               className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
               title="WhatsApp"
             >
@@ -520,7 +528,10 @@ export default function MediaShareModal({
               href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={recordShareAction}
+              onClick={() => {
+                recordShareAction()
+                onClose()
+              }}
               className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
               title="Facebook"
             >
@@ -561,7 +572,10 @@ export default function MediaShareModal({
               href={`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(shareTitle)}`}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={recordShareAction}
+              onClick={() => {
+                recordShareAction()
+                onClose()
+              }}
               className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
               title="Reddit"
             >
