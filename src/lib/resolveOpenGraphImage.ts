@@ -25,7 +25,7 @@ function resolveBlobSource(media: {
   return null
 }
 
-function dimensionsAfterCardScale(
+export function dimensionsAfterCardScale(
   sourceWidth: number,
   sourceHeight: number
 ): { width: number; height: number } {
