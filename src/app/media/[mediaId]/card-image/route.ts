@@ -2,7 +2,7 @@ import { serveSocialCardImage } from '@/lib/serveSocialCardImage'
 
 export const dynamic = 'force-dynamic'
 
-/** Legacy path — prefer /media/{id}/card-image for Open Graph (robots.txt allows /media). */
+/** Public OG image — lives under /media (not /api) so robots.txt does not block crawlers. */
 export async function GET(
   request: Request,
   { params }: { params: { mediaId: string } }
