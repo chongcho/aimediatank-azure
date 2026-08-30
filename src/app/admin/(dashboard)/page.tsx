@@ -648,6 +648,8 @@ export default function AdminPage() {
   const [blockIpNote, setBlockIpNote] = useState('')
   const [blockIpSubmitting, setBlockIpSubmitting] = useState(false)
   const [accessLogBlockingIp, setAccessLogBlockingIp] = useState<string | null>(null)
+  const [accessLogSelectedIds, setAccessLogSelectedIds] = useState<Set<string>>(() => new Set())
+  const [accessLogBulkBlocking, setAccessLogBulkBlocking] = useState(false)
 
   // File size backfill status (Media tab)
   const [fileSizeStatus, setFileSizeStatus] = useState<{ missing: number } | null>(null)
@@ -938,6 +940,50 @@ export default function AdminPage() {
       if (accessLogsSearchTimer.current) clearTimeout(accessLogsSearchTimer.current)
     }
   }, [accessLogsSearch])
+
+  useEffect(() => {
+    setAccessLogSelectedIds(new Set())
+  }, [accessLogsPage])
+
+  const accessLogsSelectableOnPage = useMemo(
+    () => accessLogs.filter((log) => Boolean(log.ipAddress?.trim())),
+    [accessLogs]
+  )
+
+  const accessLogSelectedUniqueIps = useMemo(() => {
+    const ips = new Set<string>()
+    for (const log of accessLogs) {
+      if (accessLogSelectedIds.has(log.id) && log.ipAddress?.trim()) {
+        ips.add(log.ipAddress.trim())
+      }
+    }
+    return Array.from(ips)
+  }, [accessLogs, accessLogSelectedIds])
+
+  const allAccessLogsOnPageSelected =
+    accessLogsSelectableOnPage.length > 0 &&
+    accessLogsSelectableOnPage.every((log) => accessLogSelectedIds.has(log.id))
+
+  const toggleAccessLogRowSelected = useCallback((logId: string, selected: boolean) => {
+    setAccessLogSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (selected) next.add(logId)
+      else next.delete(logId)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAllAccessLogsOnPage = useCallback(() => {
+    setAccessLogSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allAccessLogsOnPageSelected) {
+        for (const log of accessLogsSelectableOnPage) next.delete(log.id)
+      } else {
+        for (const log of accessLogsSelectableOnPage) next.add(log.id)
+      }
+      return next
+    })
+  }, [allAccessLogsOnPageSelected, accessLogsSelectableOnPage])
 
   // Users: distinct values + client-side column filtering
   const userDistinct = useMemo(() => {
@@ -2122,6 +2168,55 @@ export default function AdminPage() {
     }
   }
 
+  const handleBulkBlockSelectedAccessLogIps = async () => {
+    const ips = accessLogSelectedUniqueIps
+    if (ips.length === 0) return
+    if (
+      !confirm(
+        `Block ${ips.length} IP address${ips.length === 1 ? '' : 'es'}?\n\n${ips.join('\n')}\n\nTheir traffic will be hidden from Access Logs and return 403 when IP blocking enforcement is active (see Blocked IPs tab).`
+      )
+    ) {
+      return
+    }
+    setAccessLogBulkBlocking(true)
+    let blocked = 0
+    let skipped = 0
+    let failed = 0
+    try {
+      for (const ip of ips) {
+        const samplePath =
+          accessLogs.find((log) => accessLogSelectedIds.has(log.id) && log.ipAddress?.trim() === ip)?.path ??
+          '/'
+        const hitCount = accessLogs.filter(
+          (log) => accessLogSelectedIds.has(log.id) && log.ipAddress?.trim() === ip
+        ).length
+        const note =
+          hitCount > 1
+            ? `From Access Logs (bulk): ${samplePath || '/'} (+${hitCount - 1} selected hits)`
+            : `From Access Logs: ${samplePath || '/'}`
+        const { ok, data } = await blockIpApi(ip, note)
+        if (ok) blocked += 1
+        else if ((data as { error?: string }).error?.includes('already blocked')) skipped += 1
+        else failed += 1
+      }
+      if (blocked > 0) {
+        const parts = [`Blocked ${blocked} IP${blocked === 1 ? '' : 's'}`]
+        if (skipped > 0) parts.push(`${skipped} already blocked`)
+        if (failed > 0) parts.push(`${failed} failed`)
+        setToast({ message: parts.join(' · '), type: failed > 0 ? 'error' : 'success' })
+        setAccessLogSelectedIds(new Set())
+        fetchData()
+      } else if (skipped > 0 && failed === 0) {
+        setToast({ message: `${skipped} IP${skipped === 1 ? '' : 's'} already blocked`, type: 'success' })
+        setAccessLogSelectedIds(new Set())
+      } else {
+        setToast({ message: 'Failed to block selected IPs', type: 'error' })
+      }
+    } finally {
+      setAccessLogBulkBlocking(false)
+    }
+  }
+
   if (status === 'loading' || !session?.user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -2469,6 +2564,18 @@ export default function AdminPage() {
                   />
                   IP debug
                 </label>
+                <button
+                  type="button"
+                  onClick={() => void handleBulkBlockSelectedAccessLogIps()}
+                  disabled={accessLogBulkBlocking || accessLogSelectedUniqueIps.length === 0}
+                  className="text-xs px-2.5 py-1 rounded bg-red-900/50 text-red-200 border border-red-700/50 hover:bg-red-800/50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {accessLogBulkBlocking
+                    ? 'Blocking…'
+                    : accessLogSelectedUniqueIps.length > 0
+                      ? `Block IP (${accessLogSelectedUniqueIps.length})`
+                      : 'Block IP'}
+                </button>
                 {(accessLogsSearch.trim() || alTimePeriod || alBrowserFilter.length > 0 || alOsFilter.length > 0 || alCountryFilter.length > 0 || alMethodFilter.length > 0 || alStatusCodeFilter.length > 0 || alAbnormalOnly || alPrivateIpOnly || alIpDebugOnly) && (
                   <button
                     onClick={() => {
@@ -2513,12 +2620,25 @@ export default function AdminPage() {
               <p className="text-gray-400 text-xs leading-snug mb-3">
                 Use the <strong className="text-gray-300">search box</strong> above to filter by path, IP, email, name, referrer, session id, user agent, country/city, or method (matches any column). Column filters and time range combine with search.
                 IP, timestamp, user agent (browser/OS/device), location, path, method, referrer, session. Session duration = time between first and last request per session.
-                Rows highlighted for <span className="text-amber-400/90">security signals</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and also include payload/header anomalies. The <strong className="text-gray-300">Status</strong> column is the HTTP status when middleware logged it (403 for blocked probes, 404 for hidden games); normal page views are blank because the origin response is not known at the edge. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. For <strong className="text-gray-300">127.0.0.1</strong> / private IP traffic, use the <strong className="text-gray-300">IP debug</strong> button to inspect proxy headers (<code className="text-gray-500">X-Forwarded-For</code>, Azure <code className="text-gray-500">X-ARR-*</code>, etc.) and determine whether the request is internal, mis-attributed external, or platform health traffic. Use <strong className="text-gray-300">Block IP</strong> in each row to add that address to the blocklist. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—use the <strong className="text-gray-300">Blocked IPs</strong> tab for the full list and enforcement. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
+                Rows highlighted for <span className="text-amber-400/90">security signals</span> match probe paths (e.g. <code className="text-gray-500">.env</code>, <code className="text-gray-500">.git</code>) or known scanner User-Agents, and also include payload/header anomalies. The <strong className="text-gray-300">Status</strong> column is the HTTP status when middleware logged it (403 for blocked probes, 404 for hidden games); normal page views are blank because the origin response is not known at the edge. The <strong className="text-gray-300">Risk</strong> column combines burst/churn/probe-cluster factors from recent IP activity. For <strong className="text-gray-300">127.0.0.1</strong> / private IP traffic, use the <strong className="text-gray-300">IP debug</strong> button to inspect proxy headers (<code className="text-gray-500">X-Forwarded-For</code>, Azure <code className="text-gray-500">X-ARR-*</code>, etc.) and determine whether the request is internal, mis-attributed external, or platform health traffic. Select rows and use <strong className="text-gray-300">Block IP</strong> above the table, or <strong className="text-gray-300">Block IP</strong> on each row, to add addresses to the blocklist. Traffic from <strong className="text-gray-300">blocked IPs</strong> is hidden here—use the <strong className="text-gray-300">Blocked IPs</strong> tab for the full list and enforcement. Optional email alerts: set <code className="text-gray-500">ADMIN_ACCESS_SECURITY_EMAIL</code> in app settings.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs leading-tight">
                   <thead>
                     <tr className="border-b border-tank-light/30">
+                      <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap w-12">
+                        <label className="inline-flex items-center gap-1 cursor-pointer" title="Select rows on this page">
+                          <input
+                            type="checkbox"
+                            checked={allAccessLogsOnPageSelected}
+                            onChange={toggleSelectAllAccessLogsOnPage}
+                            disabled={accessLogsSelectableOnPage.length === 0}
+                            className="rounded border-tank-light/50 accent-[#2dd4bf]"
+                            aria-label="Select all access log rows on this page"
+                          />
+                          <span>Select</span>
+                        </label>
+                      </th>
                       <TimePeriodFilter compact selected={alTimePeriod} onApply={(v) => { setAlTimePeriod(v); if (v) { setAccessLogsFrom(''); setAccessLogsTo('') }; setAccessLogsPage(1) }} />
                       <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap">IP</th>
                       <th className="text-left px-2 py-1 text-gray-400 font-medium whitespace-nowrap w-24">Block</th>
@@ -2537,7 +2657,7 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {accessLogs.length === 0 && !loading && (
-                      <tr><td colSpan={14} className="px-2 py-3 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
+                      <tr><td colSpan={15} className="px-2 py-3 text-center text-gray-500">No logs in this range. Logging runs via middleware on each request.</td></tr>
                     )}
                     {accessLogs.map((log) => {
                       const rowFlags = parseAccessLogAbnormalFlags(log.abnormalFlags)
@@ -2548,6 +2668,20 @@ export default function AdminPage() {
                       return (
                       <Fragment key={log.id}>
                       <tr className={`border-b border-tank-light/10 hover:bg-tank-light/5 ${rowFlags.length || riskScore >= 60 ? 'bg-amber-950/15' : ''}`}>
+                        <td className="px-2 py-1 align-middle whitespace-nowrap">
+                          {log.ipAddress ? (
+                            <input
+                              type="checkbox"
+                              checked={accessLogSelectedIds.has(log.id)}
+                              onChange={(e) => toggleAccessLogRowSelected(log.id, e.target.checked)}
+                              disabled={accessLogBulkBlocking}
+                              className="rounded border-tank-light/50 accent-[#2dd4bf]"
+                              aria-label={`Select ${log.ipAddress}`}
+                            />
+                          ) : (
+                            <span className="text-gray-600">—</span>
+                          )}
+                        </td>
                         <td className="px-2 py-1 text-gray-300 whitespace-nowrap" title={log.createdAt}>
                           {new Date(log.createdAt).toLocaleString()}
                         </td>
@@ -2570,7 +2704,7 @@ export default function AdminPage() {
                             <button
                               type="button"
                               onClick={() => void handleBlockIpFromAccessLog(log.ipAddress as string, log.path ?? '')}
-                              disabled={accessLogBlockingIp === log.ipAddress}
+                              disabled={accessLogBlockingIp === log.ipAddress || accessLogBulkBlocking}
                               className="text-[11px] px-1.5 py-0.5 rounded bg-red-900/50 text-red-200 border border-red-700/50 hover:bg-red-800/50 disabled:opacity-50 disabled:cursor-not-allowed leading-tight"
                             >
                               {accessLogBlockingIp === log.ipAddress ? 'Blocking…' : 'Block IP'}
@@ -2632,7 +2766,7 @@ export default function AdminPage() {
                       </tr>
                       {ipDebug && ipDebugOpen && (
                         <tr key={`${log.id}-ip-debug`} className="border-b border-tank-light/10 bg-cyan-950/10">
-                          <td colSpan={14} className="px-2 py-2">
+                          <td colSpan={15} className="px-2 py-2">
                             <div className="text-xs text-cyan-200/90 font-medium mb-1">Proxy / platform headers (localhost investigation)</div>
                             <pre className="text-[11px] leading-snug text-gray-300 font-mono whitespace-pre-wrap break-all bg-black/30 rounded p-2 border border-cyan-800/30 max-h-64 overflow-auto">
                               {Object.entries(ipDebug).map(([key, value]) => `${key}: ${value}`).join('\n')}
