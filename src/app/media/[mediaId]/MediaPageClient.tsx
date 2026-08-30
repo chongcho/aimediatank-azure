@@ -1389,23 +1389,25 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </div>
 
             {/* Cancel / Send buttons */}
-            <div className="flex">
-              <button
-                type="button"
-                onClick={() => !sendingEmail && setShowEmailModal(false)}
-                className="flex-1 bg-tank-light/30 hover:bg-tank-light/50 px-5 py-4 text-gray-300 hover:text-white font-bold text-lg transition-colors border-r border-tank-light/40"
-                disabled={sendingEmail}
-              >
-                {tMedia('cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleSendByEmail}
-                disabled={sendingEmail || (emailDeliveryMethod === 'email' ? !emailTo.trim() : !emailPhone.trim())}
-                className="flex-1 bg-tank-accent hover:bg-tank-accent/90 disabled:opacity-50 disabled:bg-tank-light/30 disabled:text-gray-500 px-5 py-4 text-tank-black font-bold text-lg transition-colors"
-              >
-                {sendingEmail ? tMedia('sending') : tMedia('send')}
-              </button>
+            <div className="px-5 py-4">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => !sendingEmail && setShowEmailModal(false)}
+                  className="btn-secondary flex-1"
+                  disabled={sendingEmail}
+                >
+                  {tMedia('cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendByEmail}
+                  disabled={sendingEmail || (emailDeliveryMethod === 'email' ? !emailTo.trim() : !emailPhone.trim())}
+                  className="flex-1 px-4 py-2 rounded-xl font-semibold bg-tank-accent text-tank-black hover:opacity-90 disabled:opacity-50"
+                >
+                  {sendingEmail ? tMedia('sending') : tMedia('send')}
+                </button>
+              </div>
             </div>
             </div>
           </div>
