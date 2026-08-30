@@ -9,7 +9,7 @@ export const SOCIAL_CARD_IMAGE_HEIGHT = 630
 export const SOCIAL_CARD_DESCRIPTION_MAX = 200
 
 /** Bump when card-image output changes so WhatsApp re-fetches cached previews. */
-export const SOCIAL_CARD_IMAGE_CACHE_VERSION = '9'
+export const SOCIAL_CARD_IMAGE_CACHE_VERSION = '10'
 
 export function truncateForSocialCard(text: string, max = SOCIAL_CARD_DESCRIPTION_MAX): string {
   const trimmed = text.trim()

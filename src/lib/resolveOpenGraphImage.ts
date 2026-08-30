@@ -1,5 +1,5 @@
 import {
-  meetsSocialPreviewMinimum,
+  meetsDirectBlobOgThreshold,
   probeImageDimensionsFromUrl,
 } from '@/lib/socialImageDimensions'
 import {
@@ -35,7 +35,7 @@ export function dimensionsAfterCardScale(
   }
 }
 
-/** OG/Twitter image — native aspect ratio with real width/height tags for X tall cards. */
+/** OG image — native blob when ≥1200px wide; otherwise on-domain card-image (LinkedIn large cards). */
 export async function resolveOpenGraphImageUrl(
   media: {
     id: string
@@ -49,7 +49,7 @@ export async function resolveOpenGraphImageUrl(
   let dimensions: { width: number; height: number } | null = null
   if (blob) {
     dimensions = await probeImageDimensionsFromUrl(blob)
-    if (dimensions && meetsSocialPreviewMinimum(dimensions.width, dimensions.height)) {
+    if (dimensions && meetsDirectBlobOgThreshold(dimensions.width, dimensions.height)) {
       return {
         url: blob,
         width: dimensions.width,
