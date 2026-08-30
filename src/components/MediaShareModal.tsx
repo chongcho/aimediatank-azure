@@ -16,6 +16,7 @@ import {
   KAKAO_SHARE_TEXT_MAX,
   resolveKakaoShareImageUrl,
 } from '@/lib/kakaoShare'
+import { warmSocialSharePreview } from '@/lib/warmSocialSharePreview'
 import { mediaPageInterpolate, mediaPageT, type MediaPageKey } from '@/messages/mediaPage'
 
 export type MediaShareModalProps = {
@@ -80,6 +81,15 @@ export default function MediaShareModal({
     () => (shareUrl ? resolveKakaoShareImageUrl(shareUrl, mediaId, thumbnailUrl) : undefined),
     [shareUrl, mediaId, thumbnailUrl]
   )
+
+  useEffect(() => {
+    if (!open || !mediaId) return
+    warmSocialSharePreview({
+      mediaId,
+      cardImageUrl: kakaoShareImageUrl,
+      thumbnailUrl,
+    })
+  }, [open, mediaId, kakaoShareImageUrl, thumbnailUrl])
 
   const setCopied = useCallback(
     (copied: boolean) => {
