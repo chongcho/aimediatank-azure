@@ -93,7 +93,7 @@ export async function generateMetadata({
 
   return {
     title: `${title} | AI Media Tank (AMT)`,
-    description,
+    description: socialDescription,
     keywords,
     alternates: { canonical },
     openGraph: {

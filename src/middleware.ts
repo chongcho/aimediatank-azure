@@ -20,6 +20,10 @@ import {
   serializeIpDebugHeaders,
   shouldCaptureIpDebugHeaders,
 } from '@/lib/ipDebugHeaders'
+import {
+  isSocialPreviewCrawler,
+  parseMediaDetailPath,
+} from '@/lib/socialPreviewCrawler'
 
 const LOG_ACCESS_PATH = '/api/admin/log-access'
 const SESSION_COOKIE = '_sa_sid'
@@ -138,14 +142,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  if (!isSecurityExemptPath(pathname) && clientIp) {
+  const socialPreviewCrawler = isSocialPreviewCrawler(request.headers.get('user-agent'))
+
+  if (!isSecurityExemptPath(pathname) && clientIp && !socialPreviewCrawler) {
     const blocked = await isClientIpBlocked(clientIp, request.nextUrl.origin)
     if (blocked) {
       return forbiddenResponse()
     }
   }
 
-  if (!isSecurityExemptPath(pathname) && !SKIP_PATHS.has(pathname)) {
+  const mediaDetailParam = parseMediaDetailPath(pathname)
+  if (socialPreviewCrawler && mediaDetailParam) {
+    const rewriteUrl = request.nextUrl.clone()
+    rewriteUrl.pathname = `/api/og-preview/${encodeURIComponent(mediaDetailParam)}`
+    return NextResponse.rewrite(rewriteUrl)
+  }
+
+  if (!isSecurityExemptPath(pathname) && !SKIP_PATHS.has(pathname) && !socialPreviewCrawler) {
     const abnormalFlags = detectAbnormalAccess({ path: pathname, method: request.method })
     if (abnormalFlags.length > 0) {
       enqueueAutoBlockSecurity({
