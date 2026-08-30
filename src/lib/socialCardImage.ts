@@ -4,11 +4,17 @@ import { unlink, writeFile, readFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { getFfmpegPath } from '@/lib/mediaProcessor'
+import {
+  SOCIAL_CARD_IMAGE_HEIGHT,
+  SOCIAL_CARD_IMAGE_WIDTH,
+} from '@/lib/socialCardMeta'
 
 /** WhatsApp silently drops preview images above ~300KB (stricter than X/Facebook). */
 export const SOCIAL_CARD_IMAGE_MAX_BYTES = 280_000
 
 const SOCIAL_CARD_CACHE = 'public, max-age=86400, s-maxage=86400'
+
+const LETTERBOX_FILTER = `scale=${SOCIAL_CARD_IMAGE_WIDTH}:${SOCIAL_CARD_IMAGE_HEIGHT}:force_original_aspect_ratio=decrease,pad=${SOCIAL_CARD_IMAGE_WIDTH}:${SOCIAL_CARD_IMAGE_HEIGHT}:(ow-iw)/2:(oh-ih)/2:black`
 
 function runFfmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -25,7 +31,7 @@ function runFfmpeg(args: string[]): Promise<void> {
   })
 }
 
-async function compressWithFfmpeg(input: Buffer, scale: number, quality: number): Promise<Buffer> {
+async function renderSocialCardJpeg(input: Buffer, quality: number): Promise<Buffer> {
   const id = randomUUID()
   const inPath = join(tmpdir(), `amt-card-in-${id}`)
   const outPath = join(tmpdir(), `amt-card-out-${id}.jpg`)
@@ -36,7 +42,7 @@ async function compressWithFfmpeg(input: Buffer, scale: number, quality: number)
       '-i',
       inPath,
       '-vf',
-      `scale='min(${scale},iw)':-2`,
+      LETTERBOX_FILTER,
       '-frames:v',
       '1',
       '-q:v',
@@ -50,48 +56,37 @@ async function compressWithFfmpeg(input: Buffer, scale: number, quality: number)
   }
 }
 
-/** Resize/compress large thumbnails so WhatsApp and other strict crawlers accept them. */
+/** Letterbox to 1200×630 and compress for WhatsApp Web / strict server-side crawlers. */
 export async function optimizeSocialCardImage(
   body: ArrayBuffer,
-  contentType: string | null
-): Promise<{ body: Buffer; contentType: string; cacheControl: string }> {
+  _contentType: string | null
+): Promise<{
+  body: Buffer
+  contentType: string
+  cacheControl: string
+  width: number
+  height: number
+}> {
   const bytes = Buffer.from(body)
-  const normalizedType = (contentType || 'image/jpeg').split(';')[0].trim().toLowerCase()
+  const qualities = [5, 8, 10, 12]
 
-  if (
-    bytes.length <= SOCIAL_CARD_IMAGE_MAX_BYTES &&
-    normalizedType.startsWith('image/') &&
-    normalizedType !== 'image/gif' &&
-    normalizedType !== 'image/svg+xml'
-  ) {
-    return {
-      body: bytes,
-      contentType: normalizedType,
-      cacheControl: SOCIAL_CARD_CACHE,
-    }
-  }
-
-  try {
-    let compressed = await compressWithFfmpeg(bytes, 1200, 5)
-    if (compressed.length > SOCIAL_CARD_IMAGE_MAX_BYTES) {
-      compressed = await compressWithFfmpeg(bytes, 800, 8)
-    }
-    if (compressed.length > SOCIAL_CARD_IMAGE_MAX_BYTES) {
-      compressed = await compressWithFfmpeg(bytes, 600, 10)
-    }
-    return {
-      body: compressed,
-      contentType: 'image/jpeg',
-      cacheControl: SOCIAL_CARD_CACHE,
-    }
-  } catch {
-    if (bytes.length <= 600_000 && normalizedType.startsWith('image/')) {
-      return {
-        body: bytes,
-        contentType: normalizedType,
-        cacheControl: SOCIAL_CARD_CACHE,
+  let lastError: unknown
+  for (const quality of qualities) {
+    try {
+      const rendered = await renderSocialCardJpeg(bytes, quality)
+      if (rendered.length <= SOCIAL_CARD_IMAGE_MAX_BYTES || quality === qualities.at(-1)) {
+        return {
+          body: rendered,
+          contentType: 'image/jpeg',
+          cacheControl: SOCIAL_CARD_CACHE,
+          width: SOCIAL_CARD_IMAGE_WIDTH,
+          height: SOCIAL_CARD_IMAGE_HEIGHT,
+        }
       }
+    } catch (err) {
+      lastError = err
     }
-    throw new Error('social card image optimization failed')
   }
+
+  throw lastError ?? new Error('social card image optimization failed')
 }

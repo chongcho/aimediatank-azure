@@ -11,6 +11,11 @@ export default function robots(): MetadataRoute.Robots {
         allow: ['/', '/media/*/card-image'],
         disallow: ['/admin', '/api/'],
       },
+      {
+        userAgent: ['WhatsApp', 'facebookexternalhit'],
+        allow: '/',
+        disallow: ['/admin'],
+      },
     ],
     sitemap: `${base}/sitemap.xml`,
   }

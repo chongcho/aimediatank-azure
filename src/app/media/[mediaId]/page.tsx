@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { parseMediaIdFromRouteParam } from '@/lib/mediaShareUrl'
 import {
   buildSocialCardImageUrl,
+  SOCIAL_CARD_IMAGE_HEIGHT,
+  SOCIAL_CARD_IMAGE_WIDTH,
   truncateForSocialCard,
 } from '@/lib/socialCardMeta'
 import MediaPageClient from './MediaPageClient'
@@ -80,7 +82,6 @@ export async function generateMetadata({
   const description = media.description?.trim() || `Explore ${title} on AI Media Tank (AMT).`
   const socialDescription = truncateForSocialCard(description)
   const canonical = `${baseUrl}/media/${media.id}`
-  const contentUrl = toAbsoluteUrl(baseUrl, media.url)
   const cardImageUrl = buildSocialCardImageUrl(baseUrl, media.id)
   const keywords = Array.from(
     new Set(
@@ -100,32 +101,29 @@ export async function generateMetadata({
       description: socialDescription,
       url: canonical,
       siteName: 'AI Media Tank, LLC (AMT)',
-      type:
-        media.type === 'VIDEO'
-          ? 'video.other'
-          : media.type === 'MUSIC'
-            ? 'music.song'
-            : 'article',
+      type: media.type === 'MUSIC' ? 'music.song' : 'article',
       images: [
         {
           url: cardImageUrl,
           alt: title,
+          width: SOCIAL_CARD_IMAGE_WIDTH,
+          height: SOCIAL_CARD_IMAGE_HEIGHT,
+          type: 'image/jpeg',
         },
       ],
-      videos:
-        media.type === 'VIDEO' && contentUrl
-          ? [
-              {
-                url: contentUrl,
-              },
-            ]
-          : undefined,
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description: socialDescription,
-      images: [{ url: cardImageUrl, alt: title }],
+      images: [
+        {
+          url: cardImageUrl,
+          alt: title,
+          width: SOCIAL_CARD_IMAGE_WIDTH,
+          height: SOCIAL_CARD_IMAGE_HEIGHT,
+        },
+      ],
     },
   }
 }
