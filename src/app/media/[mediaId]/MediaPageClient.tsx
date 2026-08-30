@@ -35,7 +35,11 @@ import {
   captureDetailMediaPreview,
   resolveMediaThumbnailSrc,
 } from '@/lib/mediaThumbnail'
-import AppModalOverlay, { APP_MODAL_DRAG_HEADER_CLASS } from '@/components/AppModalOverlay'
+import AppModalOverlay, {
+  APP_MODAL_DRAG_HEADER_CLASS,
+  APP_MODAL_DRAG_HEADER_ROW_CLASS,
+  APP_MODAL_PANEL_CLASS,
+} from '@/components/AppModalOverlay'
 
 interface MediaDetail {
   id: string
@@ -1257,9 +1261,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           'aria-labelledby': 'media-email-modal-title',
         }}
       >
-          <div className="card max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-tank-light relative p-0">
+          <div className={`card relative w-full max-w-md overflow-hidden shadow-2xl rounded-2xl ${APP_MODAL_PANEL_CLASS}`}>
             <div
-              className={`flex items-center justify-between px-5 py-3 rounded-t-2xl ${APP_MODAL_DRAG_HEADER_CLASS}`}
+              className={APP_MODAL_DRAG_HEADER_ROW_CLASS}
               data-app-modal-drag-handle
             >
               <h3 id="media-email-modal-title" className="text-lg font-semibold text-white">
@@ -1276,8 +1280,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 </svg>
               </button>
             </div>
+            <div className="-mx-3 divide-y divide-tank-light/40">
             {/* FROM */}
-            <div className="px-5 py-3 border-b border-tank-light/40 bg-tank-gray">
+            <div className="px-5 py-3">
               <p className="text-white font-medium">
                 <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide">{tMedia('from')} </span>
                 <span className="inline-block mt-1 bg-tank-black/60 border border-tank-light px-2 py-0.5 rounded text-sm text-gray-200">AI Media Tank (AMT) &lt;aimediatank@aimediatank.com&gt;</span>
@@ -1285,7 +1290,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </div>
 
             {/* TO */}
-            <div className="px-5 py-3 border-b border-tank-light/40 bg-tank-gray">
+            <div className="px-5 py-3">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide shrink-0">{tMedia('to')}</span>
                 <div className="flex gap-1.5">
@@ -1335,7 +1340,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </div>
 
             {/* Media preview */}
-            <div className="px-5 py-4 border-b border-tank-light/40 bg-tank-dark/50">
+            <div className="px-5 py-4">
               <div className="flex items-center gap-3 p-3 rounded-lg bg-tank-black/40 border border-tank-light/60">
                 {emailThumbSrc && !emailThumbFailed ? (
                   <img
@@ -1369,7 +1374,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </div>
 
             {/* Message */}
-            <div className="px-5 py-4 border-b border-tank-light/40 bg-tank-gray">
+            <div className="px-5 py-4">
               <label className="text-sm font-semibold text-gray-400">
                 {tMedia('message')}
               </label>
@@ -1402,12 +1407,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 {sendingEmail ? tMedia('sending') : tMedia('send')}
               </button>
             </div>
+            </div>
           </div>
       </AppModalOverlay>
 
       {/* Delete Confirmation Modal */}
       <AppModalOverlay open={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
-          <div className="card max-w-md w-full">
+          <div className={`card max-w-md w-full ${APP_MODAL_PANEL_CLASS}`}>
             <div
               className={`flex items-center gap-3 -mx-3 -mt-3 px-5 py-3 mb-4 rounded-t-2xl ${APP_MODAL_DRAG_HEADER_CLASS}`}
               data-app-modal-drag-handle

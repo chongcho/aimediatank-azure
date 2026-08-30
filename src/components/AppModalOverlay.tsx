@@ -16,9 +16,15 @@ export const APP_MODAL_Z_CLASS = 'z-[100060]'
 /** Put on a title bar (or grip strip) to enable dragging the popup. */
 export const APP_MODAL_DRAG_HANDLE_ATTR = 'data-app-modal-drag-handle'
 
-/** Highlighted title bar — signals the popup can be dragged. */
+/** Popup panel background (former header highlight color). */
+export const APP_MODAL_PANEL_CLASS = 'bg-tank-light'
+
+/** Highlighted draggable title bar — light gray on tank-light panel. */
 export const APP_MODAL_DRAG_HEADER_CLASS =
-  'cursor-grab active:cursor-grabbing border-b border-tank-light/60 bg-tank-light hover:brightness-110 transition-colors'
+  'cursor-grab active:cursor-grabbing border-b border-gray-400/50 bg-gray-500 hover:bg-gray-400 transition-colors'
+
+/** Title row with close button — Share, Card, Email. */
+export const APP_MODAL_DRAG_HEADER_ROW_CLASS = `flex items-center justify-between -mx-3 -mt-3 px-5 py-3 mb-4 rounded-t-2xl ${APP_MODAL_DRAG_HEADER_CLASS}`
 
 export type AppModalOverlayProps = {
   open: boolean

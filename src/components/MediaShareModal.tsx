@@ -1,7 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AppModalOverlay, { APP_MODAL_DRAG_HEADER_CLASS } from '@/components/AppModalOverlay'
+import AppModalOverlay, {
+  APP_MODAL_DRAG_HEADER_ROW_CLASS,
+  APP_MODAL_PANEL_CLASS,
+} from '@/components/AppModalOverlay'
 import { useKakaoJsKey } from '@/components/KakaoConfigProvider'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
@@ -327,9 +330,9 @@ export default function MediaShareModal({
         'aria-labelledby': 'media-share-modal-title',
       }}
     >
-      <div className="card relative w-full max-w-md max-h-[min(90vh,720px)] overflow-y-auto overscroll-contain shadow-2xl rounded-2xl">
+      <div className={`card relative w-full max-w-md max-h-[min(90vh,720px)] overflow-y-auto overscroll-contain shadow-2xl rounded-2xl ${APP_MODAL_PANEL_CLASS}`}>
         <div
-          className={`flex items-center justify-between -mx-3 -mt-3 px-5 py-3 mb-4 rounded-t-2xl ${APP_MODAL_DRAG_HEADER_CLASS}`}
+          className={APP_MODAL_DRAG_HEADER_ROW_CLASS}
           data-app-modal-drag-handle
         >
           <h3 id="media-share-modal-title" className="text-lg font-semibold text-white">
