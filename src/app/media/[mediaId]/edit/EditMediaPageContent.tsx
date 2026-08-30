@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAdminContentElevation } from '@/hooks/useAdminContentElevation'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
+import { parseMediaIdFromRouteParam } from '@/lib/mediaShareUrl'
 
 interface MediaData {
   id: string
@@ -26,7 +27,11 @@ interface MediaData {
 }
 
 export default function EditMediaPageContent({ intercepted = false }: { intercepted?: boolean }) {
-  const { mediaId } = useParams()
+  const params = useParams()
+  const mediaId = useMemo(
+    () => parseMediaIdFromRouteParam(String(params.mediaId ?? '')),
+    [params.mediaId]
+  )
   const { data: session, status } = useSession()
   const { loaded: adminElevLoaded, contentElevated: adminContentElevated } = useAdminContentElevation()
   const router = useRouter()

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { parseMediaIdFromRouteParam } from '@/lib/mediaShareUrl'
 import { prisma } from '@/lib/prisma'
 import { optimizeSocialCardImage } from '@/lib/socialCardImage'
 
@@ -41,7 +42,8 @@ export async function GET(
   request: Request,
   { params }: { params: { mediaId: string } }
 ) {
-  const source = await resolvePublicImageUrl(params.mediaId)
+  const mediaId = parseMediaIdFromRouteParam(params.mediaId)
+  const source = await resolvePublicImageUrl(mediaId)
 
   if (!source) {
     return redirectToLogo(request)

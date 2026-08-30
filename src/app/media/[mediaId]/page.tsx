@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { prisma } from '@/lib/prisma'
+import { parseMediaIdFromRouteParam } from '@/lib/mediaShareUrl'
 import {
   buildSocialCardImageUrl,
   truncateForSocialCard,
@@ -64,7 +65,8 @@ export async function generateMetadata({
   params: { mediaId: string }
 }): Promise<Metadata> {
   const baseUrl = getBaseUrl()
-  const media = await getMediaForMeta(params.mediaId)
+  const mediaId = parseMediaIdFromRouteParam(params.mediaId)
+  const media = await getMediaForMeta(mediaId)
 
   if (!media) {
     return {
@@ -134,7 +136,8 @@ export default async function MediaPage({
   params: { mediaId: string }
 }) {
   const baseUrl = getBaseUrl()
-  const media = await getMediaForMeta(params.mediaId)
+  const mediaId = parseMediaIdFromRouteParam(params.mediaId)
+  const media = await getMediaForMeta(mediaId)
 
   const jsonLd =
     media &&
@@ -194,7 +197,7 @@ export default async function MediaPage({
       {jsonLd && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       )}
-      <MediaPageClient mediaId={params.mediaId} />
+      <MediaPageClient mediaId={mediaId} />
     </div>
   )
 }
