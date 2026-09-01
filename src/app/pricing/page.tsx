@@ -4,6 +4,11 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useLanguageModeList } from '@/hooks/useLanguageModeText'
+import {
+  IOS_EXTERNAL_PAYMENTS_MESSAGE,
+  isNativeIosApp,
+  nativeFetch,
+} from '@/lib/iosAppStoreCompliance'
 
 const PRICING_STRINGS = [
   'Welcome to',
@@ -272,6 +277,11 @@ function PricingPageContent() {
   const [policyAgreed, setPolicyAgreed] = useState(false)
   const [purchasedPlanId, setPurchasedPlanId] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null)
+  const [nativeIosPaymentsBlocked, setNativeIosPaymentsBlocked] = useState(false)
+
+  useEffect(() => {
+    setNativeIosPaymentsBlocked(isNativeIosApp())
+  }, [])
 
   const getPlanLabel = (plan: (typeof plans)[number]) => tr[plan.strings.name]
 
@@ -344,6 +354,11 @@ function PricingPageContent() {
       return
     }
 
+    if (nativeIosPaymentsBlocked) {
+      alert(IOS_EXTERNAL_PAYMENTS_MESSAGE)
+      return
+    }
+
     if (plan.id === 'viewer') return
 
     // Show billing period selection modal
@@ -358,7 +373,7 @@ function PricingPageContent() {
     setLoading(selectedPlan.id)
 
     try {
-      const res = await fetch('/api/stripe/membership', {
+      const res = await nativeFetch('/api/stripe/membership', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId: selectedPlan.id, billingPeriod }),
@@ -388,7 +403,7 @@ function PricingPageContent() {
   const handleManageSubscription = async () => {
     setCancelLoading(true)
     try {
-      const res = await fetch('/api/stripe/portal', {
+      const res = await nativeFetch('/api/stripe/portal', {
         method: 'POST',
       })
       const data = await res.json()
@@ -412,7 +427,7 @@ function PricingPageContent() {
   const handleManageAction = async (action: 'cancel' | 'downgrade') => {
     setManageLoading(action)
     try {
-      const res = await fetch('/api/stripe/portal', {
+      const res = await nativeFetch('/api/stripe/portal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, sendEmail: true }),
@@ -490,6 +505,12 @@ function PricingPageContent() {
           </svg>
         </button>
       </div>
+
+      {nativeIosPaymentsBlocked ? (
+        <div className="mb-6 rounded-xl border border-amber-700/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
+          {IOS_EXTERNAL_PAYMENTS_MESSAGE}
+        </div>
+      ) : null}
 
       {/* Current Plan Banner */}
       {session && (

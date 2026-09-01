@@ -3,6 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getStripe, isStripeConfigured } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
+import {
+  blockIosNativeExternalPayments,
+  iosExternalPaymentsBlockedResponse,
+} from '@/lib/iosAppStoreCompliance'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +37,10 @@ const PLAN_PRICES: Record<string, { priceId: string; amount: number; yearlyAmoun
 // POST - Create membership subscription checkout session
 export async function POST(request: Request) {
   try {
+    if (blockIosNativeExternalPayments(request)) {
+      return iosExternalPaymentsBlockedResponse()
+    }
+
     if (!isStripeConfigured()) {
       return NextResponse.json(
         { error: 'Payment system is not configured' },

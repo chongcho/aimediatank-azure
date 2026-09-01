@@ -5,6 +5,10 @@ import { getStripe, isStripeConfigured } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/email'
 import { buildMembershipPlanChangeCreditUpdate } from '@/lib/uploadPlanConfig'
+import {
+  blockIosNativeExternalPayments,
+  iosExternalPaymentsBlockedResponse,
+} from '@/lib/iosAppStoreCompliance'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,6 +62,10 @@ function generateCancellationEmail(userName: string, previousPlan: string): stri
 // POST - Create Stripe billing portal session or handle membership cancellation
 export async function POST(request: Request) {
   try {
+    if (blockIosNativeExternalPayments(request)) {
+      return iosExternalPaymentsBlockedResponse()
+    }
+
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {

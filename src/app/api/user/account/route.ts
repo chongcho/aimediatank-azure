@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getStripe, isStripeConfigured } from '@/lib/stripe'
+import { deleteUserAccountPermanently } from '@/lib/userAccountDeletion'
 import { isSelfServiceAccountDeactivationEnabled } from '@/lib/selfServiceAccountDeactivation'
 
 export const dynamic = 'force-dynamic'
@@ -181,5 +182,79 @@ export async function PATCH(request: Request) {
   } catch (error) {
     console.error('Error deactivating account:', error)
     return NextResponse.json({ error: 'Failed to deactivate account' }, { status: 500 })
+  }
+}
+
+/**
+ * Permanently delete the signed-in user's account (App Store account deletion requirement).
+ * Requires exact username confirmation; password if the account has a credentials password.
+ */
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await isSelfServiceAccountDeactivationEnabled())) {
+      return NextResponse.json(
+        { error: 'Account deletion has been disabled by an administrator.' },
+        { status: 403 },
+      )
+    }
+
+    const body = await parseJsonBody(request)
+    if (body === null) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+
+    const confirmUsername =
+      typeof body.confirmUsername === 'string' ? body.confirmUsername.trim() : ''
+    const password = typeof body.password === 'string' ? body.password : ''
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        username: true,
+        password: true,
+        role: true,
+      },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    if (user.role === 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Admin accounts cannot be deleted here. Contact support.' },
+        { status: 403 },
+      )
+    }
+
+    if (confirmUsername !== user.username) {
+      return NextResponse.json({ error: 'Username does not match your account.' }, { status: 400 })
+    }
+
+    if (user.password && user.password.length > 0) {
+      if (!password) {
+        return NextResponse.json({ error: 'Password is required.' }, { status: 400 })
+      }
+      const ok = await bcrypt.compare(password, user.password)
+      if (!ok) {
+        return NextResponse.json({ error: 'Invalid password.' }, { status: 400 })
+      }
+    }
+
+    await deleteUserAccountPermanently(user.id, {
+      sendEmail: true,
+      reason: 'Account deleted at your request',
+    })
+
+    return NextResponse.json({ success: true, deleted: true })
+  } catch (error) {
+    console.error('Error deleting account:', error)
+    return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
   }
 }

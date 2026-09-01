@@ -85,7 +85,19 @@ private class PresentationContextProvider: NSObject, ASWebAuthenticationPresenta
             return window
         }
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let window = scenes.flatMap { $0.windows }.first { $0.isKeyWindow }
-        return window ?? ASPresentationAnchor()
+        if let keyWindow = scenes.flatMap({ $0.windows }).first(where: { $0.isKeyWindow }) {
+            return keyWindow
+        }
+        if let anyWindow = scenes.flatMap({ $0.windows }).first {
+            return anyWindow
+        }
+        if #available(iOS 15.0, *) {
+            if let scene = scenes.first, let window = scene.keyWindow {
+                return window
+            }
+        }
+        return UIApplication.shared.windows.first { $0.isKeyWindow }
+            ?? UIApplication.shared.windows.first
+            ?? ASPresentationAnchor()
     }
 }

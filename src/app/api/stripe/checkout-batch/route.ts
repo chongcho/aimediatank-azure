@@ -3,12 +3,20 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getStripe, formatAmountForStripe, isStripeConfigured } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
+import {
+  blockIosNativeExternalPayments,
+  iosExternalPaymentsBlockedResponse,
+} from '@/lib/iosAppStoreCompliance'
 
 export const dynamic = 'force-dynamic'
 
 // POST - Create checkout session for multiple media purchases
 export async function POST(request: Request) {
   try {
+    if (blockIosNativeExternalPayments(request)) {
+      return iosExternalPaymentsBlockedResponse()
+    }
+
     // Check if Stripe is configured
     if (!isStripeConfigured()) {
       return NextResponse.json(

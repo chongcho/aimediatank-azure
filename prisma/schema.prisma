@@ -92,6 +92,9 @@ model User {
   pushSubscriptions    PushSubscription[]
   voipPushTokens       VoipPushToken[]
   nativeAuthHandoffs   NativeAuthHandoff[]
+  blocksMade           UserBlock[] @relation("UserBlocksMade")
+  blocksReceived       UserBlock[] @relation("UserBlocksReceived")
+  reportsAgainst       Report[]    @relation("ReportsAgainstUser")
 }
 
 model Media {
@@ -238,21 +241,43 @@ model Message {
 }
 
 model Report {
-  id            String    @id @default(uuid())
-  reason        String
-  status        String    @default("PENDING")
-  adminNote     String?
-  createdAt     DateTime  @default(now())
-  resolvedAt    DateTime?
+  id             String    @id @default(uuid())
+  reason         String
+  status         String    @default("PENDING")
+  adminNote      String?
+  reportType     String    @default("MEDIA") // MEDIA | USER | CHAT_MESSAGE
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
 
   // Relations
-  userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  mediaId       String
-  media         Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaId        String?
+  media          Media?       @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  reportedUserId String?
+  reportedUser   User?        @relation("ReportsAgainstUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  chatMessageId  String?
+  chatMessage    ChatMessage? @relation(fields: [chatMessageId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([mediaId])
+  @@index([reportedUserId])
+  @@index([chatMessageId])
+}
+
+model UserBlock {
+  id        String   @id @default(uuid())
+  blockerId String
+  blockedId String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  blocker User @relation("UserBlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("UserBlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
 }
 
 // Site access logs for analytics, support, and security (IP, UA, location, pages, session)
@@ -442,6 +467,7 @@ model ChatMessage {
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  reports        Report[]
 
   @@index([createdAt])
   @@index([userId])

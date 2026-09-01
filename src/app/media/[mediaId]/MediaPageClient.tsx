@@ -26,6 +26,12 @@ import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useAdminContentElevation } from '@/hooks/useAdminContentElevation'
 import {
+  IOS_EXTERNAL_PAYMENTS_MESSAGE,
+  isNativeIosApp,
+  nativeFetch,
+} from '@/lib/iosAppStoreCompliance'
+import { BlockUserButton, UgcReportModal } from '@/components/UgcSafetyActions'
+import {
   formatMediaViewsLabel,
   mediaPageInterpolate,
   mediaPageT,
@@ -161,6 +167,12 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const backNavigatingRef = useRef(false)
   /** Optional Azure Translator output for title + description (same locale as navbar). */
   const [i18nMedia, setI18nMedia] = useState<{ title: string; description: string | null } | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [nativeIosPaymentsBlocked, setNativeIosPaymentsBlocked] = useState(false)
+
+  useEffect(() => {
+    setNativeIosPaymentsBlocked(isNativeIosApp())
+  }, [])
 
   const { loaded: adminElevLoaded, contentElevated: adminContentElevated } = useAdminContentElevation()
   const isOwner = session?.user?.id === media?.user?.id
@@ -498,7 +510,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
     setBuyingMedia(true)
     try {
-      const res = await fetch('/api/stripe/checkout', {
+      const res = await nativeFetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mediaId: media.id }),
@@ -982,6 +994,23 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 )}
               </div>
 
+              {session && !isOwner && media.user?.id ? (
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReportOpen(true)}
+                    className="rounded-lg border border-amber-700/40 bg-amber-950/30 px-3 py-1.5 text-xs font-medium text-amber-200 hover:bg-amber-900/40"
+                  >
+                    Report
+                  </button>
+                  <BlockUserButton
+                    blockedUserId={media.user.id}
+                    blockedUsername={media.user.username}
+                    compact
+                  />
+                </div>
+              ) : null}
+
               {/* Views + Reactions Row */}
               <div className="flex items-center gap-6 mb-4">
                 {/* Views */}
@@ -1186,7 +1215,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           )}
 
           {/* Buy Now Button - Only show for paid content that user doesn't own */}
-          {media.price && media.price > 0 && !isOwner && (
+          {media.price && media.price > 0 && !isOwner && !nativeIosPaymentsBlocked && (
             <button
               onClick={handleBuyNow}
               disabled={buyingMedia}
@@ -1208,6 +1237,12 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 ? tMedia('processingShort')
                 : mediaPageInterpolate(tMedia('buyNowWithPrice'), { price: `$${media.price.toFixed(2)}` })}
             </button>
+          )}
+
+          {media.price && media.price > 0 && !isOwner && nativeIosPaymentsBlocked && (
+            <p className="mt-4 rounded-xl border border-amber-700/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
+              {IOS_EXTERNAL_PAYMENTS_MESSAGE}
+            </p>
           )}
 
           {/* Price Display for Owner */}
@@ -1459,6 +1494,15 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </div>
           </div>
       </AppModalOverlay>
+
+      <UgcReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        reportType="MEDIA"
+        mediaId={media.id}
+        reportedUserId={media.user?.id}
+        subjectLabel={stripHashtags(displayTitleSource)}
+      />
 
     </div>
   )

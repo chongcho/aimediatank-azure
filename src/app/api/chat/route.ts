@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { inspectMediaForAgeRating } from '@/lib/contentInspection'
 import { sendChatMessagePushToUser } from '@/lib/chatMessagePush'
 import { socialMediaForbiddenResponse } from '@/lib/socialAgeGate'
+import { getBlockedUserIdsForViewer } from '@/lib/userBlocks'
 
 export const dynamic = 'force-dynamic'
 
@@ -116,6 +117,11 @@ export async function GET(request: Request) {
     } else {
       // Open chat: only public messages (isPrivate = false)
       where.isPrivate = false
+    }
+
+    const blockedUserIds = await getBlockedUserIdsForViewer(session?.user?.id)
+    if (blockedUserIds.length > 0) {
+      where.userId = { notIn: blockedUserIds }
     }
 
     const messages = await prisma.chatMessage.findMany({

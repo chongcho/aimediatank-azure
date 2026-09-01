@@ -17,12 +17,15 @@ export const publicHomeFeedMediaReadyClause: Prisma.MediaWhereInput = {
 }
 
 /** Public, approved, non-deleted, and "ready" for the default home listing. */
-export function wherePublicHomeFeedVisible(): Prisma.MediaWhereInput {
+export function wherePublicHomeFeedVisible(blockedUserIds: string[] = []): Prisma.MediaWhereInput {
   return {
     isPublic: true,
     isApproved: true,
     isDeleted: false,
-    user: { accountDeactivatedAt: null },
+    user: {
+      accountDeactivatedAt: null,
+      ...(blockedUserIds.length > 0 ? { id: { notIn: blockedUserIds } } : {}),
+    },
     AND: [publicHomeFeedMediaReadyClause],
   }
 }

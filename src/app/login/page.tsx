@@ -10,6 +10,10 @@ import {
   appendAdminFreshStep2Param,
   ADMIN_FORCE_STEP2_STORAGE_KEY,
 } from '@/lib/adminFreshStep2'
+import {
+  isNativeIosApp,
+  nativeShellLinkClick,
+} from '@/lib/iosAppStoreCompliance'
 
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthCallback: 'Social login failed. You can try again or log in with email below.',
@@ -91,6 +95,7 @@ function LoginContent() {
     Boolean(error && error.toLowerCase().includes('deactivated') && showCredentialsForm)
 
   const tryMembershipCheckoutAfterLogin = async (): Promise<boolean> => {
+    if (isNativeIosApp()) return false
     if (
       !planParam ||
       !['basic', 'advanced', 'premium'].includes(planParam) ||
@@ -426,11 +431,23 @@ function LoginContent() {
 
           <p className="form-compact-footer mt-3 sm:mt-6 text-center text-xs sm:text-sm text-gray-400 leading-snug sm:leading-normal">
             By logging in, you agree to the AI Media Tank (AMT){' '}
-            <Link href="/terms?from=login" className="text-tank-accent hover:underline font-medium">
+            <Link
+              href="/terms?from=login"
+              className="text-tank-accent hover:underline font-medium"
+              onClick={(e) => {
+                nativeShellLinkClick('/terms?from=login', e)
+              }}
+            >
               Terms of Service
             </Link>
             {' '}and{' '}
-            <Link href="/privacy?from=login" className="text-tank-accent hover:underline font-medium">
+            <Link
+              href="/privacy?from=login"
+              className="text-tank-accent hover:underline font-medium"
+              onClick={(e) => {
+                nativeShellLinkClick('/privacy?from=login', e)
+              }}
+            >
               Privacy Policy
             </Link>
             {' '}and acknowledge that you have read and accepted all applicable rules and regulations.
@@ -440,6 +457,9 @@ function LoginContent() {
         <Link
           href="/register"
           className="form-compact-footer mt-3 sm:mt-6 flex w-full items-center justify-center rounded-xl bg-tank-accent px-4 py-2.5 sm:py-3 text-center text-base font-semibold text-tank-black transition-colors hover:bg-tank-accent/90"
+          onClick={(e) => {
+            nativeShellLinkClick('/register', e)
+          }}
         >
           Don&apos;t have an account? Register
         </Link>

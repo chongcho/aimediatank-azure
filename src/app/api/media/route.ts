@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { publicHomeFeedMediaReadyClause } from '@/lib/homeFeedVisibility'
+import { getBlockedUserIdsForViewer } from '@/lib/userBlocks'
 import { selectVideoStreams } from '@/lib/videoStreamRenditions'
 
 // Force dynamic rendering since we use request.url
@@ -25,11 +26,13 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
+    const session = await getServerSession(authOptions)
+    const blockedUserIds = await getBlockedUserIdsForViewer(session?.user?.id)
+
     // When profile owner requests their own media with includeProcessing=1, include pending/processing/failed so they can see upload progress
     let allowProcessingStatuses = false
     let viewingOwnProfile = false
     if (user && includeProcessing) {
-      const session = await getServerSession(authOptions)
       const requestedUser = decodeURIComponent(user)
       if (session?.user && typeof session.user === 'object' && 'username' in session.user) {
         const su = session.user as { username?: string; email?: string; id?: string }
@@ -56,6 +59,9 @@ export async function GET(request: Request) {
     where.user = {
       accountDeactivatedAt: null,
       ...(user ? { username: decodeURIComponent(user) } : {}),
+      ...(blockedUserIds.length > 0 && !viewingOwnProfile
+        ? { id: { notIn: blockedUserIds } }
+        : {}),
     }
 
     if (type && ['VIDEO', 'IMAGE', 'MUSIC'].includes(type)) {

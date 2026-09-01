@@ -16,6 +16,7 @@ import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { TALK_CHAT_MAP, talkChatIdx, talkChatTr } from '@/messages/talkChatStrings'
 import { navBarT } from '@/messages/navBar'
 import { useVoiceCallContext } from '@/contexts/VoiceCallContext'
+import { BlockUserButton, UgcReportModal } from '@/components/UgcSafetyActions'
 import { playNotificationSound } from '@/lib/notificationSound'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 import {
@@ -343,6 +344,32 @@ function TalkChatContent({
     y: number
     message: ChatMessage | null
   }>({ show: false, x: 0, y: 0, message: null })
+  const [ugcReportMessage, setUgcReportMessage] = useState<ChatMessage | null>(null)
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!session?.user) {
+      setBlockedUserIds([])
+      return
+    }
+    fetch('/api/ugc/report')
+      .then((res) => res.json())
+      .then((data) => {
+        setBlockedUserIds(Array.isArray(data.blockedUserIds) ? data.blockedUserIds : [])
+      })
+      .catch(() => setBlockedUserIds([]))
+
+    const onBlocked = (event: Event) => {
+      const blockedUserId = (event as CustomEvent<{ blockedUserId?: string }>).detail?.blockedUserId
+      if (!blockedUserId) return
+      setBlockedUserIds((prev) =>
+        prev.includes(blockedUserId) ? prev : [...prev, blockedUserId],
+      )
+      setMessages((prev) => prev.filter((message) => message.user.id !== blockedUserId))
+    }
+    window.addEventListener('ugc-user-blocked', onBlocked)
+    return () => window.removeEventListener('ugc-user-blocked', onBlocked)
+  }, [session?.user])
 
   useEffect(() => {
     if (!showMediaPicker || pickerCropSettingsLoadedRef.current) return
@@ -3063,7 +3090,6 @@ function TalkChatContent({
   }
 
   const openMessageMenuAt = (message: ChatMessage, x: number, y: number) => {
-    if (!isOwnMessage(message)) return
     messageMenuOpenedAtRef.current = Date.now()
     setMessageMenu({
       show: true,
@@ -3074,7 +3100,7 @@ function TalkChatContent({
   }
 
   const handleMessageContextMenu = (e: React.MouseEvent, message: ChatMessage) => {
-    if (!isOwnMessage(message) || editingMessageId === message.id) return
+    if (editingMessageId === message.id) return
     e.preventDefault()
     e.stopPropagation()
     closeContextMenu()
@@ -3082,7 +3108,7 @@ function TalkChatContent({
   }
 
   const handleMessageTouchStart = (e: React.TouchEvent, message: ChatMessage) => {
-    if (!isOwnMessage(message) || editingMessageId === message.id) return
+    if (editingMessageId === message.id) return
     const touch = e.touches[0]
     if (!touch) return
     if (messageLongPressTimerRef.current) {
@@ -3127,6 +3153,11 @@ function TalkChatContent({
   const narrowDesktopDock =
     isDesktop && isTalkChatNarrowDesktop(appDisplayBounds.width) && !hasCustomPosition
   const appDisplayRightInset = Math.max(0, viewportSize.width - appDisplayBounds.right)
+
+  const visibleMessages = useMemo(
+    () => messages.filter((message) => !blockedUserIds.includes(message.user.id)),
+    [messages, blockedUserIds],
+  )
 
   return (
     <div 
@@ -4469,7 +4500,7 @@ function TalkChatContent({
                 </div>
               )}
             </div>
-          ) : messages.length === 0 ? (
+          ) : visibleMessages.length === 0 ? (
             <div style={{ 
               display: 'flex', 
               flexDirection: 'column', 
@@ -4514,12 +4545,11 @@ function TalkChatContent({
               )}
             </div>
           ) : (
-            messages.map((msg) => {
+            visibleMessages.map((msg) => {
               const isOwn = isOwnMessage(msg)
               const isEditing = editingMessageId === msg.id
               const showInlineActions =
                 !isEditing &&
-                isOwn &&
                 messageMenu.show &&
                 messageMenu.message?.id === msg.id
               return (
@@ -4690,8 +4720,11 @@ function TalkChatContent({
                           gap: '8px',
                           width: '100%',
                           justifyContent: isOwn ? 'flex-end' : 'flex-start',
+                          flexWrap: 'wrap',
                         }}
                       >
+                        {isOwn ? (
+                          <>
                         <button
                           type="button"
                           onClick={() => {
@@ -4732,6 +4765,36 @@ function TalkChatContent({
                         >
                           {tr[TC.delete]}
                         </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setUgcReportMessage(msg)
+                                closeMessageMenu()
+                              }}
+                              style={{
+                                border: '1px solid #fde68a',
+                                background: '#fffbeb',
+                                color: '#b45309',
+                                borderRadius: '999px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                padding: '3px 10px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Report
+                            </button>
+                            <BlockUserButton
+                              blockedUserId={msg.user.id}
+                              blockedUsername={msg.user.username}
+                              compact
+                              onBlocked={closeMessageMenu}
+                            />
+                          </>
+                        )}
                         <button
                           type="button"
                           onClick={closeMessageMenu}
@@ -5520,6 +5583,20 @@ function TalkChatContent({
         )}
         </div>
       </div>
+
+      <UgcReportModal
+        open={Boolean(ugcReportMessage)}
+        onClose={() => setUgcReportMessage(null)}
+        reportType="CHAT_MESSAGE"
+        chatMessageId={ugcReportMessage?.id}
+        reportedUserId={ugcReportMessage?.user.id}
+        subjectLabel={
+          ugcReportMessage
+            ? `@${formatDisplayUsername(ugcReportMessage.user.username)}`
+            : undefined
+        }
+        onReported={() => setUgcReportMessage(null)}
+      />
     </div>
   )
 }

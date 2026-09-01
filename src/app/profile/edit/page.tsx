@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
 import { parseBirthdayToIso, preferDayFirstFromLocation, isBirthdayAtLeastAge, normalizeAgeRequirement, maxBirthdayIsoForMinAge, type AgeRequirement } from '@/lib/birthday'
@@ -19,6 +19,11 @@ import {
   usernameSubmitErrorMessage,
   validateUsernameFormat,
 } from '@/lib/usernameValidation'
+import {
+  IOS_EXTERNAL_PAYMENTS_MESSAGE,
+  isNativeIosApp,
+  nativeFetch,
+} from '@/lib/iosAppStoreCompliance'
 
 const EDIT_PROFILE_STRINGS = [
   'Edit Profile',
@@ -55,20 +60,20 @@ const EDIT_PROFILE_STRINGS = [
   'Passwords match',
   'Passwords do not match',
   'Account',
-  'Deactivate',
+  'Delete',
   'Cancel',
   'Saving...',
   'Save',
-  'Account deactivation',
-  'This hides your uploads from the home feed and your profile, removes your username from search, and limits what you can do while signed in. You can turn the account back on anytime from the profile menu (green Restore Account). Active subscriptions are cancelled when you confirm.',
+  'Delete account permanently',
+  'This permanently deletes your account and associated personal data. Your uploads, messages, and profile will be removed. Active subscriptions are cancelled when you confirm. This cannot be undone.',
   'Continue',
-  'Confirm account deactivation',
-  'Type your username and password (if you use one) to confirm. This cannot be undone without contacting support.',
+  'Confirm account deletion',
+  'Type your username and password (if you use one) to confirm permanent deletion.',
   'Type your username',
   'to confirm',
   'Account password (leave blank if you only use social sign-in)',
   'Keep account',
-  'Deactivating…',
+  'Deleting…',
   'Verify Your New Email',
   "We've sent a 6-digit verification code to",
   '🔧 Dev Mode - Your code:',
@@ -302,6 +307,11 @@ export default function EditProfilePage() {
     (typeof MEMBERSHIP_PLANS)[string] | null
   >(null)
   const [membershipCheckoutLoading, setMembershipCheckoutLoading] = useState<string | null>(null)
+  const [nativeIosPaymentsBlocked, setNativeIosPaymentsBlocked] = useState(false)
+
+  useEffect(() => {
+    setNativeIosPaymentsBlocked(isNativeIosApp())
+  }, [])
 
   const tr = useLanguageModeList(EDIT_PROFILE_STRINGS)
   const countryLabels = useLanguageModeList(COUNTRY_NAMES)
@@ -319,6 +329,10 @@ export default function EditProfilePage() {
 
   const handleMembershipSubscribe = async (billingPeriod: 'month' | 'year') => {
     if (!pendingMembershipPlan) return
+    if (nativeIosPaymentsBlocked) {
+      setError(IOS_EXTERNAL_PAYMENTS_MESSAGE)
+      return
+    }
     setShowMembershipBillingModal(false)
     setMembershipCheckoutLoading(pendingMembershipPlan.id)
     try {
@@ -344,6 +358,11 @@ export default function EditProfilePage() {
   }
 
   const handleMembershipChange = async (newPlanId: string) => {
+    if (nativeIosPaymentsBlocked && newPlanId !== originalMembership) {
+      setError(IOS_EXTERNAL_PAYMENTS_MESSAGE)
+      setSelectedMembership(originalMembership)
+      return
+    }
     if (newPlanId === originalMembership) {
       setSelectedMembership(newPlanId)
       return
@@ -959,8 +978,8 @@ export default function EditProfilePage() {
     setCancelRegLoading(true)
     setCancelRegError('')
     try {
-      const res = await fetch('/api/user/account', {
-        method: 'PATCH',
+      const res = await nativeFetch('/api/user/account', {
+        method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           confirmUsername: cancelRegUsername,
@@ -970,7 +989,7 @@ export default function EditProfilePage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setCancelRegError(
-          typeof data.error === 'string' ? data.error : 'Could not deactivate account.'
+          typeof data.error === 'string' ? data.error : 'Could not delete account.'
         )
         return
       }
@@ -979,13 +998,11 @@ export default function EditProfilePage() {
       setCancelRegUsername('')
       setCancelRegPassword('')
       setCancelRegError('')
-      // Hard navigation: avoid (1) full-page spinner from accountDeactivatedSession before
-      // client navigation runs, and (2) intercepted / modal routes that keep the edit view
-      // on router.replace — same pattern as successful profile save on this page.
+      await signOut({ redirect: false })
       window.location.replace('/')
     } catch (e) {
       console.error(e)
-      setCancelRegError('Could not deactivate account.')
+      setCancelRegError('Could not delete account.')
     } finally {
       setCancelRegLoading(false)
     }
@@ -1435,7 +1452,7 @@ export default function EditProfilePage() {
                   name="membership"
                   value={selectedMembership}
                   onChange={(e) => void handleMembershipChange(e.target.value)}
-                  disabled={Boolean(membershipCheckoutLoading)}
+                  disabled={Boolean(membershipCheckoutLoading) || nativeIosPaymentsBlocked}
                   className="w-full"
                   aria-label={tr[E.membershipPlanLabel]}
                   title={tr[E.membershipPlanLabel]}
@@ -1452,6 +1469,9 @@ export default function EditProfilePage() {
                       ? tr[E.membershipCurrentHint]
                       : tr[E.membershipChangeHint]}
                 </p>
+                {nativeIosPaymentsBlocked ? (
+                  <p className="text-xs text-amber-300 mt-2">{IOS_EXTERNAL_PAYMENTS_MESSAGE}</p>
+                ) : null}
               </div>
             </div>
           </div>
