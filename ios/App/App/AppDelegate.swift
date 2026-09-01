@@ -34,6 +34,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
+        // Clear stale APNs badge when the app is opened (logged in or not).
+        AiMediaTankAlertPushBridge.clearAppIconBadge()
         AiMediaTankVoipPushBridge.shared.syncPushTokenOnForeground()
         AiMediaTankAlertPushBridge.shared.syncAlertTokenOnForeground()
         AiMediaTankVoipPushBridge.shared.reconcileForegroundIncomingUi()

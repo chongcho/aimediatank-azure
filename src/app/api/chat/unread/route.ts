@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { sendIosBadgeUpdateToUser } from '@/lib/apnsAlertPush'
+import { getChatUnreadCountForUser } from '@/lib/chatUnreadCount'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
@@ -14,87 +16,8 @@ export async function GET() {
       return NextResponse.json({ unreadCount: 0 })
     }
 
-    // Get all conversations where user is a member
-    const memberships = await prisma.conversationMember.findMany({
-      where: { userId: session.user.id },
-      select: {
-        conversationId: true,
-        lastReadAt: true,
-      },
-    })
-
-    if (memberships.length === 0) {
-      // Also check for invites (notification-based) - only count those with valid senders
-      const inviteNotifications = await prisma.notification.findMany({
-        where: {
-          userId: session.user.id,
-          type: 'private_chat',
-          read: false,
-          link: { not: null },
-        },
-        select: { link: true },
-      })
-      
-      // Verify each invite has a valid sender
-      let validInviteCount = 0
-      for (const notif of inviteNotifications) {
-        if (notif.link) {
-          const senderExists = await prisma.user.findUnique({
-            where: { id: notif.link },
-            select: { id: true },
-          })
-          if (senderExists) {
-            validInviteCount++
-          }
-        }
-      }
-      return NextResponse.json({ unreadCount: validInviteCount })
-    }
-
-    // Count unread messages across all conversations
-    let totalUnread = 0
-
-    for (const membership of memberships) {
-      const unreadCount = await prisma.chatMessage.count({
-        where: {
-          conversationId: membership.conversationId,
-          userId: { not: session.user.id }, // Messages from others
-          createdAt: membership.lastReadAt 
-            ? { gt: membership.lastReadAt } 
-            : undefined, // If never read, count all messages
-        },
-      })
-      totalUnread += unreadCount
-    }
-
-    // Also add pending invites (notifications for new chats) - only count those with valid senders
-    const inviteNotifications = await prisma.notification.findMany({
-      where: {
-        userId: session.user.id,
-        type: 'private_chat',
-        read: false,
-        link: { not: null },  // Must have a sender ID
-      },
-      select: { link: true },
-    })
-    
-    // Verify each invite has a valid sender (user still exists)
-    let validInviteCount = 0
-    for (const notif of inviteNotifications) {
-      if (notif.link) {
-        const senderExists = await prisma.user.findUnique({
-          where: { id: notif.link },
-          select: { id: true },
-        })
-        if (senderExists) {
-          validInviteCount++
-        }
-      }
-    }
-
-    return NextResponse.json({ 
-      unreadCount: totalUnread + validInviteCount 
-    })
+    const unreadCount = await getChatUnreadCountForUser(session.user.id)
+    return NextResponse.json({ unreadCount })
   } catch (error) {
     console.error('Error fetching unread count:', error)
     return NextResponse.json({ unreadCount: 0 })
@@ -127,6 +50,9 @@ export async function POST(request: Request) {
       },
     })
 
+    const unreadCount = await getChatUnreadCountForUser(session.user.id)
+    void sendIosBadgeUpdateToUser(session.user.id, unreadCount)
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error marking conversation as read:', error)
@@ -136,4 +62,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

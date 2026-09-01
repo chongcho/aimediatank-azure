@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { sendIosBadgeUpdateToUser } from '@/lib/apnsAlertPush'
 import { notifyConversationMessageRecipients } from '@/lib/chatMessagePush'
+import { getChatUnreadCountForUser } from '@/lib/chatUnreadCount'
 import { prisma } from '@/lib/prisma'
 import { socialMediaForbiddenResponse } from '@/lib/socialAgeGate'
 
@@ -73,6 +75,9 @@ export async function GET(
       where: { id: membership.id },
       data: { lastReadAt: new Date() },
     })
+
+    const unreadCount = await getChatUnreadCountForUser(session.user.id)
+    void sendIosBadgeUpdateToUser(session.user.id, unreadCount)
 
     return NextResponse.json({ conversation })
   } catch (error) {

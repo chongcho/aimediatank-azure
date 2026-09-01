@@ -1,5 +1,6 @@
 import fs from 'fs'
 import { ApnsClient, ApnsError, Notification, Priority, PushType } from 'apns2'
+import { getChatUnreadCountForUser } from '@/lib/chatUnreadCount'
 import { prisma } from '@/lib/prisma'
 import type { ChatMessagePushPayload } from '@/lib/webPush'
 import { apnsProductionEnabled, isVoipPushConfigured } from '@/lib/voipPush'
@@ -64,16 +65,22 @@ function getAlertApnsClient(production = apnsProductionEnabled()): ApnsClient | 
   return client
 }
 
-/** APNs alert push for private chat on iOS native app (not PushKit VoIP). */
-export async function sendIosChatMessageAlertPushToUser(
+type IosAlertApnsSendResult = {
+  sent: number
+  staleTokens: string[]
+  badDeviceTokens: string[]
+}
+
+async function sendIosAlertApnsNotifications(
   userId: string,
-  payload: ChatMessagePushPayload,
-): Promise<void> {
+  buildNotification: (token: string) => Notification,
+  logLabel: string,
+): Promise<IosAlertApnsSendResult> {
   const primaryProduction = apnsProductionEnabled()
   const client = getAlertApnsClient(primaryProduction)
   if (!client) {
-    console.warn('[APNsAlert] chat_message skipped: APNS not configured')
-    return
+    console.warn(`[APNsAlert] ${logLabel} skipped: APNS not configured`)
+    return { sent: 0, staleTokens: [], badDeviceTokens: [] }
   }
 
   const tokens = await prisma.voipPushToken.findMany({
@@ -81,33 +88,11 @@ export async function sendIosChatMessageAlertPushToUser(
     orderBy: { updatedAt: 'desc' },
   })
   if (tokens.length === 0) {
-    console.warn(`[APNsAlert] chat_message skipped: no ios_alert token for user ${userId}`)
-    return
+    console.warn(`[APNsAlert] ${logLabel} skipped: no ios_alert token for user ${userId}`)
+    return { sent: 0, staleTokens: [], badDeviceTokens: [] }
   }
 
-  const topic = process.env.APNS_BUNDLE_ID!
-  const notifications = tokens.map(
-    (row) =>
-      new Notification(row.token, {
-        type: PushType.alert,
-        topic,
-        priority: Priority.immediate,
-        alert: {
-          title: payload.title,
-          body: payload.body,
-        },
-        sound: 'default',
-        badge: 1,
-        data: {
-          type: payload.type,
-          senderId: payload.senderId,
-          url: payload.url,
-          title: payload.title,
-          body: payload.body,
-        },
-      }),
-  )
-
+  const notifications = tokens.map((row) => buildNotification(row.token))
   const staleTokens: string[] = []
   const badDeviceTokens: string[] = []
   let sent = 0
@@ -128,7 +113,7 @@ export async function sendIosChatMessageAlertPushToUser(
       } else if (reason === 'Unregistered' || reason === 'ExpiredToken') {
         staleTokens.push(tokens[index]!.token)
       } else {
-        console.error(`[APNsAlert] chat_message failed (${reason}) token=${tokenPrefix}`)
+        console.error(`[APNsAlert] ${logLabel} failed (${reason}) token=${tokenPrefix}`)
       }
     })
   }
@@ -136,29 +121,25 @@ export async function sendIosChatMessageAlertPushToUser(
   try {
     await sendBatch(client)
   } catch (error) {
-    console.error('[APNsAlert] chat_message batch failed:', error)
+    console.error(`[APNsAlert] ${logLabel} batch failed:`, error)
   }
 
-  if (
-    sent === 0 &&
-    badDeviceTokens.length === tokens.length &&
-    tokens.length > 0
-  ) {
+  if (sent === 0 && badDeviceTokens.length === tokens.length && tokens.length > 0) {
     const alternateClient = getAlertApnsClient(!primaryProduction)
     if (alternateClient) {
       console.warn(
-        `[APNsAlert] chat_message: retrying ${!primaryProduction ? 'production' : 'sandbox'} APNs host`,
+        `[APNsAlert] ${logLabel}: retrying ${!primaryProduction ? 'production' : 'sandbox'} APNs host`,
       )
       try {
         await sendBatch(alternateClient)
       } catch (error) {
-        console.error('[APNsAlert] chat_message alternate host failed:', error)
+        console.error(`[APNsAlert] ${logLabel} alternate host failed:`, error)
       }
     }
   }
 
   if (sent > 0) {
-    console.info(`[APNsAlert] chat_message sent to ${sent}/${tokens.length} device(s)`)
+    console.info(`[APNsAlert] ${logLabel} sent to ${sent}/${tokens.length} device(s)`)
   }
 
   const remove = Array.from(new Set([...staleTokens, ...badDeviceTokens]))
@@ -167,4 +148,57 @@ export async function sendIosChatMessageAlertPushToUser(
       where: { token: { in: remove } },
     })
   }
+
+  return { sent, staleTokens, badDeviceTokens }
+}
+
+/** Silent APNs badge update for iOS native app (no banner/sound). */
+export async function sendIosBadgeUpdateToUser(userId: string, badge: number): Promise<void> {
+  const topic = process.env.APNS_BUNDLE_ID!
+  const safeBadge = Math.max(0, badge)
+
+  await sendIosAlertApnsNotifications(
+    userId,
+    (token) =>
+      new Notification(token, {
+        type: PushType.alert,
+        topic,
+        priority: Priority.low,
+        badge: safeBadge,
+      }),
+    `badge_update(${safeBadge})`,
+  )
+}
+
+/** APNs alert push for private chat on iOS native app (not PushKit VoIP). */
+export async function sendIosChatMessageAlertPushToUser(
+  userId: string,
+  payload: ChatMessagePushPayload,
+): Promise<void> {
+  const badge = await getChatUnreadCountForUser(userId)
+  const topic = process.env.APNS_BUNDLE_ID!
+
+  await sendIosAlertApnsNotifications(
+    userId,
+    (token) =>
+      new Notification(token, {
+        type: PushType.alert,
+        topic,
+        priority: Priority.immediate,
+        alert: {
+          title: payload.title,
+          body: payload.body,
+        },
+        sound: 'default',
+        badge,
+        data: {
+          type: payload.type,
+          senderId: payload.senderId,
+          url: payload.url,
+          title: payload.title,
+          body: payload.body,
+        },
+      }),
+    'chat_message',
+  )
 }

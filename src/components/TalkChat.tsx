@@ -87,18 +87,19 @@ const BOTTOM_BAR_PAD_X = 12
 const BOTTOM_BAR_GAP = 8
 const BOTTOM_BAR_ACTION_BTN_PX = 40
 const BOTTOM_BAR_ROW_MIN_HEIGHT_PX = 44
+const APP_SAFE_BOTTOM = 'var(--app-safe-bottom, env(safe-area-inset-bottom, 0px))'
 const BOTTOM_BAR_MIN_HEIGHT_PX = BOTTOM_BAR_PAD_Y * 2 + BOTTOM_BAR_ROW_MIN_HEIGHT_PX
 /** Shared grey footer strip — min height so Chat and Talk bottom edges align. */
 const BOTTOM_BAR_CHROME_STYLE: CSSProperties = {
   padding: `${BOTTOM_BAR_PAD_Y}px ${BOTTOM_BAR_PAD_X}px`,
-  paddingBottom: `max(${BOTTOM_BAR_PAD_Y}px, env(safe-area-inset-bottom, 0px))`,
+  paddingBottom: `calc(${BOTTOM_BAR_PAD_Y}px + ${APP_SAFE_BOTTOM})`,
   background: '#e8e8e8',
   borderTop: '1px solid #ccc',
   display: 'flex',
   alignItems: 'center',
   gap: `${BOTTOM_BAR_GAP}px`,
   flexShrink: 0,
-  minHeight: `${BOTTOM_BAR_MIN_HEIGHT_PX}px`,
+  minHeight: `calc(${BOTTOM_BAR_MIN_HEIGHT_PX}px + ${APP_SAFE_BOTTOM})`,
   boxSizing: 'border-box',
 }
 const MESSAGE_COMPOSER_MIN_HEIGHT_PX = BOTTOM_BAR_ACTION_BTN_PX
@@ -3639,7 +3640,7 @@ function TalkChatContent({
             <div 
               style={{
                 padding: '8px',
-                paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))',
+                paddingBottom: `calc(8px + ${APP_SAFE_BOTTOM})`,
                 background: '#e8e8e8',
                 borderTop: '1px solid #ccc',
                 display: 'flex',
@@ -3758,7 +3759,6 @@ function TalkChatContent({
             </div>
             <div style={{
               ...BOTTOM_BAR_CHROME_STYLE,
-              height: `${BOTTOM_BAR_MIN_HEIGHT_PX}px`,
               justifyContent: 'center',
             }}>
               <button

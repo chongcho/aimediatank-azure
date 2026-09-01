@@ -241,6 +241,7 @@ html.capacitor-native.android {
   --android-navbar-top-pad: 30px;
   --app-chrome-top: calc(var(--app-navbar-height) + var(--android-navbar-top-pad, 30px));
   --talkchat-mobile-top: calc(4rem + var(--android-navbar-top-pad, 30px));
+  --app-safe-bottom-fallback: 48px;
 }
 
 html.capacitor-native.ios {

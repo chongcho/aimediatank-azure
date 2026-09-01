@@ -2,6 +2,22 @@
 const IOS_SAFE_TOP_FALLBACK_PX = 47
 /** iOS home-indicator fallback when env(safe-area-inset-bottom) is 0 in Capacitor WKWebView. */
 const IOS_SAFE_BOTTOM_FALLBACK_PX = 34
+/** Android 3-button nav bar when env(safe-area-inset-bottom) is 0 in Capacitor WebView. */
+const ANDROID_SAFE_BOTTOM_FALLBACK_PX = 48
+
+function measureAndroidBottomInset(): number {
+  if (typeof window === 'undefined') return ANDROID_SAFE_BOTTOM_FALLBACK_PX
+
+  const vv = window.visualViewport
+  if (vv) {
+    const gap = window.innerHeight - vv.height - Math.max(0, vv.offsetTop)
+    if (gap >= 12 && gap <= 160) {
+      return Math.round(gap)
+    }
+  }
+
+  return ANDROID_SAFE_BOTTOM_FALLBACK_PX
+}
 
 export function getNativePlatform(): 'ios' | 'android' | 'web' {
   if (typeof window === 'undefined') return 'web'
@@ -54,6 +70,9 @@ export function syncNativeSafeAreaInsets(root: HTMLElement, isIOS: boolean): voi
 
   if (isIOS && top < 1) top = IOS_SAFE_TOP_FALLBACK_PX
   if (isIOS && bottom < 1) bottom = IOS_SAFE_BOTTOM_FALLBACK_PX
+  if (!isIOS && root.classList.contains('android') && bottom < 1) {
+    bottom = measureAndroidBottomInset()
+  }
 
   root.style.setProperty('--app-safe-top', `${top}px`)
   root.style.setProperty('--app-safe-bottom', `${bottom}px`)

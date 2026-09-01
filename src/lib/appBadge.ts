@@ -1,5 +1,40 @@
 // Web Badge API utility functions for PWA app icon notifications
 
+type NativeAppBadgePlugin = {
+  setBadgeCount(options: { count: number }): Promise<void>
+  clearBadge(): Promise<void>
+}
+
+async function isNativeIosApp(): Promise<boolean> {
+  if (typeof window === 'undefined') return false
+  try {
+    const { Capacitor } = await import('@capacitor/core')
+    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios'
+  } catch {
+    return false
+  }
+}
+
+async function getNativeAppBadgePlugin(): Promise<NativeAppBadgePlugin | null> {
+  if (!(await isNativeIosApp())) return null
+  try {
+    const { registerPlugin } = await import('@capacitor/core')
+    return registerPlugin<NativeAppBadgePlugin>('NativeAppBadge')
+  } catch {
+    return null
+  }
+}
+
+async function clearNativeIosAppBadge(): Promise<void> {
+  const plugin = await getNativeAppBadgePlugin()
+  if (!plugin) return
+  try {
+    await plugin.clearBadge()
+  } catch (error) {
+    console.log('Native iOS badge clear skipped:', error)
+  }
+}
+
 /**
  * Check if the Badge API is supported in the current browser
  */
@@ -28,6 +63,13 @@ export function isInstalledPWA(): boolean {
  * @param count - The number to display on the badge. Pass 0 to clear.
  */
 export async function setAppBadge(count: number): Promise<boolean> {
+  if (await isNativeIosApp()) {
+    if (count === 0) {
+      await clearNativeIosAppBadge()
+    }
+    return true
+  }
+
   if (!isBadgeSupported()) {
     console.log('Badge API not supported in this browser')
     return false
@@ -69,9 +111,11 @@ export async function setAppBadge(count: number): Promise<boolean> {
  * Clear the app badge from the PWA icon
  */
 export async function clearAppBadge(): Promise<boolean> {
+  await clearNativeIosAppBadge()
+
   if (!isBadgeSupported()) {
     console.log('Badge API not supported')
-    return false
+    return (await isNativeIosApp()) ? true : false
   }
 
   try {

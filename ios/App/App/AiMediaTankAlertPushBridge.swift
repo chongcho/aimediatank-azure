@@ -39,6 +39,26 @@ final class AiMediaTankAlertPushBridge: NSObject, UNUserNotificationCenterDelega
         }
     }
 
+    /// Clears the home-screen app icon badge (stale APNs badge persists until explicitly reset).
+    static func clearAppIconBadge() {
+        setAppIconBadge(0)
+    }
+
+    static func setAppIconBadge(_ count: Int) {
+        let safe = max(0, count)
+        DispatchQueue.main.async {
+            if #available(iOS 16.0, *) {
+                UNUserNotificationCenter.current().setBadgeCount(safe) { error in
+                    if let error {
+                        print("[AiMediaTankAlertPush] set badge error: \(error.localizedDescription)")
+                    }
+                }
+            } else {
+                UIApplication.shared.applicationIconBadgeNumber = safe
+            }
+        }
+    }
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,

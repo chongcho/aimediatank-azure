@@ -13,5 +13,6 @@ class MainViewController: CAPBridgeViewController {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(NativeAuthSessionPlugin())
         bridge?.registerPluginInstance(CallKitCompliancePlugin())
+        bridge?.registerPluginInstance(AppBadgePlugin())
     }
 }
