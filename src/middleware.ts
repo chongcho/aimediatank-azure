@@ -12,6 +12,7 @@ import {
 } from '@/lib/clientIpFromRequest'
 import { detectAbnormalAccess } from '@/lib/accessLogAbnormalDetect'
 import { detectBadBotUserAgent } from '@/lib/badBotDetect'
+import { isAutoBlockProbeEnabled } from '@/lib/autoBlockProbeIp'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
 import { parseGamePath, isGameRouteAllowed } from '@/lib/gameRouteAccess'
 import { fetchGameRouteAccess } from '@/lib/gameRouteAccessClient'
@@ -57,7 +58,7 @@ function enqueueAutoBlockSecurity(params: {
   userAgent?: string | null
 }) {
   const secret = process.env.BLOCKED_IP_LIST_SECRET?.trim()
-  if (!secret || !params.clientIp) return
+  if (!secret || !params.clientIp || !isAutoBlockProbeEnabled()) return
   const ip = stripClientIpPort(params.clientIp)
   if (isPrivateClientIp(ip)) return
   fetch(`${params.origin}/api/internal/auto-block-probe`, {

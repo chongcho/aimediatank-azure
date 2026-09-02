@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseUserAgent } from '@/lib/parseUserAgent'
 import { detectAbnormalAccess, detectBadBotUserAgent, maybeNotifyAbnormalAccess } from '@/lib/accessLogAbnormal'
+import { tryAutoBlockProbeIp, shouldAutoBlockForFlags } from '@/lib/autoBlockProbeIp'
 import { isLikelyAzurePlatformPingFromLog, isPrivateClientIp } from '@/lib/clientIpFromRequest'
 import { lookupGeoByIp } from '@/lib/ipGeoLookup'
 
@@ -133,6 +134,18 @@ export async function POST(request: Request) {
         country,
         city,
       }).catch((err) => console.error('[log-access] abnormal notify', err))
+
+      if (isTrustedCaller && shouldAutoBlockForFlags(abnormalFlagsArr)) {
+        const category: 'probe' | 'bad_bot' =
+          botFlags.length > 0 && pathFlags.length === 0 ? 'bad_bot' : 'probe'
+        void tryAutoBlockProbeIp({
+          ipAddress: ipAddress ?? null,
+          path: pathStored,
+          flags: abnormalFlagsArr,
+          category,
+          userAgent: userAgent ?? null,
+        }).catch((err) => console.error('[log-access] auto-block', err))
+      }
     }
 
     return NextResponse.json({ ok: true })
