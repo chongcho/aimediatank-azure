@@ -48,7 +48,7 @@ function TermsPageContent() {
 
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Terms of Service</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: August 11, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: September 3, 2026</p>
 
         {/* 1. Acceptance */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">1. Acceptance of Terms</h2>
@@ -186,6 +186,33 @@ function TermsPageContent() {
           <li>intellectual property infringement</li>
         </ul>
         <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) may utilize automated systems and manual moderation to review content.</p>
+
+        <h3 className="text-lg font-semibold mt-6 mb-3">6.1 Zero Tolerance for Objectionable Content and Abusive Users</h3>
+        <p className="text-gray-300 mb-4">
+          There is <strong className="text-white">no tolerance</strong> for objectionable content or abusive users on the Platform.
+          Objectionable content includes (without limitation) illegal content, sexual exploitation, harassment, hate speech,
+          threats, spam, scams, and any other material that violates these Terms or applicable law.
+        </p>
+        <p className="text-gray-300 mb-2">Users can:</p>
+        <ul className="list-disc list-inside text-gray-300 space-y-1 mb-4">
+          <li>
+            <strong className="text-white">Report / flag</strong> media, chat messages, or users (Report on media pages; long-press
+            a message in TalkChat)
+          </li>
+          <li>
+            <strong className="text-white">Block</strong> abusive users — blocking immediately hides that user&apos;s content from
+            your feed and chat, and notifies Platform moderators
+          </li>
+        </ul>
+        <p className="text-gray-300 mb-4">
+          AI Media Tank, LLC (AMT) reviews user reports and will act within <strong className="text-white">24 hours</strong> by
+          removing objectionable content and ejecting (suspending or permanently terminating) the account of the user who provided
+          the offending content, when the report is substantiated.
+        </p>
+        <p className="text-gray-300 mb-4">
+          Filtering: the Platform uses automated screening where available, age/content controls, and per-user block lists so
+          blocked users&apos; posts and messages do not appear in the blocker&apos;s feed or chat.
+        </p>
 
         {/* 7. AI-Generated Content */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">7. AI-Generated Content Policy</h2>
@@ -429,7 +456,7 @@ function TermsPageFallback() {
       </div>
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Terms of Service</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 · Last Updated: August 11, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 · Last Updated: September 3, 2026</p>
         <p className="text-gray-400">Loading...</p>
       </div>
     </div>

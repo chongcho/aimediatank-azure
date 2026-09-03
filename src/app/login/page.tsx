@@ -40,6 +40,7 @@ function LoginContent() {
   const [forgotEmailUsername, setForgotEmailUsername] = useState('')
   const [forgotEmailLoading, setForgotEmailLoading] = useState(false)
   const [forgotEmailResult, setForgotEmailResult] = useState<{ maskedEmail?: string; error?: string } | null>(null)
+  const [termsAgreed, setTermsAgreed] = useState(false)
 
   useEffect(() => {
     const errorCode = searchParams.get('error')
@@ -95,7 +96,6 @@ function LoginContent() {
     Boolean(error && error.toLowerCase().includes('deactivated') && showCredentialsForm)
 
   const tryMembershipCheckoutAfterLogin = async (): Promise<boolean> => {
-    if (isNativeIosApp()) return false
     if (
       !planParam ||
       !['basic', 'advanced', 'premium'].includes(planParam) ||
@@ -105,6 +105,20 @@ function LoginContent() {
       return false
     }
     try {
+      if (isNativeIosApp()) {
+        const { getSession } = await import('next-auth/react')
+        const sess = await getSession()
+        const userId = sess?.user?.id
+        if (!userId) return false
+        const { purchaseAppleMembership } = await import('@/lib/appleIap')
+        await purchaseAppleMembership({
+          planId: planParam as 'basic' | 'advanced' | 'premium',
+          billingPeriod: billingParam as 'month' | 'year',
+          userId,
+        })
+        window.location.replace('/pricing?success=true&plan=' + encodeURIComponent(planParam))
+        return true
+      }
       const res = await fetch('/api/stripe/membership', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,6 +154,10 @@ function LoginContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!termsAgreed) {
+      setError('Please agree to the Terms of Service and Privacy Policy to continue.')
+      return
+    }
     setError('')
     setLoading(true)
 
@@ -260,6 +278,44 @@ function LoginContent() {
             </div>
           )}
 
+          <label className="mb-3 sm:mb-4 flex items-start gap-3 cursor-pointer rounded-xl border border-tank-light bg-tank-dark/50 p-3">
+            <input
+              type="checkbox"
+              checked={termsAgreed}
+              onChange={(e) => {
+                setTermsAgreed(e.target.checked)
+                if (e.target.checked) setError('')
+              }}
+              className="mt-1 w-5 h-5 rounded border-tank-light bg-tank-dark text-tank-accent focus:ring-tank-accent focus:ring-offset-0 cursor-pointer"
+              aria-required="true"
+            />
+            <span className="text-sm text-gray-300 leading-snug">
+              I agree to the AI Media Tank (AMT){' '}
+              <Link
+                href="/terms?from=login"
+                className="text-tank-accent hover:underline font-medium"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  nativeShellLinkClick('/terms?from=login', e)
+                }}
+              >
+                Terms of Service
+              </Link>
+              {' '}and{' '}
+              <Link
+                href="/privacy?from=login"
+                className="text-tank-accent hover:underline font-medium"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  nativeShellLinkClick('/privacy?from=login', e)
+                }}
+              >
+                Privacy Policy
+              </Link>
+              , including zero tolerance for objectionable content and abusive users.
+            </span>
+          </label>
+
           {showForgotEmail ? (
             <form onSubmit={handleForgotEmail} className="form-compact-stack space-y-3 sm:space-y-4">
               <div>
@@ -317,7 +373,12 @@ function LoginContent() {
             </form>
           ) : !showCredentialsForm ? (
             <>
-              <SocialSignIn mode="signin" callbackUrl={safeCallbackUrl} hideDividerAbove />
+              <SocialSignIn
+                mode="signin"
+                callbackUrl={safeCallbackUrl}
+                hideDividerAbove
+                disabled={!termsAgreed}
+              />
 
               <div className="relative mt-3 sm:mt-6">
                 <div className="absolute inset-0 flex items-center">
@@ -330,7 +391,13 @@ function LoginContent() {
 
               <button
                 type="button"
-                onClick={() => setShowEmailForm(true)}
+                onClick={() => {
+                  if (!termsAgreed) {
+                    setError('Please agree to the Terms of Service and Privacy Policy to continue.')
+                    return
+                  }
+                  setShowEmailForm(true)
+                }}
                 className="mt-3 sm:mt-6 w-full flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors text-gray-200"
               >
                 Log in with Email
@@ -393,8 +460,8 @@ function LoginContent() {
 
               <button
                 type="submit"
-                disabled={loading}
-                className="btn-primary w-full flex items-center justify-center gap-2"
+                disabled={loading || !termsAgreed}
+                className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -422,6 +489,7 @@ function LoginContent() {
                 mode="signin"
                 callbackUrl={appendAdminFreshStep2Param(safeCallbackUrl)}
                 hideDividerAbove
+                disabled={!termsAgreed}
               />
               <p className="text-xs text-gray-500 text-center mt-2 sm:mt-3">
                 Social login only if your admin account uses that provider. Email/password above is recommended for admin access.
@@ -429,8 +497,8 @@ function LoginContent() {
             </>
           )}
 
-          <p className="form-compact-footer mt-3 sm:mt-6 text-center text-xs sm:text-sm text-gray-400 leading-snug sm:leading-normal">
-            By logging in, you agree to the AI Media Tank (AMT){' '}
+          <p className="form-compact-footer mt-3 sm:mt-6 text-center text-xs sm:text-sm text-gray-500 leading-snug sm:leading-normal">
+            You must accept the Terms (including UGC safety rules) before logging in. Full text:{' '}
             <Link
               href="/terms?from=login"
               className="text-tank-accent hover:underline font-medium"
@@ -440,7 +508,7 @@ function LoginContent() {
             >
               Terms of Service
             </Link>
-            {' '}and{' '}
+            {' · '}
             <Link
               href="/privacy?from=login"
               className="text-tank-accent hover:underline font-medium"
@@ -450,7 +518,6 @@ function LoginContent() {
             >
               Privacy Policy
             </Link>
-            {' '}and acknowledge that you have read and accepted all applicable rules and regulations.
           </p>
         </div>
 

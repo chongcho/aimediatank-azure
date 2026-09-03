@@ -5,10 +5,12 @@ import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useLanguageModeList } from '@/hooks/useLanguageModeText'
 import {
-  IOS_EXTERNAL_PAYMENTS_MESSAGE,
+  IOS_IAP_UNAVAILABLE_MESSAGE,
   isNativeIosApp,
   nativeFetch,
 } from '@/lib/iosAppStoreCompliance'
+import { purchaseAppleMembership, restoreAppleMemberships } from '@/lib/appleIap'
+import type { AppleMembershipPlanId } from '@/lib/appleIapCatalog'
 
 const PRICING_STRINGS = [
   'Welcome to',
@@ -277,10 +279,10 @@ function PricingPageContent() {
   const [policyAgreed, setPolicyAgreed] = useState(false)
   const [purchasedPlanId, setPurchasedPlanId] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null)
-  const [nativeIosPaymentsBlocked, setNativeIosPaymentsBlocked] = useState(false)
+  const [nativeIosApp, setNativeIosApp] = useState(false)
 
   useEffect(() => {
-    setNativeIosPaymentsBlocked(isNativeIosApp())
+    setNativeIosApp(isNativeIosApp())
   }, [])
 
   const getPlanLabel = (plan: (typeof plans)[number]) => tr[plan.strings.name]
@@ -354,14 +356,9 @@ function PricingPageContent() {
       return
     }
 
-    if (nativeIosPaymentsBlocked) {
-      alert(IOS_EXTERNAL_PAYMENTS_MESSAGE)
-      return
-    }
-
     if (plan.id === 'viewer') return
 
-    // Show billing period selection modal
+    // Show billing period selection modal (Stripe on web/Android; Apple IAP on iOS)
     setSelectedPlan(plan)
     setShowBillingModal(true)
   }
@@ -373,6 +370,24 @@ function PricingPageContent() {
     setLoading(selectedPlan.id)
 
     try {
+      if (nativeIosApp) {
+        const userId = (session?.user as { id?: string } | undefined)?.id
+        if (!userId) {
+          alert('Please log in again')
+          return
+        }
+        await purchaseAppleMembership({
+          planId: selectedPlan.id as AppleMembershipPlanId,
+          billingPeriod,
+          userId,
+        })
+        setPurchasedPlanId(selectedPlan.id)
+        setShowSuccessMessage(true)
+        await updateSession()
+        await fetchMembership()
+        return
+      }
+
       const res = await nativeFetch('/api/stripe/membership', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -384,23 +399,45 @@ function PricingPageContent() {
       if (data.url) {
         window.location.href = data.url
       } else {
-        // Show detailed error for debugging
-        const errorMsg = data.details 
-          ? `${data.error}: ${data.details}` 
+        const errorMsg = data.details
+          ? `${data.error}: ${data.details}`
           : data.error || 'Failed to start checkout'
         alert(errorMsg)
         console.error('Checkout error:', data)
       }
     } catch (error) {
       console.error('Error:', error)
-      alert('Failed to start checkout')
+      const msg = error instanceof Error ? error.message : ''
+      if (msg.includes('cancelled') || msg.includes('USER_CANCELLED')) {
+        return
+      }
+      alert(nativeIosApp ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : 'Failed to start checkout')
     } finally {
       setLoading(null)
       setSelectedPlan(null)
     }
   }
 
+  const handleRestoreApplePurchases = async () => {
+    if (!nativeIosApp) return
+    setManageLoading('restore')
+    try {
+      const n = await restoreAppleMemberships()
+      await fetchMembership()
+      alert(n > 0 ? 'Purchases restored.' : 'No active Apple subscriptions found for this Apple ID.')
+    } catch (error) {
+      console.error(error)
+      alert(error instanceof Error ? error.message : 'Restore failed')
+    } finally {
+      setManageLoading(null)
+    }
+  }
+
   const handleManageSubscription = async () => {
+    if (nativeIosApp) {
+      setShowManageModal(true)
+      return
+    }
     setCancelLoading(true)
     try {
       const res = await nativeFetch('/api/stripe/portal', {
@@ -506,9 +543,19 @@ function PricingPageContent() {
         </button>
       </div>
 
-      {nativeIosPaymentsBlocked ? (
-        <div className="mb-6 rounded-xl border border-amber-700/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
-          {IOS_EXTERNAL_PAYMENTS_MESSAGE}
+      {nativeIosApp ? (
+        <div className="mb-6 rounded-xl border border-tank-accent/30 bg-tank-accent/10 px-4 py-3 text-sm text-gray-200">
+          On iOS, memberships use Apple In-App Purchase. Web and Android continue to use Stripe.
+          {session ? (
+            <button
+              type="button"
+              onClick={() => void handleRestoreApplePurchases()}
+              disabled={manageLoading === 'restore'}
+              className="ml-2 underline text-tank-accent disabled:opacity-50"
+            >
+              {manageLoading === 'restore' ? 'Restoring…' : 'Restore purchases'}
+            </button>
+          ) : null}
         </div>
       ) : null}
 

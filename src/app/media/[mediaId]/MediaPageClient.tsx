@@ -26,10 +26,11 @@ import { useAutoTranslationEnabled } from '@/hooks/useAutoTranslationEnabled'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useAdminContentElevation } from '@/hooks/useAdminContentElevation'
 import {
-  IOS_EXTERNAL_PAYMENTS_MESSAGE,
+  IOS_IAP_UNAVAILABLE_MESSAGE,
   isNativeIosApp,
   nativeFetch,
 } from '@/lib/iosAppStoreCompliance'
+import { purchaseAppleMediaUnlock } from '@/lib/appleIap'
 import { BlockUserButton, UgcReportModal } from '@/components/UgcSafetyActions'
 import {
   formatMediaViewsLabel,
@@ -168,10 +169,10 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   /** Optional Azure Translator output for title + description (same locale as navbar). */
   const [i18nMedia, setI18nMedia] = useState<{ title: string; description: string | null } | null>(null)
   const [reportOpen, setReportOpen] = useState(false)
-  const [nativeIosPaymentsBlocked, setNativeIosPaymentsBlocked] = useState(false)
+  const [nativeIosApp, setNativeIosApp] = useState(false)
 
   useEffect(() => {
-    setNativeIosPaymentsBlocked(isNativeIosApp())
+    setNativeIosApp(isNativeIosApp())
   }, [])
 
   const { loaded: adminElevLoaded, contentElevated: adminContentElevated } = useAdminContentElevation()
@@ -510,6 +511,21 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
     setBuyingMedia(true)
     try {
+      if (nativeIosApp) {
+        const userId = (session.user as { id?: string }).id
+        if (!userId) {
+          alert(tMedia('checkoutFailGeneric'))
+          return
+        }
+        await purchaseAppleMediaUnlock({
+          mediaId: media.id,
+          priceUsd: media.price,
+          userId,
+        })
+        window.location.reload()
+        return
+      }
+
       const res = await nativeFetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -525,7 +541,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       }
     } catch (error) {
       console.error('Error starting checkout:', error)
-      alert(tMedia('checkoutFailGeneric'))
+      const msg = error instanceof Error ? error.message : ''
+      if (msg.includes('cancelled') || msg.includes('USER_CANCELLED')) {
+        return
+      }
+      alert(nativeIosApp ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : tMedia('checkoutFailGeneric'))
     } finally {
       setBuyingMedia(false)
     }
@@ -995,19 +1015,24 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               </div>
 
               {session && !isOwner && media.user?.id ? (
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setReportOpen(true)}
-                    className="rounded-lg border border-amber-700/40 bg-amber-950/30 px-3 py-1.5 text-xs font-medium text-amber-200 hover:bg-amber-900/40"
-                  >
-                    Report
-                  </button>
-                  <BlockUserButton
-                    blockedUserId={media.user.id}
-                    blockedUsername={media.user.username}
-                    compact
-                  />
+                <div className="mb-4 rounded-xl border border-amber-800/40 bg-amber-950/20 p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-200/90">
+                    Safety
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReportOpen(true)}
+                      className="rounded-lg border border-amber-700/40 bg-amber-950/30 px-3 py-1.5 text-xs font-medium text-amber-200 hover:bg-amber-900/40"
+                    >
+                      Report content
+                    </button>
+                    <BlockUserButton
+                      blockedUserId={media.user.id}
+                      blockedUsername={media.user.username}
+                      compact
+                    />
+                  </div>
                 </div>
               ) : null}
 
@@ -1215,7 +1240,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           )}
 
           {/* Buy Now Button - Only show for paid content that user doesn't own */}
-          {media.price && media.price > 0 && !isOwner && !nativeIosPaymentsBlocked && (
+          {media.price && media.price > 0 && !isOwner && (
             <button
               onClick={handleBuyNow}
               disabled={buyingMedia}
@@ -1239,9 +1264,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </button>
           )}
 
-          {media.price && media.price > 0 && !isOwner && nativeIosPaymentsBlocked && (
-            <p className="mt-4 rounded-xl border border-amber-700/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
-              {IOS_EXTERNAL_PAYMENTS_MESSAGE}
+          {media.price && media.price > 0 && !isOwner && nativeIosApp && (
+            <p className="mt-2 text-center text-xs text-gray-400">
+              iOS purchases use Apple In-App Purchase (charged at the nearest unlock tier).
             </p>
           )}
 

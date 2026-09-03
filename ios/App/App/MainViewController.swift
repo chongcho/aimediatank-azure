@@ -14,5 +14,6 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(NativeAuthSessionPlugin())
         bridge?.registerPluginInstance(CallKitCompliancePlugin())
         bridge?.registerPluginInstance(AppBadgePlugin())
+        bridge?.registerPluginInstance(AppleIAPPlugin())
     }
 }

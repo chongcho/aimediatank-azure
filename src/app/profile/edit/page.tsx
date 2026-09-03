@@ -20,10 +20,12 @@ import {
   validateUsernameFormat,
 } from '@/lib/usernameValidation'
 import {
-  IOS_EXTERNAL_PAYMENTS_MESSAGE,
+  IOS_IAP_UNAVAILABLE_MESSAGE,
   isNativeIosApp,
   nativeFetch,
 } from '@/lib/iosAppStoreCompliance'
+import { purchaseAppleMembership } from '@/lib/appleIap'
+import type { AppleMembershipPlanId } from '@/lib/appleIapCatalog'
 
 const EDIT_PROFILE_STRINGS = [
   'Edit Profile',
@@ -307,10 +309,10 @@ export default function EditProfilePage() {
     (typeof MEMBERSHIP_PLANS)[string] | null
   >(null)
   const [membershipCheckoutLoading, setMembershipCheckoutLoading] = useState<string | null>(null)
-  const [nativeIosPaymentsBlocked, setNativeIosPaymentsBlocked] = useState(false)
+  const [nativeIosApp, setNativeIosApp] = useState(false)
 
   useEffect(() => {
-    setNativeIosPaymentsBlocked(isNativeIosApp())
+    setNativeIosApp(isNativeIosApp())
   }, [])
 
   const tr = useLanguageModeList(EDIT_PROFILE_STRINGS)
@@ -329,14 +331,27 @@ export default function EditProfilePage() {
 
   const handleMembershipSubscribe = async (billingPeriod: 'month' | 'year') => {
     if (!pendingMembershipPlan) return
-    if (nativeIosPaymentsBlocked) {
-      setError(IOS_EXTERNAL_PAYMENTS_MESSAGE)
-      return
-    }
     setShowMembershipBillingModal(false)
     setMembershipCheckoutLoading(pendingMembershipPlan.id)
     try {
-      const res = await fetch('/api/stripe/membership', {
+      if (nativeIosApp) {
+        const userId = session?.user?.id
+        if (!userId) {
+          setError('Please log in again')
+          setSelectedMembership(originalMembership)
+          return
+        }
+        await purchaseAppleMembership({
+          planId: pendingMembershipPlan.id as AppleMembershipPlanId,
+          billingPeriod,
+          userId,
+        })
+        setOriginalMembership(pendingMembershipPlan.id)
+        setSelectedMembership(pendingMembershipPlan.id)
+        return
+      }
+
+      const res = await nativeFetch('/api/stripe/membership', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId: pendingMembershipPlan.id, billingPeriod }),
@@ -348,8 +363,13 @@ export default function EditProfilePage() {
       }
       setError(data.error || 'Failed to start checkout')
       setSelectedMembership(originalMembership)
-    } catch {
-      setError('Failed to start checkout')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : ''
+      if (msg.includes('cancelled') || msg.includes('USER_CANCELLED')) {
+        setSelectedMembership(originalMembership)
+        return
+      }
+      setError(nativeIosApp ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : 'Failed to start checkout')
       setSelectedMembership(originalMembership)
     } finally {
       setMembershipCheckoutLoading(null)
@@ -358,11 +378,6 @@ export default function EditProfilePage() {
   }
 
   const handleMembershipChange = async (newPlanId: string) => {
-    if (nativeIosPaymentsBlocked && newPlanId !== originalMembership) {
-      setError(IOS_EXTERNAL_PAYMENTS_MESSAGE)
-      setSelectedMembership(originalMembership)
-      return
-    }
     if (newPlanId === originalMembership) {
       setSelectedMembership(newPlanId)
       return
@@ -371,6 +386,10 @@ export default function EditProfilePage() {
     if (newPlanId === 'viewer') {
       setSelectedMembership(originalMembership)
       if (originalMembership !== 'viewer') {
+        if (nativeIosApp) {
+          setError('To cancel an Apple subscription, use Settings → Apple ID → Subscriptions.')
+          return
+        }
         try {
           const res = await fetch('/api/stripe/portal', { method: 'POST' })
           const data = await res.json()
@@ -1452,7 +1471,7 @@ export default function EditProfilePage() {
                   name="membership"
                   value={selectedMembership}
                   onChange={(e) => void handleMembershipChange(e.target.value)}
-                  disabled={Boolean(membershipCheckoutLoading) || nativeIosPaymentsBlocked}
+                  disabled={Boolean(membershipCheckoutLoading)}
                   className="w-full"
                   aria-label={tr[E.membershipPlanLabel]}
                   title={tr[E.membershipPlanLabel]}
@@ -1469,8 +1488,10 @@ export default function EditProfilePage() {
                       ? tr[E.membershipCurrentHint]
                       : tr[E.membershipChangeHint]}
                 </p>
-                {nativeIosPaymentsBlocked ? (
-                  <p className="text-xs text-amber-300 mt-2">{IOS_EXTERNAL_PAYMENTS_MESSAGE}</p>
+                {nativeIosApp ? (
+                  <p className="text-xs text-gray-400 mt-2">
+                    iOS membership changes use Apple In-App Purchase.
+                  </p>
                 ) : null}
               </div>
             </div>

@@ -4785,7 +4785,7 @@ function TalkChatContent({
                                 cursor: 'pointer',
                               }}
                             >
-                              Report
+                              Report content
                             </button>
                             <BlockUserButton
                               blockedUserId={msg.user.id}

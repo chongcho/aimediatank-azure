@@ -4,8 +4,12 @@ import { detectNativeShell, getNativePlatform } from '@/lib/nativeShellBoot'
 /** Client sends this on native iOS so server routes can reject external checkout. */
 export const NATIVE_IOS_REQUEST_HEADER = 'x-amt-native-ios'
 
-const IOS_EXTERNAL_PAYMENTS_MESSAGE =
-  'Purchases and subscriptions are not available in the iOS app. Sign in on aimediatank.com in Safari to subscribe or buy content.'
+export const IOS_EXTERNAL_PAYMENTS_MESSAGE =
+  'Stripe checkout is not available in the iOS app. Use Apple In-App Purchase for memberships and paid media.'
+
+/** Shown when IAP products are not yet configured / purchase fails for non-cancel reasons. */
+export const IOS_IAP_UNAVAILABLE_MESSAGE =
+  'In-App Purchase is temporarily unavailable. Please try again later.'
 
 /** True in Capacitor iOS shell (TestFlight / App Store), not mobile Safari. */
 export function isNativeIosApp(): boolean {
@@ -55,5 +59,3 @@ export function nativeShellLinkClick(href: string, event?: { preventDefault: () 
   navigateInNativeShell(href)
   return true
 }
-
-export { IOS_EXTERNAL_PAYMENTS_MESSAGE }

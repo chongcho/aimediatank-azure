@@ -18,6 +18,8 @@ type Props = {
   callbackUrl?: string
   /** When true, do not render the "Or continue with" divider above the buttons (e.g. when social is the primary block). */
   hideDividerAbove?: boolean
+  /** When true, social buttons are disabled (e.g. Terms not yet accepted). */
+  disabled?: boolean
 }
 
 function SocialIcon({ icon }: { icon: 'google' | 'facebook' | 'apple' | 'microsoft' }) {
@@ -54,7 +56,12 @@ function SocialIcon({ icon }: { icon: 'google' | 'facebook' | 'apple' | 'microso
   )
 }
 
-export function SocialSignIn({ mode, callbackUrl = '/', hideDividerAbove = false }: Props) {
+export function SocialSignIn({
+  mode,
+  callbackUrl = '/',
+  hideDividerAbove = false,
+  disabled = false,
+}: Props) {
   const [availableIds, setAvailableIds] = useState<Set<string>>(new Set())
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -140,7 +147,7 @@ export function SocialSignIn({ mode, callbackUrl = '/', hideDividerAbove = false
             key={btn.id}
             type="button"
             onClick={() => void handleSocialSignIn(btn.id)}
-            disabled={!!loadingId}
+            disabled={disabled || !!loadingId}
             className="w-full flex items-center justify-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl border border-tank-light bg-tank-gray hover:bg-tank-light/50 transition-colors disabled:opacity-50"
           >
             {loadingId === btn.id ? (

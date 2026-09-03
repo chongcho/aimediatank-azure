@@ -3,6 +3,7 @@ import CallKit
 import Capacitor
 import Foundation
 import PushKit
+import StoreKit
 import UIKit
 import WebKit
 import WebRTC
@@ -12,15 +13,33 @@ import WebRTC
 final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProviderDelegate, AVSpeechSynthesizerDelegate {
     static let shared = AiMediaTankVoipPushBridge()
 
-    /// MIIT / China App Store: CallKit lock-screen UI is not allowed when the device region is CN.
+    /// MIIT / China App Store: CallKit lock-screen UI must be off for China storefront / CN region.
+    /// VoIP continues via in-app Accept/Decline when this returns false.
     static func isCallKitAllowed() -> Bool {
-        if #available(iOS 16, *) {
-            let region = Locale.current.region?.identifier ?? ""
-            if !region.isEmpty {
-                return region.uppercased() != "CN"
-            }
+        if isChinaAppStoreStorefront() || isChinaDeviceRegion() {
+            return false
         }
-        return (Locale.current.regionCode ?? "").uppercased() != "CN"
+        return true
+    }
+
+    /// App Store Connect storefront (ISO 3166-1 alpha-3). China Mainland = CHN.
+    private static func isChinaAppStoreStorefront() -> Bool {
+        if #available(iOS 13.0, *) {
+            let code = SKPaymentQueue.default().storefront?.countryCode.uppercased() ?? ""
+            if code == "CHN" { return true }
+        }
+        return false
+    }
+
+    /// Device Settings → General → Language & Region (ISO alpha-2 / alpha-3).
+    private static func isChinaDeviceRegion() -> Bool {
+        let region: String
+        if #available(iOS 16, *) {
+            region = (Locale.current.region?.identifier ?? "").uppercased()
+        } else {
+            region = (Locale.current.regionCode ?? "").uppercased()
+        }
+        return region == "CN" || region == "CHN"
     }
 
     static let incomingPushNotification = Notification.Name("AiMediaTankVoipIncomingPush")

@@ -42,10 +42,14 @@ model User {
   authProvider  String?
   birthday      DateTime?
   role          String    @default("VIEWER")
-  membershipType String   @default("VIEWER")  // "VIEWER", "BASIC", "PREMIUM"
+  membershipType String   @default("VIEWER")  // "VIEWER", "BASIC", "ADVANCED", "PREMIUM"
   membershipExpiresAt DateTime?
   stripeCustomerId String?
   stripeSubscriptionId String?
+  /// Apple IAP subscription (StoreKit) — separate from Stripe billing fields
+  appleOriginalTransactionId String?
+  appleProductId String?
+  appleSubscriptionStatus String? // active | expired | revoked | null
   freeUploadsUsed Int      @default(0)      // Track free uploads used this period
   freeUploadsResetAt DateTime?              // When to reset free upload count
   paidUploadCredits Int     @default(0)      // Paid upload credits from Stripe payments
@@ -369,6 +373,8 @@ model Purchase {
   status            String    @default("pending") // pending, completed, failed, refunded
   stripePaymentId   String?   @unique
   stripeSessionId   String?   @unique
+  appleTransactionId String?  @unique
+  appleProductId    String?
   createdAt         DateTime  @default(now())
   completedAt       DateTime?
 
@@ -383,6 +389,23 @@ model Purchase {
   @@index([mediaId])
   @@index([sellerId])
   @@index([status])
+}
+
+/// Idempotency log for Apple IAP transactions (membership + media).
+model AppleIapTransaction {
+  id                      String   @id @default(uuid())
+  transactionId           String   @unique
+  originalTransactionId   String
+  productId               String
+  userId                  String
+  kind                    String   // membership | media
+  mediaId                 String?
+  environment             String?
+  createdAt               DateTime @default(now())
+
+  @@index([userId])
+  @@index([originalTransactionId])
+  @@index([productId])
 }
 
 model SavedMedia {

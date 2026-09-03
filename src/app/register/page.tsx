@@ -120,7 +120,7 @@ const REGISTER_STRINGS = [
   'Terms of Service',
   'and',
   'Privacy Policy',
-  'and acknowledge that you have read and accepted all applicable rules and regulations.',
+  'and acknowledge zero tolerance for objectionable content or abusive users, and that you have read and accepted all applicable rules and regulations.',
   'Cancel',
   'Creating account...',
   'Already have an account?',

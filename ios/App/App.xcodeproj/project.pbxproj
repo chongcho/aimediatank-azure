@@ -18,6 +18,7 @@
 		F4A5B6C91FED79650016851F /* NativeAuthSessionPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6C81FED79650016851F /* NativeAuthSessionPlugin.swift */; };
 		G5A6B7C91FED79650016851F /* CallKitCompliancePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = G5A6B7C81FED79650016851F /* CallKitCompliancePlugin.swift */; };
 		H6B7C8D01FED79650016851F /* AppBadgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = H6B7C8CF1FED79650016851F /* AppBadgePlugin.swift */; };
+		I7C8D9E01FED79650016851F /* AppleIAPPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = I7C8D9DF1FED79650016851F /* AppleIAPPlugin.swift */; };
 		F4A5B6CB1FED79650016851F /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6CA1FED79650016851F /* MainViewController.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
@@ -41,6 +42,7 @@
 		F4A5B6C81FED79650016851F /* NativeAuthSessionPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAuthSessionPlugin.swift; sourceTree = "<group>"; };
 		G5A6B7C81FED79650016851F /* CallKitCompliancePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallKitCompliancePlugin.swift; sourceTree = "<group>"; };
 		H6B7C8CF1FED79650016851F /* AppBadgePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBadgePlugin.swift; sourceTree = "<group>"; };
+		I7C8D9DF1FED79650016851F /* AppleIAPPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIAPPlugin.swift; sourceTree = "<group>"; };
 		F4A5B6CA1FED79650016851F /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -106,6 +108,7 @@
 				F4A5B6C81FED79650016851F /* NativeAuthSessionPlugin.swift */,
 				G5A6B7C81FED79650016851F /* CallKitCompliancePlugin.swift */,
 				H6B7C8CF1FED79650016851F /* AppBadgePlugin.swift */,
+				I7C8D9DF1FED79650016851F /* AppleIAPPlugin.swift */,
 				F4A5B6CA1FED79650016851F /* MainViewController.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
@@ -255,6 +258,7 @@
 				F4A5B6C91FED79650016851F /* NativeAuthSessionPlugin.swift in Sources */,
 				G5A6B7C91FED79650016851F /* CallKitCompliancePlugin.swift in Sources */,
 				H6B7C8D01FED79650016851F /* AppBadgePlugin.swift in Sources */,
+				I7C8D9E01FED79650016851F /* AppleIAPPlugin.swift in Sources */,
 				F4A5B6CB1FED79650016851F /* MainViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
