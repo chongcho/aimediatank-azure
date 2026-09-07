@@ -3661,13 +3661,25 @@ export default function AdminPage() {
                             <div className="flex items-center justify-center gap-1">
                               <span className="text-gray-700">$</span>
                               <input
-                                type="number"
-                                step="0.5"
-                                min="0"
-                                value={plan.monthlyPrice}
-                                onChange={(e) => updateMembershipPlan(plan.planId, 'monthlyPrice', e.target.value)}
+                                type="text"
+                                inputMode="decimal"
+                                key={`monthly-${plan.planId}-${plan.monthlyPrice}`}
+                                defaultValue={Number(plan.monthlyPrice).toFixed(2)}
+                                onBlur={(e) => {
+                                  const n = parseFloat(e.target.value)
+                                  if (Number.isNaN(n) || n < 0) {
+                                    e.target.value = Number(plan.monthlyPrice).toFixed(2)
+                                    return
+                                  }
+                                  const rounded = Math.round(n * 100) / 100
+                                  if (rounded !== Number(plan.monthlyPrice)) {
+                                    updateMembershipPlan(plan.planId, 'monthlyPrice', rounded)
+                                  } else {
+                                    e.target.value = rounded.toFixed(2)
+                                  }
+                                }}
                                 disabled={membershipLoading}
-                                className="w-16 px-2 py-1 text-center bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500"
+                                className="w-20 px-2 py-1 text-center bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500"
                               />
                             </div>
                           )}
@@ -3686,13 +3698,25 @@ export default function AdminPage() {
                             <div className="flex items-center justify-center gap-1">
                               <span className="text-gray-700">$</span>
                               <input
-                                type="number"
-                                step="1"
-                                min="0"
-                                value={plan.yearlyPrice}
-                                onChange={(e) => updateMembershipPlan(plan.planId, 'yearlyPrice', e.target.value)}
+                                type="text"
+                                inputMode="decimal"
+                                key={`yearly-${plan.planId}-${plan.yearlyPrice}`}
+                                defaultValue={Number(plan.yearlyPrice).toFixed(2)}
+                                onBlur={(e) => {
+                                  const n = parseFloat(e.target.value)
+                                  if (Number.isNaN(n) || n < 0) {
+                                    e.target.value = Number(plan.yearlyPrice).toFixed(2)
+                                    return
+                                  }
+                                  const rounded = Math.round(n * 100) / 100
+                                  if (rounded !== Number(plan.yearlyPrice)) {
+                                    updateMembershipPlan(plan.planId, 'yearlyPrice', rounded)
+                                  } else {
+                                    e.target.value = rounded.toFixed(2)
+                                  }
+                                }}
                                 disabled={membershipLoading}
-                                className="w-16 px-2 py-1 text-center bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500"
+                                className="w-20 px-2 py-1 text-center bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500"
                               />
                             </div>
                           )}
@@ -3734,13 +3758,32 @@ export default function AdminPage() {
                             <div className="flex items-center justify-center gap-1">
                               <span className="text-gray-700">$</span>
                               <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                value={plan.pricePerUpload ?? ''}
-                                onChange={(e) => updateMembershipPlan(plan.planId, 'pricePerUpload', e.target.value || null)}
+                                type="text"
+                                inputMode="decimal"
+                                key={`upload-${plan.planId}-${plan.pricePerUpload}`}
+                                defaultValue={plan.pricePerUpload != null ? Number(plan.pricePerUpload).toFixed(2) : ''}
+                                onBlur={(e) => {
+                                  const raw = e.target.value.trim()
+                                  if (raw === '') {
+                                    if (plan.pricePerUpload != null) {
+                                      updateMembershipPlan(plan.planId, 'pricePerUpload', null)
+                                    }
+                                    return
+                                  }
+                                  const n = parseFloat(raw)
+                                  if (Number.isNaN(n) || n < 0) {
+                                    e.target.value = plan.pricePerUpload != null ? Number(plan.pricePerUpload).toFixed(2) : ''
+                                    return
+                                  }
+                                  const rounded = Math.round(n * 100) / 100
+                                  if (rounded !== Number(plan.pricePerUpload)) {
+                                    updateMembershipPlan(plan.planId, 'pricePerUpload', rounded)
+                                  } else {
+                                    e.target.value = rounded.toFixed(2)
+                                  }
+                                }}
                                 disabled={membershipLoading}
-                                className="w-16 px-2 py-1 text-center bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500"
+                                className="w-20 px-2 py-1 text-center bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500"
                               />
                             </div>
                           )}
