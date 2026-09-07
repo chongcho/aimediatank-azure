@@ -62,14 +62,14 @@ Migration: `20260903120000_apple_iap`
 
 Features in the app:
 
-- **Terms:** Register requires a checked agreement; Login requires a checked agreement (zero-tolerance language). Terms §6.1: no tolerance, Report/Block, **24-hour** remove + eject.
+- **Terms:** Register requires a checked agreement (zero-tolerance language). Returning users log in without re-checking; Terms §6.1: no tolerance, Report/Block, **24-hour** remove + eject.
 - **Report:** Media page → **Report content**; TalkChat → long-press message → **Report**.
 - **Block:** **Block user** — hides feed/chat immediately and notifies admin.
 - **Filter:** Blocked users excluded from feed/chat APIs; automated content inspection where enabled.
 
 ### Physical iPhone recording (attach in App Review Information Notes)
 
-1. Register or Login → check Terms + open Terms (show §6.1 if possible)  
+1. Register → check Terms + open Terms (show §6.1 if possible)  
 2. Open media → Report content → submit  
 3. Block user → confirm content disappears  
 4. Optional: TalkChat long-press → Report / Block  
@@ -79,7 +79,7 @@ Features in the app:
 ```
 Guideline 1.2 precautions are implemented:
 
-1) EULA / Terms — Required checkbox on Register and Login before account access. Terms §6.1 state zero tolerance for objectionable content and abusive users, and that we act on reports within 24 hours by removing content and ejecting the offending user.
+1) EULA / Terms — Required checkbox on Register before account creation. Terms §6.1 state zero tolerance for objectionable content and abusive users, and that we act on reports within 24 hours by removing content and ejecting the offending user.
 
 2) Flag content — Report content on media pages; long-press a message in TalkChat → Report. Reports go to admin moderation.
 
@@ -145,7 +145,7 @@ Demo account: [email] / [password]
 Account deletion: Profile menu → Edit Profile → Delete account (permanent).
 
 UGC safety (Guideline 1.2):
-- Login/Register: required Terms checkbox (zero tolerance + 24h moderation in Terms §6.1).
+- Register: required Terms checkbox (zero tolerance + 24h moderation in Terms §6.1).
 - Media: Safety section → Report content / Block user.
 - TalkChat: long-press message → Report content / Block user.
 Blocking hides content immediately; reports go to admin (act within 24 hours).
