@@ -377,6 +377,13 @@ const CONFIG_RES = [
   /(^|\/)_react\/(?:data|action)(?:\/|$)/i,
   /(^|\/)_nuxt(?:\/|$)/i,
   /(^|\/)__nextjs_action(?:\/|$)/i,
+  // Next.js / RSC fingerprint probes (bare roots only — not /_next/static or /_next/data/<buildId>/...).
+  // check is multiline (path variants), so match a full line, not a /_next/ prefix.
+  /(?:^|\n)\/_next\/?(?:\n|$)/i,
+  /(?:^|\n)\/_next\/data\/?(?:\n|$)/i,
+  /(?:^|\n)\/_next\/webpack-hmr\/?(?:\n|$)/i,
+  /(?:^|\n)\/rsc\/?(?:\n|$)/i,
+  /(?:^|\n)\/_rsc\/?(?:\n|$)/i,
   // Vite /@fs absolute filesystem exposure probes.
   /(^|\/)@fs(?:\/|$)/i,
   /(^|\/)graphql(?:\/|$)/i,
