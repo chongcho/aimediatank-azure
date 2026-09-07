@@ -1432,7 +1432,12 @@ export default function CropToolPage() {
       if (mediaType === 'image') {
         const out = await compressImage(
           file,
-          { maxWidth: outputDims.width, maxHeight: outputDims.height, dpi: outputDpi },
+          {
+            // Exact target size (may upscale). maxWidth/maxHeight alone only downscale.
+            width: outputDims.width,
+            height: outputDims.height,
+            dpi: outputDpi,
+          },
           cropArea,
           qualitySettings,
           privacyRequest

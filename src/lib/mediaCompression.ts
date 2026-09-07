@@ -11,6 +11,12 @@ import { setJpegDpi } from '@/lib/jpegDpi'
 interface CompressionOptions {
   maxWidth?: number
   maxHeight?: number
+  /**
+   * Exact output canvas size (may upscale). When set, overrides maxWidth/maxHeight
+   * downscale-only behavior — used by the Standalone Crop tool target px.
+   */
+  width?: number
+  height?: number
   quality?: number // 0-1 for images
   maxSizeMB?: number
   /** JFIF density (dots per inch) written into the JPEG. */
@@ -75,23 +81,43 @@ export async function compressImage(
           const sourceW = crop ? Math.max(1, Math.min(Math.round(crop.width), sourceWidth - sourceX)) : sourceWidth
           const sourceH = crop ? Math.max(1, Math.min(Math.round(crop.height), sourceHeight - sourceY)) : sourceHeight
 
-          // Calculate new dimensions while maintaining aspect ratio (based on cropped region)
-          let width = sourceW
-          let height = sourceH
-          const maxW = opts.maxWidth || 1920
-          const maxH = opts.maxHeight || 1080
+          // Exact size (crop tool target px) may upscale; otherwise only downscale to max.
+          let width: number
+          let height: number
+          if (
+            typeof opts.width === 'number' &&
+            opts.width > 0 &&
+            typeof opts.height === 'number' &&
+            opts.height > 0
+          ) {
+            width = Math.round(opts.width)
+            height = Math.round(opts.height)
+          } else {
+            width = sourceW
+            height = sourceH
+            const maxW = opts.maxWidth || 1920
+            const maxH = opts.maxHeight || 1080
 
-          if (width > maxW) {
-            height = (height * maxW) / width
-            width = maxW
-          }
-          if (height > maxH) {
-            width = (width * maxH) / height
-            height = maxH
+            if (width > maxW) {
+              height = (height * maxW) / width
+              width = maxW
+            }
+            if (height > maxH) {
+              width = (width * maxH) / height
+              height = maxH
+            }
+            width = Math.round(width)
+            height = Math.round(height)
           }
 
           canvas.width = width
           canvas.height = height
+
+          // Prefer high-quality resampling when enlarging small crops to target px
+          ctx.imageSmoothingEnabled = true
+          if ('imageSmoothingQuality' in ctx) {
+            ctx.imageSmoothingQuality = 'high'
+          }
 
           // Draw and compress
           ctx.drawImage(img, sourceX, sourceY, sourceW, sourceH, 0, 0, width, height)
@@ -120,8 +146,14 @@ export async function compressImage(
                   const withDpi =
                     opts.dpi && opts.dpi > 0 ? await setJpegDpi(blob, opts.dpi) : blob
 
+                  const baseName = file.name.replace(/\.[^.]+$/, '') || 'image'
+                  const outFileName =
+                    opts.width && opts.height
+                      ? `${baseName}-${width}x${height}.jpg`
+                      : file.name.replace(/\.[^.]+$/i, '.jpg') || `${baseName}.jpg`
+
                   // Create new file with same name
-                  const compressedFile = new File([withDpi], file.name, {
+                  const compressedFile = new File([withDpi], outFileName, {
                     type: 'image/jpeg',
                     lastModified: Date.now(),
                   })
